@@ -1,5 +1,11 @@
 # Third-party notices and provenance
 
+Original fscikit-learn contributions are licensed under the MIT License in
+`LICENSE`. This project license does not replace third-party licenses:
+scikit-learn-derived portions retain the BSD-3-Clause terms and copyright
+notices below and in `LICENSES/scikit-learn-COPYING`. Distributors must retain
+both the project MIT license and the applicable upstream notices.
+
 This package is a native Fortran adaptation of a subset of scikit-learn APIs and
 algorithms. The reference baseline is the locally installed scikit-learn 1.6.1,
 copyright (c) 2007-2024 The scikit-learn developers, BSD-3-Clause. Its license is
@@ -38,3 +44,12 @@ Reference paths by module:
 | datasets | datasets/_samples_generator.py (independent Fortran random stream) |
 
 SciFort is not currently linked. There are no third-party runtime dependencies.
+
+## Proposed future reuse
+
+The projects assessed in `docs/UPSTREAM_REUSE.md` are candidates, not included
+dependencies or vendored source. No code from those candidates is incorporated
+by the license/review change. When code is adopted, record the exact repository,
+revision, source files, modifications, copyright holders and license here; retain
+the complete upstream license under `LICENSES/` and source-level attribution.
+Dependency licenses and file-level exceptions must be checked separately.

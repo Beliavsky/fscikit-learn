@@ -44,3 +44,8 @@ Python is used only for optional reference validation. See `docs/COVERAGE.md`.
 
 SciFort at `../scifort` is available as a future numerical backend; the initial
 package intentionally needs no external dependency or network fetch to build.
+
+Original project contributions use the [MIT License](LICENSE).
+Scikit-learn-derived portions retain their BSD-3-Clause notices; see
+[third-party notices](THIRD_PARTY_NOTICES.md). Recommended external Fortran code
+and its attribution requirements are reviewed in [UPSTREAM_REUSE.md](docs/UPSTREAM_REUSE.md).

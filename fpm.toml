@@ -1,6 +1,6 @@
 name = "fscikit-learn"
 version = "0.1.0"
-license = "BSD-3-Clause"
+license = "MIT"
 description = "Dense machine learning in modern Fortran, inspired by scikit-learn"
 author = "fscikit-learn contributors"
 
