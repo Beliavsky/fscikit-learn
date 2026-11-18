@@ -1,0 +1,8 @@
+build/
+*.mod
+*.smod
+*.o
+*.exe
+__pycache__/
+.pytest_cache/
+validation/results/
