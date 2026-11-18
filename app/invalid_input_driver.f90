@@ -3,6 +3,7 @@ program invalid_input_driver
   use sklearn
   use, intrinsic :: ieee_arithmetic, only: ieee_value,ieee_quiet_nan
   implicit none
+  type(fast_ica) :: ica
   type(standard_scaler) :: scaler
   type(logistic_regression) :: logistic
   type(kneighbors_regressor) :: knn
@@ -114,6 +115,16 @@ program invalid_input_driver
   case('density_kernel'); density%kernel='invalid'; call density%fit(x)
   case('density_unfitted'); pred=density%score_samples(x)
   case('density_sampling'); density%kernel='linear'; call density%fit(x); z=density%sample(2)
+  case('ica_unfitted'); z=ica%transform(x)
+  case('ica_algorithm'); ica%algorithm='unknown'; call ica%fit(x)
+  case('ica_fun'); ica%fun='unknown'; call ica%fit(x)
+  case('ica_whiten'); ica%whiten='unknown'; call ica%fit(x)
+  case('ica_alpha'); ica%alpha=0.5_dp; call ica%fit(x)
+  case('ica_iterations'); ica%max_iter=0; call ica%fit(x)
+  case('ica_tolerance'); ica%tol=-1; call ica%fit(x)
+  case('ica_rank'); call ica%fit(x)
+  case('ica_init_shape'); ica%whiten='none'; ica%w_init=reshape([1._dp],[1,1]); call ica%fit(x)
+  case('ica_init_singular'); ica%whiten='none'; ica%w_init=x(:2,:); call ica%fit(x)
   case default; error stop 'unknown validation mode'
   end select
   print *, 'ERROR: invalid input was accepted'

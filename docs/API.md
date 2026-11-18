@@ -367,3 +367,26 @@ result. Optional sample weights must be finite, nonnegative and not all zero.
 Sampling is supported for Gaussian/tophat kernels. Zero density yields negative
 infinity; Gaussian evaluation stays in the log domain to avoid probability
 underflow. See `example/clustering_density.f90` for a runnable example.
+
+## FastICA
+
+```fortran
+use sklearn, only: dp, fast_ica
+type(fast_ica) :: model
+real(dp), allocatable :: x(:,:), sources(:,:), reconstructed(:,:)
+! Populate x(samples, features) with finite observations.
+model%n_components=2
+model%algorithm='parallel'  ! or 'deflation'
+model%whiten='unit-variance' ! 'arbitrary-variance' or 'none'
+model%fun='logcosh'         ! also 'exp' and 'cube'
+model%random_state=42
+sources=model%fit_transform(x)
+reconstructed=model%inverse_transform(sources)
+```
+
+`components_` has shape (components, features), `mixing_` has shape
+(features, components); the latter is the Moore-Penrose inverse. With reduced
+dimension, inverse transformation reconstructs the retained subspace.
+`whiten='none'` expects already-whitened input and does not center it.
+`converged_` reports whether every extracted component met `tol` before the
+iteration limit. See the runnable `independent_components` example.

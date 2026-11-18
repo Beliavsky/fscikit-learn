@@ -5,6 +5,11 @@ import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 CASES = {
+    "ica_unfitted": "not fitted", "ica_algorithm": "invalid FastICA algorithm",
+    "ica_fun": "invalid FastICA contrast", "ica_whiten": "invalid FastICA whitening",
+    "ica_alpha": "invalid FastICA alpha", "ica_iterations": "invalid FastICA max_iter",
+    "ica_tolerance": "invalid FastICA tolerance", "ica_rank": "retained full rank",
+    "ica_init_shape": "w_init shape mismatch", "ica_init_singular": "singular fixed-point matrix",
     "unfitted": "not fitted", "nan": "NaN or infinity", "features": "sample counts differ",
     "target_size": "sample counts differ", "single_class": "at least two classes",
     "neighbors": "exceeds training size", "clusters": "number of kmeans clusters",

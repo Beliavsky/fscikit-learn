@@ -105,3 +105,23 @@ reference comparisons, fifteen input diagnostics and a clustering/density
 example. The package now has 80 core types in 31 source modules. No public
 extension, vendored repository or runtime dependency was added. See
 `VALIDATION.md` and `COVERAGE.md` for observed checks and supported subsets.
+
+## FastICA addition (2026-11-18)
+
+Added the core sklearn FastICA counterpart, bringing coverage to 81 types
+in 32 source modules. Dense SVD whitening supports unit/arbitrary variance
+and already-whitened data, parallel/deflation solvers, three contrasts,
+fixed or seeded initialization, transformations and pseudoinverse reconstruction.
+Rank-deficient whitening and singular iterations are explicitly diagnosed.
+No extensions or third-party runtime dependencies were added. Original work
+remains MIT, with sklearn BSD-3-Clause attribution retained.
+
+Validation: 23 native programs in checked and release builds; 648 new sklearn
+1.6.1 result groups (36 configurations x six outputs x three seeded fixtures),
+bringing the six-suite inventory to 1,608 comparisons. Fixed starts permit
+elementwise checks of components, mixing, sources, shifted transforms, inverse
+transforms and iteration counts, including single-step capped fits and reduced
+components. Unwhitened fixtures are externally whitened before both fits.
+Tolerance is atol=rtol=2e-6. Native checks independently cover source recovery,
+centering, variance, full reconstruction, reduced-space projection and seeded
+repeatability. The isolated invalid-input suite now covers 72 cases.

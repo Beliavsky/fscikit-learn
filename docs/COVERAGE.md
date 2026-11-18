@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 80 public estimator, transformer, and splitter types. Each is a
+There are 81 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Five reference suites additionally check 960 result
+All types have native tests. Six reference suites additionally check 1,608 result
 groups in total across seeded datasets against installed scikit-learn 1.6.1.
 
 This document counts core scikit-learn counterparts. Public extensions are
@@ -27,7 +27,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb` | Empirical class priors, variance smoothing, strictly positive scalar alpha; Bernoulli threshold; optional complement normalization |
 | neighbors | `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with optional shrinkage and uniform priors; Euclidean kernel density |
 | cluster | `kmeans`, `dbscan`, `agglomerative_clustering`, `mean_shift`, `affinity_propagation`, `spectral_clustering`; `estimate_bandwidth` | Lloyd/k-means++; density expansion; single/complete/average/Ward merge trees; flat-kernel mode seeking; damped exemplar messages; normalized-Laplacian clustering with k-means or pivoted QR assignment |
-| decomposition | `pca`, `truncated_svd`, `nmf`; re-exports `kernel_pca`, `factor_analysis` | Direct Jacobi SVD; PCA whitening and inversion; exact dense SVD; NMF multiplicative updates; nonlinear kernel PCA; unrotated full-SVD factor analysis |
+| decomposition | `pca`, `truncated_svd`, `nmf`; re-exports `kernel_pca`, `factor_analysis`, `fast_ica` | Direct Jacobi SVD; PCA whitening and inversion; exact dense SVD; NMF multiplicative updates; nonlinear kernel PCA; unrotated full-SVD factor analysis; parallel/deflation ICA |
 | random_projection | `gaussian_random_projection`, `sparse_random_projection`; `johnson_lindenstrauss_min_dim` | Gaussian/three-point random matrices, dense storage, automatic JL dimension, cached or on-demand pseudoinverse |
 | kernel_pca | `kernel_pca` | Centered linear/RBF/polynomial/sigmoid/cosine/precomputed Gram matrices; dense Jacobi eigensolver; out-of-sample transform |
 | manifold | `isomap`; re-exports `spectral_embedding` | Isomap shortest-path graph, component completion and out-of-sample extension; normalized-Laplacian spectral embedding |
@@ -228,7 +228,7 @@ framework, pipelines/column transformers, full SVM family, Theil-Sen/quantile
 regression, remaining GLM variants, SGD families, histogram boosting, AdaBoost and bagging APIs,
 manifold learning beyond Isomap/spectral embedding, OPTICS/BIRCH,
 outlier detection beyond LOF,
-Gaussian-process classification, dictionary learning/ICA,
+Gaussian-process classification, dictionary learning,
 calibration, semi-supervised learning beyond label propagation/spreading,
 multiclass/multioutput wrappers,
 inspection/permutation importance, feature-selection wrappers, image features,
@@ -237,3 +237,23 @@ real dataset loaders and the full plotting/display API.
 SciFort is available at `../scifort` but not linked by this initial package.
 An optional SciFort/LAPACK backend and recoverable errors would be useful next
 steps before scaling this package to larger production workloads.
+
+## Independent component analysis
+
+`fast_ica` (`sklearn_decomposition`, also the `sklearn` facade) translates
+`sklearn.decomposition.FastICA`: parallel symmetric and sequential deflation
+solvers, logcosh/exp/cube contrasts, dense SVD whitening, unit-variance and
+arbitrary-variance sources, and already-whitened input (`whiten='none'`).
+Methods: `fit`, `fit_transform`, `transform`, `inverse_transform`.
+Fitted arrays: `components_`, `mixing_`, `mean_`, and `whitening_` (only with
+whitening); convergence is exposed through `n_iter_` and `converged_`.
+
+`n_components=0` selects min(samples, features); oversized requests are clipped.
+Unwhitened fitting ignores the requested dimension, uses every feature, does
+not center, and requires samples >= features. Whitening requires full rank
+in the retained subspace; singular initial/fixed-point matrices fail with a
+diagnostic rather than propagating invalid arithmetic. No eigh whitening
+solver, callable contrast or Python warning mechanism is implemented.
+The `alpha` parameter (1 to 2) controls logcosh. Optional `w_init` is a square
+finite initial matrix. Random starts use the package's Fortran RNG.
+Numerical scaling and ill-conditioned fixed points can still limit convergence.
