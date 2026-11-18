@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 81 public estimator, transformer, and splitter types. Each is a
+There are 84 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Six reference suites additionally check 1,608 result
+All types have native tests. Seven reference suites additionally check 1,797 result
 groups in total across seeded datasets against installed scikit-learn 1.6.1.
 
 This document counts core scikit-learn counterparts. Public extensions are
@@ -28,6 +28,8 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | neighbors | `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with optional shrinkage and uniform priors; Euclidean kernel density |
 | cluster | `kmeans`, `dbscan`, `agglomerative_clustering`, `mean_shift`, `affinity_propagation`, `spectral_clustering`; `estimate_bandwidth` | Lloyd/k-means++; density expansion; single/complete/average/Ward merge trees; flat-kernel mode seeking; damped exemplar messages; normalized-Laplacian clustering with k-means or pivoted QR assignment |
 | decomposition | `pca`, `truncated_svd`, `nmf`; re-exports `kernel_pca`, `factor_analysis`, `fast_ica` | Direct Jacobi SVD; PCA whitening and inversion; exact dense SVD; NMF multiplicative updates; nonlinear kernel PCA; unrotated full-SVD factor analysis; parallel/deflation ICA |
+| isotonic | `isotonic_regression`; `isotonic_fit`, `check_increasing` | Weighted pool-adjacent-violators, automatic Spearman direction, bounds, repeated-input aggregation and piecewise linear interpolation |
+| kernel_approximation | `rbf_sampler`, `nystroem` | Random Fourier RBF maps; sampled-landmark inverse-square-root maps for RBF/linear/polynomial/cosine kernels |
 | random_projection | `gaussian_random_projection`, `sparse_random_projection`; `johnson_lindenstrauss_min_dim` | Gaussian/three-point random matrices, dense storage, automatic JL dimension, cached or on-demand pseudoinverse |
 | kernel_pca | `kernel_pca` | Centered linear/RBF/polynomial/sigmoid/cosine/precomputed Gram matrices; dense Jacobi eigensolver; out-of-sample transform |
 | manifold | `isomap`; re-exports `spectral_embedding` | Isomap shortest-path graph, component completion and out-of-sample extension; normalized-Laplacian spectral embedding |
@@ -257,3 +259,40 @@ solver, callable contrast or Python warning mechanism is implemented.
 The `alpha` parameter (1 to 2) controls logcosh. Optional `w_init` is a square
 finite initial matrix. Random starts use the package's Fortran RNG.
 Numerical scaling and ill-conditioned fixed points can still limit convergence.
+
+## Isotonic regression and kernel approximations
+
+- `isotonic_regression` takes rank-one `x` and `y` vectors. Its `fit`,
+  `fit_transform`, `predict`, `transform`, and unweighted R2 `score` methods
+  support nonnegative sample weights with positive total mass, increasing or
+  decreasing fits, and optional automatic direction (`auto_increasing`).
+  Automatic direction uses average ranks for ties and the Spearman sign; an
+  undefined coefficient selects decreasing, matching sklearn, without warnings.
+  Zero-weight samples are removed after direction determination. Sorted inputs
+  less than 1e-15 apart are grouped, as in sklearn's float64 implementation.
+  Bounds default to finite `+/-huge`; `y_min <= y_max` is required.
+  `out_of_bounds` accepts `nan` (default), `clip`, or `raise`. A one-threshold
+  fit predicts a constant outside its domain, matching sklearn 1.6.1.
+  `x_thresholds_` and `y_thresholds_` omit redundant plateau interiors.
+  The standalone Python `isotonic_regression` function is named `isotonic_fit`
+  in Fortran to avoid colliding with the estimator type; it requires strictly
+  positive weights. `check_increasing` is also available. No rank-two input
+  overload, weighted score, warning machinery or inverse transform is supplied.
+- `rbf_sampler` supplies `fit`, `transform`, and `fit_transform` with numeric
+  nonnegative `gamma` (default 1) or `gamma_scale=.true.`. Scaling uses variance
+  across all training entries and falls back to gamma=1 for constant data.
+  Fitted `random_weights_` are (features, components), `random_offset_` contains
+  uniform phases, and `gamma_` records the effective kernel parameter.
+- `nystroem` supplies the same three methods, with kernels `rbf` (default),
+  `linear`, `poly`/`polynomial`, or `cosine`. Numeric `gamma=-1` requests 1/features.
+  Nonnegative polynomial coefficients and integer degrees ensure a PSD kernel.
+  Landmarks are sampled without replacement; requests larger than the sample
+  count are capped. `components_`, one-based `component_indices_`,
+  `normalization_`, and `gamma_` expose fitted state. A native symmetric
+  eigensolver constructs the PSD inverse square root with a 1e-12 floor.
+  With rank-deficient bases, compare reconstructed kernels rather than the
+  null-space entries of normalization against an SVD implementation.
+  Callable, precomputed, indefinite, sparse and other kernels are unsupported.
+
+Both randomized maps use the package's Fortran RNG and `random_state`; draws
+differ from NumPy. No sparse input/output path or threaded backend is included.

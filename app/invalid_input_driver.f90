@@ -4,6 +4,9 @@ program invalid_input_driver
   use, intrinsic :: ieee_arithmetic, only: ieee_value,ieee_quiet_nan
   implicit none
   type(fast_ica) :: ica
+  type(isotonic_regression) :: monotone
+  type(rbf_sampler) :: fourier
+  type(nystroem) :: landmarks
   type(standard_scaler) :: scaler
   type(logistic_regression) :: logistic
   type(kneighbors_regressor) :: knn
@@ -47,6 +50,28 @@ program invalid_input_driver
   character(32) :: mode
   x=1; y=1; call get_command_argument(1,mode)
   select case(trim(mode))
+  case('iso_unfitted'); pred=monotone%predict(y)
+  case('iso_bounds'); monotone%y_min=2; monotone%y_max=1; call monotone%fit(y,y)
+  case('iso_weight_count'); call monotone%fit(y,y,y(:2))
+  case('iso_weights'); call monotone%fit(y,y,-y)
+  case('iso_zero_weights'); call monotone%fit(y,y,0*y)
+  case('iso_length'); call monotone%fit(y,y(:2))
+  case('iso_out_of_bounds'); monotone%out_of_bounds='unknown'; call monotone%fit(y,y)
+  case('iso_query')
+    y=[1._dp,2._dp,3._dp,4._dp]; monotone%out_of_bounds='raise'
+    call monotone%fit(y,y); pred=monotone%predict([0._dp])
+  case('iso_pava_weights'); pred=isotonic_fit(y,0*y)
+  case('iso_nan'); y(1)=ieee_value(0._dp,ieee_quiet_nan); call monotone%fit(y,y)
+  case('fourier_components'); fourier%n_components=0; call fourier%fit(x)
+  case('fourier_gamma'); fourier%gamma=-1; call fourier%fit(x)
+  case('fourier_unfitted'); z=fourier%transform(x)
+  case('fourier_features'); call fourier%fit(x); z=fourier%transform(x(:,:1))
+  case('landmark_components'); landmarks%n_components=0; call landmarks%fit(x)
+  case('landmark_kernel'); landmarks%kernel='unknown'; call landmarks%fit(x)
+  case('landmark_gamma'); landmarks%gamma=-2; call landmarks%fit(x)
+  case('landmark_poly'); landmarks%coef0=-1; call landmarks%fit(x)
+  case('landmark_unfitted'); z=landmarks%transform(x)
+  case('landmark_features'); call landmarks%fit(x); z=landmarks%transform(x(:,:1))
   case('unfitted'); z=scaler%transform(x)
   case('nan'); x(1,1)=ieee_value(0._dp,ieee_quiet_nan); call scaler%fit(x)
   case('features'); call scaler%fit(x); z=scaler%transform(x(:,:1))

@@ -27,6 +27,8 @@ module sklearn
   use sklearn_outlier
   use sklearn_semi_supervised
   use sklearn_random_projection
+  use sklearn_isotonic
+  use sklearn_kernel_approximation
   implicit none
   public
 end module

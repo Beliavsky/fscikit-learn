@@ -185,3 +185,29 @@ components. Unwhitened fixtures are externally whitened before both fits.
 Tolerance is atol=rtol=2e-6. Native checks independently cover source recovery,
 centering, variance, full reconstruction, reduced-space projection and seeded
 repeatability. The isolated invalid-input suite now covers 72 cases.
+
+## Isotonic and kernel approximation addition (2026-11-18)
+
+Added `isotonic_regression`, `rbf_sampler`, and `nystroem`, bringing the core
+inventory to 84 types in 34 modules. Isotonic regression supports weighted
+monotonic least squares, Spearman direction selection, bounds, input grouping
+and interpolation. Kernel approximations support random Fourier RBF features
+and PSD landmark maps for RBF/linear/polynomial/cosine kernels. No extensions
+or runtime dependencies were added. MIT project licensing and retained
+sklearn BSD-3-Clause attribution continue to apply.
+
+`compare_isotonic_kernel.py` adds 189 sklearn 1.6.1 comparisons across three
+seeded datasets, bringing the seven-suite inventory to 1,797 result groups.
+Checks cover six isotonic configurations, standalone PAVA variants, gamma
+scaling, Fourier transforms, landmark components, normalization and transforms.
+NumPy receives the actual Fourier draws; only the landmark permutation is
+controlled during sklearn's full Nystroem fit. Tolerances are atol=rtol=2e-8,
+with explicit NaN agreement for outside-domain isotonic queries.
+
+The 25 native programs pass in checked/FPE-trapping and release builds. New
+independent properties include PAVA primal/dual optimality, weight-scale
+invariance, ties and zero weights, nearly equal inputs, seeded repeatability,
+Fourier distribution moments and approximation error, exact full-landmark
+reconstruction, and rank-deficient/duplicate/zero-vector kernel bases.
+The isolated diagnostic suite passes 92 cases. The runnable
+`monotone_kernel_features` example also passes. Limits are in `COVERAGE.md`.

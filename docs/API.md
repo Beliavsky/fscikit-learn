@@ -390,3 +390,35 @@ dimension, inverse transformation reconstructs the retained subspace.
 `whiten='none'` expects already-whitened input and does not center it.
 `converged_` reports whether every extracted component met `tol` before the
 iteration limit. See the runnable `independent_components` example.
+
+## Isotonic regression and kernel feature maps
+
+```fortran
+use sklearn, only: dp, isotonic_regression, rbf_sampler, nystroem
+type(isotonic_regression) :: monotone
+type(rbf_sampler) :: fourier
+type(nystroem) :: landmarks
+real(dp), allocatable :: t(:), y(:), x(:,:), fitted(:), z(:,:)
+! Populate scalar inputs t and targets y; x is (samples, features).
+monotone%auto_increasing=.true.
+monotone%out_of_bounds='clip'
+fitted=monotone%fit_transform(t,y)
+! Optional third argument to fit/fit_transform: sample_weight(:).
+fourier%n_components=500
+fourier%gamma_scale=.true.
+fourier%random_state=42
+z=fourier%fit_transform(x)
+landmarks%n_components=30
+landmarks%kernel='rbf'
+landmarks%gamma=0.5_dp
+z=landmarks%fit_transform(x)
+```
+
+Use `isotonic_fit(y, sample_weight, increasing, y_min, y_max)` for the
+standalone ordered-vector fit; all arguments after `y` are optional.
+`check_increasing(t,y)` returns the Spearman-sign direction. The type's
+`increasing` logical defaults true and `auto_increasing` overrides it when set.
+The default outside-domain isotonic prediction is a quiet NaN; use `clip`
+for endpoint predictions or `raise` for an error. See `COVERAGE.md` for the
+one-threshold special case and supported subsets. Run the
+`monotone_kernel_features` example for monotone fitting and kernel errors.

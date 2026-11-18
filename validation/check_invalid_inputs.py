@@ -5,6 +5,16 @@ import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 CASES = {
+    "iso_unfitted": "not fitted", "iso_bounds": "invalid isotonic bounds",
+    "iso_weight_count": "weight count mismatch", "iso_weights": "invalid isotonic weights",
+    "iso_zero_weights": "invalid isotonic weights", "iso_length": "sample counts differ",
+    "iso_out_of_bounds": "invalid isotonic out_of_bounds", "iso_query": "outside fitted bounds",
+    "iso_pava_weights": "weights must be positive", "iso_nan": "NaN or infinity",
+    "fourier_components": "RBF sampler n_components", "fourier_gamma": "invalid RBF sampler gamma",
+    "fourier_unfitted": "not fitted", "fourier_features": "sample counts differ",
+    "landmark_components": "Nystroem n_components", "landmark_kernel": "unsupported Nystroem kernel",
+    "landmark_gamma": "invalid Nystroem gamma", "landmark_poly": "invalid Nystroem polynomial parameters",
+    "landmark_unfitted": "not fitted", "landmark_features": "sample counts differ",
     "ica_unfitted": "not fitted", "ica_algorithm": "invalid FastICA algorithm",
     "ica_fun": "invalid FastICA contrast", "ica_whiten": "invalid FastICA whitening",
     "ica_alpha": "invalid FastICA alpha", "ica_iterations": "invalid FastICA max_iter",
