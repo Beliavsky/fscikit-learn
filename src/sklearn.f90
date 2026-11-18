@@ -29,6 +29,7 @@ module sklearn
   use sklearn_random_projection
   use sklearn_isotonic
   use sklearn_kernel_approximation
+  use sklearn_cross_decomposition
   implicit none
   public
 end module

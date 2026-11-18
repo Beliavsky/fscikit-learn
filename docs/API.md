@@ -422,3 +422,31 @@ The default outside-domain isotonic prediction is a quiet NaN; use `clip`
 for endpoint predictions or `raise` for an error. See `COVERAGE.md` for the
 one-threshold special case and supported subsets. Run the
 `monotone_kernel_features` example for monotone fitting and kernel errors.
+
+## Paired predictor/response latent components
+
+```fortran
+use sklearn, only: dp, pls_regression, pls_canonical, cca, pls_svd
+type(pls_regression) :: model
+real(dp), allocatable :: x(:,:), y(:,:), xs(:,:), ys(:,:), prediction(:,:), reconstructed(:,:)
+! Populate x(samples, features) and y(samples, targets).
+model%n_components=2
+model%tol=1.e-8_dp
+xs=model%fit_transform(x,y)
+ys=model%transform_y(y)
+prediction=model%predict(x)
+reconstructed=model%inverse_transform(xs)
+```
+
+All four cross-decomposition types accept rank-two response matrices, including
+one-column responses. `fit_transform` returns the X transform; call
+`transform_y` to obtain the Y transform. PLSRegression, PLSCanonical and CCA
+provide reconstruction for each side via `inverse_transform` and
+`inverse_transform_y`, and predictions with shape (samples, targets).
+`coef_` has shape (targets, features), following sklearn 1.6.1.
+
+PLSCanonical additionally accepts `algorithm='svd'`; its default is `nipals`.
+PLSRegression and CCA support NIPALS only. PLSSVD computes a full SVD of the
+centered/scaled cross-covariance and provides transforms without a regression
+prediction or inverse API. See `COVERAGE.md` for component/rank restrictions
+and early-stop semantics. Run the `paired_latent_components` example.

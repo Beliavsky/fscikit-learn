@@ -7,6 +7,10 @@ program invalid_input_driver
   type(isotonic_regression) :: monotone
   type(rbf_sampler) :: fourier
   type(nystroem) :: landmarks
+  type(pls_regression) :: partial
+  type(pls_canonical) :: canonical
+  type(cca) :: correlation
+  type(pls_svd) :: cross_svd
   type(standard_scaler) :: scaler
   type(logistic_regression) :: logistic
   type(kneighbors_regressor) :: knn
@@ -50,6 +54,24 @@ program invalid_input_driver
   character(32) :: mode
   x=1; y=1; call get_command_argument(1,mode)
   select case(trim(mode))
+  case('cross_components'); partial%n_components=0; call partial%fit(x,x)
+  case('canonical_components'); call canonical%fit(x,reshape(y,[4,1]))
+  case('cca_components'); correlation%n_components=3; call correlation%fit(x,x)
+  case('svd_components'); cross_svd%n_components=3; call cross_svd%fit(x,x)
+  case('cross_iterations'); partial%max_iter=0; call partial%fit(x,x)
+  case('cross_tolerance'); partial%tol=-1; call partial%fit(x,x)
+  case('cross_algorithm'); partial%algorithm='svd'; call partial%fit(x,x)
+  case('cca_algorithm'); correlation%algorithm='svd'; call correlation%fit(x,x)
+  case('cross_counts'); call partial%fit(x,x(:3,:))
+  case('cross_samples'); call partial%fit(x(:1,:),x(:1,:))
+  case('cross_unfitted'); z=partial%predict(x)
+  case('cross_features'); call partial%fit(x,x); z=partial%transform(x(:,:1))
+  case('cross_targets'); call partial%fit(x,x); z=partial%transform_y(x(:,:1))
+  case('cross_inverse'); call partial%fit(x,x); z=partial%inverse_transform(x(:,:1))
+  case('cross_score'); call partial%fit(x,reshape(y,[4,1])); pred=[partial%score(x,x)]
+  case('svd_rank'); call cross_svd%fit(x,x)
+  case('cross_degenerate')
+    y=[1._dp,2._dp,3._dp,4._dp]; call partial%fit(x,reshape(y,[4,1]))
   case('iso_unfitted'); pred=monotone%predict(y)
   case('iso_bounds'); monotone%y_min=2; monotone%y_max=1; call monotone%fit(y,y)
   case('iso_weight_count'); call monotone%fit(y,y,y(:2))

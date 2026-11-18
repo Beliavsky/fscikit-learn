@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 84 public estimator, transformer, and splitter types. Each is a
+There are 88 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Seven reference suites additionally check 1,797 result
+All types have native tests. Eight reference suites additionally check 2,557 result
 groups in total across seeded datasets against installed scikit-learn 1.6.1.
 
 This document counts core scikit-learn counterparts. Public extensions are
@@ -13,8 +13,8 @@ tracked separately in [EXTENSIONS.md](EXTENSIONS.md) and excluded from the
 `sklearn` facade and core coverage counts. The [scope policy](SCOPE.md) allows
 selective, clearly identified extensions while prioritizing core correctness.
 
-Global scope: dense real64 CPU arrays, integer classification labels, one target
-per sample. Sparse matrices, pandas integration, Python estimator cloning,
+Global scope: dense real64 CPU arrays, integer classification labels, generally one target
+per sample; cross-decomposition explicitly accepts multiple response columns. Sparse matrices, pandas integration, Python estimator cloning,
 metadata routing, parallel backends and binary model persistence are outside the
 initial translation. Fortran identifiers use snake_case rather than CamelCase.
 
@@ -28,6 +28,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | neighbors | `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with optional shrinkage and uniform priors; Euclidean kernel density |
 | cluster | `kmeans`, `dbscan`, `agglomerative_clustering`, `mean_shift`, `affinity_propagation`, `spectral_clustering`; `estimate_bandwidth` | Lloyd/k-means++; density expansion; single/complete/average/Ward merge trees; flat-kernel mode seeking; damped exemplar messages; normalized-Laplacian clustering with k-means or pivoted QR assignment |
 | decomposition | `pca`, `truncated_svd`, `nmf`; re-exports `kernel_pca`, `factor_analysis`, `fast_ica` | Direct Jacobi SVD; PCA whitening and inversion; exact dense SVD; NMF multiplicative updates; nonlinear kernel PCA; unrotated full-SVD factor analysis; parallel/deflation ICA |
+| cross_decomposition | `pls_regression`, `pls_canonical`, `cca`, `pls_svd` | Paired-matrix latent components: NIPALS regression/canonical deflation, CCA pseudoinverse mode, canonical direct SVD and PLSSVD cross-covariance projection; multiple response columns |
 | isotonic | `isotonic_regression`; `isotonic_fit`, `check_increasing` | Weighted pool-adjacent-violators, automatic Spearman direction, bounds, repeated-input aggregation and piecewise linear interpolation |
 | kernel_approximation | `rbf_sampler`, `nystroem` | Random Fourier RBF maps; sampled-landmark inverse-square-root maps for RBF/linear/polynomial/cosine kernels |
 | random_projection | `gaussian_random_projection`, `sparse_random_projection`; `johnson_lindenstrauss_min_dim` | Gaussian/three-point random matrices, dense storage, automatic JL dimension, cached or on-demand pseudoinverse |
@@ -296,3 +297,48 @@ Numerical scaling and ill-conditioned fixed points can still limit convergence.
 
 Both randomized maps use the package's Fortran RNG and `random_state`; draws
 differ from NumPy. No sparse input/output path or threaded backend is included.
+
+## Cross-decomposition
+
+`sklearn_cross_decomposition` exports `pls_regression`, `pls_canonical`, `cca`,
+and `pls_svd`, also available from `sklearn`. All take rank-two `x(samples,
+features)` and `y(samples, targets)` matrices. A single response is a matrix
+with one column. Defaults are two components and `scale=.true.`; both matrices
+are centered and scaled with sample standard deviations (ddof=1), with zero
+standard deviations replaced by one.
+
+All four support `fit`, `fit_transform` (returns X scores), `transform`, and
+`transform_y`. The latter provides the response scores separately from the
+Fortran function result for X. `x_mean_`, `y_mean_`, `x_std_`, `y_std_`,
+`x_weights_`, `y_weights_`, `x_rotations_` and `y_rotations_` expose fitted state.
+PLSSVD uses the singular vectors of the full cross-covariance, without
+component-wise deflation. Selected singular values must have numerical full
+rank; arbitrary null-space singular vectors are not returned.
+
+PLSRegression, PLSCanonical and CCA also support `predict`, uniform-average
+response R2 `score`, `inverse_transform`, and `inverse_transform_y`. They expose
+`x_loadings_`, `y_loadings_`, `x_scores_`, `y_scores_`, `coef_` (targets, features)
+and `intercept_`. Predictions follow sklearn's centered convention:
+`(x - x_mean_) @ transpose(coef_) + intercept_`; `intercept_` is the response
+mean. Inverse transforms reconstruct the retained component subspace. Training
+deflation scores and rotated response transforms can differ for PLSRegression.
+
+- PLSRegression uses NIPALS mode A with regression response deflation.
+  Its component bound is min(samples, features), independently of targets.
+- PLSCanonical uses NIPALS (default) or `algorithm='svd'` with canonical
+  deflation of both matrices.
+- CCA uses NIPALS mode B with native SVD pseudoinverses and sklearn's historical
+  relative rank cutoff of 1e6*epsilon.
+- The latter two and PLSSVD bound components by min(samples, features, targets).
+
+`max_iter` and `tol` control NIPALS; `n_iter_` stores counts for components
+actually extracted (empty for direct SVD), `converged_` reports iteration
+convergence, and `n_components_fitted_` reports the number extracted. A constant
+response residual stops NIPALS early, leaving unused component arrays zero;
+a wholly constant response yields mean-only predictions. Degenerate zero
+predictor/response scores fail with diagnostics. Rank-deficient CCA can depend
+on pseudoinverse tolerance; no ridge regularization is added.
+
+Sparse inputs, rank-one overloads, in-place mutation/copy controls, Python tuple
+returns, sample weights, cross-validation wrappers and Python warnings are
+not implemented.

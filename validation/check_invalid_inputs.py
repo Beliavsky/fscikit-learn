@@ -5,6 +5,19 @@ import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 CASES = {
+    "cross_components": "invalid cross-decomposition n_components",
+    "canonical_components": "invalid cross-decomposition n_components",
+    "cca_components": "invalid cross-decomposition n_components",
+    "svd_components": "invalid cross-decomposition n_components",
+    "cross_iterations": "invalid cross-decomposition iteration controls",
+    "cross_tolerance": "invalid cross-decomposition iteration controls",
+    "cross_algorithm": "unsupported cross-decomposition algorithm",
+    "cca_algorithm": "unsupported cross-decomposition algorithm",
+    "cross_counts": "sample counts differ", "cross_samples": "at least two samples",
+    "cross_unfitted": "not fitted", "cross_features": "sample counts differ",
+    "cross_targets": "sample counts differ", "cross_inverse": "sample counts differ",
+    "cross_score": "target width mismatch", "svd_rank": "retained full cross-covariance rank",
+    "cross_degenerate": "degenerate predictor scores",
     "iso_unfitted": "not fitted", "iso_bounds": "invalid isotonic bounds",
     "iso_weight_count": "weight count mismatch", "iso_weights": "invalid isotonic weights",
     "iso_zero_weights": "invalid isotonic weights", "iso_length": "sample counts differ",
@@ -56,10 +69,22 @@ CASES = {
 
 def main():
     subprocess.run(["fpm", "build", "--flag", "-fcheck=all -fbacktrace"], cwd=ROOT, check=True)
+    # Ask fpm for the selected executable instead of rediscovering its build
+    # directory or starting a complete fpm process for every rejection case.
+    resolved = subprocess.run(["fpm", "run", "--flag", "-fcheck=all -fbacktrace", "--target",
+                               "invalid_input_driver", "--runner"], cwd=ROOT, text=True,
+                              stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=True)
+    candidates = []
+    for line in resolved.stdout.splitlines():
+        name = line.strip().strip('"')
+        if name.endswith(("invalid_input_driver", "invalid_input_driver.exe")):
+            path = ROOT / name
+            if path.is_file():
+                candidates.append(path.resolve())
+    assert len(candidates) == 1, ("could not resolve unique fpm executable", resolved.stdout)
     results = []
     for case, message in CASES.items():
-        proc = subprocess.run(["fpm", "run", "--flag", "-fcheck=all -fbacktrace", "--target",
-                               "invalid_input_driver", "--", case], cwd=ROOT, text=True,
+        proc = subprocess.run([str(candidates[0]), case], cwd=ROOT, text=True,
                               stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         assert proc.returncode != 0, (case, "invalid input accepted", proc.stdout)
         assert message in proc.stdout, (case, "wrong diagnostic", proc.stdout)

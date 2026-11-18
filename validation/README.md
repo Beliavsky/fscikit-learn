@@ -177,3 +177,31 @@ Fourier distribution moments and approximation error, exact full-landmark
 reconstruction, and rank-deficient/duplicate/zero-vector kernel bases.
 The isolated diagnostic suite passes 92 cases. The runnable
 `monotone_kernel_features` example also passes. Limits are in `COVERAGE.md`.
+
+## Cross-decomposition addition (2026-11-18)
+
+Added `pls_regression`, `pls_canonical`, `cca`, and `pls_svd`, bringing coverage
+to 88 core types in 35 modules. These accept paired dense predictor and
+response matrices with multiple response columns. NIPALS regression/canonical
+deflation, CCA pseudoinverse updates, canonical direct SVD, and PLSSVD are
+supported, together with transforms and the corresponding prediction and
+reconstruction contracts. No public extensions or runtime dependencies were
+added; MIT original-work licensing and sklearn BSD-3-Clause attribution remain.
+
+`compare_cross_decomposition.py` adds 760 sklearn 1.6.1 comparisons across
+four seeded datasets (190 result groups each), bringing the eight-suite
+inventory to 2,557. Fixtures include single/multiple responses, more responses
+than predictors, duplicate and constant columns, scaling on/off, single-step
+capped iterations and constant responses. We compare weights, loadings,
+rotations, coefficients, intercepts, training scores, transforms, inverse
+transforms, predictions, R2 and iteration counts with atol=rtol=2e-7.
+
+The 26 native programs pass with bounds checks/FPE traps and in release mode.
+Independent properties check full linear-model recovery, coefficient scaling,
+full predictor/response reconstruction, score orthogonality, perfectly shared
+canonical variates, diagonalized PLSSVD cross-covariance and constant-response
+early stopping. The isolated invalid-input suite now passes 109 cases. It
+resolves the checked executable via fpm's documented `--runner` path listing
+and runs each rejection directly in its own process, avoiding repeated fpm
+startup while retaining a fresh checked build. The `paired_latent_components`
+example passes. API limitations are recorded in `COVERAGE.md`.
