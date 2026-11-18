@@ -4,6 +4,7 @@ A native Fortran fpm package translating a practical dense-array subset of
 scikit-learn: **81 estimator, transformer and splitter types**, metrics,
 kernels, text features and synthetic dataset generators. This is not a complete
 or drop-in translation. Read [coverage and limits](docs/COVERAGE.md) before use.
+OpenAI Codex generated the code.
 
 Scikit-learn algorithms are the core scope. Selective public extensions use
 separate `fsklearn_extra_*` modules and are listed in the
