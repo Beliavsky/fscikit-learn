@@ -5,6 +5,18 @@ import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 CASES = {
+    "mds_components": "invalid MDS iteration/dimension controls",
+    "mds_restarts": "invalid MDS iteration/dimension controls",
+    "mds_iterations": "invalid MDS iteration/dimension controls", "mds_tolerance": "invalid MDS tolerance",
+    "mds_stress": "invalid MDS normalized_stress", "mds_metric_stress": "requires nonmetric MDS",
+    "mds_metric": "unsupported MDS dissimilarity", "mds_square": "dissimilarities must be square",
+    "mds_symmetry": "dissimilarities must be symmetric", "mds_negative": "dissimilarities must be nonnegative",
+    "mds_diagonal": "zero diagonal", "mds_init": "initial sample count mismatch",
+    "mds_collapsed": "collapsed initial configuration", "mds_nonmetric_zero": "needs positive dissimilarities",
+    "lle_neighbors": "0 < n_neighbors < n_samples", "lle_size": "0 < n_neighbors < n_samples",
+    "lle_components": "invalid LLE n_components", "lle_reg": "invalid LLE regularization",
+    "lle_method": "unsupported LLE method", "lle_ltsa_neighbors": "n_neighbors > n_components",
+    "lle_unfitted": "not fitted", "lle_features": "sample counts differ", "lle_singular": "singular linear system",
     "cross_components": "invalid cross-decomposition n_components",
     "canonical_components": "invalid cross-decomposition n_components",
     "cca_components": "invalid cross-decomposition n_components",

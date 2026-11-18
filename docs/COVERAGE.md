@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 88 public estimator, transformer, and splitter types. Each is a
+There are 90 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Eight reference suites additionally check 2,557 result
+All types have native tests. Nine reference suites additionally check 2,695 result
 groups in total across seeded datasets against installed scikit-learn 1.6.1.
 
 This document counts core scikit-learn counterparts. Public extensions are
@@ -33,7 +33,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | kernel_approximation | `rbf_sampler`, `nystroem` | Random Fourier RBF maps; sampled-landmark inverse-square-root maps for RBF/linear/polynomial/cosine kernels |
 | random_projection | `gaussian_random_projection`, `sparse_random_projection`; `johnson_lindenstrauss_min_dim` | Gaussian/three-point random matrices, dense storage, automatic JL dimension, cached or on-demand pseudoinverse |
 | kernel_pca | `kernel_pca` | Centered linear/RBF/polynomial/sigmoid/cosine/precomputed Gram matrices; dense Jacobi eigensolver; out-of-sample transform |
-| manifold | `isomap`; re-exports `spectral_embedding` | Isomap shortest-path graph, component completion and out-of-sample extension; normalized-Laplacian spectral embedding |
+| manifold | `isomap`; re-exports `spectral_embedding`, `mds`, `locally_linear_embedding` | Isomap graph paths; spectral embedding; metric/nonmetric SMACOF; dense standard LLE and LTSA with barycentric query transforms |
 | spectral | `spectral_embedding` | Dense symmetric eigensolver; RBF, symmetrized nearest-neighbor or precomputed affinity; degree normalization; connected-component count |
 | density | `kernel_density` | Exact Euclidean log densities with Gaussian/tophat/Epanechnikov/exponential/linear kernels; sample weights; fixed/Scott/Silverman bandwidth; Gaussian/tophat sampling |
 | outlier | `local_outlier_factor` | Training outlier scores and novelty detection, automatic/percentile threshold, Minkowski and other supported pairwise metrics |
@@ -229,7 +229,7 @@ distances; cosine similarity; linear, RBF, polynomial and sigmoid kernels.
 Not translated: sparse data paths, general estimator base/clone/parameter search
 framework, pipelines/column transformers, full SVM family, Theil-Sen/quantile
 regression, remaining GLM variants, SGD families, histogram boosting, AdaBoost and bagging APIs,
-manifold learning beyond Isomap/spectral embedding, OPTICS/BIRCH,
+t-SNE and Hessian/modified LLE, OPTICS/BIRCH,
 outlier detection beyond LOF,
 Gaussian-process classification, dictionary learning,
 calibration, semi-supervised learning beyond label propagation/spreading,
@@ -342,3 +342,55 @@ on pseudoinverse tolerance; no ridge regularization is added.
 Sparse inputs, rank-one overloads, in-place mutation/copy controls, Python tuple
 returns, sample weights, cross-validation wrappers and Python warnings are
 not implemented.
+
+## Multidimensional scaling and locally linear embedding
+
+`mds` and `locally_linear_embedding` are re-exported by `sklearn_manifold` and
+the `sklearn` facade. Their implementation modules are `sklearn_mds` and
+`sklearn_locally_linear`.
+
+MDS implements dense metric and nonmetric SMACOF with `fit(x,init)` and
+`fit_transform(x,init)`; `init` is optional. `dissimilarity` is `euclidean`
+(default) or `precomputed`. Precomputed matrices must be finite, square,
+nonnegative, symmetric and zero on the diagonal. There must be two or more
+observations. Nonmetric MDS treats zero upper-triangle dissimilarities as
+missing and requires at least one positive observation. `n_components=2`,
+`n_init=4`, `max_iter=300` and `eps=1e-3` follow the sklearn 1.6.1 defaults.
+`normalized_stress` is a string: `auto` (default, normalized only for nonmetric),
+`true`, or `false`. Normalized metric stress is unsupported in this baseline.
+
+Explicit initial coordinates determine the output dimension and reduce the
+run count to one. Otherwise, seeded uniform random starts are tried and the
+lowest-stress result is retained. Fitted fields are `embedding_`,
+`dissimilarity_matrix_`, `stress_`, `n_iter_` and `converged_` (for the chosen
+run). The implementation preserves sklearn 1.6.1's stress/convergence convention:
+stress is evaluated before the final Guttman coordinate update, so it can
+differ from stress recomputed from the returned embedding. Nonmetric updates
+also preserve that version's upper-triangle isotonic update and full-matrix
+normalization. Newer sklearn versions can use different SMACOF semantics.
+All-zero metric dissimilarities return a zero embedding and zero stress; a
+collapsed initialization with positive dissimilarities fails diagnostically.
+There is no new-observation transform, inverse transform or threaded backend.
+
+LLE supports `method='standard'` (default) and `method='ltsa'`, with a native
+dense eigensolver. `fit`, `fit_transform` and `transform` use Euclidean nearest
+neighbors, local regularized barycentric weights, and the lowest nonconstant
+alignment modes. The known constant mode is removed analytically with an
+orthonormal Helmert basis, avoiding mixing with near-zero manifold modes.
+`n_neighbors=5`, `n_components=2`, and `reg=1e-3` are the
+defaults. Require 0 < neighbors < samples and 0 < components <= input features,
+with components < samples; LTSA also requires neighbors > components.
+Regularization is nonnegative; a singular local solve (possible with zero
+regularization) fails with a diagnostic.
+
+Fitted fields include `x_fit_`, `embedding_`, `reconstruction_error_` (sum of
+selected eigenvalues, floored at zero for roundoff), and one-based `neighbors_`.
+`weights_` stores (samples, neighbors) barycentric fitting weights for standard
+LLE and is zero for LTSA, whose objective uses local tangent projectors. LTSA
+uses regularization only in query transforms. Queries use the fitted neighbors
+count and barycentric projection of training coordinates; a query equal to a
+training point can have a different neighbor set from the training fit.
+Neighbor ties, disconnected graphs, unreferenced LTSA observations, or repeated
+alignment eigenvalues can make truncated embeddings nonunique across solvers.
+No Hessian/modified methods, ARPACK, sparse graph path or inverse transform is
+implemented.

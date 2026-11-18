@@ -205,3 +205,38 @@ resolves the checked executable via fpm's documented `--runner` path listing
 and runs each rejection directly in its own process, avoiding repeated fpm
 startup while retaining a fresh checked build. The `paired_latent_components`
 example passes. API limitations are recorded in `COVERAGE.md`.
+
+## MDS and LLE addition (2026-11-18)
+
+Added `mds` and `locally_linear_embedding`, bringing core coverage to 90 types
+in 37 modules. MDS supports metric and nonmetric SMACOF, explicit or seeded
+initialization, multi-start selection and precomputed dissimilarities. LLE
+supports standard reconstruction and LTSA alignment with barycentric query
+transforms. The implementation retains the sklearn 1.6.1 stress/update
+semantics; supported limits and degenerate cases are detailed in `COVERAGE.md`.
+No extensions or dependencies were added; MIT original-work licensing and
+sklearn BSD-3-Clause attribution remain.
+
+`compare_manifold.py` adds 138 reference comparisons on three seeded datasets,
+bringing the nine-suite inventory to 2,695 groups. Eight MDS configurations
+cover raw/normalized stress, metric/nonmetric fits, missing dissimilarities,
+explicit dimensionality, iteration caps, and multi-start selection using
+actual Fortran random initial matrices in sklearn. Four LLE configurations
+cover standard/LTSA methods, component counts, regularization, neighbors,
+weights and out-of-sample geometry. Embedding/query/cross Gram matrices remove
+eigenvector signs and rotations. Larger LTSA reference neighborhoods keep all
+observations referenced and leave a unique skipped constant mode; truncated
+geometry is otherwise nonunique. Tolerances are atol=rtol=2e-7.
+
+The 28 native programs pass checked/FPE-trapping and release builds. New
+independent checks cover the exact Guttman update, legacy pre-update stress,
+Euclidean distance recovery, random-start selection/reproducibility, ordinal
+invariance, all-zero metric data, affine barycentric weights, eigenvector
+orthonormality, the LLE reconstruction objective, exclusion of self-neighbors,
+and translation/scale invariance of fits and queries. The diagnostic suite
+passes 132 isolated cases; `manifold_coordinates` also runs successfully.
+
+A nearly one-dimensional native fixture exposed constant-mode mixing in the
+full alignment eigensolve. LLE now solves in an explicit orthonormal basis
+perpendicular to constants, preserving centering when the first nonconstant
+eigenvalue is small; the sklearn reference fixtures retain the same geometry.

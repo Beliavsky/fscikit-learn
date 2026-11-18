@@ -11,6 +11,8 @@ program invalid_input_driver
   type(pls_canonical) :: canonical
   type(cca) :: correlation
   type(pls_svd) :: cross_svd
+  type(mds) :: scaling
+  type(locally_linear_embedding) :: lle
   type(standard_scaler) :: scaler
   type(logistic_regression) :: logistic
   type(kneighbors_regressor) :: knn
@@ -54,6 +56,31 @@ program invalid_input_driver
   character(32) :: mode
   x=1; y=1; call get_command_argument(1,mode)
   select case(trim(mode))
+  case('mds_components'); scaling%n_components=0; call scaling%fit(x)
+  case('mds_restarts'); scaling%n_init=0; call scaling%fit(x)
+  case('mds_iterations'); scaling%max_iter=0; call scaling%fit(x)
+  case('mds_tolerance'); scaling%eps=-1; call scaling%fit(x)
+  case('mds_stress'); scaling%normalized_stress='unknown'; call scaling%fit(x)
+  case('mds_metric_stress'); scaling%normalized_stress='true'; call scaling%fit(x)
+  case('mds_metric'); scaling%dissimilarity='unknown'; call scaling%fit(x)
+  case('mds_square'); scaling%dissimilarity='precomputed'; call scaling%fit(x)
+  case('mds_symmetry')
+    scaling%dissimilarity='precomputed'; z=spread(y,2,4); z(1,2)=2; call scaling%fit(z)
+  case('mds_negative'); scaling%dissimilarity='precomputed'; z=-spread(y,2,4); call scaling%fit(z)
+  case('mds_diagonal'); scaling%dissimilarity='precomputed'; z=spread(y,2,4); call scaling%fit(z)
+  case('mds_init'); call scaling%fit(x,x(:3,:))
+  case('mds_collapsed')
+    x(:,1)=[1._dp,2._dp,3._dp,4._dp]; z=0*x; call scaling%fit(x,z)
+  case('mds_nonmetric_zero'); scaling%metric=.false.; call scaling%fit(x)
+  case('lle_neighbors'); lle%n_neighbors=0; call lle%fit(x)
+  case('lle_size'); lle%n_neighbors=4; call lle%fit(x)
+  case('lle_components'); lle%n_neighbors=2; lle%n_components=3; call lle%fit(x)
+  case('lle_reg'); lle%n_neighbors=2; lle%reg=-1; call lle%fit(x)
+  case('lle_method'); lle%n_neighbors=2; lle%method='unknown'; call lle%fit(x)
+  case('lle_ltsa_neighbors'); lle%n_neighbors=2; lle%method='ltsa'; call lle%fit(x)
+  case('lle_unfitted'); z=lle%transform(x)
+  case('lle_features'); lle%n_neighbors=2; call lle%fit(x); z=lle%transform(x(:,:1))
+  case('lle_singular'); lle%n_neighbors=2; lle%reg=0; call lle%fit(x)
   case('cross_components'); partial%n_components=0; call partial%fit(x,x)
   case('canonical_components'); call canonical%fit(x,reshape(y,[4,1]))
   case('cca_components'); correlation%n_components=3; call correlation%fit(x,x)

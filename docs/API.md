@@ -450,3 +450,29 @@ PLSRegression and CCA support NIPALS only. PLSSVD computes a full SVD of the
 centered/scaled cross-covariance and provides transforms without a regression
 prediction or inverse API. See `COVERAGE.md` for component/rank restrictions
 and early-stop semantics. Run the `paired_latent_components` example.
+
+## MDS and locally linear embedding
+
+```fortran
+use sklearn, only: dp, mds, locally_linear_embedding
+type(mds) :: scaling
+type(locally_linear_embedding) :: lle
+real(dp), allocatable :: x(:,:), query(:,:), coordinates(:,:), projected(:,:)
+! Populate x(samples, features) and query(new_samples, features).
+scaling%random_state=42
+coordinates=scaling%fit_transform(x)
+! Optional second argument: init(samples, embedding_dimensions).
+! For nonmetric MDS: scaling%metric=.false.
+! For distances as input: scaling%dissimilarity='precomputed'.
+lle%n_neighbors=8
+lle%n_components=2
+coordinates=lle%fit_transform(x)
+projected=lle%transform(query)
+```
+
+`mds%normalized_stress` accepts the strings `auto`, `true`, or `false`.
+There is no MDS query transform. Both `standard` and `ltsa` LLE methods support
+query transforms through local barycentric projection. The implementation
+uses a dense eigensolver and one-based fitted neighbor indices. See
+`COVERAGE.md` for rank/connectivity limits and the sklearn 1.6.1 MDS stress
+convention. Run the `manifold_coordinates` example.
