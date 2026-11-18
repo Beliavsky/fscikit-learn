@@ -28,6 +28,14 @@ CASES = {
     "gamma_targets": "Gamma targets must be positive", "tweedie_power": "supported Tweedie powers",
     "tweedie_link": "supported GLM links", "glm_alpha": "invalid GLM controls",
     "glm_unfitted": "not fitted", "glm_constant_score": "D2 requires a nonconstant target",
+    "meanshift_bandwidth": "MeanShift bandwidth must be positive", "meanshift_seeds": "no point within MeanShift bandwidth",
+    "affinity_damping": "invalid AffinityPropagation controls", "affinity_square": "similarities must be square",
+    "affinity_predict": "prediction requires feature-input fitting", "spectral_clusters": "invalid spectral n_clusters",
+    "spectral_neighbors": "invalid spectral n_neighbors", "spectral_symmetry": "affinity must be symmetric",
+    "spectral_negative": "affinity must be nonnegative", "spectral_components": "invalid spectral n_components",
+    "density_bandwidth": "density bandwidth must be positive", "density_weights": "invalid density sample weights",
+    "density_kernel": "unknown density kernel", "density_unfitted": "not fitted",
+    "density_sampling": "density sampling supports gaussian/tophat only",
 }
 
 

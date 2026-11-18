@@ -303,3 +303,67 @@ uses `power=0`, `link='auto'` by default. Supported powers are zero and `[1,2]`;
 the same pairing. Prediction returns the inverse-link mean. `link_` records
 the fitted link, while `coef_` and `intercept_` parameterize the linear predictor.
 Scoring requires a nonconstant target. See [COVERAGE.md](COVERAGE.md) for limits.
+
+## Mode seeking, spectral methods and kernel density
+
+`mean_shift`, `affinity_propagation`, `spectral_clustering` and
+`estimate_bandwidth` are exported by `sklearn_cluster`. `spectral_embedding`
+is exported by `sklearn_manifold` and implemented in `sklearn_spectral`.
+`kernel_density` is exported by `sklearn_neighbors` and implemented in
+`sklearn_density`. All five types are available through `use sklearn`.
+
+MeanShift has `fit`, `fit_predict` and nearest-center `predict`. A positive
+`bandwidth` selects the radius; default `-1` calls `estimate_bandwidth(x)` using
+all rows and quantile 0.3. The helper accepts an optional quantile in `[0,1]`.
+`bandwidth_` holds the fitted value, including zero if automatically estimated.
+Pass alternative seeds as `call model%fit(x,seeds=initial_locations)`.
+`cluster_all=false` marks training points farther than the bandwidth from any
+center as -1; prediction still assigns every query to its nearest center.
+Inspect `cluster_centers_`, `labels_`, `n_iter_` and `converged_`. The iteration
+counter matches sklearn's completed-update convention: `max_iter=0` still
+performs the first update of each seed.
+
+AffinityPropagation has `fit`, `fit_predict` and, for feature-input fits,
+`predict`. Use `affinity='euclidean'` (default) or `'precomputed'` similarities,
+`damping` in `[0.5,1)`, `max_iter`, `convergence_iter` and `random_state`.
+`preference=huge(1._dp)` selects median similarity; any other finite scalar is
+used directly. `cluster_centers_indices_` are one-based training indices,
+whereas `labels_` are zero-based. `affinity_matrix_` stores the working
+similarities including preference diagonals and tiny perturbations, as in
+sklearn. Inspect `converged_` and `n_iter_`; a fit without exemplars produces
+empty centers and -1 labels/predictions. Equal-similarity special cases have
+`n_iter_=0`. Precomputed fits have no feature-space prediction.
+
+```fortran
+type(spectral_clustering) :: model
+model%n_clusters=3
+model%affinity='rbf'
+model%gamma=0.3_dp
+model%assign_labels='cluster_qr'
+call model%fit(x)
+print *, model%labels_
+```
+
+SpectralClustering has `fit`, `fit_predict`, `affinity_matrix_`, `embedding_`
+and `labels_`. Choose `affinity='rbf'`, `'nearest_neighbors'` or `'precomputed'`.
+Nearest-neighbor affinities use `n_neighbors=10` by default and include self
+before symmetrization. `assign_labels='kmeans'` (default) uses `n_init` and
+`random_state`; `'cluster_qr'` uses deterministic pivoted QR/SVD assignment.
+
+SpectralEmbedding has `fit`, `fit_transform`, `affinity_matrix_` and
+`embedding_`. Its default affinity is nearest neighbors, with `n_neighbors=0`
+selecting `max(1,n_samples/10)`; `n_neighbors_` reports that value.
+For RBF, `gamma=-1` selects `1/n_features`; `gamma_` reports it. Default
+`n_components=2` must be below the sample count. Both spectral types report
+`n_connected_components_`. They provide training embeddings only; arbitrary
+eigenvector signs/rotations and label permutations are not meaningful.
+
+KernelDensity has `fit(x,sample_weight=...)`, `score_samples`, total log-density
+`score`, and `sample(n_samples,random_state=...)`. Supported kernels are
+`'gaussian'`, `'tophat'`, `'epanechnikov'`, `'exponential'` and `'linear'`.
+`bandwidth_rule='fixed'` uses positive `bandwidth` (default 1); `'scott'` and
+`'silverman'` choose their dimension/sample-count rules. `bandwidth_` stores the
+result. Optional sample weights must be finite, nonnegative and not all zero.
+Sampling is supported for Gaussian/tophat kernels. Zero density yields negative
+infinity; Gaussian evaluation stays in the log domain to avoid probability
+underflow. See `example/clustering_density.f90` for a runnable example.

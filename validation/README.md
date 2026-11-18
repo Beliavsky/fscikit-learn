@@ -9,6 +9,7 @@ python validation/compare_sklearn.py
 python validation/compare_graph_algorithms.py
 python validation/compare_regression_projection.py
 python validation/compare_robust_glm.py
+python validation/compare_modes_density.py
 python validation/check_invalid_inputs.py
 ```
 
@@ -88,7 +89,29 @@ Native checks additionally exercise singular Hessians, near-boundary Tweedie
 powers, unpenalized target-scale equivariance, the epsilon-one Huber scale
 boundary, dynamic trial caps and GLM cross-validation.
 
-`check_invalid_inputs.py` checks 47 error paths in separate bounds-checked
+`compare_modes_density.py` adds 77 result groups on each of three datasets
+(60-by-2, 72-by-3 and 84-by-4), for **231** additions and **960** comparisons
+across five suites. It checks fixed/estimated-bandwidth MeanShift, seed/orphan
+behavior and update caps; affinity propagation in feature/precomputed modes,
+working similarities, exemplar indices, predictions and convergence; spectral
+RBF/k-neighbor/precomputed graphs, embedding Grams and QR/k-means partitions;
+five normalized density kernels, sample weighting, total log likelihood and
+Scott/Silverman bandwidth rules. Tolerance is `atol=rtol=3e-8`.
+
+Spectral Grams remove arbitrary eigenvector signs/rotations; clustering labels
+are compared with adjusted Rand agreement and a separately known partition.
+Continuous data are used for connected embedding graphs; cluster fixtures also
+exercise disconnected graphs with the entire null eigenspace retained. Seeded
+AP perturbations can differ across runtimes; these nondegenerate fixtures also
+agree on exemplar indices and iteration counts. Weighted compact-kernel queries
+have positive support to avoid sklearn tree cancellation residue at exact zero
+density. Native tests separately verify zero-density negative infinities,
+normalized kernel integrals, Gaussian/uniform-ball sampling moments and seed
+repeatability, zero-weight exclusion, spectral weighted orthonormality and
+invariance to large self loops (with entry-wise symmetry validation),
+automatic zero bandwidth and equal-similarity/no-exemplar special cases.
+
+`check_invalid_inputs.py` checks 62 error paths in separate bounds-checked
 processes, requiring both an error exit and a specific input diagnostic.
 These cover unfitted use, nonfinite data, feature/target shape mismatches,
 invalid hyperparameters, empty text and unusable/all-missing data.
@@ -100,6 +123,9 @@ projection density/automatic dimensions and unfitted uncertainty/inversion are
 also rejected with explicit diagnostics.
 Robust-regression controls, GLM target domains, unsupported Tweedie powers/links,
 regularization, unfitted prediction and constant-target D2 are checked as well.
+Further cases check empty MeanShift seed neighborhoods, invalid clustering
+controls, precomputed prediction misuse, malformed spectral graphs/components,
+and density bandwidths, kernels, weights, unfitted use and unsupported sampling.
 
 Generated datasets, outputs, JSON reports and logs are saved in `validation/results/`
 (ignored by Git). The reference report records the actual Python package version.

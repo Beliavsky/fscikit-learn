@@ -34,6 +34,11 @@ program invalid_input_driver
   type(poisson_regressor) :: poisson
   type(gamma_regressor) :: gamma
   type(tweedie_regressor) :: tweedie
+  type(mean_shift) :: ms
+  type(affinity_propagation) :: ap
+  type(spectral_clustering) :: spectral
+  type(spectral_embedding) :: embedding
+  type(kernel_density) :: density
   type(index_split), allocatable :: folds(:)
   real(dp) :: x(4,2),y(4)
   real(dp), allocatable :: z(:,:),pred(:)
@@ -92,6 +97,23 @@ program invalid_input_driver
   case('glm_alpha'); poisson%alpha=-1; call poisson%fit(x,y)
   case('glm_unfitted'); pred=poisson%predict(x)
   case('glm_constant_score'); call poisson%fit(x,y); pred=[poisson%score(x,y)]
+  case('meanshift_bandwidth'); ms%bandwidth=0; call ms%fit(x)
+  case('meanshift_seeds'); ms%bandwidth=0.1_dp; call ms%fit(x,seeds=x+100)
+  case('affinity_damping'); ap%damping=0.2_dp; call ap%fit(x)
+  case('affinity_square'); ap%affinity='precomputed'; call ap%fit(x)
+  case('affinity_predict'); ap%affinity='precomputed'; call ap%fit(matmul(x,transpose(x))); labels=ap%predict(x)
+  case('spectral_clusters'); spectral%n_clusters=5; call spectral%fit(x)
+  case('spectral_neighbors'); embedding%n_neighbors=5; call embedding%fit(x)
+  case('spectral_symmetry')
+    embedding%affinity='precomputed'; z=reshape([1.e100_dp,0._dp,1._dp,1.e100_dp],[2,2]); call embedding%fit(z)
+  case('spectral_negative')
+    embedding%affinity='precomputed'; z=reshape([1._dp,-1._dp,-1._dp,1._dp],[2,2]); call embedding%fit(z)
+  case('spectral_components'); embedding%n_components=4; call embedding%fit(x)
+  case('density_bandwidth'); density%bandwidth=0; call density%fit(x)
+  case('density_weights'); call density%fit(x,sample_weight=[0._dp,0._dp,0._dp,0._dp])
+  case('density_kernel'); density%kernel='invalid'; call density%fit(x)
+  case('density_unfitted'); pred=density%score_samples(x)
+  case('density_sampling'); density%kernel='linear'; call density%fit(x); z=density%sample(2)
   case default; error stop 'unknown validation mode'
   end select
   print *, 'ERROR: invalid input was accepted'

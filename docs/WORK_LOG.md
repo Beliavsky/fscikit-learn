@@ -85,3 +85,23 @@ reference comparisons and twelve input-error cases. The documented scope is
 dense single-target regression, built-in linear RANSAC, and Tweedie powers zero
 and [1,2] with their standard links. No public extension or dependency was added.
 The total is now 75 core types. See `VALIDATION.md` for verification results.
+
+## Mode/spectral clustering and kernel density (2026-11-18)
+
+Added MeanShift, AffinityPropagation, SpectralClustering, SpectralEmbedding and
+KernelDensity, plus the sklearn `estimate_bandwidth` function. Mode seeking
+deduplicates endpoints and suppresses nearby centers by intensity; affinity
+propagation performs damped responsibility/availability updates with exemplar
+refinement. Spectral methods use normalized-Laplacian eigenvectors and k-means
+or pivoted QR assignment. Kernel density evaluates weighted, normalized mixtures
+in log space and samples Gaussian/uniform-ball kernels.
+Spectral degrees exclude diagonals before summation to avoid cancellation from
+large self loops; symmetry checks use entry-wise tolerances. Native regression
+tests cover both cases.
+
+New implementations are re-exported from the corresponding cluster, manifold
+and neighbor modules and the core facade. Added two native test programs, 231
+reference comparisons, fifteen input diagnostics and a clustering/density
+example. The package now has 80 core types in 31 source modules. No public
+extension, vendored repository or runtime dependency was added. See
+`VALIDATION.md` and `COVERAGE.md` for observed checks and supported subsets.

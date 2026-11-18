@@ -1,9 +1,11 @@
 module sklearn_cluster
   use sklearn_common
   use sklearn_metrics, only: pairwise_distances
+  use sklearn_spectral, only: spectral_affinity_matrix,spectral_eigenvectors
   implicit none
   private
   public :: kmeans,dbscan,agglomerative_clustering
+  public :: mean_shift,estimate_bandwidth,affinity_propagation,spectral_clustering
   type :: kmeans
     integer :: n_clusters=8,n_init=10,max_iter=300,random_state=0,n_iter_=0
     real(dp) :: tol=1.e-4_dp,inertia_=0
@@ -36,7 +38,311 @@ module sklearn_cluster
     procedure :: fit=>agg_fit
     procedure :: fit_predict=>agg_fit_predict
   end type
+  type :: mean_shift
+    real(dp) :: bandwidth=-1,bandwidth_=0
+    integer :: max_iter=300,n_iter_=0
+    logical :: cluster_all=.true.,converged_=.false.
+    real(dp), allocatable :: cluster_centers_(:,:)
+    integer, allocatable :: labels_(:)
+  contains
+    procedure :: fit=>mean_shift_fit
+    procedure :: predict=>mean_shift_predict
+    procedure :: fit_predict=>mean_shift_fit_predict
+  end type
+  type :: affinity_propagation
+    real(dp) :: damping=0.5_dp,preference=huge(1._dp)
+    integer :: max_iter=200,convergence_iter=15,random_state=0,n_iter_=0
+    character(16) :: affinity='euclidean'
+    logical :: converged_=.false.
+    real(dp), allocatable :: affinity_matrix_(:,:),cluster_centers_(:,:)
+    integer, allocatable :: cluster_centers_indices_(:),labels_(:)
+  contains
+    procedure :: fit=>affinity_fit
+    procedure :: fit_predict=>affinity_fit_predict
+    procedure :: predict=>affinity_predict
+  end type
+  type :: spectral_clustering
+    integer :: n_clusters=8,n_neighbors=10,n_init=10,random_state=0,n_connected_components_=0
+    real(dp) :: gamma=1
+    character(20) :: affinity='rbf',assign_labels='kmeans'
+    integer, allocatable :: labels_(:)
+    real(dp), allocatable :: affinity_matrix_(:,:),embedding_(:,:)
+  contains
+    procedure :: fit=>spectral_fit
+    procedure :: fit_predict=>spectral_fit_predict
+  end type
 contains
+  ! sklearn 1.6.1 cluster/_mean_shift.py, _affinity_propagation.py and
+  ! _spectral.py. See THIRD_PARTY_NOTICES.md for retained upstream attribution.
+  real(dp) function estimate_bandwidth(x,quantile) result(bandwidth)
+    real(dp), intent(in) :: x(:,:)
+    real(dp), intent(in), optional :: quantile
+    real(dp) :: q
+    real(dp), allocatable :: d(:,:)
+    integer :: n,k,i,order(size(x,1))
+    call check_x(x); n=size(x,1); q=0.3_dp; if(present(quantile)) q=quantile
+    call require(q>=0.and.q<=1,'bandwidth quantile must be in [0,1]')
+    k=max(1,int(n*q)); d=pairwise_distances(x,x); bandwidth=0
+    do i=1,n
+      order=argsort(d(i,:)); bandwidth=bandwidth+d(i,order(k))
+    end do
+    bandwidth=bandwidth/n
+  end function
+  logical function mode_before(a,count_a,b,count_b) result(before)
+    real(dp), intent(in) :: a(:),b(:)
+    integer, intent(in) :: count_a,count_b
+    integer :: j
+    before=count_a>count_b
+    if(count_a/=count_b) return
+    do j=1,size(a)
+      if(a(j)==b(j)) cycle
+      before=a(j)>b(j); return
+    end do
+  end function
+  subroutine mean_shift_fit(self,x,seeds)
+    class(mean_shift), intent(inout) :: self
+    real(dp), intent(in) :: x(:,:)
+    real(dp), intent(in), optional :: seeds(:,:)
+    real(dp), allocatable :: starts(:,:),centers(:,:),d(:,:)
+    real(dp) :: center(size(x,2)),next(size(x,2))
+    integer, allocatable :: counts(:),order(:)
+    logical, allocatable :: keep(:)
+    logical :: nearby(size(x,1)),done
+    integer :: n,p,s,i,j,k,completed,valid_count,idx
+    call check_x(x); n=size(x,1); p=size(x,2)
+    call require(self%max_iter>=0,'MeanShift max_iter must be nonnegative')
+    call require(self%bandwidth>0.or.self%bandwidth==-1,'MeanShift bandwidth must be positive or -1')
+    self%bandwidth_=self%bandwidth
+    if(self%bandwidth==-1) self%bandwidth_=estimate_bandwidth(x)
+    call check_x(reshape([self%bandwidth_],[1,1]))
+    starts=x
+    if(present(seeds)) then
+      call check_xy(transpose(seeds),p); starts=seeds
+    end if
+    s=size(starts,1); allocate(centers(s,p),counts(s),order(s)); valid_count=0
+    self%n_iter_=0; self%converged_=.true.
+    do i=1,s
+      center=starts(i,:); completed=0; done=.false.
+      do
+        nearby=sum((x-spread(center,1,n))**2,dim=2)<=self%bandwidth_**2
+        k=count(nearby); if(k==0) exit
+        next=0
+        do j=1,n
+          if(nearby(j)) next=next+x(j,:)
+        end do
+        next=next/k; done=sqrt(sum((next-center)**2))<=1.e-3_dp*self%bandwidth_; center=next
+        if(done.or.completed==self%max_iter) exit
+        completed=completed+1
+      end do
+      self%n_iter_=max(self%n_iter_,completed)
+      if(k==0) cycle
+      self%converged_=self%converged_.and.done
+      idx=0
+      do j=1,valid_count
+        if(all(centers(j,:)==center)) then
+          idx=j; exit
+        end if
+      end do
+      if(idx==0) then
+        valid_count=valid_count+1; idx=valid_count
+      end if
+      centers(idx,:)=center; counts(idx)=k
+    end do
+    call require(valid_count>0,'no point within MeanShift bandwidth of any seed')
+    order(:valid_count)=[(i,i=1,valid_count)]
+    do i=2,valid_count
+      idx=order(i); j=i-1
+      do while(j>=1)
+        if(.not.mode_before(centers(idx,:),counts(idx),centers(order(j),:),counts(order(j)))) exit
+        order(j+1)=order(j); j=j-1
+      end do
+      order(j+1)=idx
+    end do
+    centers(:valid_count,:)=centers(order(:valid_count),:)
+    allocate(keep(valid_count)); keep=.true.
+    do i=1,valid_count
+      if(.not.keep(i)) cycle
+      do j=i+1,valid_count
+        if(sum((centers(i,:)-centers(j,:))**2)<=self%bandwidth_**2) keep(j)=.false.
+      end do
+    end do
+    order=pack([(i,i=1,valid_count)],keep); self%cluster_centers_=centers(order,:)
+    self%labels_=self%predict(x)
+    if(.not.self%cluster_all) then
+      d=pairwise_distances(x,self%cluster_centers_)
+      where(minval(d,dim=2)>self%bandwidth_) self%labels_=-1
+    end if
+  end subroutine
+  function mean_shift_predict(self,x) result(labels)
+    class(mean_shift), intent(in) :: self
+    real(dp), intent(in) :: x(:,:)
+    integer :: labels(size(x,1))
+    real(dp), allocatable :: d(:,:)
+    call require(allocated(self%cluster_centers_),'MeanShift is not fitted')
+    d=pairwise_distances(x,self%cluster_centers_); labels=minloc(d,dim=2)-1
+  end function
+  function mean_shift_fit_predict(self,x) result(labels)
+    class(mean_shift), intent(inout) :: self
+    real(dp), intent(in) :: x(:,:)
+    integer :: labels(size(x,1))
+    call self%fit(x); labels=self%labels_
+  end function
+  subroutine affinity_fit(self,x)
+    class(affinity_propagation), intent(inout) :: self
+    real(dp), intent(in) :: x(:,:)
+    real(dp), allocatable :: s(:,:),a(:,:),r(:,:),tmp(:,:),col(:),flat(:)
+    integer, allocatable :: exemplars(:),assignment(:),members(:),sorted(:)
+    logical, allocatable :: history(:,:),chosen(:)
+    real(dp) :: pref,first,second
+    integer :: n,i,j,k,it,idx
+    logical :: equal
+    call check_x(x); n=size(x,1)
+    call check_x(reshape([self%preference],[1,1]))
+    call require(self%damping>=0.5_dp.and.self%damping<1.and.self%max_iter>0.and.self%convergence_iter>0, &
+      'invalid AffinityPropagation controls')
+    select case(self%affinity)
+    case('euclidean'); self%affinity_matrix_=-pairwise_distances(x,x,'sqeuclidean')
+    case('precomputed')
+      call require(size(x,2)==n,'affinity similarities must be square'); self%affinity_matrix_=x
+    case default; call require(.false.,'unknown AffinityPropagation affinity')
+    end select
+    s=self%affinity_matrix_; pref=self%preference
+    if(pref==huge(1._dp)) then
+      flat=reshape(s,[n*n]); sorted=argsort(flat)
+      pref=0.5_dp*(flat(sorted((n*n+1)/2))+flat(sorted(n*n/2+1)))
+    end if
+    equal=.true.
+    do j=1,n
+      do i=1,n
+        if(i==j) cycle
+        if(s(i,j)/=s(1,n)) equal=.false.
+      end do
+    end do
+    self%n_iter_=0; self%converged_=.false.
+    if(n==1.or.equal) then
+      if(pref>s(1,n)) then
+        self%cluster_centers_indices_=[(i,i=1,n)]; self%labels_=[(i-1,i=1,n)]
+      else
+        self%cluster_centers_indices_=[1]; self%labels_=spread(0,1,n)
+      end if
+      self%converged_=.true.
+    else
+      allocate(a(n,n),r(n,n),tmp(n,n),col(n),history(n,self%convergence_iter),chosen(n),assignment(n))
+      do i=1,n
+        s(i,i)=pref
+      end do
+      call seed_rng(self%random_state)
+      s=s+(epsilon(1._dp)*s+100*tiny(1._dp))*normal_random(n,n)
+      a=0; r=0; history=.false.
+      do it=1,self%max_iter
+        tmp=a+s
+        do i=1,n
+          idx=maxloc(tmp(i,:),dim=1); first=tmp(i,idx); tmp(i,idx)=-huge(1._dp); second=maxval(tmp(i,:))
+          tmp(i,:)=s(i,:)-first; tmp(i,idx)=s(i,idx)-second
+        end do
+        r=self%damping*r+(1-self%damping)*tmp; tmp=max(r,0._dp)
+        do i=1,n
+          tmp(i,i)=r(i,i)
+        end do
+        col=sum(tmp,dim=1)
+        do j=1,n
+          do i=1,n
+            if(i==j) then
+              tmp(i,j)=col(j)-r(j,j)
+            else
+              tmp(i,j)=min(0._dp,col(j)-tmp(i,j))
+            end if
+          end do
+        end do
+        a=self%damping*a+(1-self%damping)*tmp
+        chosen=[(a(i,i)+r(i,i)>0,i=1,n)]; history(:,mod(it-1,self%convergence_iter)+1)=chosen
+        self%n_iter_=it
+        if(it>self%convergence_iter.and.any(chosen)) then
+          if(all(all(history,dim=2).or..not.any(history,dim=2))) then
+            self%converged_=.true.; exit
+          end if
+        end if
+      end do
+      exemplars=pack([(i,i=1,n)],chosen); k=size(exemplars)
+      if(k>0) then
+        assignment=maxloc(s(:,exemplars),dim=2)
+        do i=1,k
+          assignment(exemplars(i))=i
+        end do
+        do i=1,k
+          members=pack([(j,j=1,n)],assignment==i)
+          idx=maxloc(sum(s(members,members),dim=1),dim=1); exemplars(i)=members(idx)
+        end do
+        assignment=maxloc(s(:,exemplars),dim=2)
+        do i=1,k
+          assignment(exemplars(i))=i
+        end do
+        self%cluster_centers_indices_=unique_labels(exemplars(assignment))
+        self%labels_=[(label_index(self%cluster_centers_indices_,exemplars(assignment(i)))-1,i=1,n)]
+      else
+        self%cluster_centers_indices_=pack([(i,i=1,n)],chosen); self%labels_=spread(-1,1,n)
+      end if
+    end if
+    self%affinity_matrix_=s
+    if(allocated(self%cluster_centers_)) deallocate(self%cluster_centers_)
+    if(self%affinity=='euclidean') self%cluster_centers_=x(self%cluster_centers_indices_,:)
+  end subroutine
+  function affinity_fit_predict(self,x) result(labels)
+    class(affinity_propagation), intent(inout) :: self
+    real(dp), intent(in) :: x(:,:)
+    integer :: labels(size(x,1))
+    call self%fit(x); labels=self%labels_
+  end function
+  function affinity_predict(self,x) result(labels)
+    class(affinity_propagation), intent(in) :: self
+    real(dp), intent(in) :: x(:,:)
+    integer :: labels(size(x,1))
+    real(dp), allocatable :: d(:,:)
+    call require(allocated(self%labels_),'AffinityPropagation is not fitted')
+    call require(allocated(self%cluster_centers_),'affinity prediction requires feature-input fitting')
+    call check_xy(transpose(x),size(self%cluster_centers_,2))
+    labels=-1
+    if(size(self%cluster_centers_,1)>0) then
+      d=pairwise_distances(x,self%cluster_centers_); labels=minloc(d,dim=2)-1
+    end if
+  end function
+  subroutine spectral_fit(self,x)
+    class(spectral_clustering), intent(inout) :: self
+    real(dp), intent(in) :: x(:,:)
+    type(kmeans) :: model
+    real(dp), allocatable :: work(:,:),rotation(:,:),u(:,:),v(:,:),s(:),direction(:)
+    integer, allocatable :: pivots(:)
+    integer :: n,k,i,j,idx
+    call check_x(x); n=size(x,1); k=self%n_clusters
+    call require(k>0.and.k<=n,'invalid spectral n_clusters')
+    call require(self%assign_labels=='kmeans'.or.self%assign_labels=='cluster_qr','unknown spectral assignment')
+    self%affinity_matrix_=spectral_affinity_matrix(x,self%affinity,self%gamma,self%n_neighbors)
+    self%embedding_=spectral_eigenvectors(self%affinity_matrix_,k,.false.,self%n_connected_components_)
+    if(self%assign_labels=='kmeans') then
+      model%n_clusters=k; model%n_init=self%n_init; model%random_state=self%random_state
+      call model%fit(self%embedding_); self%labels_=model%labels_
+    else
+      allocate(pivots(k),direction(k),u(k,k),s(k),v(k,k)); work=transpose(self%embedding_)
+      do i=1,k
+        idx=maxloc(sum(work**2,dim=1),dim=1); pivots(i)=idx; direction=work(:,idx)
+        call require(sum(direction**2)>epsilon(1._dp)**2,'spectral QR embedding is rank deficient')
+        direction=direction/sqrt(sum(direction**2))
+        do j=1,n
+          work(:,j)=work(:,j)-direction*dot_product(direction,work(:,j))
+          work(:,j)=work(:,j)-direction*dot_product(direction,work(:,j))
+        end do
+      end do
+      call dense_svd(transpose(self%embedding_(pivots,:)),s,u,v)
+      rotation=matmul(u,transpose(v)); work=abs(matmul(self%embedding_,rotation))
+      self%labels_=maxloc(work,dim=2)-1
+    end if
+  end subroutine
+  function spectral_fit_predict(self,x) result(labels)
+    class(spectral_clustering), intent(inout) :: self
+    real(dp), intent(in) :: x(:,:)
+    integer :: labels(size(x,1))
+    call self%fit(x); labels=self%labels_
+  end function
   subroutine kmeans_fit(self,x,init_centers)
     class(kmeans), intent(inout) :: self
     real(dp), intent(in) :: x(:,:)

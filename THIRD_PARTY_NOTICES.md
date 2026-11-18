@@ -27,7 +27,7 @@ Reference paths by module:
 | naive_bayes | naive_bayes.py |
 | neighbors | neighbors/_base.py, _classification.py, _regression.py |
 | decomposition | decomposition/_pca.py, _truncated_svd.py, _nmf.py |
-| cluster | cluster/_kmeans.py, _dbscan.py, _agglomerative.py |
+| cluster | cluster/_kmeans.py, _dbscan.py, _agglomerative.py, _mean_shift.py, _affinity_propagation.py, _spectral.py (including cluster_qr) |
 | tree | tree/_classes.py; CART splitting and recursion rewritten in Fortran |
 | ensemble | ensemble/_forest.py, _gb.py |
 | model_selection | model_selection/_split.py, _validation.py; linear_model/_ridge.py |
@@ -49,6 +49,8 @@ Reference paths by module:
 | semi_supervised | semi_supervised/_label_propagation.py; RBF/KNN diffusion and clamping |
 | factor_analysis | decomposition/_factor_analysis.py; full-SVD likelihood iteration, diagonal noise updates and posterior transform |
 | random_projection | random_projection.py; JL dimension bound, Gaussian/three-point distributions and pseudoinverse contract; independent Fortran random stream |
+| spectral | manifold/_spectral_embedding.py; degree-normalized eigenvectors and affinity construction, with native dense eigensolver |
+| density | neighbors/_kde.py, _binary_tree.pxi; kernel normalization, bandwidth rules and weighted mixture contract; native brute-force evaluation and Gaussian/uniform-ball sampling |
 
 SciFort is not currently linked. There are no third-party runtime dependencies.
 

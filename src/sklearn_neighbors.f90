@@ -1,12 +1,14 @@
 module sklearn_neighbors
   use sklearn_common
   use sklearn_outlier, only: local_outlier_factor
+  use sklearn_density, only: kernel_density
   use sklearn_metrics, only: pairwise_distances,accuracy_score,r2_score
   implicit none
   private
   public :: nearest_neighbors,kneighbors_classifier,kneighbors_regressor
   public :: radius_neighbors_classifier,radius_neighbors_regressor,nearest_centroid
   public :: local_outlier_factor
+  public :: kernel_density
   type :: nearest_neighbors
     integer :: n_neighbors=5
     character(16) :: metric='minkowski'

@@ -3,9 +3,10 @@ module sklearn_manifold
   use sklearn_common
   use sklearn_metrics, only: pairwise_distances
   use sklearn_kernel_pca, only: kernel_pca
+  use sklearn_spectral, only: spectral_embedding
   implicit none
   private
-  public :: isomap
+  public :: isomap,spectral_embedding
   type :: isomap
     integer :: n_neighbors=5,n_components=2,n_connected_components_=0
     character(16) :: metric='minkowski'

@@ -132,3 +132,36 @@ mean predictions, D2 and convergence/cap status with `atol=rtol=3e-8`.
 These are documented dense sklearn subsets. MIT project licensing, retained
 sklearn BSD-3-Clause attribution and the absence of runtime dependencies remain
 unchanged.
+
+## Mode/spectral clustering and density (2026-11-18)
+
+Added MeanShift, AffinityPropagation, SpectralClustering, SpectralEmbedding and
+KernelDensity. The package now has 80 public core types, 31 source modules,
+22 native test programs and eight examples.
+
+| Check | Observed result |
+| --- | --- |
+| Mode/spectral/density reference suite | All 231 added comparisons passed |
+| Bounds-checked native tests with invalid/zero/overflow traps | All 22 programs passed |
+| Release native tests | All 22 programs passed |
+| Existing four reference suites | All 729 comparisons still passed |
+| Input-error suite | All 62 expected-error cases passed |
+| Bounds-checked clustering/density example | Three modes; center/between-cluster log densities -0.563706 and -49.258346 |
+
+The five suites now provide 960 result-group comparisons against sklearn 1.6.1.
+
+The reference suite uses three datasets with two, three and four features,
+checking modes and exact center ordering, orphan/query semantics, bandwidths,
+iteration limits, AP exemplars and working similarities,
+spectral affinities/embedding Grams/partitions, and five normalized weighted
+density kernels. It uses `atol=rtol=3e-8`; spectral partitions also match known
+clusters exactly under adjusted Rand agreement. Gram comparisons remove
+eigenvector signs/rotations. Weighted compact-kernel queries have positive
+support to avoid tree-roundoff residue at mathematically zero density.
+
+Native checks verify density integrals and zero-density negative infinities,
+weighted sampling moments, seed repeatability, spectral degree-weighted
+orthonormality, large-self-loop invariance and disconnected components, automatic zero MeanShift bandwidth,
+equal similarities and AP fits without exemplars. These are supported dense
+subsets, not complete API translations. Scope and limits are recorded in
+`COVERAGE.md`; MIT project licensing and retained sklearn attribution apply.

@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 75 public estimator, transformer, and splitter types. Each is a
+There are 80 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Four reference suites additionally check 729 result
+All types have native tests. Five reference suites additionally check 960 result
 groups in total across seeded datasets against installed scikit-learn 1.6.1.
 
 This document counts core scikit-learn counterparts. Public extensions are
@@ -25,12 +25,14 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | preprocessing | `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `label_encoder`, `one_hot_encoder`; `normalize`, `binarize`, `polynomial_features` | Population variance; linear percentile interpolation; NaN imputation with mean/median/most-frequent/constant; numeric categories; dense polynomial terms through degree 12 with optional interactions |
 | linear_model | `linear_regression`, `ridge`, `lasso`, `elastic_net`, `logistic_regression`, `perceptron`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `huber_regressor`, `ransac_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; coordinate descent; logistic Newton solver; perceptron; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; RANSAC linear consensus; Newton GLMs |
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb` | Empirical class priors, variance smoothing, strictly positive scalar alpha; Bernoulli threshold; optional complement normalization |
-| neighbors | `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor` | Brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with optional shrinkage and uniform priors |
-| cluster | `kmeans`, `dbscan`, `agglomerative_clustering` | Lloyd iterations, k-means++ initialization or explicit centers; density expansion; full single/complete/average/Ward merge trees |
+| neighbors | `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with optional shrinkage and uniform priors; Euclidean kernel density |
+| cluster | `kmeans`, `dbscan`, `agglomerative_clustering`, `mean_shift`, `affinity_propagation`, `spectral_clustering`; `estimate_bandwidth` | Lloyd/k-means++; density expansion; single/complete/average/Ward merge trees; flat-kernel mode seeking; damped exemplar messages; normalized-Laplacian clustering with k-means or pivoted QR assignment |
 | decomposition | `pca`, `truncated_svd`, `nmf`; re-exports `kernel_pca`, `factor_analysis` | Direct Jacobi SVD; PCA whitening and inversion; exact dense SVD; NMF multiplicative updates; nonlinear kernel PCA; unrotated full-SVD factor analysis |
 | random_projection | `gaussian_random_projection`, `sparse_random_projection`; `johnson_lindenstrauss_min_dim` | Gaussian/three-point random matrices, dense storage, automatic JL dimension, cached or on-demand pseudoinverse |
 | kernel_pca | `kernel_pca` | Centered linear/RBF/polynomial/sigmoid/cosine/precomputed Gram matrices; dense Jacobi eigensolver; out-of-sample transform |
-| manifold | `isomap` | Dense k-neighbor graph, Floyd-Warshall shortest paths, nearest-component completion, kernel-PCA embedding and out-of-sample extension |
+| manifold | `isomap`; re-exports `spectral_embedding` | Isomap shortest-path graph, component completion and out-of-sample extension; normalized-Laplacian spectral embedding |
+| spectral | `spectral_embedding` | Dense symmetric eigensolver; RBF, symmetrized nearest-neighbor or precomputed affinity; degree normalization; connected-component count |
+| density | `kernel_density` | Exact Euclidean log densities with Gaussian/tophat/Epanechnikov/exponential/linear kernels; sample weights; fixed/Scott/Silverman bandwidth; Gaussian/tophat sampling |
 | outlier | `local_outlier_factor` | Training outlier scores and novelty detection, automatic/percentile threshold, Minkowski and other supported pairwise metrics |
 | semi_supervised | `label_propagation`, `label_spreading` | Dense RBF or directed k-neighbor graph, hard/soft clamping, transductive labels and inductive probabilities |
 | tree | `decision_tree_classifier`, `decision_tree_regressor` | Exhaustive CART; Gini/entropy/log-loss classification, squared-error regression; depth/leaf/split/feature controls, normalized impurity importance, leaf indices |
@@ -66,6 +68,38 @@ Pairwise: Euclidean/squared Euclidean, Manhattan, Chebyshev, Minkowski and cosin
 distances; cosine similarity; linear, RBF, polynomial and sigmoid kernels.
 
 ## Intentional differences and limits
+
+- MeanShift uses all training points as seeds, or explicit seeds passed to
+  `fit(x,seeds=...)`. There is no bin seeding or subsampling/parallel bandwidth
+  estimation. `bandwidth=-1` estimates the full-data 0.3-quantile bandwidth;
+  automatically estimated zero bandwidth is allowed for degenerate/small data.
+  `cluster_all=false` gives orphan training labels -1; `predict` still returns
+  the nearest center for every query, matching sklearn. Exact seed endpoints
+  are deduplicated with the last seed's intensity before mode suppression.
+- AffinityPropagation supports Euclidean negative squared distance or a square
+  precomputed similarity matrix and a scalar preference. `preference=huge(1._dp)`
+  selects the median similarity. It uses tiny Fortran-RNG perturbations rather
+  than NumPy's stream, so degenerate exemplars/iterations can differ. Inspect
+  `converged_`, `n_iter_` and `cluster_centers_indices_`; without exemplars the
+  labels/predictions are -1. Precomputed fitting has no prediction method.
+- SpectralEmbedding and SpectralClustering use dense normalized-Laplacian
+  eigendecomposition, not ARPACK/LOBPCG/AMG. Affinities are RBF, symmetric
+  k-neighbor connectivity including self, or a nonnegative symmetric square
+  precomputed matrix. Nonsymmetric/negative affinities are rejected. Self loops
+  are excluded before degree summation, including large diagonals. Disconnected
+  graphs are allowed and counted in `n_connected_components_` without a warning;
+  selected eigenvectors in repeated eigenspaces can differ from Python.
+  Embedding drops the first eigenvector; clustering retains it and embeds into
+  exactly `n_clusters` dimensions. Cluster assignment is k-means or `cluster_qr`,
+  not discretization; there are no callable kernels, precomputed-distance graph
+  mode, sparse storage, radius affinity, or out-of-sample spectral transform.
+- KernelDensity is an exact dense Euclidean mixture, with no tree backend,
+  approximation tolerances or non-Euclidean metrics. Cosine kernels are not yet
+  implemented. Zero density under compact kernels returns negative infinity,
+  not a finite floor. Its `score` sums log densities. Sample weights must be
+  nonnegative with positive total. Bandwidth rules use sample count and feature
+  dimension as in sklearn, without additional covariance scaling. Sampling is
+  available only for Gaussian/tophat kernels and uses the Fortran RNG.
 
 - HuberRegressor uses bounded full-memory BFGS for coefficients, intercept and
   scale, with the sklearn Huber objective and L2 penalty. It has no warm start,
@@ -192,7 +226,7 @@ distances; cosine similarity; linear, RBF, polynomial and sigmoid kernels.
 Not translated: sparse data paths, general estimator base/clone/parameter search
 framework, pipelines/column transformers, full SVM family, Theil-Sen/quantile
 regression, remaining GLM variants, SGD families, histogram boosting, AdaBoost and bagging APIs,
-manifold learning beyond Isomap, spectral clustering, OPTICS/BIRCH/mean shift,
+manifold learning beyond Isomap/spectral embedding, OPTICS/BIRCH,
 outlier detection beyond LOF,
 Gaussian-process classification, dictionary learning/ICA,
 calibration, semi-supervised learning beyond label propagation/spreading,
