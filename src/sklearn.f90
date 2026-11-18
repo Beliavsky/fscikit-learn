@@ -26,6 +26,7 @@ module sklearn
   use sklearn_manifold
   use sklearn_outlier
   use sklearn_semi_supervised
+  use sklearn_random_projection
   implicit none
   public
 end module

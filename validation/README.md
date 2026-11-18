@@ -7,6 +7,7 @@ fpm test --flag "-fcheck=all -fbacktrace"
 fpm test --profile release
 python validation/compare_sklearn.py
 python validation/compare_graph_algorithms.py
+python validation/compare_regression_projection.py
 python validation/check_invalid_inputs.py
 ```
 
@@ -50,13 +51,37 @@ tests cover multi-component partitions and all four covariance modes. Neural
 networks are validated by learning nonlinear XOR/regression, loss decrease and
 normalized probabilities, rather than equating different random initializations.
 
-`check_invalid_inputs.py` checks 26 error paths in separate bounds-checked
+`compare_regression_projection.py` adds 68 result groups on each of three
+datasets (80-by-6, 60-by-5 and wide 8-by-12), bringing the three-suite total to
+**516** comparisons. It checks Bayesian/ARD coefficients, precisions, posterior
+covariance and predictive uncertainty, pruning, intercept-free and capped fits,
+OMP sparsity/tolerance modes, factor covariance/precision/latent Gram matrices,
+log likelihood and iteration counts, and projection transforms/pseudoinverses.
+The tolerance is `atol=rtol=2e-7`, except wide ARD uses `atol=rtol=1e-5` to allow
+inverse-roundoff differences. Wide ARD fits use `tol=1e-4` to avoid comparing
+roundoff-dominated stopping decisions at `1e-8`: sklearn uses a Woodbury/SVD
+inverse while Fortran uses a Cholesky inverse in active feature space.
+
+Wide Bayesian covariance checks use full-row-rank data without centering;
+centered wide matrices have nonunique retained null-space directions in sklearn's
+thin-SVD covariance convention. Factor latent Grams remove arbitrary SVD signs.
+Projection reference models receive the native drawn matrix, so these checks
+validate algebra and reconstruction, not equality of random streams. Matrix
+inputs themselves are excluded from the comparison count. Native tests
+separately check distribution moments, density, seed repeatability, distance
+preservation, zero-rank inverse behavior, sparse support recovery and all-pruned
+ARD posteriors.
+
+`check_invalid_inputs.py` checks 35 error paths in separate bounds-checked
 processes, requiring both an error exit and a specific input diagnostic.
 These cover unfitted use, nonfinite data, feature/target shape mismatches,
 invalid hyperparameters, empty text and unusable/all-missing data.
 New cases cover empty radius neighborhoods, LOF novelty misuse, nonsymmetric
 and indefinite kernels, Isomap neighbor counts, fully unlabeled training data
 and invalid soft-clamping parameters.
+Bayesian hyperpriors, ARD thresholds, OMP sparsity, factor components/noise,
+projection density/automatic dimensions and unfitted uncertainty/inversion are
+also rejected with explicit diagnostics.
 
 Generated datasets, outputs, JSON reports and logs are saved in `validation/results/`
 (ignored by Git). The reference report records the actual Python package version.

@@ -1,7 +1,7 @@
 # fscikit-learn
 
 A native Fortran fpm package translating a practical dense-array subset of
-scikit-learn: **64 estimator, transformer and splitter types**, metrics,
+scikit-learn: **70 estimator, transformer and splitter types**, metrics,
 kernels, text features and synthetic dataset generators. This is not a complete
 or drop-in translation. Read [coverage and limits](docs/COVERAGE.md) before use.
 
@@ -18,6 +18,7 @@ fpm test
 fpm run --example classification
 python validation/compare_sklearn.py
 python validation/compare_graph_algorithms.py
+python validation/compare_regression_projection.py
 python validation/check_invalid_inputs.py
 ```
 

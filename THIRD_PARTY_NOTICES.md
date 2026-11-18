@@ -23,7 +23,7 @@ Reference paths by module:
 | --- | --- |
 | preprocessing | preprocessing/_data.py, _label.py, _encoders.py, _polynomial.py; impute/_base.py |
 | metrics | metrics/_regression.py, _classification.py, _ranking.py, pairwise.py; metrics/cluster/ |
-| linear_model | linear_model/_base.py, _ridge.py, _coordinate_descent.py, _logistic.py, _perceptron.py |
+| linear_model | linear_model/_base.py, _ridge.py, _coordinate_descent.py, _logistic.py, _perceptron.py, _bayes.py, _omp.py |
 | naive_bayes | naive_bayes.py |
 | neighbors | neighbors/_base.py, _classification.py, _regression.py |
 | decomposition | decomposition/_pca.py, _truncated_svd.py, _nmf.py |
@@ -47,6 +47,8 @@ Reference paths by module:
 | kernel_pca | decomposition/_kernel_pca.py; kernel centering and PSD eigenvalue rules adapted for Fortran |
 | manifold (Isomap) | manifold/_isomap.py; utils/graph.py (connected-component completion) |
 | semi_supervised | semi_supervised/_label_propagation.py; RBF/KNN diffusion and clamping |
+| factor_analysis | decomposition/_factor_analysis.py; full-SVD likelihood iteration, diagonal noise updates and posterior transform |
+| random_projection | random_projection.py; JL dimension bound, Gaussian/three-point distributions and pseudoinverse contract; independent Fortran random stream |
 
 SciFort is not currently linked. There are no third-party runtime dependencies.
 

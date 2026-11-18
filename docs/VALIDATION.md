@@ -56,3 +56,41 @@ The package now has 27 source modules, 64 public estimator/transformer/splitter
 types, and five examples. These additions are core counterparts, not public
 extensions. MIT project licensing and retained scikit-learn notices apply as
 documented in `THIRD_PARTY_NOTICES.md`; no new runtime dependency was added.
+
+## Bayesian regression, factors and projections (2026-11-18)
+
+Added six core counterpart types: BayesianRidge, ARDRegression,
+OrthogonalMatchingPursuit, FactorAnalysis, GaussianRandomProjection and
+SparseRandomProjection. The package now has 29 source modules, 70 public core
+types, 18 native test programs and six examples.
+
+| Check | Observed result |
+| --- | --- |
+| Bounds-checked native tests with invalid/zero/overflow traps | All 18 programs passed |
+| Release native tests | All 18 programs passed |
+| Bayesian/factor/projection reference suite | All 204 comparisons passed |
+| Original reference suite | All 192 comparisons still passed |
+| Graph/neighbor reference suite | All 120 comparisons still passed |
+| Input-error suite | All 35 expected-error cases passed |
+| `fpm run --example bayesian_regression` | Bayesian and ARD held-out R2 approximately 0.99999658 on the synthetic fixture |
+
+The three reference suites now provide 516 result-group comparisons against
+the installed scikit-learn 1.6.1 baseline.
+
+The new suite covers tall and wide inputs, coefficient pruning, posterior
+uncertainties, intercept-free and capped fits, OMP stopping modes, zero-factor
+models, full-SVD factor likelihoods, projection algebra and pseudoinverses.
+Native tests additionally check all-pruned ARD, dependent OMP dictionaries,
+Bayesian cross-validation and covariance on the identifiable row space of
+centered wide data, projection distribution moments and sparse density.
+
+The reference suite uses `atol=rtol=2e-7`, except for wide ARD (`1e-5`) because
+the active-feature Cholesky and sklearn Woodbury/SVD inverses have different
+roundoff. That fixture uses a fitting tolerance of `1e-4` rather than comparing
+roundoff-dominated stopping at `1e-8`. Wide Bayesian covariance is compared on
+full-row-rank uncentered data; see `COVERAGE.md` for the nonunique null-space
+basis in centered wide fits. Random projection reference checks use the native
+matrix as input and do not assert identical NumPy random streams.
+
+The project MIT license and retained sklearn BSD-3-Clause attribution continue
+to apply. No public extension or runtime dependency was introduced.

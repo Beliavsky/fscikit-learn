@@ -145,7 +145,8 @@ is run. `log_marginal_likelihood_` is the fitted normalized-target likelihood.
 ## Iterative solvers and reproducibility
 
 Inspect `converged_` and `n_iter_` after fitting elastic net/lasso, logistic
-regression, k-means, NMF, Gaussian mixtures, MLPs, and SVC. A completed `fit` does
+regression, k-means, NMF, Gaussian mixtures, MLPs, SVC, BayesianRidge, ARD and
+FactorAnalysis. A completed `fit` does
 not guarantee convergence if `max_iter` was exhausted. MLP convergence means
 training loss failed to improve by `tol` for `n_iter_no_change` iterations;
 there is no held-out validation-set stopping criterion.
@@ -207,3 +208,57 @@ query without neighbors; opt in to numeric outlier labels using
 `allow_outliers=true` and `outlier_label`. Regression returns NaN for such a
 query. Nearest centroid supports `metric='euclidean'` or `'manhattan'`, uniform
 priors, and nonnegative `shrink_threshold`; the default zero disables shrinkage.
+
+## Bayesian and sparse regression
+
+`bayesian_ridge`, `ard_regression`, and `orthogonal_matching_pursuit` are in
+`sklearn_linear_model`, inherit `fit_intercept`, `coef_`, `intercept_`, `predict`
+and R2 `score`, and can be passed to `cross_val_score`.
+
+```fortran
+type(bayesian_ridge) :: model
+call model%fit(x_train,y_train)
+prediction=model%predict(x_query)
+uncertainty=model%predict_std(x_query)
+```
+
+Bayesian models expose `alpha_` (noise precision), `sigma_` (coefficient
+covariance), `n_iter_` and `converged_`. Both use positive `alpha_1`, `alpha_2`,
+`lambda_1` and `lambda_2` hyperpriors, plus `tol` and `max_iter`. BayesianRidge
+has scalar `lambda_`, `alpha_init=-1` for automatic initialization, and
+`lambda_init=1`. ARD has per-feature `lambda_`; features with precision at or
+above `threshold_lambda` are pruned. Its `sigma_` contains retained features
+only, in original feature order, and can have shape `(0,0)`.
+
+`predict_std` includes observation noise and uses raw query features, matching
+sklearn; it does not add intercept uncertainty. See `example/bayesian_regression.f90`.
+
+OMP uses `n_nonzero_coefs=0` for `max(1,n_features/10)` or an explicit positive
+count. Set `tol>=0` to stop by residual sum of squares instead; `tol=-1` disables
+this rule. Inputs are centered when fitting an intercept but columns are not
+normalized. `n_iter_` reports selected features, including early termination on
+dependent columns or vanishing correlations.
+
+## Factor analysis and random projections
+
+`factor_analysis` is exported by `sklearn_decomposition` and implemented in
+`sklearn_factor_analysis`. It provides `fit`, `fit_transform`, `transform`,
+`get_covariance`, `get_precision`, `score_samples`, and mean log-likelihood
+`score`. `n_components=-1` selects all features; zero selects a diagonal noise
+model with no latent dimensions. Optional `noise_variance_init(:)` must be
+positive. Inspect `components_`, `mean_`, `noise_variance_`, `loglike_`, `n_iter_`
+and `converged_`. Components have shape `(n_components,n_features)`.
+
+`sklearn_random_projection` exports `gaussian_random_projection`,
+`sparse_random_projection` and `johnson_lindenstrauss_min_dim(n_samples,eps)`.
+Both types support `fit`, `fit_transform`, `transform` and `inverse_transform`.
+`n_components=0` chooses the JL bound from `eps`; specify a positive dimension
+to override it. `components_` has shape `(n_components_,n_features)`.
+Sparse projections use `density=-1` for `1/sqrt(n_features)`; otherwise choose
+a value in `(0,1]`. `density_` stores the fitted value. Storage and outputs are
+dense even when entries are zero.
+
+Set `compute_inverse_components=true` to cache `inverse_components_` with shape
+`(n_features,n_components_)`. Otherwise `inverse_transform` computes it on
+demand. This is a minimum-norm reconstruction; reduced projections generally
+lose information. Fitting again clears the previous inverse cache.

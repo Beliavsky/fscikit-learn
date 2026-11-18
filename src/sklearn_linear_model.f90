@@ -4,6 +4,7 @@ module sklearn_linear_model
   implicit none
   private
   public :: linear_regression, ridge, lasso, elastic_net, logistic_regression, perceptron
+  public :: bayesian_ridge, ard_regression, orthogonal_matching_pursuit
   type :: linear_regression
     logical :: fit_intercept=.true.
     real(dp), allocatable :: coef_(:)
@@ -55,7 +56,176 @@ module sklearn_linear_model
     procedure :: predict=>perceptron_predict
     procedure :: score=>perceptron_score
   end type
+  type, extends(linear_regression) :: bayesian_ridge
+    integer :: max_iter=300,n_iter_=0
+    real(dp) :: tol=1.e-3_dp,alpha_1=1.e-6_dp,alpha_2=1.e-6_dp
+    real(dp) :: lambda_1=1.e-6_dp,lambda_2=1.e-6_dp,alpha_init=-1,lambda_init=1
+    real(dp) :: alpha_=0,lambda_=0
+    logical :: converged_=.false.
+    real(dp), allocatable :: sigma_(:,:)
+  contains
+    procedure :: fit=>bayesian_fit
+    procedure :: predict_std=>bayesian_std
+  end type
+  type, extends(linear_regression) :: ard_regression
+    integer :: max_iter=300,n_iter_=0
+    real(dp) :: tol=1.e-3_dp,alpha_1=1.e-6_dp,alpha_2=1.e-6_dp
+    real(dp) :: lambda_1=1.e-6_dp,lambda_2=1.e-6_dp,threshold_lambda=1.e4_dp,alpha_=0
+    logical :: converged_=.false.
+    real(dp), allocatable :: lambda_(:),sigma_(:,:)
+  contains
+    procedure :: fit=>ard_fit
+    procedure :: predict_std=>ard_std
+  end type
+  type, extends(linear_regression) :: orthogonal_matching_pursuit
+    integer :: n_nonzero_coefs=0,n_iter_=0
+    real(dp) :: tol=-1
+  contains
+    procedure :: fit=>omp_fit
+  end type
 contains
+  ! Bayesian precision updates and OMP selection follow sklearn 1.6.1
+  ! linear_model/_bayes.py and _omp.py. See THIRD_PARTY_NOTICES.md.
+  subroutine bayesian_fit(self,x,y)
+    class(bayesian_ridge), intent(inout) :: self
+    real(dp), intent(in) :: x(:,:),y(:)
+    real(dp) :: xc(size(x,1),size(x,2)),yc(size(y)),xm(size(x,2)),ym
+    real(dp) :: u(size(x,1),size(x,2)),s(size(x,2)),v(size(x,2),size(x,2))
+    real(dp) :: rhs(size(x,2)),old(size(x,2)),weights(size(x,2)),gamma,rss
+    integer :: it,j,p,k
+    call require(self%max_iter>0.and.self%tol>=0,'invalid BayesianRidge iteration parameters')
+    call require(min(self%alpha_1,self%alpha_2,self%lambda_1,self%lambda_2)>0, &
+      'BayesianRidge hyperpriors must be positive')
+    call require((self%alpha_init==-1.or.self%alpha_init>0).and.self%lambda_init>0, &
+      'invalid BayesianRidge initial precision')
+    call centered(x,y,self%fit_intercept,xc,yc,xm,ym)
+    p=size(x,2); k=min(size(x,1),p)
+    call dense_svd(xc,s,u,v); rhs=s*matmul(transpose(u),yc)
+    self%rank_=count(s>epsilon(1._dp)*maxval(s)*max(size(x,1),p))
+    self%alpha_=self%alpha_init
+    if(self%alpha_init==-1) self%alpha_=1/(sum((yc-sum(yc)/size(yc))**2)/size(yc)+epsilon(1._dp))
+    self%lambda_=self%lambda_init; old=0; self%converged_=.false.
+    do it=1,self%max_iter
+      self%coef_=matmul(v,rhs/(s*s+self%lambda_/self%alpha_))
+      rss=sum((yc-matmul(xc,self%coef_))**2)
+      gamma=sum(self%alpha_*s*s/(self%lambda_+self%alpha_*s*s))
+      self%lambda_=(gamma+2*self%lambda_1)/(sum(self%coef_**2)+2*self%lambda_2)
+      self%alpha_=(size(y)-gamma+2*self%alpha_1)/(rss+2*self%alpha_2)
+      self%n_iter_=it
+      if(it>1.and.sum(abs(old-self%coef_))<self%tol) then
+        self%converged_=.true.; exit
+      end if
+      old=self%coef_
+    end do
+    self%coef_=matmul(v,rhs/(s*s+self%lambda_/self%alpha_))
+    self%intercept_=ym-dot_product(xm,self%coef_)
+    weights=0; weights(:k)=1/(self%alpha_*s(:k)**2+self%lambda_)
+    self%sigma_=matmul(v*spread(weights,1,p),transpose(v))
+  end subroutine
+  function bayesian_std(self,x) result(std)
+    class(bayesian_ridge), intent(in) :: self
+    real(dp), intent(in) :: x(:,:)
+    real(dp) :: std(size(x,1))
+    call require(allocated(self%sigma_),'BayesianRidge is not fitted')
+    call check_xy(transpose(x),size(self%coef_))
+    std=sqrt(max(0._dp,sum(matmul(x,self%sigma_)*x,dim=2))+1/self%alpha_)
+  end function
+  function positive_inverse(a) result(inv)
+    real(dp), intent(in) :: a(:,:)
+    real(dp) :: inv(size(a,1),size(a,2)),l(size(a,1),size(a,2)),e(size(a,1))
+    integer :: j
+    l=cholesky_factor(a)
+    do j=1,size(a,1)
+      e=0; e(j)=1; inv(:,j)=solve_upper(transpose(l),solve_lower(l,e))
+    end do
+  end function
+  subroutine ard_posterior(x,y,alpha,lambda,keep,sigma,coef)
+    real(dp), intent(in) :: x(:,:),y(:),alpha,lambda(:)
+    integer, intent(in) :: keep(:)
+    real(dp), allocatable, intent(out) :: sigma(:,:)
+    real(dp), intent(out) :: coef(:)
+    real(dp) :: a(size(keep),size(keep))
+    integer :: j
+    coef=0
+    a=alpha*matmul(transpose(x(:,keep)),x(:,keep))
+    do j=1,size(keep)
+      a(j,j)=a(j,j)+lambda(keep(j))
+    end do
+    sigma=positive_inverse(a)
+    coef(keep)=alpha*matmul(sigma,matmul(transpose(x(:,keep)),y))
+  end subroutine
+  subroutine ard_fit(self,x,y)
+    class(ard_regression), intent(inout) :: self
+    real(dp), intent(in) :: x(:,:),y(:)
+    real(dp) :: xc(size(x,1),size(x,2)),yc(size(y)),xm(size(x,2)),ym
+    real(dp) :: old(size(x,2)),gamma(size(x,2)),rss
+    integer, allocatable :: keep(:)
+    integer :: it,j,p
+    call require(self%max_iter>0.and.self%tol>=0.and.self%threshold_lambda>0,'invalid ARD parameters')
+    call require(min(self%alpha_1,self%alpha_2,self%lambda_1,self%lambda_2)>0,'ARD hyperpriors must be positive')
+    call centered(x,y,self%fit_intercept,xc,yc,xm,ym); p=size(x,2)
+    self%lambda_=spread(1._dp,1,p); self%coef_=spread(0._dp,1,p)
+    self%alpha_=1/(sum((yc-sum(yc)/size(yc))**2)/size(yc)+epsilon(1._dp))
+    keep=[(j,j=1,p)]; old=0; self%converged_=.false.
+    do it=1,self%max_iter
+      call ard_posterior(xc,yc,self%alpha_,self%lambda_,keep,self%sigma_,self%coef_)
+      rss=sum((yc-matmul(xc,self%coef_))**2)
+      do j=1,size(keep)
+        gamma(j)=1-self%lambda_(keep(j))*self%sigma_(j,j)
+      end do
+      self%lambda_(keep)=(gamma(:size(keep))+2*self%lambda_1)/(self%coef_(keep)**2+2*self%lambda_2)
+      self%alpha_=(size(y)-sum(gamma(:size(keep)))+2*self%alpha_1)/(rss+2*self%alpha_2)
+      keep=pack([(j,j=1,p)],self%lambda_<self%threshold_lambda)
+      where(self%lambda_>=self%threshold_lambda) self%coef_=0
+      self%n_iter_=it
+      if((it>1.and.sum(abs(old-self%coef_))<self%tol).or.size(keep)==0) then
+        self%converged_=.true.; exit
+      end if
+      old=self%coef_
+    end do
+    call ard_posterior(xc,yc,self%alpha_,self%lambda_,keep,self%sigma_,self%coef_)
+    self%intercept_=ym-dot_product(xm,self%coef_); self%rank_=size(keep)
+  end subroutine
+  function ard_std(self,x) result(std)
+    class(ard_regression), intent(in) :: self
+    real(dp), intent(in) :: x(:,:)
+    real(dp) :: std(size(x,1))
+    integer, allocatable :: keep(:)
+    integer :: j
+    call require(allocated(self%sigma_),'ARDRegression is not fitted')
+    call check_xy(transpose(x),size(self%coef_))
+    keep=pack([(j,j=1,size(self%coef_))],self%lambda_<self%threshold_lambda)
+    std=sqrt(max(0._dp,sum(matmul(x(:,keep),self%sigma_)*x(:,keep),dim=2))+1/self%alpha_)
+  end function
+  subroutine omp_fit(self,x,y)
+    class(orthogonal_matching_pursuit), intent(inout) :: self
+    real(dp), intent(in) :: x(:,:),y(:)
+    real(dp) :: xc(size(x,1),size(x,2)),yc(size(y)),xm(size(x,2)),ym
+    real(dp) :: residual(size(y)),corr(size(x,2))
+    real(dp), allocatable :: s(:),u(:,:),v(:,:),c(:)
+    integer :: p,k,j,limit,idx(size(x,2))
+    call centered(x,y,self%fit_intercept,xc,yc,xm,ym); p=size(x,2)
+    call require(self%n_nonzero_coefs>=0.and.self%n_nonzero_coefs<=p,'invalid OMP sparsity')
+    call require(self%tol>=0.or.self%tol==-1,'OMP tol must be nonnegative or -1')
+    limit=self%n_nonzero_coefs
+    if(limit==0) limit=max(1,p/10)
+    if(self%tol>=0) limit=p
+    residual=yc; self%coef_=spread(0._dp,1,p); self%n_iter_=0
+    do k=1,limit
+      corr=matmul(transpose(xc),residual); j=maxloc(abs(corr),dim=1)
+      if(any(idx(:k-1)==j).or.corr(j)**2<epsilon(1._dp)) exit
+      idx(k)=j
+      if(allocated(s)) deallocate(s,u,v,c)
+      allocate(s(k),u(size(y),k),v(k,k),c(k))
+      call dense_svd(xc(:,idx(:k)),s,u,v)
+      if(minval(s)<=sqrt(epsilon(1._dp))*maxval(s)) exit
+      c=matmul(v,matmul(transpose(u),yc)/s)
+      self%coef_=0; self%coef_(idx(:k))=c
+      residual=yc-matmul(xc,self%coef_); self%n_iter_=k
+      if(self%tol>=0.and.sum(residual**2)<=self%tol) exit
+    end do
+    self%rank_=self%n_iter_; self%intercept_=ym-dot_product(xm,self%coef_)
+  end subroutine
   subroutine centered(x,y,fit_intercept,xc,yc,xmean,ymean)
     real(dp), intent(in) :: x(:,:),y(:)
     logical, intent(in) :: fit_intercept

@@ -23,6 +23,12 @@ program invalid_input_driver
   type(isomap) :: iso
   type(label_propagation) :: lp
   type(label_spreading) :: ls
+  type(bayesian_ridge) :: br
+  type(ard_regression) :: ar
+  type(orthogonal_matching_pursuit) :: omp
+  type(factor_analysis) :: fa
+  type(gaussian_random_projection) :: projection
+  type(sparse_random_projection) :: sparse_projection
   type(index_split), allocatable :: folds(:)
   real(dp) :: x(4,2),y(4)
   real(dp), allocatable :: z(:,:),pred(:)
@@ -59,6 +65,16 @@ program invalid_input_driver
   case('isomap_neighbors'); iso%n_neighbors=4; call iso%fit(x)
   case('unlabeled'); call lp%fit(x,[-1,-1,-1,-1])
   case('spreading_alpha'); ls%alpha=1; call ls%fit(x,[0,-1,-1,1])
+  case('bayes_prior'); br%alpha_1=0; call br%fit(x,y)
+  case('bayes_unfitted'); pred=br%predict_std(x)
+  case('ard_threshold'); ar%threshold_lambda=0; call ar%fit(x,y)
+  case('omp_sparsity'); omp%n_nonzero_coefs=3; call omp%fit(x,y)
+  case('factor_components'); fa%n_components=3; call fa%fit(x)
+  case('factor_noise'); fa%noise_variance_init=[1._dp,0._dp]; call fa%fit(x)
+  case('projection_auto'); call projection%fit(x)
+  case('projection_density'); sparse_projection%n_components=1; sparse_projection%density=0
+    call sparse_projection%fit(x)
+  case('projection_unfitted'); z=projection%inverse_transform(x)
   case default; error stop 'unknown validation mode'
   end select
   print *, 'ERROR: invalid input was accepted'

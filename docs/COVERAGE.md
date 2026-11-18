@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 64 public estimator, transformer, and splitter types. Each is a
+There are 70 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Two reference suites additionally check 312 result
+All types have native tests. Three reference suites additionally check 516 result
 groups in total across seeded datasets against installed scikit-learn 1.6.1.
 
 This document counts core scikit-learn counterparts. Public extensions are
@@ -23,11 +23,12 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | Module (`sklearn_` prefix) | Public types and functions | Scope and numerical choices |
 | --- | --- | --- |
 | preprocessing | `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `label_encoder`, `one_hot_encoder`; `normalize`, `binarize`, `polynomial_features` | Population variance; linear percentile interpolation; NaN imputation with mean/median/most-frequent/constant; numeric categories; dense polynomial terms through degree 12 with optional interactions |
-| linear_model | `linear_regression`, `ridge`, `lasso`, `elastic_net`, `logistic_regression`, `perceptron` | Direct Jacobi SVD minimum-norm least squares/ridge; cyclic coordinate descent; L2 binary/multinomial Newton logistic solver with backtracking; deterministic one-vs-rest perceptron |
+| linear_model | `linear_regression`, `ridge`, `lasso`, `elastic_net`, `logistic_regression`, `perceptron`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit` | Direct Jacobi SVD least squares/ridge; coordinate descent; Newton logistic solver; one-vs-rest perceptron; Bayesian precision updates and predictive uncertainty; ARD pruning; greedy OMP |
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb` | Empirical class priors, variance smoothing, strictly positive scalar alpha; Bernoulli threshold; optional complement normalization |
 | neighbors | `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor` | Brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with optional shrinkage and uniform priors |
 | cluster | `kmeans`, `dbscan`, `agglomerative_clustering` | Lloyd iterations, k-means++ initialization or explicit centers; density expansion; full single/complete/average/Ward merge trees |
-| decomposition | `pca`, `truncated_svd`, `nmf`; re-exports `kernel_pca` | Direct Jacobi SVD; PCA whitening and inversion; exact dense SVD; NMF multiplicative updates; nonlinear kernel PCA |
+| decomposition | `pca`, `truncated_svd`, `nmf`; re-exports `kernel_pca`, `factor_analysis` | Direct Jacobi SVD; PCA whitening and inversion; exact dense SVD; NMF multiplicative updates; nonlinear kernel PCA; unrotated full-SVD factor analysis |
+| random_projection | `gaussian_random_projection`, `sparse_random_projection`; `johnson_lindenstrauss_min_dim` | Gaussian/three-point random matrices, dense storage, automatic JL dimension, cached or on-demand pseudoinverse |
 | kernel_pca | `kernel_pca` | Centered linear/RBF/polynomial/sigmoid/cosine/precomputed Gram matrices; dense Jacobi eigensolver; out-of-sample transform |
 | manifold | `isomap` | Dense k-neighbor graph, Floyd-Warshall shortest paths, nearest-component completion, kernel-PCA embedding and out-of-sample extension |
 | outlier | `local_outlier_factor` | Training outlier scores and novelty detection, automatic/percentile threshold, Minkowski and other supported pairwise metrics |
@@ -65,6 +66,29 @@ Pairwise: Euclidean/squared Euclidean, Manhattan, Chebyshev, Minkowski and cosin
 distances; cosine similarity; linear, RBF, polynomial and sigmoid kernels.
 
 ## Intentional differences and limits
+
+- BayesianRidge and ARD support one real target, positive hyperpriors and
+  predictive standard deviations, without marginal-likelihood score history,
+  sample weights or warm starts. ARD uses a Cholesky inverse of the active
+  feature precision even for wide input; sklearn switches to a Woodbury/SVD
+  inverse there, so numerical convergence paths can differ. BayesianRidge
+  follows sklearn's thin-SVD covariance convention for wide matrices. When
+  such a matrix is rank deficient (including centered wide data), the retained
+  null-space basis is not unique and covariance entries/predicted uncertainties
+  outside the data row space can differ between SVD implementations.
+- OMP supports a sparsity count or residual tolerance, with a direct SVD solve
+  on the active dictionary. There is no precomputed Gram input, multi-target
+  output, coefficient path or cross-validated OMP estimator.
+- FactorAnalysis supports the unrotated full-SVD algorithm (`svd_method='lapack'`
+  in sklearn), not randomized SVD or varimax/quartimax rotation. Requested
+  components cannot exceed `min(n_samples,n_features)`. Exact zero singular
+  values are floored only in the training likelihood to avoid log-zero traps;
+  singular-model likelihood history can therefore differ from Python's infinities.
+- Random projections use Gaussian or independent three-point entries with
+  the sklearn variance scaling, but no sparse matrix storage or NumPy seed
+  equivalence. Automatic JL dimensions exceeding the input width are rejected;
+  explicitly requested dimensions may exceed it without a warning. These are
+  standard sklearn counterparts, not project extensions.
 
 - Inputs are finite dense `real(dp)` arrays, except NaNs specifically accepted by
   `simple_imputer`. Strings are accepted only by text vectorizers. Empty feature
@@ -142,11 +166,11 @@ distances; cosine similarity; linear, RBF, polynomial and sigmoid kernels.
 ## Remaining major scikit-learn areas
 
 Not translated: sparse data paths, general estimator base/clone/parameter search
-framework, pipelines/column transformers, full SVM family, robust/Bayesian/GLM
+framework, pipelines/column transformers, full SVM family, robust/GLM
 linear estimators, SGD families, histogram boosting, AdaBoost and bagging APIs,
 manifold learning beyond Isomap, spectral clustering, OPTICS/BIRCH/mean shift,
 outlier detection beyond LOF,
-Gaussian-process classification, dictionary learning/ICA/factor analysis,
+Gaussian-process classification, dictionary learning/ICA,
 calibration, semi-supervised learning beyond label propagation/spreading,
 multiclass/multioutput wrappers,
 inspection/permutation importance, feature-selection wrappers, image features,

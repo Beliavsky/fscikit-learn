@@ -51,3 +51,20 @@ comparisons against sklearn 1.6.1 and ten additional input-error cases. The
 existing 192 reference comparisons continue to pass. Scope, API, provenance and
 coverage documentation now distinguish the supported dense subsets and their
 remaining limitations.
+
+## Bayesian/sparse regression, factors and projections (2026-11-18)
+
+Added six core sklearn counterparts: BayesianRidge, ARDRegression,
+OrthogonalMatchingPursuit, FactorAnalysis, GaussianRandomProjection and
+SparseRandomProjection. Bayesian and sparse regressors inherit the existing
+linear-regression prediction, scoring and cross-validation APIs. FactorAnalysis
+is re-exported from `sklearn_decomposition`; projections have a focused
+`sklearn_random_projection` module. All six are exported by `use sklearn`.
+
+The increment adds two native test programs, 204 reference comparisons across
+tall and wide datasets, nine diagnostic checks and a Bayesian regression
+example. Reference checks distinguish random-matrix inputs from independently
+checked outputs. Documentation records wide Bayesian covariance null-space
+ambiguity and the ARD inverse/convergence differences, alongside the supported
+dense, unrotated and single-target subsets. No extension or runtime dependency
+was added. See `VALIDATION.md` for the completed verification record.
