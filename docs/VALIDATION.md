@@ -1,6 +1,6 @@
 # Validation record
 
-Verified locally on Windows on 2026-11-17 (America/New_York).
+Initial package verified locally on Windows on 2026-11-17 (America/New_York).
 
 Toolchain: fpm 0.12.0 alpha; GNU Fortran 17.0.0 20260510 experimental;
 Python 3.13; scikit-learn 1.6.1.
@@ -28,3 +28,31 @@ types. No SciFort or other third-party runtime dependency was required.
 Validation was performed on the working tree before the initial commit. An
 initial read-only `.git` restriction was lifted by the user on 2026-11-18,
 allowing the tested package to be committed.
+
+## Graph, neighbor and outlier increment (2026-11-18)
+
+Added eight scikit-learn counterpart types: `RadiusNeighborsClassifier`,
+`RadiusNeighborsRegressor`, `NearestCentroid`, `LocalOutlierFactor`, `KernelPCA`,
+`Isomap`, `LabelPropagation` and `LabelSpreading`.
+
+| Check | Observed result |
+| --- | --- |
+| Native tests in release profile | All 16 programs passed |
+| Native tests with bounds checking and invalid/zero/overflow traps | All 16 programs passed |
+| Original reference suite | All 192 comparisons still passed |
+| Graph/neighbor reference suite | All 120 added comparisons passed |
+| Input-error suite | All 26 expected-error cases passed |
+| `fpm run --example semi_supervised` | 20 of 100 labels supplied; transductive fixture accuracy 1.0; converged in 11 iterations |
+
+The reference total is now 312 comparisons against scikit-learn 1.6.1. The new
+suite checks disconnected Isomap graph completion, precomputed kernel
+transforms, shrinking mean/median centroids, radius weighting, LOF training and
+novelty scores, RBF/KNN diffusion probabilities, and diffusion iteration counts
+and convergence status. One tightly converged reference fixture reaches its
+iteration limit; matching that status is part of the check, not a claim that
+all fits converge. See `validation/README.md` for details.
+
+The package now has 27 source modules, 64 public estimator/transformer/splitter
+types, and five examples. These additions are core counterparts, not public
+extensions. MIT project licensing and retained scikit-learn notices apply as
+documented in `THIRD_PARTY_NOTICES.md`; no new runtime dependency was added.

@@ -3,10 +3,10 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 56 public estimator, transformer, and splitter types. Each is a
+There are 64 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. The reference suite additionally checks 64 result
-groups on each of three datasets against installed scikit-learn 1.6.1.
+All types have native tests. Two reference suites additionally check 312 result
+groups in total across seeded datasets against installed scikit-learn 1.6.1.
 
 This document counts core scikit-learn counterparts. Public extensions are
 tracked separately in [EXTENSIONS.md](EXTENSIONS.md) and excluded from the
@@ -25,9 +25,13 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | preprocessing | `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `label_encoder`, `one_hot_encoder`; `normalize`, `binarize`, `polynomial_features` | Population variance; linear percentile interpolation; NaN imputation with mean/median/most-frequent/constant; numeric categories; dense polynomial terms through degree 12 with optional interactions |
 | linear_model | `linear_regression`, `ridge`, `lasso`, `elastic_net`, `logistic_regression`, `perceptron` | Direct Jacobi SVD minimum-norm least squares/ridge; cyclic coordinate descent; L2 binary/multinomial Newton logistic solver with backtracking; deterministic one-vs-rest perceptron |
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb` | Empirical class priors, variance smoothing, strictly positive scalar alpha; Bernoulli threshold; optional complement normalization |
-| neighbors | `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor` | Brute-force search; uniform/distance weights; radius adjacency and dense k-neighbor graphs; exact-match distance weighting |
+| neighbors | `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor` | Brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with optional shrinkage and uniform priors |
 | cluster | `kmeans`, `dbscan`, `agglomerative_clustering` | Lloyd iterations, k-means++ initialization or explicit centers; density expansion; full single/complete/average/Ward merge trees |
-| decomposition | `pca`, `truncated_svd`, `nmf` | Direct Jacobi SVD; PCA whitening and inversion; exact dense SVD instead of randomized backend; nonnegative multiplicative updates, Frobenius objective |
+| decomposition | `pca`, `truncated_svd`, `nmf`; re-exports `kernel_pca` | Direct Jacobi SVD; PCA whitening and inversion; exact dense SVD; NMF multiplicative updates; nonlinear kernel PCA |
+| kernel_pca | `kernel_pca` | Centered linear/RBF/polynomial/sigmoid/cosine/precomputed Gram matrices; dense Jacobi eigensolver; out-of-sample transform |
+| manifold | `isomap` | Dense k-neighbor graph, Floyd-Warshall shortest paths, nearest-component completion, kernel-PCA embedding and out-of-sample extension |
+| outlier | `local_outlier_factor` | Training outlier scores and novelty detection, automatic/percentile threshold, Minkowski and other supported pairwise metrics |
+| semi_supervised | `label_propagation`, `label_spreading` | Dense RBF or directed k-neighbor graph, hard/soft clamping, transductive labels and inductive probabilities |
 | tree | `decision_tree_classifier`, `decision_tree_regressor` | Exhaustive CART; Gini/entropy/log-loss classification, squared-error regression; depth/leaf/split/feature controls, normalized impurity importance, leaf indices |
 | ensemble | `random_forest_classifier`, `random_forest_regressor`, `extra_trees_classifier`, `extra_trees_regressor`, `gradient_boosting_regressor` | Bootstrap forests, randomized feature subsets, random-threshold Extra Trees, squared-error residual boosting |
 | model_selection | `kfold`, `stratified_kfold`, `time_series_split`, `ridge_cv`; `train_test_split`, `shuffle_indices`, `cross_val_score` | Index-based splits; fraction test size; optional stratification; time gap/window; CV for linear-regression family and logistic regression; ridge CV selects negative mean squared error |
@@ -106,15 +110,45 @@ distances; cosine similarity; linear, RBF, polynomial and sigmoid kernels.
 - Stratified folds currently require at least `n_splits` samples in each class.
   Split randomness and stratified rounding need not match sklearn. `ridge_cv`
   uses ordinary K-fold CV, not generalized leave-one-out CV.
+- Radius classification raises an error for an empty neighborhood unless
+  `allow_outliers` is enabled with a numeric `outlier_label`. If that label is
+  not a fitted class, its probability row is zero. Radius regression returns
+  NaN for an empty neighborhood, matching sklearn (without its warning).
+- Nearest centroid supports uniform priors only, Euclidean means or Manhattan
+  medians and scalar shrinkage. It requires more samples than classes and has
+  no discriminant probability API or empirical/custom priors. Zero within-class
+  scale uses zero deviation rather than producing NaN in that attribute.
+- LOF uses `contamination=-1` for sklearn's `'auto'`, otherwise a fraction in
+  `(0,0.5]`. `fit_predict` requires `novelty=false`; query scoring/prediction
+  requires `novelty=true`. Training scores exclude each point itself; novelty
+  queries include matching training points. Neighbor-count clamping is reported
+  in `n_neighbors_`; warnings are not emitted. Duplicate/tied-neighbor ordering
+  can differ from sklearn's search backend.
+- Kernel PCA has no inverse transform, callable kernels or sparse/randomized/
+  ARPACK solver. `n_components=0` means all nonzero components; other counts are
+  clipped to sample count. Significant selected negative eigenvalues are
+  rejected. Repeated eigenvalues can yield different valid bases.
+- Isomap supports fixed-count neighbors and ordinary feature inputs only,
+  with quadratic storage and cubic shortest-path work. No radius graph,
+  precomputed distances or alternative path/eigen solver. Disconnected graph
+  completion is reflected in `n_connected_components_` rather than a warning.
+- Semi-supervised labels reserve `-1` for unlabeled samples and require at least
+  one labeled sample. RBF and KNN kernels are supported, not callable kernels.
+  Zero-evidence inductive queries are rejected instead of returning NaN
+  probabilities. Unreachable training rows remain zero and transduce to the
+  first class, as in sklearn. Inspect `converged_` and `n_iter_`; reaching the
+  iteration cap does not emit a Python-style warning.
 
 ## Remaining major scikit-learn areas
 
 Not translated: sparse data paths, general estimator base/clone/parameter search
 framework, pipelines/column transformers, full SVM family, robust/Bayesian/GLM
 linear estimators, SGD families, histogram boosting, AdaBoost and bagging APIs,
-manifold learning, spectral clustering, OPTICS/BIRCH/mean shift, outlier detection,
+manifold learning beyond Isomap, spectral clustering, OPTICS/BIRCH/mean shift,
+outlier detection beyond LOF,
 Gaussian-process classification, dictionary learning/ICA/factor analysis,
-calibration, semi-supervised learning, multiclass/multioutput wrappers,
+calibration, semi-supervised learning beyond label propagation/spreading,
+multiclass/multioutput wrappers,
 inspection/permutation importance, feature-selection wrappers, image features,
 real dataset loaders and the full plotting/display API.
 

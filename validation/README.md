@@ -6,6 +6,7 @@ Run from the package root:
 fpm test --flag "-fcheck=all -fbacktrace"
 fpm test --profile release
 python validation/compare_sklearn.py
+python validation/compare_graph_algorithms.py
 python validation/check_invalid_inputs.py
 ```
 
@@ -15,6 +16,19 @@ with binary, three-class and four-class integer targets and a noisy regression
 target, then compares 64 result groups per case. Outputs include model
 coefficients, predictions, probabilities, transforms, metrics, likelihoods,
 covariances and posterior uncertainties. Baseline: scikit-learn **1.6.1**.
+
+`compare_graph_algorithms.py` adds 40 result groups on each of three seeded
+60-by-4 datasets: radius neighbors, mean/median/shrunk centroids, LOF training
+and novelty scores, Kernel PCA, Isomap and semi-supervised label diffusion.
+It checks both RBF and KNN diffusion graphs, training distributions, inductive
+probabilities, iteration counts and convergence status. The two suites together
+provide **312** result-group comparisons. Graph comparisons use the same
+`atol=rtol=3e-8` threshold, including deterministically oriented coordinates.
+
+The Isomap reference explicitly exercises disconnected-graph completion, and
+captures sklearn's expected component/sparse-efficiency warnings for that
+fixture. The semi-supervised fixtures can exhaust their iteration cap; the
+comparison checks that Fortran reports the same cap and convergence status.
 
 The default numerical tolerance is `atol=rtol=3e-8`, or `3e-7` for logistic
 probabilities (different iterative optimizers). Cluster partitions are compared
@@ -36,10 +50,13 @@ tests cover multi-component partitions and all four covariance modes. Neural
 networks are validated by learning nonlinear XOR/regression, loss decrease and
 normalized probabilities, rather than equating different random initializations.
 
-`check_invalid_inputs.py` checks 16 error paths in separate bounds-checked
+`check_invalid_inputs.py` checks 26 error paths in separate bounds-checked
 processes, requiring both an error exit and a specific input diagnostic.
 These cover unfitted use, nonfinite data, feature/target shape mismatches,
 invalid hyperparameters, empty text and unusable/all-missing data.
+New cases cover empty radius neighborhoods, LOF novelty misuse, nonsymmetric
+and indefinite kernels, Isomap neighbor counts, fully unlabeled training data
+and invalid soft-clamping parameters.
 
 Generated datasets, outputs, JSON reports and logs are saved in `validation/results/`
 (ignored by Git). The reference report records the actual Python package version.

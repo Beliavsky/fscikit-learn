@@ -37,3 +37,17 @@ worked around with an alternate repository location.
 On 2026-11-18 the user enabled unrestricted filesystem access and requested a
 commit. The tested initial package is being recorded as one initial commit,
 including the implementation, examples, validation scripts and documentation.
+
+## Graph, neighbor and outlier algorithms (2026-11-18)
+
+Added eight further scikit-learn counterpart types: radius-neighbor
+classification/regression, nearest centroids, Local Outlier Factor, Kernel PCA,
+Isomap, LabelPropagation and LabelSpreading. Kernel PCA is re-exported from
+`sklearn_decomposition` and LOF from `sklearn_neighbors`, with focused modules
+also available. All are exported by the core facade; no extension was added.
+
+Added two native test programs, a semi-supervised example, 120 numerical/status
+comparisons against sklearn 1.6.1 and ten additional input-error cases. The
+existing 192 reference comparisons continue to pass. Scope, API, provenance and
+coverage documentation now distinguish the supported dense subsets and their
+remaining limitations.

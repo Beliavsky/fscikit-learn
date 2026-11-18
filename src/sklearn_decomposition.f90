@@ -1,8 +1,9 @@
 module sklearn_decomposition
   use sklearn_common
+  use sklearn_kernel_pca, only: kernel_pca
   implicit none
   private
-  public :: pca, truncated_svd, nmf
+  public :: pca, truncated_svd, nmf, kernel_pca
   type :: pca
     integer :: n_components=0,n_samples_=0
     logical :: whiten=.false.

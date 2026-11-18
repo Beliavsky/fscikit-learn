@@ -16,6 +16,13 @@ program invalid_input_driver
   type(simple_imputer) :: im
   type(count_vectorizer) :: text
   type(kfold) :: splitter
+  type(radius_neighbors_classifier) :: radius
+  type(nearest_centroid) :: centroid
+  type(local_outlier_factor) :: lof
+  type(kernel_pca) :: kp
+  type(isomap) :: iso
+  type(label_propagation) :: lp
+  type(label_spreading) :: ls
   type(index_split), allocatable :: folds(:)
   real(dp) :: x(4,2),y(4)
   real(dp), allocatable :: z(:,:),pred(:)
@@ -39,6 +46,19 @@ program invalid_input_driver
   case('missing'); x=ieee_value(0._dp,ieee_quiet_nan); call im%fit(x)
   case('empty_text'); call text%fit([character(4)::'a !','x ?'])
   case('folds'); splitter%n_splits=5; folds=splitter%split(4)
+  case('radius_empty'); call radius%fit(x,[0,0,1,1]); labels=radius%predict(x+100)
+  case('centroid_metric'); centroid%metric='cosine'; call centroid%fit(x,[0,0,1,1])
+  case('lof_mode'); call lof%fit(x); pred=lof%score_samples(x)
+  case('lof_contamination'); lof%contamination=0.8_dp; call lof%fit(x)
+  case('kpca_symmetry')
+    kp%kernel='precomputed'; z=reshape([1._dp,0._dp,1._dp,1._dp],[2,2]); call kp%fit(z)
+  case('kpca_indefinite')
+    kp%kernel='precomputed'; z=reshape([1._dp,2._dp,2._dp,1._dp],[2,2]); call kp%fit(z)
+  case('kpca_width')
+    kp%kernel='precomputed'; z=matmul(x,transpose(x)); call kp%fit(z); z=kp%transform(x)
+  case('isomap_neighbors'); iso%n_neighbors=4; call iso%fit(x)
+  case('unlabeled'); call lp%fit(x,[-1,-1,-1,-1])
+  case('spreading_alpha'); ls%alpha=1; call ls%fit(x,[0,-1,-1,1])
   case default; error stop 'unknown validation mode'
   end select
   print *, 'ERROR: invalid input was accepted'

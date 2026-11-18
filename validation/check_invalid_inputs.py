@@ -12,6 +12,11 @@ CASES = {
     "mixture_reg": "mixture controls", "gp_length": "Gaussian process kernel parameters",
     "variance": "no feature", "missing": "all-missing feature", "empty_text": "empty text vocabulary",
     "folds": "KFold n_splits",
+    "radius_empty": "no neighbors within radius", "centroid_metric": "unknown centroid metric",
+    "lof_mode": "novelty=true", "lof_contamination": "LOF contamination",
+    "kpca_symmetry": "symmetric training kernel", "kpca_indefinite": "negative eigenvalues",
+    "kpca_width": "query width mismatch", "isomap_neighbors": "n_neighbors < n_samples",
+    "unlabeled": "at least one labeled sample", "spreading_alpha": "alpha must lie in (0,1)",
 }
 
 

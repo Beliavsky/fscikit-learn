@@ -156,3 +156,54 @@ Python initialization. Stochastic results need not match across compilers.
 
 See [COVERAGE.md](COVERAGE.md) for the complete type list, supported algorithm
 variants, resource limits, omitted parameters and remaining translation work.
+
+## Graph learning and outlier detection
+
+All new types are available from `use sklearn`. Kernel PCA is also exported by
+`sklearn_decomposition` (implemented in `sklearn_kernel_pca`), and LOF by
+`sklearn_neighbors` (implemented in `sklearn_outlier`). Isomap and label diffusion
+have focused `sklearn_manifold` and `sklearn_semi_supervised` modules.
+
+For semi-supervised classification, pass integer training labels with **-1 for
+unlabeled rows**. Other integer labels, including negatives other than -1, are
+class IDs. `transduction_` contains labels assigned during fitting; `predict(x)`
+performs inductive inference and need not equal `transduction_` on training data.
+`label_distributions_` is the fitted per-sample class distribution.
+
+```fortran
+type(label_spreading) :: model
+model%kernel='knn'
+model%n_neighbors=7
+model%max_iter=1000
+call model%fit(x,partially_known_labels)
+print *, model%transduction_
+```
+
+See `example/semi_supervised.f90` for a complete program. Both label propagation
+and spreading expose `converged_` and `n_iter_`. Label spreading uses `alpha` in
+`(0,1)` for soft clamping; label propagation hard-clamps known labels.
+
+For Local Outlier Factor, `fit_predict(x)` with default `novelty=false` returns
+1 for inliers and -1 for outliers on training data. Set `novelty=true` before
+fitting to enable `score_samples`, `decision_function` and `predict` on new data.
+`negative_outlier_factor_` always holds training scores. `contamination=-1`
+selects the automatic -1.5 offset; a fraction selects an empirical percentile.
+Training and novelty-query neighborhoods differ even for identical input rows.
+
+Kernel PCA uses `kernel`, `gamma`, `degree`, `coef0`, `n_components` and
+`remove_zero_eig`; its outputs are `eigenvalues_` and `eigenvectors_`.
+For `kernel='precomputed'`, fit on a symmetric square training Gram matrix and
+transform a `(n_queries,n_training)` cross-Gram matrix. `n_components=0` selects
+all nonzero components. There is no learned inverse/preimage transform.
+
+Isomap provides `fit`, `fit_transform`, `transform`, `embedding_`,
+`dist_matrix_` and `reconstruction_error()`. Set `n_neighbors` strictly between
+zero and the training sample count. Its dense geodesic graph is completed if
+disconnected; `n_connected_components_` reports the count before completion.
+
+Radius-neighbor classifiers/regressors use `radius`, `metric`, `p` and
+`weights='uniform'` or `'distance'`. Classification defaults to an error for a
+query without neighbors; opt in to numeric outlier labels using
+`allow_outliers=true` and `outlier_label`. Regression returns NaN for such a
+query. Nearest centroid supports `metric='euclidean'` or `'manhattan'`, uniform
+priors, and nonnegative `shrink_threshold`; the default zero disables shrinkage.

@@ -22,6 +22,10 @@ module sklearn
   use sklearn_gaussian_process
   use sklearn_covariance
   use sklearn_feature_extraction_text
+  use sklearn_kernel_pca
+  use sklearn_manifold
+  use sklearn_outlier
+  use sklearn_semi_supervised
   implicit none
   public
 end module

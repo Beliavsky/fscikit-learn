@@ -42,6 +42,11 @@ Reference paths by module:
 | gaussian_process | gaussian_process/_gpr.py, kernels.py (fixed kernel subset) |
 | covariance | covariance/_empirical_covariance.py, _shrunk_covariance.py |
 | datasets | datasets/_samples_generator.py (independent Fortran random stream) |
+| radius neighbors / nearest centroid | neighbors/_classification.py, _regression.py, _nearest_centroid.py |
+| outlier (LOF) | neighbors/_lof.py |
+| kernel_pca | decomposition/_kernel_pca.py; kernel centering and PSD eigenvalue rules adapted for Fortran |
+| manifold (Isomap) | manifold/_isomap.py; utils/graph.py (connected-component completion) |
+| semi_supervised | semi_supervised/_label_propagation.py; RBF/KNN diffusion and clamping |
 
 SciFort is not currently linked. There are no third-party runtime dependencies.
 
