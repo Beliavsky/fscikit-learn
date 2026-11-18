@@ -94,3 +94,41 @@ matrix as input and do not assert identical NumPy random streams.
 
 The project MIT license and retained sklearn BSD-3-Clause attribution continue
 to apply. No public extension or runtime dependency was introduced.
+
+## Robust regression and GLMs (2026-11-18)
+
+Added HuberRegressor, RANSACRegressor, PoissonRegressor, GammaRegressor and
+TweedieRegressor. The package now has 75 public core types in 29 source modules,
+20 native test programs and seven examples.
+
+| Check | Observed result |
+| --- | --- |
+| Bounds-checked native tests with invalid/zero/overflow traps | All 20 programs passed |
+| Robust/GLM Python reference suite | All 213 comparisons passed |
+| Release native tests | All 20 programs passed |
+| Original Python reference suite | All 192 comparisons still passed |
+| Graph/neighbor Python reference suite | All 120 comparisons still passed |
+| Bayesian/factor/projection Python reference suite | All 204 comparisons still passed |
+| Input-error suite | All 47 expected-error cases passed |
+| `fpm run --example robust_regression` (bounds-checked) | Clean-signal R2: OLS 0.45298, Huber 0.9999878, RANSAC 0.99999997; 85 consensus inliers |
+
+All four reference suites now provide 729 result-group comparisons against
+the local scikit-learn 1.6.1 baseline.
+
+The new native tests exercise coefficient recovery under contamination, Huber
+target scaling and constrained scale at epsilon one, deterministic RANSAC
+consensus and dynamic trial limits, singular unpenalized GLMs, Tweedie powers
+near one/two, power-zero/ridge penalty equivalence, positive predictions,
+cross-validation with D2 scoring and iteration-capped fits.
+
+Reference comparisons use three separately seeded datasets. Huber checks use
+`atol=rtol=1e-4` because the sklearn L-BFGS-B relative-loss and native BFGS
+projected-gradient stopping rules differ. The objective, scale, coefficients,
+predictions and outlier masks are checked. RANSAC comparisons use a known
+separated consensus and compare final refits, not random-stream trial counts.
+GLM references use sklearn's Newton-Cholesky solver and compare coefficients,
+mean predictions, D2 and convergence/cap status with `atol=rtol=3e-8`.
+
+These are documented dense sklearn subsets. MIT project licensing, retained
+sklearn BSD-3-Clause attribution and the absence of runtime dependencies remain
+unchanged.

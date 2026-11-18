@@ -8,6 +8,7 @@ fpm test --profile release
 python validation/compare_sklearn.py
 python validation/compare_graph_algorithms.py
 python validation/compare_regression_projection.py
+python validation/compare_robust_glm.py
 python validation/check_invalid_inputs.py
 ```
 
@@ -72,7 +73,22 @@ separately check distribution moments, density, seed repeatability, distance
 preservation, zero-rank inverse behavior, sparse support recovery and all-pruned
 ARD posteriors.
 
-`check_invalid_inputs.py` checks 35 error paths in separate bounds-checked
+`compare_robust_glm.py` adds 71 result groups on each of three datasets
+(90-by-3, 84-by-4 and 96-by-5), for **213** added comparisons and **729** total
+across all four suites. It checks Huber coefficients, predictions, joint scale,
+outlier masks and penalized objective; RANSAC consensus masks and final refits;
+Poisson, Gamma and Tweedie powers 0/1/1.5/1.9/2, positive-mean predictions,
+intercept settings, L2 penalties, D2 scores and capped/converged fits.
+GLM/RANSAC tolerance is `atol=rtol=3e-8`; Huber uses `1e-4` because sklearn's
+L-BFGS-B relative-loss stopping and the native projected-gradient BFGS stopping
+produce different final parameter accuracy. RANSAC data have a known, widely
+separated clean consensus, checked independently; trial counts are not equated
+across different random streams. GLM references use `solver='newton-cholesky'`.
+Native checks additionally exercise singular Hessians, near-boundary Tweedie
+powers, unpenalized target-scale equivariance, the epsilon-one Huber scale
+boundary, dynamic trial caps and GLM cross-validation.
+
+`check_invalid_inputs.py` checks 47 error paths in separate bounds-checked
 processes, requiring both an error exit and a specific input diagnostic.
 These cover unfitted use, nonfinite data, feature/target shape mismatches,
 invalid hyperparameters, empty text and unusable/all-missing data.
@@ -82,6 +98,8 @@ and invalid soft-clamping parameters.
 Bayesian hyperpriors, ARD thresholds, OMP sparsity, factor components/noise,
 projection density/automatic dimensions and unfitted uncertainty/inversion are
 also rejected with explicit diagnostics.
+Robust-regression controls, GLM target domains, unsupported Tweedie powers/links,
+regularization, unfitted prediction and constant-target D2 are checked as well.
 
 Generated datasets, outputs, JSON reports and logs are saved in `validation/results/`
 (ignored by Git). The reference report records the actual Python package version.

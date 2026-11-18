@@ -29,6 +29,11 @@ program invalid_input_driver
   type(factor_analysis) :: fa
   type(gaussian_random_projection) :: projection
   type(sparse_random_projection) :: sparse_projection
+  type(huber_regressor) :: huber
+  type(ransac_regressor) :: ransac
+  type(poisson_regressor) :: poisson
+  type(gamma_regressor) :: gamma
+  type(tweedie_regressor) :: tweedie
   type(index_split), allocatable :: folds(:)
   real(dp) :: x(4,2),y(4)
   real(dp), allocatable :: z(:,:),pred(:)
@@ -75,6 +80,18 @@ program invalid_input_driver
   case('projection_density'); sparse_projection%n_components=1; sparse_projection%density=0
     call sparse_projection%fit(x)
   case('projection_unfitted'); z=projection%inverse_transform(x)
+  case('huber_epsilon'); huber%epsilon=0.9_dp; call huber%fit(x,y)
+  case('ransac_samples'); ransac%min_samples=5; call ransac%fit(x,y)
+  case('ransac_threshold'); ransac%residual_threshold=-2; call ransac%fit(x,y)
+  case('ransac_loss'); ransac%loss='invalid'; call ransac%fit(x,y)
+  case('ransac_probability'); ransac%stop_probability=1.1_dp; call ransac%fit(x,y)
+  case('poisson_targets'); y(1)=-1; call poisson%fit(x,y)
+  case('gamma_targets'); y(1)=0; call gamma%fit(x,y)
+  case('tweedie_power'); tweedie%power=0.5_dp; call tweedie%fit(x,y)
+  case('tweedie_link'); tweedie%link='log'; call tweedie%fit(x,y)
+  case('glm_alpha'); poisson%alpha=-1; call poisson%fit(x,y)
+  case('glm_unfitted'); pred=poisson%predict(x)
+  case('glm_constant_score'); call poisson%fit(x,y); pred=[poisson%score(x,y)]
   case default; error stop 'unknown validation mode'
   end select
   print *, 'ERROR: invalid input was accepted'

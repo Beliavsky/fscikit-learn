@@ -22,6 +22,12 @@ CASES = {
     "factor_components": "invalid FactorAnalysis n_components", "factor_noise": "noise variance must be positive",
     "projection_auto": "automatic projection dimension", "projection_density": "projection density",
     "projection_unfitted": "not fitted",
+    "huber_epsilon": "invalid HuberRegressor controls", "ransac_samples": "invalid RANSAC sample/trial controls",
+    "ransac_threshold": "invalid RANSAC residual threshold", "ransac_loss": "invalid RANSAC loss",
+    "ransac_probability": "invalid RANSAC stopping controls", "poisson_targets": "targets must be nonnegative",
+    "gamma_targets": "Gamma targets must be positive", "tweedie_power": "supported Tweedie powers",
+    "tweedie_link": "supported GLM links", "glm_alpha": "invalid GLM controls",
+    "glm_unfitted": "not fitted", "glm_constant_score": "D2 requires a nonconstant target",
 }
 
 

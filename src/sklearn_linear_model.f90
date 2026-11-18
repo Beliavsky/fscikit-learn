@@ -5,6 +5,7 @@ module sklearn_linear_model
   private
   public :: linear_regression, ridge, lasso, elastic_net, logistic_regression, perceptron
   public :: bayesian_ridge, ard_regression, orthogonal_matching_pursuit
+  public :: huber_regressor,ransac_regressor,tweedie_regressor,poisson_regressor,gamma_regressor
   type :: linear_regression
     logical :: fit_intercept=.true.
     real(dp), allocatable :: coef_(:)
@@ -83,7 +84,331 @@ module sklearn_linear_model
   contains
     procedure :: fit=>omp_fit
   end type
+  type, extends(linear_regression) :: huber_regressor
+    real(dp) :: epsilon=1.35_dp,alpha=1.e-4_dp,tol=1.e-5_dp,scale_=1,loss_=0
+    integer :: max_iter=100,n_iter_=0
+    logical :: converged_=.false.
+    logical, allocatable :: outliers_(:)
+  contains
+    procedure :: fit=>huber_fit
+  end type
+  type, extends(linear_regression) :: ransac_regressor
+    integer :: min_samples=0,max_trials=100,random_state=0,stop_n_inliers=huge(1)
+    integer :: n_trials_=0,n_skips_no_inliers_=0
+    real(dp) :: residual_threshold=-1,stop_probability=0.99_dp,stop_score=huge(1._dp)
+    character(20) :: loss='absolute_error'
+    logical, allocatable :: inlier_mask_(:)
+  contains
+    procedure :: fit=>ransac_fit
+  end type
+  type, extends(linear_regression) :: tweedie_regressor
+    real(dp) :: power=0,alpha=1,tol=1.e-4_dp
+    integer :: max_iter=100,n_iter_=0
+    character(12) :: link='auto',link_='identity'
+    logical :: converged_=.false.
+  contains
+    procedure :: fit=>tweedie_fit
+    procedure :: predict=>glm_predict
+    procedure :: score=>glm_score
+  end type
+  type, extends(tweedie_regressor) :: poisson_regressor
+  contains
+    procedure :: fit=>poisson_fit
+  end type
+  type, extends(tweedie_regressor) :: gamma_regressor
+  contains
+    procedure :: fit=>gamma_fit
+  end type
 contains
+  ! sklearn 1.6.1 _huber.py, _ransac.py and _glm/glm.py are the references
+  ! for these objectives and estimator contracts. See THIRD_PARTY_NOTICES.md.
+  subroutine huber_objective(design,y,w,p,epsilon,alpha,loss,gradient)
+    real(dp), intent(in) :: design(:,:),y(:),w(:),epsilon,alpha
+    integer, intent(in) :: p
+    real(dp), intent(out) :: loss,gradient(:)
+    real(dp) :: r(size(y)),force(size(y)),sigma,quadratic
+    logical :: out(size(y))
+    integer :: q,n
+    n=size(y); q=size(w); sigma=w(q)
+    r=y-matmul(design,w(:q-1)); out=abs(r)>epsilon*sigma
+    force=0; where(out) force=2*epsilon*sign(1._dp,r)
+    where(.not.out) force=2*r/sigma
+    quadratic=sum(pack(r,.not.out)**2)/sigma
+    loss=(n*sigma+quadratic+2*epsilon*sum(pack(abs(r),out))-count(out)*sigma*epsilon**2 &
+      +alpha*sum(w(:p)**2))/n
+    gradient(:q-1)=-matmul(transpose(design),force)/n
+    gradient(:p)=gradient(:p)+2*alpha*w(:p)/n
+    gradient(q)=(n-count(out)*epsilon**2-quadratic/sigma)/n
+  end subroutine
+  subroutine huber_fit(self,x,y)
+    class(huber_regressor), intent(inout) :: self
+    real(dp), intent(in) :: x(:,:),y(:)
+    real(dp), allocatable :: design(:,:),w(:),trial(:),g(:),gt(:),pg(:),h(:,:),direction(:),s(:),v(:),hv(:)
+    real(dp) :: loss,next,rate,sy,lower,slope
+    integer :: n,p,q,j,it,ls
+    call check_xy(x,size(y)); call check_x(reshape(y,[size(y),1]))
+    call require(self%epsilon>=1.and.self%alpha>=0.and.self%tol>0.and.self%max_iter>0, &
+      'invalid HuberRegressor controls')
+    n=size(y); p=size(x,2); q=p+1
+    if(self%fit_intercept) q=q+1
+    allocate(design(n,q-1),w(q),trial(q),g(q),gt(q),pg(q),h(q,q),direction(q),s(q),v(q),hv(q))
+    design(:,1:p)=x; if(self%fit_intercept) design(:,p+1)=1
+    lower=10*epsilon(1._dp); w=0; w(q)=1; h=0
+    do j=1,q
+      h(j,j)=1
+    end do
+    call huber_objective(design,y,w,p,self%epsilon,self%alpha,loss,g)
+    self%converged_=.false.; self%n_iter_=0
+    do it=1,self%max_iter
+      pg=g
+      if(w(q)<=lower.and.g(q)>0) pg(q)=0
+      if(maxval(abs(pg))*n<=self%tol) then
+        self%converged_=.true.; exit
+      end if
+      direction=-matmul(h,pg)
+      if(w(q)<=lower.and.direction(q)<0) direction(q)=0
+      if(dot_product(g,direction)>=0) direction=-pg
+      rate=1
+      do ls=1,80
+        trial=w+rate*direction; trial(q)=max(lower,trial(q))
+        slope=dot_product(g,trial-w)
+        call huber_objective(design,y,trial,p,self%epsilon,self%alpha,next,gt)
+        if(slope<0.and.next<=loss+1.e-4_dp*slope) exit
+        if(slope<0.and.abs(next-loss)<=8*epsilon(1._dp)*max(1._dp,abs(loss)) &
+          .and.maxval(abs(gt))<maxval(abs(g))) exit
+        rate=rate*0.5_dp
+      end do
+      if(ls>80) exit
+      s=trial-w; v=gt-g; sy=dot_product(s,v)
+      if(sy>epsilon(1._dp)*sqrt(sum(s*s)*sum(v*v))) then
+        hv=matmul(h,v)
+        h=h+(1+dot_product(v,hv)/sy)*spread(s,2,q)*spread(s,1,q)/sy &
+          -(spread(hv,2,q)*spread(s,1,q)+spread(s,2,q)*spread(hv,1,q))/sy
+      end if
+      w=trial; loss=next; g=gt; self%n_iter_=it
+    end do
+    pg=g; if(w(q)<=lower.and.g(q)>0) pg(q)=0
+    if(maxval(abs(pg))*n<=self%tol) self%converged_=.true.
+    self%coef_=w(:p); self%intercept_=0
+    if(self%fit_intercept) self%intercept_=w(p+1)
+    self%scale_=w(q); self%loss_=loss*n
+    self%outliers_=abs(y-self%predict(x))>self%epsilon*self%scale_
+  end subroutine
+  real(dp) function sample_median(values) result(median)
+    real(dp), intent(in) :: values(:)
+    integer :: order(size(values)),n
+    n=size(values); order=argsort(values)
+    median=0.5_dp*(values(order((n+1)/2))+values(order(n/2+1)))
+  end function
+  subroutine ransac_fit(self,x,y)
+    class(ransac_regressor), intent(inout) :: self
+    real(dp), intent(in) :: x(:,:),y(:)
+    type(linear_regression) :: candidate
+    integer :: n,p,m,j,k,t,best_count,n_inliers,cap
+    integer, allocatable :: indices(:),inliers(:)
+    real(dp) :: threshold,coin,score,best_score,den,bound,residual(size(y))
+    logical :: mask(size(y))
+    call check_xy(x,size(y)); call check_x(reshape(y,[size(y),1]))
+    n=size(y); p=size(x,2); m=self%min_samples
+    if(m==0) m=p+1
+    call require(m>=1.and.m<=n.and.self%max_trials>0,'invalid RANSAC sample/trial controls')
+    call require(self%stop_probability>=0.and.self%stop_probability<=1.and.self%stop_n_inliers>=1, &
+      'invalid RANSAC stopping controls')
+    call require(self%residual_threshold>=0.or.self%residual_threshold==-1,'invalid RANSAC residual threshold')
+    call require(self%loss=='absolute_error'.or.self%loss=='squared_error','invalid RANSAC loss')
+    threshold=self%residual_threshold
+    if(threshold==-1) threshold=sample_median(abs(y-sample_median(y)))
+    cap=self%max_trials; best_count=0; best_score=-huge(1._dp)
+    self%n_trials_=0; self%n_skips_no_inliers_=0; self%inlier_mask_=spread(.false.,1,n)
+    candidate%fit_intercept=self%fit_intercept
+    call seed_rng(self%random_state)
+    do while(self%n_trials_<cap)
+      self%n_trials_=self%n_trials_+1; indices=[(j,j=1,n)]
+      do j=1,m
+        call random_number(coin); k=j+int(coin*(n-j+1))
+        t=indices(j); indices(j)=indices(k); indices(k)=t
+      end do
+      call candidate%fit(x(indices(:m),:),y(indices(:m)))
+      residual=abs(y-candidate%predict(x))
+      if(self%loss=='squared_error') residual=residual**2
+      mask=residual<=threshold; n_inliers=count(mask)
+      if(n_inliers<max(1,best_count)) then
+        self%n_skips_no_inliers_=self%n_skips_no_inliers_+1; cycle
+      end if
+      inliers=pack([(j,j=1,n)],mask); score=-huge(1._dp)
+      if(n_inliers>1) score=candidate%score(x(inliers,:),y(inliers))
+      if(n_inliers==best_count.and.score<best_score) cycle
+      best_count=n_inliers; best_score=score; self%inlier_mask_=mask
+      den=max(epsilon(1._dp),1-(real(n_inliers,dp)/n)**m)
+      if(den<1) then
+        bound=log(max(epsilon(1._dp),1-self%stop_probability))/log(den)
+        cap=ceiling(min(real(cap,dp),max(1._dp,bound)))
+      end if
+      if(n_inliers>=self%stop_n_inliers.or.score>=self%stop_score) exit
+    end do
+    call require(best_count>0,'RANSAC could not find a consensus set')
+    inliers=pack([(j,j=1,n)],self%inlier_mask_)
+    call candidate%fit(x(inliers,:),y(inliers))
+    self%coef_=candidate%coef_; self%intercept_=candidate%intercept_; self%rank_=candidate%rank_
+  end subroutine
+  subroutine poisson_fit(self,x,y)
+    class(poisson_regressor), intent(inout) :: self
+    real(dp), intent(in) :: x(:,:),y(:)
+    self%power=1; self%link='log'; call tweedie_fit(self,x,y)
+  end subroutine
+  subroutine gamma_fit(self,x,y)
+    class(gamma_regressor), intent(inout) :: self
+    real(dp), intent(in) :: x(:,:),y(:)
+    self%power=2; self%link='log'; call tweedie_fit(self,x,y)
+  end subroutine
+  subroutine glm_objective(design,y,w,p,power,link,alpha,loss,g,h,valid)
+    real(dp), intent(in) :: design(:,:),y(:),w(:),power,alpha
+    character(*), intent(in) :: link
+    integer, intent(in) :: p
+    real(dp), intent(out) :: loss,g(:),h(:,:)
+    logical, intent(out) :: valid
+    real(dp) :: eta(size(y)),mu(size(y)),gradient(size(y)),curvature(size(y)),a(size(y)),b(size(y))
+    integer :: n,j
+    n=size(y); eta=matmul(design,w); valid=.true.; g=0; h=0; loss=huge(1._dp)
+    if(link=='log') then
+      valid=maxval(abs(eta))<0.25_dp*log(huge(1._dp))
+      if(.not.valid) return
+      mu=exp(eta)
+    else
+      mu=eta
+    end if
+    if(power==0) then
+      loss=0.5_dp*sum((mu-y)**2)/n; gradient=mu-y; curvature=1
+    else if(power==1) then
+      loss=sum(mu-y*eta)/n; gradient=mu-y; curvature=mu
+    else if(power==2) then
+      a=y/mu; loss=sum(a+eta)/n; gradient=1-a; curvature=a
+    else
+      a=exp((2-power)*eta); b=y*exp((1-power)*eta)
+      ! Subtract eta-independent constants and avoid cancellation near p=1/2.
+      loss=sum(exponential_minus_one((2-power)*eta)/(2-power) &
+        -y*exponential_minus_one((1-power)*eta)/(1-power))/n
+      gradient=a-b; curvature=(2-power)*a+(power-1)*b
+    end if
+    loss=loss+0.5_dp*alpha*sum(w(:p)**2)
+    g=matmul(transpose(design),gradient)/n; g(:p)=g(:p)+alpha*w(:p)
+    h=matmul(transpose(design),design*spread(curvature,2,size(w)))/n
+    do j=1,p
+      h(j,j)=h(j,j)+alpha
+    end do
+  end subroutine
+  elemental real(dp) function exponential_minus_one(z) result(value)
+    real(dp), intent(in) :: z
+    if(abs(z)<1.e-4_dp) then
+      value=z*(1+z*(0.5_dp+z*(1._dp/6+z*(1._dp/24+z*(1._dp/120+z/720)))))
+    else
+      value=exp(z)-1
+    end if
+  end function
+  subroutine tweedie_fit(self,x,y)
+    class(tweedie_regressor), intent(inout) :: self
+    real(dp), intent(in) :: x(:,:),y(:)
+    real(dp), allocatable :: design(:,:),w(:),trial(:),g(:),h(:,:),gt(:),ht(:,:),step(:),s(:),v(:,:)
+    real(dp) :: loss,next,rate,cutoff
+    integer :: n,p,q,it,ls
+    logical :: valid
+    call check_xy(x,size(y)); call check_x(reshape(y,[size(y),1]))
+    call require(self%power==0.or.(self%power>=1.and.self%power<=2),'supported Tweedie powers are 0 or [1,2]')
+    call require(self%alpha>=0.and.self%tol>0.and.self%max_iter>0,'invalid GLM controls')
+    self%link_=self%link
+    if(self%link=='auto') self%link_=merge('identity','log     ',self%power==0)
+    call require((self%power==0.and.self%link_=='identity').or.(self%power>=1.and.self%link_=='log'), &
+      'supported GLM links are identity for power 0 and log for powers [1,2]')
+    if(self%power>0.and.self%power<2) call require(all(y>=0),'GLM targets must be nonnegative')
+    if(self%power==2) call require(all(y>0),'Gamma targets must be positive')
+    if(self%link_=='log') call require(sum(y)>0,'log-link GLM requires a positive target mean')
+    n=size(y); p=size(x,2); q=p
+    if(self%fit_intercept) q=q+1
+    allocate(design(n,q),w(q),trial(q),g(q),h(q,q),gt(q),ht(q,q),step(q),s(q),v(q,q))
+    design(:,:p)=x; if(self%fit_intercept) design(:,q)=1
+    w=0
+    if(self%fit_intercept) then
+      w(q)=sum(y)/n; if(self%link_=='log') w(q)=log(w(q))
+    end if
+    call glm_objective(design,y,w,p,self%power,self%link_,self%alpha,loss,g,h,valid)
+    call require(valid,'GLM initial prediction exceeds numerical range')
+    self%converged_=.false.; self%n_iter_=0
+    do it=1,self%max_iter
+      if(maxval(abs(g))<=self%tol) then
+        self%converged_=.true.; exit
+      end if
+      call symmetric_eigen(h,s,v); cutoff=epsilon(1._dp)*q*maxval(s)
+      step=0
+      where(s>cutoff) step=matmul(transpose(v),g)/max(s,tiny(1._dp))
+      step=matmul(v,step); rate=1
+      do ls=1,80
+        trial=w-rate*step
+        call glm_objective(design,y,trial,p,self%power,self%link_,self%alpha,next,gt,ht,valid)
+        if(valid.and.next<=loss-1.e-4_dp*rate*dot_product(g,step)) exit
+        if(valid.and.abs(next-loss)<=8*epsilon(1._dp)*max(1._dp,abs(loss)) &
+          .and.maxval(abs(gt))<maxval(abs(g))) exit
+        rate=rate*0.5_dp
+      end do
+      if(ls>80) exit
+      w=trial; g=gt; h=ht; loss=next; self%n_iter_=it
+    end do
+    if(maxval(abs(g))<=self%tol) self%converged_=.true.
+    self%coef_=w(:p); self%intercept_=0
+    if(self%fit_intercept) self%intercept_=w(q)
+  end subroutine
+  function glm_predict(self,x) result(y)
+    class(tweedie_regressor), intent(in) :: self
+    real(dp), intent(in) :: x(:,:)
+    real(dp) :: y(size(x,1))
+    call require(allocated(self%coef_),'GLM is not fitted')
+    call check_xy(transpose(x),size(self%coef_)); y=matmul(x,self%coef_)+self%intercept_
+    if(self%link_=='log') then
+      call require(maxval(abs(y))<log(huge(1._dp)),'GLM prediction exceeds numerical range')
+      y=exp(y)
+    end if
+  end function
+  real(dp) function tweedie_deviance(y,mu,power) result(d)
+    real(dp), intent(in) :: y(:),mu(:),power
+    real(dp) :: term(size(y)),a,b,ratio,log_ratio
+    integer :: i
+    if(power==0) then
+      d=sum((y-mu)**2)/size(y)
+    else if(power==1) then
+      term=mu-y
+      do i=1,size(y)
+        if(y(i)>0) term(i)=term(i)+y(i)*log(y(i)/mu(i))
+      end do
+      d=2*sum(term)/size(y)
+    else if(power==2) then
+      d=2*sum(log(mu/y)+y/mu-1)/size(y)
+    else
+      a=2-power; b=1-power
+      do i=1,size(y)
+        if(y(i)==0) then
+          term(i)=mu(i)**a/a
+        else
+          ratio=y(i)/mu(i); log_ratio=log(ratio)
+          if(power<=1.5_dp) then
+            term(i)=mu(i)**a*(ratio*exponential_minus_one(b*log_ratio)/b-(ratio-1))/a
+          else
+            term(i)=mu(i)**a*(exponential_minus_one(a*log_ratio)/a-(ratio-1))/b
+          end if
+        end if
+      end do
+      d=2*sum(term)/size(y)
+    end if
+  end function
+  real(dp) function glm_score(self,x,y) result(s)
+    class(tweedie_regressor), intent(in) :: self
+    real(dp), intent(in) :: x(:,:),y(:)
+    real(dp) :: null_deviance,mu(size(y))
+    call check_xy(x,size(y)); call check_x(reshape(y,[size(y),1]))
+    if(self%power>0.and.self%power<2) call require(all(y>=0),'GLM targets must be nonnegative')
+    if(self%power==2) call require(all(y>0),'Gamma targets must be positive')
+    call require(maxval(y)>minval(y),'D2 requires a nonconstant target')
+    mu=sum(y)/size(y); null_deviance=tweedie_deviance(y,mu,self%power)
+    s=1-tweedie_deviance(y,self%predict(x),self%power)/null_deviance
+  end function
   ! Bayesian precision updates and OMP selection follow sklearn 1.6.1
   ! linear_model/_bayes.py and _omp.py. See THIRD_PARTY_NOTICES.md.
   subroutine bayesian_fit(self,x,y)

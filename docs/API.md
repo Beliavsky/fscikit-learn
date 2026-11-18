@@ -146,7 +146,7 @@ is run. `log_marginal_likelihood_` is the fitted normalized-target likelihood.
 
 Inspect `converged_` and `n_iter_` after fitting elastic net/lasso, logistic
 regression, k-means, NMF, Gaussian mixtures, MLPs, SVC, BayesianRidge, ARD and
-FactorAnalysis. A completed `fit` does
+FactorAnalysis, HuberRegressor and the GLMs. A completed `fit` does
 not guarantee convergence if `max_iter` was exhausted. MLP convergence means
 training loss failed to improve by `tol` for `n_iter_no_change` iterations;
 there is no held-out validation-set stopping criterion.
@@ -262,3 +262,44 @@ Set `compute_inverse_components=true` to cache `inverse_components_` with shape
 `(n_features,n_components_)`. Otherwise `inverse_transform` computes it on
 demand. This is a minimum-norm reconstruction; reduced projections generally
 lose information. Fitting again clears the previous inverse cache.
+
+## Robust regression and generalized linear models
+
+`huber_regressor`, `ransac_regressor`, `poisson_regressor`, `gamma_regressor`
+and `tweedie_regressor` are in `sklearn_linear_model` and the `sklearn` facade.
+All support `fit`, `predict`, `score`, `fit_intercept` and `cross_val_score`.
+Huber and RANSAC use R2 scoring; GLMs use explained deviance (D2).
+
+Huber jointly estimates `coef_`, `intercept_` and positive `scale_`. Set
+`epsilon>=1` (default 1.35), `alpha>=0`, `max_iter` and `tol`. `outliers_` marks
+training residuals exceeding `epsilon*scale_`; `loss_` is the total fitted Huber
+objective including its L2 penalty. Inspect `converged_` and `n_iter_`.
+
+RANSAC fits ordinary least squares to random subsets and refits the best
+consensus. `inlier_mask_` holds that consensus before the final refit;
+`n_trials_` and `n_skips_no_inliers_` report sampling diagnostics. Defaults are
+`min_samples=0` for `n_features+1`, `residual_threshold=-1` for the unscaled MAD
+of targets, `max_trials=100`, and `stop_probability=0.99`. Choose
+`loss='absolute_error'` or `'squared_error'`; thresholds apply to that loss.
+Set `stop_n_inliers` or `stop_score` for early stopping and `random_state` for
+repeatability on a given compiler. Fitted coefficients/intercept are stored
+directly on the Fortran object. See `example/robust_regression.f90`.
+
+```fortran
+type(poisson_regressor) :: counts
+type(tweedie_regressor) :: compound
+counts%alpha=0.1_dp
+call counts%fit(x_train,nonnegative_target)
+prediction=counts%predict(x_query) ! Positive conditional means, not count draws.
+compound%power=1.5_dp
+call compound%fit(x_train,nonnegative_target)
+```
+
+All three GLMs have `alpha>=0` (default 1), `tol>0`, `max_iter`, `converged_`
+and `n_iter_`. The intercept is unpenalized. Poisson/Gamma fix their power and
+log link during fitting; Gamma requires strictly positive targets. Tweedie
+uses `power=0`, `link='auto'` by default. Supported powers are zero and `[1,2]`;
+`auto` selects identity for zero and log otherwise. Explicit links must follow
+the same pairing. Prediction returns the inverse-link mean. `link_` records
+the fitted link, while `coef_` and `intercept_` parameterize the linear predictor.
+Scoring requires a nonconstant target. See [COVERAGE.md](COVERAGE.md) for limits.

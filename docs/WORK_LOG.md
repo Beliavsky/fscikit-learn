@@ -68,3 +68,20 @@ checked outputs. Documentation records wide Bayesian covariance null-space
 ambiguity and the ARD inverse/convergence differences, alongside the supported
 dense, unrotated and single-target subsets. No extension or runtime dependency
 was added. See `VALIDATION.md` for the completed verification record.
+
+## Robust regression and generalized linear models (2026-11-18)
+
+Added five core sklearn counterparts: HuberRegressor, RANSACRegressor,
+PoissonRegressor, GammaRegressor and TweedieRegressor. They use the existing
+linear-model inheritance for prediction/scoring/CV, with GLM inverse-link
+prediction and D2 scoring overrides. Huber jointly fits scale and coefficients
+using bounded BFGS; RANSAC selects a consensus then refits ordinary least
+squares. GLMs use damped Newton updates and Hessian pseudoinverses, supporting
+singular unpenalized designs. Tweedie formulas avoid cancellation near powers
+one and two; roundoff-aware line searches still require gradient improvement.
+
+Added two native test programs, a robust regression example, 213 numerical
+reference comparisons and twelve input-error cases. The documented scope is
+dense single-target regression, built-in linear RANSAC, and Tweedie powers zero
+and [1,2] with their standard links. No public extension or dependency was added.
+The total is now 75 core types. See `VALIDATION.md` for verification results.

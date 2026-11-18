@@ -23,7 +23,7 @@ Reference paths by module:
 | --- | --- |
 | preprocessing | preprocessing/_data.py, _label.py, _encoders.py, _polynomial.py; impute/_base.py |
 | metrics | metrics/_regression.py, _classification.py, _ranking.py, pairwise.py; metrics/cluster/ |
-| linear_model | linear_model/_base.py, _ridge.py, _coordinate_descent.py, _logistic.py, _perceptron.py, _bayes.py, _omp.py |
+| linear_model | linear_model/_base.py, _ridge.py, _coordinate_descent.py, _logistic.py, _perceptron.py, _bayes.py, _omp.py, _huber.py, _ransac.py, _glm/glm.py; _loss/loss.py (Tweedie objectives/deviance) |
 | naive_bayes | naive_bayes.py |
 | neighbors | neighbors/_base.py, _classification.py, _regression.py |
 | decomposition | decomposition/_pca.py, _truncated_svd.py, _nmf.py |

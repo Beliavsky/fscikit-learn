@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 70 public estimator, transformer, and splitter types. Each is a
+There are 75 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Three reference suites additionally check 516 result
+All types have native tests. Four reference suites additionally check 729 result
 groups in total across seeded datasets against installed scikit-learn 1.6.1.
 
 This document counts core scikit-learn counterparts. Public extensions are
@@ -23,7 +23,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | Module (`sklearn_` prefix) | Public types and functions | Scope and numerical choices |
 | --- | --- | --- |
 | preprocessing | `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `label_encoder`, `one_hot_encoder`; `normalize`, `binarize`, `polynomial_features` | Population variance; linear percentile interpolation; NaN imputation with mean/median/most-frequent/constant; numeric categories; dense polynomial terms through degree 12 with optional interactions |
-| linear_model | `linear_regression`, `ridge`, `lasso`, `elastic_net`, `logistic_regression`, `perceptron`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit` | Direct Jacobi SVD least squares/ridge; coordinate descent; Newton logistic solver; one-vs-rest perceptron; Bayesian precision updates and predictive uncertainty; ARD pruning; greedy OMP |
+| linear_model | `linear_regression`, `ridge`, `lasso`, `elastic_net`, `logistic_regression`, `perceptron`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `huber_regressor`, `ransac_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; coordinate descent; logistic Newton solver; perceptron; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; RANSAC linear consensus; Newton GLMs |
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb` | Empirical class priors, variance smoothing, strictly positive scalar alpha; Bernoulli threshold; optional complement normalization |
 | neighbors | `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor` | Brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with optional shrinkage and uniform priors |
 | cluster | `kmeans`, `dbscan`, `agglomerative_clustering` | Lloyd iterations, k-means++ initialization or explicit centers; density expansion; full single/complete/average/Ward merge trees |
@@ -66,6 +66,30 @@ Pairwise: Euclidean/squared Euclidean, Manhattan, Chebyshev, Minkowski and cosin
 distances; cosine similarity; linear, RBF, polynomial and sigmoid kernels.
 
 ## Intentional differences and limits
+
+- HuberRegressor uses bounded full-memory BFGS for coefficients, intercept and
+  scale, with the sklearn Huber objective and L2 penalty. It has no warm start,
+  sample weighting or sparse inputs. Its projected-gradient stopping rule and
+  iterations can differ from sklearn's L-BFGS-B relative-loss stopping; inspect
+  `converged_` and `n_iter_`. Full BFGS uses quadratic storage in feature count.
+- RANSAC supports a built-in ordinary least-squares estimator only. It accepts
+  an integer `min_samples` (zero means `n_features+1`), absolute/squared residual
+  loss, a scalar threshold (negative-one means target MAD), and probability,
+  inlier-count and score stopping controls. There are no estimator/callback
+  hooks, fractional sample counts, sample weights or maximum-skip control.
+  Seeded trials use the Fortran RNG; consensus sets can differ from NumPy's.
+- Poisson, Gamma and Tweedie use damped Newton updates with a symmetric-eigen
+  pseudoinverse Hessian, supporting singular unpenalized designs. Tweedie
+  powers are limited to zero (identity link) or `[1,2]` (log link). Other powers,
+  log-link normal regression, identity-link positive-power GLMs, alternative
+  solvers, sample weights, sparse arrays and warm starts are not supported.
+  Positive-power targets must be nonnegative, Gamma targets strictly positive,
+  and log-link fitting requires positive target mean. Extremely large raw log
+  predictions are rejected during prediction or backtracked during fitting.
+  `score` is D2, not R2 except at power zero; constant scoring targets are
+  diagnosed instead of returning undefined NaN/infinity. The fitted objective
+  is mean half-deviance plus `alpha*sum(coef**2)/2`, so power-zero regularization
+  matches ridge with `ridge%alpha=n_samples*glm%alpha`.
 
 - BayesianRidge and ARD support one real target, positive hyperpriors and
   predictive standard deviations, without marginal-likelihood score history,
@@ -166,8 +190,8 @@ distances; cosine similarity; linear, RBF, polynomial and sigmoid kernels.
 ## Remaining major scikit-learn areas
 
 Not translated: sparse data paths, general estimator base/clone/parameter search
-framework, pipelines/column transformers, full SVM family, robust/GLM
-linear estimators, SGD families, histogram boosting, AdaBoost and bagging APIs,
+framework, pipelines/column transformers, full SVM family, Theil-Sen/quantile
+regression, remaining GLM variants, SGD families, histogram boosting, AdaBoost and bagging APIs,
 manifold learning beyond Isomap, spectral clustering, OPTICS/BIRCH/mean shift,
 outlier detection beyond LOF,
 Gaussian-process classification, dictionary learning/ICA,
