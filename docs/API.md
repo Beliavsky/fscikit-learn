@@ -2,6 +2,11 @@
 
 ## Package use
 
+`use sklearn` exposes the core scikit-learn algorithm surface. Any future
+public extension must be imported explicitly from a `fsklearn_extra_*` module
+and identified in [EXTENSIONS.md](EXTENSIONS.md). See [SCOPE.md](SCOPE.md) for
+the distinction between extensions and internal implementation improvements.
+
 From another fpm project, add a path dependency (relative to that project's
 manifest):
 

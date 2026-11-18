@@ -53,3 +53,7 @@ by the license/review change. When code is adopted, record the exact repository,
 revision, source files, modifications, copyright holders and license here; retain
 the complete upstream license under `LICENSES/` and source-level attribution.
 Dependency licenses and file-level exceptions must be checked separately.
+Each adopted feature must also be classified under `docs/SCOPE.md`. Public
+extensions require an entry in `docs/EXTENSIONS.md` and explicit module/API
+identification, in addition to the same license and provenance requirements
+that apply to core implementations.

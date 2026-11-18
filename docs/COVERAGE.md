@@ -8,6 +8,11 @@ There are 56 public estimator, transformer, and splitter types. Each is a
 All types have native tests. The reference suite additionally checks 64 result
 groups on each of three datasets against installed scikit-learn 1.6.1.
 
+This document counts core scikit-learn counterparts. Public extensions are
+tracked separately in [EXTENSIONS.md](EXTENSIONS.md) and excluded from the
+`sklearn` facade and core coverage counts. The [scope policy](SCOPE.md) allows
+selective, clearly identified extensions while prioritizing core correctness.
+
 Global scope: dense real64 CPU arrays, integer classification labels, one target
 per sample. Sparse matrices, pandas integration, Python estimator cloning,
 metadata routing, parallel backends and binary model persistence are outside the

@@ -5,6 +5,11 @@ scikit-learn: **56 estimator, transformer and splitter types**, metrics,
 kernels, text features and synthetic dataset generators. This is not a complete
 or drop-in translation. Read [coverage and limits](docs/COVERAGE.md) before use.
 
+Scikit-learn algorithms are the core scope. Selective public extensions use
+separate `fsklearn_extra_*` modules and are listed in the
+[extension inventory](docs/EXTENSIONS.md); none are currently implemented.
+See the [scope policy](docs/SCOPE.md) for admission and attribution rules.
+
 ## Build and test
 
 ```
