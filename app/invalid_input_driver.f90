@@ -16,6 +16,7 @@ program invalid_input_driver
   type(svr) :: eps_reg
   type(nu_svr) :: nu_reg
   type(one_class_svm) :: novelty_svm
+  type(graphical_lasso) :: graphical
   type(kbins_discretizer) :: bins
   type(power_transformer) :: power
   type(standard_scaler) :: scaler
@@ -61,6 +62,33 @@ program invalid_input_driver
   character(32) :: mode
   x=1; y=1; call get_command_argument(1,mode)
   select case(trim(mode))
+  case('graphical_alpha'); graphical%alpha=-1; call graphical%fit(x)
+  case('graphical_nan'); graphical%alpha=ieee_value(0._dp,ieee_quiet_nan); call graphical%fit(x)
+  case('graphical_tol'); graphical%tol=0; call graphical%fit(x)
+  case('graphical_enet_tol'); graphical%enet_tol=0; call graphical%fit(x)
+  case('graphical_eps'); graphical%eps=0; call graphical%fit(x)
+  case('graphical_iterations'); graphical%max_iter=0; call graphical%fit(x)
+  case('graphical_mode'); graphical%mode='lars'; call graphical%fit(x)
+  case('graphical_cov_mode'); graphical%covariance='invalid'; call graphical%fit(x)
+  case('graphical_samples'); call graphical%fit(x(:1,:))
+  case('graphical_feature_count'); call graphical%fit(x(:,1:1))
+  case('graphical_square'); graphical%covariance='precomputed'; call graphical%fit(x)
+  case('graphical_asymmetric')
+    graphical%covariance='precomputed'; x(1,2)=0.5_dp; call graphical%fit(x(:2,:))
+  case('graphical_indefinite')
+    graphical%covariance='precomputed'; x(1,2)=2; x(2,1)=2; call graphical%fit(x(:2,:))
+  case('graphical_zero_variance'); call graphical%fit(x)
+  case('graphical_zero_diagonal')
+    graphical%covariance='precomputed'; x(1,:)=[0._dp,0._dp]; x(2,:)=[0._dp,1._dp]
+    call graphical%fit(x(:2,:))
+  case('graphical_singular')
+    graphical%alpha=0; graphical%covariance='precomputed'; call graphical%fit(x(:2,:))
+  case('graphical_unfitted'); pred=graphical%mahalanobis(x)
+  case('graphical_score_unfitted'); y(1)=graphical%score(x)
+  case('graphical_query_width')
+    graphical%covariance='precomputed'; x(1,:)=[1._dp,0._dp]; x(2,:)=[0._dp,1._dp]
+    call graphical%fit(x(:2,:)); pred=graphical%mahalanobis(x(:,1:1))
+  case('graphical_empty'); call graphical%fit(x(:0,:))
   case('bins_strategy'); bins%strategy='invalid'; call bins%fit(x)
   case('bins_encode'); bins%encode='onehot'; call bins%fit(x)
   case('bins_count'); bins%n_bins=1; call bins%fit(x)

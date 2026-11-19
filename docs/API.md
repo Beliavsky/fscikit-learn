@@ -557,3 +557,24 @@ complete executable for queries and approximate inversion. Without a per-feature
 accept weights; uniform binning does not. Ordinal codes start at zero and use
 real64 storage. The inverse returns bin midpoints; constant columns return NaN.
 Dense one-hot outputs concatenate feature blocks in input-feature order.
+
+## Sparse inverse covariance
+
+```fortran
+use sklearn
+implicit none
+type(graphical_lasso) :: graph
+real(dp) :: covariance(3,3)
+covariance=reshape([1._dp,0.6_dp,0.1_dp,0.6_dp,1._dp,0.4_dp,0.1_dp,0.4_dp,1._dp],[3,3])
+graph%covariance='precomputed'
+graph%alpha=0.2_dp; graph%tol=1.e-8_dp; graph%enet_tol=1.e-10_dp
+call graph%fit(covariance)
+! graph%precision_ is the sparse inverse covariance estimate.
+! Check graph%converged_, graph%n_iter_ and graph%dual_gap_.
+! With sample data use covariance='empirical' (default) and fit(x_train).
+! Then graph%mahalanobis(x_new) and graph%score(x_new) use the fitted mean.
+```
+
+`alpha` penalizes off-diagonal precision entries. `costs_(:,1)` stores the
+shifted objective; `costs_(:,2)` stores dual gaps. Alpha zero uses a direct inverse
+and records one diagnostic row with `n_iter_=0`. See `example/sparse_precision.f90`.

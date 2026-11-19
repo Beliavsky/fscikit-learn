@@ -318,3 +318,20 @@ clipping, one active bin per feature, transform-inverse bin consistency, known
 weighted centers/quantiles, constant inverse NaNs, empty-cluster handling and
 fitted encoding retention. The input harness adds 20 rejection cases (187 total).
 The `discretization` example demonstrates query codes and approximate inverses.
+
+## GraphicalLasso reference suite
+
+Run `python validation/compare_graphical_lasso.py` for 144 result-group checks
+against sklearn 1.6.1. Three seeded datasets each exercise eight configurations:
+regularization strengths including zero/fully diagonal, empirical/precomputed
+covariance, assume-centered fits, rank-deficient sample covariance, and a
+capped two-sweep solver. Locations, covariance/precision matrices, final
+objective/gap, query Mahalanobis distances and query likelihoods use
+atol=rtol=3e-8. The reference driver runs with bounds checks and FPE traps.
+The thirteen-suite inventory is 3,641 result groups.
+
+Native properties check an analytic 2D solution, active/inactive KKT conditions,
+unpenalized covariance diagonals, covariance/precision inversion, convergence
+history, zero-alpha empirical equivalence, precomputed equivalence and iteration
+caps. The input harness adds 20 rejection cases (207 total). The
+`sparse_precision` example demonstrates a precomputed sparse precision fit.

@@ -5,6 +5,16 @@ import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 CASES = {
+    "graphical_alpha": "alpha must be nonnegative", "graphical_nan": "nonfinite GraphicalLasso controls",
+    "graphical_tol": "invalid GraphicalLasso tolerances", "graphical_enet_tol": "invalid GraphicalLasso tolerances",
+    "graphical_eps": "invalid GraphicalLasso tolerances", "graphical_iterations": "max_iter must be positive",
+    "graphical_mode": "supports mode cd only", "graphical_cov_mode": "invalid GraphicalLasso covariance mode",
+    "graphical_samples": "at least two samples and features", "graphical_feature_count": "at least two samples and features",
+    "graphical_square": "must be square", "graphical_asymmetric": "must be symmetric",
+    "graphical_indefinite": "must be positive semidefinite", "graphical_zero_variance": "positive feature variances",
+    "graphical_zero_diagonal": "positive feature variances", "graphical_singular": "matrix is not positive definite",
+    "graphical_unfitted": "not fitted", "graphical_score_unfitted": "not fitted",
+    "graphical_query_width": "sample counts differ", "graphical_empty": "X must be nonempty",
     "bins_strategy": "invalid KBinsDiscretizer strategy", "bins_encode": "invalid KBinsDiscretizer encode",
     "bins_count": "at least two requested bins", "bins_count_shape": "bin count shape mismatch",
     "bins_count_vector": "at least two requested bins", "bins_weight_uniform": "does not support sample weights",

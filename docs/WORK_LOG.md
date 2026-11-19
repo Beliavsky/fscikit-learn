@@ -317,3 +317,34 @@ Sklearn provenance and retained BSD-3-Clause terms are recorded in the module
 and third-party notices; original contributions remain MIT. No third-party
 runtime dependency or public extension was added. COVERAGE.md records dense-only
 encoding, full-data fitting, stricter inverse validation and numerical limits.
+
+## GraphicalLasso addition (2026-11-18)
+
+Added `graphical_lasso` to the covariance module, including empirical and
+precomputed covariance input, centering, off-diagonal L1 regularization, and
+inherited distances, likelihood and error norms. It uses native Cholesky
+initialization plus sklearn's cyclic block/Gram coordinate updates and inner
+dual-gap test. Zero alpha directly inverts an SPD covariance. Fitted state
+includes covariance, precision, location, objective/gap history, outer iteration
+count and convergence status. The package now has 96 core types in 40 modules.
+
+The new reference suite passed 144 result-group checks against sklearn 1.6.1
+on three seeded datasets with eight configurations each, using atol=rtol=3e-8.
+It checks multiple penalties (including zero and fully diagonal), centering,
+precomputed input, rank-deficient sample covariance and a capped two-sweep fit.
+Compared outputs are locations, covariance/precision matrices, final objective
+and gap, query Mahalanobis distances and query likelihood. The thirteen-suite
+inventory is 3,641 result groups; older unchanged Python suites were not rerun.
+
+All 33 native programs passed bounds/backtrace/FPE-trapping builds and release
+builds. New native properties cover an analytic 2D solution, covariance/precision
+inversion, active/inactive KKT conditions, fixed covariance diagonals, fitted
+history, precomputed equivalence, zero-alpha empirical equivalence, iteration
+caps and regularized singular sample covariance. All 207 isolated invalid-input
+cases passed, including 20 new covariance controls/domain cases. The
+`sparse_precision` example passed, as did source formatting and Python syntax
+audits.
+
+Original contributions remain MIT; sklearn BSD-3-Clause provenance and notices
+are retained. No new runtime dependency or extension was added. Only mode cd is
+supported; numerical SPD checks and API restrictions are documented in COVERAGE.md.

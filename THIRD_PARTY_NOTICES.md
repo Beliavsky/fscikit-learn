@@ -43,7 +43,7 @@ Reference paths by module:
 | mixture | mixture/_gaussian_mixture.py, _base.py |
 | neural_network | neural_network/_multilayer_perceptron.py, _stochastic_optimizers.py |
 | gaussian_process | gaussian_process/_gpr.py, kernels.py (fixed kernel subset) |
-| covariance | covariance/_empirical_covariance.py, _shrunk_covariance.py |
+| covariance | covariance/_empirical_covariance.py, _shrunk_covariance.py; _graph_lasso.py and linear_model/_cd_fast.pyx block updates, Gram coordinate descent, objective and gap definitions; native Cholesky initialization/diagnostics |
 | datasets | datasets/_samples_generator.py (independent Fortran random stream) |
 | radius neighbors / nearest centroid | neighbors/_classification.py, _regression.py, _nearest_centroid.py |
 | outlier (LOF) | neighbors/_lof.py |

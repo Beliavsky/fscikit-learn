@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 95 public estimator, transformer, and splitter types. Each is a
+There are 96 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Twelve reference suites additionally check 3,497 result
+All types have native tests. Thirteen reference suites additionally check 3,641 result
 groups in total across seeded datasets against installed scikit-learn 1.6.1.
 
 This document counts core scikit-learn counterparts. Public extensions are
@@ -50,7 +50,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | mixture | `gaussian_mixture` | EM with k-means initialization, full/tied/diag/spherical covariances; posterior, log likelihood, BIC/AIC |
 | neural_network | `mlp_classifier`, `mlp_regressor` | Arbitrary dense hidden layer sizes, relu/tanh/logistic/identity, full-batch Adam, softmax classification or squared-error regression, L2 regularization |
 | gaussian_process | `gaussian_process_regressor` | Fixed isotropic RBF amplitude/length scale plus white noise and diagonal alpha; Cholesky posterior, standard deviation/covariance, log marginal likelihood; optional target normalization |
-| covariance | `empirical_covariance`, `shrunk_covariance`, `ledoit_wolf`, `oas` | Population covariance, pseudoinverse precision, squared Mahalanobis distance, likelihood, Frobenius/spectral covariance error |
+| covariance | `empirical_covariance`, `shrunk_covariance`, `ledoit_wolf`, `oas`, `graphical_lasso` | Population covariance, pseudoinverse precision, squared Mahalanobis distance, likelihood, Frobenius/spectral covariance error; L1-penalized sparse precision via block coordinate descent |
 | datasets | `make_blobs`, `make_regression`, `make_moons`, `make_circles` | Native synthetic generators; optional deterministic seed; no bundled real-world datasets |
 
 ## Metrics and kernels
@@ -511,3 +511,38 @@ feature and otherwise zeros. These inverse checks are stricter than Python's
 integer casting and argmax behavior. Inputs reject NaN/infinity. Fitted encoding
 is retained until refit. Choose inputs/weights for finite moment and distance
 arithmetic. The package now contains 95 core types in 40 source modules.
+
+## GraphicalLasso
+
+`graphical_lasso` extends the covariance family with an L1-penalized sparse
+precision estimator. It inherits `assume_centered`, `location_`, `covariance_`,
+`precision_`, `mahalanobis`, `score` and `error_norm`. Default `alpha=0.01`
+penalizes off-diagonal precision entries only. `covariance='empirical'`
+(default) computes a population covariance from training samples;
+`covariance='precomputed'` accepts a square, symmetric covariance with scaled
+entrywise symmetry tolerance 1e-10 and relative PSD tolerance 1e-10. It uses zero
+location. Training arrays need at least two rows and two features, with
+positive diagonal variances; all values must be finite. A positive alpha can
+regularize a singular sample covariance. Alpha zero requires a positive-definite
+covariance and directly inverts it with Cholesky (zero outer iterations).
+
+The solver implements sklearn 1.6.1's `mode='cd'` cyclic block updates and
+Gram coordinate descent, including its inner dual-gap stopping rule. It uses
+native Cholesky solves instead of the starting `pinvh`. Controls are
+`max_iter=100`, `tol=1e-4`, `enet_tol=1e-4`, and `eps=epsilon(1._dp)`.
+Both inner and outer loops use max_iter, following sklearn; outer convergence
+requires abs(dual_gap_) < tol. Capped fits return their latest approximation
+with `converged_=.false.` and `n_iter_` at the cap. Tolerances/eps must be
+positive and max_iter must be positive; Python's zero-iteration edge case is
+unsupported. Only mode `cd` is accepted; no LARS, GraphicalLassoCV, public
+functional solver, covariance warm start, sparse matrix or warning API is added.
+
+`costs_(iteration,1:2)` stores the shifted objective and dual gap after every
+outer sweep; `objective_` and `dual_gap_` hold final values. For alpha zero it
+contains one diagnostic row despite n_iter_=0. The objective includes sklearn's
+Gaussian additive constant and should not be confused with unshifted negative
+log likelihood. Ill-conditioned fits with a nonpositive Schur complement or a
+non-SPD precision terminate with a diagnostic; the native solver checks SPD at
+every cost evaluation, including the first sweep. Use appropriately scaled
+inputs and check convergence before interpreting sparse edges. This addition
+brings the package to 96 core types in 40 source modules.
