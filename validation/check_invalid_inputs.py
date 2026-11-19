@@ -5,6 +5,13 @@ import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 CASES = {
+    "theil_subsamples": "invalid TheilSen n_subsamples", "theil_population": "max_subpopulation must be positive",
+    "theil_iterations": "invalid TheilSen iteration controls", "theil_tolerance": "invalid TheilSen iteration controls",
+    "theil_nan_tolerance": "nonfinite TheilSen tolerance", "theil_too_many": "exceeds sample count",
+    "theil_too_few": "smaller than design dimension", "theil_wide_subset": "requires all samples",
+    "theil_targets": "sample counts differ", "theil_nan_targets": "NaN or infinity",
+    "theil_unfitted": "not fitted", "theil_query_width": "sample counts differ",
+    "theil_empty": "X must be nonempty", "theil_nan_x": "NaN or infinity",
     "graphical_alpha": "alpha must be nonnegative", "graphical_nan": "nonfinite GraphicalLasso controls",
     "graphical_tol": "invalid GraphicalLasso tolerances", "graphical_enet_tol": "invalid GraphicalLasso tolerances",
     "graphical_eps": "invalid GraphicalLasso tolerances", "graphical_iterations": "max_iter must be positive",

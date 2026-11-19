@@ -578,3 +578,25 @@ call graph%fit(covariance)
 `alpha` penalizes off-diagonal precision entries. `costs_(:,1)` stores the
 shifted objective; `costs_(:,2)` stores dual gaps. Alpha zero uses a direct inverse
 and records one diagnostic row with `n_iter_=0`. See `example/sparse_precision.f90`.
+
+## Theil-Sen robust regression
+
+```fortran
+use sklearn
+implicit none
+type(theil_sen_regressor) :: robust
+real(dp) :: x(8,1),y(8)
+real(dp), allocatable :: prediction(:)
+x(:,1)=[1._dp,2._dp,3._dp,4._dp,5._dp,6._dp,7._dp,8._dp]
+y=2*x(:,1)+0.5_dp; y(1)=30
+robust%tol=1.e-8_dp; robust%max_iter=1000
+call robust%fit(x,y)
+prediction=robust%predict(x)
+! Inspect robust%converged_, robust%n_subpopulation_ and robust%breakdown_.
+! Set robust%n_subsamples to control rows per subset (zero selects default).
+! Set robust%max_subpopulation and robust%random_state for capped sampling.
+```
+
+The exhaustive path enumerates combinations; the sampled path retains its
+one-based `subsets_` indices for inspection and reproducibility. See
+`example/robust_subsets.f90` for comparison with ordinary least squares.

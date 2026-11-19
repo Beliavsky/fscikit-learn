@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 96 public estimator, transformer, and splitter types. Each is a
+There are 97 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Thirteen reference suites additionally check 3,641 result
+All types have native tests. Fourteen reference suites additionally check 3,761 result
 groups in total across seeded datasets against installed scikit-learn 1.6.1.
 
 This document counts core scikit-learn counterparts. Public extensions are
@@ -23,7 +23,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | Module (`sklearn_` prefix) | Public types and functions | Scope and numerical choices |
 | --- | --- | --- |
 | preprocessing | `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `label_encoder`, `one_hot_encoder`, `power_transformer`, `kbins_discretizer`; `normalize`, `binarize`, `polynomial_features` | Population variance; linear percentile interpolation; NaN imputation with mean/median/most-frequent/constant; numeric categories; dense polynomial terms through degree 12 with optional interactions |
-| linear_model | `linear_regression`, `ridge`, `lasso`, `elastic_net`, `logistic_regression`, `perceptron`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `huber_regressor`, `ransac_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; coordinate descent; logistic Newton solver; perceptron; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; RANSAC linear consensus; Newton GLMs |
+| linear_model | `linear_regression`, `ridge`, `lasso`, `elastic_net`, `logistic_regression`, `perceptron`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `huber_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; coordinate descent; logistic Newton solver; perceptron; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb` | Empirical class priors, variance smoothing, strictly positive scalar alpha; Bernoulli threshold; optional complement normalization |
 | neighbors | `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with optional shrinkage and uniform priors; Euclidean kernel density |
 | cluster | `kmeans`, `dbscan`, `agglomerative_clustering`, `mean_shift`, `affinity_propagation`, `spectral_clustering`; `estimate_bandwidth` | Lloyd/k-means++; density expansion; single/complete/average/Ward merge trees; flat-kernel mode seeking; damped exemplar messages; normalized-Laplacian clustering with k-means or pivoted QR assignment |
@@ -227,7 +227,7 @@ distances; cosine similarity; linear, RBF, polynomial and sigmoid kernels.
 ## Remaining major scikit-learn areas
 
 Not translated: sparse data paths, general estimator base/clone/parameter search
-framework, pipelines/column transformers, NuSVC and linear SVM variants, Theil-Sen/quantile
+framework, pipelines/column transformers, NuSVC and linear SVM variants, quantile
 regression, remaining GLM variants, SGD families, histogram boosting, AdaBoost and bagging APIs,
 t-SNE and Hessian/modified LLE, OPTICS/BIRCH,
 outlier detection beyond LOF/OneClassSVM,
@@ -546,3 +546,44 @@ non-SPD precision terminate with a diagnostic; the native solver checks SPD at
 every cost evaluation, including the first sweep. Use appropriately scaled
 inputs and check convergence before interpreting sparse edges. This addition
 brings the package to 96 core types in 40 source modules.
+
+## TheilSenRegressor
+
+`theil_sen_regressor` adds subset-based robust regression to `sklearn_linear_model`.
+It inherits `fit_intercept`, `coef_`, `intercept_`, `predict` and R2 `score`.
+Each row subset is fitted by minimum-norm dense SVD with the intercept column
+first; coefficients are combined using sklearn 1.6.1's modified Weiszfeld spatial
+median. With a single fitted coefficient (one feature and no intercept), an
+ordinary scalar median is used. These are dense real64, single-target fits;
+there are no sample weights or joblib/parallel controls.
+
+`n_subsamples=0` means automatic: min(features + intercept, samples). An explicit
+positive count must not exceed sample count. When samples >= features it must
+cover the full design dimension, including an intercept if fitted; when samples
+< features it must equal sample count, following sklearn's parameter rules.
+`n_subsamples_` records the resolved value. `max_subpopulation=10000` caps the
+number of least-squares fits. All subsets are enumerated lexicographically when
+the combination count fits that cap (`exhaustive_=.true.`); otherwise each fit
+uses a random subset without replacement within that subset. Subsets may repeat
+across fits, as in sklearn. A bounded binomial calculation avoids integer
+overflow when deciding between the two paths. `subsets_(population,row_in_subset)`
+retains one-based original row indices; `n_subpopulation_` stores population size.
+
+`random_state=0` seeds the native Fortran stream for sampling. Results are
+repeatable with this compiler but selected subsets differ from NumPy. Exhaustive
+fits do not draw random numbers. `breakdown_` is sklearn's approximate breakdown
+formula, not a count of detected outliers. Default `tol=1e-3` and `max_iter=300`
+control spatial-median updates; `converged_` reports the stopping test. `n_iter_`
+matches sklearn 1.6.1's zero-based last Weiszfeld iteration, so first-step
+convergence reports zero and a capped fit reports max_iter-1. The scalar-median
+shortcut reports one. A capped fit returns its latest coefficients. Tolerance
+and iteration/population limits must be positive. The native zero-quotient
+Weiszfeld convention follows the referenced sklearn version.
+
+Subset pseudoinverses use the common SVD threshold
+machine_epsilon * max(subset_rows, design_columns) * largest_singular_value.
+This can differ from LAPACK GELSS on nearly singular problems; minimum-norm
+fits with exact null directions are supported. Input scaling affects the spatial
+median's coefficient-space geometry, as in sklearn. Use finite inputs suitable
+for dense arithmetic. Inherited `rank_` is left zero, as for the other robust
+regressors. This addition brings the package to 97 core types in 40 modules.

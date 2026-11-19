@@ -408,3 +408,37 @@ audits.
 Original contributions remain MIT; sklearn BSD-3-Clause provenance and notices
 are retained. No new runtime dependency or extension was added. Only mode cd is
 supported; numerical SPD checks and API restrictions are documented in COVERAGE.md.
+
+## TheilSenRegressor addition (2026-11-18)
+
+Added `theil_sen_regressor` to the linear-model family: exhaustive or capped
+random row subsets, minimum-norm SVD least squares, modified-Weiszfeld spatial
+median, scalar-median shortcut, optional intercept, prediction and R2 scoring.
+Fitted diagnostics include the approximate breakdown, resolved subset/population
+sizes, retained one-based subset indices, exhaustive/sampled flag and spatial
+median convergence status. Native sampling is repeatable with this compiler
+but does not reproduce NumPy draws. The package now has 97 core types in 40
+source modules.
+
+The reference suite passed 120 result groups against sklearn 1.6.1 across three
+seeded contaminated datasets. Seven configurations use the public exhaustive
+estimator and one checks sklearn's least-squares/spatial-median routines on the
+same Fortran-selected subsets. Intercept/no-intercept, larger/all-row subsets,
+rank-deficient all-row fits, capped iterations, scalar medians and sampled fits
+are covered. Coefficients, parameters, predictions and R2 use atol=rtol=2e-7.
+The fourteen-suite inventory is 3,761 result groups; unchanged earlier Python
+suites were not rerun in this batch.
+
+All 34 native programs passed bounds/backtrace/FPE-trapping builds and release
+builds. Native properties cover robust line recovery, improvement over OLS,
+combination enumeration/counts, full-subset OLS equivalence, repeatable sampling
+without replacement, capped status, scalar median and rank-deficient/wide
+minimum-norm fits. All 221 isolated invalid-input cases passed, including 14
+new Theil-Sen cases. The `robust_subsets` example passed, along with source
+formatting and Python syntax audits. The breakdown test checks sklearn's
+finite-sample approximation, which is slightly positive even for all-row subsets.
+
+Original contributions remain MIT; sklearn BSD-3-Clause attribution is retained.
+No runtime dependency or public extension was added. COVERAGE.md documents the
+SVD rank threshold, random-stream difference and sklearn's zero-based Weiszfeld
+iteration reporting convention.

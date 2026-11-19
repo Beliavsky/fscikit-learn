@@ -16,6 +16,7 @@ program invalid_input_driver
   type(svr) :: eps_reg
   type(nu_svr) :: nu_reg
   type(one_class_svm) :: novelty_svm
+  type(theil_sen_regressor) :: theil
   type(graphical_lasso) :: graphical
   type(kbins_discretizer) :: bins
   type(power_transformer) :: power
@@ -62,6 +63,20 @@ program invalid_input_driver
   character(32) :: mode
   x=1; y=1; call get_command_argument(1,mode)
   select case(trim(mode))
+  case('theil_subsamples'); theil%n_subsamples=-1; call theil%fit(x,y)
+  case('theil_population'); theil%max_subpopulation=0; call theil%fit(x,y)
+  case('theil_iterations'); theil%max_iter=0; call theil%fit(x,y)
+  case('theil_tolerance'); theil%tol=0; call theil%fit(x,y)
+  case('theil_nan_tolerance'); theil%tol=ieee_value(0._dp,ieee_quiet_nan); call theil%fit(x,y)
+  case('theil_too_many'); theil%n_subsamples=5; call theil%fit(x,y)
+  case('theil_too_few'); theil%n_subsamples=1; call theil%fit(x,y)
+  case('theil_wide_subset'); theil%n_subsamples=1; call theil%fit(transpose(x),y(:2))
+  case('theil_targets'); call theil%fit(x,y(:3))
+  case('theil_nan_targets'); y(1)=ieee_value(0._dp,ieee_quiet_nan); call theil%fit(x,y)
+  case('theil_unfitted'); pred=theil%predict(x)
+  case('theil_query_width'); theil%n_subsamples=4; call theil%fit(x,y); pred=theil%predict(x(:,1:1))
+  case('theil_empty'); call theil%fit(x(:0,:),y(:0))
+  case('theil_nan_x'); x(1,1)=ieee_value(0._dp,ieee_quiet_nan); call theil%fit(x,y)
   case('graphical_alpha'); graphical%alpha=-1; call graphical%fit(x)
   case('graphical_nan'); graphical%alpha=ieee_value(0._dp,ieee_quiet_nan); call graphical%fit(x)
   case('graphical_tol'); graphical%tol=0; call graphical%fit(x)

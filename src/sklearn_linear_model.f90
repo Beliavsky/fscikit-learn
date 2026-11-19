@@ -1,11 +1,13 @@
 module sklearn_linear_model
   use sklearn_common
   use sklearn_metrics, only: r2_score,accuracy_score
+  use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
   implicit none
   private
   public :: linear_regression, ridge, lasso, elastic_net, logistic_regression, perceptron
   public :: bayesian_ridge, ard_regression, orthogonal_matching_pursuit
   public :: huber_regressor,ransac_regressor,tweedie_regressor,poisson_regressor,gamma_regressor
+  public :: theil_sen_regressor
   type :: linear_regression
     logical :: fit_intercept=.true.
     real(dp), allocatable :: coef_(:)
@@ -101,6 +103,15 @@ module sklearn_linear_model
   contains
     procedure :: fit=>ransac_fit
   end type
+  type, extends(linear_regression) :: theil_sen_regressor
+    integer :: n_subsamples=0,max_subpopulation=10000,max_iter=300,random_state=0
+    integer :: n_subsamples_=0,n_subpopulation_=0,n_iter_=0
+    real(dp) :: tol=1.e-3_dp,breakdown_=0
+    logical :: exhaustive_=.false.,converged_=.false.
+    integer, allocatable :: subsets_(:,:)
+  contains
+    procedure :: fit=>theil_sen_fit
+  end type
   type, extends(linear_regression) :: tweedie_regressor
     real(dp) :: power=0,alpha=1,tol=1.e-4_dp
     integer :: max_iter=100,n_iter_=0
@@ -120,6 +131,130 @@ module sklearn_linear_model
     procedure :: fit=>gamma_fit
   end type
 contains
+  ! sklearn 1.6.1 linear_model/_theil_sen.py, BSD-3-Clause.
+  ! See LICENSES/scikit-learn-COPYING and THIRD_PARTY_NOTICES.md.
+  subroutine theil_spatial_median(weights,max_iter,tol,center,n_iter,converged)
+    real(dp), intent(in) :: weights(:,:),tol
+    integer, intent(in) :: max_iter
+    real(dp), intent(out) :: center(:)
+    integer, intent(out) :: n_iter
+    logical, intent(out) :: converged
+    real(dp) :: old(size(center)),direction(size(center)),quotient(size(center)),diff(size(center))
+    real(dp) :: norm,quotient_norm,denominator,mix
+    integer :: i,it
+    logical :: coincident
+    if(size(center)==1) then
+      center(1)=sample_median(weights(:,1)); n_iter=1; converged=.true.; return
+    end if
+    old=sum(weights,dim=1)/size(weights,1); converged=.false.
+    do it=1,max_iter
+      quotient=0; direction=0; denominator=0; coincident=.false.
+      do i=1,size(weights,1)
+        diff=weights(i,:)-old; norm=sqrt(sum(diff**2))
+        if(norm>=epsilon(1._dp)) then
+          quotient=quotient+diff/norm
+          direction=direction+weights(i,:)/norm; denominator=denominator+1/norm
+        else
+          coincident=.true.
+        end if
+      end do
+      quotient_norm=sqrt(sum(quotient**2))
+      if(quotient_norm>epsilon(1._dp)) then
+        direction=direction/denominator
+      else
+        ! Preserve sklearn 1.6.1's modified-Weiszfeld zero-quotient convention.
+        direction=1; quotient_norm=1
+      end if
+      mix=0
+      if(coincident) mix=min(1._dp,1/quotient_norm)
+      center=(1-mix)*direction+mix*old
+      n_iter=it-1 ! sklearn reports the zero-based last Weiszfeld iteration.
+      if(sum((center-old)**2)<tol**2) then
+        converged=.true.; exit
+      end if
+      old=center
+    end do
+  end subroutine
+
+  subroutine theil_sen_fit(self,x,y)
+    class(theil_sen_regressor), intent(inout) :: self
+    real(dp), intent(in) :: x(:,:),y(:)
+    real(dp), allocatable :: design(:,:),weights(:,:),s(:),u(:,:),v(:,:),center(:)
+    real(dp) :: combinations,coin,cutoff
+    integer :: n,p,q,m,k,i,j,h,pick,tmp,first
+    integer, allocatable :: subset(:),pool(:)
+    call check_xy(x,size(y)); call check_x(reshape(y,[size(y),1]))
+    call require(ieee_is_finite(self%tol),'nonfinite TheilSen tolerance')
+    call require(self%tol>0.and.self%max_iter>0,'invalid TheilSen iteration controls')
+    call require(self%max_subpopulation>0,'TheilSen max_subpopulation must be positive')
+    call require(self%n_subsamples>=0,'invalid TheilSen n_subsamples')
+    n=size(x,1); p=size(x,2); q=p+merge(1,0,self%fit_intercept); m=self%n_subsamples
+    if(m==0) then
+      m=min(q,n)
+    else
+      call require(m<=n,'TheilSen n_subsamples exceeds sample count')
+      if(n>=p) then
+        call require(m>=q,'TheilSen n_subsamples is smaller than design dimension')
+      else
+        call require(m==n,'underdetermined TheilSen requires all samples')
+      end if
+    end if
+    self%n_subsamples_=m
+    self%breakdown_=1-(0.5_dp**(1._dp/m)*(n-m+1)+m-1)/n
+    ! Bound the binomial count before integer conversion to avoid overflow.
+    combinations=1
+    do j=1,min(m,n-m)
+      combinations=combinations*real(n-min(m,n-m)+j,dp)/j
+      if(combinations>real(self%max_subpopulation,dp)+0.5_dp) exit
+    end do
+    self%exhaustive_=combinations<=real(self%max_subpopulation,dp)+0.5_dp
+    self%n_subpopulation_=self%max_subpopulation
+    if(self%exhaustive_) self%n_subpopulation_=max(1,nint(combinations))
+    if(allocated(self%subsets_)) deallocate(self%subsets_)
+    allocate(self%subsets_(self%n_subpopulation_,m),subset(m),pool(n))
+    if(self%exhaustive_) then
+      subset=[(i,i=1,m)]
+      do i=1,self%n_subpopulation_
+        self%subsets_(i,:)=subset
+        if(i==self%n_subpopulation_) exit
+        j=m
+        do while(j>0)
+          if(subset(j)<n-m+j) exit
+          j=j-1
+        end do
+        call require(j>0,'TheilSen combination enumeration failed')
+        subset(j)=subset(j)+1
+        do h=j+1,m
+          subset(h)=subset(h-1)+1
+        end do
+      end do
+    else
+      call seed_rng(self%random_state)
+      do i=1,self%n_subpopulation_
+        pool=[(j,j=1,n)]
+        do j=1,m
+          call random_number(coin); pick=min(n,j+int(coin*(n-j+1)))
+          tmp=pool(j); pool(j)=pool(pick); pool(pick)=tmp
+        end do
+        self%subsets_(i,:)=pool(:m)
+      end do
+    end if
+    allocate(design(m,q),weights(self%n_subpopulation_,q),s(q),u(m,q),v(q,q),center(q))
+    first=merge(2,1,self%fit_intercept)
+    do i=1,self%n_subpopulation_
+      subset=self%subsets_(i,:); design(:,first:)=x(subset,:)
+      if(self%fit_intercept) design(:,1)=1
+      call dense_svd(design,s,u,v); weights(i,:)=0
+      cutoff=epsilon(1._dp)*max(m,q)*maxval(s)
+      do k=1,q
+        if(s(k)>cutoff) weights(i,:)=weights(i,:)+v(:,k)*dot_product(u(:,k),y(subset))/s(k)
+      end do
+    end do
+    call theil_spatial_median(weights,self%max_iter,self%tol,center,self%n_iter_,self%converged_)
+    self%intercept_=0; self%coef_=center(first:); self%rank_=0
+    if(self%fit_intercept) self%intercept_=center(1)
+  end subroutine
+
   ! sklearn 1.6.1 _huber.py, _ransac.py and _glm/glm.py are the references
   ! for these objectives and estimator contracts. See THIRD_PARTY_NOTICES.md.
   subroutine huber_objective(design,y,w,p,epsilon,alpha,loss,gradient)

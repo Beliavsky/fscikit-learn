@@ -335,3 +335,24 @@ unpenalized covariance diagonals, covariance/precision inversion, convergence
 history, zero-alpha empirical equivalence, precomputed equivalence and iteration
 caps. The input harness adds 20 rejection cases (207 total). The
 `sparse_precision` example demonstrates a precomputed sparse precision fit.
+
+## Theil-Sen reference suite
+
+Run `python validation/compare_theil_sen.py` for 120 result-group comparisons
+against sklearn 1.6.1 on three seeded contaminated regression fixtures. Seven
+configurations use the public estimator with exhaustive subsets: intercept and
+no intercept, larger subset size, all-row least squares, rank-deficient all-row
+fits, a capped spatial median, and the scalar-median shortcut. An eighth uses
+sklearn's own `_lstsq` and `_spatial_median` on the exact Fortran-selected subsets;
+this checks the sampled algorithm without assuming identical NumPy random draws.
+The input subset indices must be in bounds and distinct within every subset.
+Coefficients, intercept, breakdown, population/subset counts, iteration index,
+training/query predictions and R2 use atol=rtol=2e-7. The driver runs checked with
+FPE traps. The fourteen-suite inventory is 3,761 result groups.
+
+Native properties cover contaminated-line recovery, improvement over OLS,
+lexicographic enumeration, full-subset OLS equivalence, sample reproducibility,
+valid sampling without replacement, capped convergence, scalar medians,
+rank-deficient subset solutions and an underdetermined minimum-norm fit.
+The input harness adds 14 rejection cases (221 total). `robust_subsets` is a
+complete executable comparing contaminated Theil-Sen and OLS slopes/intercepts.
