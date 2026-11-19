@@ -3,6 +3,7 @@ program invalid_input_driver
   use sklearn
   use, intrinsic :: ieee_arithmetic, only: ieee_value,ieee_quiet_nan,ieee_positive_inf
   implicit none
+  type(elastic_net_cv) :: ccv
   type(feature_agglomeration) :: fagg
   type(incremental_pca) :: ipca
   type(linear_svc) :: lsvc
@@ -90,6 +91,76 @@ program invalid_input_driver
   mt_y=1
   x=1; y=1; call get_command_argument(1,mode)
   select case(trim(mode))
+  case('ccv_folds')
+    ccv%cv=2
+    ccv%cv=1; call ccv%fit(x,y)
+  case('ccv_many_folds')
+    ccv%cv=2
+    ccv%cv=5; call ccv%fit(x,y)
+  case('ccv_tol')
+    ccv%cv=2
+    ccv%tol=0; call ccv%fit(x,y)
+  case('ccv_nan_tol')
+    ccv%cv=2
+    ccv%tol=ieee_value(0._dp,ieee_quiet_nan); call ccv%fit(x,y)
+  case('ccv_iter')
+    ccv%cv=2
+    ccv%max_iter=0; call ccv%fit(x,y)
+  case('ccv_empty_ratio')
+    ccv%cv=2
+    allocate(ccv%l1_ratios(0)); call ccv%fit(x,y)
+  case('ccv_nan_ratio')
+    ccv%cv=2
+    ccv%l1_ratios=[ieee_value(0._dp,ieee_quiet_nan)]; call ccv%fit(x,y)
+  case('ccv_zero_ratio')
+    ccv%cv=2
+    ccv%l1_ratio=0; call ccv%fit(x,y)
+  case('ccv_large_ratio')
+    ccv%cv=2
+    ccv%l1_ratios=[1.1_dp]; call ccv%fit(x,y)
+  case('ccv_empty_alpha')
+    ccv%cv=2
+    allocate(ccv%alphas(0)); call ccv%fit(x,y)
+  case('ccv_nan_alpha')
+    ccv%cv=2
+    ccv%alphas=[ieee_value(0._dp,ieee_quiet_nan)]; call ccv%fit(x,y)
+  case('ccv_zero_alpha')
+    ccv%cv=2
+    ccv%alphas=[0._dp]; call ccv%fit(x,y)
+  case('ccv_negative_alpha')
+    ccv%cv=2
+    ccv%alphas=[-1._dp]; call ccv%fit(x,y)
+  case('ccv_count')
+    ccv%cv=2
+    ccv%n_alphas=0; call ccv%fit(x,y)
+  case('ccv_eps')
+    ccv%cv=2
+    ccv%eps=0; call ccv%fit(x,y)
+  case('ccv_large_eps')
+    ccv%cv=2
+    ccv%eps=2; call ccv%fit(x,y)
+  case('ccv_nan_eps')
+    ccv%cv=2
+    ccv%eps=ieee_value(0._dp,ieee_quiet_nan); call ccv%fit(x,y)
+  case('ccv_targets')
+    ccv%cv=2
+    call ccv%fit(x,y(:3))
+  case('ccv_nan_y')
+    ccv%cv=2
+    y(1)=ieee_value(0._dp,ieee_quiet_nan); call ccv%fit(x,y)
+  case('ccv_nan_x')
+    ccv%cv=2
+    x(1,1)=ieee_value(0._dp,ieee_quiet_nan); call ccv%fit(x,y)
+  case('ccv_empty')
+    ccv%cv=2
+    call ccv%fit(x(:0,:),y(:0))
+  case('ccv_unfitted')
+    ccv%cv=2
+    pred=ccv%predict(x)
+  case('ccv_features')
+    ccv%cv=2
+    call ccv%fit(x,y); pred=ccv%predict(x(:,:1))
+
   case('fagg_zero')
     fagg%n_clusters=0; call fagg%fit(x)
   case('fagg_large')

@@ -850,3 +850,37 @@ and in release mode. All 294 FeatureAgglomeration reference groups and 552
 isolated invalid-input cases passed. The checked feature_pooling example
 returned labels [0,0,1,1] and first-row pooled values [1.05,20.1]. Python syntax,
 Fortran line-length/whitespace, inventory and git diff checks passed.
+
+
+## ElasticNetCV and LassoCV
+
+Added single-target elastic_net_cv and lasso_cv with deterministic K-fold alpha/
+l1-ratio selection and full-data refitting. Explicit descending alpha grids,
+automatic geometric grids, multiple elastic-net ratios and full fold MSE paths
+are supported. Native tests cover sorting, path shapes, exclusion of validation
+rows from fitting, selected-model refitting, mean-fold error selection, exact
+ties, constant targets and the Lasso ratio override.
+
+The Python reference suite checks 216 result groups across three seeded
+matrices and nine configurations: explicit/automatic grids, multiple ratios,
+no intercept, singleton alpha, duplicate features and Lasso variants. It checks
+coefficients, intercepts, selected parameters/errors, grids, every fold MSE,
+training/query predictions and R2, with atol=rtol=3e-8. The native solver uses
+independent cold starts and its existing coordinate-change stopping rule;
+iteration parity with sklearn is not claimed.
+
+Twenty-three new invalid-input cases cover folds, iteration controls, ratio/
+alpha grids, automatic grid controls, input shapes/finite values and prediction
+state/width (575 total cases). regularization_cv demonstrates model selection.
+See COVERAGE.md for array layout, tie handling, defaults and scope. Original
+contributions remain MIT with sklearn BSD attribution. Inventory: 120 core
+types, 50 source modules, 50 native tests, 30 reference suites and 8,630 groups.
+No runtime dependency or public extension was added.
+
+
+Final validation: all 50 native test programs passed with runtime checks and
+floating-point traps (-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow)
+and in release mode. All 216 coordinate CV reference groups and 575 isolated
+invalid-input cases passed. The checked regularization_cv example selected
+alpha=.01 and l1_ratio=1 with training R2 approximately .9998865. Python syntax,
+Fortran formatting, reference report, inventory and git diff checks passed.

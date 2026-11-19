@@ -1002,3 +1002,27 @@ The labels_ array assigns each input feature to a zero-based cluster. Columns
 of pooled follow these cluster IDs. Reconstruction repeats pooled values into
 member columns. Median and maximum pooling use 'median' and 'max'. See
 COVERAGE.md for tree attributes, ordering and scope.
+
+
+## Selecting elastic-net regularization
+
+```fortran
+use sklearn, only: dp, elastic_net_cv, lasso_cv
+type(elastic_net_cv) :: model
+type(lasso_cv) :: sparse
+real(dp), allocatable :: x(:,:), y(:), predicted(:)
+! Populate finite x and y with at least three samples.
+model%cv = 3
+model%alphas = [1._dp, .1_dp, .01_dp]
+model%l1_ratios = [.5_dp, 1._dp]
+call model%fit(x,y)
+predicted = model%predict(x)
+! model%alpha_, model%l1_ratio_ and model%best_mse_ report the selection.
+sparse%cv = 3
+sparse%n_alphas = 20
+call sparse%fit(x,y) ! Automatic grid, L1 ratio fixed to one.
+```
+
+The retained mse_path_ has dimensions (alpha,fold,ratio); alphas_ is
+(alpha,ratio). Folds are contiguous without shuffling. See COVERAGE.md for
+parameter defaults, stopping differences, convergence flags and scope.

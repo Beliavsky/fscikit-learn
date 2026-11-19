@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 118 public estimator, transformer, and splitter types. Each is a
+There are 120 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Twenty-nine reference suites additionally check 8,414 result
+All types have native tests. Thirty reference suites additionally check 8,630 result
 groups in total across seeded datasets against installed scikit-learn 1.6.1.
 
 This document counts core scikit-learn counterparts. Public extensions are
@@ -23,7 +23,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | Module (`sklearn_` prefix) | Public types and functions | Scope and numerical choices |
 | --- | --- | --- |
 | preprocessing | `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `knn_imputer`, `missing_indicator`, `spline_transformer`, `label_encoder`, `one_hot_encoder`, `power_transformer`, `kbins_discretizer`, `quantile_transformer`; `normalize`, `binarize`, `polynomial_features` | Population variance; linear percentile interpolation; NaN imputation with mean/median/most-frequent/constant; numeric categories; empirical uniform/normal quantile transforms; dense polynomial terms through degree 12 with optional interactions; B-spline features and extrapolation |
-| linear_model | `linear_regression`, `ridge`, `ridge_classifier`, `ridge_classifier_cv`, `multi_task_elastic_net`, `multi_task_lasso`, `lasso`, `elastic_net`, `logistic_regression`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `huber_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; coordinate descent; logistic Newton solver; perceptron; PA-I/II classification/regression with averaging; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
+| linear_model | `linear_regression`, `ridge`, `ridge_classifier`, `ridge_classifier_cv`, `multi_task_elastic_net`, `multi_task_lasso`, `lasso`, `elastic_net`, `lasso_cv`, `elastic_net_cv`, `logistic_regression`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `huber_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; coordinate descent with K-fold alpha/l1-ratio selection; logistic Newton solver; perceptron; PA-I/II classification/regression with averaging; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb`, `categorical_nb` | Empirical class priors, variance smoothing, strictly positive scalar alpha; Bernoulli threshold; optional complement normalization |
 | neighbors | `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with optional shrinkage and uniform priors; Euclidean kernel density |
 | cluster | `kmeans`, `dbscan`, `agglomerative_clustering`, `feature_agglomeration`, `mean_shift`, `affinity_propagation`, `spectral_clustering`, `optics`, `birch`; `estimate_bandwidth`, `cluster_optics_dbscan`, `cluster_optics_xi` | Lloyd/k-means++; density expansion; single/complete/average/Ward merge trees and feature pooling; flat-kernel mode seeking; damped exemplar messages; normalized-Laplacian clustering with k-means or pivoted QR assignment; OPTICS reachability ordering, Xi hierarchy and DBSCAN extraction; BIRCH streaming CF tree and optional Ward clustering |
@@ -1220,4 +1220,49 @@ fit_predict API. Exported by sklearn_cluster and sklearn.
 
 Inventory: 118 core types, 50 source modules and 49 native test programs.
 Original contributions remain MIT; sklearn BSD attribution is retained.
+No public extension or runtime dependency was added.
+
+
+## Coordinate-descent cross-validation
+
+`elastic_net_cv` and `lasso_cv` implement the single-target dense ElasticNetCV
+and LassoCV contracts from sklearn 1.6.1. The objective is the existing elastic
+net objective: ||y-Xw-intercept||^2/(2*n) + alpha*l1_ratio*||w||_1 +
+alpha*(1-l1_ratio)*||w||^2/2, with an unpenalized optional intercept. Methods are
+fit, inherited predict and R2 score. LassoCV fixes l1_ratio=1 on every fit.
+
+cv defaults to 5 and selects contiguous, unshuffled K-fold partitions. The
+first mod(n_samples,cv) folds have one extra row. Every candidate is fitted
+using only training-fold samples (including fold-specific centering), and its
+held-out MSE is recorded. Selection minimizes the unweighted mean of fold MSEs,
+then refits on the full data. Equal means choose the earliest l1 ratio and the
+largest alpha within that ratio. cv must be between 2 and n_samples.
+
+Set alphas(:) to positive finite candidates; they are sorted descending with
+duplicates retained and shared across l1 ratios. Otherwise n_alphas=100 and
+eps=1e-3 generate geometric grids independently for each ratio. The maximum
+alpha is max(abs(X_centered^T*y_centered))/(n*l1_ratio); centering follows
+fit_intercept. Maxima at or below 1e-15 yield constant 1e-15 grids. n_alphas=1
+uses only alpha_max; eps is finite in (0,1]. Set l1_ratios(:) to a nonempty
+candidate list, or use inherited scalar l1_ratio (default .5). All ratios must
+be finite in (0,1]. Pure ridge and zero-alpha candidates are outside this port.
+LassoCV overwrites any supplied ratio grid with [1].
+
+alphas_ always has shape (n_alphas,n_ratios); mse_path_ always has shape
+(n_alphas,cv,n_ratios), including LassoCV and singleton axes. This differs from
+Python's ratio-first/squeezed attributes. alpha_, l1_ratio_ and best_mse_ record
+the selection, while inherited alpha/l1_ratio are set to the selected values.
+coef_, intercept_, n_iter_ and converged_ describe the full-data refit;
+all_cv_converged_ is true only when every fold/candidate fit converged.
+n_features_in_ records input width. Repeated fit resets paths and coefficients.
+
+The existing native cyclic coordinate solver starts each candidate at zero;
+there is no warm-start path optimization. Its stopping criterion uses maximum
+coordinate change < tol*max(1,max(abs(coef))), with package defaults tol=1e-8
+and max_iter=10000, rather than sklearn's dual-gap stopping/defaults. Iteration
+counts can differ. Capped fits retain their last iterate and expose convergence
+flags. No sample weights, custom splitters, shuffled/random selection, positive
+coefficient constraint, sparse matrices, multi-target CV or parallelism are
+implemented. Original contributions remain MIT with sklearn BSD attribution.
+Inventory: 120 core types, 50 source modules and 50 native test programs.
 No public extension or runtime dependency was added.

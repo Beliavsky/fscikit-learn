@@ -8,6 +8,7 @@ module sklearn_linear_model
   private
   public :: multi_task_elastic_net,multi_task_lasso
   public :: ridge_classifier,ridge_classifier_cv
+  public :: elastic_net_cv,lasso_cv
   public :: linear_regression, ridge, lasso, elastic_net, logistic_regression, perceptron
   public :: bayesian_ridge, ard_regression, orthogonal_matching_pursuit
   public :: huber_regressor,ransac_regressor,tweedie_regressor,poisson_regressor,gamma_regressor
@@ -43,6 +44,19 @@ module sklearn_linear_model
   type, extends(elastic_net) :: lasso
   contains
     procedure :: fit=>lasso_fit
+  end type
+  ! CV contracts: sklearn 1.6.1 linear_model/_coordinate_descent.py (BSD).
+  type, extends(elastic_net) :: elastic_net_cv
+    integer :: cv=5,n_alphas=100,n_features_in_=0
+    real(dp) :: eps=1.e-3_dp,alpha_=0,l1_ratio_=0,best_mse_=0
+    real(dp), allocatable :: alphas(:),l1_ratios(:),alphas_(:,:),mse_path_(:,:,:)
+    logical :: all_cv_converged_=.false.
+  contains
+    procedure :: fit=>elastic_cv_fit
+  end type
+  type, extends(elastic_net_cv) :: lasso_cv
+  contains
+    procedure :: fit=>lasso_cv_fit
   end type
   type :: logistic_regression
     logical :: fit_intercept=.true., converged_=.false.
@@ -988,6 +1002,88 @@ contains
     end do
     self%n_iter_=min(it,self%max_iter); self%intercept_=ym-dot_product(xm,self%coef_)
   end subroutine
+  subroutine lasso_cv_fit(self,x,y)
+    class(lasso_cv), intent(inout) :: self
+    real(dp), intent(in) :: x(:,:),y(:)
+    self%l1_ratios=[1._dp]; self%l1_ratio=1
+    call elastic_cv_fit(self,x,y)
+  end subroutine
+
+  subroutine elastic_cv_fit(self,x,y)
+    class(elastic_net_cv), intent(inout) :: self
+    real(dp), intent(in) :: x(:,:),y(:)
+    type(elastic_net) :: model
+    real(dp), allocatable :: ratios(:),grid(:),xc(:,:),yc(:),xm(:),prediction(:)
+    integer, allocatable :: indices(:),train(:)
+    real(dp) :: ym,alpha_max,mse
+    integer :: n,p,na,nr,r,a,f,first,last,fold_size,i,best_a,best_r
+    call check_xy(x,size(y)); call check_x(reshape(y,[size(y),1])); n=size(y); p=size(x,2)
+    call require(self%cv>=2.and.self%cv<=n,'invalid coordinate CV fold count')
+    call require(ieee_is_finite(self%tol),'nonfinite coordinate CV tolerance')
+    call require(self%tol>0.and.self%max_iter>0,'invalid coordinate CV iteration controls')
+    ratios=[self%l1_ratio]
+    if(allocated(self%l1_ratios)) ratios=self%l1_ratios
+    call require(size(ratios)>0,'empty coordinate CV l1 ratios')
+    call require(all(ieee_is_finite(ratios)),'nonfinite coordinate CV l1 ratios')
+    call require(all(ratios>0).and.all(ratios<=1),'coordinate CV l1 ratios must be in (0,1]')
+    nr=size(ratios)
+    if(allocated(self%alphas)) then
+      call require(size(self%alphas)>0,'empty coordinate CV alpha grid')
+      call require(all(ieee_is_finite(self%alphas)),'nonfinite coordinate CV alphas')
+      call require(all(self%alphas>0),'coordinate CV alphas must be positive')
+      grid=self%alphas(argsort(-self%alphas)); na=size(grid)
+    else
+      call require(self%n_alphas>0,'coordinate CV n_alphas must be positive')
+      call require(ieee_is_finite(self%eps),'nonfinite coordinate CV eps')
+      call require(self%eps>0.and.self%eps<=1,'coordinate CV eps must be in (0,1]')
+      na=self%n_alphas
+    end if
+    if(allocated(self%alphas_)) deallocate(self%alphas_,self%mse_path_)
+    allocate(self%alphas_(na,nr),self%mse_path_(na,self%cv,nr))
+    allocate(xc(n,p),yc(n),xm(p)); call centered(x,y,self%fit_intercept,xc,yc,xm,ym)
+    do r=1,nr
+      if(allocated(self%alphas)) then
+        self%alphas_(:,r)=grid
+      else
+        alpha_max=maxval(abs(matmul(transpose(xc),yc)))/(n*ratios(r))
+        if(alpha_max<=1.e-15_dp) then
+          self%alphas_(:,r)=1.e-15_dp
+        else
+          self%alphas_(:,r)=[(alpha_max*exp(log(self%eps)*real(a-1,dp)/max(1,na-1)),a=1,na)]
+        end if
+      end if
+    end do
+    indices=[(i,i=1,n)]; self%all_cv_converged_=.true.
+    model%fit_intercept=self%fit_intercept; model%max_iter=self%max_iter; model%tol=self%tol
+    do r=1,nr
+      model%l1_ratio=ratios(r); first=1
+      do f=1,self%cv
+        fold_size=n/self%cv
+        if(f<=mod(n,self%cv)) fold_size=fold_size+1
+        last=first+fold_size-1; train=pack(indices,indices<first.or.indices>last)
+        do a=1,na
+          model%alpha=self%alphas_(a,r); call model%fit(x(train,:),y(train))
+          prediction=model%predict(x(first:last,:))
+          self%mse_path_(a,f,r)=sum((prediction-y(first:last))**2)/fold_size
+          self%all_cv_converged_=self%all_cv_converged_.and.model%converged_
+        end do
+        first=last+1
+      end do
+    end do
+    self%best_mse_=huge(1._dp); best_a=1; best_r=1
+    do r=1,nr
+      do a=1,na
+        mse=sum(self%mse_path_(a,:,r))/self%cv
+        if(mse<self%best_mse_) then
+          self%best_mse_=mse; best_a=a; best_r=r
+        end if
+      end do
+    end do
+    self%alpha_=self%alphas_(best_a,best_r); self%l1_ratio_=ratios(best_r)
+    self%alpha=self%alpha_; self%l1_ratio=self%l1_ratio_
+    call elastic_fit(self,x,y); self%n_features_in_=p
+  end subroutine
+
   subroutine logistic_fit(self,x,y)
     class(logistic_regression), intent(inout) :: self
     real(dp), intent(in) :: x(:,:)
