@@ -625,3 +625,31 @@ call reg%fit(x,y)
 `class_weight_balanced` selects balanced class weights. Repeated fits reset
 coefficients and averaging state. See `example/passive_aggressive.f90` for
 training accuracy and regression R2 on a complete synthetic fixture.
+
+
+## OPTICS
+
+```fortran
+use sklearn, only: dp,optics,cluster_optics_dbscan
+implicit none
+type(optics) :: model
+real(dp) :: x(8,1)
+integer, allocatable :: labels(:)
+x(:,1)=[0._dp,.1_dp,.2_dp,.3_dp,5._dp,5.1_dp,5.2_dp,5.3_dp]
+model%min_samples=2
+model%min_cluster_size=3
+labels=model%fit_predict(x)
+! Reuse the fitted graph with a different extraction radius.
+labels=cluster_optics_dbscan(model%reachability_,model%core_distances_,model%ordering_,.25_dp)
+```
+
+`fit` exposes `ordering_`, `predecessor_`, `reachability_`, `core_distances_`,
+`labels_`, `cluster_hierarchy_`, resolved `min_samples_`, `min_cluster_size_`,
+and `max_eps_`. Use `cluster_method='xi'` (default) or `'dbscan'`; configure
+`xi`, `predecessor_correction`, `max_eps`, and `eps`. DBSCAN fits return an
+empty `(0,2)` hierarchy. `cluster_optics_xi(reachability, predecessor, ordering,
+min_samples, labels, clusters, xi, min_cluster_size, predecessor_correction)`
+has allocatable output labels and hierarchy; its final three arguments are
+optional. Row IDs and hierarchy endpoints are 1-based; cluster labels are
+0-based, with noise -1 and root predecessors -1. See COVERAGE.md for distance,
+fractional-size, infinity and complexity conventions.

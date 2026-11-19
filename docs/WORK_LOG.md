@@ -418,3 +418,45 @@ validation early stopping and arbitrary class-weight dictionaries are outside
 this initial port. COVERAGE.md and API.md record these supported limits.
 Original contributions remain MIT; sklearn BSD-3-Clause attribution is retained.
 No runtime dependency or public extension was added.
+
+
+## OPTICS addition
+
+Added dense OPTICS graph construction, Xi hierarchy extraction with optional
+predecessor correction, and DBSCAN extraction. The public extraction helpers
+reuse fitted reachability graphs. Exposed infinite core/reachability values,
+resolved size metadata and consistent 1-based row/hierarchy indexing. Included
+an example, native properties and input diagnostics. Updated sklearn BSD
+attribution; original contributions remain MIT. No runtime dependency or
+public extension was added. Core inventory: 100 types, 41 source modules.
+
+
+## OPTICS graph and cluster extraction
+
+`python validation/compare_optics.py` passes 432 result groups against sklearn
+1.6.1 across three seeded, variable-density datasets. Twelve configurations
+per fixture cover precomputed, Manhattan and Minkowski distances, finite and
+zero search radii, duplicate points, fractional neighborhood/cluster sizes,
+Xi thresholds, predecessor correction on/off, default cluster size, and
+DBSCAN fits. Ordering, predecessors, labels, hierarchy endpoints and resolved
+sizes match exactly. Core and reachability distances use atol=rtol=3e-14,
+including identical infinity masks. Both public extraction helpers are
+compared at additional radii/Xi settings without rebuilding the graph.
+The sixteen-suite inventory is now 4,529 result groups; unchanged older Python
+suites were not rerun for this batch.
+
+Native OPTICS properties check a known nested hierarchy, precomputed/feature
+agreement, DBSCAN radius extraction, hierarchy clearing on refit, disconnected
+roots, duplicate plateaus, stable row-order ties, fractional sizes and the
+sklearn convention for infinite DBSCAN eps. The input harness adds 26 isolated
+rejection cases for estimator controls, precomputed matrices and extraction
+graph validation (267 total). `optics_demo` demonstrates both extraction methods.
+
+
+All 36 native test programs passed checked builds with bounds/backtrace and
+invalid/zero/overflow traps, and optimized release builds. All 267 isolated
+input rejection cases passed. The checked `optics_demo` example passed and
+printed two clusters under both extraction methods. Source line-length and
+whitespace checks, Python syntax checks, inventory counts and staged diff
+checks passed. The 432 new reference groups passed; prior suites were not
+rerun. Original contributions remain MIT with sklearn BSD notices retained.

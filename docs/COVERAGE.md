@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 99 public estimator, transformer, and splitter types. Each is a
+There are 100 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Fifteen reference suites additionally check 4,097 result
+All types have native tests. Sixteen reference suites additionally check 4,529 result
 groups in total across seeded datasets against installed scikit-learn 1.6.1.
 
 This document counts core scikit-learn counterparts. Public extensions are
@@ -26,7 +26,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | linear_model | `linear_regression`, `ridge`, `lasso`, `elastic_net`, `logistic_regression`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `huber_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; coordinate descent; logistic Newton solver; perceptron; PA-I/II classification/regression with averaging; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb` | Empirical class priors, variance smoothing, strictly positive scalar alpha; Bernoulli threshold; optional complement normalization |
 | neighbors | `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with optional shrinkage and uniform priors; Euclidean kernel density |
-| cluster | `kmeans`, `dbscan`, `agglomerative_clustering`, `mean_shift`, `affinity_propagation`, `spectral_clustering`; `estimate_bandwidth` | Lloyd/k-means++; density expansion; single/complete/average/Ward merge trees; flat-kernel mode seeking; damped exemplar messages; normalized-Laplacian clustering with k-means or pivoted QR assignment |
+| cluster | `kmeans`, `dbscan`, `agglomerative_clustering`, `mean_shift`, `affinity_propagation`, `spectral_clustering`, `optics`; `estimate_bandwidth`, `cluster_optics_dbscan`, `cluster_optics_xi` | Lloyd/k-means++; density expansion; single/complete/average/Ward merge trees; flat-kernel mode seeking; damped exemplar messages; normalized-Laplacian clustering with k-means or pivoted QR assignment; OPTICS reachability ordering, Xi hierarchy and DBSCAN extraction |
 | decomposition | `pca`, `truncated_svd`, `nmf`; re-exports `kernel_pca`, `factor_analysis`, `fast_ica` | Direct Jacobi SVD; PCA whitening and inversion; exact dense SVD; NMF multiplicative updates; nonlinear kernel PCA; unrotated full-SVD factor analysis; parallel/deflation ICA |
 | cross_decomposition | `pls_regression`, `pls_canonical`, `cca`, `pls_svd` | Paired-matrix latent components: NIPALS regression/canonical deflation, CCA pseudoinverse mode, canonical direct SVD and PLSSVD cross-covariance projection; multiple response columns |
 | isotonic | `isotonic_regression`; `isotonic_fit`, `check_increasing` | Weighted pool-adjacent-violators, automatic Spearman direction, bounds, repeated-input aggregation and piecewise linear interpolation |
@@ -229,7 +229,7 @@ distances; cosine similarity; linear, RBF, polynomial and sigmoid kernels.
 Not translated: sparse data paths, general estimator base/clone/parameter search
 framework, pipelines/column transformers, NuSVC and linear SVM variants, quantile
 regression, remaining GLM variants, remaining SGD families, histogram boosting, AdaBoost and bagging APIs,
-t-SNE and Hessian/modified LLE, OPTICS/BIRCH,
+t-SNE and Hessian/modified LLE, BIRCH,
 outlier detection beyond LOF/OneClassSVM,
 Gaussian-process classification, dictionary learning,
 calibration, semi-supervised learning beyond label propagation/spreading,
@@ -637,3 +637,30 @@ initial coefficients, sample weights, validation early stopping, sparse inputs
 and parallel training are not implemented. Controls must be finite, with C>0,
 epsilon>=0, positive epoch/patience limits and average>=0. Use appropriately
 scaled finite inputs. The package now contains 99 core types in 40 source modules.
+
+
+## OPTICS density clustering
+
+`optics` adds the dense OPTICS graph, Xi hierarchy extraction with optional
+predecessor correction, and DBSCAN extraction. Public helpers can re-extract
+labels without rebuilding the graph. Ordering and predecessor row IDs are
+1-based (root predecessor -1); hierarchy endpoints are inclusive 1-based
+positions in `ordering_`. Cluster labels start at zero and noise is -1.
+Reachability and core distances retain IEEE positive infinity for roots and
+unreachable neighborhoods. `min_samples_fraction` and `min_cluster_fraction`
+use sklearn's floor-and-clamp-to-two rule; -1 disables each fraction. A zero
+integer `min_cluster_size` selects the resolved `min_samples`. The unbounded
+`max_eps` default uses `huge(real64)` as an input sentinel for infinity;
+`eps=-1` selects `max_eps_` during DBSCAN extraction. Set a finite extraction
+radius for useful DBSCAN labels; an infinite radius follows sklearn's
+infinity comparisons and can return all noise.
+
+Supported distances are Euclidean, squared Euclidean, Manhattan/cityblock,
+Chebyshev, Minkowski (finite p >= 1), cosine, and precomputed. Precomputed
+matrices must be finite, square, symmetric, nonnegative, with zero diagonal.
+Xi is restricted to 0 < xi < 1. Size counts must resolve to 2..n. Dense pairwise
+storage costs O(n^2); there are no sparse, tree, parallel, callable-distance,
+sample-weight or incremental interfaces. Equal reachabilities select the
+lowest original row ID. Geometric floating-point ties can differ from
+sklearn's tree backends. This batch brings the package to 100 core types in
+41 source modules; no extensions or dependencies were added.

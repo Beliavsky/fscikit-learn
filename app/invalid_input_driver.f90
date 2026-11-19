@@ -3,6 +3,7 @@ program invalid_input_driver
   use sklearn
   use, intrinsic :: ieee_arithmetic, only: ieee_value,ieee_quiet_nan
   implicit none
+  type(optics) :: model
   type(fast_ica) :: ica
   type(isotonic_regression) :: monotone
   type(rbf_sampler) :: fourier
@@ -61,10 +62,52 @@ program invalid_input_driver
   type(index_split), allocatable :: folds(:)
   real(dp) :: x(4,2),y(4)
   real(dp), allocatable :: z(:,:),pred(:)
+  integer, allocatable :: optics_clusters(:,:)
   integer, allocatable :: labels(:)
   character(32) :: mode
   x=1; y=1; call get_command_argument(1,mode)
   select case(trim(mode))
+  case('optics_negative_distance')
+    model%min_samples=2; model%metric='precomputed'; z=0*x(:2,:); z(1,2)=-1; call model%fit(z)
+  case('optics_asymmetric')
+    model%min_samples=2; model%metric='precomputed'; z=0*x(:2,:); z(1,2)=1; call model%fit(z)
+  case('optics_diagonal')
+    model%min_samples=2; model%metric='precomputed'; z=x(:2,:); call model%fit(z)
+  case('optics_order')
+    model%min_samples=2; labels=cluster_optics_dbscan(y,y,[1,1,3,4],1._dp)
+  case('optics_order_range')
+    model%min_samples=2; labels=cluster_optics_dbscan(y,y,[0,2,3,4],1._dp)
+  case('optics_graph_shape')
+    model%min_samples=2; labels=cluster_optics_dbscan(y,y,[1,2],1._dp)
+  case('optics_reachability')
+    model%min_samples=2; y(1)=-1; labels=cluster_optics_dbscan(y,y,[1,2,3,4],1._dp)
+  case('optics_core_shape')
+    model%min_samples=2; labels=cluster_optics_dbscan(y,y(:2),[1,2,3,4],1._dp)
+  case('optics_core_nan')
+    model%min_samples=2; pred=y; pred(1)=ieee_value(0._dp,ieee_quiet_nan); &
+    labels=cluster_optics_dbscan(y,pred,[1,2,3,4],1._dp)
+  case('optics_extract_eps')
+    model%min_samples=2; labels=cluster_optics_dbscan(y,y,[1,2,3,4],-1._dp)
+  case('optics_predecessor')
+    model%min_samples=2; call cluster_optics_xi(y,[0,1,2,3],[1,2,3,4],2,labels,optics_clusters)
+  case('optics_predecessor_shape')
+    model%min_samples=2; call cluster_optics_xi(y,[-1,1],[1,2,3,4],2,labels,optics_clusters)
+
+  case('optics_size'); model%min_samples=2; model%min_samples=1; call model%fit(x)
+  case('optics_cluster_size'); model%min_samples=2; model%min_cluster_size=9; call model%fit(x)
+  case('optics_fraction'); model%min_samples=2; model%min_samples_fraction=1.1_dp; call model%fit(x)
+  case('optics_nan_fraction'); model%min_samples=2; model%min_cluster_fraction=ieee_value(0._dp,ieee_quiet_nan); call model%fit(x)
+  case('optics_radius'); model%min_samples=2; model%max_eps=-1; call model%fit(x)
+  case('optics_nan_radius'); model%min_samples=2; model%max_eps=ieee_value(0._dp,ieee_quiet_nan); call model%fit(x)
+  case('optics_eps'); model%min_samples=2; model%eps=-2; call model%fit(x)
+  case('optics_xi'); model%min_samples=2; model%xi=1; call model%fit(x)
+  case('optics_nan_xi'); model%min_samples=2; model%xi=ieee_value(0._dp,ieee_quiet_nan); call model%fit(x)
+  case('optics_p'); model%min_samples=2; model%p=.5_dp; call model%fit(x)
+  case('optics_method'); model%min_samples=2; model%cluster_method='unknown'; call model%fit(x)
+  case('optics_metric'); model%min_samples=2; model%metric='unknown'; call model%fit(x)
+  case('optics_square'); model%min_samples=2; model%metric='precomputed'; call model%fit(x)
+  case('optics_large_eps'); model%min_samples=2; model%cluster_method='dbscan'; model%eps=2; model%max_eps=1; call model%fit(x)
+
   case('pa_c'); pa_reg%c=0; call pa_reg%fit(x,y)
   case('pa_nan_c'); pa_classifier%c=ieee_value(0._dp,ieee_quiet_nan); call pa_classifier%fit(x,[0,1,0,1])
   case('pa_tol'); pa_reg%tol=-2; call pa_reg%fit(x,y)
