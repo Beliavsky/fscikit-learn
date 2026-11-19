@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 110 public estimator, transformer, and splitter types. Each is a
+There are 112 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Twenty-three reference suites additionally check 6,824 result
+All types have native tests. Twenty-four reference suites additionally check 6,980 result
 groups in total across seeded datasets against installed scikit-learn 1.6.1.
 
 This document counts core scikit-learn counterparts. Public extensions are
@@ -22,7 +22,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 
 | Module (`sklearn_` prefix) | Public types and functions | Scope and numerical choices |
 | --- | --- | --- |
-| preprocessing | `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `label_encoder`, `one_hot_encoder`, `power_transformer`, `kbins_discretizer`, `quantile_transformer`; `normalize`, `binarize`, `polynomial_features` | Population variance; linear percentile interpolation; NaN imputation with mean/median/most-frequent/constant; numeric categories; empirical uniform/normal quantile transforms; dense polynomial terms through degree 12 with optional interactions |
+| preprocessing | `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `knn_imputer`, `missing_indicator`, `label_encoder`, `one_hot_encoder`, `power_transformer`, `kbins_discretizer`, `quantile_transformer`; `normalize`, `binarize`, `polynomial_features` | Population variance; linear percentile interpolation; NaN imputation with mean/median/most-frequent/constant; numeric categories; empirical uniform/normal quantile transforms; dense polynomial terms through degree 12 with optional interactions |
 | linear_model | `linear_regression`, `ridge`, `ridge_classifier`, `ridge_classifier_cv`, `multi_task_elastic_net`, `multi_task_lasso`, `lasso`, `elastic_net`, `logistic_regression`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `huber_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; coordinate descent; logistic Newton solver; perceptron; PA-I/II classification/regression with averaging; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb`, `categorical_nb` | Empirical class priors, variance smoothing, strictly positive scalar alpha; Bernoulli threshold; optional complement normalization |
 | neighbors | `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with optional shrinkage and uniform priors; Euclidean kernel density |
@@ -939,3 +939,52 @@ alpha=0/force_alpha behavior are not implemented. The type is re-exported
 through sklearn_naive_bayes and sklearn. There are now 110 core types in
 45 source modules. No dependency or public algorithm extension was added;
 original contributions remain MIT with sklearn BSD attribution retained.
+
+
+## Neighbor imputation and missingness indicators
+
+`knn_imputer` implements dense KNNImputer with NaN missing values and the
+nan-Euclidean metric: sqrt(n_features/n_shared * sum_shared (x-y)^2).
+Distances use the original receiver's observed values throughout imputation;
+newly filled cells never influence later neighbor choices. For each missing
+feature, donors must have an observed value in that feature. Undefined
+(no-overlap) distances are ignored. If no eligible donor has a defined
+distance, the training mean of that feature is used.
+
+n_neighbors defaults to 5 and must be positive. weights is 'uniform' or
+'distance'. The latter averages only zero-distance donors when any are present;
+otherwise it uses inverse distances, rescaled to avoid reciprocal overflow.
+Neighbors are capped at the available eligible defined donors. Equal-distance
+donors retain training-row order; sklearn's partition-based tie selection can
+choose a different subset at an ambiguous neighbor cutoff.
+
+fit stores a private training copy. transform and fit_transform return dense
+real64 arrays and never modify the input. Columns entirely missing in training
+are dropped by default. keep_empty_features=true retains them as zeros,
+including when a query supplies an observed value in such a column. When all
+training columns are empty, dropping them produces (n_samples,0). Optional
+add_indicator=true appends numeric 0/1 missingness columns selected at fit.
+Their values reflect original query missingness, before any cells are filled.
+New missingness in a previously complete column is imputed but adds no new
+indicator column. valid_mask_ records retained training features;
+n_features_in_ and indicator_ expose fitted metadata.
+
+`missing_indicator` provides fit, transform and fit_transform. Its output is
+a dense logical matrix. features='missing-only' (default) selects columns
+containing NaNs at fit; features='all' selects every column. features_ contains
+1-based native input indices. With missing-only mode, error_on_new=true
+(default) rejects missingness in previously complete features. Setting it
+false ignores those new indicator columns. All-feature mode accepts new
+missingness. Fitting a complete matrix in missing-only mode produces zero
+indicator columns. The KNN imputer's fitted indicator_ always uses missing-only
+mode and error_on_new=false, and is available even when add_indicator=false.
+
+Both types accept NaNs but reject infinities, empty input dimensions and
+changed feature counts. Only the NaN sentinel and dense numeric CPU arrays
+are supported; callable/alternative metrics, sparse input, string columns,
+feature-name APIs and partial_fit are not implemented. Neighbor search is
+brute force with stable insertion sorting per missing cell, intended for
+moderate dense datasets. The types are re-exported through
+sklearn_preprocessing and sklearn. The package now has 112 core types in
+46 source modules; no runtime dependency or public algorithm extension was
+added. Original contributions remain MIT with sklearn BSD attribution.

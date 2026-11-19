@@ -5,6 +5,28 @@ import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 CASES = {
+    "ki_neighbors": "KNNImputer n_neighbors must be positive",
+    "ki_negative_neighbors": "KNNImputer n_neighbors must be positive",
+    "ki_weights": "unknown KNNImputer weights",
+    "ki_unfitted": "KNNImputer is not fitted",
+    "ki_empty": "imputation X must be nonempty",
+    "ki_no_features": "imputation X must be nonempty",
+    "ki_inf": "imputation X contains infinity",
+    "ki_query_features": "KNNImputer feature count mismatch",
+    "ki_query_empty": "imputation X must be nonempty",
+    "ki_query_inf": "imputation X contains infinity",
+    "ki_query_neighbors": "KNNImputer n_neighbors must be positive",
+    "ki_query_weights": "unknown KNNImputer weights",
+    "mi_features": "unknown MissingIndicator features mode",
+    "mi_unfitted": "MissingIndicator is not fitted",
+    "mi_empty": "imputation X must be nonempty",
+    "mi_no_features": "imputation X must be nonempty",
+    "mi_inf": "imputation X contains infinity",
+    "mi_query_features": "MissingIndicator feature count mismatch",
+    "mi_query_empty": "imputation X must be nonempty",
+    "mi_query_inf": "imputation X contains infinity",
+    "mi_new_missing": "MissingIndicator new missing feature",
+
     "cat_alpha": "CategoricalNB alpha must be positive",
     "cat_negative_alpha": "CategoricalNB alpha must be positive",
     "cat_nan_alpha": "nonfinite CategoricalNB alpha",

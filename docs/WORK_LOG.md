@@ -771,3 +771,42 @@ The checked categorical_classification example passed, predicting class 9
 with probabilities [0.4,0.6]. Python syntax, Fortran formatting, module/test
 inventory and staged diff checks passed. MIT licensing and sklearn BSD notices
 are retained.
+
+
+## KNNImputer and MissingIndicator
+
+`python validation/compare_knn_impute.py` passes 156 result groups against
+sklearn 1.6.1 across three seeded datasets. Eight imputer configurations cover
+one/three/default/excess neighbors, uniform/distance weights, all-missing
+training columns, retained empty features and appended indicators. Queries
+include newly missing features and an entirely missing row. Three indicator
+configurations cover missing-only/all modes and strict/permissive transforms.
+Checks compare fitted/query transformations, output shapes, valid-column masks
+and 1-based indicator indices at atol=rtol=3e-8. Continuous complete anchor
+columns avoid ambiguous neighbor cutoff ties. The twenty-four reference suites
+now contain 6,980 result groups; older Python suites were not rerun.
+
+Independent native checks verify hand-derived uniform and inverse-distance
+averages, zero-distance weighting, mean fallback without shared observations,
+empty-feature dropping/zero retention, original missingness indicators, input
+preservation, all-empty outputs, stable repeated transforms and indicator modes.
+The input harness adds 21 shape/state/control/infinity cases (445 total).
+The neighbor_imputation example fills a missing value from two nearest donors.
+
+Distances use original observed receiver values throughout the transform.
+Undefined donor distances are ignored; neighbor ties retain training order,
+which can differ from sklearn's partition tie handling. Only NaN sentinels,
+nan-Euclidean distances and dense numeric arrays are supported. MissingIndicator
+returns dense logical arrays; the imputer appends numeric 0/1 indicators.
+Supported controls, shape rules and limits are recorded in COVERAGE.md.
+Inventory: 112 core types in 46 source modules, with 44 native test programs.
+Original contributions remain MIT with sklearn BSD attribution. No runtime
+dependency or public algorithm extension was added.
+
+
+All 44 native test programs passed checked builds with bounds/backtrace and
+invalid/zero/overflow traps, and optimized release builds. All 445 isolated
+input rejection cases passed. All 156 new sklearn comparison groups passed.
+The checked neighbor_imputation example passed, completing the row as [1,15].
+Python syntax, Fortran formatting, module/test inventory and staged diff checks
+passed. MIT licensing and sklearn BSD notices are retained.

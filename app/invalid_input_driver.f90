@@ -3,6 +3,9 @@ program invalid_input_driver
   use sklearn
   use, intrinsic :: ieee_arithmetic, only: ieee_value,ieee_quiet_nan,ieee_positive_inf
   implicit none
+  type(knn_imputer) :: ki
+  type(missing_indicator) :: mi
+  logical, allocatable :: impute_mask(:,:)
   type(categorical_nb) :: cat
   type(multi_task_elastic_net) :: mt
   type(multi_task_lasso) :: mt_lasso
@@ -81,6 +84,49 @@ program invalid_input_driver
   mt_y=1
   x=1; y=1; call get_command_argument(1,mode)
   select case(trim(mode))
+  case('ki_neighbors')
+    ki%n_neighbors=0; call ki%fit(x)
+  case('ki_negative_neighbors')
+    ki%n_neighbors=-1; call ki%fit(x)
+  case('ki_weights')
+    ki%weights="bad"; call ki%fit(x)
+  case('ki_unfitted')
+    z=ki%transform(x)
+  case('ki_empty')
+    call ki%fit(x(:0,:))
+  case('ki_no_features')
+    call ki%fit(x(:,:0))
+  case('ki_inf')
+    x(1,1)=ieee_value(0._dp,ieee_positive_inf); call ki%fit(x)
+  case('ki_query_features')
+    call ki%fit(x); z=ki%transform(x(:,:1))
+  case('ki_query_empty')
+    call ki%fit(x); z=ki%transform(x(:0,:))
+  case('ki_query_inf')
+    call ki%fit(x); x(1,1)=ieee_value(0._dp,ieee_positive_inf); z=ki%transform(x)
+  case('ki_query_neighbors')
+    call ki%fit(x); ki%n_neighbors=0; z=ki%transform(x)
+  case('ki_query_weights')
+    call ki%fit(x); ki%weights="bad"; z=ki%transform(x)
+  case('mi_features')
+    mi%features="bad"; call mi%fit(x)
+  case('mi_unfitted')
+    impute_mask=mi%transform(x)
+  case('mi_empty')
+    call mi%fit(x(:0,:))
+  case('mi_no_features')
+    call mi%fit(x(:,:0))
+  case('mi_inf')
+    x(1,1)=ieee_value(0._dp,ieee_positive_inf); call mi%fit(x)
+  case('mi_query_features')
+    call mi%fit(x); impute_mask=mi%transform(x(:,:1))
+  case('mi_query_empty')
+    call mi%fit(x); impute_mask=mi%transform(x(:0,:))
+  case('mi_query_inf')
+    call mi%fit(x); x(1,1)=ieee_value(0._dp,ieee_positive_inf); impute_mask=mi%transform(x)
+  case('mi_new_missing')
+    call mi%fit(x); x(1,1)=ieee_value(0._dp,ieee_quiet_nan); impute_mask=mi%transform(x)
+
   case('cat_alpha')
     labels=[-3,-3,9,9]
     cat%alpha=0; call cat%fit(x,labels)

@@ -860,3 +860,30 @@ as category_count_(j)%values and feature_log_prob_(j)%values, each with shape
 (n_classes,n_categories_(j)). Other methods are joint_log_likelihood,
 predict_log_proba, predict and score. See COVERAGE.md for incremental metadata
 and out-of-range category rules.
+
+
+## Neighbor imputation and missingness indicators
+
+```fortran
+use sklearn, only: dp,knn_imputer,missing_indicator
+use, intrinsic :: ieee_arithmetic, only: ieee_value,ieee_quiet_nan
+implicit none
+type(knn_imputer) :: model
+type(missing_indicator) :: indicator
+real(dp) :: x(3,2)
+real(dp), allocatable :: completed(:,:)
+logical, allocatable :: missing(:,:)
+x(1,:)=[0._dp,10._dp]; x(2,:)=[2._dp,20._dp]
+x(3,:)=[1._dp,ieee_value(0._dp,ieee_quiet_nan)]
+model%n_neighbors=2; model%weights='distance'; model%add_indicator=.true.
+completed=model%fit_transform(x)
+missing=indicator%fit_transform(x)
+```
+
+KNNImputer's transform returns real(dp) values, optionally followed by fitted
+missingness columns. Set keep_empty_features=true to retain all-missing
+training columns as zeros. MissingIndicator returns logical values and exposes
+1-based features_. Its features control is 'missing-only' or 'all'; set
+error_on_new=false to accept new missingness without changing output width.
+Both types provide fit, transform and fit_transform, accepting NaN sentinels.
+See COVERAGE.md for donor ties, missing-data distances and empty-column rules.
