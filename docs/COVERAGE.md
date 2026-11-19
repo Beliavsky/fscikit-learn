@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 117 public estimator, transformer, and splitter types. Each is a
+There are 118 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Twenty-eight reference suites additionally check 8,120 result
+All types have native tests. Twenty-nine reference suites additionally check 8,414 result
 groups in total across seeded datasets against installed scikit-learn 1.6.1.
 
 This document counts core scikit-learn counterparts. Public extensions are
@@ -26,7 +26,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | linear_model | `linear_regression`, `ridge`, `ridge_classifier`, `ridge_classifier_cv`, `multi_task_elastic_net`, `multi_task_lasso`, `lasso`, `elastic_net`, `logistic_regression`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `huber_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; coordinate descent; logistic Newton solver; perceptron; PA-I/II classification/regression with averaging; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb`, `categorical_nb` | Empirical class priors, variance smoothing, strictly positive scalar alpha; Bernoulli threshold; optional complement normalization |
 | neighbors | `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with optional shrinkage and uniform priors; Euclidean kernel density |
-| cluster | `kmeans`, `dbscan`, `agglomerative_clustering`, `mean_shift`, `affinity_propagation`, `spectral_clustering`, `optics`, `birch`; `estimate_bandwidth`, `cluster_optics_dbscan`, `cluster_optics_xi` | Lloyd/k-means++; density expansion; single/complete/average/Ward merge trees; flat-kernel mode seeking; damped exemplar messages; normalized-Laplacian clustering with k-means or pivoted QR assignment; OPTICS reachability ordering, Xi hierarchy and DBSCAN extraction; BIRCH streaming CF tree and optional Ward clustering |
+| cluster | `kmeans`, `dbscan`, `agglomerative_clustering`, `feature_agglomeration`, `mean_shift`, `affinity_propagation`, `spectral_clustering`, `optics`, `birch`; `estimate_bandwidth`, `cluster_optics_dbscan`, `cluster_optics_xi` | Lloyd/k-means++; density expansion; single/complete/average/Ward merge trees and feature pooling; flat-kernel mode seeking; damped exemplar messages; normalized-Laplacian clustering with k-means or pivoted QR assignment; OPTICS reachability ordering, Xi hierarchy and DBSCAN extraction; BIRCH streaming CF tree and optional Ward clustering |
 | decomposition | `pca`, `incremental_pca`, `truncated_svd`, `nmf`; re-exports `kernel_pca`, `factor_analysis`, `fast_ica` | Direct Jacobi SVD; PCA whitening and inversion; streaming stacked-SVD IncrementalPCA; exact dense SVD; NMF multiplicative updates; nonlinear kernel PCA; unrotated full-SVD factor analysis; parallel/deflation ICA |
 | cross_decomposition | `pls_regression`, `pls_canonical`, `cca`, `pls_svd` | Paired-matrix latent components: NIPALS regression/canonical deflation, CCA pseudoinverse mode, canonical direct SVD and PLSSVD cross-covariance projection; multiple response columns |
 | isotonic | `isotonic_regression`; `isotonic_fit`, `check_increasing` | Weighted pool-adjacent-violators, automatic Spearman direction, bounds, repeated-input aggregation and piecewise linear interpolation |
@@ -1185,3 +1185,39 @@ feature counts. Re-exported through sklearn_decomposition and sklearn. Inventory
 117 core types in 50 source modules and 48 native test programs. No public
 extension or runtime dependency was added. Original contributions remain MIT
 with sklearn's BSD notice retained.
+
+
+## Feature agglomeration
+
+`feature_agglomeration` implements sklearn 1.6.1 FeatureAgglomeration by fitting
+the native agglomerative tree to transpose(X), clustering columns rather than
+samples. n_clusters defaults to 2 and must be between 1 and n_features; at least
+two input features are required. linkage supports ward (default), single,
+complete and average, with Euclidean distances. A complete unconstrained tree
+is built and distances_ is always available. No connectivity graph, distance
+threshold, alternate metric, caching or early tree stopping is implemented.
+The dense exhaustive merge search favors moderate feature counts.
+
+Methods are fit, transform, inverse_transform and fit_transform. pooling_func
+is 'mean' by default, with 'median' and 'max' also supported, corresponding to
+NumPy pooling callables in sklearn. Arbitrary callables are not supported.
+transform pools each sample's values within each learned feature cluster.
+inverse_transform repeats each pooled value into the original member columns;
+it reconstructs clusterwise constant data and cannot recover discarded detail.
+Changing pooling_func after fitting is allowed. Fitted cluster count is retained
+separately, so changing n_clusters requires refitting to affect transforms.
+
+labels_ contains zero-based feature cluster IDs ordered by first feature index,
+which can permute sklearn's arbitrary cluster IDs. Pooled output columns follow
+this order. children_ uses zero-based leaf/node IDs, with the first n_features
+IDs denoting feature columns. children_ has n_features-1 rows and two columns;
+distances_ contains the corresponding merge distances. Equal-distance merges
+follow the existing native tree's scan order and may differ from sklearn ties.
+Other attributes are n_features_in_, n_clusters_, n_leaves_ and
+n_connected_components_=1. Inputs and queries must be nonempty finite real64
+matrices with matching widths. This is a dense transformer, with no predict or
+fit_predict API. Exported by sklearn_cluster and sklearn.
+
+Inventory: 118 core types, 50 source modules and 49 native test programs.
+Original contributions remain MIT; sklearn BSD attribution is retained.
+No public extension or runtime dependency was added.

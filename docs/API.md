@@ -982,3 +982,23 @@ reconstructed = model%inverse_transform(z)
 `fit` resets previous state. `partial_fit` preserves running mean/variance and
 updates the retained basis. Set `whiten=.true.` for variance-scaled coordinates.
 See COVERAGE.md for initialization, batch boundaries and numerical limits.
+
+
+## Clustering feature columns
+
+```fortran
+use sklearn, only: dp, feature_agglomeration
+type(feature_agglomeration) :: model
+real(dp), allocatable :: x(:,:), pooled(:,:), reconstructed(:,:)
+! Populate x with finite data and at least two feature columns.
+model%n_clusters = 2
+model%linkage = 'ward'
+model%pooling_func = 'mean'
+pooled = model%fit_transform(x)
+reconstructed = model%inverse_transform(pooled)
+```
+
+The labels_ array assigns each input feature to a zero-based cluster. Columns
+of pooled follow these cluster IDs. Reconstruction repeats pooled values into
+member columns. Median and maximum pooling use 'median' and 'max'. See
+COVERAGE.md for tree attributes, ordering and scope.

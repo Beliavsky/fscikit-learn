@@ -3,6 +3,7 @@ program invalid_input_driver
   use sklearn
   use, intrinsic :: ieee_arithmetic, only: ieee_value,ieee_quiet_nan,ieee_positive_inf
   implicit none
+  type(feature_agglomeration) :: fagg
   type(incremental_pca) :: ipca
   type(linear_svc) :: lsvc
   type(linear_svr) :: lsvr
@@ -89,6 +90,37 @@ program invalid_input_driver
   mt_y=1
   x=1; y=1; call get_command_argument(1,mode)
   select case(trim(mode))
+  case('fagg_zero')
+    fagg%n_clusters=0; call fagg%fit(x)
+  case('fagg_large')
+    fagg%n_clusters=3; call fagg%fit(x)
+  case('fagg_linkage')
+    fagg%linkage='bad'; call fagg%fit(x)
+  case('fagg_pool')
+    fagg%pooling_func='bad'; call fagg%fit(x)
+  case('fagg_one')
+    call fagg%fit(x(:,:1))
+  case('fagg_empty')
+    call fagg%fit(x(:0,:))
+  case('fagg_nan')
+    x(1,1)=ieee_value(0._dp,ieee_quiet_nan); call fagg%fit(x)
+  case('fagg_unfitted')
+    z=fagg%transform(x)
+  case('fagg_inverse_unfitted')
+    z=fagg%inverse_transform(x)
+  case('fagg_features')
+    call fagg%fit(x); z=fagg%transform(x(:,:1))
+  case('fagg_width')
+    call fagg%fit(x); z=fagg%inverse_transform(x(:,:1))
+  case('fagg_query_nan')
+    call fagg%fit(x); x(1,1)=ieee_value(0._dp,ieee_quiet_nan); z=fagg%transform(x)
+  case('fagg_inverse_nan')
+    call fagg%fit(x); x(1,1)=ieee_value(0._dp,ieee_quiet_nan); z=fagg%inverse_transform(x)
+  case('fagg_changed_pool')
+    call fagg%fit(x); fagg%pooling_func='bad'; z=fagg%transform(x)
+  case('fagg_query_empty')
+    call fagg%fit(x); z=fagg%transform(x(:0,:))
+
   case('ipca_components')
     ipca%n_components=-1; call ipca%fit(x)
   case('ipca_large')

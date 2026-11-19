@@ -9,6 +9,7 @@ module sklearn_cluster
   public :: optics,cluster_optics_dbscan,cluster_optics_xi
   public :: kmeans,dbscan,agglomerative_clustering
   public :: mean_shift,estimate_bandwidth,affinity_propagation,spectral_clustering
+  public :: feature_agglomeration
   public :: birch
   ! CF tree contracts follow sklearn 1.6.1 cluster/_birch.py (BSD notices retained).
   type :: cf_summary
@@ -69,6 +70,18 @@ module sklearn_cluster
   contains
     procedure :: fit=>agg_fit
     procedure :: fit_predict=>agg_fit_predict
+  end type
+  ! sklearn 1.6.1 cluster/_agglomerative.py and _feature_agglomeration.py (BSD).
+  type :: feature_agglomeration
+    integer :: n_clusters=2,n_clusters_=0,n_features_in_=0,n_leaves_=0,n_connected_components_=0
+    character(16) :: linkage='ward',pooling_func='mean'
+    integer, allocatable :: labels_(:),children_(:,:)
+    real(dp), allocatable :: distances_(:)
+  contains
+    procedure :: fit=>feature_agg_fit
+    procedure :: transform=>feature_agg_transform
+    procedure :: inverse_transform=>feature_agg_inverse
+    procedure :: fit_transform=>feature_agg_fit_transform
   end type
   type :: mean_shift
     real(dp) :: bandwidth=-1,bandwidth_=0
@@ -570,6 +583,60 @@ contains
     integer :: labels(size(x,1))
     call self%fit(x); labels=self%labels_
   end function
+  subroutine feature_agg_fit(self,x)
+    class(feature_agglomeration), intent(inout) :: self
+    real(dp), intent(in) :: x(:,:)
+    type(agglomerative_clustering) :: tree
+    call check_x(x)
+    call require(size(x,2)>=2,'FeatureAgglomeration needs at least two features')
+    call require(any(self%pooling_func==['mean  ','median','max   ']),'unknown feature pooling function')
+    tree%n_clusters=self%n_clusters; tree%linkage=self%linkage
+    call tree%fit(transpose(x))
+    self%labels_=tree%labels_; self%children_=tree%children_; self%distances_=tree%distances_
+    self%n_clusters_=self%n_clusters; self%n_features_in_=size(x,2)
+    self%n_leaves_=size(x,2); self%n_connected_components_=1
+  end subroutine
+
+  function feature_agg_transform(self,x) result(z)
+    class(feature_agglomeration), intent(in) :: self
+    real(dp), intent(in) :: x(:,:)
+    real(dp), allocatable :: z(:,:),values(:)
+    integer :: c,i,n
+    call require(allocated(self%labels_),'FeatureAgglomeration is not fitted'); call check_x(x)
+    call require(size(x,2)==self%n_features_in_,'FeatureAgglomeration feature count mismatch')
+    call require(any(self%pooling_func==['mean  ','median','max   ']),'unknown feature pooling function')
+    allocate(z(size(x,1),self%n_clusters_))
+    do c=0,self%n_clusters_-1
+      n=count(self%labels_==c)
+      do i=1,size(x,1)
+        values=pack(x(i,:),self%labels_==c)
+        select case(self%pooling_func)
+        case('mean'); z(i,c+1)=sum(values)/n
+        case('max'); z(i,c+1)=maxval(values)
+        case('median')
+          values=values(argsort(values))
+          z(i,c+1)=.5_dp*values((n+1)/2)+.5_dp*values(n/2+1)
+        end select
+      end do
+    end do
+  end function
+
+  function feature_agg_inverse(self,z) result(x)
+    class(feature_agglomeration), intent(in) :: self
+    real(dp), intent(in) :: z(:,:)
+    real(dp), allocatable :: x(:,:)
+    call require(allocated(self%labels_),'FeatureAgglomeration is not fitted'); call check_x(z)
+    call require(size(z,2)==self%n_clusters_,'FeatureAgglomeration pooled width mismatch')
+    x=z(:,self%labels_+1)
+  end function
+
+  function feature_agg_fit_transform(self,x) result(z)
+    class(feature_agglomeration), intent(inout) :: self
+    real(dp), intent(in) :: x(:,:)
+    real(dp), allocatable :: z(:,:)
+    call self%fit(x); z=self%transform(x)
+  end function
+
   subroutine birch_controls(self)
     class(birch), intent(in) :: self
     call require(ieee_is_finite(self%threshold),'nonfinite BIRCH threshold')

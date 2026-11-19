@@ -5,6 +5,22 @@ import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 CASES = {
+    "fagg_zero": "invalid agglomerative cluster count",
+    "fagg_large": "invalid agglomerative cluster count",
+    "fagg_linkage": "unknown linkage",
+    "fagg_pool": "unknown feature pooling function",
+    "fagg_one": "FeatureAgglomeration needs at least two features",
+    "fagg_empty": "X must be nonempty",
+    "fagg_nan": "X contains NaN or infinity",
+    "fagg_unfitted": "FeatureAgglomeration is not fitted",
+    "fagg_inverse_unfitted": "FeatureAgglomeration is not fitted",
+    "fagg_features": "FeatureAgglomeration feature count mismatch",
+    "fagg_width": "FeatureAgglomeration pooled width mismatch",
+    "fagg_query_nan": "X contains NaN or infinity",
+    "fagg_inverse_nan": "X contains NaN or infinity",
+    "fagg_changed_pool": "unknown feature pooling function",
+    "fagg_query_empty": "X must be nonempty",
+
     "ipca_components": "invalid IncrementalPCA n_components",
     "ipca_large": "invalid IncrementalPCA n_components",
     "ipca_batch": "IncrementalPCA batch_size must be nonnegative",

@@ -969,3 +969,33 @@ and in release mode. All 264 reference result groups and 537 isolated
 invalid-input cases passed. The checked streaming_pca example processed six
 samples and returned a leading explained-variance ratio of 1 within roundoff.
 Python syntax, Fortran formatting and git diff checks passed.
+
+
+## FeatureAgglomeration
+
+Added feature_agglomeration with complete Euclidean Ward/single/complete/average
+feature trees, mean/median/maximum pooling, fit_transform and inverse_transform.
+The reference suite checks 294 result groups: fourteen configurations across
+three seeded matrices, including a wide matrix. It compares feature partitions,
+full merge trees (ignoring sibling ordering), merge distances, pooled training/
+query values, reconstructed inputs and fitted shape attributes. Cluster IDs
+are canonicalized by first feature, since sklearn's numbering is arbitrary.
+All numeric comparisons use atol=rtol=3e-8; no geometric ties are manufactured.
+
+Native tests check known feature pairs, pooled values, inverse replication,
+projection idempotence, median/max pooling, tree size and the identity limit.
+Fifteen new invalid cases cover cluster counts, linkage/pooling controls,
+empty/nonfinite inputs, feature count, pooled width and unfitted methods
+(552 total cases). See COVERAGE.md for tie handling and dense-tree limits.
+The feature_pooling example demonstrates compression of correlated columns.
+Inventory: 118 core types, 50 modules, 49 native tests, 29 reference suites and
+8,414 result groups. Original contributions remain MIT with upstream sklearn
+BSD attribution; no dependency or public extension was added.
+
+
+Final validation: all 49 native test programs passed with runtime checks and
+floating-point traps (-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow)
+and in release mode. All 294 FeatureAgglomeration reference groups and 552
+isolated invalid-input cases passed. The checked feature_pooling example
+returned labels [0,0,1,1] and first-row pooled values [1.05,20.1]. Python syntax,
+Fortran line-length/whitespace, inventory and git diff checks passed.
