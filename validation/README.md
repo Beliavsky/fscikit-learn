@@ -302,3 +302,19 @@ Brent routine, so fitted parameters need not agree in the last digits.
 limiting powers at zero and two, missing values, refitting and fitted settings.
 The input harness adds 11 rejection cases (167 total). `power_transforms` is a
 small runnable example. The eleven-suite inventory is 3,173 result groups.
+
+## Discretization reference suite
+
+Run `python validation/compare_discretization.py` for 324 result-group checks
+against sklearn 1.6.1 (`subsample=None`). Three seeded datasets each exercise
+12 configurations: uniform/quantile/k-means, ordinal/dense one-hot, weighted
+quantile/k-means, heterogeneous requested bin counts, duplicate quantiles and a
+constant column. Counts, output widths, edges, training/query transforms and
+midpoint inverses use atol=rtol=2e-10, with NaN positions and infinities compared.
+The twelve-suite inventory is 3,497 result groups.
+
+Native properties additionally check exact interior boundaries, out-of-range
+clipping, one active bin per feature, transform-inverse bin consistency, known
+weighted centers/quantiles, constant inverse NaNs, empty-cluster handling and
+fitted encoding retention. The input harness adds 20 rejection cases (187 total).
+The `discretization` example demonstrates query codes and approximate inverses.

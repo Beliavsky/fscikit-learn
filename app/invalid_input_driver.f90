@@ -16,6 +16,7 @@ program invalid_input_driver
   type(svr) :: eps_reg
   type(nu_svr) :: nu_reg
   type(one_class_svm) :: novelty_svm
+  type(kbins_discretizer) :: bins
   type(power_transformer) :: power
   type(standard_scaler) :: scaler
   type(logistic_regression) :: logistic
@@ -60,6 +61,26 @@ program invalid_input_driver
   character(32) :: mode
   x=1; y=1; call get_command_argument(1,mode)
   select case(trim(mode))
+  case('bins_strategy'); bins%strategy='invalid'; call bins%fit(x)
+  case('bins_encode'); bins%encode='onehot'; call bins%fit(x)
+  case('bins_count'); bins%n_bins=1; call bins%fit(x)
+  case('bins_count_shape'); call bins%fit(x,n_bins=[3])
+  case('bins_count_vector'); call bins%fit(x,n_bins=[3,1])
+  case('bins_weight_uniform'); bins%strategy='uniform'; call bins%fit(x,sample_weight=y)
+  case('bins_weight_shape'); call bins%fit(x,sample_weight=y(:3))
+  case('bins_weight_negative'); y(1)=-1; call bins%fit(x,sample_weight=y)
+  case('bins_weight_zero'); y=0; call bins%fit(x,sample_weight=y)
+  case('bins_weight_nan'); y(1)=ieee_value(0._dp,ieee_quiet_nan); call bins%fit(x,sample_weight=y)
+  case('bins_unfitted'); z=bins%transform(x)
+  case('bins_inverse_unfitted'); z=bins%inverse_transform(x)
+  case('bins_features'); call bins%fit(x); z=bins%transform(x(:,1:1))
+  case('bins_inverse_width'); call bins%fit(x); z=bins%inverse_transform(x(:,1:1))
+  case('bins_inverse_range'); bins%encode='ordinal'; call bins%fit(x); z=bins%inverse_transform(x)
+  case('bins_inverse_fraction'); bins%encode='ordinal'; call bins%fit(x); x=0.5_dp; z=bins%inverse_transform(x)
+  case('bins_inverse_zero'); call bins%fit(x); x=0; z=bins%inverse_transform(x)
+  case('bins_inverse_dense_fraction'); call bins%fit(x); x=0.5_dp; z=bins%inverse_transform(x)
+  case('bins_no_width'); x(:,1)=[0._dp,1.e-10_dp,2.e-10_dp,3.e-10_dp]; call bins%fit(x)
+  case('bins_kmeans_size'); bins%strategy='kmeans'; x(:,1)=[0._dp,1._dp,2._dp,3._dp]; call bins%fit(x)
   case('power_method'); power%method='invalid'; call power%fit(x)
   case('power_positive'); power%method='box-cox'; x(1,1)=0; call power%fit(x)
   case('power_constant'); power%method='box-cox'; call power%fit(x)

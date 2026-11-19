@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 94 public estimator, transformer, and splitter types. Each is a
+There are 95 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Eleven reference suites additionally check 3,173 result
+All types have native tests. Twelve reference suites additionally check 3,497 result
 groups in total across seeded datasets against installed scikit-learn 1.6.1.
 
 This document counts core scikit-learn counterparts. Public extensions are
@@ -22,7 +22,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 
 | Module (`sklearn_` prefix) | Public types and functions | Scope and numerical choices |
 | --- | --- | --- |
-| preprocessing | `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `label_encoder`, `one_hot_encoder`, `power_transformer`; `normalize`, `binarize`, `polynomial_features` | Population variance; linear percentile interpolation; NaN imputation with mean/median/most-frequent/constant; numeric categories; dense polynomial terms through degree 12 with optional interactions |
+| preprocessing | `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `label_encoder`, `one_hot_encoder`, `power_transformer`, `kbins_discretizer`; `normalize`, `binarize`, `polynomial_features` | Population variance; linear percentile interpolation; NaN imputation with mean/median/most-frequent/constant; numeric categories; dense polynomial terms through degree 12 with optional interactions |
 | linear_model | `linear_regression`, `ridge`, `lasso`, `elastic_net`, `logistic_regression`, `perceptron`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `huber_regressor`, `ransac_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; coordinate descent; logistic Newton solver; perceptron; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; RANSAC linear consensus; Newton GLMs |
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb` | Empirical class priors, variance smoothing, strictly positive scalar alpha; Bernoulli threshold; optional complement normalization |
 | neighbors | `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with optional shrinkage and uniform priors; Euclidean kernel density |
@@ -475,3 +475,39 @@ diagnostics. SciPy's Box-Cox maximum-output constraint, confidence intervals,
 sparse arrays, in-place copy controls and Python warnings are not implemented.
 The fitted method and standardization setting are retained until the next fit.
 This batch brings the package to 94 core types and 39 source modules.
+
+## KBinsDiscretizer
+
+`kbins_discretizer` lives in `sklearn_discretization` and is re-exported through
+`sklearn_preprocessing`. Its strategies are `uniform`, `quantile` (default) and
+`kmeans`; encodings are `ordinal` and `onehot-dense` (default). All arrays are
+dense real64. `n_bins=5` sets a scalar requested count; optional `n_bins(:)` in
+`fit`/`fit_transform` overrides it per feature. Each requested count must be at
+least two. Fitted `n_bins_` contains the counts after removing narrow bins;
+`bin_edges_(j)%values` stores each feature's edge vector. `n_features_out_`
+records transformed width. Ordinal codes are real64, zero-based integers.
+
+Quantiles use linear interpolation without weights and lower inverse-CDF
+percentiles with weights, following sklearn 1.6.1. Quantile and k-means fits
+accept optional nonnegative finite `sample_weight(:)` with positive total;
+uniform fits reject weights. K-means uses weighted one-dimensional Lloyd
+iterations, deterministic uniform-midpoint starts, at most 300 updates and
+variance-scaled tolerance 1e-4. `n_iter_(:)` is zero outside k-means;
+`converged_` reports whether all fitted k-means columns stopped within that cap.
+Empty clusters are relocated to farthest observations; tied relocations can
+differ from NumPy's partition ordering. Full data are always used (the Python
+reference sets `subsample=None`). No random sampling, sparse encoding, dtype
+controls, Python warnings or feature-name APIs are provided.
+
+Transform ignores the outer endpoints, clips out-of-range observations into
+extreme bins and assigns values exactly at an interior edge to its upper bin.
+For quantile/k-means, original adjacent widths <=1e-8 are removed, as in sklearn;
+if no bins survive, fitting fails explicitly. Constant columns become one bin
+with edges (-infinity,+infinity). Its code is zero and its inverse is NaN,
+matching sklearn 1.6.1's midpoint convention. Other inverses return bin
+midpoints, so they approximate input values. Inverse ordinal codes must be
+integers within range; dense inputs must contain exactly one active 1 per
+feature and otherwise zeros. These inverse checks are stricter than Python's
+integer casting and argmax behavior. Inputs reject NaN/infinity. Fitted encoding
+is retained until refit. Choose inputs/weights for finite moment and distance
+arithmetic. The package now contains 95 core types in 40 source modules.

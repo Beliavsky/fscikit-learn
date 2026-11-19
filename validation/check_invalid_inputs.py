@@ -5,6 +5,16 @@ import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 CASES = {
+    "bins_strategy": "invalid KBinsDiscretizer strategy", "bins_encode": "invalid KBinsDiscretizer encode",
+    "bins_count": "at least two requested bins", "bins_count_shape": "bin count shape mismatch",
+    "bins_count_vector": "at least two requested bins", "bins_weight_uniform": "does not support sample weights",
+    "bins_weight_shape": "weight count mismatch", "bins_weight_negative": "invalid KBinsDiscretizer sample weights",
+    "bins_weight_zero": "invalid KBinsDiscretizer sample weights", "bins_weight_nan": "invalid KBinsDiscretizer sample weights",
+    "bins_unfitted": "not fitted", "bins_inverse_unfitted": "not fitted", "bins_features": "feature count mismatch",
+    "bins_inverse_width": "encoded width mismatch", "bins_inverse_range": "inverse bin out of range",
+    "bins_inverse_fraction": "needs integer bin codes", "bins_inverse_zero": "needs one active bin",
+    "bins_inverse_dense_fraction": "needs one-hot values", "bins_no_width": "no bins after width pruning",
+    "bins_kmeans_size": "bin count exceeds sample count",
     "power_method": "invalid PowerTransformer method", "power_positive": "strictly positive",
     "power_constant": "nonconstant data", "power_missing": "all-missing feature",
     "power_unfitted": "not fitted", "power_inverse_unfitted": "not fitted",

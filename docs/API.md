@@ -532,3 +532,28 @@ Fit only on training rows, then call `transform` for new rows. NaNs pass through
 all-missing columns fail. Box-Cox also rejects nonpositive and constant training
 columns. `mean_` and `scale_` hold transformed training moments when
 standardizing, or zero/one otherwise. See `example/power_transforms.f90`.
+
+## Discretization
+
+```fortran
+use sklearn
+implicit none
+type(kbins_discretizer) :: bins
+real(dp) :: x(8,2),weights(8)
+real(dp), allocatable :: codes(:,:),approximate(:,:)
+x(:,1)=[0._dp,1._dp,2._dp,3._dp,4._dp,6._dp,8._dp,12._dp]
+x(:,2)=x(:,1)**2; weights=1
+bins%strategy='quantile'
+bins%encode='ordinal'                 ! or 'onehot-dense'
+codes=bins%fit_transform(x,n_bins=[3,4],sample_weight=weights)
+approximate=bins%inverse_transform(codes)
+! bins%n_bins_ are actual counts; bins%bin_edges_(j)%values are edges.
+! Use bins%transform(x_new) for new samples.
+```
+
+The fragment illustrates weighted fitting; `example/discretization.f90` is a
+complete executable for queries and approximate inversion. Without a per-feature argument,
+`bins%n_bins` supplies the requested count (default 5). Quantile and k-means
+accept weights; uniform binning does not. Ordinal codes start at zero and use
+real64 storage. The inverse returns bin midpoints; constant columns return NaN.
+Dense one-hot outputs concatenate feature blocks in input-feature order.

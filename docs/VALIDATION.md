@@ -348,3 +348,32 @@ unaffected Python suites were not rerun in this batch; all native tests were.
 Original contributions remain MIT with sklearn BSD-3-Clause attribution retained
 in the source and third-party notices. No additional runtime dependency or
 external Fortran repository was introduced. See COVERAGE.md for limits.
+
+## KBinsDiscretizer addition (2026-11-18)
+
+Added native `kbins_discretizer`, re-exported through preprocessing and the
+facade. It provides uniform, quantile and weighted 1D k-means strategies;
+ordinal and dense one-hot outputs; scalar/per-feature requested counts;
+width pruning; fit/transform/fit_transform; and midpoint inversion. Full-data
+fits correspond to Python `subsample=None`. Quantile and k-means accept sample
+weights. Constant columns use one infinite-ended bin and return NaN on inverse,
+as in sklearn 1.6.1. The package now contains 95 core types and 40 source modules.
+
+The new reference suite passed 324 result-group comparisons against sklearn
+1.6.1 on three seeded datasets with 12 configurations each. It covers weights
+including zeros, heterogeneous bin counts, duplicates, constants and both dense
+encodings, at atol=rtol=2e-10. The twelve-suite inventory is 3,497 result groups;
+unchanged older Python suites were not rerun for this batch.
+
+Native tests check exact edge assignment, extreme bins, inverse/code consistency,
+one-hot block sums, weighted quantiles and known weighted k-means centers,
+constant inverse NaNs, duplicate/empty clusters and fitted encoding retention.
+All 32 programs passed checked builds with bounds/backtrace and
+invalid/zero/overflow traps, plus release builds. All 187 isolated invalid-input
+cases passed, including 20 new discretization cases. The `discretization`
+example passed. Formatting and Python syntax audits passed.
+
+Sklearn provenance and retained BSD-3-Clause terms are recorded in the module
+and third-party notices; original contributions remain MIT. No third-party
+runtime dependency or public extension was added. COVERAGE.md records dense-only
+encoding, full-data fitting, stricter inverse validation and numerical limits.
