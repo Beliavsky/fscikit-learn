@@ -5,6 +5,22 @@ import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 CASES = {
+    "birch_threshold": "BIRCH threshold must be positive",
+    "birch_nan": "nonfinite BIRCH threshold",
+    "birch_branching": "BIRCH branching_factor must be at least two",
+    "birch_clusters": "BIRCH n_clusters must be nonnegative",
+    "birch_empty": "X must be nonempty",
+    "birch_x_nan": "X contains NaN or infinity",
+    "birch_unfitted": "BIRCH is not fitted",
+    "birch_transform_unfitted": "BIRCH is not fitted",
+    "birch_partial_unfitted": "BIRCH is not fitted",
+    "birch_features": "BIRCH feature count mismatch",
+    "birch_transform_features": "BIRCH feature count mismatch",
+    "birch_partial_features": "BIRCH feature count mismatch",
+    "birch_changed_threshold": "BIRCH tree controls changed",
+    "birch_changed_branching": "BIRCH tree controls changed",
+    "birch_fit_predict": "BIRCH fit_predict requires compute_labels",
+
     "optics_negative_distance": "OPTICS distances must be nonnegative",
     "optics_asymmetric": "OPTICS distance matrix must be symmetric",
     "optics_diagonal": "OPTICS distance diagonal must be zero",

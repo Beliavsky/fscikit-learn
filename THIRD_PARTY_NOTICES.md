@@ -30,7 +30,7 @@ Reference paths by module:
 | neighbors | neighbors/_base.py, _classification.py, _regression.py |
 | decomposition | decomposition/_pca.py, _truncated_svd.py, _nmf.py |
 | optics | cluster/_optics.py: dense reachability graph, DBSCAN extraction, Xi steep regions, hierarchy labels and predecessor correction |
-| cluster | cluster/_kmeans.py, _dbscan.py, _agglomerative.py, _mean_shift.py, _affinity_propagation.py, _spectral.py (including cluster_qr) |
+| cluster | cluster/_birch.py (CF summaries, recursive insertion/splitting, leaf order and global/partial-fit contracts), cluster/_kmeans.py, _dbscan.py, _agglomerative.py, _mean_shift.py, _affinity_propagation.py, _spectral.py (including cluster_qr) |
 | tree | tree/_classes.py; CART splitting and recursion rewritten in Fortran |
 | ensemble | ensemble/_forest.py, _gb.py |
 | model_selection | model_selection/_split.py, _validation.py; linear_model/_ridge.py |

@@ -460,3 +460,49 @@ printed two clusters under both extraction methods. Source line-length and
 whitespace checks, Python syntax checks, inventory counts and staged diff
 checks passed. The 432 new reference groups passed; prior suites were not
 rerun. Original contributions remain MIT with sklearn BSD notices retained.
+
+
+## BIRCH incremental clustering
+
+Added native BIRCH to sklearn_cluster: owned CF summary/node storage,
+recursive radius merges and farthest-pair splits, ordered leaf collection,
+fit/partial_fit, optional Ward grouping, prediction and distance transforms.
+Included fit_predict/fit_transform, latest-batch labels, fallback metadata,
+example, native properties and diagnostics. Original contributions remain
+MIT with sklearn BSD attribution retained. No dependencies or public
+extensions were added. Core inventory: 101 types in 41 source modules.
+
+
+## BIRCH clustering-feature tree
+
+`python validation/compare_birch.py` passes 237 result groups against sklearn
+1.6.1 across three seeded datasets and ten configurations each. Fixtures cover
+small and large branching factors, deep splits, several radius thresholds,
+duplicates, no global clustering, Ward clustering, insufficient subclusters,
+compute_labels=false, streamed insertion and global-only reclustering.
+Checks include every centroid, its global label, batch labels, training/query
+predictions, training/query distance matrices and sample/feature/fallback
+metadata. Farthest-pair floating-point ties can reverse split orientation;
+centroid-indexed outputs are aligned by a one-to-one minimum-distance
+assignment, then every centroid must agree within atol=rtol=2e-12. Cluster
+partitions use a shared label mapping after alignment. Distance outputs use
+atol=2e-7, rtol=2e-12 to accommodate sklearn's cancellation near zero distances.
+Global-only updates retain previous batch labels; that retained partition is
+checked separately from current predictions. The seventeen-suite inventory
+is now 4,766 result groups; unchanged older reference suites were not rerun.
+
+Native BIRCH properties independently check streamed/batch equivalence under
+multi-level tree splitting, sample counters, nearest-centroid label assignment,
+Ward grouping, centroid statistics, refit reset, copy ownership, single-point
+fits, skipped label computation and distance transforms. The rejection harness
+adds 15 BIRCH control/state/shape cases (282 total). `birch_streaming` demonstrates
+insertion in batches and global-only Ward clustering.
+
+
+All 37 native test programs passed checked builds with bounds/backtrace and
+invalid/zero/overflow traps, and optimized release builds. All 282 isolated
+input rejection cases passed. The checked `birch_streaming` example passed,
+showing two clusters before and after global-only Ward clustering. Python
+syntax, Fortran line-length/whitespace, inventory and staged diff checks passed.
+The 237 new sklearn comparison groups passed; older reference suites were not
+rerun. Original contributions remain MIT with sklearn BSD notices retained.

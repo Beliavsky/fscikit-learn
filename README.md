@@ -1,7 +1,7 @@
 # fscikit-learn
 
 A native Fortran fpm package translating a practical dense-array subset of
-scikit-learn: **100 estimator, transformer and splitter types**, metrics,
+scikit-learn: **101 estimator, transformer and splitter types**, metrics,
 kernels, text features and synthetic dataset generators. This is not a complete
 or drop-in translation. Read [coverage and limits](docs/COVERAGE.md) before use.
 OpenAI Codex generated the code.
@@ -33,6 +33,7 @@ python validation/compare_graphical_lasso.py
 python validation/compare_theil_sen.py
 python validation/compare_passive_aggressive.py
 python validation/compare_optics.py
+python validation/compare_birch.py
 python validation/check_invalid_inputs.py
 ```
 

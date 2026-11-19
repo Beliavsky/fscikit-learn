@@ -653,3 +653,35 @@ has allocatable output labels and hierarchy; its final three arguments are
 optional. Row IDs and hierarchy endpoints are 1-based; cluster labels are
 0-based, with noise -1 and root predecessors -1. See COVERAGE.md for distance,
 fractional-size, infinity and complexity conventions.
+
+
+## BIRCH
+
+```fortran
+use sklearn, only: dp,birch
+implicit none
+type(birch) :: model
+real(dp) :: x(8,1)
+integer, allocatable :: labels(:)
+x(:,1)=[0._dp,.1_dp,.2_dp,.3_dp,5._dp,5.1_dp,5.2_dp,5.3_dp]
+model%threshold=.2_dp
+model%branching_factor=2
+model%n_clusters=0 ! Python n_clusters=None: retain leaf subclusters.
+call model%partial_fit(x(:4,:))
+call model%partial_fit(x(5:,:))
+labels=model%predict(x)
+model%n_clusters=2
+call model%partial_fit() ! Recluster the existing leaf centroids.
+labels=model%predict(x)
+```
+
+Methods are `fit`, `partial_fit` (optional X), `fit_predict`, `predict`,
+`fit_transform`, and `transform`. The last two return Euclidean distances to
+all `subcluster_centers_`, independent of the global cluster count.
+`subcluster_labels_` maps each centroid to a zero-based global label;
+`labels_` stores the last labeled input batch. `compute_labels=false` skips
+that assignment. Global-only updates leave prior batch labels intact;
+`predict` returns current labels. `insufficient_subclusters_` reports the
+fallback when fewer centroids than requested remain. Tree controls must stay
+fixed during incremental insertion; call `fit` to change them. See COVERAGE.md
+for complexity, cluster-name and supported-input limits.

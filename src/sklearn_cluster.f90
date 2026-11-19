@@ -1,4 +1,5 @@
 module sklearn_cluster
+  use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
   use sklearn_common
   use sklearn_metrics, only: pairwise_distances
   use sklearn_spectral, only: spectral_affinity_matrix,spectral_eigenvectors
@@ -8,6 +9,35 @@ module sklearn_cluster
   public :: optics,cluster_optics_dbscan,cluster_optics_xi
   public :: kmeans,dbscan,agglomerative_clustering
   public :: mean_shift,estimate_bandwidth,affinity_propagation,spectral_clustering
+  public :: birch
+  ! CF tree contracts follow sklearn 1.6.1 cluster/_birch.py (BSD notices retained).
+  type :: cf_summary
+    integer :: count=0,child=0
+    real(dp) :: squared_sum=0,norm=0
+    real(dp), allocatable :: linear_sum(:),centroid(:)
+  end type
+  type :: cf_node
+    integer :: used=0,previous=0,next=0
+    logical :: leaf=.true.
+    type(cf_summary), allocatable :: entries(:)
+  end type
+  type :: birch
+    real(dp) :: threshold=.5_dp
+    integer :: branching_factor=50,n_clusters=3,n_features_in_=0,n_samples_seen_=0
+    logical :: compute_labels=.true.,insufficient_subclusters_=.false.
+    real(dp), allocatable :: subcluster_centers_(:,:)
+    integer, allocatable :: subcluster_labels_(:),labels_(:)
+    type(cf_node), allocatable, private :: nodes(:)
+    integer, private :: root=0,first_leaf=0,node_count=0,fitted_branching=0
+    real(dp), private :: fitted_threshold=0
+  contains
+    procedure :: fit=>birch_fit
+    procedure :: partial_fit=>birch_partial_fit
+    procedure :: predict=>birch_predict
+    procedure :: transform=>birch_transform
+    procedure :: fit_predict=>birch_fit_predict
+    procedure :: fit_transform=>birch_fit_transform
+  end type
   type :: kmeans
     integer :: n_clusters=8,n_init=10,max_iter=300,random_state=0,n_iter_=0
     real(dp) :: tol=1.e-4_dp,inertia_=0
@@ -539,5 +569,238 @@ contains
     real(dp), intent(in) :: x(:,:)
     integer :: labels(size(x,1))
     call self%fit(x); labels=self%labels_
+  end function
+  subroutine birch_controls(self)
+    class(birch), intent(in) :: self
+    call require(ieee_is_finite(self%threshold),'nonfinite BIRCH threshold')
+    call require(self%threshold>0,'BIRCH threshold must be positive')
+    call require(self%branching_factor>=2,'BIRCH branching_factor must be at least two')
+    call require(self%n_clusters>=0,'BIRCH n_clusters must be nonnegative')
+  end subroutine
+
+  integer function birch_new_node(self,leaf) result(id)
+    class(birch), intent(inout) :: self
+    logical, intent(in) :: leaf
+    type(cf_node), allocatable :: grown(:)
+    if(self%node_count==size(self%nodes)) then
+      allocate(grown(2*size(self%nodes)))
+      grown(:self%node_count)=self%nodes
+      call move_alloc(grown,self%nodes)
+    end if
+    self%node_count=self%node_count+1; id=self%node_count
+    self%nodes(id)%leaf=leaf
+    allocate(self%nodes(id)%entries(self%fitted_branching+1))
+  end function
+
+  subroutine cf_add(target,source)
+    type(cf_summary), intent(inout) :: target
+    type(cf_summary), intent(in) :: source
+    if(target%count==0) then
+      target%linear_sum=source%linear_sum
+    else
+      target%linear_sum=target%linear_sum+source%linear_sum
+    end if
+    target%count=target%count+source%count
+    target%squared_sum=target%squared_sum+source%squared_sum
+    target%centroid=target%linear_sum/real(target%count,dp)
+    target%norm=sum(target%centroid**2)
+  end subroutine
+
+  subroutine cf_append(self,id,entry)
+    class(birch), intent(inout) :: self
+    integer, intent(in) :: id
+    type(cf_summary), intent(in) :: entry
+    integer :: k
+    k=self%nodes(id)%used+1
+    self%nodes(id)%entries(k)=entry; self%nodes(id)%used=k
+  end subroutine
+
+  subroutine birch_split(self,id,left,right)
+    class(birch), intent(inout) :: self
+    integer, intent(in) :: id
+    type(cf_summary), intent(out) :: left,right
+    type(cf_node) :: old
+    real(dp) :: distance,best,d1,d2
+    integer :: i,j,a,b,other,n
+    old=self%nodes(id); n=old%used
+    best=-1; a=1; b=1
+    ! Row-major argmax order matches numpy's first farthest pair.
+    do i=1,n
+      do j=1,n
+        distance=max(0._dp,old%entries(i)%norm+old%entries(j)%norm- &
+          2*dot_product(old%entries(i)%centroid,old%entries(j)%centroid))
+        if(i==j) distance=0
+        if(distance>best) then
+          best=distance; a=i; b=j
+        end if
+      end do
+    end do
+    other=birch_new_node(self,old%leaf)
+    self%nodes(id)%used=0
+    if(old%leaf) then
+      self%nodes(id)%next=other
+      self%nodes(other)%previous=id; self%nodes(other)%next=old%next
+      if(old%next/=0) self%nodes(old%next)%previous=other
+    end if
+    left%child=id; right%child=other
+    do i=1,n
+      d1=max(0._dp,old%entries(a)%norm+old%entries(i)%norm- &
+        2*dot_product(old%entries(a)%centroid,old%entries(i)%centroid))
+      d2=max(0._dp,old%entries(b)%norm+old%entries(i)%norm- &
+        2*dot_product(old%entries(b)%centroid,old%entries(i)%centroid))
+      if(i==a) d1=0
+      if(i==b) d2=0
+      if(d1<d2 .or. i==a) then
+        call cf_append(self,id,old%entries(i)); call cf_add(left,old%entries(i))
+      else
+        call cf_append(self,other,old%entries(i)); call cf_add(right,old%entries(i))
+      end if
+    end do
+  end subroutine
+
+  recursive logical function birch_insert(self,id,entry) result(split)
+    class(birch), intent(inout) :: self
+    integer, intent(in) :: id
+    type(cf_summary), intent(in) :: entry
+    type(cf_summary) :: merged,left,right
+    real(dp) :: best,distance,radius
+    integer :: i,closest,child,n
+    n=self%nodes(id)%used; split=.false.
+    if(n==0) then
+      call cf_append(self,id,entry); return
+    end if
+    best=huge(1._dp); closest=1
+    do i=1,n
+      distance=self%nodes(id)%entries(i)%norm- &
+        2*dot_product(self%nodes(id)%entries(i)%centroid,entry%centroid)
+      if(distance<best) then
+        best=distance; closest=i
+      end if
+    end do
+    child=self%nodes(id)%entries(closest)%child
+    if(child/=0) then
+      if(birch_insert(self,child,entry)) then
+        call birch_split(self,child,left,right)
+        self%nodes(id)%entries(closest)=left; call cf_append(self,id,right)
+      else
+        call cf_add(self%nodes(id)%entries(closest),entry)
+      end if
+    else
+      merged=self%nodes(id)%entries(closest); call cf_add(merged,entry)
+      radius=merged%squared_sum/real(merged%count,dp)-merged%norm
+      if(radius<=self%fitted_threshold**2) then
+        self%nodes(id)%entries(closest)=merged
+      else
+        call cf_append(self,id,entry)
+      end if
+    end if
+    split=self%nodes(id)%used>self%fitted_branching
+  end function
+
+  recursive subroutine birch_fit(self,x)
+    class(birch), intent(inout) :: self
+    real(dp), intent(in) :: x(:,:)
+    call birch_controls(self); call check_x(x)
+    if(allocated(self%nodes)) deallocate(self%nodes)
+    if(allocated(self%labels_)) deallocate(self%labels_)
+    allocate(self%nodes(8)); self%node_count=0
+    self%fitted_branching=self%branching_factor; self%fitted_threshold=self%threshold
+    self%root=birch_new_node(self,.true.); self%first_leaf=self%root
+    self%n_features_in_=size(x,2); self%n_samples_seen_=0
+    call self%partial_fit(x)
+  end subroutine
+
+  recursive subroutine birch_partial_fit(self,x)
+    class(birch), intent(inout) :: self
+    real(dp), intent(in), optional :: x(:,:)
+    type(cf_summary) :: entry,left,right
+    integer :: i,new_root
+    call birch_controls(self)
+    if(.not.allocated(self%nodes)) then
+      call require(present(x),'BIRCH is not fitted')
+      call self%fit(x); return
+    end if
+    call require(self%branching_factor==self%fitted_branching .and. &
+      self%threshold==self%fitted_threshold,'BIRCH tree controls changed: call fit to reset')
+    if(present(x)) then
+      call check_x(x)
+      call require(size(x,2)==self%n_features_in_,'BIRCH feature count mismatch')
+      do i=1,size(x,1)
+        entry%count=1; entry%child=0; entry%linear_sum=x(i,:); entry%centroid=x(i,:)
+        entry%squared_sum=sum(x(i,:)**2); entry%norm=entry%squared_sum
+        if(birch_insert(self,self%root,entry)) then
+          call birch_split(self,self%root,left,right)
+          new_root=birch_new_node(self,.false.)
+          call cf_append(self,new_root,left); call cf_append(self,new_root,right)
+          self%root=new_root
+        end if
+      end do
+      self%n_samples_seen_=self%n_samples_seen_+size(x,1)
+    end if
+    call birch_global(self)
+    if(present(x)) then
+      if(self%compute_labels) self%labels_=self%predict(x)
+    end if
+  end subroutine
+
+  subroutine birch_global(self)
+    class(birch), intent(inout) :: self
+    type(agglomerative_clustering) :: ward
+    integer :: leaf,n,i,k
+    n=0; leaf=self%first_leaf
+    do while(leaf/=0)
+      n=n+self%nodes(leaf)%used; leaf=self%nodes(leaf)%next
+    end do
+    if(allocated(self%subcluster_centers_)) deallocate(self%subcluster_centers_)
+    allocate(self%subcluster_centers_(n,self%n_features_in_))
+    leaf=self%first_leaf; k=0
+    do while(leaf/=0)
+      do i=1,self%nodes(leaf)%used
+        k=k+1; self%subcluster_centers_(k,:)=self%nodes(leaf)%entries(i)%centroid
+      end do
+      leaf=self%nodes(leaf)%next
+    end do
+    self%insufficient_subclusters_=n<self%n_clusters
+    if(self%n_clusters==0 .or. self%insufficient_subclusters_) then
+      self%subcluster_labels_=[(i-1,i=1,n)]
+    else
+      ward%n_clusters=self%n_clusters; call ward%fit(self%subcluster_centers_)
+      self%subcluster_labels_=ward%labels_
+    end if
+  end subroutine
+
+  function birch_predict(self,x) result(labels)
+    class(birch), intent(in) :: self
+    real(dp), intent(in) :: x(:,:)
+    integer, allocatable :: labels(:)
+    real(dp), allocatable :: distance(:,:)
+    call require(allocated(self%subcluster_centers_),'BIRCH is not fitted')
+    call check_x(x); call require(size(x,2)==self%n_features_in_,'BIRCH feature count mismatch')
+    distance=pairwise_distances(x,self%subcluster_centers_)
+    labels=self%subcluster_labels_(minloc(distance,dim=2))
+  end function
+
+  function birch_transform(self,x) result(distance)
+    class(birch), intent(in) :: self
+    real(dp), intent(in) :: x(:,:)
+    real(dp), allocatable :: distance(:,:)
+    call require(allocated(self%subcluster_centers_),'BIRCH is not fitted')
+    call check_x(x); call require(size(x,2)==self%n_features_in_,'BIRCH feature count mismatch')
+    distance=pairwise_distances(x,self%subcluster_centers_)
+  end function
+
+  function birch_fit_predict(self,x) result(labels)
+    class(birch), intent(inout) :: self
+    real(dp), intent(in) :: x(:,:)
+    integer, allocatable :: labels(:)
+    call require(self%compute_labels,'BIRCH fit_predict requires compute_labels')
+    call self%fit(x); labels=self%labels_
+  end function
+
+  function birch_fit_transform(self,x) result(distance)
+    class(birch), intent(inout) :: self
+    real(dp), intent(in) :: x(:,:)
+    real(dp), allocatable :: distance(:,:)
+    call self%fit(x); distance=self%transform(x)
   end function
 end module

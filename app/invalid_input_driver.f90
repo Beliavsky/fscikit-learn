@@ -3,6 +3,7 @@ program invalid_input_driver
   use sklearn
   use, intrinsic :: ieee_arithmetic, only: ieee_value,ieee_quiet_nan
   implicit none
+  type(birch) :: model_birch
   type(optics) :: model
   type(fast_ica) :: ica
   type(isotonic_regression) :: monotone
@@ -67,6 +68,39 @@ program invalid_input_driver
   character(32) :: mode
   x=1; y=1; call get_command_argument(1,mode)
   select case(trim(mode))
+  case('birch_threshold')
+    model_birch%threshold=0; call model_birch%fit(x)
+  case('birch_nan')
+    model_birch%threshold=ieee_value(0._dp,ieee_quiet_nan); call model_birch%fit(x)
+  case('birch_branching')
+    model_birch%branching_factor=1; call model_birch%fit(x)
+  case('birch_clusters')
+    model_birch%n_clusters=-1; call model_birch%fit(x)
+  case('birch_empty')
+    call model_birch%fit(x(:0,:))
+  case('birch_x_nan')
+    x(1,1)=ieee_value(0._dp,ieee_quiet_nan); call model_birch%fit(x)
+  case('birch_unfitted')
+    labels=model_birch%predict(x)
+  case('birch_transform_unfitted')
+    z=model_birch%transform(x)
+  case('birch_partial_unfitted')
+    call model_birch%partial_fit()
+  case('birch_features')
+    call model_birch%fit(x); labels=model_birch%predict(x(:,:1))
+  case('birch_transform_features')
+    call model_birch%fit(x); z=model_birch%transform(x(:,:1))
+  case('birch_partial_features')
+    call model_birch%fit(x); call model_birch%partial_fit(x(:,:1))
+  case('birch_changed_threshold')
+    call model_birch%fit(x); model_birch%threshold=1; &
+    call model_birch%partial_fit(x)
+  case('birch_changed_branching')
+    call model_birch%fit(x); model_birch%branching_factor=2; &
+    call model_birch%partial_fit()
+  case('birch_fit_predict')
+    model_birch%compute_labels=.false.; labels=model_birch%fit_predict(x)
+
   case('optics_negative_distance')
     model%min_samples=2; model%metric='precomputed'; z=0*x(:2,:); z(1,2)=-1; call model%fit(z)
   case('optics_asymmetric')

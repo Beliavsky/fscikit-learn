@@ -397,3 +397,29 @@ roots, duplicate plateaus, stable row-order ties, fractional sizes and the
 sklearn convention for infinite DBSCAN eps. The input harness adds 26 isolated
 rejection cases for estimator controls, precomputed matrices and extraction
 graph validation (267 total). `optics_demo` demonstrates both extraction methods.
+
+
+## BIRCH clustering-feature tree
+
+`python validation/compare_birch.py` passes 237 result groups against sklearn
+1.6.1 across three seeded datasets and ten configurations each. Fixtures cover
+small and large branching factors, deep splits, several radius thresholds,
+duplicates, no global clustering, Ward clustering, insufficient subclusters,
+compute_labels=false, streamed insertion and global-only reclustering.
+Checks include every centroid, its global label, batch labels, training/query
+predictions, training/query distance matrices and sample/feature/fallback
+metadata. Farthest-pair floating-point ties can reverse split orientation;
+centroid-indexed outputs are aligned by a one-to-one minimum-distance
+assignment, then every centroid must agree within atol=rtol=2e-12. Cluster
+partitions use a shared label mapping after alignment. Distance outputs use
+atol=2e-7, rtol=2e-12 to accommodate sklearn's cancellation near zero distances.
+Global-only updates retain previous batch labels; that retained partition is
+checked separately from current predictions. The seventeen-suite inventory
+is now 4,766 result groups; unchanged older reference suites were not rerun.
+
+Native BIRCH properties independently check streamed/batch equivalence under
+multi-level tree splitting, sample counters, nearest-centroid label assignment,
+Ward grouping, centroid statistics, refit reset, copy ownership, single-point
+fits, skipped label computation and distance transforms. The rejection harness
+adds 15 BIRCH control/state/shape cases (282 total). `birch_streaming` demonstrates
+insertion in batches and global-only Ward clustering.

@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 100 public estimator, transformer, and splitter types. Each is a
+There are 101 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Sixteen reference suites additionally check 4,529 result
+All types have native tests. Seventeen reference suites additionally check 4,766 result
 groups in total across seeded datasets against installed scikit-learn 1.6.1.
 
 This document counts core scikit-learn counterparts. Public extensions are
@@ -26,7 +26,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | linear_model | `linear_regression`, `ridge`, `lasso`, `elastic_net`, `logistic_regression`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `huber_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; coordinate descent; logistic Newton solver; perceptron; PA-I/II classification/regression with averaging; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb` | Empirical class priors, variance smoothing, strictly positive scalar alpha; Bernoulli threshold; optional complement normalization |
 | neighbors | `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with optional shrinkage and uniform priors; Euclidean kernel density |
-| cluster | `kmeans`, `dbscan`, `agglomerative_clustering`, `mean_shift`, `affinity_propagation`, `spectral_clustering`, `optics`; `estimate_bandwidth`, `cluster_optics_dbscan`, `cluster_optics_xi` | Lloyd/k-means++; density expansion; single/complete/average/Ward merge trees; flat-kernel mode seeking; damped exemplar messages; normalized-Laplacian clustering with k-means or pivoted QR assignment; OPTICS reachability ordering, Xi hierarchy and DBSCAN extraction |
+| cluster | `kmeans`, `dbscan`, `agglomerative_clustering`, `mean_shift`, `affinity_propagation`, `spectral_clustering`, `optics`, `birch`; `estimate_bandwidth`, `cluster_optics_dbscan`, `cluster_optics_xi` | Lloyd/k-means++; density expansion; single/complete/average/Ward merge trees; flat-kernel mode seeking; damped exemplar messages; normalized-Laplacian clustering with k-means or pivoted QR assignment; OPTICS reachability ordering, Xi hierarchy and DBSCAN extraction; BIRCH streaming CF tree and optional Ward clustering |
 | decomposition | `pca`, `truncated_svd`, `nmf`; re-exports `kernel_pca`, `factor_analysis`, `fast_ica` | Direct Jacobi SVD; PCA whitening and inversion; exact dense SVD; NMF multiplicative updates; nonlinear kernel PCA; unrotated full-SVD factor analysis; parallel/deflation ICA |
 | cross_decomposition | `pls_regression`, `pls_canonical`, `cca`, `pls_svd` | Paired-matrix latent components: NIPALS regression/canonical deflation, CCA pseudoinverse mode, canonical direct SVD and PLSSVD cross-covariance projection; multiple response columns |
 | isotonic | `isotonic_regression`; `isotonic_fit`, `check_increasing` | Weighted pool-adjacent-violators, automatic Spearman direction, bounds, repeated-input aggregation and piecewise linear interpolation |
@@ -229,7 +229,7 @@ distances; cosine similarity; linear, RBF, polynomial and sigmoid kernels.
 Not translated: sparse data paths, general estimator base/clone/parameter search
 framework, pipelines/column transformers, NuSVC and linear SVM variants, quantile
 regression, remaining GLM variants, remaining SGD families, histogram boosting, AdaBoost and bagging APIs,
-t-SNE and Hessian/modified LLE, BIRCH,
+t-SNE and Hessian/modified LLE,
 outlier detection beyond LOF/OneClassSVM,
 Gaussian-process classification, dictionary learning,
 calibration, semi-supervised learning beyond label propagation/spreading,
@@ -664,3 +664,39 @@ sample-weight or incremental interfaces. Equal reachabilities select the
 lowest original row ID. Geometric floating-point ties can differ from
 sklearn's tree backends. This batch brings the package to 100 core types in
 41 source modules; no extensions or dependencies were added.
+
+
+## BIRCH streaming clustering
+
+`birch` implements the clustering-feature tree: count/linear/squared statistics,
+radius-threshold merges, recursive farthest-pair splits and ordered leaf
+subcluster extraction. `fit` rebuilds the tree; `partial_fit(X)` inserts only
+new rows. The resulting tree is independent of batch boundaries when the
+sample order and tree controls are unchanged. Private nodes use owned
+allocatable storage, so copying the model copies its tree.
+
+`n_clusters=0` corresponds to Python's `None`; positive values run unweighted
+Ward clustering on the leaf centroids using the package's existing
+`agglomerative_clustering`. Integer cluster names can differ from sklearn;
+partitions are compared up to a shared label permutation. Floating-point
+farthest-pair ties can reverse split orientation and reorder leaf centroids;
+reference checks explicitly align centroid-indexed outputs before comparison. If fewer subclusters
+than requested remain, each receives its own label and
+`insufficient_subclusters_` is true (no Python-style warning is emitted).
+`predict` uses the closest leaf centroid, then its global label. `transform`
+returns distances to every leaf centroid, even after global clustering.
+
+`compute_labels=false` skips storing labels for inserted rows; `predict` still
+works. `labels_` describes the most recent batch for which labels were
+computed. `partial_fit()` with no X repeats only global clustering, retaining
+those batch labels as sklearn does; call `predict` for current assignments.
+`fit_predict` requires compute_labels=true. `fit_transform` is also provided.
+The metadata `n_features_in_` and `n_samples_seen_` records input width and
+inserted sample count. Threshold must be finite and positive, branching
+factor at least two, and n_clusters nonnegative. Changing threshold or
+branching factor requires a fresh `fit`; n_clusters may change before a
+global-only update. Dense real64 input only: no sparse input, sample weights,
+custom global estimator objects, exposed mutable tree nodes or feature names.
+Tree storage grows with the subclusters; optional dense Ward clustering has
+quadratic storage and cubic-time pair selection. The package now has 101 core
+types in 41 source modules; no public extensions or dependencies were added.
