@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 105 public estimator, transformer, and splitter types. Each is a
+There are 107 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Twenty reference suites additionally check 5,732 result
+All types have native tests. Twenty-one reference suites additionally check 6,152 result
 groups in total across seeded datasets against installed scikit-learn 1.6.1.
 
 This document counts core scikit-learn counterparts. Public extensions are
@@ -23,7 +23,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | Module (`sklearn_` prefix) | Public types and functions | Scope and numerical choices |
 | --- | --- | --- |
 | preprocessing | `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `label_encoder`, `one_hot_encoder`, `power_transformer`, `kbins_discretizer`, `quantile_transformer`; `normalize`, `binarize`, `polynomial_features` | Population variance; linear percentile interpolation; NaN imputation with mean/median/most-frequent/constant; numeric categories; empirical uniform/normal quantile transforms; dense polynomial terms through degree 12 with optional interactions |
-| linear_model | `linear_regression`, `ridge`, `lasso`, `elastic_net`, `logistic_regression`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `huber_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; coordinate descent; logistic Newton solver; perceptron; PA-I/II classification/regression with averaging; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
+| linear_model | `linear_regression`, `ridge`, `ridge_classifier`, `ridge_classifier_cv`, `lasso`, `elastic_net`, `logistic_regression`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `huber_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; coordinate descent; logistic Newton solver; perceptron; PA-I/II classification/regression with averaging; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb` | Empirical class priors, variance smoothing, strictly positive scalar alpha; Bernoulli threshold; optional complement normalization |
 | neighbors | `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with optional shrinkage and uniform priors; Euclidean kernel density |
 | cluster | `kmeans`, `dbscan`, `agglomerative_clustering`, `mean_shift`, `affinity_propagation`, `spectral_clustering`, `optics`, `birch`; `estimate_bandwidth`, `cluster_optics_dbscan`, `cluster_optics_xi` | Lloyd/k-means++; density expansion; single/complete/average/Ward merge trees; flat-kernel mode seeking; damped exemplar messages; normalized-Laplacian clustering with k-means or pivoted QR assignment; OPTICS reachability ordering, Xi hierarchy and DBSCAN extraction; BIRCH streaming CF tree and optional Ward clustering |
@@ -814,3 +814,46 @@ implemented. Native tree count/depth/leaf/split/max-feature and minimum-impurity
 controls are supported. Learning rate must be finite and positive. The package
 now contains 105 core types in 42 source modules; no public extensions or
 runtime dependencies were added.
+
+
+## Ridge classification and leave-one-out selection
+
+`ridge_classifier` solves weighted ridge regression on -1/+1 class-indicator
+columns, using a shared dense SVD. Binary problems use one response column;
+multiclass problems fit one-vs-rest columns together. Weighted feature/target
+means give an unpenalized intercept. The scalar alpha must be finite and
+nonnegative; zero uses the native SVD rank truncation/minimum-norm solution.
+`coef_` has shape (channels,n_features), `intercept_` has one entry per channel,
+and decision_function always returns (n,channels). Binary scores >0 select
+the larger sorted label; ties choose the smaller label. Multiclass uses the
+first maximum. At least two distinct integer labels are required.
+
+Fit accepts optional sample_weight and class_weight vectors. Class weights
+align with sorted classes_; class_weight_balanced=true instead uses
+n_samples/(n_classes*class_count), based on unweighted label frequencies.
+Class and row weights multiply. Weights must be finite and nonnegative, with
+positive effective total. Balanced and explicit class weights are mutually
+exclusive. Sample/class weighting affects both centering and ridge residuals;
+alpha is not divided by the sample count. Zero-weight rows are supported.
+
+`ridge_classifier_cv` implements sklearn's default cv=None, scoring=None
+leave-one-out mode only. It shares the weighted SVD across positive candidate
+alphas, using diagonal dual-resolvent identities for exact leave-one-out
+errors. Full row-span designs use a cancellation-free residual calculation.
+Selection maximizes negative mean squared error on binarized targets, with
+squared errors multiplied by effective row weights and averaged over all
+samples and response columns. It does not select by classification accuracy.
+The selected alpha is refitted on all data. At least two positive-weight rows
+are required. Default alphas are [.1,1,10]. cv_scores_ records all candidate
+scores, alpha_ and best_score_ record the selected result, and optional
+store_cv_results=true retains (n,channels,n_alphas) weighted squared errors.
+Results are cleared on a later fit with storage disabled.
+
+Both provide fit, decision_function, predict and score. Dense real64 input
+only; sparse/multilabel data, positive-coefficient constraints, per-target
+penalties, iterative solvers, probability calibration, arbitrary CV folds,
+custom scoring and metadata routing are not implemented. A single class is
+rejected in this port. n_features_in_ and native rank_ expose fitted dimensions.
+Original code remains MIT with sklearn BSD notices retained. The package now
+has 107 core types in 43 source modules, with no new runtime dependencies or
+public extensions.

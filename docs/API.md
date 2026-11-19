@@ -774,3 +774,36 @@ zero initial scores. Tree controls include max_depth, min_samples_leaf,
 min_samples_split, max_features (0 means all), and min_impurity_decrease.
 Sample weights/subsampling/early stopping are not part of this initial port;
 see COVERAGE.md for loss, tree-backend and staged-memory conventions.
+
+
+## Ridge classification
+
+```fortran
+use sklearn, only: dp,ridge_classifier,ridge_classifier_cv
+implicit none
+type(ridge_classifier) :: classifier
+type(ridge_classifier_cv) :: selected
+real(dp) :: x(6,1),weights(6)
+integer :: y(6)
+real(dp), allocatable :: scores(:,:)
+x(:,1)=[0._dp,1._dp,2._dp,3._dp,4._dp,5._dp]
+y=[-4,-4,-4,7,7,7]
+weights=[1._dp,2._dp,1._dp,1._dp,2._dp,1._dp]
+classifier%alpha=1
+call classifier%fit(x,y,sample_weight=weights)
+scores=classifier%decision_function(x)
+selected%alphas=[.1_dp,1._dp,10._dp]
+selected%store_cv_results=.true.
+call selected%fit(x,y,sample_weight=weights)
+```
+
+Both types expose fit, decision_function, predict and score, with coef_,
+intercept_, classes_, n_features_in_ and native rank_. Coefficients are
+(channels,n_features); decisions (n,channels), with one binary channel or one
+per class. Optional class_weight in fit is a vector aligned to sorted labels;
+alternatively set class_weight_balanced=true. class_weight and sample_weight
+multiply. fit_intercept defaults true. RidgeClassifier supports alpha>=0;
+RidgeClassifierCV requires positive alphas and implements default leave-one-out
+negative-MSE selection. It adds alpha_, best_score_, cv_scores_, and optional
+cv_results_(n,channels,n_alphas). It does not provide explicit-fold CV, arbitrary
+scorers or probabilities. See COVERAGE.md for weighting and rank conventions.

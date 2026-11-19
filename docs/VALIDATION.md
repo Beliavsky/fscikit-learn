@@ -652,3 +652,42 @@ passed with training accuracy 1.0 on its small fixture. Python syntax, Fortran
 formatting, inventory and staged diff checks passed. The 510 new sklearn
 comparison groups passed; prior reference suites were not rerun. MIT licensing
 and sklearn BSD notices are retained.
+
+
+## RidgeClassifier and RidgeClassifierCV
+
+`python validation/compare_ridge_classification.py` passes 420 result groups
+against sklearn 1.6.1 on three seeded fixtures, including a wide design.
+Ten classifier and seven CV configurations cover binary/multiclass labels,
+weighted/unweighted centering, absent intercepts, balanced/explicit class
+weights, zero-weight rows, zero penalty and duplicated features. Comparisons
+include coefficients, intercepts, sorted labels, train/query decisions,
+predictions, accuracy, selected penalties, candidate CV scores and stored
+leave-one-out errors, using atol=rtol=3e-8. Scalar zero intercepts from sklearn
+are expanded to the native per-output vector for comparison. The twenty-one
+reference suites now contain 6,152 groups; older suites were not rerun.
+
+Native properties check analytic weighted slopes/intercepts, equivalence of
+row and class weights, explicit leave-one-out refits, weighted negative-MSE
+averaging, selected-penalty refitting, rank-deficient minimum-norm solutions,
+finite wide-design CV results, clearing optional stored results and binary
+tie labels. The isolated input harness adds 28 cases (370 total), covering
+penalties, weights, labels, state, shapes and finite input requirements.
+`ridge_classification` demonstrates default leave-one-out penalty selection.
+
+The implementation shares one weighted dense SVD across candidate penalties.
+Its CV mode implements sklearn's default cv=None, scoring=None: selection by
+negative squared error on binarized targets. Explicit folds and custom scorers
+are outside this batch. Supported limits and weighting/shape conventions are
+recorded in COVERAGE.md. Both types are exported through sklearn_linear_model
+and the sklearn facade. Original code remains MIT with sklearn BSD attribution;
+no dependency or public extension was added. Inventory: 107 core types in
+43 source modules, with 41 native test programs.
+
+
+All 41 native test programs passed checked builds with bounds/backtrace and
+invalid/zero/overflow traps, and optimized release builds. All 370 isolated
+input rejection cases passed. The checked ridge_classification example passed,
+selecting alpha=1 with training accuracy 0.75 on its small fixture. The 420 new
+sklearn comparison groups passed. Python syntax, Fortran formatting, inventory
+and diff checks passed. MIT licensing and sklearn BSD notices are retained.
