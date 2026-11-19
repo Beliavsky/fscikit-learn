@@ -33,7 +33,7 @@ Reference paths by module:
 | optics | cluster/_optics.py: dense reachability graph, DBSCAN extraction, Xi steep regions, hierarchy labels and predecessor correction |
 | cluster | cluster/_birch.py (CF summaries, recursive insertion/splitting, leaf order and global/partial-fit contracts), cluster/_kmeans.py, _dbscan.py, _agglomerative.py, _mean_shift.py, _affinity_propagation.py, _spectral.py (including cluster_qr) |
 | tree | tree/_classes.py; CART splitting and recursion rewritten in Fortran |
-| ensemble | ensemble/_forest.py, _gb.py |
+| ensemble | ensemble/_forest.py, _gb.py; GradientBoostingClassifier prior links, simultaneous gradients, Newton leaf updates, multiclass correction, train-score conventions and staged predictions; _loss/loss.py and link.py; tree/_criterion.pyx FriedmanMSE improvement scale |
 | model_selection | model_selection/_split.py, _validation.py; linear_model/_ridge.py |
 | feature_selection | feature_selection/_variance_threshold.py, _univariate_selection.py |
 | feature_extraction_text | feature_extraction/text.py (ASCII tokenizer subset) |

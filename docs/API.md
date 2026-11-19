@@ -741,3 +741,36 @@ nonnegative interval. Inputs must be nonnegative. The skewed map stores
 random_weights_ and random_offset_; transform requires X > -skewedness.
 Finite zero/negative skewedness is allowed on that shifted domain. See
 COVERAGE.md for output column ordering, kernel definitions and RNG conventions.
+
+
+## GradientBoostingClassifier
+
+```fortran
+use sklearn, only: dp,gradient_boosting_classifier
+implicit none
+type(gradient_boosting_classifier) :: model
+real(dp) :: x(6,1)
+integer :: y(6)
+real(dp), allocatable :: probability(:,:),stages(:,:,:)
+x(:,1)=[0._dp,1._dp,2._dp,3._dp,4._dp,5._dp]
+y=[-4,-4,-4,7,7,7]
+model%n_estimators=20
+model%max_depth=1
+model%loss='log_loss' ! Also exponential for binary labels.
+call model%fit(x,y)
+probability=model%predict_proba(x)
+stages=model%staged_predict_proba(x)
+```
+
+Also available: decision_function, predict_log_proba, predict, score,
+staged_decision_function, staged_predict and apply. Binary decisions have
+shape (n,1); multiclass decisions (n,K). Staged outputs put stages on the last
+axis; staged labels are (n,n_stages). Apply returns (n,n_stages,channels)
+1-based native leaf IDs. `estimators_` is (stage,channel), where channel count
+is one for binary labels and K for multiclass. Fitted fields include classes_,
+class_prior_, init_ (raw initial scores), n_estimators_, n_trees_per_iteration_,
+n_features_in_, train_score_ and feature_importances_. Set init_zero=true for
+zero initial scores. Tree controls include max_depth, min_samples_leaf,
+min_samples_split, max_features (0 means all), and min_impurity_decrease.
+Sample weights/subsampling/early stopping are not part of this initial port;
+see COVERAGE.md for loss, tree-backend and staged-memory conventions.

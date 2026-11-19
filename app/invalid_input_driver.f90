@@ -3,6 +3,9 @@ program invalid_input_driver
   use sklearn
   use, intrinsic :: ieee_arithmetic, only: ieee_value,ieee_quiet_nan,ieee_positive_inf
   implicit none
+  type(gradient_boosting_classifier) :: boost_class
+  real(dp), allocatable :: boost_cube(:,:,:)
+  integer, allocatable :: boost_leaves(:,:,:)
   type(additive_chi2_sampler) :: add_chi
   type(skewed_chi2_sampler) :: skew_chi
   type(quantile_transformer) :: qt
@@ -71,6 +74,58 @@ program invalid_input_driver
   character(32) :: mode
   x=1; y=1; call get_command_argument(1,mode)
   select case(trim(mode))
+  case('gbc_estimators')
+    labels=[-3,-3,9,9]; boost_class%n_estimators=0; call boost_class%fit(x,labels)
+  case('gbc_rate')
+    labels=[-3,-3,9,9]; boost_class%learning_rate=0; call boost_class%fit(x,labels)
+  case('gbc_nan_rate')
+    labels=[-3,-3,9,9]; boost_class%learning_rate=ieee_value(0._dp,ieee_quiet_nan); &
+    call boost_class%fit(x,labels)
+  case('gbc_loss')
+    labels=[-3,-3,9,9]; boost_class%loss='bad'; call boost_class%fit(x,labels)
+  case('gbc_depth')
+    labels=[-3,-3,9,9]; boost_class%max_depth=0; call boost_class%fit(x,labels)
+  case('gbc_leaf')
+    labels=[-3,-3,9,9]; boost_class%min_samples_leaf=0; call boost_class%fit(x,labels)
+  case('gbc_split')
+    labels=[-3,-3,9,9]; boost_class%min_samples_split=1; call boost_class%fit(x,labels)
+  case('gbc_max_features')
+    labels=[-3,-3,9,9]; boost_class%max_features=3; call boost_class%fit(x,labels)
+  case('gbc_impurity')
+    labels=[-3,-3,9,9]; boost_class%min_impurity_decrease=-1; call boost_class%fit(x,labels)
+  case('gbc_nan_impurity')
+    labels=[-3,-3,9,9]; boost_class%min_impurity_decrease=ieee_value(0._dp,ieee_quiet_nan); &
+    call boost_class%fit(x,labels)
+  case('gbc_single_class')
+    labels=[-3,-3,9,9]; call boost_class%fit(x,[1,1,1,1])
+  case('gbc_exponential_multiclass')
+    labels=[-3,-3,9,9]; boost_class%loss='exponential'; call boost_class%fit(x,[1,2,3,3])
+  case('gbc_target_shape')
+    labels=[-3,-3,9,9]; call boost_class%fit(x,[1,2])
+  case('gbc_unfitted')
+    labels=[-3,-3,9,9]; labels=boost_class%predict(x)
+  case('gbc_unfitted_proba')
+    labels=[-3,-3,9,9]; z=boost_class%predict_proba(x)
+  case('gbc_unfitted_logproba')
+    labels=[-3,-3,9,9]; z=boost_class%predict_log_proba(x)
+  case('gbc_unfitted_staged')
+    labels=[-3,-3,9,9]; boost_cube=boost_class%staged_decision_function(x)
+  case('gbc_unfitted_apply')
+    labels=[-3,-3,9,9]; boost_leaves=boost_class%apply(x)
+  case('gbc_features')
+    labels=[-3,-3,9,9]; call boost_class%fit(x,labels); z=boost_class%decision_function(x(:,:1))
+  case('gbc_empty')
+    labels=[-3,-3,9,9]; call boost_class%fit(x(:0,:),labels(:0))
+  case('gbc_nan_x')
+    labels=[-3,-3,9,9]; x(1,1)=ieee_value(0._dp,ieee_quiet_nan); call boost_class%fit(x,labels)
+  case('gbc_nan_query')
+    labels=[-3,-3,9,9]; call boost_class%fit(x,labels); x(1,1)=ieee_value(0._dp,ieee_quiet_nan); &
+    z=boost_class%predict_proba(x)
+  case('gbc_unfitted_decision')
+    labels=[-3,-3,9,9]; z=boost_class%decision_function(x)
+  case('gbc_unfitted_staged_proba')
+    labels=[-3,-3,9,9]; boost_cube=boost_class%staged_predict_proba(x)
+
   case('additive_steps')
     add_chi%sample_steps=0; call add_chi%fit(x)
   case('additive_interval')

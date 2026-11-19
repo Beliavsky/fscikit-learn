@@ -598,3 +598,58 @@ passed, showing additive feature dimensions and a skewed-kernel Gram matrix.
 Python syntax, Fortran formatting, inventory and staged diff checks passed.
 The 204 new sklearn comparison groups passed; older reference suites were not
 rerun. MIT licensing and sklearn BSD notices are retained.
+
+
+## GradientBoostingClassifier addition
+
+Added native gradient_boosting_classifier to sklearn_ensemble and the facade:
+log-loss binary/multiclass and exponential binary gradients, Newton leaf
+updates, class-prior/zero initialization, Friedman threshold conversion,
+feature importances, probabilities/log probabilities, staged outputs and leaf
+assignments. Included analytic and learning properties, sklearn comparisons,
+input diagnostics, a complete example and documented API limits. Existing
+estimators were not changed. Original contributions remain MIT with sklearn
+BSD attribution retained. No dependency or public extension was added. Core
+inventory: 105 types in 42 source modules.
+
+
+## GradientBoostingClassifier
+
+`python validation/compare_gradient_boosting.py` passes 510 result groups
+against sklearn 1.6.1 across three seeded datasets and ten configurations each.
+Checks cover binary/multiclass log loss, binary exponential loss, prior/zero
+initialization, learning rates, shallow/deeper trees, minimum leaf/split sizes,
+nonzero Friedman impurity thresholds, and a noisy-label fixture. All numeric
+comparisons use atol=rtol=3e-8. Outputs include classes, priors, initial raw
+scores, complete loss histories, importances, fitted dimensions, train/query
+decisions, probabilities/log probabilities, labels, accuracy, all staged
+outputs and individual tree predictions. Native 1-based leaf IDs are checked
+for positive integer values and each native leaf must map to a constant reference tree
+prediction; redundant constant-valued sklearn subdivisions are allowed.
+Reference inputs have one varying feature to avoid differences in feature-tie
+selection. The native suite separately checks two-feature multiclass learning.
+The twenty-suite inventory is now 5,732 result groups; unchanged older Python
+reference suites were not rerun.
+
+Native properties independently verify analytic binary/exponential/multiclass
+Newton steps, frozen multiclass gradients and the (K-1)/K correction, deviance
+scaling, probability links/normalization, split-based importance normalization,
+staged/final consistency, leaf tensor mapping, deterministic refitting, tie
+labels and finite log probabilities under saturated probabilities. The input
+harness adds 24 control/state/shape/domain cases (342 total).
+`boosted_classification` demonstrates training and class probabilities.
+
+The native tree's normalized squared-error threshold is divided by the
+training count to implement sklearn's Friedman SSE-reduction threshold.
+This conversion was checked with nonzero-threshold reference configurations.
+Native tree tie handling and float64 thresholds can still differ from
+sklearn's tree backend. Supported limits are recorded in COVERAGE.md.
+
+
+All 40 native test programs passed checked builds with bounds/backtrace and
+invalid/zero/overflow traps, and optimized release builds. All 342 isolated
+input rejection cases passed. The checked `boosted_classification` example
+passed with training accuracy 1.0 on its small fixture. Python syntax, Fortran
+formatting, inventory and staged diff checks passed. The 510 new sklearn
+comparison groups passed; prior reference suites were not rerun. MIT licensing
+and sklearn BSD notices are retained.

@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 104 public estimator, transformer, and splitter types. Each is a
+There are 105 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Nineteen reference suites additionally check 5,222 result
+All types have native tests. Twenty reference suites additionally check 5,732 result
 groups in total across seeded datasets against installed scikit-learn 1.6.1.
 
 This document counts core scikit-learn counterparts. Public extensions are
@@ -39,7 +39,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | outlier | `local_outlier_factor` | Training outlier scores and novelty detection, automatic/percentile threshold, Minkowski and other supported pairwise metrics |
 | semi_supervised | `label_propagation`, `label_spreading` | Dense RBF or directed k-neighbor graph, hard/soft clamping, transductive labels and inductive probabilities |
 | tree | `decision_tree_classifier`, `decision_tree_regressor` | Exhaustive CART; Gini/entropy/log-loss classification, squared-error regression; depth/leaf/split/feature controls, normalized impurity importance, leaf indices |
-| ensemble | `random_forest_classifier`, `random_forest_regressor`, `extra_trees_classifier`, `extra_trees_regressor`, `gradient_boosting_regressor` | Bootstrap forests, randomized feature subsets, random-threshold Extra Trees, squared-error residual boosting |
+| ensemble | `random_forest_classifier`, `random_forest_regressor`, `extra_trees_classifier`, `extra_trees_regressor`, `gradient_boosting_regressor`, `gradient_boosting_classifier` | Bootstrap forests, randomized feature subsets, random-threshold Extra Trees, squared-error residual boosting; binary/multiclass classification boosting with Newton leaf updates |
 | model_selection | `kfold`, `stratified_kfold`, `time_series_split`, `ridge_cv`; `train_test_split`, `shuffle_indices`, `cross_val_score` | Index-based splits; fraction test size; optional stratification; time gap/window; CV for linear-regression family and logistic regression; ridge CV selects negative mean squared error |
 | feature_selection | `variance_threshold`, `select_k_best`; `f_classif`, `f_regression`, `chi2` | Dense scores and masks; inverse transform fills dropped columns with zero; no p-values |
 | feature_extraction_text | `count_vectorizer`, `tfidf_transformer`, `tfidf_vectorizer` | Dense unigram counts; ASCII alphanumeric/underscore tokens of length 2-128; sorted vocabulary; min/max document frequency, binary counts and max features; smoothed/unsmoothed IDF, sublinear TF, l1/l2/no normalization |
@@ -769,3 +769,48 @@ fit, independently checking its sampling formula and feature algebra.
 Dense real64 input only: no sparse arrays, NaN/infinity, feature names or
 incremental updates. No public extensions or dependencies were added. The
 package now has 104 core types in 42 source modules.
+
+
+## GradientBoostingClassifier
+
+`gradient_boosting_classifier` fits negative-gradient regression trees and
+performs Newton leaf updates for binary/multiclass log loss and binary
+exponential loss. Multiclass gradients are frozen at the start of each stage
+and include sklearn's (K-1)/K leaf correction. Defaults use class-prior
+initialization: log odds for binary log loss, centered log priors for multiclass,
+and half log odds for exponential loss. `init_zero=true` starts at zero.
+At least two distinct integer labels are required; exponential loss is binary.
+
+`estimators_(stage,channel)` contains one native regression tree per stage for
+binary tasks and one per class for multiclass tasks. Native trees use squared
+error splits; these rank unweighted candidate splits like Friedman MSE.
+The minimum-impurity control is rescaled to Friedman's SSE-reduction units.
+Tie handling, float64 thresholds and random feature selection can differ from
+sklearn's float32 tree backend. `max_features=0` uses all features; positive
+values use the native seeded feature-selection stream. No RNG equality with
+NumPy is claimed. Split-based importances sum unnormalized impurity reductions
+across trees before normalization. `train_score_` preserves sklearn 1.6.1's
+binary log-loss deviance factor of two; multiclass and exponential scores are
+mean cross-entropy and mean exponential loss, respectively.
+
+Methods include fit, predict, decision_function, predict_proba,
+predict_log_proba, score, apply, and staged decision/probability/label outputs.
+Decision matrices always have rank two: (n,1) for binary, (n,K) for multiclass.
+Staged decisions have shape (n,n_trees_per_iteration_,n_stages), staged
+probabilities (n,n_classes,n_stages), and staged labels (n,n_stages). Apply returns native 1-based leaf IDs with shape
+(n,n_stages,n_trees_per_iteration_). Leaf numbering can differ from sklearn;
+reference checks compare per-tree prediction functions and require each
+native leaf to map to a constant reference prediction, allowing redundant
+constant-valued subdivisions. Staged methods
+materialize all stages rather than returning Python generators. Log
+probabilities use stable direct formulas and remain finite for finite raw
+scores even when probability output underflows to zero. Fitted learning rate
+and loss are retained for prediction; refit to change model hyperparameters.
+
+The initial dense real64 port uses full-data fitting only. Sample weights,
+subsampling/OOB statistics, early stopping, warm starts, custom initializers,
+pruning, alternate criteria, feature-name metadata and sparse input are not
+implemented. Native tree count/depth/leaf/split/max-feature and minimum-impurity
+controls are supported. Learning rate must be finite and positive. The package
+now contains 105 core types in 42 source modules; no public extensions or
+runtime dependencies were added.
