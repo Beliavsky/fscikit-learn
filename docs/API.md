@@ -510,3 +510,25 @@ query-to-training Gram matrix. Check `converged_` or `fit_status_` after capped
 fits. One-class labels are +1/-1, with zero decisions labeled -1.
 See `COVERAGE.md` for supported kernels, weights and nu restrictions. Run the
 `kernel_regression_outliers` example.
+
+## Power transforms
+
+```fortran
+use sklearn_preprocessing, only: power_transformer
+use sklearn_common, only: dp
+implicit none
+type(power_transformer) :: power
+real(dp) :: x(6,1)
+real(dp), allocatable :: z(:,:),restored(:,:)
+x(:,1)=[-3._dp,-1._dp,0._dp,1._dp,4._dp,12._dp]
+z=power%fit_transform(x)             ! default Yeo-Johnson, standardized
+restored=power%inverse_transform(z)
+! power%lambdas_ is one fitted power per feature.
+! Set power%method='box-cox' before fitting strictly positive data.
+! Set power%standardize=.false. to return unstandardized power values.
+```
+
+Fit only on training rows, then call `transform` for new rows. NaNs pass through;
+all-missing columns fail. Box-Cox also rejects nonpositive and constant training
+columns. `mean_` and `scale_` hold transformed training moments when
+standardizing, or zero/one otherwise. See `example/power_transforms.f90`.

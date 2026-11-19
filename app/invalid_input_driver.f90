@@ -16,6 +16,7 @@ program invalid_input_driver
   type(svr) :: eps_reg
   type(nu_svr) :: nu_reg
   type(one_class_svm) :: novelty_svm
+  type(power_transformer) :: power
   type(standard_scaler) :: scaler
   type(logistic_regression) :: logistic
   type(kneighbors_regressor) :: knn
@@ -59,6 +60,20 @@ program invalid_input_driver
   character(32) :: mode
   x=1; y=1; call get_command_argument(1,mode)
   select case(trim(mode))
+  case('power_method'); power%method='invalid'; call power%fit(x)
+  case('power_positive'); power%method='box-cox'; x(1,1)=0; call power%fit(x)
+  case('power_constant'); power%method='box-cox'; call power%fit(x)
+  case('power_missing'); x(:,1)=ieee_value(0._dp,ieee_quiet_nan); call power%fit(x)
+  case('power_unfitted'); z=power%transform(x)
+  case('power_inverse_unfitted'); z=power%inverse_transform(x)
+  case('power_features'); call power%fit(x); z=power%transform(x(:,1:1))
+  case('power_inverse_features'); call power%fit(x); z=power%inverse_transform(x(:,1:1))
+  case('power_domain')
+    power%standardize=.false.; call power%fit(x); power%lambdas_=-1; z=power%inverse_transform(x)
+  case('power_query_positive')
+    power%method='box-cox'; x(:,1)=[1._dp,2._dp,3._dp,4._dp]; x(:,2)=x(:,1)
+    call power%fit(x); x(1,1)=-1; z=power%transform(x)
+  case('power_empty'); call power%fit(x(:0,:))
   case('ksvm_c'); eps_reg%c=0; call eps_reg%fit(x,y)
   case('svr_epsilon'); eps_reg%epsilon=-1; call eps_reg%fit(x,y)
   case('ksvm_tolerance'); eps_reg%tol=0; call eps_reg%fit(x,y)

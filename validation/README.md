@@ -286,3 +286,19 @@ second dual coordinate and a feasible weighted interior start for OneClassSVM.
 The interior start preserves exact symmetry without relaxing the KKT stopping
 criterion. The maximum feasible gradient gap is checked independently and
 refreshed before reporting convergence.
+
+## PowerTransformer reference suite
+
+Run `python validation/compare_power_transform.py` for 160 result-group checks
+against sklearn 1.6.1 on five seeded matrices. Together the fixtures cover
+Yeo-Johnson and Box-Cox, with/without standardization, partially missing
+observations, strongly skewed positive/negative features, and constant
+Yeo-Johnson columns. Learned lambdas, training/query transforms and
+inverse transforms use atol=rtol=3e-6; NaN positions must agree. Native search
+uses golden-section minimization and a log-scaled likelihood rather than SciPy's
+Brent routine, so fitted parameters need not agree in the last digits.
+
+`test_power_transform` independently checks mean/variance, reconstruction,
+limiting powers at zero and two, missing values, refitting and fitted settings.
+The input harness adds 11 rejection cases (167 total). `power_transforms` is a
+small runnable example. The eleven-suite inventory is 3,173 result groups.

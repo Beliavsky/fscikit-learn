@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 93 public estimator, transformer, and splitter types. Each is a
+There are 94 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Ten reference suites additionally check 3,013 result
+All types have native tests. Eleven reference suites additionally check 3,173 result
 groups in total across seeded datasets against installed scikit-learn 1.6.1.
 
 This document counts core scikit-learn counterparts. Public extensions are
@@ -22,7 +22,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 
 | Module (`sklearn_` prefix) | Public types and functions | Scope and numerical choices |
 | --- | --- | --- |
-| preprocessing | `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `label_encoder`, `one_hot_encoder`; `normalize`, `binarize`, `polynomial_features` | Population variance; linear percentile interpolation; NaN imputation with mean/median/most-frequent/constant; numeric categories; dense polynomial terms through degree 12 with optional interactions |
+| preprocessing | `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `label_encoder`, `one_hot_encoder`, `power_transformer`; `normalize`, `binarize`, `polynomial_features` | Population variance; linear percentile interpolation; NaN imputation with mean/median/most-frequent/constant; numeric categories; dense polynomial terms through degree 12 with optional interactions |
 | linear_model | `linear_regression`, `ridge`, `lasso`, `elastic_net`, `logistic_regression`, `perceptron`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `huber_regressor`, `ransac_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; coordinate descent; logistic Newton solver; perceptron; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; RANSAC linear consensus; Newton GLMs |
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb` | Empirical class priors, variance smoothing, strictly positive scalar alpha; Bernoulli threshold; optional complement normalization |
 | neighbors | `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with optional shrinkage and uniform priors; Euclidean kernel density |
@@ -452,3 +452,26 @@ be nonunique for linear/polynomial/rank-deficient kernels even when decision
 functions agree. A fully bounded one-class dual can also have a nonunique
 threshold; this implementation chooses the midpoint of the admissible interval.
 Parameters should be chosen for well-scaled finite arithmetic.
+
+## PowerTransformer
+
+`power_transformer` (implemented in `sklearn_power_transform` and re-exported
+by `sklearn_preprocessing`) adds Yeo-Johnson and Box-Cox maximum-likelihood
+power selection for each feature. Standardization defaults to population mean
+zero and variance one. `fit`, `transform`, `fit_transform` and
+`inverse_transform` operate on dense rank-two arrays; `lambdas_`, `mean_` and
+`scale_` expose fitted parameters. NaNs are excluded during fitting and
+preserved by transformations; infinity and all-missing features are rejected.
+Constant Yeo-Johnson columns use lambda=1, including partially missing constant
+columns. Box-Cox requires strictly positive values and rejects constant columns.
+
+The native optimizer brackets the likelihood minimum from (-2,2), then uses
+relative-tolerance golden-section search, rather than SciPy Brent iteration.
+Log-magnitude scaling avoids overflow in trial likelihood powers. This changes
+iteration paths and last-digit fitted lambdas. Arithmetic for fitted moments,
+actual transforms and inverses still requires suitably scaled inputs. Powers
+that overflow and inverse values outside the real power domain produce explicit
+diagnostics. SciPy's Box-Cox maximum-output constraint, confidence intervals,
+sparse arrays, in-place copy controls and Python warnings are not implemented.
+The fitted method and standardization setting are retained until the next fit.
+This batch brings the package to 94 core types and 39 source modules.

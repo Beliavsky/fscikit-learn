@@ -320,3 +320,31 @@ second dual coordinate and a feasible weighted interior start for OneClassSVM.
 The interior start preserves exact symmetry without relaxing the KKT stopping
 criterion. The maximum feasible gradient gap is checked independently and
 refreshed before reporting convergence.
+
+## PowerTransformer addition (2026-11-18)
+
+Added native `power_transformer` with Yeo-Johnson and Box-Cox likelihood fits,
+optional population standardization, inverse transforms and NaN preservation.
+The type is re-exported through `sklearn_preprocessing` and `sklearn`. Its
+log-scaled likelihood avoids overflow in trial powers; the native optimizer
+uses bracketing and golden-section minimization. Constant Yeo-Johnson features
+use the identity power. Box-Cox requires positive, nonconstant observations.
+The package now has 94 core types in 39 source modules; no extensions were added.
+
+All 31 native programs passed checked builds with bounds/backtrace and
+invalid/zero/overflow traps, and release builds. The isolated diagnostic suite
+passed 167 cases, including 11 new power-transform cases. Native properties
+cover standardization, reconstruction, limiting powers, NaN preservation,
+refitting and fitted-state retention. `power_transforms` reconstructed its
+example to 5.33e-15 maximum absolute error.
+
+The dedicated sklearn 1.6.1 reference suite passed 160 result-group comparisons across
+five seeded datasets: signed/positive/skewed inputs, missing values and constants,
+with both standardization settings. Learned lambdas and training/query/inverse
+transforms use atol=rtol=3e-6 because native golden-section search differs from
+SciPy Brent iteration. The eleven-suite inventory is 3,173 comparisons. Existing
+unaffected Python suites were not rerun in this batch; all native tests were.
+
+Original contributions remain MIT with sklearn BSD-3-Clause attribution retained
+in the source and third-party notices. No additional runtime dependency or
+external Fortran repository was introduced. See COVERAGE.md for limits.

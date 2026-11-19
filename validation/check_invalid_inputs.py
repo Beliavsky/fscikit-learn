@@ -5,6 +5,12 @@ import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 CASES = {
+    "power_method": "invalid PowerTransformer method", "power_positive": "strictly positive",
+    "power_constant": "nonconstant data", "power_missing": "all-missing feature",
+    "power_unfitted": "not fitted", "power_inverse_unfitted": "not fitted",
+    "power_features": "feature count mismatch", "power_inverse_features": "feature count mismatch",
+    "power_domain": "inverse outside power domain", "power_query_positive": "strictly positive",
+    "power_empty": "nonempty matrix",
     "ksvm_c": "C must be positive", "svr_epsilon": "invalid SVR epsilon",
     "ksvm_tolerance": "invalid kernel SVM tolerance", "ksvm_iterations": "max_iter must be positive",
     "ksvm_kernel": "unsupported kernel SVM kernel", "ksvm_gamma": "invalid kernel SVM parameters",
