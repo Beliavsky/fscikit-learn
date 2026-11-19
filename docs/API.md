@@ -1026,3 +1026,24 @@ call sparse%fit(x,y) ! Automatic grid, L1 ratio fixed to one.
 The retained mse_path_ has dimensions (alpha,fold,ratio); alphas_ is
 (alpha,ratio). Folds are contiguous without shuffling. See COVERAGE.md for
 parameter defaults, stopping differences, convergence flags and scope.
+
+
+## Boosting weighted classification stumps
+
+```fortran
+use sklearn, only: dp, adaboost_classifier
+type(adaboost_classifier) :: model
+real(dp), allocatable :: x(:,:), probabilities(:,:), stages(:,:,:)
+integer, allocatable :: y(:), predicted(:)
+! Populate finite x and integer y with at least two classes.
+model%n_estimators = 50
+model%learning_rate = .5_dp
+call model%fit(x,y)
+predicted = model%predict(x)
+probabilities = model%predict_proba(x)
+stages = model%staged_predict_proba(x)
+```
+
+Optional sample_weight is passed to fit. The weak learner is fixed to a weighted
+Gini stump. n_estimators_ records the retained count after early stopping; see
+COVERAGE.md for SAMME conventions, staged layouts, tie behavior and limits.

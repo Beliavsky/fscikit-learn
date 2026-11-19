@@ -1032,3 +1032,37 @@ and in release mode. All 216 coordinate CV reference groups and 575 isolated
 invalid-input cases passed. The checked regularization_cv example selected
 alpha=.01 and l1_ratio=1 with training R2 approximately .9998865. Python syntax,
 Fortran formatting, reference report, inventory and git diff checks passed.
+
+
+## AdaBoostClassifier (SAMME stumps)
+
+Added adaboost_classifier with weighted Gini decision stumps, binary/multiclass
+SAMME, learning-rate control, sample weights, early stopping, importance,
+probabilities and staged decisions/probabilities/predictions. Native tests cover
+analytic stump error and log weight, sklearn 1.6 binary decision scaling,
+probability normalization/conversion, perfect-fit stopping and agreement of
+final/staged outputs. Weak learners use float32 comparisons as in sklearn.
+
+The reference suite checks 216 result groups over three seeded datasets and
+six configurations: weighted binary/multiclass, unweighted one-feature data,
+learning rate, one learner and perfect-fit stopping. Checks include padded
+learner errors/weights, class labels, importance, decisions, query probabilities/
+labels, all staged outputs and fitted dimensions, with atol=rtol=3e-8.
+
+Twenty new isolated invalid-input cases cover estimator/rate controls, weights,
+labels, random-guessing failure, finite data, float32 range, prediction shapes
+and unfitted methods (595 total). adaboost_stumps demonstrates classification.
+See COVERAGE.md for fixed weak-learner scope and deterministic split ties.
+Inventory: 121 core types, 51 modules, 51 native tests, 31 reference suites and
+8,846 result groups. Original contributions remain MIT with sklearn BSD notice
+and attribution retained. No public extension or runtime dependency was added.
+
+
+Final validation: all 51 native test programs passed with runtime checks and
+floating-point traps (-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow)
+and in release mode. All 216 AdaBoost reference groups and 595 isolated
+invalid-input cases passed. The checked adaboost_stumps example fitted ten
+stumps and returned training accuracy 1. The sklearn reference emits its
+expected log(0) warning for original zero sample weights; the native log update
+avoids that operation and passed floating-point traps. Python syntax, Fortran
+formatting, reference report, inventory and git diff checks passed.

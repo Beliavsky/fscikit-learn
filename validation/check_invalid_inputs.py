@@ -5,6 +5,27 @@ import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 CASES = {
+    "ada_count": "AdaBoost n_estimators must be positive",
+    "ada_rate": "AdaBoost learning rate must be positive",
+    "ada_nan_rate": "nonfinite AdaBoost learning rate",
+    "ada_weight_shape": "AdaBoost sample weight count mismatch",
+    "ada_weight_negative": "negative AdaBoost sample weights",
+    "ada_weight_nan": "nonfinite AdaBoost sample weights",
+    "ada_weight_zero": "AdaBoost needs positive total sample weight",
+    "ada_single": "AdaBoost requires at least two classes",
+    "ada_random": "AdaBoost stump is no better than random guessing",
+    "ada_targets": "sample counts differ",
+    "ada_nan_x": "X contains NaN or infinity",
+    "ada_empty": "X must be nonempty",
+    "ada_range": "AdaBoost input exceeds float32 range",
+    "ada_unfitted": "AdaBoost is not fitted",
+    "ada_proba_unfitted": "AdaBoost is not fitted",
+    "ada_staged_unfitted": "AdaBoost is not fitted",
+    "ada_features": "AdaBoost feature count mismatch",
+    "ada_query_nan": "X contains NaN or infinity",
+    "ada_query_range": "AdaBoost input exceeds float32 range",
+    "ada_query_empty": "X must be nonempty",
+
     "ccv_folds": "invalid coordinate CV fold count",
     "ccv_many_folds": "invalid coordinate CV fold count",
     "ccv_tol": "invalid coordinate CV iteration controls",

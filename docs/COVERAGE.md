@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 120 public estimator, transformer, and splitter types. Each is a
+There are 121 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Thirty reference suites additionally check 8,630 result
+All types have native tests. Thirty-one reference suites additionally check 8,846 result
 groups in total across seeded datasets against installed scikit-learn 1.6.1.
 
 This document counts core scikit-learn counterparts. Public extensions are
@@ -39,7 +39,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | outlier | `local_outlier_factor` | Training outlier scores and novelty detection, automatic/percentile threshold, Minkowski and other supported pairwise metrics |
 | semi_supervised | `label_propagation`, `label_spreading` | Dense RBF or directed k-neighbor graph, hard/soft clamping, transductive labels and inductive probabilities |
 | tree | `decision_tree_classifier`, `decision_tree_regressor` | Exhaustive CART; Gini/entropy/log-loss classification, squared-error regression; depth/leaf/split/feature controls, normalized impurity importance, leaf indices |
-| ensemble | `random_forest_classifier`, `random_forest_regressor`, `extra_trees_classifier`, `extra_trees_regressor`, `gradient_boosting_regressor`, `gradient_boosting_classifier` | Bootstrap forests, randomized feature subsets, random-threshold Extra Trees, squared-error residual boosting; binary/multiclass classification boosting with Newton leaf updates |
+| ensemble | `random_forest_classifier`, `random_forest_regressor`, `extra_trees_classifier`, `extra_trees_regressor`, `gradient_boosting_regressor`, `gradient_boosting_classifier`, `adaboost_classifier` | Bootstrap forests, randomized feature subsets, random-threshold Extra Trees, squared-error residual boosting; binary/multiclass classification boosting with Newton leaf updates; weighted Gini-stump SAMME |
 | model_selection | `kfold`, `stratified_kfold`, `time_series_split`, `ridge_cv`; `train_test_split`, `shuffle_indices`, `cross_val_score` | Index-based splits; fraction test size; optional stratification; time gap/window; CV for linear-regression family and logistic regression; ridge CV selects negative mean squared error |
 | feature_selection | `variance_threshold`, `select_k_best`; `f_classif`, `f_regression`, `chi2` | Dense scores and masks; inverse transform fills dropped columns with zero; no p-values |
 | feature_extraction_text | `count_vectorizer`, `tfidf_transformer`, `tfidf_vectorizer` | Dense unigram counts; ASCII alphanumeric/underscore tokens of length 2-128; sorted vocabulary; min/max document frequency, binary counts and max features; smoothed/unsmoothed IDF, sublinear TF, l1/l2/no normalization |
@@ -1266,3 +1266,59 @@ coefficient constraint, sparse matrices, multi-target CV or parallelism are
 implemented. Original contributions remain MIT with sklearn BSD attribution.
 Inventory: 120 core types, 50 source modules and 50 native test programs.
 No public extension or runtime dependency was added.
+
+
+## AdaBoost classification
+
+`adaboost_classifier` implements sklearn 1.6.1 AdaBoostClassifier's discrete
+SAMME algorithm with native weighted depth-one Gini trees. This port fixes the
+weak learner to decision stumps: no custom estimator, deeper trees, SAMME.R,
+random feature subsets or sparse input is implemented. At least two distinct
+integer labels are required; classes_ is sorted. n_estimators defaults to 50
+and learning_rate to 1; both must be positive and the rate finite. fit accepts
+optional finite nonnegative sample_weight with positive total.
+
+Each round fits a weighted Gini stump and measures weighted classification
+error. Accepted weights are learning_rate*(log((1-error)/error)+log(K-1)).
+A perfect learner gets weight 1 and terminates, independent of learning_rate.
+A learner at or above random-guessing error 1-1/K is discarded; if it is the
+first learner, fitting fails. Original zero-weight rows stay excluded. Positive
+weights are clipped at machine epsilon each round as in sklearn. Weight updates
+use normalized log weights for overflow resistance; extremely small positive
+weights can underflow to zero during normalization and are clipped next round.
+
+Stumps consider all features and midpoint thresholds on positive-weight rows.
+Features are converted to float32 as in sklearn trees, so inputs beyond float32
+range are rejected. Adjacent values within 1e-7 are treated as equal. Equal or
+roundoff-level tied split gains choose the earliest scanned feature/threshold,
+while sklearn randomizes feature order; geometrically tied fits can differ.
+Leaf vote ties choose the smallest sorted label. No RNG parameter is needed
+for the native deterministic scan.
+
+Methods are fit, decision_function, predict, predict_proba, score and three
+staged methods (staged_decision_function, staged_predict, staged_predict_proba).
+Binary decisions have shape (n,1), with twice the normalized signed weighted
+vote, matching sklearn 1.6.1. Positive scores select the larger label, zero the
+smaller. Multiclass decisions have shape (n,K): each learner contributes +weight
+to its class and -weight/(K-1) to other classes, divided by total learner weight.
+Probabilities use sklearn's SAMME softmax conversion; they are not calibrated.
+score is accuracy. Staged decision/probability results have shape
+(n,channels,n_estimators_) and (n,K,n_estimators_); staged predictions are
+(n,n_estimators_). These are materialized arrays rather than Python generators.
+
+n_estimators_ is the number of retained learners. estimator_weights_ and
+estimator_errors_ retain requested n_estimators length, with unused entries 0
+and 1 respectively. stump_feature_ uses one-based feature indices (0 for a
+constant tree), stump_threshold_ contains float32-based split midpoints, and
+stump_left_/stump_right_ contain original integer labels. Only their first
+n_estimators_ entries are fitted. feature_importances_ is the learner-weighted
+mean of normalized stump importances; constant stumps contribute zero.
+n_features_in_ and n_classes_ record fitted dimensions. Repeated fit resets
+all learned arrays. Exported through sklearn_ensemble and sklearn.
+
+Scope: dense finite real64 matrices with float32 tree comparisons; no class
+weights, custom weak learners, log-probability API or regression boosting in
+this type. Staged computations prioritize clarity over streaming efficiency.
+Original contributions remain MIT with sklearn BSD attribution. Inventory:
+121 core types, 51 source modules and 51 native tests. No public extension or
+runtime dependency was added.

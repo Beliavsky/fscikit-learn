@@ -41,6 +41,7 @@ Reference paths by module:
 | feature_agglomeration | cluster/_agglomerative.py FeatureAgglomeration fitting and _feature_agglomeration.py pooling/inverse contracts; existing native merge tree |
 | cluster | cluster/_birch.py (CF summaries, recursive insertion/splitting, leaf order and global/partial-fit contracts), cluster/_kmeans.py, _dbscan.py, _agglomerative.py, _mean_shift.py, _affinity_propagation.py, _spectral.py (including cluster_qr) |
 | tree | tree/_classes.py; CART splitting and recursion rewritten in Fortran |
+| adaboost | ensemble/_weight_boosting.py BaseWeightBoosting and AdaBoostClassifier SAMME updates, score/probability normalization and stopping; native weighted Gini stumps follow tree split contracts |
 | ensemble | ensemble/_forest.py, _gb.py; GradientBoostingClassifier prior links, simultaneous gradients, Newton leaf updates, multiclass correction, train-score conventions and staged predictions; _loss/loss.py and link.py; tree/_criterion.pyx FriedmanMSE improvement scale |
 | model_selection | model_selection/_split.py, _validation.py; linear_model/_ridge.py |
 | feature_selection | feature_selection/_variance_threshold.py, _univariate_selection.py |

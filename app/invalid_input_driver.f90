@@ -3,6 +3,8 @@ program invalid_input_driver
   use sklearn
   use, intrinsic :: ieee_arithmetic, only: ieee_value,ieee_quiet_nan,ieee_positive_inf
   implicit none
+  type(adaboost_classifier) :: ada
+  real(dp), allocatable :: ada_cube(:,:,:)
   type(elastic_net_cv) :: ccv
   type(feature_agglomeration) :: fagg
   type(incremental_pca) :: ipca
@@ -91,6 +93,49 @@ program invalid_input_driver
   mt_y=1
   x=1; y=1; call get_command_argument(1,mode)
   select case(trim(mode))
+  case('ada_count')
+    ada%n_estimators=0; call ada%fit(x,[-4,-4,7,7])
+  case('ada_rate')
+    ada%learning_rate=0; call ada%fit(x,[-4,-4,7,7])
+  case('ada_nan_rate')
+    ada%learning_rate=ieee_value(0._dp,ieee_quiet_nan); call ada%fit(x,[-4,-4,7,7])
+  case('ada_weight_shape')
+    call ada%fit(x,[-4,-4,7,7],sample_weight=[1._dp])
+  case('ada_weight_negative')
+    call ada%fit(x,[-4,-4,7,7],sample_weight=[1._dp,1._dp,1._dp,-1._dp])
+  case('ada_weight_nan')
+    y=1; y(1)=ieee_value(0._dp,ieee_quiet_nan); call ada%fit(x,[-4,-4,7,7],sample_weight=y)
+  case('ada_weight_zero')
+    call ada%fit(x,[-4,-4,7,7],sample_weight=[0._dp,0._dp,0._dp,0._dp])
+  case('ada_single')
+    call ada%fit(x,[7,7,7,7])
+  case('ada_random')
+    call ada%fit(x,[-4,-4,7,7])
+  case('ada_targets')
+    call ada%fit(x,[-4,7])
+  case('ada_nan_x')
+    x(1,1)=ieee_value(0._dp,ieee_quiet_nan); call ada%fit(x,[-4,-4,7,7])
+  case('ada_empty')
+    call ada%fit(x(:0,:),[integer::])
+  case('ada_range')
+    x(1,1)=1.e100_dp; call ada%fit(x,[-4,-4,7,7])
+  case('ada_unfitted')
+    z=ada%decision_function(x)
+  case('ada_proba_unfitted')
+    z=ada%predict_proba(x)
+  case('ada_staged_unfitted')
+    ada_cube=ada%staged_decision_function(x)
+  case('ada_features')
+    x(:,1)=[1._dp,2._dp,3._dp,4._dp]; call ada%fit(x,[-4,-4,7,7]); z=ada%predict_proba(x(:,:1))
+  case('ada_query_nan')
+    x(:,1)=[1._dp,2._dp,3._dp,4._dp]; call ada%fit(x,[-4,-4,7,7])
+    x(1,1)=ieee_value(0._dp,ieee_quiet_nan); z=ada%predict_proba(x)
+  case('ada_query_range')
+    x(:,1)=[1._dp,2._dp,3._dp,4._dp]; call ada%fit(x,[-4,-4,7,7])
+    x(1,1)=1.e100_dp; z=ada%predict_proba(x)
+  case('ada_query_empty')
+    x(:,1)=[1._dp,2._dp,3._dp,4._dp]; call ada%fit(x,[-4,-4,7,7]); z=ada%predict_proba(x(:0,:))
+
   case('ccv_folds')
     ccv%cv=2
     ccv%cv=1; call ccv%fit(x,y)
