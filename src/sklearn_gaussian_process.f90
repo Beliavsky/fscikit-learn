@@ -1,8 +1,10 @@
 module sklearn_gaussian_process
+  use sklearn_gp_classification, only: gaussian_process_classifier
   use sklearn_common
   use sklearn_metrics, only: r2_score
   implicit none
   private
+  public :: gaussian_process_classifier
   public :: gaussian_process_regressor
   type :: gaussian_process_regressor
     real(dp) :: alpha=1.e-10_dp,length_scale=1,amplitude=1,noise_level=0

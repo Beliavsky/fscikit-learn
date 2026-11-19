@@ -3,6 +3,7 @@ program invalid_input_driver
   use sklearn
   use, intrinsic :: ieee_arithmetic, only: ieee_value,ieee_quiet_nan,ieee_positive_inf
   implicit none
+  type(gaussian_process_classifier) :: gpc
   type(knn_imputer) :: ki
   type(missing_indicator) :: mi
   logical, allocatable :: impute_mask(:,:)
@@ -84,6 +85,70 @@ program invalid_input_driver
   mt_y=1
   x=1; y=1; call get_command_argument(1,mode)
   select case(trim(mode))
+  case('gpc_amplitude')
+    labels=[-3,-3,9,9]
+    gpc%amplitude=0; call gpc%fit(x,labels)
+  case('gpc_negative_amp')
+    labels=[-3,-3,9,9]
+    gpc%amplitude=-1; call gpc%fit(x,labels)
+  case('gpc_nan_amp')
+    labels=[-3,-3,9,9]
+    gpc%amplitude=ieee_value(0._dp,ieee_quiet_nan); call gpc%fit(x,labels)
+  case('gpc_inf_amp')
+    labels=[-3,-3,9,9]
+    gpc%amplitude=ieee_value(0._dp,ieee_positive_inf); call gpc%fit(x,labels)
+  case('gpc_length')
+    labels=[-3,-3,9,9]
+    gpc%length_scale=0; call gpc%fit(x,labels)
+  case('gpc_negative_length')
+    labels=[-3,-3,9,9]
+    gpc%length_scale=-1; call gpc%fit(x,labels)
+  case('gpc_nan_length')
+    labels=[-3,-3,9,9]
+    gpc%length_scale=ieee_value(0._dp,ieee_quiet_nan); call gpc%fit(x,labels)
+  case('gpc_iterations')
+    labels=[-3,-3,9,9]
+    gpc%max_iter_predict=0; call gpc%fit(x,labels)
+  case('gpc_single')
+    labels=[-3,-3,9,9]
+    call gpc%fit(x,[1,1,1,1])
+  case('gpc_targets')
+    labels=[-3,-3,9,9]
+    call gpc%fit(x,labels(:2))
+  case('gpc_empty')
+    labels=[-3,-3,9,9]
+    call gpc%fit(x(:0,:),labels(:0))
+  case('gpc_no_features')
+    labels=[-3,-3,9,9]
+    call gpc%fit(x(:,:0),labels)
+  case('gpc_nan_x')
+    labels=[-3,-3,9,9]
+    x(1,1)=ieee_value(0._dp,ieee_quiet_nan); call gpc%fit(x,labels)
+  case('gpc_inf_x')
+    labels=[-3,-3,9,9]
+    x(1,1)=ieee_value(0._dp,ieee_positive_inf); call gpc%fit(x,labels)
+  case('gpc_unfitted')
+    labels=[-3,-3,9,9]
+    labels=gpc%predict(x)
+  case('gpc_unfitted_proba')
+    labels=[-3,-3,9,9]
+    z=gpc%predict_proba(x)
+  case('gpc_unfitted_lml')
+    labels=[-3,-3,9,9]
+    y(1)=gpc%log_marginal_likelihood()
+  case('gpc_features')
+    labels=[-3,-3,9,9]
+    call gpc%fit(x,labels); z=gpc%predict_proba(x(:,:1))
+  case('gpc_query_empty')
+    labels=[-3,-3,9,9]
+    call gpc%fit(x,labels); z=gpc%predict_proba(x(:0,:))
+  case('gpc_query_nan')
+    labels=[-3,-3,9,9]
+    call gpc%fit(x,labels); x(1,1)=ieee_value(0._dp,ieee_quiet_nan); z=gpc%predict_proba(x)
+  case('gpc_query_inf')
+    labels=[-3,-3,9,9]
+    call gpc%fit(x,labels); x(1,1)=ieee_value(0._dp,ieee_positive_inf); z=gpc%predict_proba(x)
+
   case('ki_neighbors')
     ki%n_neighbors=0; call ki%fit(x)
   case('ki_negative_neighbors')

@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 112 public estimator, transformer, and splitter types. Each is a
+There are 113 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Twenty-four reference suites additionally check 6,980 result
+All types have native tests. Twenty-five reference suites additionally check 7,292 result
 groups in total across seeded datasets against installed scikit-learn 1.6.1.
 
 This document counts core scikit-learn counterparts. Public extensions are
@@ -49,7 +49,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | svm | `svc`; re-exports `svr`, `nu_svr`, `one_class_svm` | OVO SVC; epsilon/nu support-vector regression and one-class detection; native pairwise dual optimization, weighted capacities and PSD kernels for the added models |
 | mixture | `gaussian_mixture` | EM with k-means initialization, full/tied/diag/spherical covariances; posterior, log likelihood, BIC/AIC |
 | neural_network | `mlp_classifier`, `mlp_regressor` | Arbitrary dense hidden layer sizes, relu/tanh/logistic/identity, full-batch Adam, softmax classification or squared-error regression, L2 regularization |
-| gaussian_process | `gaussian_process_regressor` | Fixed isotropic RBF amplitude/length scale plus white noise and diagonal alpha; Cholesky posterior, standard deviation/covariance, log marginal likelihood; optional target normalization |
+| gaussian_process | `gaussian_process_regressor`, `gaussian_process_classifier` | Fixed isotropic RBF amplitude/length scale plus white noise and diagonal alpha; Cholesky posterior, standard deviation/covariance, log marginal likelihood; optional target normalization; fixed-RBF Laplace binary/OVR classification |
 | covariance | `empirical_covariance`, `shrunk_covariance`, `ledoit_wolf`, `oas`, `graphical_lasso` | Population covariance, pseudoinverse precision, squared Mahalanobis distance, likelihood, Frobenius/spectral covariance error; L1-penalized sparse precision via block coordinate descent |
 | datasets | `make_blobs`, `make_regression`, `make_moons`, `make_circles` | Native synthetic generators; optional deterministic seed; no bundled real-world datasets |
 
@@ -988,3 +988,59 @@ moderate dense datasets. The types are re-exported through
 sklearn_preprocessing and sklearn. The package now has 112 core types in
 46 source modules; no runtime dependency or public algorithm extension was
 added. Original contributions remain MIT with sklearn BSD attribution.
+
+
+## Gaussian process classification
+
+`gaussian_process_classifier` implements fixed-kernel GaussianProcessClassifier
+with a logistic link and Laplace posterior approximation. The kernel is
+amplitude*exp(-||x-y||^2/(2*length_scale^2)); both finite parameters must be
+positive and default to 1. Kernel hyperparameters are fixed (the reference
+configuration uses optimizer=None). This also matches sklearn 1.6.1's fixed
+unit-amplitude/unit-length kernel when kernel=None; optimization of supplied
+tunable kernels is not supported here. No observation-noise or diagonal-alpha
+parameter is exposed for this classifier. Duplicate observations are supported
+because posterior mode
+iterations factor I+sqrt(W)*K*sqrt(W), not the raw Gram matrix.
+
+Binary targets fit one latent GP for the larger sorted label. Multiclass
+problems fit independent one-vs-rest binary GPs and normalize their positive
+probabilities to sum to one. This is sklearn's one_vs_rest strategy, rather
+than a joint multiclass Laplace approximation. At least two integer class
+labels are required. Features must be dense finite real64 values.
+
+Newton mode updates follow GPML Algorithm 3.1, using dense Cholesky solves.
+max_iter_predict defaults to 100 and must be positive. Iteration stops when
+the approximate log evidence improvement is below 1e-10, including a decrease,
+matching the reference criterion. Stable logistic/softplus expressions avoid
+exponential overflow. As in sklearn 1.6.1, convergence retains pre-update
+pi/W/Cholesky state and the previous evidence value, with the updated latent
+mode. A capped fit returns its last iterate and converged_=false. Fits always
+start from zero latent values; warm starts are not implemented.
+
+Predictive probabilities use GPML Algorithm 3.2 with sklearn's weighted sum of
+five error functions approximating the logistic-normal integral. The native expression
+is simplified algebraically to avoid division by predictive variance near
+zero. Negative variance from roundoff is clamped to zero, and probability
+roundoff is clipped to [0,1]. An all-zero OVR probability sum falls back to
+uniform probabilities. Binary labels use the sign of the predictive latent
+mean (zero selects the smaller label); exact multiclass probability ties
+select the last sorted label, following sklearn's OVR implementation.
+
+Methods are fit, predict, predict_proba, score (accuracy), and
+log_marginal_likelihood() returning fitted evidence. The latter does not accept
+alternate hyperparameters or gradients. log_marginal_likelihood_ is the binary
+evidence or mean OVR evidence; log_marginal_likelihoods_ contains per-channel
+values. Other fitted fields include classes_, n_classes_, n_features_in_,
+x_train_, posterior_mode_, pi_, w_sqrt_, l_ and alpha_ (=binary targets-pi).
+Per-channel vectors n_iter_ and converged_ provide native diagnostics. Latent
+arrays are (n_train,channels); Cholesky factors are (n_train,n_train,channels).
+Fitted kernel parameters are retained privately for subsequent predictions.
+
+Sparse inputs, kernel objects/alternative kernels, ARD length scales, kernel
+optimization/restarts, gradients, sample weights, one-vs-one classification,
+parallel fitting and warm starts are outside this port. Dense storage/solves
+are intended for moderate training sizes. The type is re-exported through
+sklearn_gaussian_process and sklearn. Inventory: 113 core types in 47 source
+modules; no runtime dependency or public algorithm extension was added.
+Original contributions remain MIT with sklearn BSD attribution retained.

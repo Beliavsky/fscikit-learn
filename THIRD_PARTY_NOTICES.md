@@ -48,6 +48,7 @@ Reference paths by module:
 | svm | svm/_classes.py; deterministic SMO replaces libsvm backend |
 | mixture | mixture/_gaussian_mixture.py, _base.py |
 | neural_network | neural_network/_multilayer_perceptron.py, _stochastic_optimizers.py |
+| gp_classification | gaussian_process/_gpc.py Laplace posterior mode, evidence stopping, binary prediction and five-erf probability approximation (Williams & Barber); multiclass.py OVR normalization and tie contracts; native dense Cholesky implementation |
 | gaussian_process | gaussian_process/_gpr.py, kernels.py (fixed kernel subset) |
 | covariance | covariance/_empirical_covariance.py, _shrunk_covariance.py; _graph_lasso.py and linear_model/_cd_fast.pyx block updates, Gram coordinate descent, objective and gap definitions; native Cholesky initialization/diagnostics |
 | datasets | datasets/_samples_generator.py (independent Fortran random stream) |

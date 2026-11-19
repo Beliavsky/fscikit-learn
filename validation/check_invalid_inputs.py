@@ -5,6 +5,28 @@ import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 CASES = {
+    "gpc_amplitude": "GPC amplitude must be positive",
+    "gpc_negative_amp": "GPC amplitude must be positive",
+    "gpc_nan_amp": "nonfinite GPC amplitude",
+    "gpc_inf_amp": "nonfinite GPC amplitude",
+    "gpc_length": "GPC length scale must be positive",
+    "gpc_negative_length": "GPC length scale must be positive",
+    "gpc_nan_length": "nonfinite GPC length scale",
+    "gpc_iterations": "GPC max_iter_predict must be positive",
+    "gpc_single": "GPC requires at least two classes",
+    "gpc_targets": "sample counts differ",
+    "gpc_empty": "X must be nonempty",
+    "gpc_no_features": "X must be nonempty",
+    "gpc_nan_x": "X contains NaN or infinity",
+    "gpc_inf_x": "X contains NaN or infinity",
+    "gpc_unfitted": "GPC is not fitted",
+    "gpc_unfitted_proba": "GPC is not fitted",
+    "gpc_unfitted_lml": "GPC is not fitted",
+    "gpc_features": "GPC feature count mismatch",
+    "gpc_query_empty": "X must be nonempty",
+    "gpc_query_nan": "X contains NaN or infinity",
+    "gpc_query_inf": "X contains NaN or infinity",
+
     "ki_neighbors": "KNNImputer n_neighbors must be positive",
     "ki_negative_neighbors": "KNNImputer n_neighbors must be positive",
     "ki_weights": "unknown KNNImputer weights",

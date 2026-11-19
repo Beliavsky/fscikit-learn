@@ -887,3 +887,29 @@ training columns as zeros. MissingIndicator returns logical values and exposes
 error_on_new=false to accept new missingness without changing output width.
 Both types provide fit, transform and fit_transform, accepting NaN sentinels.
 See COVERAGE.md for donor ties, missing-data distances and empty-column rules.
+
+
+## Gaussian process classification
+
+```fortran
+use sklearn, only: dp,gaussian_process_classifier
+implicit none
+type(gaussian_process_classifier) :: model
+real(dp) :: x(6,1)
+real(dp), allocatable :: probability(:,:)
+integer :: i
+do i=1,6
+  x(i,1)=real(i-4,dp)
+end do
+model%amplitude=2; model%length_scale=1
+call model%fit(x,[-3,-3,-3,9,9,9])
+probability=model%predict_proba(x)
+```
+
+The kernel remains fixed during fit. Multiclass labels use one-vs-rest GPs
+and normalized probabilities in sorted class order. Methods are fit, predict,
+predict_proba, score and log_marginal_likelihood(). Inspect n_iter_ and
+converged_ for each binary channel; max_iter_predict controls the iteration cap.
+Posterior arrays pi_, w_sqrt_, posterior_mode_ and alpha_ have shape
+(n_train,channels), with one binary channel or one per multiclass label.
+See COVERAGE.md for the evidence/probability approximation and supported limits.

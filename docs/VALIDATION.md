@@ -809,3 +809,43 @@ input rejection cases passed. All 156 new sklearn comparison groups passed.
 The checked neighbor_imputation example passed, completing the row as [1,15].
 Python syntax, Fortran formatting, module/test inventory and staged diff checks
 passed. MIT licensing and sklearn BSD notices are retained.
+
+
+## GaussianProcessClassifier
+
+`python validation/compare_gp_classification.py` passes 312 result groups
+against sklearn 1.6.1 across three seeded datasets and eight configurations.
+Cases cover binary/three-class labels, several kernel amplitudes and length
+scales, one/two-iteration caps, duplicated features and one-vs-rest fitting.
+The reference explicitly fixes ConstantKernel*RBF and disables optimization.
+Checks compare sorted classes, full posterior pi/W/latent-mode/alpha state,
+Cholesky factors, per-channel and aggregate Laplace evidence, train/query
+probabilities, labels and accuracy, using atol=rtol=3e-8. The twenty-five
+reference suites now contain 7,292 result groups; older Python suites were
+not rerun.
+
+Independent native checks verify analytic one-step evidence for duplicate
+observations, a symmetric posterior, iteration-cap/convergence diagnostics,
+OVR normalization and evidence averaging, exact binary/multiclass tie rules,
+separable labels, bounded/normalized probabilities, fitted-kernel retention,
+cold-refit determinism and far-field prior probabilities. The input harness
+adds 21 control/state/shape/finite-data cases (466 total). The
+Gaussian-process classification example reports accuracy and probabilities.
+
+The native implementation uses dense Newton/Cholesky Laplace updates and the
+reference's five-erf logistic-normal approximation. The probability integral
+is algebraically simplified to avoid division by near-zero variance. Kernel
+optimization, alternate kernels, weights, one-vs-one modes and warm starts are
+outside this batch; see COVERAGE.md for state, stopping and shape conventions.
+Original contributions remain MIT with sklearn BSD attribution retained. No
+runtime dependency or public algorithm extension was added. Inventory: 113
+core types in 47 source modules, with 45 native test programs.
+
+
+All 45 native test programs passed checked builds with bounds/backtrace and
+invalid/zero/overflow traps, and optimized release builds. All 466 isolated
+input rejection cases passed. All 312 new sklearn comparison groups passed.
+The checked gaussian_process_classification example passed with training
+accuracy 1.0 and finite class probabilities. Python syntax, Fortran formatting,
+module/test inventory and staged diff checks passed. MIT licensing and sklearn
+BSD notices are retained.
