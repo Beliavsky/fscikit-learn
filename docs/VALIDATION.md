@@ -728,3 +728,45 @@ with uniform training R2 about 0.99994. All 192 new sklearn comparison groups
 passed, including explicit output-shape checks. Python syntax, Fortran
 formatting, inventory and diff checks passed. MIT licensing and sklearn BSD
 notices are retained.
+
+
+## CategoricalNB
+
+`python validation/compare_categorical_nb.py` passes 480 result groups against
+sklearn 1.6.1 across three seeded fixtures and ten configurations each.
+Cases cover multiple feature cardinalities, scalar smoothing, empirical and
+uniform priors, weighted counts, explicit/zero priors, scalar/vector reserved
+category ranges, incremental fitting with initially absent classes and
+single-class targets. Checks cover classes, class/category counts, retained
+widths, feature log probabilities, class log priors, query likelihoods and
+probabilities, training/query labels and accuracy. Numerical outputs use
+atol=rtol=3e-8. Predicted classes must maximize the reference log likelihood
+within 1e-12, allowing roundoff between mathematically tied classes; clear
+winners must match. Accuracy is independently recomputed from the validated
+training labels. The twenty-three reference suites now contain 6,824 result
+groups; unchanged older Python suites were not rerun.
+
+Native properties check a hand-derived weighted posterior and smoothed counts,
+batch/incremental agreement, category expansion, absent-class zero priors,
+retention of widths after a smaller batch, reserved categories, explicit zero
+priors, single-class normalization, zero-weight class counts and exact-tie
+labels. The input harness adds 30 state/shape/domain cases (424 total).
+The categorical_classification example demonstrates two incremental batches.
+
+The native implementation uses ragged per-feature dense tables. Fractional
+codes are rejected, and n_categories_ consistently records retained table
+widths across partial_fit calls (unlike sklearn 1.6.1 latest-batch metadata).
+The public categorical_table storage helper is excluded from estimator counts.
+Supported limits and prior/weight/category conventions are in COVERAGE.md.
+The package now has 110 core types in 45 source modules, with 43 native test
+programs. Original contributions remain MIT with sklearn BSD attribution;
+no runtime dependency or public algorithm extension was added.
+
+
+All 43 native test programs passed checked builds with bounds/backtrace and
+invalid/zero/overflow traps, and optimized release builds. All 424 isolated
+input rejection cases passed. All 480 new sklearn comparison groups passed.
+The checked categorical_classification example passed, predicting class 9
+with probabilities [0.4,0.6]. Python syntax, Fortran formatting, module/test
+inventory and staged diff checks passed. MIT licensing and sklearn BSD notices
+are retained.

@@ -833,3 +833,30 @@ rank-two target matrix and return rank-two predictions. coef_ is
 coefficients on subsequent fits of the same shape. score returns the uniform
 mean of per-target R2. Inspect n_iter_, dual_gap_, eps_ and converged_ for
 stopping status. See COVERAGE.md for the objective and supported controls.
+
+
+## Categorical Naive Bayes
+
+```fortran
+use sklearn, only: dp,categorical_nb
+implicit none
+type(categorical_nb) :: model
+real(dp) :: x(4,2)
+real(dp), allocatable :: probability(:,:)
+x(1,:)=[0._dp,0._dp]; x(2,:)=[1._dp,0._dp]
+x(3,:)=[1._dp,1._dp]; x(4,:)=[1._dp,1._dp]
+call model%partial_fit(x(:2,:),[-3,-3],classes=[-3,9])
+call model%partial_fit(x(3:,:),[9,9])
+probability=model%predict_proba(x)
+```
+
+fit and partial_fit accept optional sample_weight. The first partial_fit must
+supply all classes; batch fit infers them. Set alpha>0 for smoothing,
+fit_prior=false for uniform priors, or allocate class_prior in sorted class
+order. min_categories reserves a scalar width; min_categories_per_feature
+reserves feature-specific widths. Feature codes are nonnegative integer values
+stored in real(dp) arrays. Counts and feature log probabilities are available
+as category_count_(j)%values and feature_log_prob_(j)%values, each with shape
+(n_classes,n_categories_(j)). Other methods are joint_log_likelihood,
+predict_log_proba, predict and score. See COVERAGE.md for incremental metadata
+and out-of-range category rules.

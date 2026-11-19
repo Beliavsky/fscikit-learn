@@ -1,8 +1,10 @@
 module sklearn_naive_bayes
+  use sklearn_categorical_nb, only: categorical_nb,categorical_table
   use sklearn_common
   use sklearn_metrics, only: accuracy_score
   implicit none
   private
+  public :: categorical_nb,categorical_table
   public :: gaussian_nb, multinomial_nb, bernoulli_nb, complement_nb
   type :: gaussian_nb
     real(dp) :: var_smoothing=1.e-9_dp,epsilon_=0

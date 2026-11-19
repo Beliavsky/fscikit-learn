@@ -3,6 +3,7 @@ program invalid_input_driver
   use sklearn
   use, intrinsic :: ieee_arithmetic, only: ieee_value,ieee_quiet_nan,ieee_positive_inf
   implicit none
+  type(categorical_nb) :: cat
   type(multi_task_elastic_net) :: mt
   type(multi_task_lasso) :: mt_lasso
   real(dp) :: mt_y(4,2)
@@ -80,6 +81,97 @@ program invalid_input_driver
   mt_y=1
   x=1; y=1; call get_command_argument(1,mode)
   select case(trim(mode))
+  case('cat_alpha')
+    labels=[-3,-3,9,9]
+    cat%alpha=0; call cat%fit(x,labels)
+  case('cat_negative_alpha')
+    labels=[-3,-3,9,9]
+    cat%alpha=-1; call cat%fit(x,labels)
+  case('cat_nan_alpha')
+    labels=[-3,-3,9,9]
+    cat%alpha=ieee_value(0._dp,ieee_quiet_nan); call cat%fit(x,labels)
+  case('cat_negative_x')
+    labels=[-3,-3,9,9]
+    x(1,1)=-1; call cat%fit(x,labels)
+  case('cat_fraction')
+    labels=[-3,-3,9,9]
+    x(1,1)=.5_dp; call cat%fit(x,labels)
+  case('cat_overflow')
+    labels=[-3,-3,9,9]
+    x(1,1)=real(huge(0),dp); call cat%fit(x,labels)
+  case('cat_nan_x')
+    labels=[-3,-3,9,9]
+    x(1,1)=ieee_value(0._dp,ieee_quiet_nan); call cat%fit(x,labels)
+  case('cat_sample_shape')
+    labels=[-3,-3,9,9]
+    call cat%fit(x,labels,sample_weight=[1._dp])
+  case('cat_sample_negative')
+    labels=[-3,-3,9,9]
+    call cat%fit(x,labels,sample_weight=-y)
+  case('cat_sample_nan')
+    labels=[-3,-3,9,9]
+    y(1)=ieee_value(0._dp,ieee_quiet_nan); call cat%fit(x,labels,sample_weight=y)
+  case('cat_sample_zero')
+    labels=[-3,-3,9,9]
+    call cat%fit(x,labels,sample_weight=0*y)
+  case('cat_minimum')
+    labels=[-3,-3,9,9]
+    cat%min_categories=-1; call cat%fit(x,labels)
+  case('cat_minimum_shape')
+    labels=[-3,-3,9,9]
+    cat%min_categories_per_feature=[2]; call cat%fit(x,labels)
+  case('cat_minimum_zero')
+    labels=[-3,-3,9,9]
+    cat%min_categories_per_feature=[0,2]; call cat%fit(x,labels)
+  case('cat_prior_shape')
+    labels=[-3,-3,9,9]
+    cat%class_prior=[1._dp]; call cat%fit(x,labels)
+  case('cat_prior_negative')
+    labels=[-3,-3,9,9]
+    cat%class_prior=[-1._dp,2._dp]; call cat%fit(x,labels)
+  case('cat_prior_nan')
+    labels=[-3,-3,9,9]
+    cat%class_prior=[ieee_value(0._dp,ieee_quiet_nan),1._dp]; call cat%fit(x,labels)
+  case('cat_prior_sum')
+    labels=[-3,-3,9,9]
+    cat%class_prior=[.2_dp,.2_dp]; call cat%fit(x,labels)
+  case('cat_partial_first')
+    labels=[-3,-3,9,9]
+    call cat%partial_fit(x,labels)
+  case('cat_partial_unknown')
+    labels=[-3,-3,9,9]
+    call cat%partial_fit(x,labels,classes=[-3,7])
+  case('cat_partial_classes')
+    labels=[-3,-3,9,9]
+    call cat%fit(x,labels); call cat%partial_fit(x,labels,classes=[-3,7])
+  case('cat_partial_count')
+    labels=[-3,-3,9,9]
+    call cat%fit(x,labels); call cat%partial_fit(x,labels,classes=[-3])
+  case('cat_partial_features')
+    labels=[-3,-3,9,9]
+    call cat%fit(x,labels); call cat%partial_fit(x(:,:1),labels)
+  case('cat_unfitted')
+    labels=[-3,-3,9,9]
+    z=cat%predict_proba(x)
+  case('cat_query_category')
+    labels=[-3,-3,9,9]
+    call cat%fit(x,labels); x=2; z=cat%predict_proba(x)
+  case('cat_query_features')
+    labels=[-3,-3,9,9]
+    call cat%fit(x,labels); z=cat%predict_proba(x(:,:1))
+  case('cat_empty')
+    labels=[-3,-3,9,9]
+    call cat%fit(x(:0,:),labels(:0))
+  case('cat_targets')
+    labels=[-3,-3,9,9]
+    call cat%fit(x,labels(:2))
+  case('cat_query_nan')
+    labels=[-3,-3,9,9]
+    call cat%fit(x,labels); x(1,1)=ieee_value(0._dp,ieee_quiet_nan); z=cat%predict_proba(x)
+  case('cat_query_empty')
+    labels=[-3,-3,9,9]
+    call cat%fit(x,labels); z=cat%predict_proba(x(:0,:))
+
   case('mt_alpha')
     mt%alpha=0; call mt%fit(x,mt_y)
   case('mt_negative_alpha')

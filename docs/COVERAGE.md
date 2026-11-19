@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 109 public estimator, transformer, and splitter types. Each is a
+There are 110 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Twenty-two reference suites additionally check 6,344 result
+All types have native tests. Twenty-three reference suites additionally check 6,824 result
 groups in total across seeded datasets against installed scikit-learn 1.6.1.
 
 This document counts core scikit-learn counterparts. Public extensions are
@@ -24,7 +24,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | --- | --- | --- |
 | preprocessing | `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `label_encoder`, `one_hot_encoder`, `power_transformer`, `kbins_discretizer`, `quantile_transformer`; `normalize`, `binarize`, `polynomial_features` | Population variance; linear percentile interpolation; NaN imputation with mean/median/most-frequent/constant; numeric categories; empirical uniform/normal quantile transforms; dense polynomial terms through degree 12 with optional interactions |
 | linear_model | `linear_regression`, `ridge`, `ridge_classifier`, `ridge_classifier_cv`, `multi_task_elastic_net`, `multi_task_lasso`, `lasso`, `elastic_net`, `logistic_regression`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `huber_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; coordinate descent; logistic Newton solver; perceptron; PA-I/II classification/regression with averaging; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
-| naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb` | Empirical class priors, variance smoothing, strictly positive scalar alpha; Bernoulli threshold; optional complement normalization |
+| naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb`, `categorical_nb` | Empirical class priors, variance smoothing, strictly positive scalar alpha; Bernoulli threshold; optional complement normalization |
 | neighbors | `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with optional shrinkage and uniform priors; Euclidean kernel density |
 | cluster | `kmeans`, `dbscan`, `agglomerative_clustering`, `mean_shift`, `affinity_propagation`, `spectral_clustering`, `optics`, `birch`; `estimate_bandwidth`, `cluster_optics_dbscan`, `cluster_optics_xi` | Lloyd/k-means++; density expansion; single/complete/average/Ward merge trees; flat-kernel mode seeking; damped exemplar messages; normalized-Laplacian clustering with k-means or pivoted QR assignment; OPTICS reachability ordering, Xi hierarchy and DBSCAN extraction; BIRCH streaming CF tree and optional Ward clustering |
 | decomposition | `pca`, `truncated_svd`, `nmf`; re-exports `kernel_pca`, `factor_analysis`, `fast_ica` | Direct Jacobi SVD; PCA whitening and inversion; exact dense SVD; NMF multiplicative updates; nonlinear kernel PCA; unrotated full-SVD factor analysis; parallel/deflation ICA |
@@ -892,3 +892,50 @@ constraints, regularization paths and the CV variants are not implemented.
 The types are re-exported through sklearn_linear_model and sklearn. The
 package now has 109 core types in 44 source modules. No runtime dependency or
 public extension was added; MIT and sklearn BSD attribution are retained.
+
+
+## Categorical Naive Bayes
+
+`categorical_nb` fits a separate discrete probability table for each input
+feature, with Laplace/Lidstone smoothing controlled by finite alpha>0 (default
+1). Input is a dense real64 matrix containing nonnegative integer category
+codes. Categories start at zero; table column one represents category zero.
+This port rejects fractional codes rather than silently truncating them.
+Classification labels are arbitrary integers, sorted in classes_. Single-class
+fits are supported. Sample weights must be finite and nonnegative, with positive
+cumulative total. Zero-weight rows still determine the supported category range.
+
+fit resets counters. partial_fit requires the full classes vector on its first
+call; later calls may omit it or supply the same set. New categories expand
+counters without discarding earlier data. Unknown class labels and changed
+feature counts are rejected. n_categories_ records the retained table widths
+(the largest observed/reserved range over all batches), even when a later
+batch has smaller codes. This makes incremental metadata reflect the retained
+tables rather than sklearn 1.6.1's latest-batch width metadata.
+
+min_categories=0 infers widths from data. A positive scalar reserves at least
+that many categories for every feature; optional min_categories_per_feature
+reserves positive per-feature minima. If both are supplied their maximum is
+used. Codes missing inside the fitted/reserved range receive smoothed mass;
+query codes outside it are rejected. Category tables use dense storage, so
+codes should be compact consecutive integers rather than large identifiers.
+
+fit_prior=true learns empirical weighted class priors; false uses uniform
+priors. Optional class_prior supplies a nonnegative finite vector aligned to
+classes_, summing to one within 1e-8. Zero priors are represented by negative
+infinity in class_log_prior_ and yield zero class probability. An unobserved
+class supplied to partial_fit likewise has zero empirical prior until observed.
+
+Methods are fit, partial_fit, joint_log_likelihood, predict_log_proba,
+predict_proba, predict and score (accuracy). Fitted fields include classes_,
+class_count_, class_log_prior_, n_features_in_ and n_categories_. Ragged tables
+category_count_(feature)%values and feature_log_prob_(feature)%values each have
+shape (n_classes,n_categories_for_feature), using the public categorical_table
+storage type. This helper is not counted as an estimator. Log probabilities
+use log-sum-exp normalization; class ties choose the first sorted label.
+
+Sparse data, string categories, automatic encoding, vector smoothing alpha and
+alpha=0/force_alpha behavior are not implemented. The type is re-exported
+through sklearn_naive_bayes and sklearn. There are now 110 core types in
+45 source modules. No dependency or public algorithm extension was added;
+original contributions remain MIT with sklearn BSD attribution retained.
