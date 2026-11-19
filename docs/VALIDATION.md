@@ -849,3 +849,43 @@ The checked gaussian_process_classification example passed with training
 accuracy 1.0 and finite class probabilities. Python syntax, Fortran formatting,
 module/test inventory and staged diff checks passed. MIT licensing and sklearn
 BSD notices are retained.
+
+
+## SplineTransformer
+
+`python validation/compare_spline.py` passes 180 result groups against sklearn
+1.6.1 across three seeded datasets and twelve configurations. Cases cover
+degrees 1/2/3/10, uniform/quantile/explicit nonuniform knots, all five
+extrapolation modes, periodic folding and per-feature bias removal. Checks
+compare complete train/query bases, base and extended knots, and input/output
+dimensions at atol=rtol=3e-8. Queries include endpoints and points beyond both
+sides of the interval. The twenty-six reference suites now contain 7,472 result
+groups; older Python suites were not rerun.
+
+Independent native properties verify an analytic degree-one basis, right
+endpoints, constant/linear/continued extrapolation, periodic wrapping, a zero-
+column periodic result, cubic partition of unity, nonnegativity in range,
+per-feature bias removal, fitted-setting retention and explicit knot behavior.
+The reference check exposed a one-ulp uniform upper-endpoint error; placement
+now preserves extrema directly, with a regression test ensuring training rows
+are accepted in error mode. The input harness adds 23 control/state/shape/domain
+cases (489 total), including output-dimension overflow. The spline_features
+example demonstrates cubic feature counts and basis sums.
+
+Native Cox-de Boor and derivative recurrences replace runtime SciPy BSpline
+objects. Positive degrees are supported; degree zero, sample-weighted knot
+placement, repeated knots, sparse output and feature-name APIs are outside
+this batch. Constant or duplicate-quantile knot columns are rejected. Full
+controls, endpoint and shape conventions are recorded in COVERAGE.md.
+Original contributions remain MIT with sklearn BSD attribution retained.
+No runtime dependency or public algorithm extension was added. Inventory:
+114 core types in 48 source modules, with 46 native test programs.
+
+
+All 46 native test programs passed checked builds with bounds/backtrace and
+invalid/zero/overflow traps, and optimized release builds. All 489 isolated
+input rejection cases passed. All 180 new sklearn comparison groups passed.
+The checked spline_features example passed with five cubic basis columns and
+row sums equal to one within roundoff. Python syntax, Fortran formatting,
+module/test inventory and staged diff checks passed. MIT licensing and sklearn
+BSD notices are retained.

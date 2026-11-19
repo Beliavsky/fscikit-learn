@@ -1,4 +1,5 @@
 module sklearn_preprocessing
+  use sklearn_spline, only: spline_transformer
   use sklearn_knn_impute, only: knn_imputer,missing_indicator
   use sklearn_common
   use sklearn_quantile_transform, only: quantile_transformer
@@ -7,6 +8,7 @@ module sklearn_preprocessing
   use, intrinsic :: ieee_arithmetic, only: ieee_is_nan
   implicit none
   private
+  public :: spline_transformer
   public :: knn_imputer,missing_indicator
   public :: power_transformer,kbins_discretizer,quantile_transformer
   public :: standard_scaler, minmax_scaler, maxabs_scaler, robust_scaler, simple_imputer

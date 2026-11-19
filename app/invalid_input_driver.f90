@@ -3,6 +3,7 @@ program invalid_input_driver
   use sklearn
   use, intrinsic :: ieee_arithmetic, only: ieee_value,ieee_quiet_nan,ieee_positive_inf
   implicit none
+  type(spline_transformer) :: spl
   type(gaussian_process_classifier) :: gpc
   type(knn_imputer) :: ki
   type(missing_indicator) :: mi
@@ -85,6 +86,53 @@ program invalid_input_driver
   mt_y=1
   x=1; y=1; call get_command_argument(1,mode)
   select case(trim(mode))
+  case('spl_degree')
+    spl%degree=0; call spl%fit(x)
+  case('spl_negative_degree')
+    spl%degree=-1; call spl%fit(x)
+  case('spl_knots_count')
+    spl%n_knots=1; call spl%fit(x)
+  case('spl_knots_mode')
+    spl%knots="bad"; call spl%fit(x)
+  case('spl_extrapolation')
+    spl%extrapolation="bad"; call spl%fit(x)
+  case('spl_constant')
+    call spl%fit(x)
+  case('spl_quantile_constant')
+    spl%knots="quantile"; call spl%fit(x)
+  case('spl_explicit_rows')
+    call spl%fit(x,knots=x(:1,:))
+  case('spl_explicit_features')
+    call spl%fit(x,knots=x(:2,:1))
+  case('spl_explicit_duplicate')
+    call spl%fit(x,knots=x(:2,:))
+  case('spl_explicit_order')
+    x(2,:)=0; call spl%fit(x,knots=x(:2,:))
+  case('spl_explicit_nan')
+    x(1,1)=ieee_value(0._dp,ieee_quiet_nan); call spl%fit(x,knots=x)
+  case('spl_periodic_degree')
+    x(2,:)=2; spl%n_knots=3; spl%extrapolation="periodic"; call spl%fit(x)
+  case('spl_overflow')
+    spl%degree=huge(0); call spl%fit(x)
+  case('spl_empty')
+    call spl%fit(x(:0,:))
+  case('spl_one_sample')
+    call spl%fit(x(:1,:))
+  case('spl_no_features')
+    call spl%fit(x(:,:0))
+  case('spl_nan')
+    x(1,1)=ieee_value(0._dp,ieee_quiet_nan); call spl%fit(x)
+  case('spl_unfitted')
+    z=spl%transform(x)
+  case('spl_features')
+    x(2,:)=2; call spl%fit(x); z=spl%transform(x(:,:1))
+  case('spl_query_empty')
+    x(2,:)=2; call spl%fit(x); z=spl%transform(x(:0,:))
+  case('spl_query_nan')
+    x(2,:)=2; call spl%fit(x); x(1,1)=ieee_value(0._dp,ieee_quiet_nan); z=spl%transform(x)
+  case('spl_query_range')
+    x(2,:)=2; spl%extrapolation="error"; call spl%fit(x); x=3; z=spl%transform(x)
+
   case('gpc_amplitude')
     labels=[-3,-3,9,9]
     gpc%amplitude=0; call gpc%fit(x,labels)

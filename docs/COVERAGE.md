@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 113 public estimator, transformer, and splitter types. Each is a
+There are 114 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Twenty-five reference suites additionally check 7,292 result
+All types have native tests. Twenty-six reference suites additionally check 7,472 result
 groups in total across seeded datasets against installed scikit-learn 1.6.1.
 
 This document counts core scikit-learn counterparts. Public extensions are
@@ -22,7 +22,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 
 | Module (`sklearn_` prefix) | Public types and functions | Scope and numerical choices |
 | --- | --- | --- |
-| preprocessing | `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `knn_imputer`, `missing_indicator`, `label_encoder`, `one_hot_encoder`, `power_transformer`, `kbins_discretizer`, `quantile_transformer`; `normalize`, `binarize`, `polynomial_features` | Population variance; linear percentile interpolation; NaN imputation with mean/median/most-frequent/constant; numeric categories; empirical uniform/normal quantile transforms; dense polynomial terms through degree 12 with optional interactions |
+| preprocessing | `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `knn_imputer`, `missing_indicator`, `spline_transformer`, `label_encoder`, `one_hot_encoder`, `power_transformer`, `kbins_discretizer`, `quantile_transformer`; `normalize`, `binarize`, `polynomial_features` | Population variance; linear percentile interpolation; NaN imputation with mean/median/most-frequent/constant; numeric categories; empirical uniform/normal quantile transforms; dense polynomial terms through degree 12 with optional interactions; B-spline features and extrapolation |
 | linear_model | `linear_regression`, `ridge`, `ridge_classifier`, `ridge_classifier_cv`, `multi_task_elastic_net`, `multi_task_lasso`, `lasso`, `elastic_net`, `logistic_regression`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `huber_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; coordinate descent; logistic Newton solver; perceptron; PA-I/II classification/regression with averaging; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb`, `categorical_nb` | Empirical class priors, variance smoothing, strictly positive scalar alpha; Bernoulli threshold; optional complement normalization |
 | neighbors | `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with optional shrinkage and uniform priors; Euclidean kernel density |
@@ -1044,3 +1044,50 @@ are intended for moderate training sizes. The type is re-exported through
 sklearn_gaussian_process and sklearn. Inventory: 113 core types in 47 source
 modules; no runtime dependency or public algorithm extension was added.
 Original contributions remain MIT with sklearn BSD attribution retained.
+
+
+## B-spline features
+
+`spline_transformer` implements dense SplineTransformer with native Cox-de Boor
+basis evaluation. Controls are n_knots=5, degree=3, knots='uniform',
+extrapolation='constant' and include_bias=true. fit, transform and
+fit_transform accept dense finite real64 arrays. Fit requires at least two
+samples, at least two base knots and positive degree. Degree zero is outside
+this initial port. Automatic knots use uniformly spaced extrema or linearly
+interpolated empirical quantiles (knots='quantile'). Optional real knots(:,:)
+in fit/fit_transform supplies explicit (n_base_knots,n_features) positions,
+overriding automatic placement. Every feature's base knots must be strictly
+increasing: constant features and repeated quantile knots are rejected.
+Sample-weighted placement is not implemented.
+
+Nonperiodic knot vectors extend degree positions on either side using the
+first/last base-knot spacing. There are n_base_knots+degree-1 basis columns
+per feature. Periodic vectors continue spacings across the period, folding
+the final degree basis functions onto the first ones. They have
+n_base_knots-1 columns per feature and require degree<n_base_knots.
+include_bias=false drops the last basis separately for each feature;
+this avoids the implicit intercept from a complete partition of unity.
+Features are concatenated in input-column order. Dropping the only periodic
+basis is allowed and produces a zero-width output.
+
+All five extrapolation modes are supported: 'error' rejects points outside
+the base-knot interval; 'constant' uses boundary basis values; 'linear' uses
+boundary values and analytic derivatives; 'continue' continues the first/last
+polynomial segment; 'periodic' wraps into the base interval. Linear and
+polynomial continuation may produce negative basis values outside the range.
+Endpoints are evaluated from the valid base interval. Periodic right endpoints
+map to the left endpoint. Transform uses the fitted degree/extrapolation/bias
+settings and preserves input arrays.
+
+Fitted fields are n_features_in_, n_features_out_, base_knots_ and knots_.
+The latter is the extended knot matrix; its row count is n_base_knots+2*degree.
+No SciPy BSpline objects or coefficient matrices are required at runtime.
+Sparse output, sample weights, degree zero, repeated knots, string/feature-name
+APIs and inverse transforms are not implemented. Positive higher degrees are
+supported, with integer output-dimension guards; very high degrees or distant
+polynomial continuation can amplify floating-point error. This is a feature
+transformer, not a fitted smoothing/regression model.
+
+The type is re-exported through sklearn_preprocessing and sklearn. Inventory:
+114 core types in 48 source modules. No dependency or public algorithm extension
+was added. Original contributions remain MIT with sklearn BSD attribution.

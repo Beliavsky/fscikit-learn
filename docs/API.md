@@ -913,3 +913,25 @@ converged_ for each binary channel; max_iter_predict controls the iteration cap.
 Posterior arrays pi_, w_sqrt_, posterior_mode_ and alpha_ have shape
 (n_train,channels), with one binary channel or one per multiclass label.
 See COVERAGE.md for the evidence/probability approximation and supported limits.
+
+
+## B-spline features
+
+```fortran
+use sklearn, only: dp,spline_transformer
+implicit none
+type(spline_transformer) :: model
+real(dp) :: x(5,1)
+real(dp), allocatable :: basis(:,:)
+x(:,1)=[0._dp,.5_dp,1._dp,1.5_dp,2._dp]
+model%n_knots=3; model%degree=3; model%include_bias=.false.
+basis=model%fit_transform(x)
+```
+
+Set knots='quantile' for empirical knot positions, or pass knots=positions to
+fit/fit_transform for an explicit (n_base_knots,n_features) matrix.
+extrapolation is 'constant', 'linear', 'continue', 'periodic' or 'error'.
+Periodic fits require degree<n_base_knots. include_bias=false removes the
+last basis per feature. Inspect base_knots_, extended knots_, n_features_in_
+and n_features_out_. Transform returns real(dp) columns grouped by input
+feature. See COVERAGE.md for knot, endpoint and supported-degree conventions.
