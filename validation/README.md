@@ -423,3 +423,26 @@ Ward grouping, centroid statistics, refit reset, copy ownership, single-point
 fits, skipped label computation and distance transforms. The rejection harness
 adds 15 BIRCH control/state/shape cases (282 total). `birch_streaming` demonstrates
 insertion in batches and global-only Ward clustering.
+
+
+## QuantileTransformer distribution mapping
+
+`python validation/compare_quantile_transform.py` passes 252 result groups
+against sklearn 1.6.1 across three seeded datasets and twelve configurations
+each. The suite checks uniform and normal outputs, small/full/capped/single
+quantile tables, duplicates, constant and all-missing columns, scattered NaNs,
+finite queries into missing tables, near-boundary tolerance, extrapolation,
+and inverse uniform/normal probes beyond fitted bounds. Compared outputs are
+quantile/reference tables, fitted dimensions, training/query transforms,
+inverse probes and forward/inverse composition. Every numeric output uses
+atol=2e-10, rtol=2e-11, with matching NaN masks. Reference fits use every row
+(subsample=0 in Fortran, None in Python). The eighteen-suite inventory is
+5,018 result groups; unchanged older Python suites were not rerun.
+
+Native properties independently verify duplicate-rank averaging, analytic
+uniform scores, normal median/tail behavior, endpoint inverse consistency,
+NaN preservation, all-missing tables, constant columns, quantile-count capping,
+single-quantile tables, monotonicity and seeded native subsampling. Native
+random selections are not equated to NumPy selections. The rejection harness
+adds 14 control/state/shape/infinity cases (296 total). `quantile_transform`
+demonstrates uniform and normal scores and recovery of the original data.

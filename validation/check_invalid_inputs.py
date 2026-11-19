@@ -5,6 +5,21 @@ import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 CASES = {
+    "quantile_count": "QuantileTransformer n_quantiles must be positive",
+    "quantile_subsample": "QuantileTransformer subsample must be nonnegative",
+    "quantile_subsample_size": "QuantileTransformer n_quantiles exceeds subsample",
+    "quantile_distribution": "invalid QuantileTransformer output_distribution",
+    "quantile_unfitted": "QuantileTransformer is not fitted",
+    "quantile_inverse_unfitted": "QuantileTransformer is not fitted",
+    "quantile_features": "QuantileTransformer feature count mismatch",
+    "quantile_inverse_features": "QuantileTransformer feature count mismatch",
+    "quantile_empty": "QuantileTransformer X must be nonempty",
+    "quantile_empty_features": "QuantileTransformer X must be nonempty",
+    "quantile_query_empty": "QuantileTransformer X must be nonempty",
+    "quantile_inf": "QuantileTransformer input contains infinity",
+    "quantile_query_inf": "QuantileTransformer input contains infinity",
+    "quantile_inverse_inf": "QuantileTransformer input contains infinity",
+
     "birch_threshold": "BIRCH threshold must be positive",
     "birch_nan": "nonfinite BIRCH threshold",
     "birch_branching": "BIRCH branching_factor must be at least two",

@@ -685,3 +685,30 @@ that assignment. Global-only updates leave prior batch labels intact;
 fallback when fewer centroids than requested remain. Tree controls must stay
 fixed during incremental insertion; call `fit` to change them. See COVERAGE.md
 for complexity, cluster-name and supported-input limits.
+
+
+## QuantileTransformer
+
+```fortran
+use sklearn, only: dp,quantile_transformer
+implicit none
+type(quantile_transformer) :: model
+real(dp) :: x(5,1)
+real(dp), allocatable :: z(:,:),recovered(:,:)
+x(:,1)=[0._dp,1._dp,2._dp,4._dp,8._dp]
+model%n_quantiles=5
+model%subsample=0 ! Python subsample=None; use every row.
+model%output_distribution='normal' ! Or 'uniform' (default).
+z=model%fit_transform(x)
+recovered=model%inverse_transform(z)
+```
+
+Available methods are `fit`, `fit_transform`, `transform`, and
+`inverse_transform`. Fitted arrays are `quantiles_` and `references_`, with
+`n_quantiles_` and `n_features_in_` metadata. Subsampling uses `random_state`
+and a native random stream. NaNs are supported; infinities are rejected.
+All-missing columns map to NaNs, including finite queries. Normal scores
+are clipped to finite tails, and out-of-range inverse values saturate at
+learned endpoints. `output_distribution` may switch between uniform and
+normal after fit because the learned percentile tables are distribution
+independent. See COVERAGE.md for boundary and subsampling conventions.

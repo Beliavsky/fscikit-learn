@@ -544,3 +544,35 @@ showing two clusters before and after global-only Ward clustering. Python
 syntax, Fortran line-length/whitespace, inventory and staged diff checks passed.
 The 237 new sklearn comparison groups passed; older reference suites were not
 rerun. Original contributions remain MIT with sklearn BSD notices retained.
+
+
+## QuantileTransformer distribution mapping
+
+`python validation/compare_quantile_transform.py` passes 252 result groups
+against sklearn 1.6.1 across three seeded datasets and twelve configurations
+each. The suite checks uniform and normal outputs, small/full/capped/single
+quantile tables, duplicates, constant and all-missing columns, scattered NaNs,
+finite queries into missing tables, near-boundary tolerance, extrapolation,
+and inverse uniform/normal probes beyond fitted bounds. Compared outputs are
+quantile/reference tables, fitted dimensions, training/query transforms,
+inverse probes and forward/inverse composition. Every numeric output uses
+atol=2e-10, rtol=2e-11, with matching NaN masks. Reference fits use every row
+(subsample=0 in Fortran, None in Python). The eighteen-suite inventory is
+5,018 result groups; unchanged older Python suites were not rerun.
+
+Native properties independently verify duplicate-rank averaging, analytic
+uniform scores, normal median/tail behavior, endpoint inverse consistency,
+NaN preservation, all-missing tables, constant columns, quantile-count capping,
+single-quantile tables, monotonicity and seeded native subsampling. Native
+random selections are not equated to NumPy selections. The rejection harness
+adds 14 control/state/shape/infinity cases (296 total). `quantile_transform`
+demonstrates uniform and normal scores and recovery of the original data.
+
+
+All 38 native test programs passed checked builds with bounds/backtrace and
+invalid/zero/overflow traps, and optimized release builds. All 296 isolated
+input rejection cases passed. The checked `quantile_transform` example passed,
+producing expected uniform ranks, finite normal scores and exact recovery of
+its input data. Python syntax, Fortran line-length/whitespace, inventory and
+staged diff checks passed. The 252 new reference groups passed; prior reference
+suites were not rerun. MIT licensing and sklearn BSD notices are retained.

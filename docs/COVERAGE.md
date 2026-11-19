@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 101 public estimator, transformer, and splitter types. Each is a
+There are 102 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Seventeen reference suites additionally check 4,766 result
+All types have native tests. Eighteen reference suites additionally check 5,018 result
 groups in total across seeded datasets against installed scikit-learn 1.6.1.
 
 This document counts core scikit-learn counterparts. Public extensions are
@@ -22,7 +22,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 
 | Module (`sklearn_` prefix) | Public types and functions | Scope and numerical choices |
 | --- | --- | --- |
-| preprocessing | `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `label_encoder`, `one_hot_encoder`, `power_transformer`, `kbins_discretizer`; `normalize`, `binarize`, `polynomial_features` | Population variance; linear percentile interpolation; NaN imputation with mean/median/most-frequent/constant; numeric categories; dense polynomial terms through degree 12 with optional interactions |
+| preprocessing | `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `label_encoder`, `one_hot_encoder`, `power_transformer`, `kbins_discretizer`, `quantile_transformer`; `normalize`, `binarize`, `polynomial_features` | Population variance; linear percentile interpolation; NaN imputation with mean/median/most-frequent/constant; numeric categories; empirical uniform/normal quantile transforms; dense polynomial terms through degree 12 with optional interactions |
 | linear_model | `linear_regression`, `ridge`, `lasso`, `elastic_net`, `logistic_regression`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `huber_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; coordinate descent; logistic Newton solver; perceptron; PA-I/II classification/regression with averaging; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb` | Empirical class priors, variance smoothing, strictly positive scalar alpha; Bernoulli threshold; optional complement normalization |
 | neighbors | `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with optional shrinkage and uniform priors; Euclidean kernel density |
@@ -700,3 +700,34 @@ custom global estimator objects, exposed mutable tree nodes or feature names.
 Tree storage grows with the subclusters; optional dense Ward clustering has
 quadratic storage and cubic-time pair selection. The package now has 101 core
 types in 41 source modules; no public extensions or dependencies were added.
+
+
+## QuantileTransformer empirical distribution mapping
+
+`quantile_transformer` estimates column-wise linear percentiles, interpolates
+to a uniform distribution, and optionally maps through the normal inverse CDF.
+Repeated quantiles use the mean of ascending/descending interpolation, as in
+sklearn. `inverse_transform` maps either output distribution back through the
+learned percentile table. Finite values outside the fitted range saturate;
+normal outputs use sklearn's 1e-7 boundary tolerance and finite tail clipping.
+The inverse normal uses monotone erfc inversion, with no SciPy runtime or
+third-party approximation coefficients.
+
+NaNs are ignored when fitting and preserved in transforms. An all-missing
+feature retains NaN quantiles and produces NaNs even for finite queries.
+Constant columns and single-quantile tables follow sklearn's boundary-order
+conventions. Infinity is rejected in fit, transform and inverse_transform.
+`n_quantiles_` is capped at the training sample count, including rows with NaN;
+`references_` is the corresponding uniform grid. No Python warning is emitted
+when capping. `quantiles_` has shape (n_quantiles_, n_features_in_).
+
+`subsample=0` means Python `subsample=None`; the default is 10000. A positive
+subsample must be at least the requested n_quantiles. Smaller subsamples select
+shared rows without replacement using a seeded native random stream; repeated
+fits are reproducible on the same compiler, but differ from NumPy selections.
+Reference comparisons disable subsampling. Dense real64 arrays only; no sparse
+implicit-zero controls, sample weights, feature names, copy/in-place control,
+or incremental fitting. Percentile fitting sorts each sampled column; storage
+includes a full row-index array, sampled columns and the quantile table. This addition brings
+the package to 102 core types in 42 source modules, with no new dependencies or
+public extensions.

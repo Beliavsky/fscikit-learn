@@ -1,11 +1,12 @@
 module sklearn_preprocessing
   use sklearn_common
+  use sklearn_quantile_transform, only: quantile_transformer
   use sklearn_power_transform, only: power_transformer
   use sklearn_discretization, only: kbins_discretizer
   use, intrinsic :: ieee_arithmetic, only: ieee_is_nan
   implicit none
   private
-  public :: power_transformer,kbins_discretizer
+  public :: power_transformer,kbins_discretizer,quantile_transformer
   public :: standard_scaler, minmax_scaler, maxabs_scaler, robust_scaler, simple_imputer
   public :: normalize, binarize, polynomial_features, label_encoder, one_hot_encoder
   type :: standard_scaler

@@ -1,8 +1,9 @@
 ! Validation helper: each selected case must terminate with an input diagnostic.
 program invalid_input_driver
   use sklearn
-  use, intrinsic :: ieee_arithmetic, only: ieee_value,ieee_quiet_nan
+  use, intrinsic :: ieee_arithmetic, only: ieee_value,ieee_quiet_nan,ieee_positive_inf
   implicit none
+  type(quantile_transformer) :: qt
   type(birch) :: model_birch
   type(optics) :: model
   type(fast_ica) :: ica
@@ -68,6 +69,37 @@ program invalid_input_driver
   character(32) :: mode
   x=1; y=1; call get_command_argument(1,mode)
   select case(trim(mode))
+  case('quantile_count')
+    qt%n_quantiles=0; call qt%fit(x)
+  case('quantile_subsample')
+    qt%subsample=-1; call qt%fit(x)
+  case('quantile_subsample_size')
+    qt%n_quantiles=10001; call qt%fit(x)
+  case('quantile_distribution')
+    qt%output_distribution='bad'; call qt%fit(x)
+  case('quantile_unfitted')
+    z=qt%transform(x)
+  case('quantile_inverse_unfitted')
+    z=qt%inverse_transform(x)
+  case('quantile_features')
+    call qt%fit(x); z=qt%transform(x(:,:1))
+  case('quantile_inverse_features')
+    call qt%fit(x); z=qt%inverse_transform(x(:,:1))
+  case('quantile_empty')
+    call qt%fit(x(:0,:))
+  case('quantile_empty_features')
+    call qt%fit(x(:,:0))
+  case('quantile_query_empty')
+    call qt%fit(x); z=qt%transform(x(:0,:))
+  case('quantile_inf')
+    x(1,1)=ieee_value(0._dp,ieee_positive_inf); call qt%fit(x)
+  case('quantile_query_inf')
+    call qt%fit(x); x(1,1)=ieee_value(0._dp,ieee_positive_inf); &
+    z=qt%transform(x)
+  case('quantile_inverse_inf')
+    call qt%fit(x); x(1,1)=ieee_value(0._dp,ieee_positive_inf); &
+    z=qt%inverse_transform(x)
+
   case('birch_threshold')
     model_birch%threshold=0; call model_birch%fit(x)
   case('birch_nan')
