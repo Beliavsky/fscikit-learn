@@ -3,6 +3,9 @@ program invalid_input_driver
   use sklearn
   use, intrinsic :: ieee_arithmetic, only: ieee_value,ieee_quiet_nan,ieee_positive_inf
   implicit none
+  type(multi_task_elastic_net) :: mt
+  type(multi_task_lasso) :: mt_lasso
+  real(dp) :: mt_y(4,2)
   type(ridge_classifier) :: rc
   type(ridge_classifier_cv) :: rc_cv
   type(gradient_boosting_classifier) :: boost_class
@@ -74,8 +77,58 @@ program invalid_input_driver
   integer, allocatable :: optics_clusters(:,:)
   integer, allocatable :: labels(:)
   character(32) :: mode
+  mt_y=1
   x=1; y=1; call get_command_argument(1,mode)
   select case(trim(mode))
+  case('mt_alpha')
+    mt%alpha=0; call mt%fit(x,mt_y)
+  case('mt_negative_alpha')
+    mt%alpha=-1; call mt%fit(x,mt_y)
+  case('mt_nan_alpha')
+    mt%alpha=ieee_value(0._dp,ieee_quiet_nan); call mt%fit(x,mt_y)
+  case('mt_mix_zero')
+    mt%l1_ratio=0; call mt%fit(x,mt_y)
+  case('mt_mix_high')
+    mt%l1_ratio=2; call mt%fit(x,mt_y)
+  case('mt_nan_mix')
+    mt%l1_ratio=ieee_value(0._dp,ieee_quiet_nan); call mt%fit(x,mt_y)
+  case('mt_tol')
+    mt%tol=-1; call mt%fit(x,mt_y)
+  case('mt_nan_tol')
+    mt%tol=ieee_value(0._dp,ieee_quiet_nan); call mt%fit(x,mt_y)
+  case('mt_iterations')
+    mt%max_iter=0; call mt%fit(x,mt_y)
+  case('mt_rows')
+    call mt%fit(x,mt_y(:2,:))
+  case('mt_empty')
+    call mt%fit(x(:0,:),mt_y(:0,:))
+  case('mt_no_targets')
+    call mt%fit(x,mt_y(:,:0))
+  case('mt_nan_x')
+    x(1,1)=ieee_value(0._dp,ieee_quiet_nan); call mt%fit(x,mt_y)
+  case('mt_nan_y')
+    mt_y(1,1)=ieee_value(0._dp,ieee_quiet_nan); call mt%fit(x,mt_y)
+  case('mt_unfitted')
+    z=mt%predict(x)
+  case('mt_features')
+    call mt%fit(x,mt_y); z=mt%predict(x(:,:1))
+  case('mt_empty_query')
+    call mt%fit(x,mt_y); z=mt%predict(x(:0,:))
+  case('mt_nan_query')
+    call mt%fit(x,mt_y); x(1,1)=ieee_value(0._dp,ieee_quiet_nan); z=mt%predict(x)
+  case('mt_warm_features')
+    call mt%fit(x,mt_y); mt%warm_start=.true.; call mt%fit(x(:,:1),mt_y)
+  case('mt_warm_targets')
+    call mt%fit(x,mt_y); mt%warm_start=.true.; call mt%fit(x,mt_y(:,:1))
+  case('mt_score_targets')
+    call mt%fit(x,mt_y); y(1)=mt%score(x,mt_y(:,:1))
+  case('mt_score_rows')
+    call mt%fit(x,mt_y); y(1)=mt%score(x,mt_y(:2,:))
+  case('mt_lasso_alpha')
+    mt_lasso%alpha=-1; call mt_lasso%fit(x,mt_y)
+  case('mt_lasso_unfitted')
+    z=mt_lasso%predict(x)
+
   case('rc_alpha')
     labels=[-3,-3,9,9]; rc%alpha=-1; call rc%fit(x,labels)
   case('rc_nan_alpha')

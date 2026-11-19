@@ -692,3 +692,40 @@ input rejection cases passed. The checked ridge_classification example passed,
 selecting alpha=1 with training accuracy 0.75 on its small fixture. The 420 new
 sklearn comparison groups passed. Python syntax, Fortran formatting, inventory
 and diff checks passed. MIT licensing and sklearn BSD notices are retained.
+
+
+## MultiTaskElasticNet and MultiTaskLasso
+
+`python validation/compare_multitask.py` passes 192 result groups against
+sklearn 1.6.1 across three seeded tall/wide fixtures and eight configurations.
+Cases cover Lasso, mixed elastic penalties, ratio=1 equivalence, absent
+intercepts, complete group shrinkage, one-iteration fits, warm starts and a
+single response column. Fixtures include constant and duplicated features.
+Checks compare coefficients, intercepts, train/query predictions, uniform R2,
+duality gaps, scaled stopping tolerances and iteration counts, using
+atol=rtol=3e-8. The twenty-two reference suites now contain 6,344 groups;
+older Python reference suites were not rerun.
+
+Independent native checks verify analytic group soft-threshold solutions,
+mixed L1/L2 and ridge shrinkage, whole-feature removal, zero columns, warm/cold
+solution agreement, cold refitting, response means for constant designs and
+zero-target convergence/scoring. The input harness adds 24 shape/state/domain
+cases (394 total), including warm-start feature/target mismatches. The
+multitask_regression example demonstrates shared feature coefficients.
+
+Both estimators fit rank-two target arrays using native cyclic block coordinate
+descent and primal-dual stopping. MultiTaskLasso always uses mixing ratio=1.
+Positive alpha and mixing ratio are required in this port. Sparse data,
+weights, random coordinate selection and CV/path variants are outside this
+batch; see COVERAGE.md. Original contributions remain MIT with sklearn BSD
+notices retained. No runtime dependency or public extension was added.
+Inventory: 109 core types in 44 source modules and 42 native test programs.
+
+
+All 42 native test programs passed checked builds with bounds/backtrace and
+invalid/zero/overflow traps, and optimized release builds. All 394 isolated
+input rejection cases passed. The checked multitask_regression example passed
+with uniform training R2 about 0.99994. All 192 new sklearn comparison groups
+passed, including explicit output-shape checks. Python syntax, Fortran
+formatting, inventory and diff checks passed. MIT licensing and sklearn BSD
+notices are retained.

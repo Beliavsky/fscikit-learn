@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 107 public estimator, transformer, and splitter types. Each is a
+There are 109 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Twenty-one reference suites additionally check 6,152 result
+All types have native tests. Twenty-two reference suites additionally check 6,344 result
 groups in total across seeded datasets against installed scikit-learn 1.6.1.
 
 This document counts core scikit-learn counterparts. Public extensions are
@@ -14,7 +14,7 @@ tracked separately in [EXTENSIONS.md](EXTENSIONS.md) and excluded from the
 selective, clearly identified extensions while prioritizing core correctness.
 
 Global scope: dense real64 CPU arrays, integer classification labels, generally one target
-per sample; cross-decomposition explicitly accepts multiple response columns. Sparse matrices, pandas integration, Python estimator cloning,
+per sample; cross-decomposition and multi-task regression explicitly accept multiple response columns. Sparse matrices, pandas integration, Python estimator cloning,
 metadata routing, parallel backends and binary model persistence are outside the
 initial translation. Fortran identifiers use snake_case rather than CamelCase.
 
@@ -23,7 +23,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | Module (`sklearn_` prefix) | Public types and functions | Scope and numerical choices |
 | --- | --- | --- |
 | preprocessing | `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `label_encoder`, `one_hot_encoder`, `power_transformer`, `kbins_discretizer`, `quantile_transformer`; `normalize`, `binarize`, `polynomial_features` | Population variance; linear percentile interpolation; NaN imputation with mean/median/most-frequent/constant; numeric categories; empirical uniform/normal quantile transforms; dense polynomial terms through degree 12 with optional interactions |
-| linear_model | `linear_regression`, `ridge`, `ridge_classifier`, `ridge_classifier_cv`, `lasso`, `elastic_net`, `logistic_regression`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `huber_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; coordinate descent; logistic Newton solver; perceptron; PA-I/II classification/regression with averaging; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
+| linear_model | `linear_regression`, `ridge`, `ridge_classifier`, `ridge_classifier_cv`, `multi_task_elastic_net`, `multi_task_lasso`, `lasso`, `elastic_net`, `logistic_regression`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `huber_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; coordinate descent; logistic Newton solver; perceptron; PA-I/II classification/regression with averaging; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb` | Empirical class priors, variance smoothing, strictly positive scalar alpha; Bernoulli threshold; optional complement normalization |
 | neighbors | `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with optional shrinkage and uniform priors; Euclidean kernel density |
 | cluster | `kmeans`, `dbscan`, `agglomerative_clustering`, `mean_shift`, `affinity_propagation`, `spectral_clustering`, `optics`, `birch`; `estimate_bandwidth`, `cluster_optics_dbscan`, `cluster_optics_xi` | Lloyd/k-means++; density expansion; single/complete/average/Ward merge trees; flat-kernel mode seeking; damped exemplar messages; normalized-Laplacian clustering with k-means or pivoted QR assignment; OPTICS reachability ordering, Xi hierarchy and DBSCAN extraction; BIRCH streaming CF tree and optional Ward clustering |
@@ -857,3 +857,38 @@ rejected in this port. n_features_in_ and native rank_ expose fitted dimensions.
 Original code remains MIT with sklearn BSD notices retained. The package now
 has 107 core types in 43 source modules, with no new runtime dependencies or
 public extensions.
+
+
+## Multi-task sparse regression
+
+`multi_task_elastic_net` and `multi_task_lasso` fit a dense response matrix
+(n_samples,n_targets), including a single response column. Their joint penalty
+selects features across targets: the objective is ||Y-XW||_F^2/(2*n) +
+alpha*l1_ratio*sum_j ||W(j,:)||_2 + alpha*(1-l1_ratio)*||W||_F^2/2.
+The Lasso variant always uses l1_ratio=1, ignoring the inherited mixing field.
+Block coordinate descent updates one feature's complete target vector using
+group soft thresholding. Feature order is cyclic. Each intercept is an
+unpenalized response mean minus its coefficient-weighted feature means.
+
+Both provide fit, predict and uniform-average R2 score. coef_ has shape
+(n_targets,n_features), intercept_ has n_targets entries, and predictions
+have shape (n_samples,n_targets). Controls are alpha (default 1), fit_intercept
+(true), max_iter (1000), tol (1e-4), and warm_start (false). ElasticNet's mixing
+ratio defaults to .5. This port requires finite alpha>0 and 0<l1_ratio<=1;
+pure ridge and zero-penalty least squares are handled by existing estimators.
+Tolerance must be finite and nonnegative. Targets and features must be finite.
+
+Stopping first checks the largest coordinate update relative to the largest
+coefficient, then checks the primal-dual gap against tol*||centered Y||_F^2.
+The gap is also checked at the iteration cap. n_iter_, dual_gap_ (divided by
+n_samples), eps_ (unscaled stopping threshold), n_features_in_, and native
+converged_ expose the result. An unconverged fit returns its final iterate
+with converged_=false. Warm starts reuse coefficients with matching target and
+feature dimensions; otherwise a fit starts at zero. Input arrays are not
+modified. Zero-norm centered features are skipped, matching the reference.
+
+Sparse matrices, sample weights, random coordinate selection, positivity
+constraints, regularization paths and the CV variants are not implemented.
+The types are re-exported through sklearn_linear_model and sklearn. The
+package now has 109 core types in 44 source modules. No runtime dependency or
+public extension was added; MIT and sklearn BSD attribution are retained.

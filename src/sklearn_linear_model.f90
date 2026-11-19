@@ -1,10 +1,12 @@
 module sklearn_linear_model
+  use sklearn_multitask, only: multi_task_elastic_net,multi_task_lasso
   use sklearn_ridge_classification, only: ridge_classifier,ridge_classifier_cv
   use sklearn_common
   use sklearn_metrics, only: r2_score,accuracy_score
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
   implicit none
   private
+  public :: multi_task_elastic_net,multi_task_lasso
   public :: ridge_classifier,ridge_classifier_cv
   public :: linear_regression, ridge, lasso, elastic_net, logistic_regression, perceptron
   public :: bayesian_ridge, ard_regression, orthogonal_matching_pursuit

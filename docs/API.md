@@ -807,3 +807,29 @@ RidgeClassifierCV requires positive alphas and implements default leave-one-out
 negative-MSE selection. It adds alpha_, best_score_, cv_scores_, and optional
 cv_results_(n,channels,n_alphas). It does not provide explicit-fold CV, arbitrary
 scorers or probabilities. See COVERAGE.md for weighting and rank conventions.
+
+
+## Multi-task sparse regression
+
+```fortran
+use sklearn, only: dp,multi_task_elastic_net,multi_task_lasso
+implicit none
+type(multi_task_elastic_net) :: model
+real(dp) :: x(6,2),y(6,2)
+real(dp), allocatable :: prediction(:,:)
+integer :: i
+do i=1,6
+  x(i,:)=[real(i,dp),real(mod(i,2),dp)]
+end do
+y(:,1)=2*x(:,1)+1; y(:,2)=-x(:,1)+3
+model%alpha=.05_dp; model%l1_ratio=.7_dp
+call model%fit(x,y)
+prediction=model%predict(x)
+```
+
+Use multi_task_lasso for the pure group L1/L2 penalty. Both types accept a
+rank-two target matrix and return rank-two predictions. coef_ is
+(n_targets,n_features), intercept_ is (n_targets). Set warm_start=true to reuse
+coefficients on subsequent fits of the same shape. score returns the uniform
+mean of per-target R2. Inspect n_iter_, dual_gap_, eps_ and converged_ for
+stopping status. See COVERAGE.md for the objective and supported controls.
