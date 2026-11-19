@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 114 public estimator, transformer, and splitter types. Each is a
+There are 116 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Twenty-six reference suites additionally check 7,472 result
+All types have native tests. Twenty-seven reference suites additionally check 7,856 result
 groups in total across seeded datasets against installed scikit-learn 1.6.1.
 
 This document counts core scikit-learn counterparts. Public extensions are
@@ -46,7 +46,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | dummy | `dummy_classifier`, `dummy_regressor` | Prior/most-frequent/stratified/uniform/constant classification; mean/median/quantile/constant regression |
 | kernel_ridge | `kernel_ridge` | Positive alpha; linear/RBF/polynomial/sigmoid kernels; no intercept |
 | discriminant_analysis | `linear_discriminant_analysis`, `quadratic_discriminant_analysis` | LDA follows sklearn `solver='lsqr'` covariance convention with scalar shrinkage; QDA scalar regularization; singular covariance is rejected |
-| svm | `svc`; re-exports `svr`, `nu_svr`, `one_class_svm` | OVO SVC; epsilon/nu support-vector regression and one-class detection; native pairwise dual optimization, weighted capacities and PSD kernels for the added models |
+| svm | `svc`, `linear_svc`, `linear_svr`; re-exports `svr`, `nu_svr`, `one_class_svm` | Primal L2 squared-loss linear classification/regression; OVO SVC; epsilon/nu support-vector regression and one-class detection; native pairwise dual optimization, weighted capacities and PSD kernels for the added models |
 | mixture | `gaussian_mixture` | EM with k-means initialization, full/tied/diag/spherical covariances; posterior, log likelihood, BIC/AIC |
 | neural_network | `mlp_classifier`, `mlp_regressor` | Arbitrary dense hidden layer sizes, relu/tanh/logistic/identity, full-batch Adam, softmax classification or squared-error regression, L2 regularization |
 | gaussian_process | `gaussian_process_regressor`, `gaussian_process_classifier` | Fixed isotropic RBF amplitude/length scale plus white noise and diagonal alpha; Cholesky posterior, standard deviation/covariance, log marginal likelihood; optional target normalization; fixed-RBF Laplace binary/OVR classification |
@@ -1091,3 +1091,60 @@ transformer, not a fitted smoothing/regression model.
 The type is re-exported through sklearn_preprocessing and sklearn. Inventory:
 114 core types in 48 source modules. No dependency or public algorithm extension
 was added. Original contributions remain MIT with sklearn BSD attribution.
+
+
+## Primal linear support-vector models
+
+`linear_svc` implements L2-regularized squared-hinge LinearSVC. `linear_svr`
+implements L2-regularized squared-epsilon-insensitive LinearSVR. These are
+fixed primal formulations, corresponding to sklearn dual=False, penalty='l2'
+and the named squared losses. LinearSVR here defaults to the squared loss;
+sklearn's default unsquared epsilon-insensitive loss is outside this port.
+The optimizer is a native active-set Newton method with dense Cholesky solves
+and Armijo backtracking, rather than liblinear's trust-region implementation.
+No LIBLINEAR binary or C/C++ source is linked.
+
+The objectives are .5*||w||^2 + C*sum_i sample_weight_i*loss_i, with losses
+max(0,1-y_i*f_i)^2 for signed binary classification and
+max(0,abs(y_i-f_i)-epsilon)^2 for regression. C is not divided by sample count.
+An optional intercept is represented by a synthetic feature of value
+intercept_scaling, so its contribution to the penalty is
+.5*(intercept/intercept_scaling)^2. Both C and intercept_scaling default to 1
+and must be finite and positive. fit_intercept defaults true. The regression
+epsilon defaults to 0 and must be finite/nonnegative.
+
+Classification supports binary labels and multiclass one-vs-rest. classes_ is
+sorted. Binary decisions have shape (n,1), multiclass decisions (n,n_classes).
+coef_ is (channels,n_features), intercept_ has one entry per channel. Binary
+zero scores choose the smaller label; multiclass ties choose the first label.
+At least two classes are required. Methods are fit, decision_function, predict
+and accuracy score. Regression provides fit, predict and R2 score, with
+coef_(n_features) and a scalar intercept_. Neither model provides probabilities
+or support-vector arrays: the primal representation stores coefficients.
+
+Both fits accept finite nonnegative sample_weight, requiring positive total.
+Classifier fit also accepts positive finite class_weight aligned with classes_,
+or class_weight_balanced=true using unweighted label frequencies. Explicit and
+balanced class weights are mutually exclusive. Binary class weights multiply
+all corresponding row costs. In liblinear's multiclass OVR convention, each
+channel weights its positive class while all negative classes retain base C;
+the native implementation preserves this distinction. Zero class weights are
+rejected in this port, while zero sample weights are supported.
+
+max_iter defaults to 1000; finite tol>0 defaults to 1e-4. Stopping uses the
+augmented primal gradient norm <= tol*max(1,initial_gradient_norm), starting at
+zero coefficients each fit. A capped fit returns the final iterate and
+converged_=false if the criterion was not met. n_iter_ counts native Newton
+updates and can differ from liblinear. objective_ and gradient_norm_ expose
+native diagnostics; they are per-channel vectors for classification and
+scalars for regression. Classifier n_iter_per_class_ and
+converged_per_class_ describe each OVR model; n_iter_ is their maximum and
+converged_ is their conjunction. n_features_in_ records fitted input width.
+
+Only dense finite real64 arrays and one response per sample are supported.
+Sparse/dual solvers, L1 penalties, unsquared losses, Crammer-Singer mode,
+partial_fit, warm starts and probability calibration are not implemented.
+Dense feature-space Hessians favor moderate feature counts. The types are
+re-exported through sklearn_svm and sklearn. Inventory: 116 core types in
+49 source modules. No runtime dependency or public algorithm extension was
+added. Original contributions remain MIT with sklearn/LIBLINEAR BSD notices.

@@ -935,3 +935,30 @@ Periodic fits require degree<n_base_knots. include_bias=false removes the
 last basis per feature. Inspect base_knots_, extended knots_, n_features_in_
 and n_features_out_. Transform returns real(dp) columns grouped by input
 feature. See COVERAGE.md for knot, endpoint and supported-degree conventions.
+
+
+## Primal linear support-vector models
+
+```fortran
+use sklearn, only: dp,linear_svc,linear_svr
+implicit none
+type(linear_svc) :: classifier
+type(linear_svr) :: regressor
+real(dp) :: x(4,1)
+real(dp), allocatable :: prediction(:),decision(:,:)
+x(:,1)=[-2._dp,-1._dp,1._dp,2._dp]
+call classifier%fit(x,[-3,-3,9,9])
+decision=classifier%decision_function(x)
+regressor%epsilon=.1_dp
+call regressor%fit(x,[-4._dp,-2._dp,2._dp,4._dp])
+prediction=regressor%predict(x)
+```
+
+Both use the primal L2 squared-loss formulation and accept optional sample_weight.
+LinearSVC also accepts class_weight (sorted class order) or a
+class_weight_balanced flag. C, tol, max_iter, fit_intercept and intercept_scaling
+control fitting. The intercept is penalized through its scaled synthetic
+feature. Inspect converged_, n_iter_, objective_ and gradient_norm_;
+classification diagnostics are per-channel where applicable. LinearSVR uses
+squared_epsilon_insensitive loss, including at its default epsilon=0. See
+COVERAGE.md for multiclass weighting, stopping and supported solver limits.

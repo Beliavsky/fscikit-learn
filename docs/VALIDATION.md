@@ -889,3 +889,54 @@ The checked spline_features example passed with five cubic basis columns and
 row sums equal to one within roundoff. Python syntax, Fortran formatting,
 module/test inventory and staged diff checks passed. MIT licensing and sklearn
 BSD notices are retained.
+
+
+## LinearSVC and LinearSVR
+
+`python validation/compare_linear_svm.py` passes 384 result groups against
+sklearn 1.6.1 across three seeded fixtures, including a wide design. Ten
+classifier and eight regressor configurations cover binary/multiclass labels,
+absent/scaled intercepts, small/large C, weighted samples, balanced/explicit
+class weights, duplicated features, several epsilon widths and a fully inactive
+regression loss. The reference uses dual=False and the supported squared losses.
+Checks compare coefficients, intercepts, classes, train/query decisions or
+predictions, labels, scores and per-channel primal objectives. The twenty-seven
+reference suites now contain 7,856 result groups; older Python suites were not
+rerun.
+
+Classifier coefficients/intercepts/decisions use atol=rtol=1e-6; all other
+outputs, including objectives and labels, use 3e-8. LIBLINEAR TRON can stop when
+actual and predicted objective reductions fall below 1e-12 times the objective,
+even with tighter requested tolerances. Observed classifier decision differences
+were below 5e-7. For an inspected case, native and reference objectives agreed
+within roundoff while gradient norms were about 8e-17 and 1e-7 respectively.
+Every fitted native channel is independently checked for primal stationarity
+(norm(gradient)<=1e-8*max(1,norm(augmented coefficients))) and its reported
+objective is recomputed at atol=rtol=1e-10. This verifies optimizer accuracy
+independently of LIBLINEAR's stopping floor.
+
+Native tests verify analytic squared-hinge and squared-epsilon optima, zero-
+epsilon ridge equivalence, synthetic-intercept regularization, binary class/
+sample weight equivalence, repeated-observation equivalence, iteration caps,
+zero-decision ties and stationary zero-step fits. The input harness adds 33
+control/state/shape/finite-data cases (522 total). linear_support_vectors
+demonstrates classification and regression.
+
+The native dense primal solver uses active-set Newton steps and Armijo search.
+It implements L2 squared losses only; other penalties/losses, dual solvers and
+Crammer-Singer classification are outside this batch. Multiclass OVR class
+weights affect positive examples only, matching LIBLINEAR. Full controls,
+objective, weighting and stopping conventions are recorded in COVERAGE.md.
+The bundled LIBLINEAR BSD-3-Clause notice is retained alongside sklearn notices.
+Original contributions remain MIT. No runtime dependency or public algorithm
+extension was added. Inventory: 116 core types in 49 source modules, with
+47 native test programs.
+
+
+Final validation: all 47 native test programs passed in checked mode
+(-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow) and release mode.
+All 384 linear SVM reference groups and 522 isolated invalid-input cases passed.
+The checked linear_support_vectors example returned classification accuracy 1
+and regression predictions approximately [-3.809524,-1.904762,1.904762,3.809524].
+Python syntax, Fortran line-length/whitespace, git diff and byte-identical
+LIBLINEAR notice checks passed.

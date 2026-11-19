@@ -3,6 +3,8 @@ program invalid_input_driver
   use sklearn
   use, intrinsic :: ieee_arithmetic, only: ieee_value,ieee_quiet_nan,ieee_positive_inf
   implicit none
+  type(linear_svc) :: lsvc
+  type(linear_svr) :: lsvr
   type(spline_transformer) :: spl
   type(gaussian_process_classifier) :: gpc
   type(knn_imputer) :: ki
@@ -86,6 +88,106 @@ program invalid_input_driver
   mt_y=1
   x=1; y=1; call get_command_argument(1,mode)
   select case(trim(mode))
+  case('lsvc_c')
+    labels=[-3,-3,9,9]
+    lsvc%c=0; call lsvc%fit(x,labels)
+  case('lsvc_nan_c')
+    labels=[-3,-3,9,9]
+    lsvc%c=ieee_value(0._dp,ieee_quiet_nan); call lsvc%fit(x,labels)
+  case('lsvc_tol')
+    labels=[-3,-3,9,9]
+    lsvc%tol=0; call lsvc%fit(x,labels)
+  case('lsvc_nan_tol')
+    labels=[-3,-3,9,9]
+    lsvc%tol=ieee_value(0._dp,ieee_quiet_nan); call lsvc%fit(x,labels)
+  case('lsvc_scaling')
+    labels=[-3,-3,9,9]
+    lsvc%intercept_scaling=0; call lsvc%fit(x,labels)
+  case('lsvc_nan_scaling')
+    labels=[-3,-3,9,9]
+    lsvc%intercept_scaling=ieee_value(0._dp,ieee_quiet_nan); call lsvc%fit(x,labels)
+  case('lsvc_iterations')
+    labels=[-3,-3,9,9]
+    lsvc%max_iter=0; call lsvc%fit(x,labels)
+  case('lsvc_weight_shape')
+    labels=[-3,-3,9,9]
+    call lsvc%fit(x,labels,sample_weight=[1._dp])
+  case('lsvc_weight_negative')
+    labels=[-3,-3,9,9]
+    call lsvc%fit(x,labels,sample_weight=-y)
+  case('lsvc_weight_nan')
+    labels=[-3,-3,9,9]
+    y(1)=ieee_value(0._dp,ieee_quiet_nan); call lsvc%fit(x,labels,sample_weight=y)
+  case('lsvc_weight_zero')
+    labels=[-3,-3,9,9]
+    call lsvc%fit(x,labels,sample_weight=0*y)
+  case('lsvc_class_shape')
+    labels=[-3,-3,9,9]
+    call lsvc%fit(x,labels,class_weight=[1._dp])
+  case('lsvc_class_zero')
+    labels=[-3,-3,9,9]
+    call lsvc%fit(x,labels,class_weight=[1._dp,0._dp])
+  case('lsvc_class_nan')
+    labels=[-3,-3,9,9]
+    call lsvc%fit(x,labels,class_weight=[1._dp,ieee_value(0._dp,ieee_quiet_nan)])
+  case('lsvc_class_conflict')
+    labels=[-3,-3,9,9]
+    lsvc%class_weight_balanced=.true.; call lsvc%fit(x,labels,class_weight=[1._dp,1._dp])
+  case('lsvc_single')
+    labels=[-3,-3,9,9]
+    call lsvc%fit(x,[1,1,1,1])
+  case('lsvc_targets')
+    labels=[-3,-3,9,9]
+    call lsvc%fit(x,labels(:2))
+  case('lsvc_nan_x')
+    labels=[-3,-3,9,9]
+    x(1,1)=ieee_value(0._dp,ieee_quiet_nan); call lsvc%fit(x,labels)
+  case('lsvc_empty')
+    labels=[-3,-3,9,9]
+    call lsvc%fit(x(:0,:),labels(:0))
+  case('lsvc_unfitted')
+    labels=[-3,-3,9,9]
+    z=lsvc%decision_function(x)
+  case('lsvc_features')
+    labels=[-3,-3,9,9]
+    call lsvc%fit(x,labels); z=lsvc%decision_function(x(:,:1))
+  case('lsvc_query_nan')
+    labels=[-3,-3,9,9]
+    call lsvc%fit(x,labels); x(1,1)=ieee_value(0._dp,ieee_quiet_nan); z=lsvc%decision_function(x)
+  case('lsvc_query_empty')
+    labels=[-3,-3,9,9]
+    call lsvc%fit(x,labels); z=lsvc%decision_function(x(:0,:))
+  case('lsvr_epsilon')
+    labels=[-3,-3,9,9]
+    lsvr%epsilon=-1; call lsvr%fit(x,y)
+  case('lsvr_nan_epsilon')
+    labels=[-3,-3,9,9]
+    lsvr%epsilon=ieee_value(0._dp,ieee_quiet_nan); call lsvr%fit(x,y)
+  case('lsvr_nan_y')
+    labels=[-3,-3,9,9]
+    y(1)=ieee_value(0._dp,ieee_quiet_nan); call lsvr%fit(x,y)
+  case('lsvr_targets')
+    labels=[-3,-3,9,9]
+    call lsvr%fit(x,y(:2))
+  case('lsvr_c')
+    labels=[-3,-3,9,9]
+    lsvr%c=-1; call lsvr%fit(x,y)
+  case('lsvr_weight_shape')
+    labels=[-3,-3,9,9]
+    call lsvr%fit(x,y,sample_weight=[1._dp])
+  case('lsvr_weight_zero')
+    labels=[-3,-3,9,9]
+    call lsvr%fit(x,y,sample_weight=0*y)
+  case('lsvr_unfitted')
+    labels=[-3,-3,9,9]
+    pred=lsvr%predict(x)
+  case('lsvr_features')
+    labels=[-3,-3,9,9]
+    call lsvr%fit(x,y); pred=lsvr%predict(x(:,:1))
+  case('lsvr_empty')
+    labels=[-3,-3,9,9]
+    call lsvr%fit(x(:0,:),y(:0))
+
   case('spl_degree')
     spl%degree=0; call spl%fit(x)
   case('spl_negative_degree')

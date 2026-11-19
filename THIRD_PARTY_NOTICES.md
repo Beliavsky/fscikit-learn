@@ -46,6 +46,7 @@ Reference paths by module:
 | kernel_ridge | kernel_ridge.py |
 | discriminant_analysis | discriminant_analysis.py (LDA lsqr covariance convention) |
 | kernel_svm | svm/_base.py, _classes.py, src/libsvm/svm.cpp; SVR/NuSVR/OneClassSVM weighted dual formulations, gamma rules, thresholds and normalization; independent native pairwise optimizer |
+| linear_svm | svm/_classes.py LinearSVC/LinearSVR contracts; svm/src/liblinear/linear.cpp L2 squared-loss objectives, synthetic intercept regularization and binary/OVR class costs; tron.cpp stopping behavior used in reference validation; independent native primal Newton/Armijo solver |
 | svm | svm/_classes.py; deterministic SMO replaces libsvm backend |
 | mixture | mixture/_gaussian_mixture.py, _base.py |
 | neural_network | neural_network/_multilayer_perceptron.py, _stochastic_optimizers.py |
@@ -78,6 +79,13 @@ Ming-Wei Chang, Hsuan-Tien Lin, Ming-Hen Tsai, Chia-Hua Ho and Hsiang-Fu Yu.
 This adaptation uses a native dense SMO optimizer with gain-based second-coordinate selection and
 full real64 Gram matrices; no LIBSVM C++ source or binary is compiled or linked.
 Original contributions remain MIT; the retained upstream terms still apply.
+
+The primal linear SVM models follow the objective and weighting conventions
+of LIBLINEAR bundled with sklearn 1.6.1, copyright (c) 2007-2014 The LIBLINEAR
+Project. Its complete BSD-3-Clause notice is retained in
+`LICENSES/liblinear-COPYRIGHT`. The native active-set Newton/Armijo solver is
+implemented independently; no LIBLINEAR C/C++ source or binary is compiled
+or linked. Original contributions remain MIT; retained upstream terms apply.
 
 SciFort is not currently linked. There are no third-party runtime dependencies.
 
