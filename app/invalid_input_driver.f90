@@ -16,6 +16,8 @@ program invalid_input_driver
   type(svr) :: eps_reg
   type(nu_svr) :: nu_reg
   type(one_class_svm) :: novelty_svm
+  type(passive_aggressive_classifier) :: pa_classifier
+  type(passive_aggressive_regressor) :: pa_reg
   type(theil_sen_regressor) :: theil
   type(graphical_lasso) :: graphical
   type(kbins_discretizer) :: bins
@@ -63,6 +65,26 @@ program invalid_input_driver
   character(32) :: mode
   x=1; y=1; call get_command_argument(1,mode)
   select case(trim(mode))
+  case('pa_c'); pa_reg%c=0; call pa_reg%fit(x,y)
+  case('pa_nan_c'); pa_classifier%c=ieee_value(0._dp,ieee_quiet_nan); call pa_classifier%fit(x,[0,1,0,1])
+  case('pa_tol'); pa_reg%tol=-2; call pa_reg%fit(x,y)
+  case('pa_nan_tol'); pa_reg%tol=ieee_value(0._dp,ieee_quiet_nan); call pa_reg%fit(x,y)
+  case('pa_iterations'); pa_reg%max_iter=0; call pa_reg%fit(x,y)
+  case('pa_patience'); pa_reg%n_iter_no_change=0; call pa_reg%fit(x,y)
+  case('pa_average'); pa_reg%average=-1; call pa_reg%fit(x,y)
+  case('pa_class_loss'); pa_classifier%loss='invalid'; call pa_classifier%fit(x,[0,1,0,1])
+  case('pa_reg_loss'); pa_reg%loss='invalid'; call pa_reg%fit(x,y)
+  case('pa_epsilon'); pa_reg%epsilon=-1; call pa_reg%fit(x,y)
+  case('pa_nan_epsilon'); pa_reg%epsilon=ieee_value(0._dp,ieee_quiet_nan); call pa_reg%fit(x,y)
+  case('pa_singleclass'); call pa_classifier%fit(x,[1,1,1,1])
+  case('pa_targets'); call pa_reg%fit(x,y(:3))
+  case('pa_unfittedclass'); labels=pa_classifier%predict(x)
+  case('pa_unfittedreg'); pred=pa_reg%predict(x)
+  case('pa_class_features'); call pa_classifier%fit(x,[0,1,0,1]); labels=pa_classifier%predict(x(:,1:1))
+  case('pa_reg_features'); call pa_reg%fit(x,y); pred=pa_reg%predict(x(:,1:1))
+  case('pa_y_nan'); y(1)=ieee_value(0._dp,ieee_quiet_nan); call pa_reg%fit(x,y)
+  case('pa_x_nan'); x(1,1)=ieee_value(0._dp,ieee_quiet_nan); call pa_classifier%fit(x,[0,1,0,1])
+  case('pa_empty'); call pa_reg%fit(x(:0,:),y(:0))
   case('theil_subsamples'); theil%n_subsamples=-1; call theil%fit(x,y)
   case('theil_population'); theil%max_subpopulation=0; call theil%fit(x,y)
   case('theil_iterations'); theil%max_iter=0; call theil%fit(x,y)

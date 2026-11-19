@@ -5,6 +5,15 @@ import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 CASES = {
+    "pa_c": "C must be positive", "pa_nan_c": "nonfinite passive-aggressive controls",
+    "pa_tol": "tol must be nonnegative or -1", "pa_nan_tol": "nonfinite passive-aggressive controls",
+    "pa_iterations": "invalid passive-aggressive iteration controls", "pa_patience": "invalid passive-aggressive iteration controls",
+    "pa_average": "average must be nonnegative", "pa_class_loss": "invalid passive-aggressive classification loss",
+    "pa_reg_loss": "invalid passive-aggressive regression loss", "pa_epsilon": "epsilon must be nonnegative",
+    "pa_nan_epsilon": "nonfinite passive-aggressive epsilon", "pa_singleclass": "at least two classes",
+    "pa_targets": "sample counts differ", "pa_unfittedclass": "not fitted", "pa_unfittedreg": "not fitted",
+    "pa_class_features": "sample counts differ", "pa_reg_features": "sample counts differ",
+    "pa_y_nan": "NaN or infinity", "pa_x_nan": "NaN or infinity", "pa_empty": "X must be nonempty",
     "theil_subsamples": "invalid TheilSen n_subsamples", "theil_population": "max_subpopulation must be positive",
     "theil_iterations": "invalid TheilSen iteration controls", "theil_tolerance": "invalid TheilSen iteration controls",
     "theil_nan_tolerance": "nonfinite TheilSen tolerance", "theil_too_many": "exceeds sample count",

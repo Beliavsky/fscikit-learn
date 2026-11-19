@@ -356,3 +356,22 @@ valid sampling without replacement, capped convergence, scalar medians,
 rank-deficient subset solutions and an underdetermined minimum-norm fit.
 The input harness adds 14 rejection cases (221 total). `robust_subsets` is a
 complete executable comparing contaminated Theil-Sen and OLS slopes/intercepts.
+
+## Passive-aggressive reference suite
+
+Run `python validation/compare_passive_aggressive.py` for 336 result-group checks
+against sklearn 1.6.1 on three seeded fixtures. Eight classifier configurations
+cover both PA updates, intercept control, balanced weights, immediate/delayed
+averaging, patience stopping, binary/multiclass labels and zero-feature rows.
+Eight regressor configurations additionally cover epsilon widths, unreachable
+averaging thresholds, zero-row PA-I/II behavior and an all-inside-epsilon tube.
+All reference fits disable shuffling, providing exactly the same update order.
+Coefficients, intercepts, decisions/predictions, classes, epoch/sample counts,
+accuracy and R2 use atol=rtol=3e-8. The driver runs checked with FPE traps.
+The fifteen-suite inventory is 4,097 result groups.
+
+Native properties independently check analytic PA-I/II steps, intercept norms,
+averaging, zero-row differences, patience and fixed epochs, regression and
+multiclass recovery, binary ties and native shuffle reproducibility. The input
+harness adds 20 rejection cases (241 total). `passive_aggressive` is a complete
+example for both models. Native shuffle results are not equated to NumPy draws.

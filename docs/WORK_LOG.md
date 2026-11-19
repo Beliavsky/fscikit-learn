@@ -382,3 +382,39 @@ Original contributions remain MIT; sklearn BSD-3-Clause attribution is retained.
 No runtime dependency or public extension was added. COVERAGE.md documents the
 SVD rank threshold, random-stream difference and sklearn's zero-based Weiszfeld
 iteration reporting convention.
+
+## Passive-aggressive models addition (2026-11-18)
+
+Added `passive_aggressive_classifier` and `passive_aggressive_regressor` to the
+linear-model family. Both implement PA-I/PA-II, intercept control, optional
+immediate/delayed coefficient averaging, deterministic native shuffling and
+training-loss patience stopping. The classifier handles binary and multiclass
+one-versus-rest fits with optional balanced weights. The regression type
+inherits linear prediction/R2; classification adds decision, prediction and
+accuracy methods. The package now has 99 core types in 40 source modules.
+
+The new reference suite passed 336 result groups against sklearn 1.6.1 across
+three seeded datasets, using atol=rtol=3e-8. Eight classifier and eight regressor
+configurations per fixture cover the two updates, intercepts, weighting,
+averaging thresholds, patience, epsilon tubes, binary/multiclass labels and
+zero-feature rows. Shuffling is disabled in reference fits to align update
+order. Compared outputs include coefficients/intercepts, scores/decisions,
+predictions, labels and epoch/sample counters. The fifteen-suite inventory is
+4,097 result groups; unchanged older Python suites were not rerun in this batch.
+
+All 35 native programs passed checked builds with bounds/backtrace and
+invalid/zero/overflow traps, plus release builds. New properties independently
+check analytic PA-I/II steps, intercept norm convention, averaging, zero-row
+behavior, patience and fixed epochs, model recovery, binary ties and shuffle
+reproducibility. All 241 isolated invalid-input cases passed, including 20 new
+control/domain checks. The `passive_aggressive` example passed, as did source
+formatting, Python syntax and inventory audits.
+
+The native implementation preserves sklearn 1.6.1's PA-I skipped-zero-row
+behavior, online pre-update loss criterion, PA-II loss-name convention and
+public epoch counters. Binary decisions are rank two in this API; native
+shuffle streams differ from NumPy. Partial-fit, warm starts, sparse input,
+validation early stopping and arbitrary class-weight dictionaries are outside
+this initial port. COVERAGE.md and API.md record these supported limits.
+Original contributions remain MIT; sklearn BSD-3-Clause attribution is retained.
+No runtime dependency or public extension was added.

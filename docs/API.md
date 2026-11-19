@@ -600,3 +600,28 @@ prediction=robust%predict(x)
 The exhaustive path enumerates combinations; the sampled path retains its
 one-based `subsets_` indices for inspection and reproducibility. See
 `example/robust_subsets.f90` for comparison with ordinary least squares.
+
+## Passive-aggressive classification and regression
+
+```fortran
+use sklearn
+implicit none
+type(passive_aggressive_classifier) :: classifier
+type(passive_aggressive_regressor) :: reg
+real(dp) :: x(4,2),y(4)
+integer :: labels(4)
+x(:,1)=[-2._dp,-1._dp,1._dp,2._dp]; x(:,2)=[0._dp,1._dp,0._dp,1._dp]
+labels=[-3,-3,8,8]; y=2*x(:,1)-0.5_dp*x(:,2)+0.3_dp
+classifier%shuffle=.false.; classifier%c=0.5_dp
+classifier%loss='squared_hinge'       ! PA-II; default hinge selects PA-I
+call classifier%fit(x,labels)
+reg%shuffle=.false.; reg%epsilon=0.1_dp; reg%average=1
+call reg%fit(x,y)
+! Inspect coef_, intercept_, n_iter_, t_ and converged_.
+! classifier%decision_function(x) is a rank-two array, including binary fits.
+! Set tol=-1 for exactly max_iter passes; average=0 disables averaging.
+```
+
+`class_weight_balanced` selects balanced class weights. Repeated fits reset
+coefficients and averaging state. See `example/passive_aggressive.f90` for
+training accuracy and regression R2 on a complete synthetic fixture.

@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 97 public estimator, transformer, and splitter types. Each is a
+There are 99 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Fourteen reference suites additionally check 3,761 result
+All types have native tests. Fifteen reference suites additionally check 4,097 result
 groups in total across seeded datasets against installed scikit-learn 1.6.1.
 
 This document counts core scikit-learn counterparts. Public extensions are
@@ -23,7 +23,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | Module (`sklearn_` prefix) | Public types and functions | Scope and numerical choices |
 | --- | --- | --- |
 | preprocessing | `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `label_encoder`, `one_hot_encoder`, `power_transformer`, `kbins_discretizer`; `normalize`, `binarize`, `polynomial_features` | Population variance; linear percentile interpolation; NaN imputation with mean/median/most-frequent/constant; numeric categories; dense polynomial terms through degree 12 with optional interactions |
-| linear_model | `linear_regression`, `ridge`, `lasso`, `elastic_net`, `logistic_regression`, `perceptron`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `huber_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; coordinate descent; logistic Newton solver; perceptron; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
+| linear_model | `linear_regression`, `ridge`, `lasso`, `elastic_net`, `logistic_regression`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `huber_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; coordinate descent; logistic Newton solver; perceptron; PA-I/II classification/regression with averaging; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb` | Empirical class priors, variance smoothing, strictly positive scalar alpha; Bernoulli threshold; optional complement normalization |
 | neighbors | `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with optional shrinkage and uniform priors; Euclidean kernel density |
 | cluster | `kmeans`, `dbscan`, `agglomerative_clustering`, `mean_shift`, `affinity_propagation`, `spectral_clustering`; `estimate_bandwidth` | Lloyd/k-means++; density expansion; single/complete/average/Ward merge trees; flat-kernel mode seeking; damped exemplar messages; normalized-Laplacian clustering with k-means or pivoted QR assignment |
@@ -228,7 +228,7 @@ distances; cosine similarity; linear, RBF, polynomial and sigmoid kernels.
 
 Not translated: sparse data paths, general estimator base/clone/parameter search
 framework, pipelines/column transformers, NuSVC and linear SVM variants, quantile
-regression, remaining GLM variants, SGD families, histogram boosting, AdaBoost and bagging APIs,
+regression, remaining GLM variants, remaining SGD families, histogram boosting, AdaBoost and bagging APIs,
 t-SNE and Hessian/modified LLE, OPTICS/BIRCH,
 outlier detection beyond LOF/OneClassSVM,
 Gaussian-process classification, dictionary learning,
@@ -587,3 +587,53 @@ fits with exact null directions are supported. Input scaling affects the spatial
 median's coefficient-space geometry, as in sklearn. Use finite inputs suitable
 for dense arithmetic. Inherited `rank_` is left zero, as for the other robust
 regressors. This addition brings the package to 97 core types in 40 modules.
+
+## Passive-aggressive linear models
+
+`passive_aggressive_classifier` and `passive_aggressive_regressor` provide
+PA-I and PA-II updates in `sklearn_linear_model`. Classifier `loss='hinge'`
+(default) chooses PA-I; `squared_hinge` chooses PA-II. Regression uses
+`epsilon_insensitive` (default) or `squared_epsilon_insensitive`, with default
+epsilon=0.1. As in sklearn 1.6.1's wrapper, the squared names select the PA-II
+step denominator; the update numerator and stopping loss still use the linear
+hinge/epsilon-insensitive loss. Only off-margin violations trigger updates.
+The feature squared norm excludes the intercept. PA-I caps the step at C;
+PA-II uses norm + 0.5/C without a cap. Default C is 1.
+
+Dense real64 features and integer class labels are supported. Binary fits use
+one plane with the larger sorted class positive; `decision_function` always
+returns rank two (n_samples,1) in this case. A zero margin predicts the lower
+class. Multiclass fits use independent one-versus-rest planes and first-class
+argmax tie handling. `class_weight_balanced=.true.` uses sklearn's binary
+balanced positive/negative weights or multiclass balanced positive weights with
+unit negative weights. Explicit class-weight dictionaries are unsupported.
+The regressor has rank-one coefficients and inherits linear prediction and R2
+score; the classifier supplies decision_function, predict and accuracy score.
+
+Defaults are `max_iter=1000`, `tol=1e-3`, `n_iter_no_change=5`, `shuffle=.true.`,
+`random_state=0`, `fit_intercept=.true.` and integer `average=0`. Averaging is
+disabled at zero; a positive value starts averaging post-update coefficients
+at that sample counter (one enables it from the first update). If its threshold
+is not reached the standard coefficients are used. The native average follows
+sklearn's skipped-zero-row counter and multiclass selection conventions.
+
+Stopping compares unweighted online loss measured before each update. An epoch
+without an improvement of tol per training row increments the patience counter;
+the comparison is strictly greater, following sklearn. `tol=-1` disables this
+stopping test (Python's `tol=None`); other negative values are rejected. Zero
+tolerance is allowed. `converged_` reports whether patience stopped every fit;
+`n_iter_` counts epochs, taking the maximum over multiclass heads.
+`n_iter_per_class_` gives individual classifier counts. `t_=1+n_iter_*n_samples`
+matches sklearn's public counter. `loss_` stores last-epoch mean pre-update loss
+(a vector per classifier plane), not the loss evaluated at final coefficients.
+
+PA-I skips zero-feature rows before intercept updates, averaging and its internal
+sample counter, though their loss and public epoch counts are still included.
+PA-II can update an intercept for such rows. These version-specific details are
+preserved. Shuffling uses native Fortran permutations and is reproducible with
+this compiler; it does not match NumPy's stream. Reference tests set shuffle
+false. Each fit starts at zero. Partial-fit/streaming APIs, warm starts, custom
+initial coefficients, sample weights, validation early stopping, sparse inputs
+and parallel training are not implemented. Controls must be finite, with C>0,
+epsilon>=0, positive epoch/patience limits and average>=0. Use appropriately
+scaled finite inputs. The package now contains 99 core types in 40 source modules.

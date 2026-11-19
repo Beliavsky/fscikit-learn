@@ -8,6 +8,12 @@ module sklearn_linear_model
   public :: bayesian_ridge, ard_regression, orthogonal_matching_pursuit
   public :: huber_regressor,ransac_regressor,tweedie_regressor,poisson_regressor,gamma_regressor
   public :: theil_sen_regressor
+  public :: passive_aggressive_classifier,passive_aggressive_regressor
+  type :: pa_config
+    real(dp) :: c=1,tol=1.e-3_dp,epsilon=0.1_dp
+    integer :: max_iter=1000,n_iter_no_change=5,average=0
+    logical :: shuffle=.true.,fit_intercept=.true.,classification=.false.,pa_two=.false.
+  end type
   type :: linear_regression
     logical :: fit_intercept=.true.
     real(dp), allocatable :: coef_(:)
@@ -58,6 +64,27 @@ module sklearn_linear_model
     procedure :: decision_function=>perceptron_decision
     procedure :: predict=>perceptron_predict
     procedure :: score=>perceptron_score
+  end type
+  type :: passive_aggressive_classifier
+    real(dp) :: c=1,tol=1.e-3_dp,t_=1
+    integer :: max_iter=1000,n_iter_no_change=5,average=0,random_state=0,n_iter_=0
+    character(16) :: loss='hinge'
+    logical :: fit_intercept=.true.,shuffle=.true.,class_weight_balanced=.false.,converged_=.false.
+    integer, allocatable :: classes_(:),n_iter_per_class_(:)
+    real(dp), allocatable :: coef_(:,:),intercept_(:),loss_(:)
+  contains
+    procedure :: fit=>pa_classifier_fit
+    procedure :: decision_function=>pa_classifier_decision
+    procedure :: predict=>pa_classifier_predict
+    procedure :: score=>pa_classifier_score
+  end type
+  type, extends(linear_regression) :: passive_aggressive_regressor
+    real(dp) :: c=1,tol=1.e-3_dp,epsilon=0.1_dp,t_=1,loss_=0
+    integer :: max_iter=1000,n_iter_no_change=5,average=0,random_state=0,n_iter_=0
+    character(32) :: loss='epsilon_insensitive'
+    logical :: shuffle=.true.,converged_=.false.
+  contains
+    procedure :: fit=>pa_regressor_fit
   end type
   type, extends(linear_regression) :: bayesian_ridge
     integer :: max_iter=300,n_iter_=0
@@ -131,6 +158,189 @@ module sklearn_linear_model
     procedure :: fit=>gamma_fit
   end type
 contains
+  ! sklearn 1.6.1 linear_model/_passive_aggressive.py, _stochastic_gradient.py
+  ! and _sgd_fast.pyx.tp. Retained BSD terms: LICENSES/scikit-learn-COPYING.
+  function pa_settings(c,tol,max_iter,patience,average,shuffle,fit_intercept) result(options)
+    real(dp), intent(in) :: c,tol
+    integer, intent(in) :: max_iter,patience,average
+    logical, intent(in) :: shuffle,fit_intercept
+    type(pa_config) :: options
+    call require(all(ieee_is_finite([c,tol])),'nonfinite passive-aggressive controls')
+    call require(c>0,'passive-aggressive C must be positive')
+    call require(tol>=0.or.tol== -1,'passive-aggressive tol must be nonnegative or -1')
+    call require(max_iter>0.and.patience>0,'invalid passive-aggressive iteration controls')
+    call require(average>=0,'passive-aggressive average must be nonnegative')
+    options%c=c; options%tol=tol; options%max_iter=max_iter; options%n_iter_no_change=patience
+    options%average=average; options%shuffle=shuffle; options%fit_intercept=fit_intercept
+  end function
+
+  subroutine pa_run(x,y,options,weight_pos,weight_neg,coef,intercept,n_iter,converged,last_loss)
+    real(dp), intent(in) :: x(:,:),y(:),weight_pos,weight_neg
+    type(pa_config), intent(in) :: options
+    real(dp), intent(out) :: coef(:),intercept,last_loss
+    integer, intent(out) :: n_iter
+    logical, intent(out) :: converged
+    real(dp) :: current(size(coef)),average_coef(size(coef)),bias,average_bias,prediction,loss,update,norm
+    real(dp) :: sumloss,best_loss,coin,seen,average_count
+    integer :: order(size(y)),i,j,it,pick,tmp,stale,n
+    n=size(y); current=0; average_coef=0; bias=0; average_bias=0
+    best_loss=huge(1._dp); stale=0; seen=1; converged=.false.; order=[(i,i=1,n)]
+    do it=1,options%max_iter
+      if(options%shuffle) then
+        do j=n,2,-1
+          call random_number(coin); pick=min(j,1+int(coin*j))
+          tmp=order(j); order(j)=order(pick); order(pick)=tmp
+        end do
+      end if
+      sumloss=0
+      do j=1,n
+        i=order(j); prediction=dot_product(current,x(i,:))+bias
+        if(options%classification) then
+          loss=max(0._dp,1-y(i)*prediction)
+        else
+          loss=max(0._dp,abs(y(i)-prediction)-options%epsilon)
+        end if
+        sumloss=sumloss+loss; norm=sum(x(i,:)**2)
+        if(options%pa_two) then
+          update=loss/(norm+0.5_dp/options%c)
+        else
+          ! sklearn PA-I skips zero-norm rows, including intercept/averaging.
+          if(norm==0) cycle
+          update=min(options%c,loss/norm)
+        end if
+        if(options%classification) then
+          update=update*y(i)
+        else
+          if(y(i)-prediction<0) update=-update
+        end if
+        if(y(i)>0) then
+          update=update*weight_pos
+        else
+          update=update*weight_neg
+        end if
+        current=current+update*x(i,:)
+        if(options%fit_intercept) bias=bias+update
+        if(options%average>0.and.seen>=options%average) then
+          average_count=seen-options%average+1
+          average_coef=average_coef+(current-average_coef)/average_count
+          average_bias=average_bias+(bias-average_bias)/average_count
+        end if
+        seen=seen+1
+      end do
+      call require(all(ieee_is_finite(current)).and.ieee_is_finite(bias), &
+        'passive-aggressive fit overflow; scale the inputs')
+      if(options%tol>=0) then
+        if(sumloss>best_loss-options%tol*n) then
+          stale=stale+1
+        else
+          stale=0
+        end if
+      end if
+      best_loss=min(best_loss,sumloss)
+      if(stale>=options%n_iter_no_change) then
+        converged=.true.; exit
+      end if
+    end do
+    n_iter=min(it,options%max_iter); last_loss=sumloss/n; coef=current; intercept=bias
+    ! The public averaging selection uses epoch sample counts, as sklearn does.
+    if(options%average>0.and.real(options%average,dp)<=real(n_iter,dp)*n) then
+      coef=average_coef; intercept=average_bias
+    end if
+  end subroutine
+
+  subroutine pa_regressor_fit(self,x,y)
+    class(passive_aggressive_regressor), intent(inout) :: self
+    real(dp), intent(in) :: x(:,:),y(:)
+    type(pa_config) :: options
+    call check_xy(x,size(y)); call check_x(reshape(y,[size(y),1]))
+    options=pa_settings(self%c,self%tol,self%max_iter,self%n_iter_no_change,self%average,self%shuffle,self%fit_intercept)
+    call require(ieee_is_finite(self%epsilon),'nonfinite passive-aggressive epsilon')
+    call require(self%epsilon>=0,'passive-aggressive epsilon must be nonnegative')
+    call require(self%loss=='epsilon_insensitive'.or.self%loss=='squared_epsilon_insensitive', &
+      'invalid passive-aggressive regression loss')
+    options%epsilon=self%epsilon; options%pa_two=self%loss=='squared_epsilon_insensitive'
+    if(self%shuffle) call seed_rng(self%random_state)
+    self%coef_=spread(0._dp,1,size(x,2))
+    call pa_run(x,y,options,1._dp,1._dp,self%coef_,self%intercept_,self%n_iter_,self%converged_,self%loss_)
+    self%t_=1+real(self%n_iter_,dp)*size(y); self%rank_=0
+  end subroutine
+
+  subroutine pa_classifier_fit(self,x,y)
+    class(passive_aggressive_classifier), intent(inout) :: self
+    real(dp), intent(in) :: x(:,:)
+    integer, intent(in) :: y(:)
+    type(pa_config) :: options
+    real(dp) :: target(size(y)),positive_weight,negative_weight
+    real(dp), allocatable :: weights(:)
+    integer :: k,heads,j,positive
+    logical :: converged
+    call check_xy(x,size(y))
+    options=pa_settings(self%c,self%tol,self%max_iter,self%n_iter_no_change,self%average,self%shuffle,self%fit_intercept)
+    call require(self%loss=='hinge'.or.self%loss=='squared_hinge','invalid passive-aggressive classification loss')
+    self%classes_=unique_labels(y); k=size(self%classes_)
+    call require(k>=2,'passive-aggressive classification requires at least two classes')
+    heads=k; if(k==2) heads=1
+    if(allocated(self%coef_)) deallocate(self%coef_,self%intercept_,self%n_iter_per_class_,self%loss_)
+    allocate(self%coef_(heads,size(x,2)),self%intercept_(heads),self%n_iter_per_class_(heads),self%loss_(heads))
+    options%classification=.true.; options%pa_two=self%loss=='squared_hinge'
+    weights=spread(1._dp,1,k)
+    if(self%class_weight_balanced) then
+      do j=1,k
+        weights(j)=real(size(y),dp)/(real(k,dp)*count(y==self%classes_(j)))
+      end do
+    end if
+    if(self%shuffle) call seed_rng(self%random_state)
+    self%converged_=.true.
+    do j=1,heads
+      positive=j; if(k==2) positive=2
+      target=merge(1._dp,-1._dp,y==self%classes_(positive))
+      positive_weight=weights(positive); negative_weight=1
+      if(k==2) negative_weight=weights(1)
+      call pa_run(x,target,options,positive_weight,negative_weight,self%coef_(j,:),self%intercept_(j), &
+        self%n_iter_per_class_(j),converged,self%loss_(j))
+      self%converged_=self%converged_.and.converged
+    end do
+    self%n_iter_=maxval(self%n_iter_per_class_); self%t_=1+real(self%n_iter_,dp)*size(y)
+    if(self%average>0.and.real(self%average,dp)<=self%t_-1) then
+      do j=1,heads
+        if(real(self%average,dp)>real(self%n_iter_per_class_(j),dp)*size(y)) then
+          self%coef_(j,:)=0; self%intercept_(j)=0
+        end if
+      end do
+    end if
+  end subroutine
+
+  function pa_classifier_decision(self,x) result(z)
+    class(passive_aggressive_classifier), intent(in) :: self
+    real(dp), intent(in) :: x(:,:)
+    real(dp), allocatable :: z(:,:)
+    call require(allocated(self%coef_),'passive-aggressive classifier is not fitted')
+    call check_xy(transpose(x),size(self%coef_,2))
+    z=matmul(x,transpose(self%coef_))+spread(self%intercept_,1,size(x,1))
+  end function
+
+  function pa_classifier_predict(self,x) result(y)
+    class(passive_aggressive_classifier), intent(in) :: self
+    real(dp), intent(in) :: x(:,:)
+    integer :: y(size(x,1)),i
+    real(dp), allocatable :: z(:,:)
+    z=self%decision_function(x)
+    if(size(self%classes_)==2) then
+      y=merge(self%classes_(2),self%classes_(1),z(:,1)>0)
+    else
+      do i=1,size(y)
+        y(i)=self%classes_(maxloc(z(i,:),dim=1))
+      end do
+    end if
+  end function
+
+  real(dp) function pa_classifier_score(self,x,y) result(value)
+    class(passive_aggressive_classifier), intent(in) :: self
+    real(dp), intent(in) :: x(:,:)
+    integer, intent(in) :: y(:)
+    value=accuracy_score(y,self%predict(x))
+  end function
+
   ! sklearn 1.6.1 linear_model/_theil_sen.py, BSD-3-Clause.
   ! See LICENSES/scikit-learn-COPYING and THIRD_PARTY_NOTICES.md.
   subroutine theil_spatial_median(weights,max_iter,tol,center,n_iter,converged)
