@@ -962,3 +962,23 @@ feature. Inspect converged_, n_iter_, objective_ and gradient_norm_;
 classification diagnostics are per-channel where applicable. LinearSVR uses
 squared_epsilon_insensitive loss, including at its default epsilon=0. See
 COVERAGE.md for multiclass weighting, stopping and supported solver limits.
+
+
+## Streaming principal components
+
+```fortran
+use sklearn, only: dp, incremental_pca
+type(incremental_pca) :: model
+real(dp), allocatable :: x(:,:), z(:,:), reconstructed(:,:)
+! Populate x with finite data; the initial batch needs at least two rows.
+model%n_components = 2
+call model%partial_fit(x(:10,:))
+call model%partial_fit(x(11:,:))
+z = model%transform(x)
+reconstructed = model%inverse_transform(z)
+! Alternatively: model%batch_size=10; call model%fit(x)
+```
+
+`fit` resets previous state. `partial_fit` preserves running mean/variance and
+updates the retained basis. Set `whiten=.true.` for variance-scaled coordinates.
+See COVERAGE.md for initialization, batch boundaries and numerical limits.

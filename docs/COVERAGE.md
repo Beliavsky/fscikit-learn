@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 116 public estimator, transformer, and splitter types. Each is a
+There are 117 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Twenty-seven reference suites additionally check 7,856 result
+All types have native tests. Twenty-eight reference suites additionally check 8,120 result
 groups in total across seeded datasets against installed scikit-learn 1.6.1.
 
 This document counts core scikit-learn counterparts. Public extensions are
@@ -27,7 +27,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb`, `categorical_nb` | Empirical class priors, variance smoothing, strictly positive scalar alpha; Bernoulli threshold; optional complement normalization |
 | neighbors | `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with optional shrinkage and uniform priors; Euclidean kernel density |
 | cluster | `kmeans`, `dbscan`, `agglomerative_clustering`, `mean_shift`, `affinity_propagation`, `spectral_clustering`, `optics`, `birch`; `estimate_bandwidth`, `cluster_optics_dbscan`, `cluster_optics_xi` | Lloyd/k-means++; density expansion; single/complete/average/Ward merge trees; flat-kernel mode seeking; damped exemplar messages; normalized-Laplacian clustering with k-means or pivoted QR assignment; OPTICS reachability ordering, Xi hierarchy and DBSCAN extraction; BIRCH streaming CF tree and optional Ward clustering |
-| decomposition | `pca`, `truncated_svd`, `nmf`; re-exports `kernel_pca`, `factor_analysis`, `fast_ica` | Direct Jacobi SVD; PCA whitening and inversion; exact dense SVD; NMF multiplicative updates; nonlinear kernel PCA; unrotated full-SVD factor analysis; parallel/deflation ICA |
+| decomposition | `pca`, `incremental_pca`, `truncated_svd`, `nmf`; re-exports `kernel_pca`, `factor_analysis`, `fast_ica` | Direct Jacobi SVD; PCA whitening and inversion; streaming stacked-SVD IncrementalPCA; exact dense SVD; NMF multiplicative updates; nonlinear kernel PCA; unrotated full-SVD factor analysis; parallel/deflation ICA |
 | cross_decomposition | `pls_regression`, `pls_canonical`, `cca`, `pls_svd` | Paired-matrix latent components: NIPALS regression/canonical deflation, CCA pseudoinverse mode, canonical direct SVD and PLSSVD cross-covariance projection; multiple response columns |
 | isotonic | `isotonic_regression`; `isotonic_fit`, `check_increasing` | Weighted pool-adjacent-violators, automatic Spearman direction, bounds, repeated-input aggregation and piecewise linear interpolation |
 | kernel_approximation | `rbf_sampler`, `nystroem`, `additive_chi2_sampler`, `skewed_chi2_sampler` | Random Fourier RBF maps; sampled-landmark inverse-square-root maps for RBF/linear/polynomial/cosine kernels; additive and skewed chi2 feature maps |
@@ -1148,3 +1148,40 @@ Dense feature-space Hessians favor moderate feature counts. The types are
 re-exported through sklearn_svm and sklearn. Inventory: 116 core types in
 49 source modules. No runtime dependency or public algorithm extension was
 added. Original contributions remain MIT with sklearn/LIBLINEAR BSD notices.
+
+
+## Incremental principal components
+
+`incremental_pca` follows sklearn 1.6.1 IncrementalPCA's stacked-SVD update:
+previous singular values times components, centered new rows and a running-mean
+correction row. Population variance and mean are updated with the parallel
+variance formula, while explained variance uses n_samples_seen_-1. This retains
+only the selected old components, so truncated streaming fits depend on batch
+boundaries. Full-rank updates reproduce ordinary PCA up to roundoff.
+
+Methods are fit, partial_fit, transform, inverse_transform and fit_transform.
+n_components=0 selects min(first_batch_rows,n_features); positive values fix the
+rank. batch_size=0 selects 5*n_features for fit; positive values set its batches.
+fit merges a short final batch when an explicit component count requires it,
+and resets prior fitted state. partial_fit processes the supplied array as one
+batch, ignores batch_size and permits single-row updates after initialization.
+The first batch must contain at least two rows and at least n_components rows.
+Changing feature width or component count between updates is rejected.
+
+whiten defaults false. With whitening, transforms divide by square roots of
+explained variance, floored at machine epsilon; inverse_transform restores the
+scale. Components use the largest absolute loading as a positive sign anchor,
+as in sklearn's right-vector sign convention. Attributes include components_,
+mean_, var_, singular_values_, explained_variance_, explained_variance_ratio_,
+noise_variance_, n_samples_seen_, n_features_in_, n_components_ and batch_size_
+(the latter records fit's resolved batch size). noise_variance_ follows sklearn's
+per-update discarded singular-value average, including its dependence on the
+current batch size. Constant data returns zero variance ratios instead of NaNs.
+
+Scope: dense finite real64 input, native Jacobi SVD, no sparse arrays, sample
+weights, score/covariance helpers or automatic variance-fraction rank selection.
+Memory includes dense feature-square SVD vectors, so this port favors moderate
+feature counts. Re-exported through sklearn_decomposition and sklearn. Inventory:
+117 core types in 50 source modules and 48 native test programs. No public
+extension or runtime dependency was added. Original contributions remain MIT
+with sklearn's BSD notice retained.

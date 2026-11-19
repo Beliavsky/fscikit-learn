@@ -5,6 +5,22 @@ import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 CASES = {
+    "ipca_components": "invalid IncrementalPCA n_components",
+    "ipca_large": "invalid IncrementalPCA n_components",
+    "ipca_batch": "IncrementalPCA batch_size must be nonnegative",
+    "ipca_first": "IncrementalPCA first batch needs at least two samples",
+    "ipca_small": "IncrementalPCA first batch needs at least two samples",
+    "ipca_empty": "X must be nonempty",
+    "ipca_nan": "X contains NaN or infinity",
+    "ipca_features": "IncrementalPCA feature count mismatch",
+    "ipca_changed": "IncrementalPCA component count changed",
+    "ipca_unfitted": "IncrementalPCA is not fitted",
+    "ipca_inverse_unfitted": "IncrementalPCA is not fitted",
+    "ipca_query": "IncrementalPCA feature count mismatch",
+    "ipca_inverse": "IncrementalPCA component width mismatch",
+    "ipca_query_nan": "X contains NaN or infinity",
+    "ipca_first_rank": "IncrementalPCA first batch is smaller than n_components",
+
     "lsvc_c": "linear SVM C must be positive",
     "lsvc_nan_c": "nonfinite linear SVM C",
     "lsvc_tol": "linear SVM tolerance must be positive",

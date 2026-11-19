@@ -3,6 +3,7 @@ program invalid_input_driver
   use sklearn
   use, intrinsic :: ieee_arithmetic, only: ieee_value,ieee_quiet_nan,ieee_positive_inf
   implicit none
+  type(incremental_pca) :: ipca
   type(linear_svc) :: lsvc
   type(linear_svr) :: lsvr
   type(spline_transformer) :: spl
@@ -88,6 +89,38 @@ program invalid_input_driver
   mt_y=1
   x=1; y=1; call get_command_argument(1,mode)
   select case(trim(mode))
+  case('ipca_components')
+    ipca%n_components=-1; call ipca%fit(x)
+  case('ipca_large')
+    ipca%n_components=3; call ipca%fit(x)
+  case('ipca_batch')
+    ipca%batch_size=-1; call ipca%fit(x)
+  case('ipca_first')
+    call ipca%partial_fit(x(:1,:))
+  case('ipca_small')
+    ipca%n_components=2; ipca%batch_size=1; call ipca%fit(x)
+  case('ipca_empty')
+    call ipca%fit(x(:0,:))
+  case('ipca_nan')
+    x(1,1)=ieee_value(0._dp,ieee_quiet_nan); call ipca%fit(x)
+  case('ipca_features')
+    call ipca%partial_fit(x); call ipca%partial_fit(x(:,:1))
+  case('ipca_changed')
+    ipca%n_components=1; call ipca%partial_fit(x)
+    ipca%n_components=2; call ipca%partial_fit(x)
+  case('ipca_unfitted')
+    z=ipca%transform(x)
+  case('ipca_inverse_unfitted')
+    z=ipca%inverse_transform(x)
+  case('ipca_query')
+    call ipca%fit(x); z=ipca%transform(x(:,:1))
+  case('ipca_inverse')
+    ipca%n_components=1; call ipca%fit(x); z=ipca%inverse_transform(x)
+  case('ipca_query_nan')
+    call ipca%fit(x); x(1,1)=ieee_value(0._dp,ieee_quiet_nan); z=ipca%transform(x)
+  case('ipca_first_rank')
+    ipca%n_components=3; call ipca%partial_fit(transpose(x))
+
   case('lsvc_c')
     labels=[-3,-3,9,9]
     lsvc%c=0; call lsvc%fit(x,labels)

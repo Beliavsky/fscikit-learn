@@ -940,3 +940,31 @@ The checked linear_support_vectors example returned classification accuracy 1
 and regression predictions approximately [-3.809524,-1.904762,1.904762,3.809524].
 Python syntax, Fortran line-length/whitespace, git diff and byte-identical
 LIBLINEAR notice checks passed.
+
+
+## IncrementalPCA
+
+Added incremental_pca with batched fit, streaming partial_fit, transform,
+inverse_transform and fit_transform. Native tests cover full-rank agreement
+with PCA, mean/population variance, whitening, reconstruction, single-row
+updates, fit reset and constant-data ratios. The Python reference suite checks
+264 result groups (eight configurations on three seeded datasets), including
+components, moments, singular values, variance/ratios, noise estimates,
+transforms, reconstruction and fitted shape. Tolerances are atol=rtol=3e-8.
+Configurations include default/explicit batches, rank truncation, full rank,
+automatic rank, whitening and externally supplied batches with single-row updates.
+
+Fifteen new invalid-input cases cover control values, first-batch size, changing
+state dimensions, nonfinite/empty inputs, query shapes and unfitted methods
+(537 total cases). See COVERAGE.md for dense-SVD scope and intentional finite
+constant-data handling. Attribution points to sklearn 1.6.1's incremental PCA
+implementation; original contributions remain MIT. Inventory: 117 core types,
+50 source modules, 48 native test programs and 28 reference suites (8,120 groups).
+
+
+Final validation: all 48 native test programs passed with runtime checks and
+floating-point traps (-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow)
+and in release mode. All 264 reference result groups and 537 isolated
+invalid-input cases passed. The checked streaming_pca example processed six
+samples and returned a leading explained-variance ratio of 1 within roundoff.
+Python syntax, Fortran formatting and git diff checks passed.
