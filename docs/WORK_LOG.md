@@ -551,3 +551,50 @@ producing expected uniform ranks, finite normal scores and exact recovery of
 its input data. Python syntax, Fortran line-length/whitespace, inventory and
 staged diff checks passed. The 252 new reference groups passed; prior reference
 suites were not rerun. MIT licensing and sklearn BSD notices are retained.
+
+
+## Chi-squared kernel feature maps
+
+Added additive_chi2_sampler and skewed_chi2_sampler to
+sklearn_kernel_approximation and the sklearn facade. Implemented regular
+harmonic features with stable log amplitudes, zero handling and stateless
+transformation, plus hyperbolic-secant random weights, phase offsets and
+stable shifted-log features. Included native accuracy properties, controlled
+sklearn sampling comparisons, diagnostics, example and supported-limit docs.
+Original contributions remain MIT with sklearn BSD attribution retained.
+No runtime dependency or public extension was added. Core inventory:
+104 types in 42 source modules.
+
+
+## Additive and skewed chi2 samplers
+
+`python validation/compare_chi2_samplers.py` passes 204 result groups against
+sklearn 1.6.1 on three seeded datasets. Eight additive configurations cover
+default intervals for steps 1..3, explicit intervals and larger step counts,
+zero interval, large interval and zero-valued entries. Six skewed configurations
+cover positive/zero/negative skew, one and many components, and negative input
+values within the shifted domain. Compared outputs include training/query
+features, feature Gram matrices, dimensions and the skewed weights/offsets.
+All outputs use atol=rtol=3e-12. Raw native uniform draws are supplied to
+sklearn's full skewed fit via a controlled random-state object, independently
+checking inverse-CDF sampling as well as transform algebra. The raw draws are
+range-checked and are not counted as comparison groups. NumPy and Fortran RNG
+streams are intentionally not equated. The nineteen-suite inventory is now
+5,222 result groups; unchanged older reference suites were not rerun.
+
+Native properties independently check the analytic first additive block,
+stateless transformation, zeros, dimensions, zero/large intervals, positive
+additive-kernel approximation, multiplicative skewed-kernel approximation,
+feature scaling bounds, known weights/offsets, seeded reproducibility, and
+skewed fit's dependence on dimensions rather than training values. The input
+harness adds 22 control/state/shape/domain checks (318 total), including an
+output-width overflow guard. `chi2_kernel_features` demonstrates both maps.
+
+
+All 39 native test programs passed checked builds with bounds/backtrace and
+invalid/zero/overflow traps, and optimized release builds. All 318 isolated
+input rejection cases passed. The checked `chi2_kernel_features` example
+passed, showing additive feature dimensions and a skewed-kernel Gram matrix.
+Python syntax, Fortran formatting, inventory and staged diff checks passed.
+The 204 new sklearn comparison groups passed; older reference suites were not
+rerun. MIT licensing and sklearn BSD notices are retained.

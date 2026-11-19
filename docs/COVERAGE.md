@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 102 public estimator, transformer, and splitter types. Each is a
+There are 104 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Eighteen reference suites additionally check 5,018 result
+All types have native tests. Nineteen reference suites additionally check 5,222 result
 groups in total across seeded datasets against installed scikit-learn 1.6.1.
 
 This document counts core scikit-learn counterparts. Public extensions are
@@ -30,7 +30,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | decomposition | `pca`, `truncated_svd`, `nmf`; re-exports `kernel_pca`, `factor_analysis`, `fast_ica` | Direct Jacobi SVD; PCA whitening and inversion; exact dense SVD; NMF multiplicative updates; nonlinear kernel PCA; unrotated full-SVD factor analysis; parallel/deflation ICA |
 | cross_decomposition | `pls_regression`, `pls_canonical`, `cca`, `pls_svd` | Paired-matrix latent components: NIPALS regression/canonical deflation, CCA pseudoinverse mode, canonical direct SVD and PLSSVD cross-covariance projection; multiple response columns |
 | isotonic | `isotonic_regression`; `isotonic_fit`, `check_increasing` | Weighted pool-adjacent-violators, automatic Spearman direction, bounds, repeated-input aggregation and piecewise linear interpolation |
-| kernel_approximation | `rbf_sampler`, `nystroem` | Random Fourier RBF maps; sampled-landmark inverse-square-root maps for RBF/linear/polynomial/cosine kernels |
+| kernel_approximation | `rbf_sampler`, `nystroem`, `additive_chi2_sampler`, `skewed_chi2_sampler` | Random Fourier RBF maps; sampled-landmark inverse-square-root maps for RBF/linear/polynomial/cosine kernels; additive and skewed chi2 feature maps |
 | random_projection | `gaussian_random_projection`, `sparse_random_projection`; `johnson_lindenstrauss_min_dim` | Gaussian/three-point random matrices, dense storage, automatic JL dimension, cached or on-demand pseudoinverse |
 | kernel_pca | `kernel_pca` | Centered linear/RBF/polynomial/sigmoid/cosine/precomputed Gram matrices; dense Jacobi eigensolver; out-of-sample transform |
 | manifold | `isomap`; re-exports `spectral_embedding`, `mds`, `locally_linear_embedding` | Isomap graph paths; spectral embedding; metric/nonmetric SMACOF; dense standard LLE and LTSA with barycentric query transforms |
@@ -731,3 +731,41 @@ or incremental fitting. Percentile fitting sorts each sampled column; storage
 includes a full row-index array, sampled columns and the quantile table. This addition brings
 the package to 102 core types in 42 source modules, with no new dependencies or
 public extensions.
+
+
+## Chi-squared kernel feature maps
+
+`additive_chi2_sampler` implements sklearn's regular-frequency approximation
+to the positive additive kernel sum_j 2*x_j*y_j/(x_j+y_j), with a zero term
+when both entries are zero. This differs from the negative chi-squared
+distance returned by sklearn's pairwise `additive_chi2_kernel`. Input must be
+finite and nonnegative. Output columns are the entire square-root block,
+then each frequency's cosine block followed by its sine block; width is
+n_features*(2*sample_steps-1). Zero inputs map to zero. Log-scaled harmonic
+amplitudes avoid cosh overflow for large intervals.
+
+`sample_interval=-1` selects sklearn's defaults: .8, .5 and .4 for one, two
+and three sample steps. Other step counts require an explicit nonnegative
+interval; zero gives an all-zero map. `transform` is stateless and can run
+before `fit`. `fit` records n_features_in_ and subsequent transforms enforce
+that feature count. Current sampling controls are checked on every call.
+
+`skewed_chi2_sampler` samples hyperbolic-secant random weights and uniform
+phase offsets, then maps log(X+skewedness) with scaled cosine features.
+Its kernel is the product over features of
+2*sqrt((x_j+c)*(y_j+c))/(x_j+y_j+2*c), where c is skewedness. Any finite
+skewedness (including zero/negative) is supported when each transformed entry
+is strictly greater than -skewedness. Fit validates finite data and draws the
+map from its feature count; domain validation is performed by transform.
+A stable positive log-sum avoids overflow in X+skewedness. A possible zero
+uniform draw is clipped to the smallest positive normal value before taking
+the inverse CDF. n_components must be positive; output width is n_components.
+
+Both expose fit, transform and fit_transform. Fitted skewed-map arrays are
+random_weights_(n_features,n_components) and random_offset_(n_components).
+Native random draws repeat for a fixed seed/compiler and differ from NumPy;
+reference checks supply identical native uniform draws to sklearn's full
+fit, independently checking its sampling formula and feature algebra.
+Dense real64 input only: no sparse arrays, NaN/infinity, feature names or
+incremental updates. No public extensions or dependencies were added. The
+package now has 104 core types in 42 source modules.

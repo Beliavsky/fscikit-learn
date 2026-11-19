@@ -446,3 +446,28 @@ single-quantile tables, monotonicity and seeded native subsampling. Native
 random selections are not equated to NumPy selections. The rejection harness
 adds 14 control/state/shape/infinity cases (296 total). `quantile_transform`
 demonstrates uniform and normal scores and recovery of the original data.
+
+
+## Additive and skewed chi2 samplers
+
+`python validation/compare_chi2_samplers.py` passes 204 result groups against
+sklearn 1.6.1 on three seeded datasets. Eight additive configurations cover
+default intervals for steps 1..3, explicit intervals and larger step counts,
+zero interval, large interval and zero-valued entries. Six skewed configurations
+cover positive/zero/negative skew, one and many components, and negative input
+values within the shifted domain. Compared outputs include training/query
+features, feature Gram matrices, dimensions and the skewed weights/offsets.
+All outputs use atol=rtol=3e-12. Raw native uniform draws are supplied to
+sklearn's full skewed fit via a controlled random-state object, independently
+checking inverse-CDF sampling as well as transform algebra. The raw draws are
+range-checked and are not counted as comparison groups. NumPy and Fortran RNG
+streams are intentionally not equated. The nineteen-suite inventory is now
+5,222 result groups; unchanged older reference suites were not rerun.
+
+Native properties independently check the analytic first additive block,
+stateless transformation, zeros, dimensions, zero/large intervals, positive
+additive-kernel approximation, multiplicative skewed-kernel approximation,
+feature scaling bounds, known weights/offsets, seeded reproducibility, and
+skewed fit's dependence on dimensions rather than training values. The input
+harness adds 22 control/state/shape/domain checks (318 total), including an
+output-width overflow guard. `chi2_kernel_features` demonstrates both maps.

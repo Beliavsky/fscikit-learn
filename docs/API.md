@@ -712,3 +712,32 @@ are clipped to finite tails, and out-of-range inverse values saturate at
 learned endpoints. `output_distribution` may switch between uniform and
 normal after fit because the learned percentile tables are distribution
 independent. See COVERAGE.md for boundary and subsampling conventions.
+
+
+## Chi-squared kernel feature maps
+
+```fortran
+use sklearn, only: dp,additive_chi2_sampler,skewed_chi2_sampler
+implicit none
+type(additive_chi2_sampler) :: additive
+type(skewed_chi2_sampler) :: skewed
+real(dp) :: x(3,2)
+real(dp), allocatable :: z(:,:)
+x(1,:)=[0._dp,1._dp]
+x(2,:)=[1._dp,2._dp]
+x(3,:)=[2._dp,0._dp]
+additive%sample_steps=3
+z=additive%fit_transform(x) ! 3 rows, 10 columns.
+skewed%skewedness=.5_dp
+skewed%n_components=100
+skewed%random_state=42
+z=skewed%fit_transform(x) ! 3 rows, 100 columns.
+```
+
+Both provide fit, transform and fit_transform and record n_features_in_.
+The additive map also permits transform before fit. Its sample_interval=-1
+selects defaults for sample_steps in 1..3; other counts need an explicit
+nonnegative interval. Inputs must be nonnegative. The skewed map stores
+random_weights_ and random_offset_; transform requires X > -skewedness.
+Finite zero/negative skewedness is allowed on that shifted domain. See
+COVERAGE.md for output column ordering, kernel definitions and RNG conventions.

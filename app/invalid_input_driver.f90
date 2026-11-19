@@ -3,6 +3,8 @@ program invalid_input_driver
   use sklearn
   use, intrinsic :: ieee_arithmetic, only: ieee_value,ieee_quiet_nan,ieee_positive_inf
   implicit none
+  type(additive_chi2_sampler) :: add_chi
+  type(skewed_chi2_sampler) :: skew_chi
   type(quantile_transformer) :: qt
   type(birch) :: model_birch
   type(optics) :: model
@@ -69,6 +71,54 @@ program invalid_input_driver
   character(32) :: mode
   x=1; y=1; call get_command_argument(1,mode)
   select case(trim(mode))
+  case('additive_steps')
+    add_chi%sample_steps=0; call add_chi%fit(x)
+  case('additive_interval')
+    add_chi%sample_interval=-2; call add_chi%fit(x)
+  case('additive_nan_interval')
+    add_chi%sample_interval=ieee_value(0._dp,ieee_quiet_nan); &
+    call add_chi%fit(x)
+  case('additive_missing_interval')
+    add_chi%sample_steps=4; call add_chi%fit(x)
+  case('additive_negative_fit')
+    call add_chi%fit(-x)
+  case('additive_negative_transform')
+    z=add_chi%transform(-x)
+  case('additive_features')
+    call add_chi%fit(x); z=add_chi%transform(x(:,:1))
+  case('additive_empty')
+    call add_chi%fit(x(:0,:))
+  case('additive_nan_input')
+    x(1,1)=ieee_value(0._dp,ieee_quiet_nan); call add_chi%fit(x)
+  case('additive_output_overflow')
+    add_chi%sample_steps=huge(1); add_chi%sample_interval=0; &
+    z=add_chi%transform(x)
+  case('skewed_components')
+    skew_chi%n_components=0; call skew_chi%fit(x)
+  case('skewed_nan')
+    skew_chi%skewedness=ieee_value(0._dp,ieee_quiet_nan); call skew_chi%fit(x)
+  case('skewed_unfitted')
+    z=skew_chi%transform(x)
+  case('skewed_features')
+    call skew_chi%fit(x); z=skew_chi%transform(x(:,:1))
+  case('skewed_domain_equal')
+    call skew_chi%fit(-x); z=skew_chi%transform(-x)
+  case('skewed_domain_below')
+    call skew_chi%fit(x); z=skew_chi%transform(-2*x)
+  case('skewed_inf')
+    x(1,1)=ieee_value(0._dp,ieee_positive_inf); call skew_chi%fit(x)
+  case('skewed_nan_input')
+    x(1,1)=ieee_value(0._dp,ieee_quiet_nan); call skew_chi%fit(x)
+  case('skewed_empty_fit')
+    call skew_chi%fit(x(:0,:))
+  case('skewed_empty_query')
+    call skew_chi%fit(x); z=skew_chi%transform(x(:0,:))
+  case('skewed_changed_nan')
+    call skew_chi%fit(x); skew_chi%skewedness=ieee_value(0._dp,ieee_quiet_nan); &
+    z=skew_chi%transform(x)
+  case('skewed_negative_domain')
+    skew_chi%skewedness=-1; z=skew_chi%fit_transform(x)
+
   case('quantile_count')
     qt%n_quantiles=0; call qt%fit(x)
   case('quantile_subsample')
