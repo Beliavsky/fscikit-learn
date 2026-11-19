@@ -214,3 +214,49 @@ A nearly one-dimensional native fixture exposed constant-mode mixing in the
 full alignment eigensolve. LLE now solves in an explicit orthonormal basis
 perpendicular to constants, preserving centering when the first nonconstant
 eigenvalue is small; the sklearn reference fixtures retain the same geometry.
+
+## SVR, NuSVR and OneClassSVM addition (2026-11-18)
+
+Added `svr`, `nu_svr`, and `one_class_svm`, bringing coverage to 93 core types
+in 38 source modules. The native pairwise dual solvers support sample weights,
+PSD linear/RBF/polynomial/precomputed kernels, gamma rules, regression and
+novelty scores. Fitted KKT diagnostics expose convergence. No new algorithm
+extensions or runtime dependencies were added. Original contributions remain
+MIT; sklearn and bundled LIBSVM BSD-3-Clause notices are retained, including
+`LICENSES/libsvm-COPYRIGHT`.
+
+`compare_kernel_svm.py` adds 318 sklearn 1.6.1 comparisons on three seeded
+datasets, bringing the ten-suite inventory to 3,013 result groups. Fixtures
+cover gamma scale/auto/numeric, weights including zero, four kernels, constants
+and empty-support regression. Predictions, scores, intercepts, offsets, gamma
+and linear coefficients use atol=rtol=3e-5; unique RBF duals use 2e-4 because
+LIBSVM caches kernel values in single precision. Nonunique linear/polynomial
+duals are checked through their primal decision functions instead. Original
+training-row indices are recovered from sklearn's zero-weight-filtered support
+indices before comparison.
+
+An origin-containing linear one-class fixture reached LIBSVM's iteration
+limit due to its float kernel cache. The numeric reference instead uses a
+nonzero linear boundary at the same tight solver tolerance; a native analytic
+check independently covers the zero-boundary case.
+
+All 30 native programs pass checked/FPE-trapping and release builds. New
+properties cover dual feasibility/mass, KKT complementarity, epsilon tubes,
+NuSVR/learned-epsilon SVR equivalence, precomputed kernels, removal of zero-weight
+observations, constant data, empty support, capped convergence status, known
+novelty classifications and the one-class offset convention. The diagnostic
+suite passes 156 isolated cases. `kernel_regression_outliers` also passes.
+Supported restrictions and numeric limits are recorded in `COVERAGE.md`.
+
+A fully bounded linear one-class dual can admit a threshold interval. The
+native solver chooses its midpoint, while LIBSVM can choose an endpoint when
+roundoff leaves a tiny free coefficient. Numeric linear reference fits use a
+fractional mass to determine a unique threshold; a native analytic saturated
+dual checks the midpoint convention. Threshold recovery uses relative bound
+tolerance, with a fallback for genuinely tiny free masses.
+
+A tight-tolerance symmetric-ring check motivated gain-based selection of the
+second dual coordinate and a feasible weighted interior start for OneClassSVM.
+The interior start preserves exact symmetry without relaxing the KKT stopping
+criterion. The maximum feasible gradient gap is checked independently and
+refreshed before reporting convergence.

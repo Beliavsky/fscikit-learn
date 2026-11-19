@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 90 public estimator, transformer, and splitter types. Each is a
+There are 93 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Nine reference suites additionally check 2,695 result
+All types have native tests. Ten reference suites additionally check 3,013 result
 groups in total across seeded datasets against installed scikit-learn 1.6.1.
 
 This document counts core scikit-learn counterparts. Public extensions are
@@ -46,7 +46,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | dummy | `dummy_classifier`, `dummy_regressor` | Prior/most-frequent/stratified/uniform/constant classification; mean/median/quantile/constant regression |
 | kernel_ridge | `kernel_ridge` | Positive alpha; linear/RBF/polynomial/sigmoid kernels; no intercept |
 | discriminant_analysis | `linear_discriminant_analysis`, `quadratic_discriminant_analysis` | LDA follows sklearn `solver='lsqr'` covariance convention with scalar shrinkage; QDA scalar regularization; singular covariance is rejected |
-| svm | `svc` | Deterministic two-coordinate SMO, one-vs-one multiclass voting, linear/RBF/polynomial/sigmoid kernels; no probability calibration |
+| svm | `svc`; re-exports `svr`, `nu_svr`, `one_class_svm` | OVO SVC; epsilon/nu support-vector regression and one-class detection; native pairwise dual optimization, weighted capacities and PSD kernels for the added models |
 | mixture | `gaussian_mixture` | EM with k-means initialization, full/tied/diag/spherical covariances; posterior, log likelihood, BIC/AIC |
 | neural_network | `mlp_classifier`, `mlp_regressor` | Arbitrary dense hidden layer sizes, relu/tanh/logistic/identity, full-batch Adam, softmax classification or squared-error regression, L2 regularization |
 | gaussian_process | `gaussian_process_regressor` | Fixed isotropic RBF amplitude/length scale plus white noise and diagonal alpha; Cholesky posterior, standard deviation/covariance, log marginal likelihood; optional target normalization |
@@ -227,10 +227,10 @@ distances; cosine similarity; linear, RBF, polynomial and sigmoid kernels.
 ## Remaining major scikit-learn areas
 
 Not translated: sparse data paths, general estimator base/clone/parameter search
-framework, pipelines/column transformers, full SVM family, Theil-Sen/quantile
+framework, pipelines/column transformers, NuSVC and linear SVM variants, Theil-Sen/quantile
 regression, remaining GLM variants, SGD families, histogram boosting, AdaBoost and bagging APIs,
 t-SNE and Hessian/modified LLE, OPTICS/BIRCH,
-outlier detection beyond LOF,
+outlier detection beyond LOF/OneClassSVM,
 Gaussian-process classification, dictionary learning,
 calibration, semi-supervised learning beyond label propagation/spreading,
 multiclass/multioutput wrappers,
@@ -394,3 +394,61 @@ Neighbor ties, disconnected graphs, unreferenced LTSA observations, or repeated
 alignment eigenvalues can make truncated embeddings nonunique across solvers.
 No Hessian/modified methods, ARPACK, sparse graph path or inverse transform is
 implemented.
+
+## Support-vector regression and one-class detection
+
+`svr`, `nu_svr`, and `one_class_svm` are available through `sklearn_svm` and
+the facade; their implementation module is `sklearn_kernel_svm`. They use native
+dense dual SMO with a most-violating first coordinate and gain-based second
+coordinate, independently of the existing SVC
+solver. All support `fit` with optional nonnegative `sample_weight`, requiring
+at least one positive weight. SVR/NuSVR take one finite continuous target vector
+and provide `predict` and R2 `score`. OneClassSVM takes only X and optional
+weights, with `predict`/`fit_predict` labels +1 for positive decision values and
+-1 otherwise; `score_samples` returns the unshifted kernel score.
+
+The added models support `linear`, `rbf` (default), `poly`/`polynomial`, and
+`precomputed` kernels. Precomputed training matrices must be square, symmetric
+and PSD within the numerical tolerance; queries have one column per original
+training sample. Polynomial degree and coef0 must be nonnegative. Callable,
+sigmoid and other indefinite kernels are unsupported. These constraints keep
+the dual problem convex. Inputs and Gram matrices are dense real64.
+
+`gamma=-1` (default) selects the string `gamma_rule`: `scale` (default) is
+1/(features * global training-entry variance), with a constant-data fallback of
+1; `auto` is 1/features. Numeric gamma >= 0 overrides the rule. Gamma scaling
+uses all input rows, including zero-weight rows, as in sklearn. `gamma_` stores
+the effective value (zero for precomputed kernels). The default C is 1 for
+both regression types, epsilon is 0.1 for SVR, and nu is 0.5 for NuSVR and
+OneClassSVM. NuSVR requires 0 < nu <= 1 and exposes its learned `epsilon_`.
+OneClassSVM requires 0 < nu < 1: the fully saturated endpoint with a nonunique
+threshold is not supported.
+
+Fitted state includes one-based original-row `support_`, `support_vectors_`,
+rank-one `dual_coef_`, scalar `intercept_`, and integer `n_support_`. Linear
+kernels also allocate the feature vector `coef_`; it is unallocated for other
+kernels. Precomputed kernels store an empty (0,0) support-vector matrix.
+Zero-weight observations keep their original indexing in this package;
+sklearn 1.6.1's dense wrapper reports support indices after dropping such rows.
+The reference harness maps those indices back before comparison.
+
+OneClassSVM's `offset_=-intercept_` and
+`decision_function(x)=score_samples(x)-offset_`. Its dual coefficients sum to
+nu times total sample weight, preserving LIBSVM's score normalization.
+SVR coefficients are differences of positive/negative dual variables, with
+zero total sum and per-row bounds +/- C*weight. NuSVR also constrains each
+signed dual group's mass to nu*sum(C*weight)/2. Large epsilon can leave an
+SVR with no support vectors; this produces a constant prediction.
+
+`tol=1e-3` and `max_iter=100000` control the optimizer. `n_iter_` counts native
+pair updates; it need not equal LIBSVM's iterations. `kkt_violation_` reports
+the final maximum feasible pair gradient gap. `converged_` and `fit_status_`
+(0 converged, 1 otherwise) report whether it meets tol; capped fits return an
+approximate model. Gradients are refreshed before reporting convergence. OneClassSVM starts with
+alpha=nu*weight, a feasible interior initialization that preserves symmetry.
+No shrinking, kernel cache, sparse path, unlimited-iteration sentinel, Python
+warning or probability-calibration APIs are supplied. Dual representations can
+be nonunique for linear/polynomial/rank-deficient kernels even when decision
+functions agree. A fully bounded one-class dual can also have a nonunique
+threshold; this implementation chooses the midpoint of the admissible interval.
+Parameters should be chosen for well-scaled finite arithmetic.

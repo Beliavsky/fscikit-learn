@@ -5,6 +5,18 @@ import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 CASES = {
+    "ksvm_c": "C must be positive", "svr_epsilon": "invalid SVR epsilon",
+    "ksvm_tolerance": "invalid kernel SVM tolerance", "ksvm_iterations": "max_iter must be positive",
+    "ksvm_kernel": "unsupported kernel SVM kernel", "ksvm_gamma": "invalid kernel SVM parameters",
+    "ksvm_gamma_rule": "invalid kernel SVM gamma rule", "ksvm_poly": "invalid kernel SVM parameters",
+    "ksvm_square": "precomputed matrix must be square", "ksvm_symmetry": "precomputed matrix must be symmetric",
+    "ksvm_indefinite": "positive semidefinite", "ksvm_features": "sample counts differ",
+    "ksvm_unfitted": "not fitted", "ksvm_targets": "sample counts differ",
+    "ksvm_weights": "invalid kernel SVM sample weights", "ksvm_zero_weights": "invalid kernel SVM sample weights",
+    "ksvm_weight_shape": "weight count mismatch", "nusvr_nu0": "invalid NuSVR nu",
+    "nusvr_nu_high": "invalid NuSVR nu", "oneclass_nu1": "requires 0 < nu < 1",
+    "oneclass_nu0": "requires 0 < nu < 1", "oneclass_unfitted": "not fitted",
+    "oneclass_weight_shape": "weight count mismatch", "ksvm_nan_c": "C must be positive",
     "mds_components": "invalid MDS iteration/dimension controls",
     "mds_restarts": "invalid MDS iteration/dimension controls",
     "mds_iterations": "invalid MDS iteration/dimension controls", "mds_tolerance": "invalid MDS tolerance",

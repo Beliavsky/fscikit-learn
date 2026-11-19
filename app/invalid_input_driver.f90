@@ -13,6 +13,9 @@ program invalid_input_driver
   type(pls_svd) :: cross_svd
   type(mds) :: scaling
   type(locally_linear_embedding) :: lle
+  type(svr) :: eps_reg
+  type(nu_svr) :: nu_reg
+  type(one_class_svm) :: novelty_svm
   type(standard_scaler) :: scaler
   type(logistic_regression) :: logistic
   type(kneighbors_regressor) :: knn
@@ -56,6 +59,31 @@ program invalid_input_driver
   character(32) :: mode
   x=1; y=1; call get_command_argument(1,mode)
   select case(trim(mode))
+  case('ksvm_c'); eps_reg%c=0; call eps_reg%fit(x,y)
+  case('svr_epsilon'); eps_reg%epsilon=-1; call eps_reg%fit(x,y)
+  case('ksvm_tolerance'); eps_reg%tol=0; call eps_reg%fit(x,y)
+  case('ksvm_iterations'); eps_reg%max_iter=0; call eps_reg%fit(x,y)
+  case('ksvm_kernel'); eps_reg%kernel='unknown'; call eps_reg%fit(x,y)
+  case('ksvm_gamma'); eps_reg%gamma=-2; call eps_reg%fit(x,y)
+  case('ksvm_gamma_rule'); eps_reg%gamma_rule='unknown'; call eps_reg%fit(x,y)
+  case('ksvm_poly'); eps_reg%coef0=-1; call eps_reg%fit(x,y)
+  case('ksvm_square'); eps_reg%kernel='precomputed'; call eps_reg%fit(x,y)
+  case('ksvm_symmetry')
+    eps_reg%kernel='precomputed'; z=spread(y,2,4); z(1,2)=2; call eps_reg%fit(z,y)
+  case('ksvm_indefinite'); eps_reg%kernel='precomputed'; z=-spread(y,2,4); call eps_reg%fit(z,y)
+  case('ksvm_features'); call eps_reg%fit(x,y); pred=eps_reg%predict(x(:,:1))
+  case('ksvm_unfitted'); pred=eps_reg%predict(x)
+  case('ksvm_targets'); call eps_reg%fit(x,y(:3))
+  case('ksvm_weights'); call eps_reg%fit(x,y,-y)
+  case('ksvm_zero_weights'); call eps_reg%fit(x,y,0*y)
+  case('ksvm_weight_shape'); call eps_reg%fit(x,y,y(:3))
+  case('nusvr_nu0'); nu_reg%nu=0; call nu_reg%fit(x,y)
+  case('nusvr_nu_high'); nu_reg%nu=1.01_dp; call nu_reg%fit(x,y)
+  case('oneclass_nu1'); novelty_svm%nu=1; call novelty_svm%fit(x)
+  case('oneclass_nu0'); novelty_svm%nu=0; call novelty_svm%fit(x)
+  case('oneclass_unfitted'); pred=novelty_svm%score_samples(x)
+  case('oneclass_weight_shape'); call novelty_svm%fit(x,y(:3))
+  case('ksvm_nan_c'); eps_reg%c=ieee_value(0._dp,ieee_quiet_nan); call eps_reg%fit(x,y)
   case('mds_components'); scaling%n_components=0; call scaling%fit(x)
   case('mds_restarts'); scaling%n_init=0; call scaling%fit(x)
   case('mds_iterations'); scaling%max_iter=0; call scaling%fit(x)

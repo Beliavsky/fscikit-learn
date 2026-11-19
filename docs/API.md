@@ -476,3 +476,37 @@ query transforms through local barycentric projection. The implementation
 uses a dense eigensolver and one-based fitted neighbor indices. See
 `COVERAGE.md` for rank/connectivity limits and the sklearn 1.6.1 MDS stress
 convention. Run the `manifold_coordinates` example.
+
+## Kernel regression and one-class SVM
+
+```fortran
+use sklearn, only: dp, svr, nu_svr, one_class_svm
+type(svr) :: regression
+type(nu_svr) :: adaptive
+type(one_class_svm) :: novelty
+real(dp), allocatable :: x(:,:), y(:), query(:,:), prediction(:), score(:)
+integer, allocatable :: labels(:)
+! Populate x(samples, features), y(samples) and query(new_samples, features).
+regression%c=2
+regression%epsilon=0.1_dp
+regression%gamma=0.7_dp
+call regression%fit(x,y)
+prediction=regression%predict(query)
+adaptive%nu=0.4_dp
+call adaptive%fit(x,y)
+! adaptive%epsilon_ records its learned tube width.
+novelty%nu=0.2_dp
+call novelty%fit(x)
+score=novelty%decision_function(query)
+labels=novelty%predict(query)
+```
+
+The optional last fit argument is `sample_weight(:)` for all three types.
+For gamma strings, leave `gamma=-1` and set `gamma_rule='scale'` or `'auto'`.
+`support_` uses original one-based training indices; `dual_coef_` is a vector
+and `intercept_` is a scalar. For linear kernels, `coef_` is a feature vector.
+With `kernel='precomputed'`, fit a PSD Gram matrix and predict from the
+query-to-training Gram matrix. Check `converged_` or `fit_status_` after capped
+fits. One-class labels are +1/-1, with zero decisions labeled -1.
+See `COVERAGE.md` for supported kernels, weights and nu restrictions. Run the
+`kernel_regression_outliers` example.

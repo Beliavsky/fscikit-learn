@@ -36,6 +36,7 @@ Reference paths by module:
 | dummy | dummy.py |
 | kernel_ridge | kernel_ridge.py |
 | discriminant_analysis | discriminant_analysis.py (LDA lsqr covariance convention) |
+| kernel_svm | svm/_base.py, _classes.py, src/libsvm/svm.cpp; SVR/NuSVR/OneClassSVM weighted dual formulations, gamma rules, thresholds and normalization; independent native pairwise optimizer |
 | svm | svm/_classes.py; deterministic SMO replaces libsvm backend |
 | mixture | mixture/_gaussian_mixture.py, _base.py |
 | neural_network | neural_network/_multilayer_perceptron.py, _stochastic_optimizers.py |
@@ -57,6 +58,16 @@ Reference paths by module:
 | random_projection | random_projection.py; JL dimension bound, Gaussian/three-point distributions and pseudoinverse contract; independent Fortran random stream |
 | spectral | manifold/_spectral_embedding.py; degree-normalized eigenvectors and affinity construction, with native dense eigensolver |
 | density | neighbors/_kde.py, _binary_tree.pxi; kernel normalization, bandwidth rules and weighted mixture contract; native brute-force evaluation and Gaussian/uniform-ball sampling |
+
+The additional SVM models also follow the LIBSVM formulations bundled with
+sklearn 1.6.1 in `sklearn/svm/src/libsvm/svm.cpp`, copyright (c) 2000-2009
+Chih-Chung Chang and Chih-Jen Lin. Its complete BSD-3-Clause notice is retained
+in `LICENSES/libsvm-COPYRIGHT`. The bundled sklearn file credits dense/weighted
+support to Ming-Fang Weng, Fabian Pedregosa and the instance-weight contributors
+Ming-Wei Chang, Hsuan-Tien Lin, Ming-Hen Tsai, Chia-Hua Ho and Hsiang-Fu Yu.
+This adaptation uses a native dense SMO optimizer with gain-based second-coordinate selection and
+full real64 Gram matrices; no LIBSVM C++ source or binary is compiled or linked.
+Original contributions remain MIT; the retained upstream terms still apply.
 
 SciFort is not currently linked. There are no third-party runtime dependencies.
 
