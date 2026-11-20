@@ -21,6 +21,7 @@ Reference paths by module:
 
 | Fortran module | scikit-learn reference |
 | --- | --- |
+| bisecting_kmeans | cluster/_bisect_k_means.py leaf selection, split restarts, hierarchy/labels and prediction routing; _kmeans.py weighted random/greedy k-means++ initialization and Lloyd/Elkan stopping; _k_means_lloyd.pyx, _k_means_elkan.pyx and _k_means_common.pyx dense bounds, centroid updates, empty relocation and inertia; native implementation with existing legacy RNG |
 | robust_covariance | covariance/_robust_covariance.py univariate FastMCD, C-steps, random candidate screening, subset/merge/full search, normal consistency correction and reweighting; _empirical_covariance.py covariance/precision and score/error conventions; _elliptic_envelope.py contamination offset and outlier scoring; independent dense eigendecomposition, regularized-gamma/chi-square inversion and native seeded permutation |
 | isolation_forest | ensemble/_iforest.py random targets, path-length scoring and contamination; _bagging.py seeded feature/sample selection and warm-start seed skipping; utils/_random.pyx tracking/permutation/reservoir sampling; tree/_splitter.pyx, _partitioner.pyx, _criterion.pyx and _tree.pyx dense weighted random-tree construction; native implementation using existing legacy RNG |
 | sgd_one_class | linear_model/_stochastic_gradient.py SGDOneClassSVM fit/partial_fit, initialization, offset conversion and warm/average state; _sgd_fast.pyx.tp hinge boundary, one-class intercept, L2 decay, schedules, stopping and sample clock; utils/_weight_vector.pyx.tp lazy scaling/averaging; utils/_seq_dataset.pyx.tp and _random.pxd deterministic shuffle; native dense implementation and existing legacy RNG |
@@ -123,7 +124,9 @@ that apply to core implementations.
 
 sklearn_legacy_rng.f90 is a native Fortran adaptation of the NumPy 2.2.6
 RandomState scalar-seed MT19937, masked interval selection and cached polar
-Gaussian contracts, used for dictionary atom resampling, AdaBoost regression bootstraps and SGDOneClassSVM shuffle seeds, IsolationForest sampling/tree seeds and FastMCD permutations. Reference sources:
+Gaussian contracts, used for dictionary atom resampling, AdaBoost regression
+bootstraps, SGDOneClassSVM shuffle seeds, IsolationForest sampling/tree seeds,
+FastMCD permutations and BisectingKMeans initialization. Reference sources:
 
 - numpy/random/src/mt19937/mt19937.c and mt19937.h
 - numpy/random/src/legacy/legacy-distributions.c (legacy_gauss)

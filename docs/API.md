@@ -1418,3 +1418,33 @@ scalar offset_, score_samples, decision_function and fit_predict; its score
 returns accuracy, while MinCovDet.score returns log likelihood. See COVERAGE.md
 for full FastMCD stages, raw tie conventions, singular precision, numerical
 guards and supported parameter/method scope.
+
+
+## BisectingKMeans
+
+Import bisecting_kmeans from sklearn, sklearn_cluster or
+sklearn_bisecting_kmeans.
+
+```fortran
+type(bisecting_kmeans) :: model
+model%n_clusters=6
+model%init='k-means++'
+model%algorithm='elkan'
+model%bisecting_strategy='largest_cluster'
+model%n_init=3
+model%random_state=42
+call model%fit(x,sample_weight=weights) ! weights optional
+labels=model%predict(query)
+distances=model%transform(query)
+negative_inertia=model%score(query,sample_weight=query_weights)
+```
+
+fit_predict and fit_transform fit before returning hierarchical training labels
+or final-center distances. Fitted cluster_centers_, labels_, inertia_ and
+n_features_in_ match the sklearn counterpart. Native tree arrays describe
+split centers, children, leaf labels, row counts and selection scores;
+children_ links start at one and labels start at zero. Native per-split
+iterations/inertias/convergence and aggregate converged_ are available.
+See COVERAGE.md for seeded weighted initialization, native Elkan bounds,
+empty leaves, one-cluster root behavior, tolerance and the distinction between
+hierarchical predict and global nearest-center score.

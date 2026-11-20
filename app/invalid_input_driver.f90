@@ -25,6 +25,10 @@ program invalid_input_driver
   type(leave_one_group_out) :: logo_cv
   type(sgd_classifier) :: sgdc
   type(sgd_regressor) :: sgd
+  type(bisecting_kmeans) :: bisect_case
+  real(dp), allocatable :: bkm_distances(:,:)
+  integer, allocatable :: bkm_labels(:)
+  real(dp) :: bkm_value
   type(min_cov_det) :: rob_mcd
   type(elliptic_envelope) :: rob_envelope
   real(dp), allocatable :: rob_values(:),rob_matrix(:,:),rob_location(:),rob_covariance(:,:),rob_distance(:)
@@ -137,7 +141,78 @@ program invalid_input_driver
   elimination_cv%cv=2
   seq%cv=2
   x=1; y=1; call get_command_argument(1,mode)
+  bisect_case%n_clusters=2
   select case(trim(mode))
+  case('bkm_clusters_zero')
+    bisect_case%n_clusters=0
+    call bisect_case%fit(reshape([-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp],[6,1]))
+  case('bkm_clusters_high')
+    bisect_case%n_clusters=7
+    call bisect_case%fit(reshape([-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp],[6,1]))
+  case('bkm_restarts')
+    bisect_case%n_init=0
+    call bisect_case%fit(reshape([-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp],[6,1]))
+  case('bkm_iterations')
+    bisect_case%max_iter=0
+    call bisect_case%fit(reshape([-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp],[6,1]))
+  case('bkm_tol_negative')
+    bisect_case%tol=-1
+    call bisect_case%fit(reshape([-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp],[6,1]))
+  case('bkm_tol_nan')
+    bisect_case%tol=ieee_value(0._dp,ieee_quiet_nan)
+    call bisect_case%fit(reshape([-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp],[6,1]))
+  case('bkm_seed')
+    bisect_case%random_state=-1
+    call bisect_case%fit(reshape([-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp],[6,1]))
+  case('bkm_init')
+    bisect_case%init='unknown'
+    call bisect_case%fit(reshape([-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp],[6,1]))
+  case('bkm_algorithm')
+    bisect_case%algorithm='unknown'
+    call bisect_case%fit(reshape([-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp],[6,1]))
+  case('bkm_strategy')
+    bisect_case%bisecting_strategy='unknown'
+    call bisect_case%fit(reshape([-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp],[6,1]))
+  case('bkm_weights_shape')
+    call bisect_case%fit(reshape([-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp],[6,1]),[1._dp])
+  case('bkm_weights_negative')
+    call bisect_case%fit(reshape([-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp],[6,1]),[-1._dp,1._dp,1._dp,1._dp,1._dp,1._dp])
+  case('bkm_weights_nan')
+    call bisect_case%fit(reshape([-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp],[6,1]), &
+      [ieee_value(0._dp,ieee_quiet_nan),1._dp,1._dp,1._dp,1._dp,1._dp])
+  case('bkm_weights_overflow')
+    call bisect_case%fit(reshape([-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp],[6,1]),spread(huge(1._dp),1,6))
+  case('bkm_random_positive_rows')
+    call bisect_case%fit(reshape([-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp],[6,1]),[1._dp,0._dp,0._dp,0._dp,0._dp,0._dp])
+  case('bkm_kpp_zero_weight')
+    bisect_case%init='k-means++'
+    call bisect_case%fit(reshape([-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp],[6,1]),spread(0._dp,1,6))
+  case('bkm_empty')
+    call bisect_case%fit(reshape([real(dp)::],[0,1]))
+  case('bkm_nan')
+    call bisect_case%fit(reshape([0._dp,ieee_value(0._dp,ieee_quiet_nan)],[2,1]))
+  case('bkm_unfitted_predict')
+    bkm_labels=bisect_case%predict(reshape([0._dp],[1,1]))
+  case('bkm_unfitted_transform')
+    bkm_distances=bisect_case%transform(reshape([0._dp],[1,1]))
+  case('bkm_unfitted_score')
+    bkm_value=bisect_case%score(reshape([0._dp],[1,1]))
+  case('bkm_query_features')
+    call bisect_case%fit(reshape([-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp],[6,1]))
+    bkm_labels=bisect_case%predict(reshape([0._dp,1._dp],[1,2]))
+  case('bkm_query_nan')
+    call bisect_case%fit(reshape([-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp],[6,1]))
+    bkm_distances=bisect_case%transform(reshape([ieee_value(0._dp,ieee_quiet_nan)],[1,1]))
+  case('bkm_query_empty')
+    call bisect_case%fit(reshape([-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp],[6,1]))
+    bkm_labels=bisect_case%predict(reshape([real(dp)::],[0,1]))
+  case('bkm_score_weights_shape')
+    call bisect_case%fit(reshape([-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp],[6,1]))
+    bkm_value=bisect_case%score(reshape([0._dp,1._dp],[2,1]),[1._dp])
+  case('bkm_score_weights_negative')
+    call bisect_case%fit(reshape([-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp],[6,1]))
+    bkm_value=bisect_case%score(reshape([0._dp,1._dp],[2,1]),[-1._dp,2._dp])
+
   case('mcd_fraction_negative')
     rob_mcd%support_fraction=-.1_dp
     call rob_mcd%fit(reshape([0._dp,1._dp,2._dp],[3,1]))

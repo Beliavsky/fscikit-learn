@@ -1687,3 +1687,50 @@ Fortran formatting, inventories, reports and staged diff checks passed. All
 registered keys/native case labels are unique. Older Python reference suites
 were not rerun; existing covariance estimator bodies and the legacy RNG helper
 were unchanged. MIT project licensing and full upstream notices remain in place.
+
+
+## BisectingKMeans weighted hierarchical clustering (2026-11-20)
+
+Added bisecting_kmeans with both split strategies, exact seeded weighted random
+and greedy k-means++ initialization, repeated split restarts, native Lloyd and
+Elkan bounds/pruning, empty-center handling, hierarchical prediction, final
+center distance transforms and global nearest-center score. Fitted labels and
+centers follow depth-first hierarchy order; native node and per-split diagnostics
+are exposed. The source one-cluster unweighted-root convention and raw bisection
+tolerance are preserved. Existing KMeans was unchanged. Original contributions
+retain MIT licensing with expanded sklearn/NumPy provenance; no dependency or
+public extension was added.
+
+compare_bisecting_kmeans.py adds 1,152 direct sklearn 1.6.1 result groups across
+88 configurations on four seeded datasets, including seed zero and more than
+one source chunk. It compares final centers, exact labels, training inertia,
+train/query hierarchical predictions, transforms, unweighted/weighted scores,
+fit_predict/fit_transform outputs and every tree's centers, child links,
+leaf labels, sample counts and selection scores. Nodes are reconstructed in
+creation order from the source tree, preserving score-based split choices.
+The source OpenMP thread count is fixed to one for reproducible reductions.
+Numerical comparisons use atol=rtol=3e-8; labels, children, counts and metadata
+match exactly.
+
+Fixtures cover both strategies/solvers/initializers, restarts, heterogeneous/
+zero/all-zero weights, weighted k-means++, one cluster, one cluster per sample,
+max_iter=1, large/zero tolerances, constant features, duplicate data with empty
+leaves, translated data, and a single positive-weight k-means++ initialization.
+Native tests additionally verify analytic weighted centers/inertia, repeatable
+fits, the one-cluster root, empty leaves, topology, and a concrete difference
+between hierarchical routing and global nearest-center assignment.
+
+Inventory: 146 core types, 64 source modules, 67 native test programs,
+46 reference suites and 30,697 result groups, plus 28 separate NumPy stream
+groups. Twenty-six unique new isolated cases bring the inventory to 1,043.
+hierarchical_centroids demonstrates fitting and query cluster labels.
+
+Validation completed: all 1,152 new sklearn reference result groups passed
+using the package-built driver; all 67 native test programs passed with
+-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow and in release mode.
+All 1,043 isolated invalid-input cases passed, including 26 new BisectingKMeans
+cases. The hierarchical_centroids example passed, producing query labels
+0/2/1 and training inertia 180.29171226379120. Python syntax, Fortran formatting,
+inventory/report checks and git diff checks passed. Older Python reference
+suites were not rerun; existing KMeans bodies and the legacy RNG helper were
+unchanged. No runtime dependency or public extension was added.

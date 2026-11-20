@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 145 public estimator, transformer, and splitter types. Each is a
+There are 146 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Forty-five reference suites additionally check 29,545
+All types have native tests. Forty-six reference suites additionally check 30,697
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -27,7 +27,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | linear_model | `linear_regression`, `lars`, `lasso_lars`, `lars_cv`, `lasso_lars_cv`, `lasso_lars_ic`, `ridge`, `ridge_classifier`, `ridge_classifier_cv`, `multi_task_elastic_net`, `multi_task_lasso`, `lasso`, `elastic_net`, `lasso_cv`, `elastic_net_cv`, `logistic_regression`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `sgd_regressor`, `sgd_classifier`, `sgd_one_class_svm`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `huber_regressor`, `quantile_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; least-angle/Lasso homotopy paths with CV and AIC/BIC selection; coordinate descent with K-fold alpha/l1-ratio selection; logistic Newton solver; perceptron; PA-I/II classification/regression with averaging; streaming stochastic-gradient regression/classification and one-class detection; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; weighted L1-regularized quantile regression; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb`, `categorical_nb` | Empirical class priors, variance smoothing, strictly positive scalar alpha; Bernoulli threshold; optional complement normalization |
 | neighbors | `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with optional shrinkage and uniform priors; Euclidean kernel density |
-| cluster | `kmeans`, `dbscan`, `agglomerative_clustering`, `feature_agglomeration`, `mean_shift`, `affinity_propagation`, `spectral_clustering`, `optics`, `birch`; `estimate_bandwidth`, `cluster_optics_dbscan`, `cluster_optics_xi` | Lloyd/k-means++; density expansion; single/complete/average/Ward merge trees and feature pooling; flat-kernel mode seeking; damped exemplar messages; normalized-Laplacian clustering with k-means or pivoted QR assignment; OPTICS reachability ordering, Xi hierarchy and DBSCAN extraction; BIRCH streaming CF tree and optional Ward clustering |
+| cluster | `kmeans`, `bisecting_kmeans`, `dbscan`, `agglomerative_clustering`, `feature_agglomeration`, `mean_shift`, `affinity_propagation`, `spectral_clustering`, `optics`, `birch`; `estimate_bandwidth`, `cluster_optics_dbscan`, `cluster_optics_xi` | Lloyd/k-means++; bisecting centroid hierarchy with Lloyd/Elkan splits; density expansion; single/complete/average/Ward merge trees and feature pooling; flat-kernel mode seeking; damped exemplar messages; normalized-Laplacian clustering with k-means or pivoted QR assignment; OPTICS reachability ordering, Xi hierarchy and DBSCAN extraction; BIRCH streaming CF tree and optional Ward clustering |
 | decomposition | `pca`, `incremental_pca`, `truncated_svd`, `nmf`, `sparse_pca`, `dictionary_learning`, `sparse_coder`; `sparse_encode`; re-exports `kernel_pca`, `factor_analysis`, `fast_ica` | Direct Jacobi SVD; PCA whitening and inversion; streaming stacked-SVD IncrementalPCA; exact dense SVD; NMF multiplicative updates; sparse dictionary factorization and SparsePCA; five sparse coding methods; nonlinear kernel PCA; unrotated full-SVD factor analysis; parallel/deflation ICA |
 | cross_decomposition | `pls_regression`, `pls_canonical`, `cca`, `pls_svd` | Paired-matrix latent components: NIPALS regression/canonical deflation, CCA pseudoinverse mode, canonical direct SVD and PLSSVD cross-covariance projection; multiple response columns |
 | isotonic | `isotonic_regression`; `isotonic_fit`, `check_increasing` | Weighted pool-adjacent-violators, automatic Spearman direction, bounds, repeated-input aggregation and piecewise linear interpolation |
@@ -2022,3 +2022,60 @@ then still compares corrected/reweighted estimates and outlier labels directly
 against sklearn. All remaining fixtures compare exact support masks, including
 singular covariance with an exact zero column. Numerical equality of arbitrary
 raw tied choices is not claimed for every platform or dataset.
+
+
+## Bisecting K-means
+
+`bisecting_kmeans` translates sklearn 1.6.1 BisectingKMeans's dense weighted
+hierarchy. It repeatedly splits the leaf with biggest weighted inertia or
+largest unweighted row count, preserving depth-first tie order. Each split
+uses two centers, random or greedy k-means++ initialization, multiple restarts,
+and a native Lloyd or Elkan solver. Elkan maintains per-row upper/lower bounds
+and skips distance evaluations using center separation; it does not delegate
+to the Lloyd path. Empty-center relocation, largest-cluster center fallback,
+strict-label/tolerance stopping and final assignment updates follow the source.
+The split restart selection preserves sklearn's relative 1e-6 improvement rule.
+
+Default controls are n_clusters=8, n_init=1, max_iter=300, init='random',
+algorithm='lloyd', bisecting_strategy='biggest_inertia' and tol=1e-4. Native
+random_state=0 is deterministic. Initialization consumes the existing
+NumPy-compatible legacy stream, including weighted no-replacement random seed
+selection and the two local k-means++ candidate trials. Source bisections use
+the supplied tol directly as the total squared-center-shift threshold, rather
+than the variance-scaled tolerance used by ordinary KMeans. Training uses an
+unweighted global mean subtraction and restores centers to original units.
+With n_clusters=1, the pinned source retains the unweighted root center even
+when fitting weights; native behavior follows this convention.
+
+predict routes observations down the saved binary split tree. Final labels
+are zero-based and assigned in depth-first leaf order. transform returns
+Euclidean distances to every final leaf center. The inherited sklearn score
+contract uses global nearest-final-center inertia, not the hierarchical route;
+therefore score(x,weights) need not equal -inertia_. fit_predict returns fitted
+hierarchical labels and fit_transform returns final-center distances after fit.
+The native tests include a fixture where tree routing differs from global
+nearest-center labels.
+
+Finite nonnegative sample weights are supported during fit and score. Largest
+cluster selection counts rows, including zero-weight rows; the other strategy
+uses weighted SSE. Random initialization requires two positive-weight rows in
+each selected leaf. k-means++ can handle a single positive-weight row. A leaf
+selected for another split must have positive total weight. All-zero weights
+are accepted for the no-split, one-cluster case and for score. Duplicate data
+can create empty leaves, which remain part of the requested hierarchy, as in
+sklearn. n_clusters must lie between one and the input row count. Inputs must
+be nonempty finite dense real64 arrays; signed weights, sparse/float32 paths,
+callable initializers, verbose/parallel controls, estimator cloning and
+in-place copy_x=False semantics are outside this subset. Native inputs are
+preserved.
+
+Fitted sklearn-counterpart fields are cluster_centers_, labels_, inertia_ and
+n_features_in_. Native tree diagnostics expose tree_centers_ in original units,
+children_ (1-based node links, zero for leaves), tree_leaf_labels_ (-1 for
+internal nodes), tree_sample_counts_ and tree_scores_. Nodes are stored in
+split-creation order. Native n_iter_per_split_, split_inertia_ and
+converged_per_split_ describe the best restart at each bisection; converged_
+aggregates these flags. The source does not expose a global n_iter_ for this
+estimator. Existing native KMeans behavior is unchanged. Floating-point ties
+and parallel reductions can affect equivalent cluster choices; seeded reference
+fixtures use one source OpenMP thread and compare the hierarchy explicitly.
