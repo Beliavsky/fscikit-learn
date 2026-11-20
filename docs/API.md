@@ -1166,3 +1166,27 @@ with linear-regression-family estimators and integer targets with logistic
 regression. Callers' estimators remain unchanged. Query arrays contain the
 original columns; prediction methods select the fitted mask internally.
 See COVERAGE.md for counts, step fractions, ranking, CV folds and supported scope.
+
+
+## Least-angle regression and Lasso coefficient paths
+
+```fortran
+use sklearn, only: dp,lars,lasso_lars,lars_path,lars_path_result
+type(lars) :: least_angle
+type(lasso_lars) :: sparse
+type(lars_path_result) :: path
+real(dp), allocatable :: predictions(:)
+least_angle%n_nonzero_coefs=3
+call least_angle%fit(x,y)
+sparse%alpha=.05_dp
+sparse%positive=.true.
+call sparse%fit(x,y)
+predictions=sparse%predict(query)
+path=lars_path(x,y,method='lasso',alpha_min=.01_dp)
+! path%coefficients(feature,knot); path%active uses 1-based feature indices.
+```
+
+Estimator fits center inputs for intercepts by default; lars_path uses its
+inputs directly. Paths include the initial zero coefficients and all generated
+knots through the final endpoint. Set fit_path=false to retain only endpoint
+model attributes. See COVERAGE.md for limits and degenerate-column behavior.

@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 130 public estimator, transformer, and splitter types. Each is a
+There are 132 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Thirty-six reference suites additionally check 11,087 result
+All types have native tests. Thirty-seven reference suites additionally check 11,817 result
 groups in total across seeded datasets against installed scikit-learn 1.6.1.
 
 This document counts core scikit-learn counterparts. Public extensions are
@@ -23,7 +23,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | Module (`sklearn_` prefix) | Public types and functions | Scope and numerical choices |
 | --- | --- | --- |
 | preprocessing | `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `knn_imputer`, `missing_indicator`, `spline_transformer`, `label_encoder`, `one_hot_encoder`, `power_transformer`, `kbins_discretizer`, `quantile_transformer`; `normalize`, `binarize`, `polynomial_features` | Population variance; linear percentile interpolation; NaN imputation with mean/median/most-frequent/constant; numeric categories; empirical uniform/normal quantile transforms; dense polynomial terms through degree 12 with optional interactions; B-spline features and extrapolation |
-| linear_model | `linear_regression`, `ridge`, `ridge_classifier`, `ridge_classifier_cv`, `multi_task_elastic_net`, `multi_task_lasso`, `lasso`, `elastic_net`, `lasso_cv`, `elastic_net_cv`, `logistic_regression`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `sgd_regressor`, `sgd_classifier`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `huber_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; coordinate descent with K-fold alpha/l1-ratio selection; logistic Newton solver; perceptron; PA-I/II classification/regression with averaging; streaming stochastic-gradient regression/classification; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
+| linear_model | `linear_regression`, `lars`, `lasso_lars`, `ridge`, `ridge_classifier`, `ridge_classifier_cv`, `multi_task_elastic_net`, `multi_task_lasso`, `lasso`, `elastic_net`, `lasso_cv`, `elastic_net_cv`, `logistic_regression`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `sgd_regressor`, `sgd_classifier`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `huber_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; least-angle/Lasso homotopy paths; coordinate descent with K-fold alpha/l1-ratio selection; logistic Newton solver; perceptron; PA-I/II classification/regression with averaging; streaming stochastic-gradient regression/classification; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb`, `categorical_nb` | Empirical class priors, variance smoothing, strictly positive scalar alpha; Bernoulli threshold; optional complement normalization |
 | neighbors | `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with optional shrinkage and uniform priors; Euclidean kernel density |
 | cluster | `kmeans`, `dbscan`, `agglomerative_clustering`, `feature_agglomeration`, `mean_shift`, `affinity_propagation`, `spectral_clustering`, `optics`, `birch`; `estimate_bandwidth`, `cluster_optics_dbscan`, `cluster_optics_xi` | Lloyd/k-means++; density expansion; single/complete/average/Ward merge trees and feature pooling; flat-kernel mode seeking; damped exemplar messages; normalized-Laplacian clustering with k-means or pivoted QR assignment; OPTICS reachability ordering, Xi hierarchy and DBSCAN extraction; BIRCH streaming CF tree and optional Ward clustering |
@@ -1554,3 +1554,40 @@ ties, matching the native tie rule; final fitted coefficients remain unchanged.
 Multinomial intercepts and decisions are compared after removing their common
 class offset, which is not identifiable under softmax. Probabilities, class
 predictions, coefficients, masks, rankings and CV paths are checked directly.
+
+
+## Least-angle regression and LassoLars
+
+`lars` implements dense least-angle regression with `n_nonzero_coefs=500`,
+`fit_intercept=.true.`, `eps=epsilon(1._dp)` and `fit_path=.true.`. The iteration
+limit is the requested maximum number of path steps (as in sklearn), and need
+not equal the final number of nonzero coefficients. `lasso_lars` uses the same
+active-set homotopy with coefficient dropouts/re-entry and alpha interpolation;
+it adds `alpha=1`, `max_iter=500` and `positive=.false.`. Its inherited
+n_nonzero_coefs is ignored. Fits center X and y for intercepts but do not scale
+features, matching sklearn 1.6.1. Real single-target responses and finite dense
+real64 arrays are required. Sparse inputs, multiple targets, sample weights,
+jitter and caller-supplied Gram/Xy arrays are outside this initial subset.
+
+Fitted coef_, intercept_, n_features_in_, n_iter_ and alphas_ are available.
+With fit_path true, coef_path_ is (n_features, n_knots), and active_ gives final
+active column indices in entry order, **1-based**. With fit_path false,
+coef_path_ and active_ are cleared and alphas_ contains only the endpoint. The
+solver currently constructs an internal full path even when storage is disabled.
+Prediction and R2 scoring use the final coefficients.
+
+`lars_path(x,y,method,max_iter,alpha_min,eps,positive)` provides uncentered paths
+for method `lar` (default) or `lasso`. It returns a lars_path_result record with
+alphas, coefficients, active, n_iter and n_skipped; this record is an API adapter,
+not an additional sklearn estimator. Defaults are max_iter=500, alpha_min=0,
+eps=machine epsilon and positive=false. Only lasso allows positive constraints.
+max_iter=0 returns the initial zero-coefficient knot. The equality tolerance for
+alpha stopping follows sklearn's float32 epsilon, even with float64 arrays.
+
+The native implementation forms a dense Gram matrix, recomputes active
+Cholesky factors, solves equiangular directions and rounds inactive correlations
+to float64's 15 decimal digits. It skips candidate columns with a Cholesky pivot
+below 1e-7 and exposes their count in direct path results. Duplicate/degenerate
+columns and tied correlations can yield a different active representation than
+sklearn; no Python warning machinery is reproduced. Paths and predictions for
+nondegenerate dense, correlated, wide and dropout fixtures are reference-tested.

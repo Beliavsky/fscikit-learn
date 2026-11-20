@@ -1259,3 +1259,46 @@ full-data R2=0.9999805392 and mean validation R2=0.9999624316 at two features.
 Python syntax, Fortran line lengths, reference report, inventory and staged
 diff checks passed. Original contributions remain MIT, with upstream BSD
 notices retained. No dependency or extension was added.
+
+
+## 2026-11-20: Lars, LassoLars and least-angle coefficient paths
+
+Added dense native LAR and Lasso homotopy solvers, Lars/LassoLars estimators and
+the uncentered lars_path function. Active-set Cholesky solves generate
+equiangular directions; the Lasso path handles coefficient dropouts and re-entry,
+positive constraints and alpha interpolation. Estimators support centering,
+truncated paths, endpoint prediction/R2 and optional published path storage.
+The direct result records alpha knots, coefficient matrices, 1-based final
+active indices, iterations and degenerate candidate counts. See COVERAGE.md
+for numerical thresholds, tie/degeneracy behavior and unsupported options.
+
+The comparison suite passed 730 result groups against sklearn 1.6.1 across
+five datasets and 20 configurations. It checks every coefficient/alpha knot,
+active order, iteration count, final coefficients/intercepts, predictions,
+scores, centered/uncentered fits, full/truncated/zero-iteration paths,
+positive Lasso, zero/large/interpolated alpha, disabled path storage, wide
+matrices and correlated matrices. The fifth dataset explicitly contains four
+coefficient dropout events, asserted by the suite. Tolerances are atol=rtol=3e-8.
+Native tests additionally compare LassoLars with coordinate-descent lasso and
+duplicate-feature predictions with SVD least squares, plus zero-response paths.
+
+Twenty-eight new isolated input-error cases bring the total to 748. They cover
+counts, iteration limits, finite controls/data, method/constraint validation,
+unfitted calls and query/target shapes. The least_angle_regression example
+shows a sparse fitted path on synthetic regression data.
+Inventory: 132 core types, 55 source modules, 57 native test programs,
+37 reference suites and 11,817 reference result groups. Original contributions
+remain MIT with sklearn BSD attribution retained. No dependency or extension
+was added; the lars_path_result record is an API adapter, not a counted estimator.
+
+
+Final validation: all 57 native test programs passed with runtime checks and
+floating-point traps (-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow)
+and in release mode. All 730 new least-angle reference groups passed against
+sklearn 1.6.1, including four asserted coefficient dropout events. All 748
+isolated input-error cases passed, including 28 new cases. The checked
+least_angle_regression example produced two nonzero coefficients at alpha=.05
+and R2=0.9984471569. Python syntax, Fortran line lengths, reference report,
+dropout coverage, inventory and staged diff checks passed. Original
+contributions remain MIT with upstream BSD notices retained. No dependency
+or public extension was added.
