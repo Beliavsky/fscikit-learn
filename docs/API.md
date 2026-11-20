@@ -1068,3 +1068,28 @@ predictions = model%predict(x)
 Set tol=-1 to disable fit stopping. Ordered updates are the default; native
 shuffle can be enabled explicitly. See COVERAGE.md for losses, supported
 penalties/schedules, averaging, sample weights and differences from sklearn.
+
+
+## Streaming SGD classification
+
+```fortran
+use sklearn, only: dp, sgd_classifier
+type(sgd_classifier) :: model
+real(dp), allocatable :: x(:,:), probabilities(:,:)
+integer, allocatable :: y(:), predictions(:)
+! Populate finite x and labels y; declare all possible classes on the first batch.
+model%loss = 'log_loss'
+model%learning_rate = 'constant'
+model%eta0 = .01_dp
+model%average = 1
+model%fit_intercept = .false. ! Required for averaged classifier partial_fit.
+call model%partial_fit(x(:10,:),y(:10),classes=[-4,7,21])
+call model%partial_fit(x(11:,:),y(11:))
+predictions = model%predict(x)
+probabilities = model%predict_proba(x)
+```
+
+fit infers classes and resets state. First streaming batches may contain only
+one of the declared classes. Class weights are optional per-call arguments;
+balanced weighting is supported by fit. See COVERAGE.md for defaults, layouts,
+probability-supported losses and supported SGD controls.

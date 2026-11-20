@@ -954,3 +954,49 @@ and a 300-epoch capped fit; sklearn's convergence warning for that capped case
 is expected. The checked streaming_regression example processed 600 samples
 and returned R2 approximately .999999983. Python syntax, Fortran formatting,
 reference report, inventory and git diff checks passed.
+
+
+## SGDClassifier
+
+Added sgd_classifier using the shared native SGD engine with hinge, squared-
+hinge, perceptron, logistic and modified-Huber classification losses. Binary and
+multiclass OVR fits, declared-class streaming partial_fit, averaging, sample/
+class weights and logistic/modified-Huber probabilities are supported. Native
+tests cover analytic hinge steps, class discovery/ties, one-class batches,
+reset/streaming behavior, averaging, probability normalization and seeded native
+shuffle reproducibility.
+
+The reference suite checks 306 result groups across three seeded matrices and
+twelve configurations. It covers all losses, binary/multiclass fits, explicit/
+balanced class weights, sample weights, no intercept, ordered constant/inverse
+rates, immediate/delayed averaging, a one-class initial batch, one-row update,
+fit-then-partial_fit, training-loss stopping, decisions/labels/accuracy,
+probabilities and exact epoch/sample clocks. Tolerances are atol=rtol=3e-8.
+The existing 216 SGDRegressor groups are rerun after the shared-engine change.
+
+Thirty-one new isolated input cases cover class metadata, changing streaming
+state, class/sample weights, loss selection, probabilities, finite data, shapes
+and unfitted calls (650 total). streaming_classification demonstrates logistic
+streaming. See COVERAGE.md for default-rate differences and fixed subset scope.
+Inventory: 123 core types, 52 modules, 53 native tests, 33 reference suites and
+9,368 result groups. Original contributions remain MIT with retained sklearn
+BSD attribution. No dependency or public extension was added.
+
+
+Scope adjustment from reference inspection: sklearn 1.6.1 does not consistently
+retain its standard classifier intercept after publishing averages, in both
+binary and multiclass continuation. Averaged classifier partial_fit therefore
+requires fit_intercept=false in this port. Nonaveraged streaming and averaged
+fit retain intercept support. The reference checks binary and multiclass
+averaged no-intercept streaming, including a one-class initial batch, one-row
+continuation and fit-then-partial_fit.
+
+
+Final validation: all 53 native test programs passed with runtime checks and
+floating-point traps (-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow)
+and in release mode. All 306 SGDClassifier groups and the rerun 216
+SGDRegressor groups passed against sklearn 1.6.1. All 650 isolated invalid-input
+cases passed. The checked streaming_classification example processed 600
+samples and returned accuracy 1. Python syntax, Fortran formatting, both
+reference reports, inventory and git diff checks passed. The supported
+averaged-streaming boundary (fit_intercept=false) is documented and validated.

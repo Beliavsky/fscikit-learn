@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 122 public estimator, transformer, and splitter types. Each is a
+There are 123 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Thirty-two reference suites additionally check 9,062 result
+All types have native tests. Thirty-three reference suites additionally check 9,368 result
 groups in total across seeded datasets against installed scikit-learn 1.6.1.
 
 This document counts core scikit-learn counterparts. Public extensions are
@@ -23,7 +23,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | Module (`sklearn_` prefix) | Public types and functions | Scope and numerical choices |
 | --- | --- | --- |
 | preprocessing | `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `knn_imputer`, `missing_indicator`, `spline_transformer`, `label_encoder`, `one_hot_encoder`, `power_transformer`, `kbins_discretizer`, `quantile_transformer`; `normalize`, `binarize`, `polynomial_features` | Population variance; linear percentile interpolation; NaN imputation with mean/median/most-frequent/constant; numeric categories; empirical uniform/normal quantile transforms; dense polynomial terms through degree 12 with optional interactions; B-spline features and extrapolation |
-| linear_model | `linear_regression`, `ridge`, `ridge_classifier`, `ridge_classifier_cv`, `multi_task_elastic_net`, `multi_task_lasso`, `lasso`, `elastic_net`, `lasso_cv`, `elastic_net_cv`, `logistic_regression`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `sgd_regressor`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `huber_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; coordinate descent with K-fold alpha/l1-ratio selection; logistic Newton solver; perceptron; PA-I/II classification/regression with averaging; streaming stochastic-gradient regression; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
+| linear_model | `linear_regression`, `ridge`, `ridge_classifier`, `ridge_classifier_cv`, `multi_task_elastic_net`, `multi_task_lasso`, `lasso`, `elastic_net`, `lasso_cv`, `elastic_net_cv`, `logistic_regression`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `sgd_regressor`, `sgd_classifier`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `huber_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; coordinate descent with K-fold alpha/l1-ratio selection; logistic Newton solver; perceptron; PA-I/II classification/regression with averaging; streaming stochastic-gradient regression/classification; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb`, `categorical_nb` | Empirical class priors, variance smoothing, strictly positive scalar alpha; Bernoulli threshold; optional complement normalization |
 | neighbors | `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with optional shrinkage and uniform priors; Euclidean kernel density |
 | cluster | `kmeans`, `dbscan`, `agglomerative_clustering`, `feature_agglomeration`, `mean_shift`, `affinity_propagation`, `spectral_clustering`, `optics`, `birch`; `estimate_bandwidth`, `cluster_optics_dbscan`, `cluster_optics_xi` | Lloyd/k-means++; density expansion; single/complete/average/Ward merge trees and feature pooling; flat-kernel mode seeking; damped exemplar messages; normalized-Laplacian clustering with k-means or pivoted QR assignment; OPTICS reachability ordering, Xi hierarchy and DBSCAN extraction; BIRCH streaming CF tree and optional Ward clustering |
@@ -1378,3 +1378,73 @@ The source follows sklearn's stochastic gradient and loss contracts; original
 contributions remain MIT with retained BSD attribution. Exported through
 sklearn_linear_model and sklearn. Inventory: 122 core types, 52 modules and
 52 native test programs. No dependency or public extension was added.
+
+
+## Stochastic-gradient classification
+
+`sgd_classifier` implements sklearn 1.6.1 SGDClassifier's binary/one-vs-rest
+classification contracts using the shared native SGD engine. Supported losses
+are hinge (default), squared_hinge, perceptron, log_loss and modified_huber.
+Methods are fit, partial_fit, decision_function, predict, predict_proba and
+accuracy score. At least two known classes are required. fit discovers sorted
+integer classes from its target labels and resets all fitted state.
+
+The first partial_fit call requires classes(:), listing the complete distinct
+class set; its batch may contain a single class. Later batches can omit classes,
+or supply the same set. Unknown targets and changed class sets are rejected.
+partial_fit runs one epoch, retaining private standard coefficients, averaging
+state and sample clock. It fixes feature width and the averaging configuration.
+fit can reset these. All-zero sample weights are allowed, with the same L2
+shrinkage, averaging and clock behavior as SGDRegressor.
+
+Binary coef_ has shape (1,n_features), intercept_ (1) and decision_function
+(n,1). Positive binary scores select the larger sorted label, zero the smaller.
+Multiclass coef_ is (K,n_features), intercept_ (K), decisions (n,K); maximum
+score wins and ties select the first class. Each OVR head optimizes its signed
+binary targets. n_iter_per_class_, converged_per_class_ and loss_ record native
+per-head diagnostics; n_iter_ is the maximum head epoch count and converged_
+is their conjunction. t_ advances by n_samples*maximum_epochs, as in sklearn;
+heads use that shared clock when a later partial_fit resumes. n_features_in_
+records the trained width. Partial fits leave convergence flags false.
+
+Optional sample_weight must be finite/nonnegative and match the sample count.
+Optional class_weight(:) is positive finite and aligned with sorted classes_;
+it applies only to that fit/partial_fit call, so pass it again for later
+weighted batches. class_weight_balanced=true computes n/(K*class_count) from
+unweighted fit label frequencies and is mutually exclusive with explicit
+weights. Balanced weighting is rejected for partial_fit; supply explicit
+weights instead. Binary weights multiply both classes' row costs. In
+multiclass OVR, only each channel's positive rows receive that class's weight;
+negative rows retain weight one, matching sklearn's reduction convention.
+
+Averaging is supported for binary/multiclass fit. Averaged partial_fit requires
+fit_intercept=false; ordinary unaveraged partial_fit supports intercepts. The
+1.6.1 classifier reference does not consistently retain the standard intercept
+after publishing averages (and multiclass updates can overwrite the average
+intercept). The port rejects averaged streaming with an intercept instead of
+reproducing that state behavior. Averaged no-intercept streaming is supported
+for both binary and multiclass problems and compared directly with sklearn.
+
+predict_proba is available only for log_loss and modified_huber. Logistic
+probabilities use sigmoid scores; multiclass normalizes the OVR sigmoid values.
+Modified Huber clips scores to [-1,1], maps to [0,1], then normalizes multiclass
+rows. An all-zero probability row becomes uniform (also a finite fallback for
+complete logistic underflow). These probabilities are not separately calibrated.
+Other losses reject the probability method with an explicit diagnostic.
+
+Shared controls follow SGDRegressor: penalty='l2' or 'none', finite alpha>=0,
+constant/invscaling rates, eta0>0, power_t>=0, optional unpenalized intercept,
+max_iter, tol=-1 to disable stopping, training-loss patience and integer
+average thresholds. Defaults are hinge, alpha=1e-4, eta0=.01, invscaling,
+power_t=.25, tol=1e-3, max_iter=1000, n_iter_no_change=5, average=0 and
+shuffle=false. These ordered inverse-scaling defaults differ from sklearn's
+shuffle=true, optimal rate, power_t=.5 and eta0=0 defaults. Native seeded shuffles are
+reproducible but do not reproduce NumPy/sklearn permutations.
+
+Scope: finite dense real64 arrays, integer labels, five classification losses;
+no L1/elastic-net, optimal/adaptive schedules, regression losses for classifiers,
+custom coefficient initialization, warm-start fit, validation-set early stopping,
+log-probability API or parallel OVR. Exported through sklearn_linear_model and
+sklearn. Original contributions remain MIT with sklearn BSD attribution.
+Inventory: 123 core types, 52 modules and 53 native tests. No dependency or
+public extension was added.
