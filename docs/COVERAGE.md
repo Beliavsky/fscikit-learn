@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 123 public estimator, transformer, and splitter types. Each is a
+There are 127 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Thirty-three reference suites additionally check 9,368 result
+All types have native tests. Thirty-four reference suites additionally check 9,730 result
 groups in total across seeded datasets against installed scikit-learn 1.6.1.
 
 This document counts core scikit-learn counterparts. Public extensions are
@@ -40,7 +40,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | semi_supervised | `label_propagation`, `label_spreading` | Dense RBF or directed k-neighbor graph, hard/soft clamping, transductive labels and inductive probabilities |
 | tree | `decision_tree_classifier`, `decision_tree_regressor` | Exhaustive CART; Gini/entropy/log-loss classification, squared-error regression; depth/leaf/split/feature controls, normalized impurity importance, leaf indices |
 | ensemble | `random_forest_classifier`, `random_forest_regressor`, `extra_trees_classifier`, `extra_trees_regressor`, `gradient_boosting_regressor`, `gradient_boosting_classifier`, `adaboost_classifier` | Bootstrap forests, randomized feature subsets, random-threshold Extra Trees, squared-error residual boosting; binary/multiclass classification boosting with Newton leaf updates; weighted Gini-stump SAMME |
-| model_selection | `kfold`, `stratified_kfold`, `time_series_split`, `ridge_cv`; `train_test_split`, `shuffle_indices`, `cross_val_score` | Index-based splits; fraction test size; optional stratification; time gap/window; CV for linear-regression family and logistic regression; ridge CV selects negative mean squared error |
+| model_selection | `kfold`, `stratified_kfold`, `time_series_split`, `group_kfold`, `leave_one_out`, `leave_one_group_out`, `predefined_split`, `ridge_cv`; `train_test_split`, `shuffle_indices`, `cross_val_score` | Index-based splits; fraction test size; optional stratification; time gap/window; CV for linear-regression family and logistic regression; ridge CV selects negative mean squared error |
 | feature_selection | `variance_threshold`, `select_k_best`; `f_classif`, `f_regression`, `chi2` | Dense scores and masks; inverse transform fills dropped columns with zero; no p-values |
 | feature_extraction_text | `count_vectorizer`, `tfidf_transformer`, `tfidf_vectorizer` | Dense unigram counts; ASCII alphanumeric/underscore tokens of length 2-128; sorted vocabulary; min/max document frequency, binary counts and max features; smoothed/unsmoothed IDF, sublinear TF, l1/l2/no normalization |
 | dummy | `dummy_classifier`, `dummy_regressor` | Prior/most-frequent/stratified/uniform/constant classification; mean/median/quantile/constant regression |
@@ -1448,3 +1448,27 @@ log-probability API or parallel OVR. Exported through sklearn_linear_model and
 sklearn. Original contributions remain MIT with sklearn BSD attribution.
 Inventory: 123 core types, 52 modules and 53 native tests. No dependency or
 public extension was added.
+
+
+## Group and explicit-fold cross-validation
+
+`group_kfold%split(groups)` implements the unshuffled largest-group-first
+sample-balancing algorithm. `n_splits` defaults to 5 and must be between 2 and
+the number of distinct groups. Integer group labels may be negative or noncontiguous.
+Each group stays wholly in one test fold. Equal-sized groups are processed in
+descending numeric label order; NumPy's unstable argsort can choose a different
+order, so tied group allocations may differ from sklearn. Shuffled GroupKFold
+is not supported.
+
+`leave_one_out%split(n_samples)` requires at least two samples and holds out
+each sample in ascending order. `leave_one_group_out%split(groups)` requires
+at least two distinct groups and holds them out in ascending label order.
+`predefined_split%split(test_fold)` accepts assignments on each call; every
+unique integer except -1 is a test fold, in ascending order. -1 marks samples
+included in every training set. Empty assignments and all -1 return zero folds;
+a single test label may produce an empty training set, matching sklearn.
+
+All four return allocated `index_split` arrays with ascending **1-based** sample
+indices. They materialize every train/test pair, so LeaveOneOut uses quadratic
+index storage. They do not add generic estimator cloning or new cross_val_score
+dispatch; callers can fit/score manually as in `example/group_validation.f90`.

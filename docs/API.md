@@ -1093,3 +1093,24 @@ fit infers classes and resets state. First streaming batches may contain only
 one of the declared classes. Class weights are optional per-call arguments;
 balanced weighting is supported by fit. See COVERAGE.md for defaults, layouts,
 probability-supported losses and supported SGD controls.
+
+
+## Group-aware and predefined validation
+
+```fortran
+use sklearn, only: group_kfold,leave_one_out,leave_one_group_out,predefined_split,index_split
+type(group_kfold) :: grouped
+type(leave_one_out) :: loo
+type(leave_one_group_out) :: logo
+type(predefined_split) :: explicit
+type(index_split), allocatable :: folds(:)
+grouped%n_splits=3
+folds=grouped%split([10,10,20,20,30,30])
+folds=loo%split(6)
+folds=logo%split([10,10,20,20,30,30])
+folds=explicit%split([-1,0,0,4,4,-1])
+```
+
+Indices start at 1. Pass fold train/test rows to the estimator manually.
+Predefined -1 rows always stay in training. The splitters store all folds in
+memory; group-count ties use descending group labels (see COVERAGE.md).

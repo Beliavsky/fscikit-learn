@@ -5,6 +5,7 @@ module sklearn_model_selection
   implicit none
   private
   public :: train_test_split,shuffle_indices,kfold,stratified_kfold,time_series_split,index_split
+  public :: group_kfold,leave_one_out,leave_one_group_out,predefined_split
   public :: cross_val_score,ridge_cv
   type :: index_split
     integer, allocatable :: train(:),test(:)
@@ -25,6 +26,24 @@ module sklearn_model_selection
     integer :: n_splits=5,test_size=0,gap=0,max_train_size=0
   contains
     procedure :: split=>time_split
+  end type
+  ! Dense index splitters following sklearn/model_selection/_split.py (BSD-3-Clause).
+  type :: group_kfold
+    integer :: n_splits=5
+  contains
+    procedure :: split=>group_split
+  end type
+  type :: leave_one_out
+  contains
+    procedure :: split=>loo_split
+  end type
+  type :: leave_one_group_out
+  contains
+    procedure :: split=>logo_split
+  end type
+  type :: predefined_split
+  contains
+    procedure :: split=>predefined_indices
   end type
   type, extends(ridge) :: ridge_cv
     real(dp), allocatable :: alphas(:),cv_scores_(:)
@@ -188,6 +207,83 @@ contains
       start=n_samples-(n-i+1)*width+1; finish=start-self%gap-1; first=1
       if(self%max_train_size>0) first=max(1,finish-self%max_train_size+1)
       folds(i)%train=[(j,j=first,finish)]; folds(i)%test=[(j,j=start,start+width-1)]
+    end do
+  end function
+  function group_split(self,groups) result(folds)
+    class(group_kfold), intent(in) :: self
+    integer, intent(in) :: groups(:)
+    type(index_split), allocatable :: folds(:)
+    integer, allocatable :: labels(:),counts(:),order(:),loads(:),assignment(:),ids(:)
+    integer :: i,j,k,c,key,n
+    call require(size(groups)>0,'GroupKFold groups must be nonempty')
+    labels=unique_labels(groups); n=self%n_splits; k=size(labels)
+    call require(n>=2.and.n<=k,'GroupKFold requires 2 <= n_splits <= number of groups')
+    allocate(counts(k),order(k),loads(n),assignment(size(groups)))
+    do i=1,k
+      counts(i)=count(groups==labels(i)); order(i)=i
+    end do
+    ! Largest group first; equal counts use descending numeric group labels.
+    ! NumPy quicksort does not guarantee this tie ordering on every version.
+    do i=2,k
+      key=order(i); j=i-1
+      do while(j>=1)
+        c=order(j)
+        if(counts(c)>counts(key)) exit
+        if(counts(c)==counts(key).and.c>key) exit
+        order(j+1)=c; j=j-1
+      end do
+      order(j+1)=key
+    end do
+    loads=0
+    do i=1,k
+      c=order(i); j=minloc(loads,dim=1)
+      where(groups==labels(c)) assignment=j
+      loads(j)=loads(j)+counts(c)
+    end do
+    allocate(folds(n)); ids=[(i,i=1,size(groups))]
+    do i=1,n
+      folds(i)%test=pack(ids,assignment==i); folds(i)%train=pack(ids,assignment/=i)
+    end do
+  end function
+  function loo_split(self,n_samples) result(folds)
+    class(leave_one_out), intent(in) :: self
+    integer, intent(in) :: n_samples
+    type(index_split), allocatable :: folds(:)
+    integer :: i,j
+    call require(n_samples>=2,'LeaveOneOut requires at least two samples')
+    allocate(folds(n_samples))
+    do i=1,n_samples
+      folds(i)%test=[i]; folds(i)%train=[(j,j=1,i-1),(j,j=i+1,n_samples)]
+    end do
+  end function
+  function logo_split(self,groups) result(folds)
+    class(leave_one_group_out), intent(in) :: self
+    integer, intent(in) :: groups(:)
+    type(index_split), allocatable :: folds(:)
+    integer, allocatable :: labels(:),ids(:)
+    integer :: i
+    call require(size(groups)>0,'LeaveOneGroupOut groups must be nonempty')
+    labels=unique_labels(groups)
+    call require(size(labels)>=2,'LeaveOneGroupOut requires at least two groups')
+    allocate(folds(size(labels))); ids=[(i,i=1,size(groups))]
+    do i=1,size(labels)
+      folds(i)%test=pack(ids,groups==labels(i)); folds(i)%train=pack(ids,groups/=labels(i))
+    end do
+  end function
+  function predefined_indices(self,test_fold) result(folds)
+    class(predefined_split), intent(in) :: self
+    integer, intent(in) :: test_fold(:)
+    type(index_split), allocatable :: folds(:)
+    integer, allocatable :: labels(:),ids(:)
+    integer :: i
+    ! -1 is the only special label. Other integers, including negatives, are folds.
+    if(size(test_fold)==0) then
+      allocate(folds(0)); return
+    end if
+    labels=unique_labels(test_fold); labels=pack(labels,labels/=-1)
+    allocate(folds(size(labels))); ids=[(i,i=1,size(test_fold))]
+    do i=1,size(labels)
+      folds(i)%test=pack(ids,test_fold==labels(i)); folds(i)%train=pack(ids,test_fold/=labels(i))
     end do
   end function
   function cross_val_regression(estimator,x,y,cv) result(scores)

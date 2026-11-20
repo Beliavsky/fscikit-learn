@@ -5,6 +5,13 @@ import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 CASES = {
+    "group_empty": "GroupKFold groups must be nonempty",
+    "group_one_fold": "GroupKFold requires 2 <= n_splits <= number of groups",
+    "group_many_folds": "GroupKFold requires 2 <= n_splits <= number of groups",
+    "loo_zero": "LeaveOneOut requires at least two samples",
+    "loo_one": "LeaveOneOut requires at least two samples",
+    "logo_empty": "LeaveOneGroupOut groups must be nonempty",
+    "logo_single": "LeaveOneGroupOut requires at least two groups",
     "sgdc_binary_average": "averaged SGDClassifier partial_fit requires fit_intercept=false",
     "sgdc_multi_average": "averaged SGDClassifier partial_fit requires fit_intercept=false",
     "sgdc_loss": "unknown SGD classification loss",

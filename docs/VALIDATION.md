@@ -1148,3 +1148,34 @@ cases passed. The checked streaming_classification example processed 600
 samples and returned accuracy 1. Python syntax, Fortran formatting, both
 reference reports, inventory and git diff checks passed. The supported
 averaged-streaming boundary (fit_intercept=false) is documented and validated.
+
+
+## 2026-11-19: Group and explicit-fold splitters
+
+Added GroupKFold, LeaveOneOut, LeaveOneGroupOut and PredefinedSplit as native
+Fortran types. GroupKFold implements unshuffled largest-group-first balancing;
+ties use descending numeric group labels and may differ from NumPy quicksort.
+The leave-out splitters use ascending sample/group order. PredefinedSplit
+accepts per-call assignments, preserves -1 training-only rows, supports other
+negative labels, and matches zero-fold/empty-training edge cases.
+All outputs are materialized, ascending 1-based index arrays. LeaveOneOut has
+quadratic index storage. No new cross_val_score estimator dispatch was added.
+
+The new comparison suite checks 362 result groups against sklearn 1.6.1 across
+three seeded group datasets with two split counts each. It compares exact
+fold counts and every train/test index, including uneven/tied groups,
+noncontiguous and negative labels, training-only rows, empty assignments and
+empty training folds. Seven isolated invalid-input cases bring the total to
+657. The group_validation example fits and scores four held-out groups.
+Original contributions remain MIT with sklearn BSD attribution retained.
+Inventory: 127 core types, 52 source modules, 54 native test programs,
+34 Python reference suites and 9,730 reference result groups.
+
+
+Final validation: all 54 native test programs passed with runtime checks and
+floating-point traps (-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow)
+and in release mode. All 362 new splitter result groups and all 192 rerun
+baseline result groups passed against sklearn 1.6.1. All 657 isolated input-error
+cases passed. The checked group_validation example returned R2=1 on each of
+four held-out groups. Python syntax, Fortran line lengths, inventory, reference
+report and staged diff checks passed. No dependency or extension was added.

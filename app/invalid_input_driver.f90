@@ -3,6 +3,9 @@ program invalid_input_driver
   use sklearn
   use, intrinsic :: ieee_arithmetic, only: ieee_value,ieee_quiet_nan,ieee_positive_inf
   implicit none
+  type(group_kfold) :: group_cv
+  type(leave_one_out) :: loo_cv
+  type(leave_one_group_out) :: logo_cv
   type(sgd_classifier) :: sgdc
   type(sgd_regressor) :: sgd
   type(adaboost_classifier) :: ada
@@ -95,6 +98,13 @@ program invalid_input_driver
   mt_y=1
   x=1; y=1; call get_command_argument(1,mode)
   select case(trim(mode))
+  case('group_empty'); folds=group_cv%split([integer::])
+  case('group_one_fold'); group_cv%n_splits=1; folds=group_cv%split([1,2,3])
+  case('group_many_folds'); folds=group_cv%split([1,1,2])
+  case('loo_zero'); folds=loo_cv%split(0)
+  case('loo_one'); folds=loo_cv%split(1)
+  case('logo_empty'); folds=logo_cv%split([integer::])
+  case('logo_single'); folds=logo_cv%split([7,7])
   case('sgdc_binary_average')
     sgdc%average=1; call sgdc%partial_fit(x,[-4,-4,7,7],classes=[-4,7])
   case('sgdc_multi_average')
