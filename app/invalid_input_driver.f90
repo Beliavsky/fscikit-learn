@@ -25,6 +25,9 @@ program invalid_input_driver
   type(leave_one_group_out) :: logo_cv
   type(sgd_classifier) :: sgdc
   type(sgd_regressor) :: sgd
+  type(hdbscan) :: hd_case
+  real(dp) :: hd_x(6,2),hd_dist(4,4)
+  integer, allocatable :: hd_labels(:)
   type(bayesian_gaussian_mixture) :: bg_case
   real(dp) :: bg_x(6,2),bg_scalar
   real(dp), allocatable :: bg_prob(:,:),bg_scores(:),bg_draws(:,:)
@@ -156,6 +159,11 @@ program invalid_input_driver
   elimination_cv%cv=2
   seq%cv=2
   x=1; y=1; call get_command_argument(1,mode)
+  hd_x(:,1)=[-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp]
+  hd_x(:,2)=[0._dp,1._dp,-1._dp,2._dp,0._dp,1._dp]
+  hd_dist=reshape([0._dp,1._dp,3._dp,4._dp,1._dp,0._dp,2._dp,3._dp, &
+    3._dp,2._dp,0._dp,1._dp,4._dp,3._dp,1._dp,0._dp],[4,4])
+  hd_case%min_cluster_size=2; hd_case%min_samples=2
   bg_x(:,1)=[-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp]
   bg_x(:,2)=[0._dp,1._dp,-1._dp,2._dp,0._dp,1._dp]
   bg_case%n_components=2; bg_case%max_iter=3
@@ -166,6 +174,114 @@ program invalid_input_driver
   mb_case%n_clusters=2; mb_case%max_iter=2; mb_case%batch_size=6
   bisect_case%n_clusters=2
   select case(trim(mode))
+  case('hdb_cluster_small')
+    hd_case%min_cluster_size=1
+    call hd_case%fit(hd_x)
+  case('hdb_samples_negative')
+    hd_case%min_samples=-1
+    call hd_case%fit(hd_x)
+  case('hdb_samples_high')
+    hd_case%min_samples=7
+    call hd_case%fit(hd_x)
+  case('hdb_max_cluster_negative')
+    hd_case%max_cluster_size=-1
+    call hd_case%fit(hd_x)
+  case('hdb_alpha_zero')
+    hd_case%alpha=0
+    call hd_case%fit(hd_x)
+  case('hdb_alpha_negative')
+    hd_case%alpha=-1
+    call hd_case%fit(hd_x)
+  case('hdb_alpha_nan')
+    hd_case%alpha=ieee_value(0._dp,ieee_quiet_nan)
+    call hd_case%fit(hd_x)
+  case('hdb_epsilon_negative')
+    hd_case%cluster_selection_epsilon=-1
+    call hd_case%fit(hd_x)
+  case('hdb_epsilon_inf')
+    hd_case%cluster_selection_epsilon=ieee_value(0._dp,ieee_positive_inf)
+    call hd_case%fit(hd_x)
+  case('hdb_p_small')
+    hd_case%p=.5_dp
+    call hd_case%fit(hd_x)
+  case('hdb_p_nan')
+    hd_case%p=ieee_value(0._dp,ieee_quiet_nan)
+    call hd_case%fit(hd_x)
+  case('hdb_selection')
+    hd_case%cluster_selection_method='unknown'
+    call hd_case%fit(hd_x)
+  case('hdb_metric')
+    hd_case%metric='unknown'
+    call hd_case%fit(hd_x)
+  case('hdb_centers')
+    hd_case%store_centers='unknown'
+    call hd_case%fit(hd_x)
+  case('hdb_empty')
+    call hd_case%fit(reshape([real(dp)::],[0,2]))
+  case('hdb_no_features')
+    call hd_case%fit(reshape([real(dp)::],[2,0]))
+  case('hdb_one_row')
+    call hd_case%fit(hd_x(:1,:))
+  case('hdb_no_finite')
+    hd_x=ieee_value(0._dp,ieee_quiet_nan)
+    call hd_case%fit(hd_x)
+  case('hdb_one_finite')
+    hd_x(2:,:)=ieee_value(0._dp,ieee_positive_inf)
+    call hd_case%fit(hd_x)
+  case('hdb_samples_finite')
+    hd_x(3:,:)=ieee_value(0._dp,ieee_positive_inf); hd_case%min_samples=3
+    call hd_case%fit(hd_x)
+  case('hdb_auto_samples')
+    hd_case%min_cluster_size=7; hd_case%min_samples=0
+    call hd_case%fit(hd_x)
+  case('hdb_precomputed_square')
+    hd_case%metric='precomputed'
+    call hd_case%fit(hd_x)
+  case('hdb_precomputed_nan')
+    hd_case%metric='precomputed'
+    hd_dist(1,2)=ieee_value(0._dp,ieee_quiet_nan)
+    call hd_case%fit(hd_dist)
+  case('hdb_precomputed_negative')
+    hd_case%metric='precomputed'
+    hd_dist(1,2)=-1
+    call hd_case%fit(hd_dist)
+  case('hdb_precomputed_negative_inf')
+    hd_case%metric='precomputed'
+    hd_dist(1,2)=-ieee_value(0._dp,ieee_positive_inf)
+    call hd_case%fit(hd_dist)
+  case('hdb_precomputed_asymmetric')
+    hd_case%metric='precomputed'
+    hd_dist(1,2)=10
+    call hd_case%fit(hd_dist)
+  case('hdb_precomputed_inf_asymmetric')
+    hd_case%metric='precomputed'
+    hd_dist(1,2)=ieee_value(0._dp,ieee_positive_inf)
+    call hd_case%fit(hd_dist)
+  case('hdb_precomputed_centers')
+    hd_case%metric='precomputed'
+    hd_case%store_centers='both'
+    call hd_case%fit(hd_dist)
+  case('hdb_scaling_overflow')
+    hd_case%metric='precomputed'
+    hd_case%alpha=1.e-320_dp
+    call hd_case%fit(hd_dist)
+  case('hdb_unfitted_cut')
+    hd_labels=hd_case%dbscan_clustering(1._dp)
+  case('hdb_negative_cut')
+    call hd_case%fit(hd_x)
+    hd_labels=hd_case%dbscan_clustering(-1._dp)
+  case('hdb_nan_cut')
+    call hd_case%fit(hd_x)
+    hd_labels=hd_case%dbscan_clustering(ieee_value(0._dp,ieee_quiet_nan))
+  case('hdb_negative_inf_cut')
+    call hd_case%fit(hd_x)
+    hd_labels=hd_case%dbscan_clustering(-ieee_value(0._dp,ieee_positive_inf))
+  case('hdb_zero_cut_size')
+    call hd_case%fit(hd_x)
+    hd_labels=hd_case%dbscan_clustering(1._dp,0)
+  case('hdb_negative_cut_size')
+    call hd_case%fit(hd_x)
+    hd_labels=hd_case%dbscan_clustering(1._dp,-1)
   case('bgm_components_zero')
     bg_case%n_components=0
     call bg_case%fit(bg_x)

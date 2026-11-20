@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 150 public estimator, transformer, and splitter types. Each is a
+There are 151 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Forty-nine reference suites additionally check 41,653
+All types have native tests. Fifty reference suites additionally check 44,257
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -27,7 +27,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | linear_model | `linear_regression`, `lars`, `lasso_lars`, `lars_cv`, `lasso_lars_cv`, `lasso_lars_ic`, `ridge`, `ridge_classifier`, `ridge_classifier_cv`, `multi_task_elastic_net`, `multi_task_lasso`, `lasso`, `elastic_net`, `lasso_cv`, `elastic_net_cv`, `logistic_regression`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `sgd_regressor`, `sgd_classifier`, `sgd_one_class_svm`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `huber_regressor`, `quantile_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; least-angle/Lasso homotopy paths with CV and AIC/BIC selection; coordinate descent with K-fold alpha/l1-ratio selection; logistic Newton solver; perceptron; PA-I/II classification/regression with averaging; streaming stochastic-gradient regression/classification and one-class detection; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; weighted L1-regularized quantile regression; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb`, `categorical_nb` | Empirical class priors, variance smoothing, strictly positive scalar alpha; Bernoulli threshold; optional complement normalization |
 | neighbors | `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with optional shrinkage and uniform priors; Euclidean kernel density |
-| cluster | `kmeans`, `bisecting_kmeans`, `mini_batch_kmeans`, `spectral_coclustering`, `spectral_biclustering`, `dbscan`, `agglomerative_clustering`, `feature_agglomeration`, `mean_shift`, `affinity_propagation`, `spectral_clustering`, `optics`, `birch`; `estimate_bandwidth`, `cluster_optics_dbscan`, `cluster_optics_xi` | Lloyd/k-means++; paired row/column spectral partitions and checkerboard biclustering; weighted streaming mini-batch centroids; bisecting centroid hierarchy with Lloyd/Elkan splits; density expansion; single/complete/average/Ward merge trees and feature pooling; flat-kernel mode seeking; damped exemplar messages; normalized-Laplacian clustering with k-means or pivoted QR assignment; OPTICS reachability ordering, Xi hierarchy and DBSCAN extraction; BIRCH streaming CF tree and optional Ward clustering |
+| cluster | `kmeans`, `bisecting_kmeans`, `mini_batch_kmeans`, `spectral_coclustering`, `spectral_biclustering`, `hdbscan`, `dbscan`, `agglomerative_clustering`, `feature_agglomeration`, `mean_shift`, `affinity_propagation`, `spectral_clustering`, `optics`, `birch`; `estimate_bandwidth`, `cluster_optics_dbscan`, `cluster_optics_xi` | Lloyd/k-means++; paired row/column spectral partitions and checkerboard biclustering; weighted streaming mini-batch centroids; bisecting centroid hierarchy with Lloyd/Elkan splits; density expansion; single/complete/average/Ward merge trees and feature pooling; flat-kernel mode seeking; damped exemplar messages; normalized-Laplacian clustering with k-means or pivoted QR assignment; OPTICS reachability ordering, Xi hierarchy and DBSCAN extraction; BIRCH streaming CF tree and optional Ward clustering |
 | decomposition | `pca`, `incremental_pca`, `truncated_svd`, `nmf`, `sparse_pca`, `dictionary_learning`, `sparse_coder`; `sparse_encode`; re-exports `kernel_pca`, `factor_analysis`, `fast_ica` | Direct Jacobi SVD; PCA whitening and inversion; streaming stacked-SVD IncrementalPCA; exact dense SVD; NMF multiplicative updates; sparse dictionary factorization and SparsePCA; five sparse coding methods; nonlinear kernel PCA; unrotated full-SVD factor analysis; parallel/deflation ICA |
 | cross_decomposition | `pls_regression`, `pls_canonical`, `cca`, `pls_svd` | Paired-matrix latent components: NIPALS regression/canonical deflation, CCA pseudoinverse mode, canonical direct SVD and PLSSVD cross-covariance projection; multiple response columns |
 | isotonic | `isotonic_regression`; `isotonic_fit`, `check_increasing` | Weighted pool-adjacent-violators, automatic Spearman direction, bounds, repeated-input aggregation and piecewise linear interpolation |
@@ -2317,3 +2317,70 @@ be finite and valid, and extremely small digamma arguments that cannot have a
 finite real64 result are rejected. Sparse/float32 matrices, sample weights,
 verbose output, cloning and metadata routing are outside this subset. Original
 contributions retain MIT licensing, with sklearn/NumPy attribution preserved.
+
+
+## HDBSCAN
+
+hdbscan implements the dense sklearn 1.6.1 brute backend: self-including core
+neighbor distances, mutual reachability, Prim linkage, condensed-tree pruning,
+excess-of-mass (eom) or leaf selection, membership strengths and DBSCAN cuts.
+min_samples=0 resolves to min_cluster_size; max_cluster_size=0 means no cap.
+min_cluster_size must be at least two but may exceed the sample count when an
+explicit smaller min_samples is supplied. At least two finite rows are needed.
+max_cluster_size affects EOM selection; leaf selection ignores it. Selection
+epsilon can merge clusters beyond the size cap, following source behavior.
+allow_single_cluster controls root selection, with source root-lambda filtering.
+
+Metrics are euclidean, sqeuclidean, manhattan/cityblock, chebyshev, minkowski
+(p>=1), cosine and precomputed. The fixed brute backend divides the entire
+distance matrix by alpha before computing core distances, matching source brute
+semantics; the source auto/tree backend can behave differently when alpha!=1.
+Core order statistics use quickselect. Dense mutual reachability replaces the
+distance workspace in place; this O(N**2) workspace is freed after building the
+hierarchy, before center computation. Inputs are preserved. Precomputed matrices
+must be symmetric, nonnegative and square; positive infinite distances are
+accepted. Their supplied diagonal is preserved. Alpha scaling that would overflow
+a finite distance is rejected explicitly.
+
+Finite feature rows are clustered. Rows with infinity receive label -2 and
+strength zero; rows with NaN receive label -3 and NaN strength. A row containing
+both infinity signs is classified as missing (-3), matching source semantics
+without invalid arithmetic. Ordinary noise is -1 with strength zero. Occupied
+clusters use contiguous labels starting at zero, and n_clusters_ counts occupied
+clusters. selected_clusters_ may also contain an unoccupied selected root.
+Finite-row membership strengths lie in [0,1]. Degenerate zero-distance lifetimes
+can produce infinite or NaN raw stabilities_, explicitly represented even with
+floating-point traps enabled.
+
+store_centers accepts none, centroid, medoid or both. Centers use membership
+strengths as weights, with the first point breaking medoid ties. Centers cannot
+be requested with precomputed distances. A refit clears unrequested center
+attributes; no clusters gives a (0,p) center matrix. Native centers handle
+excluded nonfinite rows, correcting the source 1.6.1 mask-shape failure. Native
+raw-tree remapping also handles exactly two finite rows among excluded rows,
+using the known finite root rather than the source's last-raw-point assumption.
+
+dbscan_clustering(cut_distance,min_cluster_size) uses strict height<cut_distance;
+its optional minimum defaults to five independently of the fitted minimum.
+Positive infinite cuts are supported; nonfinite row markers are preserved.
+children_ has (raw_N-1,2) one-based child IDs: leaves 1..raw_N and merge node
+raw_N+i for row i. distances_ and cluster_sizes_ describe this full tree,
+including excluded leaves appended at infinite height. core_distances_, condensed
+and stability arrays, and selected cluster IDs refer to the finite subset:
+finite_indices_ maps its leaves to raw rows, and its condensed root is finite_N+1.
+stabilities_ indexes consecutive cluster IDs starting at that root. mst_edges_
+records raw point IDs in the brute Prim visitation path; mst_distances_ records
+frontier keys, which need not equal distances between the recorded endpoints.
+
+Native MST and equal-height sorting use deterministic first-index/stable ties.
+Source NumPy sorting can order equal heights differently. In 120 reference
+configurations, 114 direct fits match source labels and strengths. Six differ
+on single-cloud or cosine plateaus/roundoff ties. All 120 match source linkage
+ultrametrics and sorted heights; source tree routines applied to each native
+tied hierarchy match its selection, labels, strengths and condensed tree. Thus
+no universal bitwise or label identity is claimed at tied linkage heights.
+
+The implementation is real64 CPU dense only. Tree/automatic backends, sparse
+inputs, callable metrics, parallel controls and in-place copy=False are absent.
+There is no inductive prediction method. See compare_hdbscan.py for the direct
+and hierarchy-conditioned checks and test_hdbscan.f90 for analytic fixtures.

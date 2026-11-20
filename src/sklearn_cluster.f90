@@ -3,6 +3,7 @@ module sklearn_cluster
   use sklearn_bisecting_kmeans, only: bisecting_kmeans
   use sklearn_minibatch_kmeans, only: mini_batch_kmeans
   use sklearn_bicluster, only: spectral_coclustering,spectral_biclustering
+  use sklearn_hdbscan, only: hdbscan
   use sklearn_common
   use sklearn_metrics, only: pairwise_distances
   use sklearn_spectral, only: spectral_affinity_matrix,spectral_eigenvectors
@@ -11,6 +12,7 @@ module sklearn_cluster
   private
   public :: bisecting_kmeans,mini_batch_kmeans
   public :: spectral_coclustering,spectral_biclustering
+  public :: hdbscan
   public :: optics,cluster_optics_dbscan,cluster_optics_xi
   public :: kmeans,dbscan,agglomerative_clustering
   public :: mean_shift,estimate_bandwidth,affinity_propagation,spectral_clustering

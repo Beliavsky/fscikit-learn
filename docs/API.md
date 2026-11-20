@@ -1561,3 +1561,36 @@ for Beta parameters or (K,1) for finite-Dirichlet concentrations. Resolved prior
 have trailing underscores. lower_bounds_ stores only the selected run's bounds.
 See COVERAGE.md for score semantics, warm/refit rules, history, storage cost,
 prior validation and native sampling reproducibility versus NumPy.
+
+
+## HDBSCAN
+
+Import hdbscan from sklearn, sklearn_cluster or sklearn_hdbscan.
+
+```fortran
+type(hdbscan) :: model
+integer, allocatable :: labels(:),cut_labels(:)
+model%min_cluster_size=8
+model%min_samples=5
+model%cluster_selection_method='eom'
+model%store_centers='both'
+labels=model%fit_predict(x)
+! model%probabilities_ gives membership strengths, not a probability matrix.
+! model%centroids_ and model%medoids_ have shape (n_clusters_,n_features_in_).
+cut_labels=model%dbscan_clustering(.7_dp,min_cluster_size=5)
+```
+
+fit stores labels_ and probabilities_. Labels start at zero; -1 is noise,
+-2 marks infinite feature rows and -3 marks missing rows (NaN strength).
+min_samples=0 selects min_cluster_size, and max_cluster_size=0 means no cap.
+Selection supports eom/leaf, nonnegative cluster_selection_epsilon and
+allow_single_cluster. Metrics include euclidean, sqeuclidean, manhattan,
+cityblock, chebyshev, minkowski with p>=1, cosine and precomputed. Centers are
+optional (none/centroid/medoid/both) and unavailable for precomputed inputs.
+
+The backend always uses dense brute semantics, including alpha scaling before
+core distances. DBSCAN cuts use strict height<cut_distance; their default
+minimum size is five independently of fit. Raw children_ uses one-based leaf
+IDs and raw_N+i merge IDs, whereas condensed/core/stability diagnostics use the
+finite subset mapped by finite_indices_. See COVERAGE.md for storage, tie
+behavior, diagnostics, nonfinite handling and source corrections.

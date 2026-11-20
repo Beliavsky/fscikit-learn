@@ -1763,3 +1763,51 @@ probability row sums. Python syntax, Fortran formatting, inventories, report
 contents, unique registrations and git diff checks passed. Other Python
 reference suites were not rerun. MIT project licensing and complete upstream
 notices are retained, with no runtime dependency added.
+
+
+## HDBSCAN hierarchical density clustering (2026-11-20)
+
+Added dense hdbscan with sklearn 1.6.1 brute mutual reachability, self-included
+core distances, Prim linkage, condensed tree, raw stability, EOM/leaf selection,
+epsilon merging, size caps, optional root selection, membership strengths,
+weighted centroids/medoids and strict-height DBSCAN cuts. Supports six feature
+metric names plus the cityblock alias, and precomputed distances including
+positive infinity. Nonfinite feature rows retain source -2/-3 labels. Native
+centers and raw-tree remapping correct source edge cases with excluded rows.
+The dense workspace is updated in place and freed before center computation.
+There are no sparse/tree/parallel backends or prediction method; alpha follows
+source brute scaling, which differs from auto/tree semantics for alpha!=1.
+
+compare_hdbscan.py checks 2,604 groups across 120 configurations on four seeded
+datasets. All 120 compare source linkage ultrametrics and sorted heights, source
+tree selection on the native tied hierarchy, condensed arrays, stability,
+strengths, core distances, Prim frontier keys, raw tree sizes, weighted centers
+and DBSCAN cuts. Of these, 114 complete direct fits match source labels and
+strengths; six single-cloud/cosine plateau or roundoff tie cases differ in
+selection under equal-height ordering. Those differences are recorded, not
+counted as direct-fit identity. Discrete comparisons are exact after label
+renumbering and numeric comparisons use atol=rtol=3e-8 with explicit NaN handling.
+Native analytic tests additionally cover self-included neighbor ranks, known
+strengths/centers, strict cuts, alpha scaling, disconnected infinite distances,
+subnormal/infinite lambdas, NaN stability, identical rows and excluded-row root
+remapping. The hierarchical_density example demonstrates fitting and cuts.
+
+Inventory: 151 core types, 69 source modules, 71 native test programs,
+50 reference suites and 44,257 result groups, plus 28 separate NumPy stream
+groups. Thirty-five new diagnostics bring the isolated invalid-input inventory
+to 1,216. MIT licensing is retained alongside the full HDBSCAN component BSD
+notice in LICENSES/hdbscan-BSD.md and existing sklearn notices. No runtime
+dependency or public extension was added. Existing estimator bodies are
+unchanged apart from the clustering re-export.
+
+Validation completed on the final implementation: all 71 native test programs
+passed with -fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow and in release
+mode. The package-built HDBSCAN driver passed all 2,604 result groups (114/120
+direct fits; all 120 hierarchy-conditioned comparisons passed). All 1,216
+isolated invalid-input cases passed, including 35 new HDBSCAN cases. The checked
+hierarchical_density example found three clusters and no noise, with membership
+strengths from 0.3769913 to 1 and no noise at cut 0.7/minimum size five.
+Python syntax, Fortran formatting, report contents, inventory, unique diagnostic
+registrations and git diff checks passed. Earlier Python reference suites were
+not rerun; existing estimator bodies were unchanged apart from the new export.
+MIT project licensing and complete upstream notices are retained.
