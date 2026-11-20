@@ -19,7 +19,8 @@ def main():
     candidates = [ROOT / line.strip().strip('"') for line in resolved.stdout.splitlines()
                   if line.strip().strip('"').endswith(("reference_adaboost_regression_driver",
                                                      "reference_adaboost_regression_driver.exe"))]
-    assert len(candidates) == 1 and candidates[0].is_file(), resolved.stdout
+    candidates = [path for path in candidates if path.is_file()]
+    assert len(candidates) == 1, resolved.stdout
     executable = candidates[0].resolve()
     checks = []
     for seed, n, p in ((7, 57, 3), (42, 71, 4), (2026, 43, 5)):

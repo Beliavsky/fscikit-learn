@@ -1443,3 +1443,50 @@ checked boosted_regression example retained eight trees and achieved training
 R2=0.9471185508 on its illustrative fixture. Python syntax, Fortran formatting,
 reference-report counts and staged diff checks passed. Older Python reference
 suites were not rerun; existing tree/forest implementations were unchanged.
+
+
+## QuantileRegressor / native quantile LP (2026-11-20)
+
+Added quantile_regressor with the sklearn weighted pinball-loss plus L1
+objective, optional unpenalized intercept, zero-weight exclusion, original-unit
+coefficients, prediction and R2 score. An independent native dense primal
+simplex uses a feasible residual basis, scaling and Bland pivot rules. Native
+convergence, iteration, primal objective, dual coefficients, dual-gap and
+reduced-cost diagnostics are exposed; arbitrary SciPy/HiGHS solver selection
+is outside this subset. No dependency or public extension was added. MIT
+project licensing and retained sklearn BSD terms are unchanged; provenance
+now identifies the LP formulation and independent solver.
+
+compare_quantile_regression.py adds 2,089 result groups across 120
+configurations on five seeded datasets. Of these, 444 directly compare sklearn
+HiGHS objectives and, on unique-solution fixtures, coefficients, intercepts and
+train/query predictions; 1,645 check convergence, feature counts, independent
+objectives, dual bounds, feature/intercept constraints, zero-weight dual entries,
+primal-dual agreement, reduced costs, prediction identities and R2 identities.
+Fixtures include quantiles .01 through .99, alpha zero through 1000, optional
+intercepts, heterogeneous/zero/tiny/scaled weights, scaled features/targets,
+duplicate/constant/zero columns, rounded data, constant and exact-linear
+targets, zero-weight outliers and underdetermined systems. Nonunique optima
+are compared by objective and certificates. The tiny-weight reference fixture
+uses equivalent unit-sum weights for sklearn to avoid HiGHS absolute-cost
+tolerances; the native call uses the original weights. General comparison
+atol=rtol=2e-7; objective and certificate checks use the explicit target/feature
+scales and tighter tolerances recorded in the script.
+
+Inventory: 140 core types, 59 source modules, 62 native test programs,
+41 reference suites and 17,299 result groups, plus 28 separately tracked NumPy
+stream groups. Twenty-three new isolated diagnostics bring the diagnostic
+inventory to 897. conditional_quantiles demonstrates three fitted quantiles.
+The stale remaining-areas list was also corrected for already implemented
+Gaussian-process classification and dictionary learning.
+
+Final validation: all 62 native test programs passed with runtime checks and
+floating-point traps (-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow)
+and in release mode. All 2,089 quantile result groups and all 897 isolated
+diagnostics passed. The checked conditional_quantiles example converged for
+quantiles .1, .5 and .9, with slopes 1.7914809230, 1.9602359719 and 2.1831911834
+and reported zero primal-dual gaps. These are illustrative fixture results.
+The AdaBoostRegressor reference runner now filters actual executable files
+from cold-build progress output; its 1,649 existing groups were rerun and passed.
+Other older Python reference suites were not rerun. Python syntax, Fortran
+formatting, inventory/report counts and staged diff checks passed.

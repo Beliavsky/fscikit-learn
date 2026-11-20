@@ -25,6 +25,8 @@ program invalid_input_driver
   type(leave_one_group_out) :: logo_cv
   type(sgd_classifier) :: sgdc
   type(sgd_regressor) :: sgd
+  type(quantile_regressor) :: qr
+  real(dp), allocatable :: qr_prediction(:)
   type(adaboost_regressor) :: adar
   real(dp), allocatable :: adar_prediction(:)
   type(adaboost_classifier) :: ada
@@ -121,6 +123,67 @@ program invalid_input_driver
   seq%cv=2
   x=1; y=1; call get_command_argument(1,mode)
   select case(trim(mode))
+  case('qr_quantile_zero')
+    qr%quantile=0
+    call qr%fit(reshape([0._dp,1._dp],[2,1]),[0._dp,1._dp])
+  case('qr_quantile_one')
+    qr%quantile=1
+    call qr%fit(reshape([0._dp,1._dp],[2,1]),[0._dp,1._dp])
+  case('qr_quantile_nan')
+    qr%quantile=ieee_value(0._dp,ieee_quiet_nan)
+    call qr%fit(reshape([0._dp,1._dp],[2,1]),[0._dp,1._dp])
+  case('qr_alpha')
+    qr%alpha=-1
+    call qr%fit(reshape([0._dp,1._dp],[2,1]),[0._dp,1._dp])
+  case('qr_alpha_nan')
+    qr%alpha=ieee_value(0._dp,ieee_quiet_nan)
+    call qr%fit(reshape([0._dp,1._dp],[2,1]),[0._dp,1._dp])
+  case('qr_alpha_inf')
+    qr%alpha=ieee_value(0._dp,ieee_positive_inf)
+    call qr%fit(reshape([0._dp,1._dp],[2,1]),[0._dp,1._dp])
+  case('qr_tolerance')
+    qr%tol=0
+    call qr%fit(reshape([0._dp,1._dp],[2,1]),[0._dp,1._dp])
+  case('qr_tolerance_nan')
+    qr%tol=ieee_value(0._dp,ieee_quiet_nan)
+    call qr%fit(reshape([0._dp,1._dp],[2,1]),[0._dp,1._dp])
+  case('qr_iterations')
+    qr%max_iter=0
+    call qr%fit(reshape([0._dp,1._dp],[2,1]),[0._dp,1._dp])
+  case('qr_weights_shape')
+    call qr%fit(reshape([0._dp,1._dp],[2,1]),[0._dp,1._dp],[1._dp])
+  case('qr_weights_negative')
+    call qr%fit(reshape([0._dp,1._dp],[2,1]),[0._dp,1._dp],[-1._dp,2._dp])
+  case('qr_weights_nan')
+    call qr%fit(reshape([0._dp,1._dp],[2,1]),[0._dp,1._dp], &
+      [1._dp,ieee_value(0._dp,ieee_quiet_nan)])
+  case('qr_weights_inf')
+    call qr%fit(reshape([0._dp,1._dp],[2,1]),[0._dp,1._dp], &
+      [1._dp,ieee_value(0._dp,ieee_positive_inf)])
+  case('qr_weights_zero')
+    call qr%fit(reshape([0._dp,1._dp],[2,1]),[0._dp,1._dp],[0._dp,0._dp])
+  case('qr_weights_overflow')
+    call qr%fit(reshape([0._dp,1._dp],[2,1]),[0._dp,1._dp],[huge(1._dp),huge(1._dp)])
+  case('qr_empty')
+    call qr%fit(reshape([real(dp)::],[0,1]),[real(dp)::])
+  case('qr_nan')
+    call qr%fit(reshape([ieee_value(0._dp,ieee_quiet_nan),1._dp],[2,1]),[0._dp,1._dp])
+  case('qr_y_nan')
+    call qr%fit(reshape([0._dp,1._dp],[2,1]),[ieee_value(0._dp,ieee_quiet_nan),1._dp])
+  case('qr_y_shape')
+    call qr%fit(reshape([0._dp,1._dp],[2,1]),[1._dp])
+  case('qr_unfitted')
+    qr_prediction=qr%predict(reshape([0._dp,1._dp],[2,1]))
+  case('qr_query_features')
+    call qr%fit(reshape([0._dp,1._dp],[2,1]),[0._dp,1._dp])
+    qr_prediction=qr%predict(reshape([0._dp,1._dp],[1,2]))
+  case('qr_query_nan')
+    call qr%fit(reshape([0._dp,1._dp],[2,1]),[0._dp,1._dp])
+    qr_prediction=qr%predict(reshape([ieee_value(0._dp,ieee_quiet_nan)],[1,1]))
+  case('qr_query_empty')
+    call qr%fit(reshape([0._dp,1._dp],[2,1]),[0._dp,1._dp])
+    qr_prediction=qr%predict(reshape([real(dp)::],[0,1]))
+
   case('adar_count')
     adar%n_estimators=0
     call adar%fit(reshape([0._dp,1._dp],[2,1]),[0._dp,1._dp])

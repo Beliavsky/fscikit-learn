@@ -3,10 +3,11 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 139 public estimator, transformer, and splitter types. Each is a
+There are 140 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Forty reference suites additionally check 15,210 result
-groups in total across seeded datasets against installed scikit-learn 1.6.1.
+All types have native tests. Forty-one reference suites additionally check 17,299
+result groups across seeded datasets using installed scikit-learn 1.6.1 and
+independent numerical identities and optimality certificates.
 
 This document counts core scikit-learn counterparts. Public extensions are
 tracked separately in [EXTENSIONS.md](EXTENSIONS.md) and excluded from the
@@ -23,7 +24,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | Module (`sklearn_` prefix) | Public types and functions | Scope and numerical choices |
 | --- | --- | --- |
 | preprocessing | `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `knn_imputer`, `missing_indicator`, `spline_transformer`, `label_encoder`, `one_hot_encoder`, `power_transformer`, `kbins_discretizer`, `quantile_transformer`; `normalize`, `binarize`, `polynomial_features` | Population variance; linear percentile interpolation; NaN imputation with mean/median/most-frequent/constant; numeric categories; empirical uniform/normal quantile transforms; dense polynomial terms through degree 12 with optional interactions; B-spline features and extrapolation |
-| linear_model | `linear_regression`, `lars`, `lasso_lars`, `lars_cv`, `lasso_lars_cv`, `lasso_lars_ic`, `ridge`, `ridge_classifier`, `ridge_classifier_cv`, `multi_task_elastic_net`, `multi_task_lasso`, `lasso`, `elastic_net`, `lasso_cv`, `elastic_net_cv`, `logistic_regression`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `sgd_regressor`, `sgd_classifier`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `huber_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; least-angle/Lasso homotopy paths with CV and AIC/BIC selection; coordinate descent with K-fold alpha/l1-ratio selection; logistic Newton solver; perceptron; PA-I/II classification/regression with averaging; streaming stochastic-gradient regression/classification; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
+| linear_model | `linear_regression`, `lars`, `lasso_lars`, `lars_cv`, `lasso_lars_cv`, `lasso_lars_ic`, `ridge`, `ridge_classifier`, `ridge_classifier_cv`, `multi_task_elastic_net`, `multi_task_lasso`, `lasso`, `elastic_net`, `lasso_cv`, `elastic_net_cv`, `logistic_regression`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `sgd_regressor`, `sgd_classifier`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `huber_regressor`, `quantile_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; least-angle/Lasso homotopy paths with CV and AIC/BIC selection; coordinate descent with K-fold alpha/l1-ratio selection; logistic Newton solver; perceptron; PA-I/II classification/regression with averaging; streaming stochastic-gradient regression/classification; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; weighted L1-regularized quantile regression; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb`, `categorical_nb` | Empirical class priors, variance smoothing, strictly positive scalar alpha; Bernoulli threshold; optional complement normalization |
 | neighbors | `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with optional shrinkage and uniform priors; Euclidean kernel density |
 | cluster | `kmeans`, `dbscan`, `agglomerative_clustering`, `feature_agglomeration`, `mean_shift`, `affinity_propagation`, `spectral_clustering`, `optics`, `birch`; `estimate_bandwidth`, `cluster_optics_dbscan`, `cluster_optics_xi` | Lloyd/k-means++; density expansion; single/complete/average/Ward merge trees and feature pooling; flat-kernel mode seeking; damped exemplar messages; normalized-Laplacian clustering with k-means or pivoted QR assignment; OPTICS reachability ordering, Xi hierarchy and DBSCAN extraction; BIRCH streaming CF tree and optional Ward clustering |
@@ -227,14 +228,13 @@ distances; cosine similarity; linear, RBF, polynomial and sigmoid kernels.
 ## Remaining major scikit-learn areas
 
 Not translated: sparse data paths, general estimator base/clone/parameter search
-framework, pipelines/column transformers, NuSVC and linear SVM variants, quantile
-regression, remaining GLM variants, remaining SGD families, histogram boosting, broader AdaBoost and bagging APIs,
+framework, pipelines/column transformers, NuSVC, broader GLM/SGD options,
+histogram boosting, broader AdaBoost and bagging APIs,
 t-SNE and Hessian/modified LLE,
 outlier detection beyond LOF/OneClassSVM,
-Gaussian-process classification, dictionary learning,
 calibration, semi-supervised learning beyond label propagation/spreading,
 multiclass/multioutput wrappers,
-inspection/permutation importance, feature-selection wrappers, image features,
+inspection/permutation importance, further feature-selection wrappers, image features,
 real dataset loaders and the full plotting/display API.
 
 SciFort is available at `../scifort` but not linked by this initial package.
@@ -1739,3 +1739,45 @@ learner has error >=0.5, it is retained with zero ensemble weight, matching
 sklearn's prediction behavior; native feature_importances_ is zero in this case
 rather than sklearn's division-by-zero NaNs. Training stops on a nonpositive or
 nonfinite updated weight sum. Parameters and finite dense inputs are validated.
+
+
+## Quantile regression
+
+`quantile_regressor` implements sklearn 1.6.1 QuantileRegressor's weighted
+pinball-loss plus alpha * L1 objective, optional unpenalized intercept, dense
+single-target fit/predict and unweighted R2 score. Quantile must lie strictly
+between zero and one; alpha may be zero. Sample weights must be finite,
+nonnegative and have a positive finite sum. Weights are normalized to sum one,
+and zero-weight rows are removed before optimization. The objective matches
+sklearn's sum-weight-rescaled penalty convention.
+
+The independent native solver is a dense primal simplex with a residual-slack
+initial feasible basis, Bland entering/leaving index rules, row sign changes,
+feature/target scaling and an iteration limit. It optimizes the full piecewise
+linear objective; no smoothed approximation or external LP runtime is used.
+For n positive-weight samples and p parameters (including an intercept), the
+tableau has n rows and 2*p+2*n+1 columns. Storage is quadratic in n, and simplex
+can take many pivots. This implementation targets moderate dense problems.
+SciPy/HiGHS solver selection and solver_options, sparse arrays, multioutput,
+metadata routing and estimator cloning are outside this subset. There is no
+claim that pivot counts or nonunique optima match HiGHS.
+
+Native max_iter (default 10000) and tol (default 1e-10) control pivot count and
+scaled reduced-cost tolerance. Inspect converged_ before using a result as an
+optimum; an iteration limit or unreliable numerical pivot returns the current
+iterate with converged_=false. n_iter_ counts native pivots. Native diagnostic
+attributes objective_, dual_coef_, dual_gap_ and optimality_ expose the
+normalized weighted objective, training-row dual variables, nonnegative
+primal-minus-dual objective gap, and maximum negative scaled reduced cost.
+Certificates are meaningful as optimality evidence when converged_ is true.
+The intercept and coefficients are returned in the original input units.
+
+Independent and duplicate columns, zero features, exact fits, underdetermined
+systems, extreme quantiles and strongly regularized solutions are covered by
+reference fixtures. Nonunique solutions can have different coefficients or
+predictions from HiGHS while attaining the same optimum. Validation checks the
+objective and primal-dual conditions in these cases, rather than asserting
+identical arbitrary solutions. Tiny sample weights are normalized before the
+HiGHS reference call in the weight-rescaling fixture to prevent absolute
+solver tolerances from treating the entire objective as negligible; the native
+call retains the original tiny weights.

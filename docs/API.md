@@ -1268,3 +1268,30 @@ estimators_, estimator_weights_, estimator_errors_, and feature_importances_.
 The weights/errors retain requested n_estimators slots, with unused slots 0/1;
 estimators_ contains only retained trees. Each tree supports predict, apply,
 get_depth and get_n_leaves. See COVERAGE.md for the supported base learner.
+
+
+## QuantileRegressor
+
+Available as quantile_regressor from sklearn, sklearn_linear_model and
+sklearn_quantile.
+
+```fortran
+type(quantile_regressor) :: model
+model%quantile=.9_dp
+model%alpha=.02_dp
+model%fit_intercept=.true.
+call model%fit(x,y,sample_weight=weights) ! weights optional
+prediction=model%predict(query)
+r2=model%score(x,y)
+```
+
+Fitted attributes: coef_, intercept_, n_features_in_, n_iter_ and converged_.
+Native LP controls are tol and max_iter; native diagnostics are objective_,
+dual_coef_, dual_gap_ and optimality_. dual_coef_ has one entry per training
+row, with zero entries for zero-weight rows. For normalized weights w, an
+optimal dual has (quantile-1)*w <= dual_coef_ <= quantile*w,
+abs(matmul(transpose(x),dual_coef_)) <= alpha and, with an intercept,
+sum(dual_coef_)=0. Its objective dot_product(y,dual_coef_) agrees with the
+primal objective. See COVERAGE.md for numerical tolerance, scaling, nonunique
+solutions, solver differences and convergence behavior. score is unweighted R2
+and requires at least two query samples.
