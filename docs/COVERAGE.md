@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 143 public estimator, transformer, and splitter types. Each is a
+There are 145 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Forty-four reference suites additionally check 28,763
+All types have native tests. Forty-five reference suites additionally check 29,545
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -51,7 +51,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | mixture | `gaussian_mixture` | EM with k-means initialization, full/tied/diag/spherical covariances; posterior, log likelihood, BIC/AIC |
 | neural_network | `mlp_classifier`, `mlp_regressor` | Arbitrary dense hidden layer sizes, relu/tanh/logistic/identity, full-batch Adam, softmax classification or squared-error regression, L2 regularization |
 | gaussian_process | `gaussian_process_regressor`, `gaussian_process_classifier` | Fixed isotropic RBF amplitude/length scale plus white noise and diagonal alpha; Cholesky posterior, standard deviation/covariance, log marginal likelihood; optional target normalization; fixed-RBF Laplace binary/OVR classification |
-| covariance | `empirical_covariance`, `shrunk_covariance`, `ledoit_wolf`, `oas`, `graphical_lasso` | Population covariance, pseudoinverse precision, squared Mahalanobis distance, likelihood, Frobenius/spectral covariance error; L1-penalized sparse precision via block coordinate descent |
+| covariance | `empirical_covariance`, `shrunk_covariance`, `ledoit_wolf`, `oas`, `graphical_lasso`, `min_cov_det`, `elliptic_envelope`; `fast_mcd` | Population covariance, pseudoinverse precision, squared Mahalanobis distance, likelihood, Frobenius/spectral covariance error; L1-penalized sparse precision via block coordinate descent; FastMCD robust covariance and elliptic outlier detection |
 | datasets | `make_blobs`, `make_regression`, `make_moons`, `make_circles` | Native synthetic generators; optional deterministic seed; no bundled real-world datasets |
 
 ## Metrics and kernels
@@ -232,7 +232,7 @@ Not translated: sparse data paths, general estimator base/clone/parameter search
 framework, pipelines/column transformers, broader SVM/GLM/SGD options,
 histogram boosting, broader AdaBoost and bagging APIs,
 t-SNE and Hessian/modified LLE,
-outlier detection beyond LOF/OneClassSVM/SGDOneClassSVM/IsolationForest,
+outlier detection beyond LOF/OneClassSVM/SGDOneClassSVM/IsolationForest/EllipticEnvelope,
 calibration, semi-supervised learning beyond label propagation/spreading,
 multiclass/multioutput wrappers,
 inspection/permutation importance, further feature-selection wrappers, image features,
@@ -1962,3 +1962,63 @@ the latest max_samples_ supplies the current normalization, as in sklearn.
 Path-length accumulation preserves the source operation order, which matters
 at the exact auto threshold for constant data. Numerical parity is established
 for the reference fixtures rather than claimed for all floating-point ties.
+
+
+## Robust covariance and elliptic envelopes
+
+`min_cov_det`, `elliptic_envelope` and `fast_mcd` translate sklearn 1.6.1's
+FastMCD robust covariance path. The implementation includes the univariate
+shortest-half algorithm, 30 random starts/two-step screening followed by ten
+candidate refinements for up to 500 rows, and the larger-data subset/merge/full
+search. Above 500 rows it partitions shuffled data into roughly 300-row groups,
+performs 500 total random trials (at least ten per group), merges candidates
+on up to 1500 rows and, where required, refines on all original rows. Scalar
+nonnegative default-integer seeds use the existing NumPy-compatible legacy RNG.
+All source search stages are present; the larger cases do not fall back to
+ordinary covariance or a small-data approximation.
+
+MinCovDet first stores raw location/covariance/support, applies the normal-model
+median/chi-square consistency factor to distances, and reweights at the .975
+chi-square quantile. Reweighted location/covariance, supports and training
+squared Mahalanobis distances are exposed. assume_centered changes the raw
+covariance after support selection and fixes reweighted/raw location at zero,
+as in sklearn. store_precision controls caching; get_precision works in both
+modes. Native symmetric eigendecomposition supplies Moore-Penrose precision,
+including singular covariance, and native regularized-gamma evaluation and
+bisection supply the chi-square quantiles. No SciPy/LAPACK runtime is needed.
+
+Native support_fraction=0 selects automatic ceil((n+p+1)/2) support; a fraction
+in (0,1] selects floor(fraction*n) rows. The resulting raw support count must
+lie between one and n. At least two input rows and finite dense real64 data
+are required. A zero raw covariance with a proper subset, a nonpositive or
+nonfinite consistency correction, or an empty reweighting mask is rejected
+explicitly. rank_ exposes the final precision rank. Singular Gaussian log
+likelihood returns negative infinity, matching the source convention.
+
+Native correction_ and reweight_threshold_ expose postprocessing diagnostics;
+n_features_in_ is cached. Fitted sklearn-counterpart fields are location_,
+covariance_, optional precision_, support_, dist_, raw_location_,
+raw_covariance_ and raw_support_. Methods include fit, get_precision,
+mahalanobis and Frobenius/spectral error_norm; MinCovDet.score returns Gaussian
+log likelihood. Standalone fast_mcd returns allocated raw location, covariance,
+logical support and squared-distance arrays. Sparse data, custom covariance
+callbacks, random-state objects, public standalone C-step/candidate APIs and
+separate correction/reweight method calls are outside this subset.
+
+EllipticEnvelope uses the same robust fit, sets offset_ to the contamination
+percentile of negative fitted distances, and exposes score_samples,
+decision_function, predict and fit_predict. contamination must be in (0,.5].
+Labels are +1 for nonnegative decisions and -1 otherwise. score computes
+unweighted or finite nonnegative-weighted classification accuracy, while
+MinCovDet.score is the Gaussian likelihood. Fitting itself does not accept
+sample weights, consistent with sklearn.
+
+Raw estimates can be nonunique at distance or determinant ties. Native support
+selection uses stable ascending distance order. In the univariate shortest-half
+path, two boundary observations can be exactly equidistant from the midpoint;
+NumPy's unstable sort may choose a different one. Validation explicitly checks
+tied boundary eligibility, selected variance/distances and consistency factor,
+then still compares corrected/reweighted estimates and outlier labels directly
+against sklearn. All remaining fixtures compare exact support masks, including
+singular covariance with an exact zero column. Numerical equality of arbitrary
+raw tied choices is not claimed for every platform or dataset.

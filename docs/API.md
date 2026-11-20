@@ -1384,3 +1384,37 @@ model%estimators_samples_(1)%values. Indices start at one; row metadata preserve
 bootstrap duplicates and all actual warm-start generations. Tree feature
 indices are local to estimators_features_(i)%values. See COVERAGE.md for exact
 sampling, float32 rounding, weighted counts, empty roots, warm starts and scope.
+
+
+## MinCovDet and EllipticEnvelope
+
+Import min_cov_det, elliptic_envelope and fast_mcd from sklearn,
+sklearn_covariance or sklearn_robust_covariance.
+
+```fortran
+type(min_cov_det) :: robust
+type(elliptic_envelope) :: detector
+robust%random_state=42
+robust%support_fraction=.7_dp ! 0 selects the automatic support size
+robust%store_precision=.false.
+call robust%fit(x)
+precision=robust%get_precision()
+distances=robust%mahalanobis(query)
+likelihood=robust%score(query)
+detector%contamination=.1_dp
+call detector%fit(x)
+labels=detector%predict(query)
+accuracy=detector%score(query,true_labels,sample_weight=weights) ! optional weights
+call fast_mcd(x,raw_location,raw_covariance,raw_support,raw_dist,random_state=42)
+```
+
+fast_mcd outputs are allocatable arrays, with logical raw_support. Both types
+expose raw_location_, raw_covariance_, raw_support_, location_, covariance_,
+support_ and dist_, plus optional cached precision_. Native diagnostics include
+rank_, n_features_in_, correction_ and reweight_threshold_. With
+assume_centered=true both locations are zero. error_norm supports norm
+frobenius/spectral and optional scaling/squared flags. EllipticEnvelope adds
+scalar offset_, score_samples, decision_function and fit_predict; its score
+returns accuracy, while MinCovDet.score returns log likelihood. See COVERAGE.md
+for full FastMCD stages, raw tie conventions, singular precision, numerical
+guards and supported parameter/method scope.

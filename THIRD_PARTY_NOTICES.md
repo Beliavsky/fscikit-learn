@@ -21,6 +21,7 @@ Reference paths by module:
 
 | Fortran module | scikit-learn reference |
 | --- | --- |
+| robust_covariance | covariance/_robust_covariance.py univariate FastMCD, C-steps, random candidate screening, subset/merge/full search, normal consistency correction and reweighting; _empirical_covariance.py covariance/precision and score/error conventions; _elliptic_envelope.py contamination offset and outlier scoring; independent dense eigendecomposition, regularized-gamma/chi-square inversion and native seeded permutation |
 | isolation_forest | ensemble/_iforest.py random targets, path-length scoring and contamination; _bagging.py seeded feature/sample selection and warm-start seed skipping; utils/_random.pyx tracking/permutation/reservoir sampling; tree/_splitter.pyx, _partitioner.pyx, _criterion.pyx and _tree.pyx dense weighted random-tree construction; native implementation using existing legacy RNG |
 | sgd_one_class | linear_model/_stochastic_gradient.py SGDOneClassSVM fit/partial_fit, initialization, offset conversion and warm/average state; _sgd_fast.pyx.tp hinge boundary, one-class intercept, L2 decay, schedules, stopping and sample clock; utils/_weight_vector.pyx.tp lazy scaling/averaging; utils/_seq_dataset.pyx.tp and _random.pxd deterministic shuffle; native dense implementation and existing legacy RNG |
 | nu_classification | svm/_base.py and _classes.py NuSVC kernel/gamma, binary signs and OVO/OVR contracts; utils/multiclass.py vote/confidence transformation; bundled svm/src/libsvm/svm.cpp solve_nu_svc and Solver_NU group constraints, threshold levels and margin scaling; independent real64 gain-based pair optimizer |
@@ -122,7 +123,7 @@ that apply to core implementations.
 
 sklearn_legacy_rng.f90 is a native Fortran adaptation of the NumPy 2.2.6
 RandomState scalar-seed MT19937, masked interval selection and cached polar
-Gaussian contracts, used for dictionary atom resampling, AdaBoost regression bootstraps and SGDOneClassSVM shuffle seeds and IsolationForest sampling/tree seeds. Reference sources:
+Gaussian contracts, used for dictionary atom resampling, AdaBoost regression bootstraps and SGDOneClassSVM shuffle seeds, IsolationForest sampling/tree seeds and FastMCD permutations. Reference sources:
 
 - numpy/random/src/mt19937/mt19937.c and mt19937.h
 - numpy/random/src/legacy/legacy-distributions.c (legacy_gauss)

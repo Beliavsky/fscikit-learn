@@ -1490,3 +1490,51 @@ staged diff checks passed. All registered diagnostic keys and native case
 labels are unique. Older Python reference suites were not rerun; shared tree
 builders and the legacy RNG helper were unchanged. MIT licensing and full
 upstream sklearn/NumPy notices remain in place.
+
+
+## FastMCD robust covariance and EllipticEnvelope (2026-11-20)
+
+Added min_cov_det, elliptic_envelope and standalone fast_mcd with the full
+pinned FastMCD search: one-dimensional shortest halves, small-data candidate
+screening/refinement, and larger-data subset, merged-set and full-data stages.
+Raw attributes, normal consistency correction, chi-square reweighting,
+assumed-centering behavior, optional cached precision, singular pseudoinverse,
+Mahalanobis distances, covariance errors and Gaussian likelihood are native.
+EllipticEnvelope adds percentile offsets, negative-distance scores, decisions,
+labels, fit_predict and optional weighted accuracy. Existing covariance fits
+were unchanged. Original contributions remain MIT with expanded sklearn/NumPy
+provenance; no dependency or public extension was added.
+
+compare_robust_covariance.py adds 782 result groups over 34 seeded
+configurations, spanning 1-4 features and 67-1601 rows. Of these, 770 compare
+sklearn estimator/fast_mcd outputs directly; 12 additionally validate exact
+univariate raw-boundary ties by nearest-set eligibility, selected covariance,
+distances and consistency. Both affected fixtures still compare final
+reweighted supports/covariances, distances and labels directly against sklearn.
+Tolerance is atol=rtol=3e-7; support masks and labels match exactly except the
+explicitly checked equivalent raw tied choices. Fixtures include automatic/
+.7/.8/full support fractions, centering, precision caching on/off, contamination
+.1/.25, translated/scaled data, substantial outliers, exact zero-column singular
+covariance, subset/merge search at 601 rows and full refinement at 1601 rows.
+
+Native tests also check an analytic univariate shortest-half/reweighted fit,
+contamination resistance, support size, inverse consistency, Frobenius/spectral
+errors, uncached precision, envelope fit_predict/accuracy/labels and assumed
+centering. Native chi-square thresholds are checked against scipy.stats through
+the reference diagnostics; SciPy is only used by the validation scripts.
+
+Inventory: 145 core types, 63 source modules, 66 native test programs,
+45 reference suites and 29,545 result groups, plus 28 separate NumPy stream
+groups. Thirty unique new isolated cases bring the diagnostic inventory to
+1,017. robust_ellipses demonstrates robust location/covariance and outlier labels.
+
+Final validation: all 66 native test programs passed checked builds with
+-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow and release builds.
+All 782 reference/tie-validation groups and all 1,017 isolated diagnostic cases
+passed. The checked robust_ellipses example retained 106 of 120 observations,
+estimated location approximately (-.11677,.05262), and returned query distances
+.02994/172.14508 with labels +1/-1 on its illustrative fixture. Python syntax,
+Fortran formatting, inventories, reports and staged diff checks passed. All
+registered keys/native case labels are unique. Older Python reference suites
+were not rerun; existing covariance estimator bodies and the legacy RNG helper
+were unchanged. MIT project licensing and full upstream notices remain in place.

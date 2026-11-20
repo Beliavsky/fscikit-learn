@@ -1,10 +1,12 @@
 ! Dense covariance estimators. Shrinkage formulas follow sklearn/covariance/
 ! _shrunk_covariance.py (scikit-learn 1.6.1, BSD-3-Clause; see THIRD_PARTY_NOTICES).
 module sklearn_covariance
+  use sklearn_robust_covariance, only: min_cov_det,elliptic_envelope,fast_mcd
   use sklearn_common
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
   implicit none
   private
+  public :: min_cov_det,elliptic_envelope,fast_mcd
   public :: empirical_covariance,shrunk_covariance,ledoit_wolf,oas,graphical_lasso
   type :: empirical_covariance
     logical :: assume_centered=.false.
