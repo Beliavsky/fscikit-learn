@@ -1,4 +1,5 @@
 module sklearn_linear_model
+  use sklearn_sgd, only: sgd_regressor
   use sklearn_multitask, only: multi_task_elastic_net,multi_task_lasso
   use sklearn_ridge_classification, only: ridge_classifier,ridge_classifier_cv
   use sklearn_common
@@ -6,6 +7,7 @@ module sklearn_linear_model
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
   implicit none
   private
+  public :: sgd_regressor
   public :: multi_task_elastic_net,multi_task_lasso
   public :: ridge_classifier,ridge_classifier_cv
   public :: elastic_net_cv,lasso_cv

@@ -1047,3 +1047,24 @@ stages = model%staged_predict_proba(x)
 Optional sample_weight is passed to fit. The weak learner is fixed to a weighted
 Gini stump. n_estimators_ records the retained count after early stopping; see
 COVERAGE.md for SAMME conventions, staged layouts, tie behavior and limits.
+
+
+## Streaming SGD regression
+
+```fortran
+use sklearn, only: dp, sgd_regressor
+type(sgd_regressor) :: model
+real(dp), allocatable :: x(:,:), y(:), predictions(:)
+! Populate finite x and y before fitting.
+model%learning_rate = 'constant'
+model%eta0 = .01_dp
+model%average = 1
+call model%partial_fit(x(:10,:),y(:10))
+call model%partial_fit(x(11:,:),y(11:))
+predictions = model%predict(x)
+! Alternatively call model%fit(x,y), which resets all accumulated state.
+```
+
+Set tol=-1 to disable fit stopping. Ordered updates are the default; native
+shuffle can be enabled explicitly. See COVERAGE.md for losses, supported
+penalties/schedules, averaging, sample weights and differences from sklearn.

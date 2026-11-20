@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 121 public estimator, transformer, and splitter types. Each is a
+There are 122 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Thirty-one reference suites additionally check 8,846 result
+All types have native tests. Thirty-two reference suites additionally check 9,062 result
 groups in total across seeded datasets against installed scikit-learn 1.6.1.
 
 This document counts core scikit-learn counterparts. Public extensions are
@@ -23,7 +23,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | Module (`sklearn_` prefix) | Public types and functions | Scope and numerical choices |
 | --- | --- | --- |
 | preprocessing | `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `knn_imputer`, `missing_indicator`, `spline_transformer`, `label_encoder`, `one_hot_encoder`, `power_transformer`, `kbins_discretizer`, `quantile_transformer`; `normalize`, `binarize`, `polynomial_features` | Population variance; linear percentile interpolation; NaN imputation with mean/median/most-frequent/constant; numeric categories; empirical uniform/normal quantile transforms; dense polynomial terms through degree 12 with optional interactions; B-spline features and extrapolation |
-| linear_model | `linear_regression`, `ridge`, `ridge_classifier`, `ridge_classifier_cv`, `multi_task_elastic_net`, `multi_task_lasso`, `lasso`, `elastic_net`, `lasso_cv`, `elastic_net_cv`, `logistic_regression`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `huber_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; coordinate descent with K-fold alpha/l1-ratio selection; logistic Newton solver; perceptron; PA-I/II classification/regression with averaging; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
+| linear_model | `linear_regression`, `ridge`, `ridge_classifier`, `ridge_classifier_cv`, `multi_task_elastic_net`, `multi_task_lasso`, `lasso`, `elastic_net`, `lasso_cv`, `elastic_net_cv`, `logistic_regression`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `sgd_regressor`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `huber_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; coordinate descent with K-fold alpha/l1-ratio selection; logistic Newton solver; perceptron; PA-I/II classification/regression with averaging; streaming stochastic-gradient regression; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb`, `categorical_nb` | Empirical class priors, variance smoothing, strictly positive scalar alpha; Bernoulli threshold; optional complement normalization |
 | neighbors | `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with optional shrinkage and uniform priors; Euclidean kernel density |
 | cluster | `kmeans`, `dbscan`, `agglomerative_clustering`, `feature_agglomeration`, `mean_shift`, `affinity_propagation`, `spectral_clustering`, `optics`, `birch`; `estimate_bandwidth`, `cluster_optics_dbscan`, `cluster_optics_xi` | Lloyd/k-means++; density expansion; single/complete/average/Ward merge trees and feature pooling; flat-kernel mode seeking; damped exemplar messages; normalized-Laplacian clustering with k-means or pivoted QR assignment; OPTICS reachability ordering, Xi hierarchy and DBSCAN extraction; BIRCH streaming CF tree and optional Ward clustering |
@@ -1322,3 +1322,59 @@ this type. Staged computations prioritize clarity over streaming efficiency.
 Original contributions remain MIT with sklearn BSD attribution. Inventory:
 121 core types, 51 source modules and 51 native tests. No public extension or
 runtime dependency was added.
+
+
+## Stochastic-gradient regression
+
+`sgd_regressor` implements dense single-target SGDRegressor from sklearn 1.6.1,
+with fit, partial_fit, predict and R2 score. Supported losses are squared_error
+(default, half squared residual), huber, epsilon_insensitive and
+squared_epsilon_insensitive. epsilon defaults to .1 and must be finite and
+nonnegative. Huber uses the epsilon transition and clips its residual gradient;
+the epsilon-insensitive losses use the corresponding dead zone.
+
+penalty is 'l2' by default or 'none'; alpha defaults to 1e-4 and is finite and
+nonnegative. The unpenalized intercept is optional (fit_intercept=true). Each
+row computes a pre-update gradient, clipped to [-1e12,1e12], applies L2 decay
+max(0,1-eta*alpha), then adds -eta*gradient*sample_weight times the row. Optional
+sample weights must be finite/nonnegative and match row count. Zero-weight
+rows still decay L2 coefficients, contribute to the unweighted stopping loss,
+and advance the sample clock; all-zero weights are allowed as in sklearn.
+
+learning_rate supports 'invscaling' (default) and 'constant'. eta0 defaults .01;
+power_t defaults .25 and must be nonnegative. Inverse scaling uses
+eta0/t_^power_t. t_ starts at 1 and increments once per row, including across
+partial_fit calls. fit always resets coefficient, intercept, averaging state
+and the clock. partial_fit initializes on its first batch, runs exactly one
+epoch and retains standard coefficients/clock thereafter. Feature width and
+averaging configuration must remain fixed during partial_fit; fit can reset
+them. max_iter applies to fit and defaults to 1000.
+
+average=0 disables averaging; a positive integer starts averaging post-update
+iterates at that global sample number. average=1 matches sklearn average=True.
+coef_ and intercept_ publish averaged values once the threshold is reached,
+while private standard iterates drive future updates, including new batches.
+Averaging includes zero-gradient and zero-weight rows. n_iter_ reports epochs
+in the latest call; n_features_in_ records input width. loss_ is the final
+mean unweighted pre-update data loss (excluding regularization).
+
+tol defaults to 1e-3; tol=-1 disables stopping (sklearn tol=None). Other negative
+values are rejected. With stopping enabled, an epoch whose unweighted loss sum
+is greater than best_loss-tol*n increments the stale counter; improvements
+reset it. n_iter_no_change defaults to 5. Reaching patience sets converged_=true;
+exhausting max_iter leaves it false. partial_fit ignores stopping and leaves
+converged_ false. The loss comparison is strict, including at tol=0.
+
+shuffle defaults false in this port (sklearn defaults true) to provide a
+deterministic ordered update stream. When enabled, native Fisher-Yates shuffling
+uses random_state and the package RNG. Each fit/partial_fit call seeds that
+native stream; it differs from NumPy/sklearn shuffles. Seeded native repeats
+are tested, while exact sklearn comparisons use shuffle=False.
+
+Scope: finite dense real64 matrices, one numeric target; no sparse data, L1/
+elastic-net penalties, optimal/adaptive rate schedules, warm-start fit, custom
+initial coefficients, validation-set early stopping or metadata routing.
+The source follows sklearn's stochastic gradient and loss contracts; original
+contributions remain MIT with retained BSD attribution. Exported through
+sklearn_linear_model and sklearn. Inventory: 122 core types, 52 modules and
+52 native test programs. No dependency or public extension was added.

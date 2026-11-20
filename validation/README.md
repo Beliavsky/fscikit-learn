@@ -918,3 +918,39 @@ stumps and returned training accuracy 1. The sklearn reference emits its
 expected log(0) warning for original zero sample weights; the native log update
 avoids that operation and passed floating-point traps. Python syntax, Fortran
 formatting, reference report, inventory and git diff checks passed.
+
+
+## SGDRegressor
+
+Added sgd_regressor with ordered/native-shuffled dense SGD, squared-error/
+Huber/epsilon-insensitive/squared-epsilon losses, L2/no penalty, constant and
+inverse-scaling rates, sample weights, iterate averaging and streaming
+partial_fit. Native tests verify analytic updates, sample clock, averaging,
+batch continuation, zero-weight L2 decay, stopping and seeded native shuffle.
+
+The reference suite checks 216 result groups across three seeded datasets and
+twelve configurations: all losses, both rates, delayed/immediate averaging,
+partial_fit batches including one row, training-loss stopping, no intercept,
+clipped L2 decay and all-zero sample weights. It compares coefficients,
+intercepts, train/query predictions, R2 and exact epoch/sample counters at
+atol=rtol=3e-8. Exact comparisons use shuffle=False; native RNG permutation
+identity with sklearn is not claimed.
+
+Twenty-four isolated invalid-input cases cover loss/penalty/rate and numerical
+controls, sample weights, shapes/finite data, prediction state and fixed
+partial_fit width/averaging configuration (619 total cases). The
+streaming_regression example demonstrates repeated streaming updates.
+Inventory: 122 core types, 52 modules, 52 native tests, 32 reference suites and
+9,062 result groups. See COVERAGE.md for ordered-default behavior and scope.
+Original contributions remain MIT with sklearn BSD attribution retained.
+No runtime dependency or public extension was added.
+
+
+Final validation: all 52 native test programs passed with runtime checks and
+floating-point traps (-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow)
+and in release mode. All 216 SGD reference groups and 619 isolated invalid-input
+cases passed. Reference stopping tests matched early stopping at 78/68 epochs
+and a 300-epoch capped fit; sklearn's convergence warning for that capped case
+is expected. The checked streaming_regression example processed 600 samples
+and returned R2 approximately .999999983. Python syntax, Fortran formatting,
+reference report, inventory and git diff checks passed.
