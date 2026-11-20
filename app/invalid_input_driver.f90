@@ -25,6 +25,9 @@ program invalid_input_driver
   type(leave_one_group_out) :: logo_cv
   type(sgd_classifier) :: sgdc
   type(sgd_regressor) :: sgd
+  type(orthogonal_matching_pursuit_cv) :: ompcv
+  real(dp) :: ompcv_x(6,3),ompcv_y(6),ompcv_value
+  real(dp), allocatable :: ompcv_values(:)
   type(multi_task_elastic_net_cv) :: mtcv_case
   type(multi_task_lasso_cv) :: mtlc_case
   real(dp) :: mtcv_x(6,3),mtcv_y(6,2),mtcv_value
@@ -202,7 +205,97 @@ program invalid_input_driver
   mtcv_x(:,1)=[-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp]
   mtcv_x(:,2)=[0._dp,1._dp,2._dp,0._dp,-1._dp,-2._dp]; mtcv_x(:,3)=1
   mtcv_y(:,1)=mtcv_x(:,1)+.5_dp*mtcv_x(:,2); mtcv_y(:,2)=2*mtcv_x(:,1)
+  ompcv%cv=2; ompcv%max_iter=2; ompcv_x=mtcv_x
+  ompcv_y=mtcv_y(:,1)
   select case(trim(mode))
+  case('ompcv_cv_small')
+    ompcv%cv=1
+    call ompcv%fit(ompcv_x,ompcv_y)
+  case('ompcv_cv_high')
+    ompcv%cv=7
+    call ompcv%fit(ompcv_x,ompcv_y)
+  case('ompcv_iter_negative')
+    ompcv%max_iter=-1
+    call ompcv%fit(ompcv_x,ompcv_y)
+  case('ompcv_iter_high')
+    ompcv%max_iter=4
+    call ompcv%fit(ompcv_x,ompcv_y)
+  case('ompcv_feature_one')
+    call ompcv%fit(ompcv_x(:,:1),ompcv_y)
+  case('ompcv_empty')
+    call ompcv%fit(ompcv_x(:0,:),ompcv_y(:0))
+  case('ompcv_no_features')
+    call ompcv%fit(ompcv_x(:,:0),ompcv_y)
+  case('ompcv_y_length')
+    call ompcv%fit(ompcv_x,ompcv_y(:5))
+  case('ompcv_x_nan')
+    ompcv_x(1,1)=ieee_value(0._dp,ieee_quiet_nan)
+    call ompcv%fit(ompcv_x,ompcv_y)
+  case('ompcv_y_inf')
+    ompcv_y(1)=ieee_value(0._dp,ieee_positive_inf)
+    call ompcv%fit(ompcv_x,ompcv_y)
+  case('ompcv_fold_length')
+    ompcv%test_fold=[0,1]
+    call ompcv%fit(ompcv_x,ompcv_y)
+  case('ompcv_fold_no_test')
+    ompcv%test_fold=[-1,-1,-1,-1,-1,-1]
+    call ompcv%fit(ompcv_x,ompcv_y)
+  case('ompcv_fold_no_train')
+    ompcv%test_fold=[0,0,0,0,0,0]
+    call ompcv%fit(ompcv_x,ompcv_y)
+  case('ompcv_mask_train_only')
+    allocate(ompcv%train_mask(6,1)); ompcv%train_mask=.true.
+    call ompcv%fit(ompcv_x,ompcv_y)
+  case('ompcv_mask_test_only')
+    allocate(ompcv%test_mask(6,1)); ompcv%test_mask=.true.
+    call ompcv%fit(ompcv_x,ompcv_y)
+  case('ompcv_mask_rows')
+    allocate(ompcv%train_mask(5,1),ompcv%test_mask(6,1))
+    call ompcv%fit(ompcv_x,ompcv_y)
+  case('ompcv_mask_zero_folds')
+    allocate(ompcv%train_mask(6,0),ompcv%test_mask(6,0))
+    call ompcv%fit(ompcv_x,ompcv_y)
+  case('ompcv_mask_fold_count')
+    allocate(ompcv%train_mask(6,1),ompcv%test_mask(6,2))
+    call ompcv%fit(ompcv_x,ompcv_y)
+  case('ompcv_mask_no_train')
+    allocate(ompcv%train_mask(6,1),ompcv%test_mask(6,1))
+    ompcv%train_mask=.false.; ompcv%test_mask=.true.
+    call ompcv%fit(ompcv_x,ompcv_y)
+  case('ompcv_mask_no_test')
+    allocate(ompcv%train_mask(6,1),ompcv%test_mask(6,1))
+    ompcv%train_mask=.true.; ompcv%test_mask=.false.
+    call ompcv%fit(ompcv_x,ompcv_y)
+  case('ompcv_mask_conflict')
+    allocate(ompcv%train_mask(6,1),ompcv%test_mask(6,1)); ompcv%test_fold=[0,0,0,1,1,1]
+    call ompcv%fit(ompcv_x,ompcv_y)
+  case('ompcv_zero_y')
+    ompcv_y=0
+    call ompcv%fit(ompcv_x,ompcv_y)
+  case('ompcv_constant_x')
+    ompcv_x=1
+    call ompcv%fit(ompcv_x,ompcv_y)
+  case('ompcv_unfitted')
+    ompcv_values=ompcv%predict(ompcv_x)
+  case('ompcv_score_unfitted')
+    ompcv_value=ompcv%score(ompcv_x,ompcv_y)
+  case('ompcv_query_features')
+    call ompcv%fit(ompcv_x,ompcv_y)
+    ompcv_values=ompcv%predict(ompcv_x(:,:2))
+  case('ompcv_query_empty')
+    call ompcv%fit(ompcv_x,ompcv_y)
+    ompcv_values=ompcv%predict(ompcv_x(:0,:))
+  case('ompcv_query_nan')
+    call ompcv%fit(ompcv_x,ompcv_y)
+    ompcv_x(1,1)=ieee_value(0._dp,ieee_quiet_nan)
+    ompcv_values=ompcv%predict(ompcv_x)
+  case('ompcv_score_length')
+    call ompcv%fit(ompcv_x,ompcv_y)
+    ompcv_value=ompcv%score(ompcv_x,ompcv_y(:5))
+  case('ompcv_score_nan')
+    call ompcv%fit(ompcv_x,ompcv_y)
+    ompcv_y(1)=ieee_value(0._dp,ieee_quiet_nan)
+    ompcv_value=ompcv%score(ompcv_x,ompcv_y)
   case('mtcv_folds_small')
     mtcv_case%cv=1
     call mtcv_case%fit(mtcv_x,mtcv_y)

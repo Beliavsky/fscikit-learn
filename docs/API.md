@@ -1784,3 +1784,41 @@ Source NumPy/uint32 seeded coordinate selection is supported by base and CV
 models. At alpha=0 the mixing ratio is inactive and last-bit validation ties can
 select a different equivalent ratio; effective penalties and fit results agree.
 See COVERAGE.md for grid ordering, stopping, folds, diagnostics and current scope.
+
+
+## Cross-validated orthogonal matching pursuit
+
+Import `orthogonal_matching_pursuit_cv` from `sklearn` or
+`sklearn_linear_model` (also available directly in `sklearn_omp_cv`).
+
+```fortran
+type(orthogonal_matching_pursuit_cv) :: model
+! X(N,P), y(N); at least two features.
+model%cv=5
+model%max_iter=0  ! automatic min(max(P/10,5),P)
+call model%fit(x,y)
+prediction=model%predict(query)
+print *, model%n_nonzero_coefs_,model%best_mse_
+! mse_path_(active_step,fold), truncated to the shortest fold path.
+```
+
+`fit_intercept` defaults to true. `max_iter` caps active features; zero uses
+the source default, and a positive value cannot exceed P. Selected sparsity is
+`n_nonzero_coefs_`; `n_iter_` describes the full-data refit. Further diagnostics
+are `n_features_in_`, `n_splits_`, `fold_n_iter_`, `fold_train_sizes_`, and
+`fold_test_sizes_`. `score(X,y)` returns R2. Inputs are preserved.
+
+For a predefined split, allocate `test_fold(N)` with integer test-fold labels;
+-1 means training-only. For arbitrary partitions, allocate both
+`train_mask(N,F)` and `test_mask(N,F)` instead, using one true/false membership
+column per fold. For example, a rolling window can train on rows 1:20 and test
+on 23:27 by marking precisely those rows, leaving a two-row gap. Each fold
+needs nonempty train and test sets. Clear allocated controls before switching
+partition modes. Masks use input row order and cannot encode permutations or
+duplicate rows. Multi-output targets, weights,
+parallel fitting and Python splitter objects are not supported.
+
+Path-tail iteration counts and nonunique coefficient representations may differ
+at machine precision; see [coverage](COVERAGE.md#orthogonalmatchingpursuitcv-2026-11-20).
+No zero-feature candidate is scored; zero-step fold paths raise an explicit
+diagnostic. See `example/omp_sparsity_selection.f90` for a complete program.

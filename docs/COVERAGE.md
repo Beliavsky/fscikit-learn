@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 158 public estimator, transformer, and splitter types. Each is a
+There are 159 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Fifty-five reference suites additionally check 73,471
+All types have native tests. Fifty-six reference suites additionally check 75,407
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -24,7 +24,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | Module (`sklearn_` prefix) | Public types and functions | Scope and numerical choices |
 | --- | --- | --- |
 | preprocessing | `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `knn_imputer`, `missing_indicator`, `spline_transformer`, `label_encoder`, `one_hot_encoder`, `power_transformer`, `kbins_discretizer`, `quantile_transformer`; `normalize`, `binarize`, `polynomial_features` | Population variance; linear percentile interpolation; NaN imputation with mean/median/most-frequent/constant; numeric categories; empirical uniform/normal quantile transforms; dense polynomial terms through degree 12 with optional interactions; B-spline features and extrapolation |
-| linear_model | `linear_regression`, `lars`, `lasso_lars`, `lars_cv`, `lasso_lars_cv`, `lasso_lars_ic`, `ridge`, `ridge_classifier`, `ridge_classifier_cv`, `multi_task_elastic_net`, `multi_task_lasso`, `multi_task_elastic_net_cv`, `multi_task_lasso_cv`, `lasso`, `elastic_net`, `lasso_cv`, `elastic_net_cv`, `logistic_regression`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `sgd_regressor`, `sgd_classifier`, `sgd_one_class_svm`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `huber_regressor`, `quantile_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; least-angle/Lasso homotopy paths with CV and AIC/BIC selection; coordinate descent with K-fold alpha/l1-ratio selection; logistic Newton solver; perceptron; PA-I/II classification/regression with averaging; streaming stochastic-gradient regression/classification and one-class detection; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; weighted L1-regularized quantile regression; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
+| linear_model | `linear_regression`, `lars`, `lasso_lars`, `lars_cv`, `lasso_lars_cv`, `lasso_lars_ic`, `ridge`, `ridge_classifier`, `ridge_classifier_cv`, `multi_task_elastic_net`, `multi_task_lasso`, `multi_task_elastic_net_cv`, `multi_task_lasso_cv`, `lasso`, `elastic_net`, `lasso_cv`, `elastic_net_cv`, `logistic_regression`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `sgd_regressor`, `sgd_classifier`, `sgd_one_class_svm`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `orthogonal_matching_pursuit_cv`, `huber_regressor`, `quantile_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; least-angle/Lasso homotopy paths with CV and AIC/BIC selection; coordinate descent with K-fold alpha/l1-ratio selection; logistic Newton solver; perceptron; PA-I/II classification/regression with averaging; streaming stochastic-gradient regression/classification and one-class detection; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; weighted L1-regularized quantile regression; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb`, `categorical_nb` | Empirical class priors, variance smoothing, strictly positive scalar alpha; Bernoulli threshold; optional complement normalization |
 | neighbors | `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with optional shrinkage and uniform priors; Euclidean kernel density |
 | cluster | `kmeans`, `bisecting_kmeans`, `mini_batch_kmeans`, `spectral_coclustering`, `spectral_biclustering`, `hdbscan`, `dbscan`, `agglomerative_clustering`, `feature_agglomeration`, `mean_shift`, `affinity_propagation`, `spectral_clustering`, `optics`, `birch`; `estimate_bandwidth`, `cluster_optics_dbscan`, `cluster_optics_xi` | Lloyd/k-means++; paired row/column spectral partitions and checkerboard biclustering; weighted streaming mini-batch centroids; bisecting centroid hierarchy with Lloyd/Elkan splits; density expansion; single/complete/average/Ward merge trees and feature pooling; flat-kernel mode seeking; damped exemplar messages; normalized-Laplacian clustering with k-means or pivoted QR assignment; OPTICS reachability ordering, Xi hierarchy and DBSCAN extraction; BIRCH streaming CF tree and optional Ward clustering |
@@ -140,7 +140,7 @@ distances; cosine similarity; linear, RBF, polynomial and sigmoid kernels.
   outside the data row space can differ between SVD implementations.
 - OMP supports a sparsity count or residual tolerance, with a direct SVD solve
   on the active dictionary. There is no precomputed Gram input, multi-target
-  output, coefficient path or cross-validated OMP estimator.
+  output or coefficient path. A separate OMP CV estimator is documented below.
 - FactorAnalysis supports the unrotated full-SVD algorithm (`svd_method='lapack'`
   in sklearn), not randomized SVD or varimax/quartimax rotation. Requested
   components cannot exceed `min(n_samples,n_features)`. Exact zero singular
@@ -2747,3 +2747,64 @@ wide designs, repeated dimension changes and source defaults. Native tests
 independently verify analytic fold MSEs, selected/full-data coefficients, exact
 ties, holdout semantics, zero/L2 solutions and zero-target huge-budget stopping.
 The existing 192 multi-task reference groups are rerun for the shared kernel.
+
+
+## OrthogonalMatchingPursuitCV (2026-11-20)
+
+`orthogonal_matching_pursuit_cv` is available from `sklearn_linear_model`,
+`sklearn_omp_cv` and the facade. Dense real64 X has at least two features;
+y is one real target per row. It implements the installed sklearn 1.6.1
+forward Cholesky OMP path, fold-local centering, path truncation to the shortest
+fold, equally weighted fold mean squared errors, first minimum sparsity
+selection, and cold full-data refitting. The refit uses a Gram matrix when
+N>P, matching the source auto-precompute branch; fold paths use direct X.
+Input arrays are preserved. No SciFort or other runtime dependency is added.
+
+Controls are `fit_intercept` (true), `cv` (5), and `max_iter` (0 denotes the
+source default/zero behavior: min(max(P/10,5),P)). Positive max_iter is a cap
+on candidate active features and must not exceed P. Outputs include `coef_`,
+`intercept_`, `n_nonzero_coefs_`, `n_iter_`, `n_features_in_`, `n_splits_`,
+`best_mse_`, `mse_path_(step,fold)`, `fold_n_iter_`, `fold_train_sizes_` and
+`fold_test_sizes_`. There is no zero-feature candidate. `predict` and `score`
+provide ordinary linear prediction and R2 through the existing metric helper.
+
+Unallocated partition controls give contiguous, unshuffled KFold with larger
+first folds for remainders. `test_fold(:)` gives PredefinedSplit labels, with
+-1 reserved for training-only rows and all other labels sorted, including
+negative labels. A single predefined holdout is supported. Alternatively,
+allocate both `train_mask(N,F)` and `test_mask(N,F)` to represent arbitrary
+partitions, including time gaps, rolling windows, groups and shuffled holdouts.
+Each column is a fold; true marks included rows. The two mask arrays must have
+matching nonzero fold counts and N rows. Every training and test set must be
+nonempty. Masks and test_fold are mutually exclusive. Masks consume rows in input order and cannot encode permutations or
+repeated copies of a row; Python splitter objects/metadata routing and parallel
+execution are not implemented. Source copy flags are replaced by preserving
+all inputs. Sample weighting and multi-output targets are outside this API.
+
+Exact dependence and residuals at machine precision can change coefficient
+representations or unused tail iterations between BLAS/LAPACK and native
+arithmetic. This is recorded separately from direct source equality. The
+reference suite has 1,936 groups across 88 configurations (four seeds, two
+successive fits each), with 1,921 direct comparisons, one certified equivalent
+coefficient representation, and 14 path-tail counter differences. The latter
+require the same shortest path length; all affected folds have saturated their
+training rank or belong to the explicitly verified exact sparse-signal fixture.
+All retained fold errors, selected sparsities, final iteration counts, fitted
+predictions and query predictions still compare to source. The coefficient
+exception requires rank deficiency and zero training/query action of the
+coefficient difference. Queries in that fixture obey the same feature relations;
+outside the data's affine span, nonunique representations may predict differently.
+Both checked and release comparisons passed. The optimized release report
+has 1,922 direct source checks and 14 unused tail-counter differences, with no
+coefficient exception. A zero-step fold (for example centered constant targets or all constant X) is
+rejected explicitly; the source CV reduction likewise cannot select from an
+empty path. This differs from the standalone base OMP estimator's zero model.
+
+The analytic native test checks known coefficients, first-step and selected
+fold errors, common early stopping, exact sparse signals, repeated shorter fits,
+input preservation, single predefined holdouts and arbitrary training windows.
+The reference matrix also covers defaults with P>50, max_iter=1/2/P, unequal
+folds, leave-one-out, two features, wide matrices, duplicate/constant/dependent
+columns, near dependence, scaling, noiseless targets, grouped/time-series/
+shuffled partitions and changing fitted dimensions. Thirty new rejection cases
+cover data/query shapes and finiteness, fold controls, masks and empty paths.

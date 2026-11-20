@@ -1,4 +1,5 @@
 module sklearn_linear_model
+  use sklearn_omp_cv, only: orthogonal_matching_pursuit_cv
   use sklearn_least_angle, only: lars,lasso_lars,lars_path,lars_path_result, &
     lars_cv,lasso_lars_cv,lasso_lars_ic
   use sklearn_sgd_one_class, only: sgd_one_class_svm
@@ -11,6 +12,7 @@ module sklearn_linear_model
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
   implicit none
   private
+  public :: orthogonal_matching_pursuit_cv
   public :: lars,lasso_lars,lars_path,lars_path_result,lars_cv,lasso_lars_cv,lasso_lars_ic
   public :: sgd_one_class_svm
   public :: quantile_regressor

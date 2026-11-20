@@ -2245,3 +2245,72 @@ Python syntax, Fortran line limits, diagnostic case-set equality, inventory,
 license notices and git whitespace checks passed. Other reference suites were
 not rerun for this batch. Removed a stale numeric count from EXTENSIONS.md;
 its inventory still contains no implemented public extensions.
+
+
+## OrthogonalMatchingPursuitCV (2026-11-20)
+
+Added orthogonal_matching_pursuit_cv in a new sklearn_omp_cv module, re-exported
+through sklearn_linear_model and the sklearn facade. Native incremental
+Cholesky paths reproduce sklearn 1.6.1 linear_model/_omp.py, including active
+column permutations, original-correlation stopping, absolute machine-epsilon
+dependence tests, fold-local centering, shortest-path truncation, equal-fold
+MSE selection and cold refitting. Direct X is used in CV and source-style
+auto-precomputed Gram matrices for the N>P refit. Existing base OMP code is
+unchanged. The default max_iter=0 maps to min(max(P/10,5),P), including the
+source explicit-zero convention. Targets are rank-one and X requires P>=2.
+
+Partitions support contiguous KFold, PredefinedSplit maps with -1 training-only
+rows, and arbitrary paired Boolean train/test masks. Masks cover grouped,
+shuffled, gap and rolling-window splits without a new splitter abstraction.
+Python splitter objects, repeated row copies in a fold, weights, multi-output,
+parallel execution and metadata routing remain outside this wrapper. Inputs
+are preserved. Native diagnostic arrays expose retained fold MSEs, per-fold
+path lengths and training/test sizes. Empty fold paths are diagnosed explicitly
+rather than passing an empty array into minimum selection.
+
+The new reference suite observes actual source fold paths without replacing
+source computation. Its 88 cases across four seeds each perform two fits on
+the same native instance, checking predictions, coefficients, intercepts,
+selected sparsity/refit iterations, source fold errors, best MSE, path lengths,
+shapes and split sizes. Default and bounded paths, P>50 default scaling, two
+features, wide/rank-deficient/near-dependent designs, duplicate/constant columns,
+noiseless targets, scaled inputs, leave-one-out, predefined single holdouts,
+train-only rows, grouped/time-series/shuffled masks and changed dimensions are
+covered. The standalone checked comparison passed 1,936 groups: 1,921 direct
+source checks, one rank-deficient coefficient equivalence and 14 unused path-
+tail counter differences. The equivalence requires rank deficiency and zero
+training/query action of the coefficient delta. Tail differences require the
+same shortest path, with differing folds saturated to their training rank or
+from the verified exact sparse-signal fixture. All retained errors, selected
+sparsities, final refit iterations and predictions compare directly. The query
+fixture respects the feature dependencies; coefficients outside the training
+affine span are not identifiable. Tolerances are atol=rtol=3e-8; ordinary integer
+metadata is exact. Numerical differences are listed separately in the report.
+
+The independent native test checks an orthogonal sparse signal with known
+first-step/selected errors, coefficients, intercept and score, common early
+stopping, repeated fits, input preservation and custom partitions. Added
+omp_sparsity_selection example and 30 isolated invalid-input cases.
+
+Inventory: 159 core types, 74 source modules, 77 native test programs,
+56 reference suites and 75,407 result groups, plus 28 separate NumPy stream
+groups. Isolated invalid-input inventory is 1,477. Original contributions
+remain MIT licensed, with the full sklearn BSD notice and detailed provenance
+retained. No runtime dependency or public algorithm extension is added.
+
+Validation completed: all 77 native test programs passed with bounds checking,
+backtraces and invalid/zero/overflow traps, and again in the release profile.
+The 1,936-group OMP CV comparison passed against both the fpm checked and
+optimized release executables, including two separately recorded source
+empty-path failures. Numerical-difference groups are reported explicitly rather
+than counted as direct source equality. All 1,477 isolated invalid-input cases
+passed. The checked example selected three features, with validation MSE
+0.0014229439397628596 and training R2=0.9997607529259565. Python syntax, Fortran
+line limits, diagnostic inventories, coverage/type counts, license retention and
+git whitespace checks passed. Other Python reference suites were not rerun;
+existing numerical estimator bodies are unchanged apart from the new export.
+
+The final checked report has 1,921 direct comparisons, one coefficient
+equivalence and 14 unused tail-counter differences. The release report has
+1,922 direct comparisons and 14 unused tail-counter differences; no coefficient
+exception is needed in that profile.
