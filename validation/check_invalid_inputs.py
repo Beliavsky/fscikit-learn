@@ -5,6 +5,25 @@ import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 CASES = {
+    "adar_count": "invalid AdaBoost estimator count or seed",
+    "adar_seed": "invalid AdaBoost estimator count or seed",
+    "adar_rate": "invalid AdaBoost learning rate",
+    "adar_rate_nan": "invalid AdaBoost learning rate",
+    "adar_loss": "invalid AdaBoost loss",
+    "adar_depth": "invalid CART size",
+    "adar_split": "invalid CART size",
+    "adar_leaf": "invalid CART size",
+    "adar_features": "invalid CART max_features",
+    "adar_impurity": "invalid impurity decrease",
+    "adar_impurity_nan": "invalid impurity decrease",
+    "adar_weight_shape": "sample weight shape mismatch",
+    "adar_weight_negative": "invalid sample weights",
+    "adar_weight_zero": "sample weights must have positive finite sum",
+    "adar_weight_nan": "invalid sample weights",
+    "adar_unfitted": "AdaBoostRegressor is not fitted",
+    "adar_query_features": "AdaBoost feature count mismatch",
+    "adar_float_range": "AdaBoost features exceed float32 range",
+
     "atom_rng_seed": "legacy RNG seed must be nonnegative",
     "atom_rng_unseeded": "legacy RNG is not seeded",
     "atom_rng_bound": "legacy RNG index bound must be positive",

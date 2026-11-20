@@ -25,6 +25,8 @@ program invalid_input_driver
   type(leave_one_group_out) :: logo_cv
   type(sgd_classifier) :: sgdc
   type(sgd_regressor) :: sgd
+  type(adaboost_regressor) :: adar
+  real(dp), allocatable :: adar_prediction(:)
   type(adaboost_classifier) :: ada
   real(dp), allocatable :: ada_cube(:,:,:)
   type(elastic_net_cv) :: ccv
@@ -119,6 +121,56 @@ program invalid_input_driver
   seq%cv=2
   x=1; y=1; call get_command_argument(1,mode)
   select case(trim(mode))
+  case('adar_count')
+    adar%n_estimators=0
+    call adar%fit(reshape([0._dp,1._dp],[2,1]),[0._dp,1._dp])
+  case('adar_seed')
+    adar%random_state=-1
+    call adar%fit(reshape([0._dp,1._dp],[2,1]),[0._dp,1._dp])
+  case('adar_rate')
+    adar%learning_rate=0
+    call adar%fit(reshape([0._dp,1._dp],[2,1]),[0._dp,1._dp])
+  case('adar_rate_nan')
+    adar%learning_rate=ieee_value(0._dp,ieee_quiet_nan)
+    call adar%fit(reshape([0._dp,1._dp],[2,1]),[0._dp,1._dp])
+  case('adar_loss')
+    adar%loss='unknown'
+    call adar%fit(reshape([0._dp,1._dp],[2,1]),[0._dp,1._dp])
+  case('adar_depth')
+    adar%max_depth=0
+    call adar%fit(reshape([0._dp,1._dp],[2,1]),[0._dp,1._dp])
+  case('adar_split')
+    adar%min_samples_split=1
+    call adar%fit(reshape([0._dp,1._dp],[2,1]),[0._dp,1._dp])
+  case('adar_leaf')
+    adar%min_samples_leaf=0
+    call adar%fit(reshape([0._dp,1._dp],[2,1]),[0._dp,1._dp])
+  case('adar_features')
+    adar%max_features=2
+    call adar%fit(reshape([0._dp,1._dp],[2,1]),[0._dp,1._dp])
+  case('adar_impurity')
+    adar%min_impurity_decrease=-1
+    call adar%fit(reshape([0._dp,1._dp],[2,1]),[0._dp,1._dp])
+  case('adar_impurity_nan')
+    adar%min_impurity_decrease=ieee_value(0._dp,ieee_quiet_nan)
+    call adar%fit(reshape([0._dp,1._dp],[2,1]),[0._dp,1._dp])
+  case('adar_weight_shape')
+    call adar%fit(reshape([0._dp,1._dp],[2,1]),[0._dp,1._dp],[1._dp])
+  case('adar_weight_negative')
+    call adar%fit(reshape([0._dp,1._dp],[2,1]),[0._dp,1._dp],[-1._dp,2._dp])
+  case('adar_weight_zero')
+    call adar%fit(reshape([0._dp,1._dp],[2,1]),[0._dp,1._dp],[0._dp,0._dp])
+  case('adar_weight_nan')
+    call adar%fit(reshape([0._dp,1._dp],[2,1]),[0._dp,1._dp], &
+      [1._dp,ieee_value(0._dp,ieee_quiet_nan)])
+  case('adar_unfitted')
+    adar_prediction=adar%predict(reshape([0._dp,1._dp],[2,1]))
+  case('adar_query_features')
+    call adar%fit(reshape([0._dp,1._dp],[2,1]),[0._dp,1._dp])
+    adar_prediction=adar%predict(reshape([0._dp,1._dp],[1,2]))
+  case('adar_float_range')
+    call adar%fit(reshape([0._dp,1.e40_dp],[2,1]),[0._dp,1._dp])
+
   case('atom_rng_seed')
     call atom_rng%seed(-1)
   case('atom_rng_unseeded')

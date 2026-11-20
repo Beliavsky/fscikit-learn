@@ -21,6 +21,7 @@ Reference paths by module:
 
 | Fortran module | scikit-learn reference |
 | --- | --- |
+| adaboost_regression | ensemble/_weight_boosting.py AdaBoostRegressor/AdaBoost.R2 weighted bootstrap, losses, stopping and weighted median; tree/_splitter.pyx, _partitioner.pyx, _criterion.pyx dense squared-error CART and utils/_random.pxd Xorshift ordering; native dense implementation using existing legacy RNG |
 | least_angle | linear_model/_least_angle.py _lars_path_solver and Lars/LassoLars centering, active-set equiangular directions, LAR sign changes, Lasso dropouts, correlation rounding and endpoint interpolation; independent dense Gram/Cholesky implementation; LarsCV/LassoLarsCV fold centering, alpha union/stride, residual interpolation and final refit; LassoLarsIC AIC/BIC and OLS/NNLS noise-variance contracts; native Jacobi SVD/active-set NNLS and piecewise-linear interpolation |
 | dictionary | decomposition/_dict_learning.py DictionaryLearning/SparseCoder/sparse_encode, SVD initialization, code updates, constrained atom updates/resampling, objective and stopping; _sparse_pca.py centering, loading normalization and ridge projection; linear_model/_cd_fast.pyx Gram Lasso dual-gap stopping; native solvers and legacy RNG |
 | recursive_selection | feature_selection/_rfe.py RFE/RFECV squared coefficient importance, elimination/ranking updates, per-fold paths, feature-count selection and final refit; model_selection/_split.py first-appearance StratifiedKFold allocation; native serial dense implementation |
@@ -117,7 +118,7 @@ that apply to core implementations.
 
 sklearn_legacy_rng.f90 is a native Fortran adaptation of the NumPy 2.2.6
 RandomState scalar-seed MT19937, masked interval selection and cached polar
-Gaussian contracts, used for dictionary atom resampling. Reference sources:
+Gaussian contracts, used for dictionary atom resampling and AdaBoost regression bootstraps. Reference sources:
 
 - numpy/random/src/mt19937/mt19937.c and mt19937.h
 - numpy/random/src/legacy/legacy-distributions.c (legacy_gauss)

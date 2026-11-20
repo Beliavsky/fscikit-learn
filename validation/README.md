@@ -1257,3 +1257,41 @@ Python syntax, Fortran line lengths, both reference reports, inventory and
 staged diff checks passed. Original contributions retain MIT licensing;
 complete sklearn and NumPy upstream notices are retained. No NumPy/SciPy
 runtime dependency or public extension was added.
+
+
+## AdaBoostRegressor / AdaBoost.R2 (2026-11-20)
+
+Added native adaboost_regressor with depth-three squared-error CART defaults,
+configurable tree controls, weighted bootstrap sampling, all three AdaBoost.R2
+losses, learning-rate scaling, weighted-median prediction, staged predictions
+and R2 scores, early stopping and weighted feature importances. The private
+CART path follows sklearn feature rounding, feature RNG, constant caching,
+introsort tie ordering, split evaluation and partitioning. Existing public
+tree/forest implementations were not changed. No dependency or public
+extension was added. Original contributions retain MIT licensing with the
+existing sklearn BSD notice and NumPy RNG notices; provenance was expanded.
+
+compare_adaboost_regression.py passed 1,649 sklearn 1.6.1 result groups at
+atol=rtol=3e-8 across 36 configurations on three seeded datasets. Checks include
+full requested weight/error arrays, fitted counts, train/query predictions,
+every prediction/score stage, weighted importances and every retained tree's
+seed, depth, leaf count, split features/thresholds, leaf/node values and query
+predictions. Fixtures cover all losses, learning rates, depth/leaf/split/feature
+controls, impurity thresholds, constant features/targets, rounded input ties,
+initial zero/tiny weights and a zero-weight extreme target. First-tree
+rejection is checked with the explicitly documented native zero-importance
+convention in place of sklearn's NaNs; prediction behavior agrees.
+
+Inventory: 139 core types, 58 source modules, 61 native test programs,
+40 sklearn reference suites and 15,210 sklearn result groups, plus the existing
+28 separately tracked NumPy compatibility groups. Eighteen new isolated
+input-error fixtures bring the diagnostic inventory to 874. The
+boosted_regression example demonstrates fitting and query predictions.
+
+Final validation: all 61 native programs passed checked builds with
+-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow and release builds.
+All 1,649 new sklearn groups and all 874 isolated diagnostics passed. The
+checked boosted_regression example retained eight trees and achieved training
+R2=0.9471185508 on its illustrative fixture. Python syntax, Fortran formatting,
+reference-report counts and staged diff checks passed. Older Python reference
+suites were not rerun; existing tree/forest implementations were unchanged.

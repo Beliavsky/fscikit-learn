@@ -1,13 +1,14 @@
 module sklearn_ensemble
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
   use, intrinsic :: iso_fortran_env, only: real32
+  use sklearn_adaboost_regression, only: adaboost_regressor
   use sklearn_adaboost, only: adaboost_classifier
   use sklearn_common
   use sklearn_tree
   use sklearn_metrics, only: accuracy_score,r2_score
   implicit none
   private
-  public :: adaboost_classifier
+  public :: adaboost_classifier,adaboost_regressor
   public :: random_forest_classifier,random_forest_regressor,extra_trees_classifier,extra_trees_regressor
   public :: gradient_boosting_regressor,gradient_boosting_classifier
   ! sklearn 1.6.1 ensemble/_gb.py and _loss/: gradient trees and Newton leaves.

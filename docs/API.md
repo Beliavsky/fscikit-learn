@@ -1242,3 +1242,29 @@ DictionaryLearning fit_transform returns learned sparse codes; its transform
 performs fresh coding with the chosen transform algorithm. SparseCoder needs
 only a supplied dictionary. See COVERAGE.md for complete initialization pairs,
 positive constraints, split-sign output, automatic parameter sentinels and scope.
+
+
+## AdaBoost regression
+
+`adaboost_regressor` is available from `sklearn` and `sklearn_ensemble`.
+
+```fortran
+type(adaboost_regressor) :: model
+model%n_estimators=50
+model%random_state=42
+model%loss='square' ! linear (default), square, exponential
+model%max_depth=3
+call model%fit(x,y,sample_weight=weights)
+prediction=model%predict(query)
+stages=model%staged_predict(query) ! (n_query,n_estimators_)
+scores=model%staged_score(x,y)
+```
+
+`score` returns unweighted R2. Optional fit weights must be finite,
+nonnegative and have a positive finite sum. Controls include learning_rate,
+min_samples_split, min_samples_leaf, max_features (zero means all), and
+min_impurity_decrease. Fitted attributes are n_features_in_, n_estimators_,
+estimators_, estimator_weights_, estimator_errors_, and feature_importances_.
+The weights/errors retain requested n_estimators slots, with unused slots 0/1;
+estimators_ contains only retained trees. Each tree supports predict, apply,
+get_depth and get_n_leaves. See COVERAGE.md for the supported base learner.

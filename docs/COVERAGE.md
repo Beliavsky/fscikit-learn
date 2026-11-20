@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 138 public estimator, transformer, and splitter types. Each is a
+There are 139 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Thirty-nine reference suites additionally check 13,561 result
+All types have native tests. Forty reference suites additionally check 15,210 result
 groups in total across seeded datasets against installed scikit-learn 1.6.1.
 
 This document counts core scikit-learn counterparts. Public extensions are
@@ -39,7 +39,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | outlier | `local_outlier_factor` | Training outlier scores and novelty detection, automatic/percentile threshold, Minkowski and other supported pairwise metrics |
 | semi_supervised | `label_propagation`, `label_spreading` | Dense RBF or directed k-neighbor graph, hard/soft clamping, transductive labels and inductive probabilities |
 | tree | `decision_tree_classifier`, `decision_tree_regressor` | Exhaustive CART; Gini/entropy/log-loss classification, squared-error regression; depth/leaf/split/feature controls, normalized impurity importance, leaf indices |
-| ensemble | `random_forest_classifier`, `random_forest_regressor`, `extra_trees_classifier`, `extra_trees_regressor`, `gradient_boosting_regressor`, `gradient_boosting_classifier`, `adaboost_classifier` | Bootstrap forests, randomized feature subsets, random-threshold Extra Trees, squared-error residual boosting; binary/multiclass classification boosting with Newton leaf updates; weighted Gini-stump SAMME |
+| ensemble | `random_forest_classifier`, `random_forest_regressor`, `extra_trees_classifier`, `extra_trees_regressor`, `gradient_boosting_regressor`, `gradient_boosting_classifier`, `adaboost_classifier`, `adaboost_regressor` | Bootstrap forests, randomized feature subsets, random-threshold Extra Trees, squared-error residual boosting; binary/multiclass classification boosting with Newton leaf updates; weighted Gini-stump SAMME; AdaBoost.R2 with depth-controlled CART |
 | model_selection | `kfold`, `stratified_kfold`, `time_series_split`, `group_kfold`, `leave_one_out`, `leave_one_group_out`, `predefined_split`, `ridge_cv`; `train_test_split`, `shuffle_indices`, `cross_val_score` | Index-based splits; fraction test size; optional stratification; time gap/window; CV for linear-regression family and logistic regression; ridge CV selects negative mean squared error |
 | feature_selection | `variance_threshold`, `select_k_best`, `sequential_feature_selector`, `rfe`, `rfecv`; `f_classif`, `f_regression`, `chi2` | Dense scores and masks; greedy forward/backward CV regression selection; coefficient-based recursive elimination and CV for regression/logistic classification; inverse transform fills dropped columns with zero; no p-values |
 | feature_extraction_text | `count_vectorizer`, `tfidf_transformer`, `tfidf_vectorizer` | Dense unigram counts; ASCII alphanumeric/underscore tokens of length 2-128; sorted vocabulary; min/max document frequency, binary counts and max features; smoothed/unsmoothed IDF, sublinear TF, l1/l2/no normalization |
@@ -228,7 +228,7 @@ distances; cosine similarity; linear, RBF, polynomial and sigmoid kernels.
 
 Not translated: sparse data paths, general estimator base/clone/parameter search
 framework, pipelines/column transformers, NuSVC and linear SVM variants, quantile
-regression, remaining GLM variants, remaining SGD families, histogram boosting, AdaBoost and bagging APIs,
+regression, remaining GLM variants, remaining SGD families, histogram boosting, broader AdaBoost and bagging APIs,
 t-SNE and Hessian/modified LLE,
 outlier detection beyond LOF/OneClassSVM,
 Gaussian-process classification, dictionary learning,
@@ -1708,3 +1708,34 @@ MT19937 uniforms, masked bounded indices and cached polar Gaussians for atom
 resampling. It is not a counted sklearn estimator or a public extension.
 Its 28 NumPy stream comparison groups are recorded separately from the sklearn
 algorithm result counts. NumPy source notices are retained under LICENSES.
+
+
+## AdaBoost regression
+
+`adaboost_regressor` implements sklearn 1.6.1 AdaBoostRegressor's AdaBoost.R2:
+weighted bootstrap sampling, linear/square/exponential losses, learning-rate
+scaled estimator weights, weighted-median predictions, staged predictions and
+R2 scores, perfect-fit/poor-learner stopping, and weighted tree importances.
+The default learner is a squared-error CART with max_depth=3. Depth,
+min_samples_split, min_samples_leaf, integer max_features (zero means all), and
+min_impurity_decrease can be configured. Arbitrary estimator objects,
+pruning, monotonic constraints, missing values, sparse matrices and multioutput
+regression are outside this subset. Predict/score sample weights are not exposed;
+fit accepts weights. Nonnegative default-integer random seeds are supported.
+
+A private dense CART builder follows sklearn's float32 feature conversion,
+Xorshift feature ordering, constant-feature caching, squared-error split proxy,
+partitioning, and depth-first construction. This builder is local to AdaBoost
+regression; existing native tree/forest behavior is unchanged. The existing
+NumPy-compatible legacy RNG supplies estimator seeds and weighted-bootstrap
+uniforms. Query features are also rounded to float32; out-of-range values are
+rejected. Targets, errors and accumulated weights use real64. Feature sorting uses the same three-way introsort and heap fallback as sklearn.
+Numerical parity is established for the reference fixtures, not every possible
+floating-point tie pattern.
+
+Initial zero-weight samples remain excluded; positive weights are clipped at
+machine epsilon before each boosting round, matching sklearn. If the first
+learner has error >=0.5, it is retained with zero ensemble weight, matching
+sklearn's prediction behavior; native feature_importances_ is zero in this case
+rather than sklearn's division-by-zero NaNs. Training stops on a nonpositive or
+nonfinite updated weight sum. Parameters and finite dense inputs are validated.
