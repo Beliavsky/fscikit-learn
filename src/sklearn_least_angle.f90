@@ -6,7 +6,7 @@ module sklearn_least_angle
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
   implicit none
   private
-  public :: lars,lasso_lars,lars_path,lars_path_result
+  public :: lars,lasso_lars,lars_path,lars_path_result,lars_cv,lasso_lars_cv,lasso_lars_ic
   type :: lars_path_result
     real(dp), allocatable :: alphas(:),coefficients(:,:)
     integer, allocatable :: active(:)
@@ -30,6 +30,29 @@ module sklearn_least_angle
   contains
     procedure :: fit=>lasso_lars_fit
   end type
+  type, extends(lars) :: lars_cv
+    integer :: max_iter=500,cv=5,max_n_alphas=1000
+    real(dp) :: alpha_=0
+    real(dp), allocatable :: cv_alphas_(:),mse_path_(:,:)
+  contains
+    procedure :: fit=>lars_cv_fit
+  end type
+  type, extends(lars_cv) :: lasso_lars_cv
+    logical :: positive=.false.
+  contains
+    procedure :: fit=>lasso_lars_cv_fit
+  end type
+  type, extends(lasso_lars) :: lasso_lars_ic
+    character(3) :: criterion='aic'
+    real(dp) :: noise_variance=-1,noise_variance_=0,alpha_=0
+    real(dp), allocatable :: criterion_(:)
+  contains
+    procedure :: fit=>lasso_lars_ic_fit
+  end type
+  type :: cv_residual_path
+    real(dp), allocatable :: alphas(:),residuals(:,:)
+  end type
+
 contains
   subroutine active_factor(gram,active,eps,l,okay)
     real(dp), intent(in) :: gram(:,:),eps
@@ -203,6 +226,210 @@ contains
     class(lasso_lars), intent(inout) :: self
     real(dp), intent(in) :: x(:,:),y(:)
     call fit_least_angle(self,x,y,self%max_iter,self%alpha,'lasso',self%positive)
+  end subroutine
+  subroutine lars_cv_fit(self,x,y)
+    class(lars_cv), intent(inout) :: self
+    real(dp), intent(in) :: x(:,:),y(:)
+    call fit_path_cv(self,x,y,'lar',.false.)
+  end subroutine
+  subroutine lasso_lars_cv_fit(self,x,y)
+    class(lasso_lars_cv), intent(inout) :: self
+    real(dp), intent(in) :: x(:,:),y(:)
+    call fit_path_cv(self,x,y,'lasso',self%positive)
+  end subroutine
+  subroutine fit_path_cv(self,x,y,kind,positive)
+    class(lars_cv), intent(inout) :: self
+    real(dp), intent(in) :: x(:,:),y(:)
+    character(*), intent(in) :: kind
+    logical, intent(in) :: positive
+    type(cv_residual_path), allocatable :: folds(:)
+    type(lars_path_result) :: path
+    real(dp), allocatable :: train_x(:,:),train_y(:),test_x(:,:),test_y(:),center(:),grid(:),sorted(:),unique(:)
+    real(dp), allocatable :: interpolated(:),errors(:,:)
+    integer, allocatable :: ids(:),train(:)
+    real(dp) :: center_y
+    integer :: n,p,c,first,last,width,i,j,used,stride,k,best
+    call check_xy(x,size(y)); call check_x(reshape(y,[size(y),1]))
+    n=size(x,1); p=size(x,2)
+    call require(self%cv>=2.and.self%cv<=n,'invalid least-angle CV fold count')
+    call require(self%max_n_alphas>=1,'least-angle max_n_alphas must be positive')
+    call require(self%max_iter>=0.and.self%max_iter<huge(self%max_iter),'invalid LARS max_iter')
+    call require(ieee_is_finite(self%eps),'nonfinite LARS controls')
+    call require(self%eps>=0,'LARS alpha_min and eps must be nonnegative')
+    allocate(folds(self%cv)); ids=[(i,i=1,n)]; grid=[real(dp)::]; first=1
+    do c=1,self%cv
+      width=n/self%cv+merge(1,0,c<=mod(n,self%cv)); last=first+width-1
+      train=pack(ids,ids<first.or.ids>last)
+      train_x=x(train,:); train_y=y(train); test_x=x(first:last,:); test_y=y(first:last)
+      center=sum(train_x,dim=1)/size(train); center_y=sum(train_y)/size(train)
+      if(.not.self%fit_intercept) then
+        center=0; center_y=0
+      end if
+      train_x=train_x-spread(center,1,size(train)); train_y=train_y-center_y
+      test_x=test_x-spread(center,1,width); test_y=test_y-center_y
+      path=lars_path(train_x,train_y,method=kind,max_iter=self%max_iter,eps=self%eps,positive=positive)
+      k=size(path%alphas)
+      folds(c)%alphas=path%alphas(k:1:-1)
+      folds(c)%residuals=transpose(matmul(test_x,path%coefficients(:,k:1:-1))-spread(test_y,2,k))
+      grid=[grid,path%alphas]; first=last+1
+    end do
+    sorted=grid(argsort(grid)); allocate(unique(size(sorted))); used=1; unique(1)=sorted(1)
+    do i=2,size(sorted)
+      if(sorted(i)==unique(used)) cycle
+      used=used+1; unique(used)=sorted(i)
+    end do
+    ! sklearn's max_n_alphas is a stride target, not a strict upper bound.
+    stride=max(1,int(real(used,dp)/self%max_n_alphas)); grid=unique(:used:stride)
+    allocate(errors(size(grid),self%cv))
+    do c=1,self%cv
+      call prepare_cv_interpolation(folds(c),grid(size(grid)),size(grid)>1)
+      do i=1,size(grid)
+        call interpolate_residuals(folds(c),grid(i),interpolated)
+        errors(i,c)=sum(interpolated**2)/size(interpolated)
+      end do
+    end do
+    call require(all(ieee_is_finite(errors)),'nonfinite least-angle CV errors')
+    best=minloc(sum(errors,dim=2),dim=1)
+    self%alpha_=grid(best); self%cv_alphas_=grid; self%mse_path_=errors
+    self%fit_path=.true.
+    call fit_least_angle(self,x,y,self%max_iter,self%alpha_,kind,positive)
+  end subroutine
+  subroutine prepare_cv_interpolation(fold,upper,append_upper)
+    type(cv_residual_path), intent(inout) :: fold
+    real(dp), intent(in) :: upper
+    logical, intent(in) :: append_upper
+    real(dp), allocatable :: values(:,:)
+    integer, allocatable :: order(:)
+    integer :: k,m
+    k=size(fold%alphas); m=size(fold%residuals,2)
+    if(fold%alphas(1)/=0) then
+      values=reshape([fold%residuals(1,:),reshape(transpose(fold%residuals),[k*m])],[m,k+1])
+      fold%residuals=transpose(values); fold%alphas=[0._dp,fold%alphas]
+    end if
+    k=size(fold%alphas)
+    ! Preserve sklearn's appended boundary even when a subsampled grid ends
+    ! below a fold's initial alpha. A single-point grid avoids its duplicate
+    ! zero-endpoint interpolation failure and is evaluated by endpoint clamping.
+    if(append_upper.and.fold%alphas(k)/=upper) then
+      values=reshape([reshape(transpose(fold%residuals),[k*m]),fold%residuals(k,:)],[m,k+1])
+      fold%residuals=transpose(values); fold%alphas=[fold%alphas,upper]
+    end if
+    ! scipy interp1d sorts knots stably; LAR alphas need not be monotonic.
+    order=argsort(fold%alphas); fold%alphas=fold%alphas(order); fold%residuals=fold%residuals(order,:)
+  end subroutine
+  subroutine interpolate_residuals(fold,alpha,residual)
+    type(cv_residual_path), intent(in) :: fold
+    real(dp), intent(in) :: alpha
+    real(dp), allocatable, intent(out) :: residual(:)
+    real(dp) :: fraction
+    integer :: i,k
+    k=size(fold%alphas)
+    if(alpha<=fold%alphas(1).or.k==1) then
+      residual=fold%residuals(1,:); return
+    end if
+    if(alpha>=fold%alphas(k)) then
+      residual=fold%residuals(k,:); return
+    end if
+    do i=1,k-1
+      if(alpha>fold%alphas(i+1)) cycle
+      fraction=(alpha-fold%alphas(i))/(fold%alphas(i+1)-fold%alphas(i))
+      residual=fold%residuals(i,:)+fraction*(fold%residuals(i+1,:)-fold%residuals(i,:)); return
+    end do
+  end subroutine
+  function svd_least_squares(x,y) result(beta)
+    real(dp), intent(in) :: x(:,:),y(:)
+    real(dp) :: beta(size(x,2)),s(size(x,2)),u(size(x,1),size(x,2)),v(size(x,2),size(x,2))
+    real(dp) :: projection(size(x,2)),cutoff
+    call dense_svd(x,s,u,v); projection=matmul(transpose(u),y)
+    cutoff=epsilon(1._dp)*maxval(s)*max(size(x,1),size(x,2))
+    where(s>cutoff)
+      projection=projection/max(s,tiny(1._dp))
+    elsewhere
+      projection=0
+    end where
+    beta=matmul(v,projection)
+  end function
+  function nonnegative_least_squares(x,y) result(beta)
+    real(dp), intent(in) :: x(:,:),y(:)
+    real(dp) :: beta(size(x,2)),trial(size(x,2)),gradient(size(x,2)),tol,fraction
+    logical :: passive(size(x,2)),converged
+    integer :: p,outer,inner,i,pick
+    integer, allocatable :: indices(:),selected(:)
+    p=size(x,2); beta=0; passive=.false.; indices=[(i,i=1,p)]; converged=.false.; inner=0
+    tol=10*epsilon(1._dp)*max(size(x,1),p)*max(1._dp,maxval(abs(matmul(transpose(x),y))))
+    do outer=1,5*p+1
+      gradient=matmul(transpose(x),y-matmul(x,beta)); pick=0
+      do i=1,p
+        if(passive(i).or.gradient(i)<=tol) cycle
+        if(pick==0) then
+          pick=i
+        else if(gradient(i)>gradient(pick)) then
+          pick=i
+        end if
+      end do
+      if(pick==0) then
+        converged=.true.; exit
+      end if
+      passive(pick)=.true.
+      do
+        inner=inner+1
+        call require(inner<=10*p+10,'NNLS noise-variance fit did not converge')
+        selected=pack(indices,passive); trial=0; trial(selected)=svd_least_squares(x(:,selected),y)
+        if(all(trial(selected)>0)) exit
+        fraction=1
+        do i=1,p
+          if(passive(i).and.trial(i)<=0) fraction=min(fraction,beta(i)/(beta(i)-trial(i)))
+        end do
+        beta=beta+fraction*(trial-beta)
+        do i=1,p
+          if(passive(i).and.beta(i)<=tol) then
+            passive(i)=.false.; beta(i)=0
+          end if
+        end do
+      end do
+      beta=trial
+    end do
+    call require(converged,'NNLS noise-variance fit did not converge')
+  end function
+  subroutine lasso_lars_ic_fit(self,x,y)
+    class(lasso_lars_ic), intent(inout) :: self
+    real(dp), intent(in) :: x(:,:),y(:)
+    type(lars_path_result) :: path
+    real(dp), allocatable :: center(:),centered(:,:),response(:),noise_beta(:),residuals(:,:)
+    real(dp) :: mean_y,factor
+    integer :: n,p,best,j
+    call check_xy(x,size(y)); call check_x(reshape(y,[size(y),1]))
+    call require(self%criterion=='aic'.or.self%criterion=='bic','unknown least-angle information criterion')
+    call require(ieee_is_finite(self%noise_variance),'nonfinite least-angle noise variance')
+    call require(self%noise_variance==-1.or.self%noise_variance>0, &
+      'least-angle noise variance must be -1 (auto) or positive')
+    n=size(x,1); p=size(x,2); center=sum(x,dim=1)/n; mean_y=sum(y)/n
+    if(.not.self%fit_intercept) then
+      center=0; mean_y=0
+    end if
+    centered=x-spread(center,1,n); response=y-mean_y
+    path=lars_path(centered,response,method='lasso',max_iter=self%max_iter,eps=self%eps,positive=self%positive)
+    self%noise_variance_=self%noise_variance
+    if(self%noise_variance==-1) then
+      call require(n>p+merge(1,0,self%fit_intercept),'automatic least-angle noise variance requires n > p + intercept')
+      if(self%positive) then
+        noise_beta=nonnegative_least_squares(centered,response)
+      else
+        noise_beta=svd_least_squares(centered,response)
+      end if
+      self%noise_variance_=sum((response-matmul(centered,noise_beta))**2)/(n-p-merge(1,0,self%fit_intercept))
+    end if
+    call require(self%noise_variance_>0.and.ieee_is_finite(self%noise_variance_), &
+      'estimated least-angle noise variance must be positive and finite')
+    factor=2; if(self%criterion=='bic') factor=log(real(n,dp))
+    residuals=spread(response,2,size(path%alphas))-matmul(centered,path%coefficients)
+    self%criterion_=n*log(2*acos(-1._dp)*self%noise_variance_)+sum(residuals**2,dim=1)/self%noise_variance_ &
+      +factor*[(count(abs(path%coefficients(:,j))>epsilon(1._dp)),j=1,size(path%alphas))]
+    best=minloc(self%criterion_,dim=1); self%alpha_=path%alphas(best)
+    self%coef_=path%coefficients(:,best); self%intercept_=mean_y-dot_product(center,self%coef_)
+    self%alphas_=path%alphas; self%n_iter_=path%n_iter; self%n_features_in_=p
+    if(allocated(self%coef_path_)) deallocate(self%coef_path_)
+    if(allocated(self%active_)) deallocate(self%active_)
   end subroutine
   function least_angle_predict(self,x) result(y)
     class(lars), intent(in) :: self

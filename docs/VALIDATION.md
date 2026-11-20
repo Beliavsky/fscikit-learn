@@ -1302,3 +1302,52 @@ and R2=0.9984471569. Python syntax, Fortran line lengths, reference report,
 dropout coverage, inventory and staged diff checks passed. Original
 contributions remain MIT with upstream BSD notices retained. No dependency
 or public extension was added.
+
+
+## 2026-11-20: LarsCV, LassoLarsCV and LassoLarsIC
+
+Added least-angle model selection by K-fold MSE, AIC and BIC. CV centers each
+training fold independently, merges exact alpha knots, applies sklearn's stride,
+interpolates held-out residuals before averaging squares, and refits at the
+selected alpha. Stable sorting handles nonmonotonic LAR knots; boundary insertion
+preserves sklearn 1.6.1's subsampled-grid semantics. IC uses path RSS and
+coefficient-count degrees of freedom, with supplied variance or full-feature
+SVD/active-set NNLS noise estimation. Selected fits expose prediction/R2,
+alpha_, CV grids/error matrices or information-criterion/noise-variance arrays.
+
+The new reference suite passed 1,000 groups across five datasets and 18 settings,
+including full-rank/correlated/wide/dropout data, both CV methods, grid sampling,
+positive constraints, no intercept, truncated/zero-iteration paths, AIC/BIC,
+supplied/estimated variance and all model parameters/predictions/path diagnostics.
+940 groups compare directly with sklearn classes. For max_n_alphas=1, sklearn
+1.6.1 creates duplicate interpolation endpoints and can fail with an empty
+finite-error grid; 60 groups instead compare sklearn fold paths, manually scored
+endpoint errors and the final sklearn LassoLars refit. Complete rank-deficient
+LAR comparison paths use eps=.1 on both sides; full-rank/truncated LAR and wide
+Lasso CV retain default epsilon. All tolerances remain atol=rtol=3e-8.
+
+Thirty-four isolated input cases bring the total to 782. Native tests cover
+CV minima/shape/order, single-point grids, positive fits, both variance modes,
+zero iterations and a separate default-epsilon rank-deficient LarsCV fit.
+The lars_model_selection example compares CV and BIC fits on noisy regression.
+See COVERAGE.md for the -1 automatic-variance sentinel, inherited fields,
+interpolation behavior, singular paths, numerical controls and supported scope.
+Inventory: 135 core types, 55 source modules, 58 native test programs,
+38 reference suites and 12,817 reference result groups. Original contributions
+remain MIT with sklearn BSD attribution retained. No dependency or public
+extension was added.
+
+
+Final validation: all 58 native test programs passed with runtime checks and
+floating-point traps (-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow)
+and in release mode, including default-epsilon rank-deficient LarsCV. All 1,000
+new reference groups passed at atol=rtol=3e-8 under the documented comparison
+settings: 940 sklearn-class groups and 60 independently scored single-alpha
+CV groups. All 782 isolated input-error cases passed, including 34 new ones.
+The checked lars_model_selection example returned CV alpha=0.0067046369,
+BIC alpha=0.0098408485, estimated variance=0.0219782468, and R2 values
+0.9971311517 (CV) and 0.9970881893 (BIC). Python syntax, Fortran line lengths,
+reference reports, inventory and staged diff checks passed. Rank-deficient
+LAR numerical differences and the single-alpha upstream issue are documented.
+Original contributions remain MIT with retained BSD notices. No dependency
+or public extension was added.

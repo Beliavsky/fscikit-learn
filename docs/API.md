@@ -1190,3 +1190,25 @@ Estimator fits center inputs for intercepts by default; lars_path uses its
 inputs directly. Paths include the initial zero coefficients and all generated
 knots through the final endpoint. Set fit_path=false to retain only endpoint
 model attributes. See COVERAGE.md for limits and degenerate-column behavior.
+
+
+## Selecting a least-angle model by CV or information criterion
+
+```fortran
+use sklearn, only: dp,lasso_lars_cv,lasso_lars_ic
+type(lasso_lars_cv) :: cv_model
+type(lasso_lars_ic) :: bic_model
+cv_model%cv=4
+cv_model%max_n_alphas=100
+call cv_model%fit(x,y)
+! cv_model%mse_path_(alpha_index,fold), cv_model%cv_alphas_, cv_model%alpha_
+bic_model%criterion='bic'
+call bic_model%fit(x,y)
+! bic_model%criterion_, bic_model%noise_variance_, bic_model%alpha_
+```
+
+`lars_cv` provides the LAR alternative to LassoLarsCV. Set positive=true on
+LassoLarsCV/IC for nonnegative coefficients. IC noise_variance=-1 estimates
+variance from full-feature least squares; provide a positive estimate when
+n <= p + intercept. Prediction uses the final selected model. See COVERAGE.md
+for grid interpolation, path storage and inherited fields that are ignored.

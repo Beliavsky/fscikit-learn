@@ -1,5 +1,6 @@
 module sklearn_linear_model
-  use sklearn_least_angle, only: lars,lasso_lars,lars_path,lars_path_result
+  use sklearn_least_angle, only: lars,lasso_lars,lars_path,lars_path_result, &
+    lars_cv,lasso_lars_cv,lasso_lars_ic
   use sklearn_sgd, only: sgd_regressor,sgd_classifier
   use sklearn_multitask, only: multi_task_elastic_net,multi_task_lasso
   use sklearn_ridge_classification, only: ridge_classifier,ridge_classifier_cv
@@ -8,7 +9,7 @@ module sklearn_linear_model
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
   implicit none
   private
-  public :: lars,lasso_lars,lars_path,lars_path_result
+  public :: lars,lasso_lars,lars_path,lars_path_result,lars_cv,lasso_lars_cv,lasso_lars_ic
   public :: sgd_regressor,sgd_classifier
   public :: multi_task_elastic_net,multi_task_lasso
   public :: ridge_classifier,ridge_classifier_cv

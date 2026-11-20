@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 132 public estimator, transformer, and splitter types. Each is a
+There are 135 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Thirty-seven reference suites additionally check 11,817 result
+All types have native tests. Thirty-eight reference suites additionally check 12,817 result
 groups in total across seeded datasets against installed scikit-learn 1.6.1.
 
 This document counts core scikit-learn counterparts. Public extensions are
@@ -23,7 +23,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | Module (`sklearn_` prefix) | Public types and functions | Scope and numerical choices |
 | --- | --- | --- |
 | preprocessing | `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `knn_imputer`, `missing_indicator`, `spline_transformer`, `label_encoder`, `one_hot_encoder`, `power_transformer`, `kbins_discretizer`, `quantile_transformer`; `normalize`, `binarize`, `polynomial_features` | Population variance; linear percentile interpolation; NaN imputation with mean/median/most-frequent/constant; numeric categories; empirical uniform/normal quantile transforms; dense polynomial terms through degree 12 with optional interactions; B-spline features and extrapolation |
-| linear_model | `linear_regression`, `lars`, `lasso_lars`, `ridge`, `ridge_classifier`, `ridge_classifier_cv`, `multi_task_elastic_net`, `multi_task_lasso`, `lasso`, `elastic_net`, `lasso_cv`, `elastic_net_cv`, `logistic_regression`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `sgd_regressor`, `sgd_classifier`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `huber_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; least-angle/Lasso homotopy paths; coordinate descent with K-fold alpha/l1-ratio selection; logistic Newton solver; perceptron; PA-I/II classification/regression with averaging; streaming stochastic-gradient regression/classification; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
+| linear_model | `linear_regression`, `lars`, `lasso_lars`, `lars_cv`, `lasso_lars_cv`, `lasso_lars_ic`, `ridge`, `ridge_classifier`, `ridge_classifier_cv`, `multi_task_elastic_net`, `multi_task_lasso`, `lasso`, `elastic_net`, `lasso_cv`, `elastic_net_cv`, `logistic_regression`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `sgd_regressor`, `sgd_classifier`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `huber_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; least-angle/Lasso homotopy paths with CV and AIC/BIC selection; coordinate descent with K-fold alpha/l1-ratio selection; logistic Newton solver; perceptron; PA-I/II classification/regression with averaging; streaming stochastic-gradient regression/classification; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb`, `categorical_nb` | Empirical class priors, variance smoothing, strictly positive scalar alpha; Bernoulli threshold; optional complement normalization |
 | neighbors | `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with optional shrinkage and uniform priors; Euclidean kernel density |
 | cluster | `kmeans`, `dbscan`, `agglomerative_clustering`, `feature_agglomeration`, `mean_shift`, `affinity_propagation`, `spectral_clustering`, `optics`, `birch`; `estimate_bandwidth`, `cluster_optics_dbscan`, `cluster_optics_xi` | Lloyd/k-means++; density expansion; single/complete/average/Ward merge trees and feature pooling; flat-kernel mode seeking; damped exemplar messages; normalized-Laplacian clustering with k-means or pivoted QR assignment; OPTICS reachability ordering, Xi hierarchy and DBSCAN extraction; BIRCH streaming CF tree and optional Ward clustering |
@@ -1591,3 +1591,57 @@ below 1e-7 and exposes their count in direct path results. Duplicate/degenerate
 columns and tied correlations can yield a different active representation than
 sklearn; no Python warning machinery is reproduced. Paths and predictions for
 nondegenerate dense, correlated, wide and dropout fixtures are reference-tested.
+
+
+## Least-angle model selection
+
+`lars_cv` and `lasso_lars_cv` select alpha using unshuffled K-fold held-out mean
+squared error. Defaults are cv=5, max_iter=500, max_n_alphas=1000 and inherited
+fit_intercept=true/eps=machine epsilon; LassoLarsCV adds positive=false. Each
+training fold supplies its own centering and complete coefficient path.
+The CV alpha grid is the ascending exact union of fold knots, sampled with
+sklearn's floor-based stride, so max_n_alphas is a target rather than a hard
+cap. Held-out residuals are interpolated before squaring and averaging; final
+fitting uses the chosen alpha on all data. Exact MSE ties favor the first
+(smallest) grid alpha. cv must be between 2 and n, including one-row test folds.
+
+Fitted alpha_, cv_alphas_ and mse_path_ (n_alpha_grid, cv) supplement the
+inherited final-model attributes and full published path. These estimators
+ignore inherited n_nonzero_coefs and always retain a final coefficient path.
+LAR knots may be locally nonmonotonic: interpolation uses a stable knot sort
+and sklearn 1.6.1's inserted endpoint convention, including when the subsampled
+grid ends below a fold's first alpha. A single-alpha grid is evaluated by
+endpoint clamping; this avoids sklearn 1.6.1's duplicate-boundary interpolation
+failure with max_n_alphas=1. That setting is checked using sklearn fold paths
+and a manually scored/refitted reference. Custom CV, sample weights, parallel
+folds and metadata routing are outside this subset.
+
+`lasso_lars_ic` selects a Lasso path knot using criterion='aic' (default) or
+'bic', with max_iter=500 and optional positive constraints. noise_variance=-1
+means automatic estimation; explicit estimates must be positive and finite.
+Automatic estimation requires n > p + intercept and uses full-feature SVD
+least squares, or active-set nonnegative least squares when positive=true.
+The residual sum of squares is divided by n-p-intercept, matching sklearn.
+Zero/nonfinite estimated variance is rejected because log-variance criteria
+would be undefined. Sparse/multiple-target inputs, jitter, Gram/Xy arguments
+and zero variance are not supported.
+
+The criterion is n*log(2*pi*noise_variance_) + RSS/noise_variance_ + penalty*df,
+where penalty is 2 (AIC) or log(n) (BIC), and df counts path coefficients larger
+than float64 epsilon in magnitude. The first minimum wins, hence larger alpha
+on exact criterion ties along a descending path. Fitted alpha_, criterion_,
+noise_variance_, alphas_, coef_, intercept_ and n_iter_ are retained; n_iter_
+describes the complete path rather than the selected knot. IC does not publish
+coef_path_ or active_, and ignores inherited alpha/fit_path/n_nonzero_coefs.
+All three models retain the existing single-target dense-real64 numerical
+scope and use predict/score on the selected final regression model.
+
+
+Default rank-deficient LarsCV may select a different alpha and final predictions
+from sklearn because nearly singular active-column admissions differ.
+The model-selection reference suite uses eps=.1 for complete LAR paths when CV
+training folds are rank deficient; this avoids matching unstable nearly-singular
+admission decisions in sklearn. Full-rank LAR, truncated LAR and all Lasso CV
+comparisons use default machine epsilon, including wide Lasso data. A native
+test separately exercises default-epsilon rank-deficient LarsCV and checks
+finite predictions and minimization of its recorded error surface.
