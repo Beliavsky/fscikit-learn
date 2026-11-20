@@ -1,9 +1,10 @@
 module sklearn_neural_network
+  use sklearn_rbm, only: bernoulli_rbm
   use sklearn_common
   use sklearn_metrics, only: accuracy_score,r2_score
   implicit none
   private
-  public :: mlp_classifier,mlp_regressor
+  public :: mlp_classifier,mlp_regressor,bernoulli_rbm
   type :: dense_layer
     real(dp), allocatable :: weights(:,:),bias(:),m(:,:),v(:,:),mb(:),vb(:)
   end type

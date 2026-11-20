@@ -1959,3 +1959,53 @@ Python syntax, Fortran formatting, report contents, inventory, unique diagnostic
 registrations and git diff checks passed. Earlier Python reference suites were
 not rerun; existing estimator bodies were unchanged apart from the new export.
 MIT project licensing and complete upstream notices are retained.
+
+
+## Bernoulli restricted Boltzmann machine (2026-11-20)
+
+Added bernoulli_rbm with stochastic maximum likelihood/persistent contrastive
+divergence, conditional hidden transforms, fit_transform, incremental training,
+Gibbs transitions and pseudo-likelihood scoring. Native components use source
+(n_components,n_features) shape. The existing legacy RNG reproduces NumPy's
+logical row-major draws; no RNG helper or existing MLP computation was changed.
+Training follows source unshuffled batch scheduling and actual-positive-batch
+normalization, retaining the full negative chain for short/oversized batches.
+Integer-seeded fit has a local RNG, partial_fit/Gibbs share a persistent stream,
+and scoring recreates its own RNG per call. Fresh fit resets model arrays while
+preserving any existing sampling stream. Stable sigmoid/compensated softplus
+handle extreme logits. Dense finite inputs are accepted with source range-check
+semantics; sparse, float32, object RNGs and verbose logs are outside this scope.
+
+compare_rbm.py directly checks 4,552 result groups across 80 configurations and
+four seeded datasets against installed sklearn 1.6.1. Every operation checks
+components, both biases, persistent hidden chains and feature counts; transforms,
+Gibbs outputs and scores are checked when called. Fixtures cover zero iterations,
+unit/full/short/oversized batches, multiple hidden widths, fractional/signed data,
+constant zeros/ones, small/large learning rates, mixed fit/partial/Gibbs sequences,
+changed seed/rate controls, changed-dimensional fresh refits, preserved chain size
+when batch_size changes, repeated scoring and extreme query logits. Numeric
+comparisons use atol=rtol=2e-10; binary chains, Gibbs samples and feature counts
+are exact. Analytic native tests cover conditional means, uniform visible scores,
+a one-step PCD gradient, saturated logits, copying streams, refit shapes and
+input preservation. binary_features demonstrates training, transformation,
+pseudo-likelihood, Gibbs sampling and an incremental update.
+
+Inventory: 152 core types, 70 source modules, 72 native test programs,
+51 reference suites and 48,809 result groups, plus 28 separate NumPy stream
+groups. Thirty new diagnostics bring the isolated invalid-input inventory to
+1,246. MIT project licensing and full upstream notices are retained. No runtime
+dependency or public extension was added. Existing estimator bodies are unchanged
+apart from the neural-network re-export.
+
+Validation completed on the final implementation: all 72 native test programs
+passed with -fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow and in release
+mode. The package-built RBM driver passed all 4,552 direct sklearn result groups
+across 80 configurations, including exact binary chain and Gibbs outputs.
+All 1,246 isolated invalid-input cases passed, including 30 new RBM cases.
+The checked binary_features example returned finite hidden probabilities,
+mean pseudo-likelihood -2.7178464, 16 active visible units in its Gibbs draw and
+an updated weight norm of 0.1287291 after partial_fit. Python syntax, Fortran
+formatting, report contents, inventories, unique diagnostic registrations and
+git diff checks passed. Earlier Python reference suites were not rerun;
+existing estimator bodies were unchanged apart from the new export. MIT
+licensing and full upstream notices are retained, with no runtime dependency.

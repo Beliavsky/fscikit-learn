@@ -1594,3 +1594,38 @@ minimum size is five independently of fit. Raw children_ uses one-based leaf
 IDs and raw_N+i merge IDs, whereas condensed/core/stability diagnostics use the
 finite subset mapped by finite_indices_. See COVERAGE.md for storage, tie
 behavior, diagnostics, nonfinite handling and source corrections.
+
+
+## BernoulliRBM
+
+Import bernoulli_rbm from sklearn, sklearn_neural_network or sklearn_rbm.
+
+```fortran
+type(bernoulli_rbm) :: model
+real(dp), allocatable :: features(:,:),draws(:,:),scores(:)
+model%n_components=16
+model%batch_size=10
+model%n_iter=20
+model%learning_rate=.05_dp
+model%random_state=42
+features=model%fit_transform(x)
+call model%partial_fit(next_batch)
+features=model%transform(query)
+draws=model%gibbs(query)
+scores=model%score_samples(query)
+```
+
+components_ is (n_components,n_features_in_); intercept_hidden_ and
+intercept_visible_ are vectors; h_samples_ is the persistent binary hidden
+chain. transform returns probabilities, gibbs returns real64 zeros/ones,
+and score_samples returns one pseudo-log-likelihood value per row. fit resets
+model arrays, and n_iter=0 initializes only. partial_fit performs one update on
+the full supplied batch, preserving its chain; it does not use n_iter to repeat
+updates. Use fit after changing n_components. A changed batch_size affects
+chain size only on initialization/fresh fit.
+
+Integer-seeded fit uses a local RNG; partial_fit and Gibbs share a separate
+persistent stream. fit preserves that stream if it already exists. Scoring
+restarts its scalar-seeded RNG each call without consuming the sampling stream.
+All inputs must be nonempty dense finite arrays with the fitted feature count.
+See COVERAGE.md for distribution assumptions, RNG contracts and supported scope.

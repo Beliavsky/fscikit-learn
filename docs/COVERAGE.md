@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 151 public estimator, transformer, and splitter types. Each is a
+There are 152 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Fifty reference suites additionally check 44,257
+All types have native tests. Fifty-one reference suites additionally check 48,809
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -49,7 +49,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | discriminant_analysis | `linear_discriminant_analysis`, `quadratic_discriminant_analysis` | LDA follows sklearn `solver='lsqr'` covariance convention with scalar shrinkage; QDA scalar regularization; singular covariance is rejected |
 | svm | `svc`, `nu_svc`, `linear_svc`, `linear_svr`; re-exports `svr`, `nu_svr`, `one_class_svm` | Primal L2 squared-loss linear classification/regression; OVO SVC/NuSVC; epsilon/nu support-vector regression and one-class detection; native pairwise dual optimization and weighted capacities |
 | mixture | `gaussian_mixture`, `bayesian_gaussian_mixture` | EM Gaussian mixtures and variational Bayesian mixtures with finite Dirichlet or truncated stick-breaking weights; full/tied/diag/spherical covariances; responsibilities and likelihood scores; GaussianMixture BIC/AIC |
-| neural_network | `mlp_classifier`, `mlp_regressor` | Arbitrary dense hidden layer sizes, relu/tanh/logistic/identity, full-batch Adam, softmax classification or squared-error regression, L2 regularization |
+| neural_network | `mlp_classifier`, `mlp_regressor`, `bernoulli_rbm` | Arbitrary dense hidden layer sizes, relu/tanh/logistic/identity, full-batch Adam, softmax classification or squared-error regression, L2 regularization |
 | gaussian_process | `gaussian_process_regressor`, `gaussian_process_classifier` | Fixed isotropic RBF amplitude/length scale plus white noise and diagonal alpha; Cholesky posterior, standard deviation/covariance, log marginal likelihood; optional target normalization; fixed-RBF Laplace binary/OVR classification |
 | covariance | `empirical_covariance`, `shrunk_covariance`, `ledoit_wolf`, `oas`, `graphical_lasso`, `min_cov_det`, `elliptic_envelope`; `fast_mcd` | Population covariance, pseudoinverse precision, squared Mahalanobis distance, likelihood, Frobenius/spectral covariance error; L1-penalized sparse precision via block coordinate descent; FastMCD robust covariance and elliptic outlier detection |
 | datasets | `make_blobs`, `make_regression`, `make_moons`, `make_circles` | Native synthetic generators; optional deterministic seed; no bundled real-world datasets |
@@ -2384,3 +2384,58 @@ The implementation is real64 CPU dense only. Tree/automatic backends, sparse
 inputs, callable metrics, parallel controls and in-place copy=False are absent.
 There is no inductive prediction method. See compare_hdbscan.py for the direct
 and hierarchy-conditioned checks and test_hdbscan.f90 for analytic fixtures.
+
+
+## BernoulliRBM
+
+bernoulli_rbm implements sklearn 1.6.1 Bernoulli restricted Boltzmann machines
+with dense binary visible and hidden units. fit uses stochastic maximum
+likelihood (persistent contrastive divergence), retaining a hidden Markov chain
+of batch_size rows. Training uses consecutive unshuffled batches and performs
+one visible/hidden Gibbs transition per update. The final positive batch may be
+shorter than the persistent negative chain; both gradients are divided by the
+actual positive batch length, matching source behavior. A batch larger than the
+dataset likewise retains its full negative chain. n_iter=0 initializes only.
+
+components_ has shape (n_components,n_features_in_), intercept_hidden_ and
+intercept_visible_ are vectors, and h_samples_ has shape
+(initial_batch_size,n_components). transform returns hidden conditional means;
+fit_transform performs a fresh fit then transforms. partial_fit initializes on
+its first call and otherwise continues one update on the entire supplied array,
+without splitting it and independently of n_iter. Changing batch_size between
+partial calls preserves the existing chain size, following source. Changing
+n_components during partial_fit is rejected explicitly; use fit to reset shapes.
+Fresh fit supports changed data dimensions and component/chain counts.
+
+gibbs samples one hidden then visible transition and returns real64 zeros/ones.
+It advances a private sampling stream shared with partial_fit. A scalar-seeded
+fit uses a separate local RNG and resets model arrays without resetting an
+already-created partial_fit/Gibbs stream, matching the source integer-seed
+contract. Thus a first partial_fit or Gibbs call after fit starts from the
+original seed rather than the end of the fit RNG. Assigning a fitted Fortran
+object copies its private stream, permitting reproducible continuation.
+score_samples computes stochastic pseudo-likelihood from stable free energies,
+flipping one randomly chosen feature per row. With scalar integer seeds it
+recreates the scoring RNG each call, so repeated equal queries give equal
+scores and do not advance the sampling stream. This is pseudo-likelihood,
+not normalized log likelihood. Hidden logits and softplus/free-energy
+calculations avoid exponential overflow, retaining small softplus tails.
+
+The existing legacy MT19937/uniform/Gaussian/bounded-integer helper reproduces
+NumPy RandomState draw order, including row-major logical array draws followed
+by Fortran storage. All 80 reference configurations match source parameters,
+persistent binary chains, transforms, scores and Gibbs samples; numeric
+comparisons use atol=rtol=2e-10, binary samples/metadata are exact. Tests cover
+mixed fit/partial/Gibbs calls, changed seeds/rates, fresh refits, zero iterations,
+short/oversized/full batches, fractional and signed finite values and extreme
+query logits. Analytic native tests check conditional probabilities, uniform
+pseudo-likelihood, a one-step PCD gradient, saturated logits and object copies.
+
+Inputs are dense finite real64 CPU arrays. Bernoulli modeling expects binary
+values (or probabilities in [0,1]); as in source, finite values outside that
+range are accepted without range checks. Sparse/float32 inputs, RandomState
+objects, unseeded global RNG behavior, verbose training logs, feature-name
+metadata and automatic classification are absent. random_state defaults to the
+native deterministic seed zero and must be nonnegative. learning_rate must be
+positive and finite; batch_size/n_components positive; n_iter nonnegative.
+No inverse transform or prediction method is supplied by the source estimator.

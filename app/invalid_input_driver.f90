@@ -25,6 +25,9 @@ program invalid_input_driver
   type(leave_one_group_out) :: logo_cv
   type(sgd_classifier) :: sgdc
   type(sgd_regressor) :: sgd
+  type(bernoulli_rbm) :: rbm_case
+  real(dp) :: rbm_x(4,2)
+  real(dp), allocatable :: rbm_values(:,:),rbm_scores(:)
   type(hdbscan) :: hd_case
   real(dp) :: hd_x(6,2),hd_dist(4,4)
   integer, allocatable :: hd_labels(:)
@@ -173,7 +176,96 @@ program invalid_input_driver
   bc_bi%n_clusters=2; bc_bi%n_components=2; bc_bi%n_best=1; bc_bi%n_init=1
   mb_case%n_clusters=2; mb_case%max_iter=2; mb_case%batch_size=6
   bisect_case%n_clusters=2
+  rbm_case%n_components=2; rbm_case%n_iter=1; rbm_case%batch_size=3; rbm_x=.5_dp
   select case(trim(mode))
+  case('rbm_components_zero')
+    rbm_case%n_components=0
+    call rbm_case%fit(rbm_x)
+  case('rbm_components_negative')
+    rbm_case%n_components=-1
+    call rbm_case%fit(rbm_x)
+  case('rbm_batch_zero')
+    rbm_case%batch_size=0
+    call rbm_case%fit(rbm_x)
+  case('rbm_batch_negative')
+    rbm_case%batch_size=-1
+    call rbm_case%fit(rbm_x)
+  case('rbm_iterations')
+    rbm_case%n_iter=-1
+    call rbm_case%fit(rbm_x)
+  case('rbm_rate_zero')
+    rbm_case%learning_rate=0
+    call rbm_case%fit(rbm_x)
+  case('rbm_rate_negative')
+    rbm_case%learning_rate=-1
+    call rbm_case%fit(rbm_x)
+  case('rbm_rate_nan')
+    rbm_case%learning_rate=ieee_value(0._dp,ieee_quiet_nan)
+    call rbm_case%fit(rbm_x)
+  case('rbm_rate_inf')
+    rbm_case%learning_rate=ieee_value(0._dp,ieee_positive_inf)
+    call rbm_case%fit(rbm_x)
+  case('rbm_seed')
+    rbm_case%random_state=-1
+    call rbm_case%fit(rbm_x)
+  case('rbm_empty')
+    call rbm_case%fit(rbm_x(:0,:))
+  case('rbm_no_features')
+    call rbm_case%fit(rbm_x(:,:0))
+  case('rbm_nan')
+    rbm_x(1,1)=ieee_value(0._dp,ieee_quiet_nan)
+    call rbm_case%fit(rbm_x)
+  case('rbm_inf')
+    rbm_x(1,1)=ieee_value(0._dp,ieee_positive_inf)
+    call rbm_case%fit(rbm_x)
+  case('rbm_partial_empty')
+    call rbm_case%partial_fit(rbm_x(:0,:))
+  case('rbm_partial_nan')
+    rbm_x(1,1)=ieee_value(0._dp,ieee_quiet_nan)
+    call rbm_case%partial_fit(rbm_x)
+  case('rbm_partial_features')
+    call rbm_case%partial_fit(rbm_x)
+    call rbm_case%partial_fit(rbm_x(:,:1))
+  case('rbm_partial_components')
+    call rbm_case%partial_fit(rbm_x)
+    rbm_case%n_components=3
+    call rbm_case%partial_fit(rbm_x)
+  case('rbm_unfit_transform')
+    rbm_values=rbm_case%transform(rbm_x)
+  case('rbm_features_transform')
+    call rbm_case%fit(rbm_x)
+    rbm_values=rbm_case%transform(rbm_x(:,:1))
+  case('rbm_unfit_gibbs')
+    rbm_values=rbm_case%gibbs(rbm_x)
+  case('rbm_features_gibbs')
+    call rbm_case%fit(rbm_x)
+    rbm_values=rbm_case%gibbs(rbm_x(:,:1))
+  case('rbm_unfit_score_samples')
+    rbm_scores=rbm_case%score_samples(rbm_x)
+  case('rbm_features_score_samples')
+    call rbm_case%fit(rbm_x)
+    rbm_scores=rbm_case%score_samples(rbm_x(:,:1))
+  case('rbm_fit_transform_empty')
+    rbm_values=rbm_case%fit_transform(rbm_x(:0,:))
+  case('rbm_transform_empty')
+    call rbm_case%fit(rbm_x)
+    rbm_values=rbm_case%transform(rbm_x(:0,:))
+  case('rbm_gibbs_inf')
+    call rbm_case%fit(rbm_x)
+    rbm_x(1,1)=ieee_value(0._dp,ieee_positive_inf)
+    rbm_values=rbm_case%gibbs(rbm_x)
+  case('rbm_score_nan')
+    call rbm_case%fit(rbm_x)
+    rbm_x(1,1)=ieee_value(0._dp,ieee_quiet_nan)
+    rbm_scores=rbm_case%score_samples(rbm_x)
+  case('rbm_seed_gibbs')
+    call rbm_case%fit(rbm_x)
+    rbm_case%random_state=-1
+    rbm_values=rbm_case%gibbs(rbm_x)
+  case('rbm_seed_score_samples')
+    call rbm_case%fit(rbm_x)
+    rbm_case%random_state=-1
+    rbm_scores=rbm_case%score_samples(rbm_x)
   case('hdb_cluster_small')
     hd_case%min_cluster_size=1
     call hd_case%fit(hd_x)
