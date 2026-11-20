@@ -1212,3 +1212,33 @@ LassoLarsCV/IC for nonnegative coefficients. IC noise_variance=-1 estimates
 variance from full-feature least squares; provide a positive estimate when
 n <= p + intercept. Prediction uses the final selected model. See COVERAGE.md
 for grid interpolation, path storage and inherited fields that are ignored.
+
+
+## Sparse components and dictionary codes
+
+```fortran
+use sklearn, only: dp,sparse_pca,dictionary_learning,sparse_coder,sparse_encode
+type(sparse_pca) :: projection
+type(dictionary_learning) :: learner
+type(sparse_coder) :: coder
+real(dp), allocatable :: latent(:,:),restored(:,:),codes(:,:)
+projection%n_components=3
+projection%alpha=.2_dp
+latent=projection%fit_transform(x)
+restored=projection%inverse_transform(latent)
+learner%n_components=6
+learner%fit_algorithm='cd'
+learner%transform_algorithm='lasso_cd'
+codes=learner%fit_transform(x)
+coder%dictionary=learner%components_
+coder%transform_algorithm='threshold'
+coder%transform_alpha=.2_dp
+codes=coder%transform(query)
+codes=sparse_encode(query,learner%components_,algorithm='omp',n_nonzero_coefs=2)
+```
+
+SparsePCA returns ridge projection scores and reconstructs with its mean.
+DictionaryLearning fit_transform returns learned sparse codes; its transform
+performs fresh coding with the chosen transform algorithm. SparseCoder needs
+only a supplied dictionary. See COVERAGE.md for complete initialization pairs,
+positive constraints, split-sign output, automatic parameter sentinels and scope.

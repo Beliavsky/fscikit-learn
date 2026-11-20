@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 135 public estimator, transformer, and splitter types. Each is a
+There are 138 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Thirty-eight reference suites additionally check 12,817 result
+All types have native tests. Thirty-nine reference suites additionally check 13,561 result
 groups in total across seeded datasets against installed scikit-learn 1.6.1.
 
 This document counts core scikit-learn counterparts. Public extensions are
@@ -27,7 +27,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb`, `categorical_nb` | Empirical class priors, variance smoothing, strictly positive scalar alpha; Bernoulli threshold; optional complement normalization |
 | neighbors | `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with optional shrinkage and uniform priors; Euclidean kernel density |
 | cluster | `kmeans`, `dbscan`, `agglomerative_clustering`, `feature_agglomeration`, `mean_shift`, `affinity_propagation`, `spectral_clustering`, `optics`, `birch`; `estimate_bandwidth`, `cluster_optics_dbscan`, `cluster_optics_xi` | Lloyd/k-means++; density expansion; single/complete/average/Ward merge trees and feature pooling; flat-kernel mode seeking; damped exemplar messages; normalized-Laplacian clustering with k-means or pivoted QR assignment; OPTICS reachability ordering, Xi hierarchy and DBSCAN extraction; BIRCH streaming CF tree and optional Ward clustering |
-| decomposition | `pca`, `incremental_pca`, `truncated_svd`, `nmf`; re-exports `kernel_pca`, `factor_analysis`, `fast_ica` | Direct Jacobi SVD; PCA whitening and inversion; streaming stacked-SVD IncrementalPCA; exact dense SVD; NMF multiplicative updates; nonlinear kernel PCA; unrotated full-SVD factor analysis; parallel/deflation ICA |
+| decomposition | `pca`, `incremental_pca`, `truncated_svd`, `nmf`, `sparse_pca`, `dictionary_learning`, `sparse_coder`; `sparse_encode`; re-exports `kernel_pca`, `factor_analysis`, `fast_ica` | Direct Jacobi SVD; PCA whitening and inversion; streaming stacked-SVD IncrementalPCA; exact dense SVD; NMF multiplicative updates; sparse dictionary factorization and SparsePCA; five sparse coding methods; nonlinear kernel PCA; unrotated full-SVD factor analysis; parallel/deflation ICA |
 | cross_decomposition | `pls_regression`, `pls_canonical`, `cca`, `pls_svd` | Paired-matrix latent components: NIPALS regression/canonical deflation, CCA pseudoinverse mode, canonical direct SVD and PLSSVD cross-covariance projection; multiple response columns |
 | isotonic | `isotonic_regression`; `isotonic_fit`, `check_increasing` | Weighted pool-adjacent-violators, automatic Spearman direction, bounds, repeated-input aggregation and piecewise linear interpolation |
 | kernel_approximation | `rbf_sampler`, `nystroem`, `additive_chi2_sampler`, `skewed_chi2_sampler` | Random Fourier RBF maps; sampled-landmark inverse-square-root maps for RBF/linear/polynomial/cosine kernels; additive and skewed chi2 feature maps |
@@ -1645,3 +1645,66 @@ admission decisions in sklearn. Full-rank LAR, truncated LAR and all Lasso CV
 comparisons use default machine epsilon, including wide Lasso data. A native
 test separately exercises default-epsilon rank-deficient LarsCV and checks
 finite predictions and minimization of its recorded error surface.
+
+
+## SparsePCA and dictionary learning
+
+`sparse_pca` supports method='lars' (default) and 'cd', alpha=1, ridge_alpha=.01,
+tol=1e-8, max_iter=1000, random_state=0 and n_components=0 (auto = input feature
+count). Fits center X and learn sparse loadings by alternating Lasso coding of
+X.T with dictionary updates. Components are sign-oriented and normalized to
+unit norm; all-zero components remain zero. transform uses ridge least-squares
+projection onto the nonorthogonal components; ridge_alpha=0 uses a pseudoinverse.
+inverse_transform reconstructs with components and adds mean_. Fitted mean_,
+components_, error_, n_iter_, n_components_ and n_features_in_ are available.
+fit_transform returns the ridge projection, as sklearn does.
+
+`dictionary_learning` uses the same objective .5*||X-code*dictionary||^2 +
+alpha*||code||_1, with atom row norms <= 1. Defaults are n_components=0 (auto =
+input feature count), alpha=1, max_iter=1000, tol=1e-8, fit_algorithm='lars',
+random_state=0, and transform_max_iter=1000. Code updates use native Lasso-LARS
+or cyclic Gram coordinate descent with sklearn's 1e-4 inner stopping tolerance
+and dual-gap check. Sequential dictionary updates enforce the unit-ball
+constraint; unused atoms are replaced by a sampled data row plus small noise.
+positive_dict clips atoms; positive_code requires fit_algorithm='cd', matching
+sklearn's estimator validation. Positive sparse coding is available for Lasso
+and threshold transforms, including direct sparse_encode with lasso_lars.
+
+DictionaryLearning fit_transform returns the final learned training code;
+transform performs fresh coding and can differ. The default transform is OMP;
+other algorithms are lasso_lars, lasso_cd, lars and threshold. Controls are
+transform_alpha=-1 (auto = training alpha), transform_n_nonzero_coefs=0
+(auto = min(max(floor(n_features/10),1),n_atoms)), transform_max_iter=1000,
+positive_code and split_sign. split_sign affects transform outputs, not the
+learned code returned by fit_transform. Reconstruct a training code with
+matmul(code, components_). Fitted components_, error_, n_iter_ and
+n_features_in_ are retained.
+
+Both learners accept overcomplete dictionaries and zero outer iterations.
+Paired code_init/dict_init (DictionaryLearning) or u_init/v_init (SparsePCA)
+replace SVD initialization. Dictionary code/dictionary shapes are (n_rows,r)
+and (r,n_features); SparsePCA U/V shapes are (n_samples,r) and (r,n_features).
+Initial factors are truncated or zero-padded to the requested component count.
+A lone initializer is ignored, following sklearn. Zero iterations preserve the
+initial factors; DictionaryLearning atoms are projected only during updates.
+Degenerate SVD subspaces can produce different initial bases and local optima,
+especially coordinate descent warm starts on zero singular directions.
+
+`sparse_encode` exposes all five coding algorithms and optional finite init
+for coordinate descent. It takes rows of X and rows of dictionary atoms and
+returns (n_samples,n_atoms). alpha defaults to 1; n_nonzero_coefs=0 means auto;
+max_iter=1000 and positive=false. Positive constraints exclude lars and omp.
+`sparse_coder` applies those transforms to its supplied dictionary, with the
+same transform controls and optional split-sign output. fit is a no-op and
+fit_transform performs encoding. Matrix dimensions are obtained from dictionary
+rather than cached SparseCoder metadata properties.
+
+All inputs are finite dense real64 arrays. Sparse matrices, parallel jobs,
+callbacks, state serialization and noninteger random_state objects are outside
+this subset. Scalar nonnegative default-integer seeds are supported (through
+2147483647 on the current compiler); the native default is deterministic zero.
+The internal sklearn_legacy_rng helper supplies NumPy RandomState-compatible
+MT19937 uniforms, masked bounded indices and cached polar Gaussians for atom
+resampling. It is not a counted sklearn estimator or a public extension.
+Its 28 NumPy stream comparison groups are recorded separately from the sklearn
+algorithm result counts. NumPy source notices are retained under LICENSES.

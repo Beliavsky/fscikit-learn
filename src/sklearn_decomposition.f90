@@ -1,4 +1,5 @@
 module sklearn_decomposition
+  use sklearn_dictionary, only: sparse_pca,dictionary_learning,sparse_coder,sparse_encode
   use sklearn_incremental_pca, only: incremental_pca
   use sklearn_fast_ica, only: fast_ica
   use sklearn_common
@@ -6,6 +7,7 @@ module sklearn_decomposition
   use sklearn_factor_analysis, only: factor_analysis
   implicit none
   private
+  public :: sparse_pca,dictionary_learning,sparse_coder,sparse_encode
   public :: incremental_pca
   public :: fast_ica,pca, truncated_svd, nmf, kernel_pca, factor_analysis
   type :: pca

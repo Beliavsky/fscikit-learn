@@ -1351,3 +1351,57 @@ reference reports, inventory and staged diff checks passed. Rank-deficient
 LAR numerical differences and the single-alpha upstream issue are documented.
 Original contributions remain MIT with retained BSD notices. No dependency
 or public extension was added.
+
+
+## 2026-11-20: SparsePCA, DictionaryLearning and SparseCoder
+
+Added a shared dense dictionary-learning engine with SVD or paired-factor
+initialization, Lasso-LARS/cyclic Gram coordinate descent code updates,
+sequential atom updates, norm/positive constraints, unused-atom resampling and
+objective stopping/history. SparsePCA centers inputs, normalizes/orients sparse
+loadings, projects with ridge/pseudoinverse least squares and reconstructs with
+the mean. DictionaryLearning retains learned training codes and exposes fresh
+coding transforms. SparseCoder supports supplied dictionaries without fitting.
+sparse_encode provides lasso_lars, lasso_cd, lars, omp and threshold, with
+positive constraints where supported, CD initialization and split-sign wrappers.
+
+A scalar-seeded MT19937 helper reproduces NumPy RandomState raw/uniform streams,
+masked bounded indices and cached polar Gaussians for resampling. It uses int64
+bit arithmetic to avoid signed 32-bit overflow and is internal to this feature,
+not an additional counted estimator or public extension. NumPy 2.2.6 root,
+MT/RandomKit, random-module and distributions notices are retained under LICENSES;
+original contributions remain MIT and no NumPy/SciPy runtime is linked.
+
+The main suite passed 744 sklearn 1.6.1 result groups over four seeded matrices
+and 34 configurations: LARS/CD learning, automatic/overcomplete component counts,
+wide data, supplied factor pairs, no iterations, high/zero penalties, loose/tight
+stopping, positive dictionary/codes, all coding algorithms, warm-start codes,
+split signs, ridge-zero transforms and inverse projections. Components, codes,
+error histories, iteration/shape metadata, training/query transforms and inverses
+match at atol=rtol=3e-8. Separate NumPy 2.2.6 compatibility tests passed 28 stream
+groups over four seeds and multiple MT state cycles; raw/uniform/index streams
+compare exactly, Gaussian streams at atol=rtol=2e-14. Those 28 groups are excluded
+from sklearn coverage totals. Native tests also check known MT/Gaussian values,
+atom constraints, coding identities and mean reconstruction from zero components.
+
+Seventy-four new isolated diagnostics bring the total to 856. See COVERAGE.md
+and API.md for initializer pairing, transform-vs-training codes, random seed
+scope, degenerate SVD bases and supported options. The sparse_components example
+shows sparse projection/reconstruction and dictionary training codes.
+Inventory: 138 core types, 57 source modules, 60 native test programs,
+39 sklearn reference suites and 13,561 sklearn result groups, plus 28 separately
+tracked NumPy compatibility groups. No dependency or public extension was added.
+
+
+Final validation: all 60 native test programs passed with runtime checks and
+floating-point traps (-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow)
+and in release mode. All 744 new sklearn result groups passed at atol=rtol=3e-8.
+All 28 separate NumPy RandomState stream groups passed (exact raw/uniform/index
+streams, Gaussian atol=rtol=2e-14). All 856 isolated diagnostics passed, including
+74 new cases. The checked sparse_components example completed 40 iterations
+for each learner, returning SparsePCA reconstruction RMSE=0.4294850842,
+dictionary objective=17.6185554505 and 39 nonzero learned code entries.
+Python syntax, Fortran line lengths, both reference reports, inventory and
+staged diff checks passed. Original contributions retain MIT licensing;
+complete sklearn and NumPy upstream notices are retained. No NumPy/SciPy
+runtime dependency or public extension was added.
