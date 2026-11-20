@@ -1342,3 +1342,51 @@ The AdaBoostRegressor reference runner now filters actual executable files
 from cold-build progress output; its 1,649 existing groups were rerun and passed.
 Other older Python reference suites were not rerun. Python syntax, Fortran
 formatting, inventory/report counts and staged diff checks passed.
+
+
+## NuSVC binary and multiclass classification (2026-11-20)
+
+Added nu_svc with weighted two-group nu dual optimization, feasibility checks,
+LIBSVM margin scaling, binary and multiclass OVO fitting, linear/RBF/polynomial/
+sigmoid/precomputed kernels, gamma rules, OVR decision transformation, optional
+OVR tie breaking, class-grouped public support/dual layout, linear coefficients,
+accuracy score and native convergence/dual diagnostics. Original-row support
+indices and precomputed query columns are preserved with zero sample weights.
+Existing SVC and other kernel SVM implementations were not changed. MIT project
+licensing, retained sklearn/LIBSVM terms and no-runtime-dependency status remain
+unchanged. Provenance and API/scope documentation were expanded.
+
+compare_nusvc.py adds 1,396 result groups across 66 configurations on three
+seeded datasets: 670 direct sklearn estimator-output comparisons and 726 dual,
+normalization, layout and prediction/score checks. It covers binary, three- and
+four-class labels, all five kernels, gamma scale/auto/numeric, polynomial degrees,
+nonzero coef0, weighted/zero-weight fits, feasible class imbalance, nu .1 through
+.85, both multiclass score formats, break_ties, constant features and exact
+multiclass coefficient packing. General estimator atol=rtol=4e-5; normalized
+duals and linear coefficients use 3e-4, discrete meaningful support metadata and
+labels are exact, and native KKT violations must be <=1.001e-9.
+
+Fully bound solutions are checked against source unscaled kernel projections
+and both normalizations' KKT intervals instead of forcing an arbitrary rho/r
+choice. Raw and expanded public dual-layout identities are checked separately;
+only numerical support artifacts below 1e-10 are excluded from exact support
+metadata comparisons. A verified extra LIBSVM support coefficient was
+7.13e-16. The zero-weight precomputed reference explicitly reduces its positive
+rows/columns to avoid sklearn 1.6.1's compacted-index prediction mismatch.
+The native call retains its full original input/query layout. See COVERAGE.md
+for solver precision, nonconvex-kernel stationarity and degenerate margin scope.
+
+Inventory: 141 core types, 60 source modules, 63 native test programs,
+42 reference suites and 18,695 result groups, plus 28 separate NumPy stream
+groups. Thirty-three new isolated diagnostics bring the inventory to 930.
+nu_classification demonstrates nu-constrained model fitting and query labels.
+
+Final validation: all 63 native test programs passed checked builds with
+-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow and release builds.
+All 1,396 new result groups and all 930 isolated diagnostic cases passed.
+The checked nu_classification example converged with ten support vectors per
+class, training accuracy 1.0 and query labels -5/7 on its illustrative fixture.
+Python syntax, Fortran formatting, inventory/report classifications and staged
+diff checks passed. Older Python reference suites were not rerun; existing
+SVC/kernel-SVM implementations were unchanged. The original MIT license and
+complete upstream sklearn/LIBSVM notices remain in place.

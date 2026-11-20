@@ -1,10 +1,12 @@
 module sklearn_svm
+  use sklearn_nu_classification, only: nu_svc
   use sklearn_linear_svm, only: linear_svc,linear_svr
   use sklearn_common
   use sklearn_kernel_svm, only: svr,nu_svr,one_class_svm
   use sklearn_metrics, only: linear_kernel,rbf_kernel,polynomial_kernel,sigmoid_kernel,accuracy_score
   implicit none
   private
+  public :: nu_svc
   public :: linear_svc,linear_svr
   public :: svc,svr,nu_svr,one_class_svm
   type :: binary_svm

@@ -1295,3 +1295,32 @@ sum(dual_coef_)=0. Its objective dot_product(y,dual_coef_) agrees with the
 primal objective. See COVERAGE.md for numerical tolerance, scaling, nonunique
 solutions, solver differences and convergence behavior. score is unweighted R2
 and requires at least two query samples.
+
+
+## NuSVC
+
+Import nu_svc from sklearn, sklearn_svm or sklearn_nu_classification.
+
+```fortran
+type(nu_svc) :: model
+model%nu=.35_dp
+model%kernel='rbf'
+model%gamma_rule='scale' ! gamma=-1 selects this rule; numeric gamma overrides it
+call model%fit(x,labels,sample_weight=weights) ! weights optional
+prediction=model%predict(query)
+scores=model%decision_function(query)
+accuracy=model%score(x,labels)
+model%decision_function_shape='ovo' ! default ovr; break_ties requires ovr
+```
+
+Core fitted attributes are classes_, support_, n_support_, support_vectors_,
+dual_coef_, intercept_, n_features_in_ and linear-only coef_. Binary scores
+are (n_query,1), multiclass OVR scores are (n_query,n_classes), and OVO scores
+are (n_query,n_classes*(n_classes-1)/2). Native n_iter_ and kkt_violation_
+are vectors over class pairs, with aggregate converged_ and fit_status_.
+pair_alpha_ and pair_scales_ expose native unscaled dual diagnostics.
+Nu feasibility uses per-class sample-weight totals. Precomputed queries have
+one column per original training row, including zero-weight rows. Support
+indices refer to original training rows and start at one. See COVERAGE.md for
+fully bound normalizations, solver differences, explicit degenerate errors,
+parameter scope and the standard multiclass coefficient layout.

@@ -21,6 +21,7 @@ Reference paths by module:
 
 | Fortran module | scikit-learn reference |
 | --- | --- |
+| nu_classification | svm/_base.py and _classes.py NuSVC kernel/gamma, binary signs and OVO/OVR contracts; utils/multiclass.py vote/confidence transformation; bundled svm/src/libsvm/svm.cpp solve_nu_svc and Solver_NU group constraints, threshold levels and margin scaling; independent real64 gain-based pair optimizer |
 | quantile | linear_model/_quantile.py QuantileRegressor weighted pinball/L1 objective, intercept exemption, positive/negative parameter and residual LP formulation, zero-weight row filtering and coefficient reconstruction; independent dense Bland-rule primal simplex, scaling and dual diagnostics; no SciPy/HiGHS code linked or adapted |
 | adaboost_regression | ensemble/_weight_boosting.py AdaBoostRegressor/AdaBoost.R2 weighted bootstrap, losses, stopping and weighted median; tree/_splitter.pyx, _partitioner.pyx, _criterion.pyx dense squared-error CART and utils/_random.pxd Xorshift ordering; native dense implementation using existing legacy RNG |
 | least_angle | linear_model/_least_angle.py _lars_path_solver and Lars/LassoLars centering, active-set equiangular directions, LAR sign changes, Lasso dropouts, correlation rounding and endpoint interpolation; independent dense Gram/Cholesky implementation; LarsCV/LassoLarsCV fold centering, alpha union/stride, residual interpolation and final refit; LassoLarsIC AIC/BIC and OLS/NNLS noise-variance contracts; native Jacobi SVD/active-set NNLS and piecewise-linear interpolation |

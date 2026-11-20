@@ -25,6 +25,9 @@ program invalid_input_driver
   type(leave_one_group_out) :: logo_cv
   type(sgd_classifier) :: sgdc
   type(sgd_regressor) :: sgd
+  type(nu_svc) :: nus
+  real(dp), allocatable :: nus_scores(:,:)
+  integer, allocatable :: nus_labels(:)
   type(quantile_regressor) :: qr
   real(dp), allocatable :: qr_prediction(:)
   type(adaboost_regressor) :: adar
@@ -123,6 +126,96 @@ program invalid_input_driver
   seq%cv=2
   x=1; y=1; call get_command_argument(1,mode)
   select case(trim(mode))
+  case('nus_nu_zero')
+    nus%nu=0
+    call nus%fit(reshape([0._dp,1._dp],[2,1]),[-5,7])
+  case('nus_nu_high')
+    nus%nu=1.1_dp
+    call nus%fit(reshape([0._dp,1._dp],[2,1]),[-5,7])
+  case('nus_nu_nan')
+    nus%nu=ieee_value(0._dp,ieee_quiet_nan)
+    call nus%fit(reshape([0._dp,1._dp],[2,1]),[-5,7])
+  case('nus_tol_zero')
+    nus%tol=0
+    call nus%fit(reshape([0._dp,1._dp],[2,1]),[-5,7])
+  case('nus_tol_nan')
+    nus%tol=ieee_value(0._dp,ieee_quiet_nan)
+    call nus%fit(reshape([0._dp,1._dp],[2,1]),[-5,7])
+  case('nus_iterations')
+    nus%max_iter=0
+    call nus%fit(reshape([0._dp,1._dp],[2,1]),[-5,7])
+  case('nus_kernel')
+    nus%kernel='unknown'
+    call nus%fit(reshape([0._dp,1._dp],[2,1]),[-5,7])
+  case('nus_gamma_rule')
+    nus%gamma_rule='unknown'
+    call nus%fit(reshape([0._dp,1._dp],[2,1]),[-5,7])
+  case('nus_gamma')
+    nus%gamma=-2
+    call nus%fit(reshape([0._dp,1._dp],[2,1]),[-5,7])
+  case('nus_gamma_nan')
+    nus%gamma=ieee_value(0._dp,ieee_quiet_nan)
+    call nus%fit(reshape([0._dp,1._dp],[2,1]),[-5,7])
+  case('nus_coef0_inf')
+    nus%coef0=ieee_value(0._dp,ieee_positive_inf)
+    call nus%fit(reshape([0._dp,1._dp],[2,1]),[-5,7])
+  case('nus_degree')
+    nus%degree=-1
+    call nus%fit(reshape([0._dp,1._dp],[2,1]),[-5,7])
+  case('nus_shape')
+    nus%decision_function_shape='unknown'
+    call nus%fit(reshape([0._dp,1._dp],[2,1]),[-5,7])
+  case('nus_ties')
+    nus%break_ties=.true.; nus%decision_function_shape='ovo'
+    call nus%fit(reshape([0._dp,1._dp],[2,1]),[-5,7])
+  case('nus_class')
+    call nus%fit(reshape([0._dp,1._dp],[2,1]),[-5,-5])
+  case('nus_weight_shape')
+    call nus%fit(reshape([0._dp,1._dp],[2,1]),[-5,7],[1._dp])
+  case('nus_weight_negative')
+    call nus%fit(reshape([0._dp,1._dp],[2,1]),[-5,7],[-1._dp,2._dp])
+  case('nus_weight_nan')
+    call nus%fit(reshape([0._dp,1._dp],[2,1]),[-5,7], &
+      [1._dp,ieee_value(0._dp,ieee_quiet_nan)])
+  case('nus_weight_zero')
+    call nus%fit(reshape([0._dp,1._dp],[2,1]),[-5,7],[0._dp,0._dp])
+  case('nus_weight_overflow')
+    call nus%fit(reshape([0._dp,1._dp],[2,1]),[-5,7],[huge(1._dp),huge(1._dp)])
+  case('nus_class_zero')
+    call nus%fit(reshape([0._dp,1._dp],[2,1]),[-5,7],[1._dp,0._dp])
+  case('nus_infeasible')
+    nus%nu=1
+    call nus%fit(reshape([0._dp,1._dp,2._dp],[3,1]),[-5,7,7])
+  case('nus_precomputed_square')
+    nus%kernel='precomputed'
+    call nus%fit(reshape([0._dp,1._dp],[2,1]),[-5,7])
+  case('nus_precomputed_symmetric')
+    nus%kernel='precomputed'
+    call nus%fit(reshape([1._dp,1._dp,0._dp,1._dp],[2,2]),[-5,7])
+  case('nus_empty')
+    call nus%fit(reshape([real(dp)::],[0,1]),[integer::])
+  case('nus_nan')
+    call nus%fit(reshape([ieee_value(0._dp,ieee_quiet_nan),1._dp],[2,1]),[-5,7])
+  case('nus_y_shape')
+    call nus%fit(reshape([0._dp,1._dp],[2,1]),[-5])
+  case('nus_unfitted')
+    nus_scores=nus%decision_function(reshape([0._dp],[1,1]))
+  case('nus_query_features')
+    call nus%fit(reshape([0._dp,1._dp],[2,1]),[-5,7])
+    nus_labels=nus%predict(reshape([0._dp,1._dp],[1,2]))
+  case('nus_query_nan')
+    call nus%fit(reshape([0._dp,1._dp],[2,1]),[-5,7])
+    nus_scores=nus%decision_function(reshape([ieee_value(0._dp,ieee_quiet_nan)],[1,1]))
+  case('nus_query_empty')
+    call nus%fit(reshape([0._dp,1._dp],[2,1]),[-5,7])
+    nus_labels=nus%predict(reshape([real(dp)::],[0,1]))
+  case('nus_zero_margin')
+    nus%gamma=0
+    call nus%fit(reshape([0._dp,1._dp],[2,1]),[-5,7])
+  case('nus_unbounded_margin')
+    nus%nu=1
+    call nus%fit(reshape([0._dp,1._dp],[2,1]),[-5,7])
+
   case('qr_quantile_zero')
     qr%quantile=0
     call qr%fit(reshape([0._dp,1._dp],[2,1]),[0._dp,1._dp])

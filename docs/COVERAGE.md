@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 140 public estimator, transformer, and splitter types. Each is a
+There are 141 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Forty-one reference suites additionally check 17,299
+All types have native tests. Forty-two reference suites additionally check 18,695
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -47,7 +47,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | dummy | `dummy_classifier`, `dummy_regressor` | Prior/most-frequent/stratified/uniform/constant classification; mean/median/quantile/constant regression |
 | kernel_ridge | `kernel_ridge` | Positive alpha; linear/RBF/polynomial/sigmoid kernels; no intercept |
 | discriminant_analysis | `linear_discriminant_analysis`, `quadratic_discriminant_analysis` | LDA follows sklearn `solver='lsqr'` covariance convention with scalar shrinkage; QDA scalar regularization; singular covariance is rejected |
-| svm | `svc`, `linear_svc`, `linear_svr`; re-exports `svr`, `nu_svr`, `one_class_svm` | Primal L2 squared-loss linear classification/regression; OVO SVC; epsilon/nu support-vector regression and one-class detection; native pairwise dual optimization, weighted capacities and PSD kernels for the added models |
+| svm | `svc`, `nu_svc`, `linear_svc`, `linear_svr`; re-exports `svr`, `nu_svr`, `one_class_svm` | Primal L2 squared-loss linear classification/regression; OVO SVC/NuSVC; epsilon/nu support-vector regression and one-class detection; native pairwise dual optimization and weighted capacities |
 | mixture | `gaussian_mixture` | EM with k-means initialization, full/tied/diag/spherical covariances; posterior, log likelihood, BIC/AIC |
 | neural_network | `mlp_classifier`, `mlp_regressor` | Arbitrary dense hidden layer sizes, relu/tanh/logistic/identity, full-batch Adam, softmax classification or squared-error regression, L2 regularization |
 | gaussian_process | `gaussian_process_regressor`, `gaussian_process_classifier` | Fixed isotropic RBF amplitude/length scale plus white noise and diagonal alpha; Cholesky posterior, standard deviation/covariance, log marginal likelihood; optional target normalization; fixed-RBF Laplace binary/OVR classification |
@@ -183,7 +183,8 @@ distances; cosine similarity; linear, RBF, polynomial and sigmoid kernels.
   variance when smoothing cannot make it positive.
 - SVC exposes one decision column per class pair, positive toward the pair's
   second class. This differs from sklearn's multiclass decision conventions.
-  There is no SVR, NuSVC, one-class SVM, Platt scaling, or libsvm compatibility.
+  SVR, NuSVC and one-class SVM are separate native types. Platt probability
+  scaling and LIBSVM model-file compatibility are not provided.
 - MLP uses full-batch Adam, not sklearn's default minibatches. It has no
   validation-set early stopping, SGD/L-BFGS solver, warm start, or multilabel
   outputs. Random initialization and convergence history differ from Python.
@@ -228,7 +229,7 @@ distances; cosine similarity; linear, RBF, polynomial and sigmoid kernels.
 ## Remaining major scikit-learn areas
 
 Not translated: sparse data paths, general estimator base/clone/parameter search
-framework, pipelines/column transformers, NuSVC, broader GLM/SGD options,
+framework, pipelines/column transformers, broader SVM/GLM/SGD options,
 histogram boosting, broader AdaBoost and bagging APIs,
 t-SNE and Hessian/modified LLE,
 outlier detection beyond LOF/OneClassSVM,
@@ -1781,3 +1782,65 @@ identical arbitrary solutions. Tiny sample weights are normalized before the
 HiGHS reference call in the weight-rescaling fixture to prevent absolute
 solver tolerances from treating the entire objective as negligible; the native
 call retains the original tiny weights.
+
+
+## Nu support-vector classification
+
+`nu_svc` translates sklearn 1.6.1 NuSVC's dense binary and one-versus-one
+multiclass classification with linear, RBF, polynomial, sigmoid and precomputed
+kernels. It supports nu, scalar sample weights, gamma scale/auto/numeric rules,
+degree, coef0, tolerance and per-pair iteration limits. Default multiclass
+scores use sklearn's OVR vote/confidence transform; OVO scores and OVR
+break_ties are supported. Binary decision scores have shape (n_query,1) and
+favor the second sorted class when positive. Multiclass OVO scores favor the
+first class of each ordered pair when positive, matching sklearn's convention.
+
+The independent native optimizer minimizes the two-label-group box-constrained
+nu dual with fixed weighted alpha mass in each group, gain-based pair updates,
+periodic full gradient reconstruction and LIBSVM's margin/intercept rescaling.
+Sample weights are capacities and are not normalized. Every class needs positive
+total weight; each pair must satisfy nu*(weight_a+weight_b)/2 <= min(weight_a,
+weight_b). Zero-weight samples are excluded. Kernel calculations and gradients
+use full real64 matrices, while sklearn's LIBSVM uses a float kernel cache.
+Dense quadratic storage targets moderate datasets. Sigmoid or indefinite
+precomputed kernels can be nonconvex; KKT convergence indicates stationarity,
+not a guarantee of a global minimum for those kernels.
+
+Fitted classes_, support_, n_support_, support_vectors_, dual_coef_, intercept_,
+and linear-only coef_ follow the class-grouped LIBSVM layout. Native support
+indices are 1-based original training row indices. Native n_iter_ and
+kkt_violation_ have one entry per ordered class pair; converged_ and fit_status_
+report aggregate convergence. Native pair_alpha_ (training rows by class pairs)
+and pair_scales_ expose unscaled dual variables and margin normalizers for
+feasibility checks. n_features_in_ is cached. Native max_iter defaults to 200000;
+examine convergence after a limited fit. Kernels and their parameters are saved
+at fit time; decision_function_shape and break_ties may be changed for queries.
+
+When a group has no free dual variables, its margin level can lie in a
+nontrivial interval. Native levels use the interval midpoint, ignoring
+machine-roundoff artifacts at capacity bounds. LIBSVM may select a different
+valid level after leaving a coefficient within machine epsilon of a bound.
+This can change normalized coefficients, intercepts and scores while preserving
+the unscaled optimum. Reference validation checks both levels' KKT intervals
+and unscaled kernel projections in these cases. Meaningful RBF support metadata
+is compared above a 1e-10 coefficient threshold; full dual comparisons retain
+all entries. This avoids treating LIBSVM coefficients around 1e-15 as distinct
+substantive support vectors. Native exposed support arrays retain actual
+nonzero coefficients, without that validation-only threshold.
+
+For zero-weight precomputed references, validation explicitly reduces the
+positive-weight training Gram and query columns before calling sklearn. This
+is mathematically equivalent to dropping the zero-weight rows and avoids a
+verified sklearn 1.6.1 wrapper mismatch between compacted support indices and
+unreduced query columns. Native precomputed queries retain all original
+training columns; original sample indices remain valid. Training precomputed
+matrices must be finite, square and symmetric. Zero or unbounded margin
+normalization is rejected explicitly rather than returning nonfinite model
+coefficients. This includes degenerate constant kernels and some fully
+saturated nu endpoints that also fail in sklearn.
+
+Probability calibration, class_weight, callable kernels, sparse matrices,
+shrinking/cache controls, metadata routing and sklearn's unlimited max_iter
+sentinel are outside this subset. Native positive finite tol and positive
+max_iter are required; break_ties requires OVR scores. No public extension or
+external runtime dependency was added.
