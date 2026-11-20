@@ -1,4 +1,5 @@
 module sklearn_feature_selection
+  use sklearn_mutual_info, only: mutual_info_classif,mutual_info_regression,r_regression
   use sklearn_univariate_selection, only: select_percentile,select_fpr,select_fdr,select_fwe,generic_univariate_select, &
     univariate_classification_scores,univariate_regression_scores
   use sklearn_recursive_selection, only: rfe,rfecv,rfecv_results
@@ -6,6 +7,7 @@ module sklearn_feature_selection
   use sklearn_common
   implicit none
   private
+  public :: mutual_info_classif,mutual_info_regression,r_regression
   public :: select_percentile,select_fpr,select_fdr,select_fwe,generic_univariate_select
   public :: univariate_classification_scores,univariate_regression_scores
   public :: rfe,rfecv,rfecv_results

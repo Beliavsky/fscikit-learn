@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 167 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Fifty-nine reference suites additionally check 97,606
+All types have native tests. Sixty reference suites additionally check 99,802
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -42,7 +42,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | tree | `decision_tree_classifier`, `decision_tree_regressor` | Exhaustive CART; Gini/entropy/log-loss classification, squared-error regression; depth/leaf/split/feature controls, normalized impurity importance, leaf indices |
 | ensemble | `random_forest_classifier`, `random_forest_regressor`, `extra_trees_classifier`, `extra_trees_regressor`, `gradient_boosting_regressor`, `gradient_boosting_classifier`, `adaboost_classifier`, `adaboost_regressor`, `isolation_forest` | Bootstrap forests, randomized feature subsets, random-threshold Extra Trees, squared-error residual boosting; binary/multiclass classification boosting with Newton leaf updates; weighted Gini-stump SAMME; AdaBoost.R2 with depth-controlled CART; random isolation trees and path-length anomaly scores |
 | model_selection | `kfold`, `stratified_kfold`, `time_series_split`, `group_kfold`, `leave_one_out`, `leave_one_group_out`, `predefined_split`, `ridge_cv`; `train_test_split`, `shuffle_indices`, `cross_val_score` | Index-based splits; fraction test size; optional stratification; time gap/window; CV for linear-regression family and logistic regression; ridge CV selects negative mean squared error |
-| feature_selection | `variance_threshold`, `select_k_best`, `select_percentile`, `select_fpr`, `select_fdr`, `select_fwe`, `generic_univariate_select`, `sequential_feature_selector`, `rfe`, `rfecv`; `f_classif`, `f_regression`, `chi2` | Dense scores and masks; greedy forward/backward CV regression selection; coefficient-based recursive elimination and CV for regression/logistic classification; inverse transform fills dropped columns with zero; new statistical selectors include p-values and multiplicity control |
+| feature_selection | `variance_threshold`, `select_k_best`, `select_percentile`, `select_fpr`, `select_fdr`, `select_fwe`, `generic_univariate_select`, `sequential_feature_selector`, `rfe`, `rfecv`; `f_classif`, `f_regression`, `chi2`, `r_regression`, `mutual_info_classif`, `mutual_info_regression` | Dense scores and masks; greedy forward/backward CV regression selection; coefficient-based recursive elimination and CV for regression/logistic classification; inverse transform fills dropped columns with zero; new statistical selectors include p-values and multiplicity control |
 | feature_extraction_text | `count_vectorizer`, `tfidf_transformer`, `tfidf_vectorizer` | Dense unigram counts; ASCII alphanumeric/underscore tokens of length 2-128; sorted vocabulary; min/max document frequency, binary counts and max features; smoothed/unsmoothed IDF, sublinear TF, l1/l2/no normalization |
 | dummy | `dummy_classifier`, `dummy_regressor` | Prior/most-frequent/stratified/uniform/constant classification; mean/median/quantile/constant regression |
 | kernel_ridge | `kernel_ridge` | Positive alpha; linear/RBF/polynomial/sigmoid kernels; no intercept |
@@ -55,6 +55,9 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | datasets | `make_blobs`, `make_regression`, `make_moons`, `make_circles` | Native synthetic generators; optional deterministic seed; no bundled real-world datasets |
 
 ## Metrics and kernels
+
+Discrete clustering mutual information: `mutual_info_score` returns nats from
+integer label pairs, with source contingency and zero-entropy contracts.
 
 Regression: mean/root-mean squared error, mean/median/max absolute error,
 mean absolute percentage error, mean squared log error, R2, explained variance,
@@ -3003,3 +3006,83 @@ retained; original contributions use the project MIT license.
 Inventory: 167 core types, 78 source modules, 80 native test programs,
 59 reference suites and 97,606 result groups, plus 28 separate NumPy stream
 groups. Isolated invalid-input inventory is 1,581.
+
+## Mutual-information and Pearson scoring (2026-11-20)
+
+Added four core sklearn functions: mutual_info_classif, mutual_info_regression,
+r_regression and mutual_info_score. Feature scorers are exported through sklearn
+and sklearn_feature_selection; the clustering metric through sklearn_metrics;
+all are available in the focused sklearn_mutual_info module. They add algorithms
+without increasing the estimator/transformer/splitter type count. No public
+extension, SciFort dependency or external runtime is introduced.
+
+MI implements Kraskov continuous/continuous Chebyshev neighbor radii, Ross
+continuous/discrete class-wise radii and singleton removal, and categorical
+contingency MI. Integer digamma differences use harmonic tables. Negative
+estimates are clipped to zero. Dense all-pairs distance/count passes use O(N)
+scratch per feature, quickselect for kth radii and O(N**2) distance work. The
+categorical metric stores observed joint pairs rather than a dense K-by-L table.
+Source preprocessing scales without centering, distinguishes feature-array and
+scalar-target near-zero scales, and adds 1.e-10 Gaussian perturbations with
+NumPy-compatible scalar-seeded C-order draw traversal. The private pairwise sum
+adapts NumPy 2.2.6's eight-accumulator/128-element/aligned-recursion reduction.
+For class-wise Euclidean radii, native arithmetic follows source's auto backend
+choice: ordered Gram terms for brute force and squared differences otherwise.
+Radius counts use reduced squared distances, retaining source boundary rules.
+
+Dense real64 X and regression targets, integer classification/cluster labels,
+positive n_neighbors and nonnegative default-integer seeds are supported.
+discrete_features accepts scalar logical, logical mask or nonempty native
+one-based column indices. Fractional real category codes are allowed. Continuous
+neighbors must be fewer than N; class-wise counts adapt to available repeats,
+ignoring singleton labels. Copy=False, sparse data, Python RNG/callback objects,
+joblib parallelism and string/object labels are outside the native interface.
+Inputs are preserved. MI vectors can feed score-only univariate selectors.
+
+r_regression retains signed correlations, centered/uncentered moment formulas,
+division order and force_finite semantics: NaNs become zero by default, while
+signed infinities remain. Explicit IEEE branches handle undefined/underflowed
+denominators with invalid/zero/overflow traps enabled. Exact constant columns
+have undefined mathematical correlation; BLAS summation can change source/native
+outputs among NaN, zero, signed infinity or tiny moment-rounding artifacts.
+Those cases are reported separately rather than asserted to be source-equal.
+mutual_info_score accepts nonempty integer label pairs and preserves zero-entropy
+and label-permutation invariance; precomputed contingency input is not exposed.
+
+compare_mutual_info.py checks 2,196 result groups over six seeded datasets with
+N=7,16,31,64,127,257, including seed 0 and the largest supported scalar seed.
+There are 1,158 score groups and 1,038 exact input-preservation identities.
+The pre-build checked run has 1,150 direct source score groups and eight groups
+with an explicit exact-constant Pearson certificate. Such groups still compare
+every nonconstant column directly. Constant columns must be exactly equal down
+the input column; both outputs must be IEEE undefined/zero or finite artifacts
+bounded by 32*sqrt(N*epsilon). force_finite=True cannot return NaN. Other source
+comparisons use atol=rtol=3e-8, with equal NaNs and signed-infinity agreement.
+The report records affected columns, source/native values and bounds.
+
+Fixtures cover all continuous/discrete combinations, mixed features, every
+native mask/index/scalar overload (with repeated/reordered indices),
+k=1/2/3/N-1 and adaptive counts above N,
+single/wide features, singleton categories, repeated/constant/rounded data,
+small scales, offsets, constant targets, one-to-four-sample MI edges, recursive
+reductions, both Pearson options, tied/duplicate features, underflowed norms,
+and empty/single/permuted clustering labels. Empty metric inputs are explicitly
+confirmed as source rejections rather than source score comparisons. Four source
+rejections cover that case, singleton-only continuous/discrete samples, unique
+discrete regression features and invalid continuous neighbor counts.
+
+Native tests assert categorical entropy/independence, label permutation,
+single-sample categorical input, mask/index equivalence, deterministic seeds,
+input preservation, signed Pearson values, uncentered cosine, undefined NaNs,
+finite fallbacks, one-sample centering and preserved underflow infinities.
+Thirty-four new isolated diagnostics cover invalid controls, masks/indices,
+data sizes/finiteness, neighbor counts, absent repeated labels and metric sizes.
+example/nonlinear_feature_scoring.f90 combines MI ranking with score-only
+selection, Pearson scores, classification MI and the discrete metric via sklearn.
+
+Original contributions remain MIT; complete sklearn/NumPy BSD notices and the
+NumPy summation source attribution are retained. Research references follow
+sklearn: Kraskov, Stogbauer and Grassberger (2004), and Ross (2014).
+Inventory: 167 core types, 79 source modules, 81 native test programs,
+60 reference suites and 99,802 result groups, plus 28 separate NumPy stream
+groups. Isolated invalid-input inventory is 1,615.

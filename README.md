@@ -19,6 +19,8 @@ fpm test
 fpm run --example classification
 fpm run --example polynomial_kernel_features
 fpm run --example label_encoding
+fpm run --example nonlinear_feature_scoring
+python validation/compare_mutual_info.py
 python validation/compare_label_binarization.py
 python validation/compare_polynomial_count_sketch.py
 python validation/compare_univariate_selection.py

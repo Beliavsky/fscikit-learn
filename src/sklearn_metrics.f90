@@ -1,7 +1,9 @@
 module sklearn_metrics
+  use sklearn_mutual_info, only: mutual_info_score
   use sklearn_common
   implicit none
   private
+  public :: mutual_info_score
   public :: mean_squared_error, root_mean_squared_error, mean_absolute_error
   public :: median_absolute_error, mean_absolute_percentage_error, r2_score, explained_variance_score
   public :: max_error, mean_squared_log_error, mean_poisson_deviance, mean_gamma_deviance

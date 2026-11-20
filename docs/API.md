@@ -1995,3 +1995,67 @@ Unallocated input values and allocated zero-length values both represent an
 empty set. Inputs are preserved. Generic Python iterables/object labels,
 sparse matrices and feature-name integration are outside this interface.
 See `example/label_encoding.f90` for a complete program.
+
+## Mutual-information and correlation scores
+
+`mutual_info_classif`, `mutual_info_regression` and `r_regression` are exported
+by `sklearn`, `sklearn_feature_selection` and `sklearn_mutual_info`.
+`mutual_info_score` is exported by `sklearn`, `sklearn_metrics` and the focused
+module. These add scoring algorithms; the core estimator type count is unchanged.
+
+```fortran
+! X(N,P): dense real64. y_real(N): real64; y_class(N): integer.
+scores=mutual_info_regression(x,y_real,discrete_features=[3],random_state=42)
+class_scores=mutual_info_classif(x,y_class,n_neighbors=3,random_state=42)
+correlations=r_regression(x,y_real)
+partition_information=mutual_info_score(labels_true,labels_pred)
+```
+
+The MI scorers return allocated P-element real64 arrays of nonnegative
+information estimates in nats. Dense inputs default to all continuous features.
+`discrete_features` accepts a scalar logical, a P-element logical mask, or a
+nonempty integer list of **one-based** column indices. Repeated indices are
+allowed; zero, negative and out-of-range indices are rejected. This follows
+native indexing conventions rather than Python's zero-based/negative indexing.
+Discrete feature values are finite real64 category codes compared exactly;
+fractional numeric category codes are allowed. Classification targets are
+integer labels. Regression targets are real64 and treated as continuous.
+
+`n_neighbors=3` is the default. It must be positive. Continuous/continuous
+estimation needs n_neighbors<N. Continuous/discrete estimation adapts to each
+category's size and removes singleton categories, matching source; at least
+one repeated category is required. A requested count above N is valid on paths
+that adapt per category. Discrete/discrete estimates use contingency counts.
+Negative estimates are clipped to zero. The native search is brute-force with
+O(N**2) distance/count work per feature and O(N) scratch storage, including
+quickselect for neighbor radii. No KD-tree, SciPy or Python runtime is required.
+
+Native `random_state=0` is deterministic. Nonnegative default-integer scalar
+seeds reproduce NumPy legacy RandomState Gaussian draws in source C order.
+Continuous columns/targets are variance-scaled without centering and receive
+source-sized 1.e-10 Gaussian perturbations. Feature/target near-zero-scale rules
+are distinguished. NumPy pairwise sums and source-selected Euclidean distance
+arithmetic preserve radius boundaries that can change discrete neighbor counts.
+Small tied/near-tied distances remain sensitive to platform floating arithmetic.
+Inputs are always preserved; native copy=False, sparse inputs, RNG objects,
+joblib parallelism and object/string labels are not exposed.
+
+`r_regression(X,y,center,force_finite)` returns signed Pearson correlations,
+with both logical options defaulting to true. center=False computes uncentered
+cosines. The source moment formula, division order and unclipped scores are
+retained. force_finite replaces NaNs with zero and preserves signed infinities,
+including when a nonzero target's squared norm underflows. Explicit IEEE paths
+produce these values with floating traps enabled. Exact constant columns can
+produce source/native differences among NaN, zero, signed infinity or tiny
+roundoff values because BLAS reduction order changes an undefined correlation.
+The reference suite reports those checks with an explicit constant-column
+certificate; ordinary correlations remain direct source comparisons.
+
+`mutual_info_score(labels_true,labels_pred)` accepts equally sized, nonempty
+integer cluster-label arrays and returns discrete MI, invariant under label
+renaming. Its zero-entropy case is zero; a precomputed contingency matrix is
+not exposed. All score functions reject empty/nonfinite feature/real-target
+data and inconsistent lengths. Sparse matrices and estimator callbacks are
+outside the interface. To select columns using MI, pass its score vector to
+`generic_univariate_select%fit_scores`, using a score-only mode such as k_best
+or percentile. See `example/nonlinear_feature_scoring.f90`.

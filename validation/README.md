@@ -5,6 +5,7 @@ Run from the package root:
 ```
 fpm test --flag "-fcheck=all -fbacktrace"
 fpm test --profile release
+python validation/compare_mutual_info.py
 python validation/compare_label_binarization.py
 python validation/compare_polynomial_count_sketch.py
 python validation/compare_sklearn.py
@@ -2400,3 +2401,108 @@ notice retention and git whitespace checks passed. Other Python estimator
 reference suites were not rerun; their numerical bodies were unchanged.
 Their saved passing results form the historical aggregate of 97,606 core
 groups, with 28 NumPy stream groups reported separately.
+
+## Mutual-information and Pearson scoring (2026-11-20)
+
+Added four core sklearn functions: mutual_info_classif, mutual_info_regression,
+r_regression and mutual_info_score. Feature scorers are exported through sklearn
+and sklearn_feature_selection; the clustering metric through sklearn_metrics;
+all are available in the focused sklearn_mutual_info module. They add algorithms
+without increasing the estimator/transformer/splitter type count. No public
+extension, SciFort dependency or external runtime is introduced.
+
+MI implements Kraskov continuous/continuous Chebyshev neighbor radii, Ross
+continuous/discrete class-wise radii and singleton removal, and categorical
+contingency MI. Integer digamma differences use harmonic tables. Negative
+estimates are clipped to zero. Dense all-pairs distance/count passes use O(N)
+scratch per feature, quickselect for kth radii and O(N**2) distance work. The
+categorical metric stores observed joint pairs rather than a dense K-by-L table.
+Source preprocessing scales without centering, distinguishes feature-array and
+scalar-target near-zero scales, and adds 1.e-10 Gaussian perturbations with
+NumPy-compatible scalar-seeded C-order draw traversal. The private pairwise sum
+adapts NumPy 2.2.6's eight-accumulator/128-element/aligned-recursion reduction.
+For class-wise Euclidean radii, native arithmetic follows source's auto backend
+choice: ordered Gram terms for brute force and squared differences otherwise.
+Radius counts use reduced squared distances, retaining source boundary rules.
+
+Dense real64 X and regression targets, integer classification/cluster labels,
+positive n_neighbors and nonnegative default-integer seeds are supported.
+discrete_features accepts scalar logical, logical mask or nonempty native
+one-based column indices. Fractional real category codes are allowed. Continuous
+neighbors must be fewer than N; class-wise counts adapt to available repeats,
+ignoring singleton labels. Copy=False, sparse data, Python RNG/callback objects,
+joblib parallelism and string/object labels are outside the native interface.
+Inputs are preserved. MI vectors can feed score-only univariate selectors.
+
+r_regression retains signed correlations, centered/uncentered moment formulas,
+division order and force_finite semantics: NaNs become zero by default, while
+signed infinities remain. Explicit IEEE branches handle undefined/underflowed
+denominators with invalid/zero/overflow traps enabled. Exact constant columns
+have undefined mathematical correlation; BLAS summation can change source/native
+outputs among NaN, zero, signed infinity or tiny moment-rounding artifacts.
+Those cases are reported separately rather than asserted to be source-equal.
+mutual_info_score accepts nonempty integer label pairs and preserves zero-entropy
+and label-permutation invariance; precomputed contingency input is not exposed.
+
+compare_mutual_info.py checks 2,196 result groups over six seeded datasets with
+N=7,16,31,64,127,257, including seed 0 and the largest supported scalar seed.
+There are 1,158 score groups and 1,038 exact input-preservation identities.
+The pre-build checked run has 1,150 direct source score groups and eight groups
+with an explicit exact-constant Pearson certificate. Such groups still compare
+every nonconstant column directly. Constant columns must be exactly equal down
+the input column; both outputs must be IEEE undefined/zero or finite artifacts
+bounded by 32*sqrt(N*epsilon). force_finite=True cannot return NaN. Other source
+comparisons use atol=rtol=3e-8, with equal NaNs and signed-infinity agreement.
+The report records affected columns, source/native values and bounds.
+
+Fixtures cover all continuous/discrete combinations, mixed features, every
+native mask/index/scalar overload (with repeated/reordered indices),
+k=1/2/3/N-1 and adaptive counts above N,
+single/wide features, singleton categories, repeated/constant/rounded data,
+small scales, offsets, constant targets, one-to-four-sample MI edges, recursive
+reductions, both Pearson options, tied/duplicate features, underflowed norms,
+and empty/single/permuted clustering labels. Empty metric inputs are explicitly
+confirmed as source rejections rather than source score comparisons. Four source
+rejections cover that case, singleton-only continuous/discrete samples, unique
+discrete regression features and invalid continuous neighbor counts.
+
+Native tests assert categorical entropy/independence, label permutation,
+single-sample categorical input, mask/index equivalence, deterministic seeds,
+input preservation, signed Pearson values, uncentered cosine, undefined NaNs,
+finite fallbacks, one-sample centering and preserved underflow infinities.
+Thirty-four new isolated diagnostics cover invalid controls, masks/indices,
+data sizes/finiteness, neighbor counts, absent repeated labels and metric sizes.
+example/nonlinear_feature_scoring.f90 combines MI ranking with score-only
+selection, Pearson scores, classification MI and the discrete metric via sklearn.
+
+Original contributions remain MIT; complete sklearn/NumPy BSD notices and the
+NumPy summation source attribution are retained. Research references follow
+sklearn: Kraskov, Stogbauer and Grassberger (2004), and Ross (2014).
+Inventory: 167 core types, 79 source modules, 81 native test programs,
+60 reference suites and 99,802 result groups, plus 28 separate NumPy stream
+groups. Isolated invalid-input inventory is 1,615.
+
+Validation completed: all 81 native test programs passed with bounds checks,
+backtraces and invalid/zero/overflow traps, and all 81 passed in release mode.
+The full checked suite was repeated successfully on the final sources after
+the repeated-index definition correction. Verbose execution confirms 81 unique
+test executables; the new test and module artifacts postdate the final sources.
+Both fpm checked and optimized source suites passed all 2,196 groups: 1,150
+direct source score comparisons, 1,038 exact input identities and eight explicitly
+reported constant-Pearson certificate groups. All 846 MI feature-score groups
+and 120 categorical metric groups compare directly to source; nonconstant
+Pearson columns remain directly checked even in certificate groups. All four
+source rejection checks and all 1,615 isolated native invalid-input cases passed.
+
+The checked example gave regression MI=1.2226076540426423 on the nonlinear
+first feature, versus Pearson r=-1.1615170503735291e-4. The fixed two-feature
+selector returned columns 1 and 4; column 4 resolves a zero-score tie, rather
+than establishing additional informative structure. The selected shape is 80x2.
+Classification MI for the first feature was .64314486656419945 nats and target
+self-information .68185460873078285. Python syntax, Fortran line/whitespace
+checks, diagnostic uniqueness/equality, inventories, license retention and git
+whitespace checks passed. Other Python estimator reference suites were not
+rerun; their numerical bodies were unchanged. Their saved passing results
+contribute to the historical aggregate of 99,802 core groups, with 28 NumPy
+stream groups reported separately. The project MIT license and complete
+sklearn/NumPy upstream notices remain retained.
