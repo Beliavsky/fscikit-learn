@@ -25,6 +25,13 @@ program invalid_input_driver
   type(leave_one_group_out) :: logo_cv
   type(sgd_classifier) :: sgdc
   type(sgd_regressor) :: sgd
+  type(spectral_coclustering) :: bc_co
+  type(spectral_biclustering) :: bc_bi
+  real(dp) :: bc_x(4,4)
+  real(dp), allocatable :: bc_values(:,:)
+  integer :: bc_shape(2)
+  integer, allocatable :: bc_ri(:),bc_ci(:)
+  logical, allocatable :: bc_rows(:,:),bc_columns(:,:)
   type(mini_batch_kmeans) :: mb_case
   real(dp), allocatable :: mbkm_distances(:,:)
   integer, allocatable :: mbkm_labels(:)
@@ -145,9 +152,146 @@ program invalid_input_driver
   elimination_cv%cv=2
   seq%cv=2
   x=1; y=1; call get_command_argument(1,mode)
+  bc_x=reshape([12._dp,13._dp,2._dp,3._dp,12._dp,14._dp,2._dp,4._dp, &
+    2._dp,3._dp,15._dp,16._dp,2._dp,4._dp,16._dp,18._dp],[4,4])
+  bc_co%n_clusters=2; bc_co%n_init=1
+  bc_bi%n_clusters=2; bc_bi%n_components=2; bc_bi%n_best=1; bc_bi%n_init=1
   mb_case%n_clusters=2; mb_case%max_iter=2; mb_case%batch_size=6
   bisect_case%n_clusters=2
   select case(trim(mode))
+  case('bcsp_co_clusters_one')
+    bc_co%n_clusters=1
+    call bc_co%fit(bc_x)
+  case('bcsp_co_clusters_zero')
+    bc_co%n_clusters=0
+    call bc_co%fit(bc_x)
+  case('bcsp_co_clusters_high')
+    bc_co%n_clusters=5
+    call bc_co%fit(bc_x)
+  case('bcsp_co_restarts')
+    bc_co%n_init=0
+    call bc_co%fit(bc_x)
+  case('bcsp_co_seed')
+    bc_co%random_state=-1
+    call bc_co%fit(bc_x)
+  case('bcsp_co_init')
+    bc_co%init='unknown'
+    call bc_co%fit(bc_x)
+  case('bcsp_co_zero_row')
+    bc_x(1,:)=0
+    call bc_co%fit(bc_x)
+  case('bcsp_co_zero_column')
+    bc_x(:,1)=0
+    call bc_co%fit(bc_x)
+  case('bcsp_co_zero_data')
+    bc_x=0
+    call bc_co%fit(bc_x)
+  case('bcsp_co_margin_overflow')
+    bc_x=huge(1._dp)
+    call bc_co%fit(bc_x)
+  case('bcsp_co_shift_overflow')
+    bc_x=huge(1._dp); bc_x(1,1)=-huge(1._dp)
+    call bc_co%fit(bc_x)
+  case('bcsp_co_empty')
+    call bc_co%fit(reshape([real(dp)::],[0,2]))
+  case('bcsp_co_nan')
+    bc_x(1,1)=ieee_value(0._dp,ieee_quiet_nan)
+    call bc_co%fit(bc_x)
+  case('bcsp_co_inf')
+    bc_x(1,1)=ieee_value(0._dp,ieee_positive_inf)
+    call bc_co%fit(bc_x)
+  case('bcsp_co_thin')
+    call bc_co%fit(reshape([1._dp,2._dp],[2,1]))
+  case('bcsp_bi_clusters_zero')
+    bc_bi%n_clusters=0
+    call bc_bi%fit(bc_x)
+  case('bcsp_bi_row_clusters')
+    bc_bi%n_row_clusters=2; bc_bi%n_column_clusters=2
+    bc_bi%n_row_clusters=5
+    call bc_bi%fit(bc_x)
+  case('bcsp_bi_column_clusters')
+    bc_bi%n_row_clusters=2; bc_bi%n_column_clusters=2
+    bc_bi%n_column_clusters=5
+    call bc_bi%fit(bc_x)
+  case('bcsp_bi_components')
+    bc_bi%n_components=0
+    call bc_bi%fit(bc_x)
+  case('bcsp_bi_best_zero')
+    bc_bi%n_best=0
+    call bc_bi%fit(bc_x)
+  case('bcsp_bi_best_high')
+    bc_bi%n_best=3
+    call bc_bi%fit(bc_x)
+  case('bcsp_bi_method')
+    bc_bi%method='unknown'
+    call bc_bi%fit(bc_x)
+  case('bcsp_bi_restarts')
+    bc_bi%n_init=0
+    call bc_bi%fit(bc_x)
+  case('bcsp_bi_seed')
+    bc_bi%random_state=-1
+    call bc_bi%fit(bc_x)
+  case('bcsp_bi_init')
+    bc_bi%init='unknown'
+    call bc_bi%fit(bc_x)
+  case('bcsp_bi_partial_row')
+    bc_bi%n_row_clusters=2
+    call bc_bi%fit(bc_x)
+  case('bcsp_bi_partial_column')
+    bc_bi%n_column_clusters=2
+    call bc_bi%fit(bc_x)
+  case('bcsp_bi_column_row_limit')
+    bc_bi%n_row_clusters=2; bc_bi%n_column_clusters=3
+    call bc_bi%fit(reshape(spread(1._dp,1,10),[2,5]))
+  case('bcsp_bi_thin')
+    bc_bi%n_clusters=1
+    call bc_bi%fit(reshape([1._dp,2._dp],[2,1]))
+  case('bcsp_bi_empty')
+    call bc_bi%fit(reshape([real(dp)::],[0,2]))
+  case('bcsp_bi_nan')
+    bc_x(1,1)=ieee_value(0._dp,ieee_quiet_nan)
+    call bc_bi%fit(bc_x)
+  case('bcsp_bi_zero_margin')
+    bc_bi%method='bistochastic'; bc_x(1,:)=0
+    call bc_bi%fit(bc_x)
+  case('bcsp_co_unfitted_indices')
+    call bc_co%get_indices(0,bc_ri,bc_ci)
+  case('bcsp_co_unfitted_shape')
+    bc_shape=bc_co%get_shape(0)
+  case('bcsp_co_unfitted_matrix')
+    bc_values=bc_co%get_submatrix(0,bc_x)
+  case('bcsp_co_unfitted_indicators')
+    call bc_co%get_biclusters(bc_rows,bc_columns)
+  case('bcsp_co_index_negative')
+    call bc_co%fit(bc_x)
+    call bc_co%get_indices(-1,bc_ri,bc_ci)
+  case('bcsp_co_index_high')
+    call bc_co%fit(bc_x)
+    call bc_co%get_indices(20,bc_ri,bc_ci)
+  case('bcsp_bi_unfitted_indices')
+    call bc_bi%get_indices(0,bc_ri,bc_ci)
+  case('bcsp_bi_unfitted_shape')
+    bc_shape=bc_bi%get_shape(0)
+  case('bcsp_bi_unfitted_matrix')
+    bc_values=bc_bi%get_submatrix(0,bc_x)
+  case('bcsp_bi_unfitted_indicators')
+    call bc_bi%get_biclusters(bc_rows,bc_columns)
+  case('bcsp_bi_index_negative')
+    call bc_bi%fit(bc_x)
+    call bc_bi%get_indices(-1,bc_ri,bc_ci)
+  case('bcsp_bi_index_high')
+    call bc_bi%fit(bc_x)
+    call bc_bi%get_indices(20,bc_ri,bc_ci)
+  case('bcsp_co_submatrix_shape')
+    call bc_co%fit(bc_x)
+    bc_values=bc_co%get_submatrix(0,bc_x(:3,:))
+  case('bcsp_co_submatrix_nan')
+    call bc_co%fit(bc_x)
+    bc_x(1,1)=ieee_value(0._dp,ieee_quiet_nan)
+    bc_values=bc_co%get_submatrix(0,bc_x)
+  case('bcsp_co_submatrix_empty')
+    call bc_co%fit(bc_x)
+    bc_values=bc_co%get_submatrix(0,reshape([real(dp)::],[0,4]))
   case('mbkm_clusters_zero')
     mb_case%n_clusters=0
     call mb_case%fit(reshape([-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp],[6,1]))

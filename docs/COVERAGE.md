@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 147 public estimator, transformer, and splitter types. Each is a
+There are 149 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Forty-seven reference suites additionally check 33,137
+All types have native tests. Forty-eight reference suites additionally check 36,129
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -27,7 +27,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | linear_model | `linear_regression`, `lars`, `lasso_lars`, `lars_cv`, `lasso_lars_cv`, `lasso_lars_ic`, `ridge`, `ridge_classifier`, `ridge_classifier_cv`, `multi_task_elastic_net`, `multi_task_lasso`, `lasso`, `elastic_net`, `lasso_cv`, `elastic_net_cv`, `logistic_regression`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `sgd_regressor`, `sgd_classifier`, `sgd_one_class_svm`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `huber_regressor`, `quantile_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; least-angle/Lasso homotopy paths with CV and AIC/BIC selection; coordinate descent with K-fold alpha/l1-ratio selection; logistic Newton solver; perceptron; PA-I/II classification/regression with averaging; streaming stochastic-gradient regression/classification and one-class detection; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; weighted L1-regularized quantile regression; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb`, `categorical_nb` | Empirical class priors, variance smoothing, strictly positive scalar alpha; Bernoulli threshold; optional complement normalization |
 | neighbors | `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with optional shrinkage and uniform priors; Euclidean kernel density |
-| cluster | `kmeans`, `bisecting_kmeans`, `mini_batch_kmeans`, `dbscan`, `agglomerative_clustering`, `feature_agglomeration`, `mean_shift`, `affinity_propagation`, `spectral_clustering`, `optics`, `birch`; `estimate_bandwidth`, `cluster_optics_dbscan`, `cluster_optics_xi` | Lloyd/k-means++; weighted streaming mini-batch centroids; bisecting centroid hierarchy with Lloyd/Elkan splits; density expansion; single/complete/average/Ward merge trees and feature pooling; flat-kernel mode seeking; damped exemplar messages; normalized-Laplacian clustering with k-means or pivoted QR assignment; OPTICS reachability ordering, Xi hierarchy and DBSCAN extraction; BIRCH streaming CF tree and optional Ward clustering |
+| cluster | `kmeans`, `bisecting_kmeans`, `mini_batch_kmeans`, `spectral_coclustering`, `spectral_biclustering`, `dbscan`, `agglomerative_clustering`, `feature_agglomeration`, `mean_shift`, `affinity_propagation`, `spectral_clustering`, `optics`, `birch`; `estimate_bandwidth`, `cluster_optics_dbscan`, `cluster_optics_xi` | Lloyd/k-means++; paired row/column spectral partitions and checkerboard biclustering; weighted streaming mini-batch centroids; bisecting centroid hierarchy with Lloyd/Elkan splits; density expansion; single/complete/average/Ward merge trees and feature pooling; flat-kernel mode seeking; damped exemplar messages; normalized-Laplacian clustering with k-means or pivoted QR assignment; OPTICS reachability ordering, Xi hierarchy and DBSCAN extraction; BIRCH streaming CF tree and optional Ward clustering |
 | decomposition | `pca`, `incremental_pca`, `truncated_svd`, `nmf`, `sparse_pca`, `dictionary_learning`, `sparse_coder`; `sparse_encode`; re-exports `kernel_pca`, `factor_analysis`, `fast_ica` | Direct Jacobi SVD; PCA whitening and inversion; streaming stacked-SVD IncrementalPCA; exact dense SVD; NMF multiplicative updates; sparse dictionary factorization and SparsePCA; five sparse coding methods; nonlinear kernel PCA; unrotated full-SVD factor analysis; parallel/deflation ICA |
 | cross_decomposition | `pls_regression`, `pls_canonical`, `cca`, `pls_svd` | Paired-matrix latent components: NIPALS regression/canonical deflation, CCA pseudoinverse mode, canonical direct SVD and PLSSVD cross-covariance projection; multiple response columns |
 | isotonic | `isotonic_regression`; `isotonic_fit`, `check_increasing` | Weighted pool-adjacent-violators, automatic Spearman direction, bounds, repeated-input aggregation and piecewise linear interpolation |
@@ -2143,3 +2143,90 @@ A fresh partial_fit with labels disabled similarly has no inertia. Subsequent
 partial_fit calls with labels disabled retain previously available label/inertia
 state, matching the source; query methods remain available. fit_predict requires
 compute_labels=true and reports a deliberate diagnostic otherwise.
+
+
+## SpectralCoclustering and SpectralBiclustering
+
+spectral_coclustering implements Dhillon's paired row/column spectral partition.
+Dense finite input is shifted by -min(X) when its minimum is negative, then
+scaled independently by inverse square roots of row and column sums. It retains
+1+ceil(log2(K)) leading singular triplets, bounded by the smaller matrix
+dimension, discards the leading vectors and stacks scaled left/right vectors.
+Joint centroid clustering of this embedding yields row_labels_ and
+column_labels_ with shared zero-based cluster IDs. Each row and column belongs
+to exactly one of K paired biclusters. K must be between two and n_rows, with
+at least one singular vector remaining after the leading vector is discarded.
+The source accepts K=1 at parameter validation but fails to fit its zero-feature
+embedding; the native code reports this case deliberately.
+
+spectral_biclustering implements Kluger's checkerboard algorithm with scale,
+bistochastic and log normalization. Scale uses the same independent margins.
+Bistochastic repeatedly applies scale normalization, stopping at a Frobenius
+change below 1e-5 or 1000 iterations, as in the source dense helper. Log shifts
+input to a minimum of at least one, takes logs, subtracts row and column means,
+and adds the overall mean. Scale/bistochastic discard the leading singular
+vectors; log retains them. Singular vector counts are capped by matrix size,
+including requests beyond the smaller dimension. n_best is positive and cannot
+exceed configured n_components; the actual number selected is capped by the
+number of retained vectors.
+
+Each left and right singular vector is clustered in one dimension to obtain a
+piecewise constant approximation. The n_best vectors with the smallest Euclidean
+approximation errors are selected independently on each side. The original,
+unshifted training matrix is projected onto selected right vectors to cluster
+rows, and its transpose onto selected left vectors to cluster columns. The
+result is a Cartesian grid of K_row*K_column blocks, in row-group-major order.
+Each row belongs to K_column blocks and each column to K_row blocks. Native
+n_row_clusters/n_column_clusters override scalar n_clusters when both are
+positive; leave both zero to use the scalar. Row counts are bounded by n_rows;
+column counts are bounded by both n_rows (the source parameter rule) and the
+available columns (the subsequent centroid fit rule).
+
+Both estimators use a full native thin Jacobi SVD, factoring the transpose for
+wide matrices. Zero left singular columns are completed to an orthonormal basis
+with twice-applied Gram-Schmidt projections, completing only requested vectors.
+The basis search stops at a well-conditioned coordinate; its scans are bounded
+by the current basis rank instead of the number of rows. An arbitrary null-space choice is
+unavoidable for rank-deficient data. This is an exact dense backend, without
+randomized/ARPACK selection or n_svd_vecs controls. Repeated singular values,
+null-space bases, ties at the singular-vector cutoff, piecewise-error ties and
+floating-point centroid ties can yield different partitions or local minima
+from Python. Validation uses source randomized SVD with enough oversampling to
+span the complete smaller dimension. Singular vector signs are aligned; cluster
+IDs are compared after relabeling, with paired IDs preserved for co-clustering
+and independent row/column IDs for checkerboards.
+
+Centroid fitting uses source-style greedy k-means++ or weighted-uniform random
+initialization, scalar-seeded legacy NumPy RNG draws, repeated Lloyd fits,
+variance-scaled 1e-4 stopping, a 300-iteration cap, farthest-point empty-center
+relocation and source same-partition restart selection. mini_batch=true uses
+the existing native MiniBatchKMeans with the wrapper's init/n_init/seed and its
+usual defaults. Each vector or projection fit starts with the configured scalar
+seed, matching the source wrapper. Existing public KMeans and MiniBatchKMeans
+bodies are unchanged. Empty-center relocation resolves exact distance ties by
+native first index; the source's partition-based ordering may choose differently.
+Explicit centroid arrays and callable initialization are outside this subset.
+
+Fitted source counterparts are row_labels_, column_labels_, rows_, columns_
+and n_features_in_. rows_ and columns_ have shape (n_biclusters,n_rows) and
+(n_biclusters,n_columns). get_biclusters returns copies of this pair, matching
+the source biclusters_ property. get_indices/get_shape/get_submatrix take a
+zero-based block ID. Returned row/column positions are one-based Fortran indices;
+submatrices preserve input values and can have empty dimensions. get_submatrix
+requires a finite dense matrix with the fitted training shape; Python-style
+negative block indexing is unsupported. There is no inductive predict/transform
+method in these source estimators.
+
+Native diagnostics include n_rows_, n_biclusters_, normalized_data_, leading
+singular_values_ (including the discarded leading value), retained left_vectors_
+and right_vectors_, n_normalization_iter_ and normalization_converged_. A
+nonconverged 1000-step normalization still feeds the fit, as in sklearn.
+Co-clustering additionally exposes margin scalings, embedding_, centroid
+inertia_ and n_iter_. Checkerboard diagnostics include piecewise approximation
+errors, selected zero-based indices into retained vectors, and row/column
+projections. Sparse/float32 inputs, estimator cloning and metadata routing are
+outside this subset. Finite dense inputs with negative values are supported
+through the source shifts. Shift/margin overflow and nonpositive margins for
+scale/bistochastic normalization receive deliberate diagnostics. Log supports
+constant matrices through a completed null-space SVD basis. Original
+contributions retain MIT licensing with full upstream BSD notices.

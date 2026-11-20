@@ -1792,3 +1792,61 @@ and query labels 0/1. Python syntax, Fortran formatting, inventories, report
 contents, unique diagnostic registrations and git diff checks passed. Earlier
 Python reference suites were not rerun; existing estimator and RNG helper
 bodies were unchanged. MIT licensing and full upstream notices are retained.
+
+## Spectral co-/biclustering (2026-11-20)
+
+Added spectral_coclustering and spectral_biclustering. Paired Dhillon embeddings
+and Kluger checkerboard partitions use native dense thin SVD, transpose factoring
+for wide matrices, orthonormal null-space completion, all three source dense
+normalizations, piecewise vector ranking, original-data projections and joint
+or independent centroid fits. A private centroid solver follows source seeded
+greedy/random initialization, Lloyd updates, stopping and same-partition restart
+selection. mini_batch=true reuses native MiniBatchKMeans. Existing estimator and
+RNG helper bodies were unchanged. Source counterpart membership arrays and all
+bicluster getters are available, with one-based returned Fortran indices and
+zero-based block IDs. Empty blocks and repeated fits are supported.
+
+compare_bicluster.py checks 2,992 result groups across 80 configurations on four
+seeded positive/shifted matrices, including wide data and seed zero. Direct
+installed sklearn 1.6.1 fits use randomized SVD oversampling equal to the larger
+matrix dimension to span the complete smaller dimension. Trace subclasses
+observe source intermediate arrays without replacing source computation. The
+comparison covers normalized matrices, sign-aligned singular vectors, singular
+values against NumPy SVD, row/column scalings, paired embeddings, centroid SSE,
+piecewise approximation errors and selected vectors, original-data projections,
+row/column partitions, masks, copied biclusters and every block's indices, shape
+and extracted data. Normalization iteration/convergence diagnostics are checked
+against the source dense scale loop. Numerical tolerance is atol=rtol=3e-8.
+Discrete membership, selection, shape and metadata comparisons are exact after
+consistent cluster relabeling (joint for paired clusters; independent row/column
+relabeling and Cartesian block permutation for checkerboards).
+
+Fixtures exercise both centroid solvers, both initializers, several cluster
+counts, rectangular grids, all normalization methods, negative inputs,
+component selection and matrix orientations. Native analytic tests additionally
+verify checkerboard recovery, Cartesian coverage, original-value extraction,
+seeded repeated fits, constructors, log centering identities, orthogonal
+null-space completion (including 10,000-row constant data), duplicate projections,
+empty blocks, component truncation
+and mini-batch shifted input. Repeated singular values/null spaces and exact
+centroid or ranking ties can differ from source choices, as documented. The
+native backend does not expose approximate randomized/ARPACK solver controls.
+
+Inventory: 149 core types, 66 source modules, 69 native test programs,
+48 reference suites and 36,129 result groups, plus 28 separate NumPy stream
+groups. Forty-seven new isolated input cases bring the inventory to 1,127.
+checkerboard demonstrates row/column groups and block extraction. MIT licensing
+and upstream attribution are retained; no runtime dependency or public extension
+was added.
+
+Validation completed on the final implementation: all 2,992 reference result
+groups passed through the package-built driver. All 69 native test programs
+passed with -fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow and in
+release mode, including the optimized 10,000-row null-space regression. All
+1,127 isolated invalid-input cases passed, including 47 new spectral bicluster
+cases. The checked checkerboard example passed with row labels 1/1/1/0/0/0,
+column labels 1/1/0/0, four grid blocks and a first-block shape of 3-by-2.
+Python syntax, Fortran formatting, inventories, report contents, unique
+registrations and git diff checks passed. Earlier Python reference suites
+were not rerun; existing estimator bodies and the RNG helper were unchanged.
+MIT project licensing and full upstream notices are retained.

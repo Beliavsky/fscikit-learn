@@ -1484,3 +1484,42 @@ With compute_labels=false, labels are omitted and fit reports smoothed inertia
 when at least two optimization steps ran. A single-step fit has has_inertia_
 false; a fresh partial_fit with labels disabled has no inertia either. See
 COVERAGE.md for restart selection, reassignment, stopping, RNG and scope limits.
+
+
+## Spectral co-clustering and biclustering
+
+Import spectral_coclustering and spectral_biclustering from sklearn,
+sklearn_cluster or sklearn_bicluster.
+
+```fortran
+type(spectral_coclustering) :: paired
+type(spectral_biclustering) :: grid
+integer, allocatable :: row_indices(:),column_indices(:)
+real(dp), allocatable :: block(:,:)
+paired%n_clusters=3
+paired%random_state=42
+call paired%fit(x)
+grid%n_row_clusters=2
+grid%n_column_clusters=3
+grid%method='log' ! also 'scale' and 'bistochastic' (default)
+grid%n_components=6
+grid%n_best=3
+call grid%fit(x)
+call grid%get_indices(0,row_indices,column_indices)
+block=grid%get_submatrix(0,x)
+```
+
+Both types expose zero-based row_labels_/column_labels_ and logical
+rows_/columns_ membership matrices. Paired clustering has K blocks; checkerboard
+clustering has K_row*K_column blocks. Leave both grid count overrides zero to
+use scalar n_clusters on each side. get_shape(block_id) returns two dimensions;
+get_biclusters(rows,columns) copies both indicator matrices. Block IDs start at
+zero; extracted row/column indices start at one. Empty blocks are supported.
+Submatrix input must have the fitted shape. These estimators provide fit and
+membership extraction, with no source predict/transform contract.
+
+The native backend is a full thin dense SVD, with no svd_method/n_svd_vecs tuning.
+Both types accept init='k-means++'/'random', positive n_init and scalar
+random_state; mini_batch=true uses the native MiniBatchKMeans centroid solver.
+See COVERAGE.md for normalization, vector selection, null-space/centroid ties,
+cluster-count bounds, diagnostic arrays and supported input/solver scope.

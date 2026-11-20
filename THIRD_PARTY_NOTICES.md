@@ -21,6 +21,7 @@ Reference paths by module:
 
 | Fortran module | scikit-learn reference |
 | --- | --- |
+| bicluster | cluster/_bicluster.py scale/bistochastic/log normalization, Dhillon row-column embedding, Kluger piecewise-vector selection and original-data projections; base.py BiclusterMixin indicators/getters; _kmeans.py greedy/random centroid seeding, Lloyd convergence and same-partition restarts; _k_means_lloyd.pyx and _k_means_common.pyx dense updates, inertia and relocation; native thin SVD/null-space completion and existing MiniBatchKMeans/legacy RNG |
 | minibatch_kmeans | cluster/_kmeans.py MiniBatchKMeans initialization subset/restart selection, sampled batches, streaming state, reassignment and smoothed-inertia/center-motion stopping; _k_means_minibatch.pyx weighted dense running means; _k_means_lloyd.pyx and _k_means_common.pyx dense assignment/inertia; native implementation with existing legacy RNG |
 | bisecting_kmeans | cluster/_bisect_k_means.py leaf selection, split restarts, hierarchy/labels and prediction routing; _kmeans.py weighted random/greedy k-means++ initialization and Lloyd/Elkan stopping; _k_means_lloyd.pyx, _k_means_elkan.pyx and _k_means_common.pyx dense bounds, centroid updates, empty relocation and inertia; native implementation with existing legacy RNG |
 | robust_covariance | covariance/_robust_covariance.py univariate FastMCD, C-steps, random candidate screening, subset/merge/full search, normal consistency correction and reweighting; _empirical_covariance.py covariance/precision and score/error conventions; _elliptic_envelope.py contamination offset and outlier scoring; independent dense eigendecomposition, regularized-gamma/chi-square inversion and native seeded permutation |
@@ -128,7 +129,8 @@ RandomState scalar-seed MT19937, masked interval selection and cached polar
 Gaussian contracts, used for dictionary atom resampling, AdaBoost regression
 bootstraps, SGDOneClassSVM shuffle seeds, IsolationForest sampling/tree seeds,
 FastMCD permutations, BisectingKMeans initialization and MiniBatchKMeans
-initialization/batch/reassignment draws. Reference sources:
+initialization/batch/reassignment draws and spectral bicluster centroid
+initialization. Reference sources:
 
 - numpy/random/src/mt19937/mt19937.c and mt19937.h
 - numpy/random/src/legacy/legacy-distributions.c (legacy_gauss)
