@@ -1924,3 +1924,64 @@ registrations and git diff checks passed. Earlier Python reference suites were
 not rerun; existing estimator bodies and the RNG helper were unchanged apart
 from the new decomposition export. MIT licensing and complete upstream notices
 are retained, with no runtime dependency added.
+
+
+## Mini-batch dictionary learning and SparsePCA (2026-11-20)
+
+Added mini_batch_dictionary_learning and mini_batch_sparse_pca. The dictionary
+estimator implements source default randomized-SVD initialization, supplied
+initializer padding/truncation, one-time row shuffle, fixed batch cycling,
+actual-batch forgetting/normalization, constrained atom updates, seeded unused
+atom resampling, EWA/motion/patience stopping, streaming statistics and all five
+existing sparse transform methods with optional sign splitting. Partial calls
+use the full supplied matrix once and retain the initialized solver/RNG; fresh
+fit resets state. MiniBatchSparsePCA trains on centered X.T, recodes it into
+normalized sparse components, and provides ridge projection and mean-restoring
+inversion. Training controls retain source defaults; native scalar seeds default to zero.
+Native int64 step counters
+and loop budgets permit huge iteration limits with early stopping and no
+history-sized allocation. Source None sentinels map to native zero/-1 controls
+and NaN convergence-state diagnostics as documented in COVERAGE.md.
+
+A private randomized SVD core implements default oversampling, four/seven LU
+power iterations, wide-matrix transposition, Householder QR, projected Jacobi
+SVD and original-left-vector sign selection. It preserves the existing legacy
+RNG's logical draw order/state. Existing batch dictionary atom updates and
+SparsePCA ridge projection were extracted into shared private helpers without
+changing arithmetic, requiring regression checks for that existing functionality.
+
+compare_minibatch_dictionary.py checks 3,468 groups over 200 configurations:
+100 dictionary fits/streams, 68 SparsePCA fits and 32 randomized-SVD backends
+across four seeds. It compares parameters, accumulated statistics, convergence
+state, counters, transforms and reconstructions directly with sklearn 1.6.1,
+including default training/solver controls with fixed seeds. Backend checks compare singular values/nonzero
+directions/reconstruction and certify orthogonality, with exact subsequent RNG
+values. Tolerance is atol=rtol=3e-8 except exact metadata/RNG. Null bases are not
+claimed identical. Fixtures include all sparse coding methods, both fitting
+solvers, positivity, supplied/default initialization, dead atoms, short/unit/
+oversized batches, initialization-only and huge-budget early stopping, cached
+partial-fit solver changes, dimension refits, constants, wide/tall matrices,
+zero ridge and overcomplete models. Native analytic tests independently verify
+statistic recurrences, soft thresholding, atom projection, copied streams,
+patience/warmup counters, sampled-range SVD identities and constant-data SparsePCA.
+
+Inventory: 155 core types, 72 source modules, 74 native test programs,
+53 reference suites and 59,011 result groups, plus 28 separate NumPy stream
+groups. Fifty-one new diagnostics bring the isolated invalid-input inventory
+to 1,346. streaming_sparse_features demonstrates incremental dictionary updates
+and mini-batch sparse projections. MIT licensing and full sklearn/NumPy notices
+are retained. No runtime dependency or public algorithm extension was added.
+
+Validation completed on the final implementation: all 74 native test programs
+passed with -fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow and in release
+mode. The package-built new driver passed all 3,468 groups (2,444 dictionary,
+816 SparsePCA and 208 randomized-SVD checks) across 200 configurations. The
+existing 744 sparse-dictionary groups and 28 separate NumPy RNG groups were
+rerun and passed, verifying both shared-helper extractions. All 1,346 isolated
+invalid-input cases passed, including 51 new cases. The checked
+streaming_sparse_features example performed two incremental dictionary updates,
+returned 31 nonzero code entries, and completed 20 SparsePCA epochs/40 updates
+with reconstruction RMSE 0.3132014. Python syntax, Fortran formatting, report
+contents, inventories, unique registrations and git diff checks passed. Other
+Python reference suites were not rerun. MIT licensing and complete upstream
+notices are retained, with no runtime dependency or public extension added.

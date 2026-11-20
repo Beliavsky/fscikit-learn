@@ -1666,3 +1666,45 @@ perplexity optionally accepts sub_sampling=.true. n_iter_ follows source's
 early-stop counter convention; n_batch_iter_ counts EM updates plus one.
 See COVERAGE.md for scaling, zero-word/overflow behavior, numerical scoring
 corrections, parameter limits and validation against scikit-learn.
+
+
+## MiniBatchDictionaryLearning and MiniBatchSparsePCA
+
+Import mini_batch_dictionary_learning and mini_batch_sparse_pca from sklearn,
+sklearn_decomposition or sklearn_dictionary.
+
+```fortran
+type(mini_batch_dictionary_learning) :: dictionary
+type(mini_batch_sparse_pca) :: projection
+real(dp), allocatable :: code(:,:),scores(:,:),reconstruction(:,:)
+dictionary%n_components=8
+dictionary%fit_algorithm='cd'
+dictionary%transform_algorithm='lasso_cd'
+dictionary%alpha=.1_dp
+call dictionary%partial_fit(first_batch)
+call dictionary%partial_fit(next_batch)
+code=dictionary%transform(query)
+projection%n_components=3
+projection%max_iter=30
+scores=projection%fit_transform(x)
+reconstruction=projection%inverse_transform(scores)
+```
+
+Dictionary n_components=0 selects the feature count. Allocate dict_init(rows,p)
+for a supplied initializer; it is copied, truncated or zero-padded. fit uses
+randomized SVD otherwise and resets RNG/statistics. partial_fit performs one
+whole-array update and preserves the initialized solver, RNG and statistics,
+regardless of batch_size/max_iter. Use fit after changing component count.
+transform supports all five existing sparse coding methods and split_sign.
+transform_alpha=-1 defaults to alpha; transform_n_nonzero_coefs=0 means auto.
+
+max_no_improvement=-1 disables patience, and zero stops at the first eligible
+check. tol=0 disables dictionary-motion stopping. n_steps_ is the update count;
+n_iter_ is refreshed by fit. a_/b_ and ewa_cost_/ewa_cost_min_/no_improvement_
+expose native diagnostics corresponding to source private state.
+
+MiniBatchSparsePCA centers data and trains on X.T, with method='lars'/'cd'.
+Its components_ rows are sparse unit vectors or zeros, mean_ restores feature
+means and ridge_alpha controls projection regularization. It supports fit,
+fit_transform, transform and inverse_transform. See COVERAGE.md for randomized
+initialization, streaming/convergence rules, state lifetimes and supported scope.

@@ -1,6 +1,7 @@
 module sklearn_decomposition
   use sklearn_lda, only: latent_dirichlet_allocation
-  use sklearn_dictionary, only: sparse_pca,dictionary_learning,sparse_coder,sparse_encode
+  use sklearn_dictionary, only: sparse_pca,dictionary_learning,sparse_coder,sparse_encode, &
+    mini_batch_dictionary_learning,mini_batch_sparse_pca
   use sklearn_incremental_pca, only: incremental_pca
   use sklearn_fast_ica, only: fast_ica
   use sklearn_common
@@ -8,6 +9,7 @@ module sklearn_decomposition
   use sklearn_factor_analysis, only: factor_analysis
   implicit none
   private
+  public :: mini_batch_dictionary_learning,mini_batch_sparse_pca
   public :: latent_dirichlet_allocation
   public :: sparse_pca,dictionary_learning,sparse_coder,sparse_encode
   public :: incremental_pca

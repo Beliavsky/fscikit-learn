@@ -1,14 +1,17 @@
 ! Native adaptation of sklearn 1.6.1 decomposition/_dict_learning.py and _sparse_pca.py.
 ! BSD-3-Clause upstream notices are retained in LICENSES and THIRD_PARTY_NOTICES.md.
 module sklearn_dictionary
+  use sklearn_randomized_svd_core, only: randomized_svd
+  use, intrinsic :: iso_fortran_env, only: int64
   use sklearn_common
   use sklearn_least_angle, only: lars_path,lars_path_result
   use sklearn_linear_model, only: orthogonal_matching_pursuit
   use sklearn_legacy_rng, only: legacy_random_state
-  use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
+  use, intrinsic :: ieee_arithmetic, only: ieee_is_finite,ieee_is_nan,ieee_value,ieee_quiet_nan
   implicit none
   private
   public :: sparse_pca,dictionary_learning,sparse_coder,sparse_encode
+  public :: mini_batch_dictionary_learning,mini_batch_sparse_pca
   type :: coding_parameters
     character(12) :: transform_algorithm='omp'
     integer :: transform_n_nonzero_coefs=0,transform_max_iter=1000
@@ -43,6 +46,35 @@ module sklearn_dictionary
     procedure :: fit_transform=>sparse_pca_fit_transform
     procedure :: transform=>sparse_pca_transform
     procedure :: inverse_transform=>sparse_pca_inverse
+  end type
+  type, extends(coding_parameters) :: mini_batch_dictionary_learning
+    integer :: n_components=0,n_components_=0,batch_size=256,batch_size_=0,random_state=0,n_features_in_=0
+    integer :: max_iter=1000,max_no_improvement=10
+    integer(int64) :: n_iter_=0,n_steps_=0,no_improvement_=0
+    real(dp) :: alpha=1,tol=.001_dp,ewa_cost_=0,ewa_cost_min_=0
+    character(4) :: fit_algorithm='lars'
+    logical :: positive_dict=.false.,shuffle=.true.
+    real(dp), allocatable :: components_(:,:),a_(:,:),b_(:,:),dict_init(:,:)
+    type(legacy_random_state), private :: rng
+    character(4), private :: fitted_algorithm='lars'
+  contains
+    procedure :: fit=>mini_dictionary_fit
+    procedure :: partial_fit=>mini_dictionary_partial_fit
+    procedure :: fit_transform=>mini_dictionary_fit_transform
+    procedure :: transform=>mini_dictionary_transform
+  end type
+  type :: mini_batch_sparse_pca
+    integer :: n_components=0,n_components_=0,batch_size=3,max_iter=1000,max_no_improvement=10,random_state=0,n_features_in_=0
+    integer(int64) :: n_iter_=0,n_steps_=0
+    real(dp) :: alpha=1,ridge_alpha=.01_dp,tol=.001_dp
+    character(4) :: method='lars'
+    logical :: shuffle=.true.
+    real(dp), allocatable :: mean_(:),components_(:,:)
+  contains
+    procedure :: fit=>mini_sparse_pca_fit
+    procedure :: fit_transform=>mini_sparse_pca_fit_transform
+    procedure :: transform=>mini_sparse_pca_transform
+    procedure :: inverse_transform=>mini_sparse_pca_inverse
   end type
   type :: learning_result
     real(dp), allocatable :: code(:,:),dictionary(:,:),errors(:)
@@ -143,6 +175,31 @@ contains
     end do
     call require(all(ieee_is_finite(code)),'nonfinite sparse codes')
   end function
+  subroutine update_dictionary(dictionary,y,code,a,b,rng,positive_dict)
+    real(dp), intent(inout) :: dictionary(:,:),code(:,:)
+    real(dp), intent(in) :: y(:,:),a(:,:),b(:,:)
+    type(legacy_random_state), intent(inout) :: rng
+    logical, intent(in) :: positive_dict
+    real(dp), allocatable :: sample(:)
+    real(dp) :: scale,norm
+    integer :: n,p,k,j,index
+    n=size(y,1); p=size(y,2); k=size(dictionary,1)
+    do j=1,k
+      if(a(j,j)>1.e-6_dp) then
+        dictionary(j,:)=dictionary(j,:)+(b(:,j)-matmul(a(j,:),dictionary))/a(j,j)
+      else
+        index=rng%integer_index(n); sample=y(index,:)
+        scale=sqrt(sum((sample-sum(sample)/p)**2)/p); if(scale==0) scale=1
+        scale=.01_dp*scale
+        do index=1,p
+          sample(index)=sample(index)+scale*rng%normal()
+        end do
+        dictionary(j,:)=sample; code(:,j)=0
+      end if
+      if(positive_dict) dictionary(j,:)=max(dictionary(j,:),0._dp)
+      norm=sqrt(sum(dictionary(j,:)**2)); dictionary(j,:)=dictionary(j,:)/max(norm,1._dp)
+    end do
+  end subroutine
   function learn_dictionary(y,k,alpha,limit,tolerance,method,inner_limit,seed,positive_dict, &
       positive_code,code_init,dict_init) result(model)
     real(dp), intent(in) :: y(:,:),alpha,tolerance
@@ -152,8 +209,8 @@ contains
     real(dp), intent(in), optional :: code_init(:,:),dict_init(:,:)
     type(learning_result) :: model
     type(legacy_random_state) :: rng
-    real(dp), allocatable :: u(:,:),v(:,:),s(:),a(:,:),b(:,:),history(:),sample(:)
-    real(dp) :: norm,scale,cost
+    real(dp), allocatable :: u(:,:),v(:,:),s(:),a(:,:),b(:,:),history(:)
+    real(dp) :: cost
     integer :: n,p,r,j,it,index
     call check_x(y); n=size(y,1); p=size(y,2)
     call require(k>=1,'dictionary component count must be positive')
@@ -185,21 +242,7 @@ contains
       model%code=sparse_encode(y,model%dictionary,algorithm='lasso_'//trim(method),alpha=alpha, &
         max_iter=inner_limit,positive=positive_code,init=model%code)
       a=matmul(transpose(model%code),model%code); b=matmul(transpose(y),model%code)
-      do j=1,k
-        if(a(j,j)>1.e-6_dp) then
-          model%dictionary(j,:)=model%dictionary(j,:)+(b(:,j)-matmul(a(j,:),model%dictionary))/a(j,j)
-        else
-          index=rng%integer_index(n); sample=y(index,:)
-          scale=sqrt(sum((sample-sum(sample)/p)**2)/p); if(scale==0) scale=1
-          scale=.01_dp*scale
-          do index=1,p
-            sample(index)=sample(index)+scale*rng%normal()
-          end do
-          model%dictionary(j,:)=sample; model%code(:,j)=0
-        end if
-        if(positive_dict) model%dictionary(j,:)=max(model%dictionary(j,:),0._dp)
-        norm=sqrt(sum(model%dictionary(j,:)**2)); model%dictionary(j,:)=model%dictionary(j,:)/max(norm,1._dp)
-      end do
+      call update_dictionary(model%dictionary,y,model%code,a,b,rng,positive_dict)
       cost=.5_dp*sum((y-matmul(model%code,model%dictionary))**2)+alpha*sum(abs(model%code))
       history(it)=cost; model%n_iter=it
       if(it>1) then
@@ -310,24 +353,31 @@ contains
     real(dp), allocatable :: z(:,:)
     call self%fit(x); z=self%transform(x)
   end function
-  function sparse_pca_transform(self,x) result(z)
-    class(sparse_pca), intent(in) :: self
-    real(dp), intent(in) :: x(:,:)
+  function sparse_projection(x,components,mean,ridge_alpha,name) result(z)
+    real(dp), intent(in) :: x(:,:),components(:,:),mean(:),ridge_alpha
+    character(*), intent(in) :: name
     real(dp), allocatable :: z(:,:),s(:),u(:,:),v(:,:),factor(:),centered(:,:)
     real(dp) :: cutoff
     integer :: k
-    call require(allocated(self%components_),'SparsePCA is not fitted'); call check_x(x)
-    call require(size(x,2)==size(self%components_,2),'SparsePCA feature count mismatch')
-    call require(ieee_is_finite(self%ridge_alpha).and.self%ridge_alpha>=0,'SparsePCA ridge_alpha must be nonnegative')
-    k=size(self%components_,1); allocate(s(k),u(size(x,2),k),v(k,k),factor(k))
-    call dense_svd(transpose(self%components_),s,u,v)
+    call check_x(x)
+    call require(size(x,2)==size(components,2),name//' feature count mismatch')
+    call require(ieee_is_finite(ridge_alpha).and.ridge_alpha>=0,name//' ridge_alpha must be nonnegative')
+    k=size(components,1); allocate(s(k),u(size(x,2),k),v(k,k),factor(k))
+    call dense_svd(transpose(components),s,u,v)
     cutoff=epsilon(1._dp)*max(k,size(x,2))*maxval(s); factor=0
-    if(self%ridge_alpha>0) then
-      factor=s/(s*s+self%ridge_alpha)
+    if(ridge_alpha>0) then
+      factor=s/(s*s+ridge_alpha)
     else
       where(s>cutoff) factor=1/max(s,tiny(1._dp))
     end if
-    centered=x-spread(self%mean_,1,size(x,1)); z=matmul(matmul(centered,u)*spread(factor,1,size(x,1)),transpose(v))
+    centered=x-spread(mean,1,size(x,1)); z=matmul(matmul(centered,u)*spread(factor,1,size(x,1)),transpose(v))
+  end function
+  function sparse_pca_transform(self,x) result(z)
+    class(sparse_pca), intent(in) :: self
+    real(dp), intent(in) :: x(:,:)
+    real(dp), allocatable :: z(:,:)
+    call require(allocated(self%components_),'SparsePCA is not fitted')
+    z=sparse_projection(x,self%components_,self%mean_,self%ridge_alpha,'SparsePCA')
   end function
   function sparse_pca_inverse(self,z) result(x)
     class(sparse_pca), intent(in) :: self
@@ -335,6 +385,207 @@ contains
     real(dp), allocatable :: x(:,:)
     call require(allocated(self%components_),'SparsePCA is not fitted'); call check_x(z)
     call require(size(z,2)==size(self%components_,1),'SparsePCA inverse component count mismatch')
+    x=matmul(z,self%components_)+spread(self%mean_,1,size(z,1))
+  end function
+  subroutine mini_controls(self)
+    class(mini_batch_dictionary_learning), intent(in) :: self
+    call check_coding_parameters(self)
+    call require(self%n_components>=0.and.self%n_components<=huge(1)-10, &
+      'MiniBatchDictionaryLearning n_components must be nonnegative and within index capacity')
+    call require(self%max_iter>=0,'MiniBatchDictionaryLearning max_iter must be nonnegative')
+    call require(self%batch_size>=1,'MiniBatchDictionaryLearning batch_size must be positive')
+    call require(self%random_state>=0,'MiniBatchDictionaryLearning seed must be nonnegative')
+    call require(self%max_no_improvement>=-1,'MiniBatchDictionaryLearning patience must be nonnegative or -1 for none')
+    call require(ieee_is_finite(self%alpha).and.ieee_is_finite(self%tol), &
+      'MiniBatchDictionaryLearning controls must be finite')
+    call require(self%alpha>=0.and.self%tol>=0,'MiniBatchDictionaryLearning alpha/tol must be nonnegative')
+    call require(self%fit_algorithm=='lars'.or.self%fit_algorithm=='cd','unknown minibatch dictionary fit algorithm')
+  end subroutine
+  subroutine mini_initialize(self,x)
+    class(mini_batch_dictionary_learning), intent(inout) :: self
+    real(dp), intent(in) :: x(:,:)
+    real(dp), allocatable :: values(:),left(:,:),right(:,:)
+    integer :: k,p,r
+    call require(.not.(self%positive_code.and.self%fit_algorithm=='lars'), &
+      'positive minibatch dictionary codes require fit_algorithm cd')
+    k=self%n_components; p=size(x,2)
+    if(k==0) k=p
+    call require(k<=huge(k)-10,'invalid randomized SVD component count')
+    self%n_components_=k; self%n_features_in_=p; self%batch_size_=min(self%batch_size,size(x,1))
+    self%fitted_algorithm=self%fit_algorithm; call self%rng%seed(self%random_state)
+    self%components_=spread(spread(0._dp,1,k),2,p)
+    if(allocated(self%dict_init)) then
+      call require(size(self%dict_init,2)==p,'minibatch dictionary initializer feature count mismatch')
+      call require(all(ieee_is_finite(self%dict_init)),'nonfinite minibatch dictionary initializer')
+      r=min(k,size(self%dict_init,1)); self%components_(:r,:)=self%dict_init(:r,:)
+    else
+      call randomized_svd(x,k,self%rng,values,left,right); r=size(values)
+      self%components_(:r,:)=right*spread(values,2,p)
+    end if
+    self%a_=spread(spread(0._dp,1,k),2,k); self%b_=spread(spread(0._dp,1,p),2,k)
+    self%n_steps_=0; self%n_iter_=0; self%no_improvement_=0
+    self%ewa_cost_=ieee_value(0._dp,ieee_quiet_nan); self%ewa_cost_min_=self%ewa_cost_
+  end subroutine
+  real(dp) function mini_step(self,x,step) result(cost)
+    class(mini_batch_dictionary_learning), intent(inout) :: self
+    real(dp), intent(in) :: x(:,:)
+    integer(int64), intent(in) :: step
+    real(dp), allocatable :: code(:,:)
+    real(dp) :: theta,beta,batch
+    type(legacy_random_state) :: rng
+    code=sparse_encode(x,self%components_,algorithm='lasso_'//trim(self%fitted_algorithm),alpha=self%alpha, &
+      max_iter=self%transform_max_iter,positive=self%positive_code)
+    batch=real(size(x,1),dp)
+    cost=(.5_dp*sum((x-matmul(code,self%components_))**2)+self%alpha*sum(abs(code)))/batch
+    if(step<int(size(x,1)-1,int64)) then
+      theta=real(step+1,dp)*batch
+    else
+      theta=batch**2+real(step+1,dp)-batch
+    end if
+    beta=(theta+1-batch)/(theta+1)
+    self%a_=beta*self%a_+matmul(transpose(code),code)/batch
+    self%b_=beta*self%b_+matmul(transpose(x),code)/batch
+    rng=self%rng; call update_dictionary(self%components_,x,code,self%a_,self%b_,rng,self%positive_dict); self%rng=rng
+  end function
+  logical function mini_converged(self,cost,old,n,actual_batch,step) result(stopped)
+    class(mini_batch_dictionary_learning), intent(inout) :: self
+    real(dp), intent(in) :: cost,old(:,:)
+    integer, intent(in) :: n,actual_batch
+    integer(int64), intent(in) :: step
+    real(dp) :: weight,difference
+    stopped=.false.
+    if(real(step+1,dp)<=min(100._dp,real(n,dp)/actual_batch)) return
+    if(ieee_is_nan(self%ewa_cost_)) then
+      self%ewa_cost_=cost
+    else
+      weight=min(1._dp,real(actual_batch,dp)/(real(n,dp)+1))
+      self%ewa_cost_=(1-weight)*self%ewa_cost_+weight*cost
+    end if
+    difference=sqrt(sum((self%components_-old)**2))/self%n_components_
+    if(self%tol>0.and.difference<=self%tol) then
+      stopped=.true.; return
+    end if
+    if(ieee_is_nan(self%ewa_cost_min_)) then
+      self%ewa_cost_min_=self%ewa_cost_; self%no_improvement_=0
+    else if(self%ewa_cost_<self%ewa_cost_min_) then
+      self%ewa_cost_min_=self%ewa_cost_; self%no_improvement_=0
+    else
+      self%no_improvement_=self%no_improvement_+1
+    end if
+    if(self%max_no_improvement>=0) stopped=self%no_improvement_>=int(self%max_no_improvement,int64)
+  end function
+  subroutine mini_dictionary_fit(self,x)
+    class(mini_batch_dictionary_learning), intent(inout) :: self
+    real(dp), intent(in) :: x(:,:)
+    real(dp), allocatable :: training(:,:),old(:,:)
+    integer :: permutation(size(x,1)),i,j,temp,n,batches,first,last
+    integer(int64) :: total,step
+    real(dp) :: cost
+    call mini_controls(self); call check_x(x); call mini_initialize(self,x)
+    n=size(x,1); permutation=[(i,i=1,n)]
+    if(self%shuffle) then
+      do i=n,2,-1
+        j=self%rng%integer_index(i); temp=permutation(i); permutation(i)=permutation(j); permutation(j)=temp
+      end do
+    end if
+    training=x(permutation,:); old=self%components_; first=1
+    batches=(n-1)/self%batch_size_+1; total=int(self%max_iter,int64)*batches
+    do step=0_int64,total-1
+      last=first+min(self%batch_size_,n-first+1)-1
+      cost=mini_step(self,training(first:last,:),step); self%n_steps_=step+1
+      if(mini_converged(self,cost,old,n,last-first+1,step)) exit
+      old=self%components_
+      if(last==n) then
+        first=1
+      else
+        first=last+1
+      end if
+    end do
+    self%n_iter_=(self%n_steps_+batches-1)/batches
+  end subroutine
+  subroutine mini_dictionary_partial_fit(self,x)
+    class(mini_batch_dictionary_learning), intent(inout) :: self
+    real(dp), intent(in) :: x(:,:)
+    real(dp) :: cost
+    integer :: k
+    call mini_controls(self); call check_x(x)
+    if(.not.allocated(self%components_)) then
+      call mini_initialize(self,x)
+    else
+      call require(size(x,2)==self%n_features_in_,'MiniBatchDictionaryLearning feature count mismatch')
+      k=self%n_components; if(k==0) k=self%n_features_in_
+      call require(k==self%n_components_,'MiniBatchDictionaryLearning component count changed; use fit to reset')
+      call require(.not.(self%positive_code.and.self%fitted_algorithm=='lars'), &
+        'positive minibatch dictionary codes require fit_algorithm cd')
+    end if
+    call require(self%n_steps_<huge(self%n_steps_),'MiniBatchDictionaryLearning step counter capacity exceeded')
+    cost=mini_step(self,x,self%n_steps_); self%n_steps_=self%n_steps_+1
+  end subroutine
+  function mini_dictionary_fit_transform(self,x) result(code)
+    class(mini_batch_dictionary_learning), intent(inout) :: self
+    real(dp), intent(in) :: x(:,:)
+    real(dp), allocatable :: code(:,:)
+    call self%fit(x); code=self%transform(x)
+  end function
+  function mini_dictionary_transform(self,x) result(code)
+    class(mini_batch_dictionary_learning), intent(in) :: self
+    real(dp), intent(in) :: x(:,:)
+    real(dp), allocatable :: code(:,:)
+    call require(allocated(self%components_),'MiniBatchDictionaryLearning is not fitted')
+    call check_x(x)
+    call require(size(x,2)==self%n_features_in_,'MiniBatchDictionaryLearning feature count mismatch')
+    code=apply_coding(self,x,self%components_,self%alpha)
+  end function
+  subroutine mini_sparse_pca_fit(self,x)
+    class(mini_batch_sparse_pca), intent(inout) :: self
+    real(dp), intent(in) :: x(:,:)
+    real(dp), allocatable :: centered(:,:),codes(:,:)
+    real(dp) :: norm
+    type(mini_batch_dictionary_learning) :: model
+    integer :: k,j
+    call check_x(x)
+    call require(self%n_components>=0,'MiniBatchSparsePCA n_components must be nonnegative (zero means auto)')
+    call require(self%max_iter>=0,'MiniBatchSparsePCA max_iter must be nonnegative')
+    call require(self%batch_size>=1,'MiniBatchSparsePCA batch_size must be positive')
+    call require(self%random_state>=0,'MiniBatchSparsePCA seed must be nonnegative')
+    call require(self%max_no_improvement>=-1,'MiniBatchSparsePCA patience must be nonnegative or -1 for none')
+    call require(ieee_is_finite(self%alpha).and.ieee_is_finite(self%tol),'MiniBatchSparsePCA controls must be finite')
+    call require(self%alpha>=0.and.self%tol>=0,'MiniBatchSparsePCA alpha/tol must be nonnegative')
+    call require(self%method=='lars'.or.self%method=='cd','unknown MiniBatchSparsePCA method')
+    call require(ieee_is_finite(self%ridge_alpha),'MiniBatchSparsePCA ridge_alpha must be finite and nonnegative')
+    call require(self%ridge_alpha>=0,'MiniBatchSparsePCA ridge_alpha must be finite and nonnegative')
+    k=self%n_components; if(k==0) k=size(x,2)
+    self%mean_=sum(x,dim=1)/size(x,1); centered=x-spread(self%mean_,1,size(x,1))
+    model%n_components=k; model%alpha=self%alpha; model%max_iter=self%max_iter; model%batch_size=self%batch_size
+    model%shuffle=self%shuffle; model%fit_algorithm=self%method; model%random_state=self%random_state
+    model%transform_algorithm='lasso_'//trim(self%method); model%transform_alpha=self%alpha
+    model%tol=self%tol; model%max_no_improvement=self%max_no_improvement
+    call model%fit(transpose(centered)); codes=model%transform(transpose(centered)); self%components_=transpose(codes)
+    do j=1,k
+      norm=sqrt(sum(self%components_(j,:)**2))
+      if(norm>0) self%components_(j,:)=self%components_(j,:)/norm
+    end do
+    self%n_iter_=model%n_iter_; self%n_steps_=model%n_steps_; self%n_components_=k; self%n_features_in_=size(x,2)
+  end subroutine
+  function mini_sparse_pca_fit_transform(self,x) result(z)
+    class(mini_batch_sparse_pca), intent(inout) :: self
+    real(dp), intent(in) :: x(:,:)
+    real(dp), allocatable :: z(:,:)
+    call self%fit(x); z=self%transform(x)
+  end function
+  function mini_sparse_pca_transform(self,x) result(z)
+    class(mini_batch_sparse_pca), intent(in) :: self
+    real(dp), intent(in) :: x(:,:)
+    real(dp), allocatable :: z(:,:)
+    call require(allocated(self%components_),'MiniBatchSparsePCA is not fitted')
+    z=sparse_projection(x,self%components_,self%mean_,self%ridge_alpha,'MiniBatchSparsePCA')
+  end function
+  function mini_sparse_pca_inverse(self,z) result(x)
+    class(mini_batch_sparse_pca), intent(in) :: self
+    real(dp), intent(in) :: z(:,:)
+    real(dp), allocatable :: x(:,:)
+    call require(allocated(self%components_),'MiniBatchSparsePCA is not fitted'); call check_x(z)
+    call require(size(z,2)==self%n_components_,'MiniBatchSparsePCA inverse component count mismatch')
     x=matmul(z,self%components_)+spread(self%mean_,1,size(z,1))
   end function
 end module

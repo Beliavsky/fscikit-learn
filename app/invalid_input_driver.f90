@@ -25,6 +25,10 @@ program invalid_input_driver
   type(leave_one_group_out) :: logo_cv
   type(sgd_classifier) :: sgdc
   type(sgd_regressor) :: sgd
+  type(mini_batch_dictionary_learning) :: mbd_case
+  type(mini_batch_sparse_pca) :: mbsp_case
+  real(dp) :: mbd_x(6,3)
+  real(dp), allocatable :: mbd_values(:,:)
   type(latent_dirichlet_allocation) :: lda_case
   real(dp) :: lda_x(4,3),lda_value
   real(dp), allocatable :: lda_values(:,:)
@@ -181,7 +185,162 @@ program invalid_input_driver
   bisect_case%n_clusters=2
   rbm_case%n_components=2; rbm_case%n_iter=1; rbm_case%batch_size=3; rbm_x=.5_dp
   lda_case%n_components=2; lda_case%max_iter=1; lda_case%batch_size=3; lda_x=.5_dp
+  mbd_case%n_components=2; mbd_case%max_iter=1; mbd_case%batch_size=3
+  mbd_case%fit_algorithm='cd'; mbd_case%transform_algorithm='lasso_cd'
+  mbsp_case%n_components=2; mbsp_case%max_iter=1; mbsp_case%method='cd'; mbd_x=1
   select case(trim(mode))
+  case('mbd_components')
+    mbd_case%n_components=-1
+    call mbd_case%fit(mbd_x)
+  case('mbd_components_capacity')
+    mbd_case%n_components=huge(1)
+    call mbd_case%fit(mbd_x)
+  case('mbd_iterations')
+    mbd_case%max_iter=-1
+    call mbd_case%fit(mbd_x)
+  case('mbd_batch')
+    mbd_case%batch_size=0
+    call mbd_case%fit(mbd_x)
+  case('mbd_seed')
+    mbd_case%random_state=-1
+    call mbd_case%fit(mbd_x)
+  case('mbd_patience')
+    mbd_case%max_no_improvement=-2
+    call mbd_case%fit(mbd_x)
+  case('mbd_alpha')
+    mbd_case%alpha=-1
+    call mbd_case%fit(mbd_x)
+  case('mbd_tol')
+    mbd_case%tol=-1
+    call mbd_case%fit(mbd_x)
+  case('mbd_alpha_nan')
+    mbd_case%alpha=ieee_value(0._dp,ieee_quiet_nan)
+    call mbd_case%fit(mbd_x)
+  case('mbd_tol_inf')
+    mbd_case%tol=ieee_value(0._dp,ieee_positive_inf)
+    call mbd_case%fit(mbd_x)
+  case('mbd_fit_algorithm')
+    mbd_case%fit_algorithm='bad'
+    call mbd_case%fit(mbd_x)
+  case('mbd_transform_algorithm')
+    mbd_case%transform_algorithm='bad'
+    call mbd_case%fit(mbd_x)
+  case('mbd_sparsity')
+    mbd_case%transform_n_nonzero_coefs=-1
+    call mbd_case%fit(mbd_x)
+  case('mbd_coding_limit')
+    mbd_case%transform_max_iter=-1
+    call mbd_case%fit(mbd_x)
+  case('mbd_coding_alpha')
+    mbd_case%transform_alpha=-2
+    call mbd_case%fit(mbd_x)
+  case('mbd_positive_lars')
+    mbd_case%positive_code=.true.
+    mbd_case%fit_algorithm='lars'
+    call mbd_case%fit(mbd_x)
+  case('mbd_empty')
+    call mbd_case%fit(mbd_x(:0,:))
+  case('mbd_no_features')
+    call mbd_case%fit(mbd_x(:,:0))
+  case('mbd_nan')
+    mbd_x(1,1)=ieee_value(0._dp,ieee_quiet_nan)
+    call mbd_case%fit(mbd_x)
+  case('mbd_inf')
+    mbd_x(1,1)=ieee_value(0._dp,ieee_positive_inf)
+    call mbd_case%fit(mbd_x)
+  case('mbd_initializer_shape')
+    mbd_case%dict_init=mbd_x(:2,:2)
+    call mbd_case%fit(mbd_x)
+  case('mbd_initializer_nan')
+    mbd_case%dict_init=mbd_x(:2,:)
+    mbd_case%dict_init(1,1)=ieee_value(0._dp,ieee_quiet_nan)
+    call mbd_case%fit(mbd_x)
+  case('mbd_unfit')
+    mbd_values=mbd_case%transform(mbd_x)
+  case('mbd_query_features')
+    call mbd_case%fit(mbd_x)
+    mbd_values=mbd_case%transform(mbd_x(:,:2))
+  case('mbd_query_nan')
+    call mbd_case%fit(mbd_x)
+    mbd_x(1,1)=ieee_value(0._dp,ieee_quiet_nan)
+    mbd_values=mbd_case%transform(mbd_x)
+  case('mbd_partial_features')
+    call mbd_case%partial_fit(mbd_x)
+    call mbd_case%partial_fit(mbd_x(:,:2))
+  case('mbd_partial_components')
+    call mbd_case%partial_fit(mbd_x)
+    mbd_case%n_components=3
+    call mbd_case%partial_fit(mbd_x)
+  case('mbd_partial_empty')
+    call mbd_case%partial_fit(mbd_x(:0,:))
+  case('mbd_partial_inf')
+    mbd_x(1,1)=ieee_value(0._dp,ieee_positive_inf)
+    call mbd_case%partial_fit(mbd_x)
+  case('mbd_step_capacity')
+    call mbd_case%partial_fit(mbd_x)
+    mbd_case%n_steps_=huge(mbd_case%n_steps_)
+    call mbd_case%partial_fit(mbd_x)
+  case('mbsp_components')
+    mbsp_case%n_components=-1
+    call mbsp_case%fit(mbd_x)
+  case('mbsp_iterations')
+    mbsp_case%max_iter=-1
+    call mbsp_case%fit(mbd_x)
+  case('mbsp_batch')
+    mbsp_case%batch_size=0
+    call mbsp_case%fit(mbd_x)
+  case('mbsp_seed')
+    mbsp_case%random_state=-1
+    call mbsp_case%fit(mbd_x)
+  case('mbsp_patience')
+    mbsp_case%max_no_improvement=-2
+    call mbsp_case%fit(mbd_x)
+  case('mbsp_alpha')
+    mbsp_case%alpha=-1
+    call mbsp_case%fit(mbd_x)
+  case('mbsp_tol')
+    mbsp_case%tol=-1
+    call mbsp_case%fit(mbd_x)
+  case('mbsp_alpha_nan')
+    mbsp_case%alpha=ieee_value(0._dp,ieee_quiet_nan)
+    call mbsp_case%fit(mbd_x)
+  case('mbsp_tol_inf')
+    mbsp_case%tol=ieee_value(0._dp,ieee_positive_inf)
+    call mbsp_case%fit(mbd_x)
+  case('mbsp_ridge')
+    mbsp_case%ridge_alpha=-1
+    call mbsp_case%fit(mbd_x)
+  case('mbsp_ridge_nan')
+    mbsp_case%ridge_alpha=ieee_value(0._dp,ieee_quiet_nan)
+    call mbsp_case%fit(mbd_x)
+  case('mbsp_method')
+    mbsp_case%method='bad'
+    call mbsp_case%fit(mbd_x)
+  case('mbsp_empty')
+    call mbsp_case%fit(mbd_x(:0,:))
+  case('mbsp_nan')
+    mbd_x(1,1)=ieee_value(0._dp,ieee_quiet_nan)
+    call mbsp_case%fit(mbd_x)
+  case('mbsp_unfit_transform')
+    mbd_values=mbsp_case%transform(mbd_x)
+  case('mbsp_unfit_inverse')
+    mbd_values=mbsp_case%inverse_transform(mbd_x(:,:2))
+  case('mbsp_query_features')
+    call mbsp_case%fit(mbd_x)
+    mbd_values=mbsp_case%transform(mbd_x(:,:2))
+  case('mbsp_inverse_components')
+    call mbsp_case%fit(mbd_x)
+    mbd_values=mbsp_case%inverse_transform(mbd_x)
+  case('mbsp_query_nan')
+    call mbsp_case%fit(mbd_x)
+    mbd_x(1,1)=ieee_value(0._dp,ieee_quiet_nan)
+    mbd_values=mbsp_case%transform(mbd_x)
+  case('mbsp_query_ridge')
+    call mbsp_case%fit(mbd_x)
+    mbsp_case%ridge_alpha=-1
+    mbd_values=mbsp_case%transform(mbd_x)
+  case('mbsp_fit_transform_empty')
+    mbd_values=mbsp_case%fit_transform(mbd_x(:0,:))
   case('lda_components')
     lda_case%n_components=0
     call lda_case%fit(lda_x)

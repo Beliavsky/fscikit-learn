@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 153 public estimator, transformer, and splitter types. Each is a
+There are 155 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Fifty-two reference suites additionally check 55,543
+All types have native tests. Fifty-three reference suites additionally check 59,011
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -28,7 +28,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb`, `categorical_nb` | Empirical class priors, variance smoothing, strictly positive scalar alpha; Bernoulli threshold; optional complement normalization |
 | neighbors | `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with optional shrinkage and uniform priors; Euclidean kernel density |
 | cluster | `kmeans`, `bisecting_kmeans`, `mini_batch_kmeans`, `spectral_coclustering`, `spectral_biclustering`, `hdbscan`, `dbscan`, `agglomerative_clustering`, `feature_agglomeration`, `mean_shift`, `affinity_propagation`, `spectral_clustering`, `optics`, `birch`; `estimate_bandwidth`, `cluster_optics_dbscan`, `cluster_optics_xi` | Lloyd/k-means++; paired row/column spectral partitions and checkerboard biclustering; weighted streaming mini-batch centroids; bisecting centroid hierarchy with Lloyd/Elkan splits; density expansion; single/complete/average/Ward merge trees and feature pooling; flat-kernel mode seeking; damped exemplar messages; normalized-Laplacian clustering with k-means or pivoted QR assignment; OPTICS reachability ordering, Xi hierarchy and DBSCAN extraction; BIRCH streaming CF tree and optional Ward clustering |
-| decomposition | `pca`, `incremental_pca`, `truncated_svd`, `nmf`, `sparse_pca`, `dictionary_learning`, `sparse_coder`, `latent_dirichlet_allocation`; `sparse_encode`; re-exports `kernel_pca`, `factor_analysis`, `fast_ica` | Direct Jacobi SVD; PCA whitening and inversion; streaming stacked-SVD IncrementalPCA; exact dense SVD; NMF multiplicative updates; sparse dictionary factorization and SparsePCA; five sparse coding methods; nonlinear kernel PCA; unrotated full-SVD factor analysis; parallel/deflation ICA |
+| decomposition | `pca`, `incremental_pca`, `truncated_svd`, `nmf`, `sparse_pca`, `mini_batch_sparse_pca`, `dictionary_learning`, `mini_batch_dictionary_learning`, `sparse_coder`, `latent_dirichlet_allocation`; `sparse_encode`; re-exports `kernel_pca`, `factor_analysis`, `fast_ica` | Direct Jacobi SVD; PCA whitening and inversion; streaming stacked-SVD IncrementalPCA; exact dense SVD; NMF multiplicative updates; sparse dictionary factorization and SparsePCA; five sparse coding methods; nonlinear kernel PCA; unrotated full-SVD factor analysis; parallel/deflation ICA |
 | cross_decomposition | `pls_regression`, `pls_canonical`, `cca`, `pls_svd` | Paired-matrix latent components: NIPALS regression/canonical deflation, CCA pseudoinverse mode, canonical direct SVD and PLSSVD cross-covariance projection; multiple response columns |
 | isotonic | `isotonic_regression`; `isotonic_fit`, `check_increasing` | Weighted pool-adjacent-violators, automatic Spearman direction, bounds, repeated-input aggregation and piecewise linear interpolation |
 | kernel_approximation | `rbf_sampler`, `nystroem`, `additive_chi2_sampler`, `skewed_chi2_sampler` | Random Fourier RBF maps; sampled-landmark inverse-square-root maps for RBF/linear/polynomial/cosine kernels; additive and skewed chi2 feature maps |
@@ -2514,3 +2514,81 @@ outside scope. random_state defaults to deterministic zero. There is no inverse
 transform or inductive classification contract. CountVectorizer output can be
 passed directly as the document/word matrix. mpmath is a validation dependency
 only; no additional Fortran runtime dependency or public extension is introduced.
+
+
+## MiniBatchDictionaryLearning and MiniBatchSparsePCA
+
+mini_batch_dictionary_learning implements sklearn 1.6.1 dense online dictionary
+learning: LARS/CD Lasso codes, sufficient-statistic forgetting, constrained atom
+updates/resampling and source minibatch convergence logic. n_components=0 selects
+the feature count. A supplied dict_init is truncated or zero-padded to this
+count; otherwise initialization follows source randomized SVD. Initial atoms
+are singular values times right singular vectors, without premature unit
+normalization. Constraints apply after each update: optional nonnegative atoms
+and row norms <=1. Unused atoms (A(j,j)<=1e-6) are replaced by a random batch row
+plus Gaussian noise of 0.01 times its population standard deviation (or 0.01
+for constant rows). Positive training codes require the CD solver.
+
+fit shuffles rows once before cycling fixed consecutive batches across epochs.
+The final short batch uses its actual length in both the cost and forgetting
+schedule. Statistics a_ (K,K) and b_ (p,K) correspond to source private _A/_B.
+partial_fit performs exactly one update on the entire supplied matrix,
+independently of batch_size/max_iter, and continues the cached RNG/statistics.
+The initialized fit algorithm is retained across partial calls, as in source;
+changed algorithm/initializer/seed controls take effect on fresh fit. Changing
+the component count during partial_fit is rejected explicitly rather than
+silently ignoring it. A fresh fit resets all state and supports new dimensions.
+Input arrays and supplied initializers are preserved; source can alias and
+mutate a writable initializer. Copies of native objects copy their streams.
+
+max_no_improvement=-1 disables patience, while zero stops at the first eligible
+smoothed-cost check. tol=0 disables dictionary-motion stopping. Source warmup
+uses min(100,N/actual_batch_size) steps, followed by an exponentially weighted
+cost with weight actual_batch_size/(N+1). Dictionary motion is its Frobenius
+norm divided by K. n_steps_ counts updates; fit sets n_iter_ to the ceiling of
+steps/steps_per_epoch. Streaming does not refresh n_iter_ or convergence state;
+partial-only models expose n_iter_=0. ewa_cost_/ewa_cost_min_ use NaN for source
+None state, and no_improvement_ records the patience counter. Counters/budgets
+use int64, without allocating histories proportional to max_iter.
+
+transform supports lasso_lars, lasso_cd, lars, omp and threshold, with existing
+sparsity/penalty controls and optional split_sign output (positive then negative
+parts, yielding 2*K columns). transform_alpha=-1 defaults to training alpha;
+transform_n_nonzero_coefs=0 selects source-style automatic sparsity.
+fit_transform fits then recodes the entire input using transform settings.
+No inverse-transform method is supplied by the source dictionary estimator.
+
+mini_batch_sparse_pca centers features, learns a mini-batch dictionary on X.T,
+recodes X.T and normalizes nonzero component rows. Its defaults match source,
+including batch_size=3 and tol=0.001. transform uses a ridge/pseudoinverse least
+squares projection onto the sparse components; inverse_transform reconstructs
+and restores mean_. Zero components and ridge_alpha=0 are supported. There is
+no source partial_fit contract for this wrapper. n_steps_ is a native diagnostic
+in addition to source n_iter_, n_components_ and n_features_in_.
+
+The private randomized SVD core follows source defaults: ten oversamples,
+seven power iterations when K<0.1*min(shape) and four otherwise, automatic
+transposition for wide matrices, pivoted-LU normalization, final economic
+Householder QR and a thin Jacobi SVD of the projected matrix. Sign selection
+uses the original left singular vectors. Logical row-major Gaussian draws and
+subsequent RNG state match NumPy RandomState. Null/tied singular subspaces can
+have different bases; tests compare meaningful nonzero directions and
+reconstruction, without claiming arbitrary null-vector identity. No randomized
+SVD tuning parameters are added to the estimators, which use source defaults.
+
+The existing batch DictionaryLearning atom update and SparsePCA ridge projection
+were extracted into shared private helpers without changing their arithmetic.
+Their existing 744 reference groups and 28 separate NumPy RNG groups are rerun
+for this refactor. New validation covers 3,468 groups across 200 configurations:
+100 dictionary fits/streams, 68 SparsePCA fits and 32 randomized-SVD cases over
+four seeds, including default training/solver controls with fixed scalar seeds.
+Source comparisons use
+atol=rtol=3e-8, with exact counters and subsequent RNG values; orthogonality
+certificates additionally check sampled singular bases. Cases include all coding
+methods, positivity, padding/truncation, dead atoms, constant data and oversized/unit/short
+batches, zero/huge iteration budgets, patience/motion stopping, changed cached
+controls, dimensional refits, constant features, zero ridge and overcomplete
+models. The backend is dense real64 CPU; n_jobs, callbacks, verbose output,
+object/global RNGs and float32 arrays are not implemented. Nonnegative scalar
+seeds are supported, with native random_state=0 by default. No runtime dependency
+or public algorithm extension is introduced.

@@ -21,6 +21,7 @@ Reference paths by module:
 
 | Fortran module | scikit-learn reference |
 | --- | --- |
+| minibatch dictionary / sparse PCA | decomposition/_dict_learning.py MiniBatchDictionaryLearning randomized initialization, fixed shuffled batches, normalized sufficient statistics/forgetting, constrained atom resampling, smoothed-cost/motion/patience stopping and streaming state; _sparse_pca.py MiniBatchSparsePCA transposed training, recoding and normalization; utils/extmath.py randomized_svd/range_finder Gaussian draw order, oversampling, iteration/transpose defaults and signs. Native pivoted LU/Householder QR/Jacobi SVD; existing batch atom updates and ridge projections share private helpers without changing arithmetic |
 | lda | decomposition/_lda.py batch/online variational Bayes, stochastic sufficient statistics, partial-fit scaling, inference, evidence bounds and perplexity; _online_lda_fast.pyx AS 103 digamma/mean-change contracts (J. Bernardo, 1976); NumPy 2.2.6 legacy-distributions.c shape-100 gamma rejection sampler; native stable Dirichlet-bound algebra and Stirling remainder. Research attribution: Matthew D. Hoffman, David M. Blei and Francis Bach (2010); Hoffman, Blei, Chong Wang and John Paisley (2013). Translation references are the BSD-licensed sklearn and NumPy sources, with full notices retained below and in LICENSES/ |
 | rbm | neural_network/_rbm.py BernoulliRBM persistent contrastive-divergence updates, hidden/visible conditionals, free energy/pseudo-likelihood, minibatch scheduling, scalar-seeded fit/partial_fit/Gibbs RNG lifetimes and initialization; native stable softplus and existing NumPy-compatible legacy RNG |
 | hdbscan | cluster/_hdbscan/hdbscan.py dense brute orchestration, nonfinite markers, weighted centers and DBSCAN cuts; _reachability.pyx mutual reachability; _linkage.pyx Prim frontier/linkage; _tree.pyx condensing, stability, EOM/leaf/epsilon selection and membership strengths; native deterministic tie ordering and nonfinite-row corrections; component BSD notice in [LICENSES/hdbscan-BSD.md](LICENSES/hdbscan-BSD.md), copyright Leland McInnes, with contributors Steve Astels, John Healy, Meekail Zain and Guillaume Lemaitre |
@@ -137,7 +138,8 @@ FastMCD permutations, BisectingKMeans initialization and MiniBatchKMeans
 initialization/batch/reassignment draws and spectral bicluster centroid
 initialization, Bayesian mixture initializations and native mixture Gaussian
 sampling, and BernoulliRBM initialization, persistent chains, Gibbs transitions
-and pseudo-likelihood corruption. Reference sources:
+and pseudo-likelihood corruption. Mini-batch dictionary/SparsePCA initialization,
+row shuffling and unused-atom resampling also reuse this stream. Reference sources:
 
 - numpy/random/src/mt19937/mt19937.c and mt19937.h
 - numpy/random/src/legacy/legacy-distributions.c (legacy_gauss)
