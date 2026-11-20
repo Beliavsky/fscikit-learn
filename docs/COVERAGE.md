@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 141 public estimator, transformer, and splitter types. Each is a
+There are 142 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Forty-two reference suites additionally check 18,695
+All types have native tests. Forty-three reference suites additionally check 19,703
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -24,7 +24,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | Module (`sklearn_` prefix) | Public types and functions | Scope and numerical choices |
 | --- | --- | --- |
 | preprocessing | `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `knn_imputer`, `missing_indicator`, `spline_transformer`, `label_encoder`, `one_hot_encoder`, `power_transformer`, `kbins_discretizer`, `quantile_transformer`; `normalize`, `binarize`, `polynomial_features` | Population variance; linear percentile interpolation; NaN imputation with mean/median/most-frequent/constant; numeric categories; empirical uniform/normal quantile transforms; dense polynomial terms through degree 12 with optional interactions; B-spline features and extrapolation |
-| linear_model | `linear_regression`, `lars`, `lasso_lars`, `lars_cv`, `lasso_lars_cv`, `lasso_lars_ic`, `ridge`, `ridge_classifier`, `ridge_classifier_cv`, `multi_task_elastic_net`, `multi_task_lasso`, `lasso`, `elastic_net`, `lasso_cv`, `elastic_net_cv`, `logistic_regression`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `sgd_regressor`, `sgd_classifier`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `huber_regressor`, `quantile_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; least-angle/Lasso homotopy paths with CV and AIC/BIC selection; coordinate descent with K-fold alpha/l1-ratio selection; logistic Newton solver; perceptron; PA-I/II classification/regression with averaging; streaming stochastic-gradient regression/classification; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; weighted L1-regularized quantile regression; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
+| linear_model | `linear_regression`, `lars`, `lasso_lars`, `lars_cv`, `lasso_lars_cv`, `lasso_lars_ic`, `ridge`, `ridge_classifier`, `ridge_classifier_cv`, `multi_task_elastic_net`, `multi_task_lasso`, `lasso`, `elastic_net`, `lasso_cv`, `elastic_net_cv`, `logistic_regression`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `sgd_regressor`, `sgd_classifier`, `sgd_one_class_svm`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `huber_regressor`, `quantile_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; least-angle/Lasso homotopy paths with CV and AIC/BIC selection; coordinate descent with K-fold alpha/l1-ratio selection; logistic Newton solver; perceptron; PA-I/II classification/regression with averaging; streaming stochastic-gradient regression/classification and one-class detection; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; weighted L1-regularized quantile regression; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb`, `categorical_nb` | Empirical class priors, variance smoothing, strictly positive scalar alpha; Bernoulli threshold; optional complement normalization |
 | neighbors | `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with optional shrinkage and uniform priors; Euclidean kernel density |
 | cluster | `kmeans`, `dbscan`, `agglomerative_clustering`, `feature_agglomeration`, `mean_shift`, `affinity_propagation`, `spectral_clustering`, `optics`, `birch`; `estimate_bandwidth`, `cluster_optics_dbscan`, `cluster_optics_xi` | Lloyd/k-means++; density expansion; single/complete/average/Ward merge trees and feature pooling; flat-kernel mode seeking; damped exemplar messages; normalized-Laplacian clustering with k-means or pivoted QR assignment; OPTICS reachability ordering, Xi hierarchy and DBSCAN extraction; BIRCH streaming CF tree and optional Ward clustering |
@@ -232,7 +232,7 @@ Not translated: sparse data paths, general estimator base/clone/parameter search
 framework, pipelines/column transformers, broader SVM/GLM/SGD options,
 histogram boosting, broader AdaBoost and bagging APIs,
 t-SNE and Hessian/modified LLE,
-outlier detection beyond LOF/OneClassSVM,
+outlier detection beyond LOF/OneClassSVM/SGDOneClassSVM,
 calibration, semi-supervised learning beyond label propagation/spreading,
 multiclass/multioutput wrappers,
 inspection/permutation importance, further feature-selection wrappers, image features,
@@ -1844,3 +1844,58 @@ shrinking/cache controls, metadata routing and sklearn's unlimited max_iter
 sentinel are outside this subset. Native positive finite tol and positive
 max_iter are required; break_ties requires OVR scores. No public extension or
 external runtime dependency was added.
+
+
+## Online one-class SVM
+
+`sgd_one_class_svm` translates sklearn 1.6.1 SGDOneClassSVM's dense linear
+one-class updates, including its default optimal learning rate, shuffled
+training, L2 decay, one-class offset update, optional intercept, constant /
+inverse-scaling / adaptive schedules, averaging, fit / partial_fit,
+coefficient/offset initialization and warm-start fits. score_samples returns
+X @ coef_; decision_function subtracts offset_; predict labels nonnegative
+scores +1 and negative scores -1. fit_predict returns training labels after fit.
+
+The internal hinge prediction is X @ w + b with b=1-offset. Hinge updates
+include equality at margin one. Coefficients decay by max(0,1-eta*nu/2), and
+the dense intercept update is update-eta*nu. Sample weights scale the hinge
+update. Zero-weight rows are retained: they still advance the sample clock,
+apply decay and the offset term, contribute to unweighted stopping loss and
+participate in averaging. All-zero weights are accepted. This differs from
+kernel NuSVC's capacity/zero-row convention. Native weights must be finite
+and nonnegative. Targets are not used.
+
+Lazy coefficient scaling and averaging follow the native Cython weight-vector
+contracts, including scale resets below 1e-9. The existing NumPy-compatible
+legacy RNG generates the Cython shuffle seed. A forward Fisher-Yates pass uses
+sklearn's Xorshift stream; each epoch reuses the seed by value and permutes the
+current ordering. Integer random_state is reproducible; native default is zero.
+Each partial_fit call starts a fresh local row ordering and local shuffle stream,
+as sklearn does for integer seeds, while preserving coefficients, average
+buffers and the cumulative t_ sample clock. Averaging uses zero for off, one
+for immediate averaging, or a later integer update index; the setting must
+remain fixed during partial_fit. fit resets t_ and averaging buffers. With
+warm_start, its initial parameters come from the previous public coef_/offset_,
+including an averaged result when enabled. Explicit initializers override them.
+
+Native controls are nu, fit_intercept, max_iter, tol (-1 disables stopping),
+shuffle, random_state, learning_rate, eta0, power_t, warm_start and average.
+n_iter_no_change is also exposed (sklearn's inherited internal setting is five).
+Defaults match the mathematical training settings apart from deterministic
+random_state=0. Fitted arrays/attributes are coef_, scalar offset_, n_features_in_,
+n_iter_ and t_. Native converged_ indicates the training-loss stopping predicate
+fired, and loss_ is last-epoch mean pre-update hinge loss. Reaching max_iter or
+performing partial_fit does not assert convergence; source-style warnings are
+replaced by these inspectable attributes. Sparse/float32 paths, early-stopping
+validation, verbose callbacks, random-state objects and signed sample weights
+are outside this subset. Hidden passive-aggressive learning-rate modes are not
+exposed. Extremely small nu that underflows nu/2 is rejected explicitly.
+
+Reference fixtures cover the actual defaults, all four learning rates, seeded
+shuffling, adaptive reductions/stopping, zero/all-zero weights, initialization,
+with/without intercepts, warm fits, delayed averaging, scale resets, full-fit
+then partial-fit transitions and three-batch streaming. Coefficients, offsets,
+query scores and labels, every recorded streaming/warm state and exact sample
+clock/epoch counts are compared with installed sklearn. Prior reference states
+are copied before later calls, since sklearn mutates coefficient buffers in
+place. Native initializers copy their inputs; no caller-array aliasing is used.

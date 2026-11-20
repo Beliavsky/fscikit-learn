@@ -1324,3 +1324,33 @@ one column per original training row, including zero-weight rows. Support
 indices refer to original training rows and start at one. See COVERAGE.md for
 fully bound normalizations, solver differences, explicit degenerate errors,
 parameter scope and the standard multiclass coefficient layout.
+
+
+## SGDOneClassSVM
+
+Import sgd_one_class_svm from sklearn, sklearn_linear_model or
+sklearn_sgd_one_class.
+
+```fortran
+type(sgd_one_class_svm) :: model
+model%nu=.1_dp
+model%average=1
+model%random_state=42
+call model%fit(x,sample_weight=weights) ! optional weights
+call model%partial_fit(next_batch)     ! one epoch; preserves t_ and averages
+scores=model%decision_function(query)
+raw_scores=model%score_samples(query)
+labels=model%predict(query)            ! +1 inliers, -1 outliers
+```
+
+Optional fit arguments coef_init(:) and scalar offset_init initialize the
+parameters. warm_start reuses the public fitted parameters on a subsequent
+fit, while resetting its sample clock and averaging buffers. fit_predict
+returns integer training labels. Coefficients are a feature vector; offset_
+is scalar. n_iter_ counts the most recent call's epochs; t_ counts updates
+plus one. Native converged_ and loss_ report stopping and last-epoch hinge
+loss. average=0 disables averaging, average=1 enables it immediately, and a
+larger integer starts it at that update index. eta0 must be positive for
+constant, invscaling and adaptive schedules; optimal permits zero. power_t
+may be negative. tol=-1 disables stopping. See COVERAGE.md for exact zero-weight,
+shuffle/averaging and warm/partial-fit contracts and unsupported options.

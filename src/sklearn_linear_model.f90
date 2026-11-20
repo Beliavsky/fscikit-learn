@@ -1,6 +1,7 @@
 module sklearn_linear_model
   use sklearn_least_angle, only: lars,lasso_lars,lars_path,lars_path_result, &
     lars_cv,lasso_lars_cv,lasso_lars_ic
+  use sklearn_sgd_one_class, only: sgd_one_class_svm
   use sklearn_quantile, only: quantile_regressor
   use sklearn_sgd, only: sgd_regressor,sgd_classifier
   use sklearn_multitask, only: multi_task_elastic_net,multi_task_lasso
@@ -11,6 +12,7 @@ module sklearn_linear_model
   implicit none
   private
   public :: lars,lasso_lars,lars_path,lars_path_result,lars_cv,lasso_lars_cv,lasso_lars_ic
+  public :: sgd_one_class_svm
   public :: quantile_regressor
   public :: sgd_regressor,sgd_classifier
   public :: multi_task_elastic_net,multi_task_lasso

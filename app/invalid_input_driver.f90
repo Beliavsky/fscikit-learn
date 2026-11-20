@@ -25,6 +25,9 @@ program invalid_input_driver
   type(leave_one_group_out) :: logo_cv
   type(sgd_classifier) :: sgdc
   type(sgd_regressor) :: sgd
+  type(sgd_one_class_svm) :: sgdo
+  real(dp), allocatable :: sgdo_scores(:)
+  integer, allocatable :: sgdo_labels(:)
   type(nu_svc) :: nus
   real(dp), allocatable :: nus_scores(:,:)
   integer, allocatable :: nus_labels(:)
@@ -126,6 +129,88 @@ program invalid_input_driver
   seq%cv=2
   x=1; y=1; call get_command_argument(1,mode)
   select case(trim(mode))
+  case('sgdo_nu_zero')
+    sgdo%nu=0
+    call sgdo%fit(reshape([0._dp,1._dp],[2,1]))
+  case('sgdo_nu_high')
+    sgdo%nu=2
+    call sgdo%fit(reshape([0._dp,1._dp],[2,1]))
+  case('sgdo_nu_nan')
+    sgdo%nu=ieee_value(0._dp,ieee_quiet_nan)
+    call sgdo%fit(reshape([0._dp,1._dp],[2,1]))
+  case('sgdo_eta')
+    sgdo%eta0=-1
+    call sgdo%fit(reshape([0._dp,1._dp],[2,1]))
+  case('sgdo_eta_zero')
+    sgdo%learning_rate='constant'
+    call sgdo%fit(reshape([0._dp,1._dp],[2,1]))
+  case('sgdo_eta_nan')
+    sgdo%eta0=ieee_value(0._dp,ieee_quiet_nan)
+    call sgdo%fit(reshape([0._dp,1._dp],[2,1]))
+  case('sgdo_power_nan')
+    sgdo%power_t=ieee_value(0._dp,ieee_quiet_nan)
+    call sgdo%fit(reshape([0._dp,1._dp],[2,1]))
+  case('sgdo_tol')
+    sgdo%tol=-2
+    call sgdo%fit(reshape([0._dp,1._dp],[2,1]))
+  case('sgdo_tol_nan')
+    sgdo%tol=ieee_value(0._dp,ieee_quiet_nan)
+    call sgdo%fit(reshape([0._dp,1._dp],[2,1]))
+  case('sgdo_iterations')
+    sgdo%max_iter=0
+    call sgdo%fit(reshape([0._dp,1._dp],[2,1]))
+  case('sgdo_no_change')
+    sgdo%n_iter_no_change=0
+    call sgdo%fit(reshape([0._dp,1._dp],[2,1]))
+  case('sgdo_average')
+    sgdo%average=-1
+    call sgdo%fit(reshape([0._dp,1._dp],[2,1]))
+  case('sgdo_seed')
+    sgdo%random_state=-1
+    call sgdo%fit(reshape([0._dp,1._dp],[2,1]))
+  case('sgdo_schedule')
+    sgdo%learning_rate='unknown'
+    call sgdo%fit(reshape([0._dp,1._dp],[2,1]))
+  case('sgdo_weights_shape')
+    call sgdo%fit(reshape([0._dp,1._dp],[2,1]),sample_weight=[1._dp])
+  case('sgdo_weights_negative')
+    call sgdo%fit(reshape([0._dp,1._dp],[2,1]),sample_weight=[-1._dp,2._dp])
+  case('sgdo_weights_nan')
+    call sgdo%fit(reshape([0._dp,1._dp],[2,1]), &
+      sample_weight=[1._dp,ieee_value(0._dp,ieee_quiet_nan)])
+  case('sgdo_coef_shape')
+    call sgdo%fit(reshape([0._dp,1._dp],[2,1]),coef_init=[1._dp,2._dp])
+  case('sgdo_coef_nan')
+    call sgdo%fit(reshape([0._dp,1._dp],[2,1]),coef_init=[ieee_value(0._dp,ieee_quiet_nan)])
+  case('sgdo_offset_nan')
+    call sgdo%fit(reshape([0._dp,1._dp],[2,1]),offset_init=ieee_value(0._dp,ieee_quiet_nan))
+  case('sgdo_empty')
+    call sgdo%fit(reshape([real(dp)::],[0,1]))
+  case('sgdo_nan')
+    call sgdo%fit(reshape([ieee_value(0._dp,ieee_quiet_nan),1._dp],[2,1]))
+  case('sgdo_unfitted')
+    sgdo_scores=sgdo%decision_function(reshape([0._dp],[1,1]))
+  case('sgdo_query_features')
+    call sgdo%fit(reshape([0._dp,1._dp],[2,1]))
+    sgdo_labels=sgdo%predict(reshape([0._dp,1._dp],[1,2]))
+  case('sgdo_query_nan')
+    call sgdo%fit(reshape([0._dp,1._dp],[2,1]))
+    sgdo_scores=sgdo%score_samples(reshape([ieee_value(0._dp,ieee_quiet_nan)],[1,1]))
+  case('sgdo_query_empty')
+    call sgdo%fit(reshape([0._dp,1._dp],[2,1]))
+    sgdo_labels=sgdo%predict(reshape([real(dp)::],[0,1]))
+  case('sgdo_partial_features')
+    call sgdo%partial_fit(reshape([0._dp,1._dp],[2,1]))
+    call sgdo%partial_fit(reshape([0._dp,1._dp],[1,2]))
+  case('sgdo_partial_average')
+    call sgdo%partial_fit(reshape([0._dp,1._dp],[2,1]))
+    sgdo%average=1
+    call sgdo%partial_fit(reshape([0._dp,1._dp],[2,1]))
+  case('sgdo_warm_features')
+    call sgdo%fit(reshape([0._dp,1._dp],[2,1]))
+    sgdo%warm_start=.true.
+    call sgdo%fit(reshape([0._dp,1._dp],[1,2]))
+
   case('nus_nu_zero')
     nus%nu=0
     call nus%fit(reshape([0._dp,1._dp],[2,1]),[-5,7])

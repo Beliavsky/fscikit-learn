@@ -1390,3 +1390,48 @@ Python syntax, Fortran formatting, inventory/report classifications and staged
 diff checks passed. Older Python reference suites were not rerun; existing
 SVC/kernel-SVM implementations were unchanged. The original MIT license and
 complete upstream sklearn/LIBSVM notices remain in place.
+
+
+## SGDOneClassSVM streaming outlier detection (2026-11-20)
+
+Added sgd_one_class_svm with sklearn's one-class hinge/L2/offset updates,
+default optimal schedule and shuffled training, all four public schedules,
+unweighted-loss stopping and adaptive reductions, finite nonnegative sample
+weights (including zero/all-zero), optional intercepts, explicit initializers,
+warm starts, averaging and one-epoch partial_fit. Lazy scaling, sparse-trick
+average accumulation and deterministic forward shuffle follow the pinned
+Cython contracts; the arrays themselves are dense native Fortran. Native
+state/stopping diagnostics are exposed. No dependency or public extension was
+added. Original contributions retain MIT; sklearn and existing NumPy notices
+remain retained, with expanded provenance.
+
+compare_sgd_one_class.py adds 1,008 sklearn 1.6.1 result groups across 120
+configurations on four seeded datasets, including seed zero and actual default
+training settings. Every recorded fit, warm fit, three-batch stream and
+fit-then-partial state compares coefficients, offset, decision and raw sample
+scores, labels, n_features_in_, exact n_iter_ and exact cumulative t_. Parameter
+checks use atol=rtol=3e-8; discrete labels and state counts match exactly.
+Coverage includes delayed and immediate averaging, averaged warm starts,
+constant/optimal/invscaling/adaptive schedules, negative powers, adaptive
+stopping, all-zero/zero weights, constant/zero features, eta-induced scale
+resets, optional intercepts and coefficient/offset initialization. Reference
+state snapshots copy arrays to preserve earlier coefficients across sklearn's
+in-place later updates. Native tests additionally verify two analytic hinge,
+offset and streaming-average steps, repeatable shuffled refits, fit_predict
+label mapping, score identities and clock resets/persistence.
+
+Inventory: 142 core types, 61 source modules, 64 native test programs,
+43 reference suites and 19,703 result groups, plus 28 separately tracked NumPy
+stream groups. Twenty-nine new isolated diagnostics bring the inventory to
+959. online_outliers demonstrates incremental updates and query labels.
+
+Final validation: all 64 native test programs passed checked builds with
+-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow and release builds.
+All 1,008 new sklearn result groups and all 959 isolated diagnostic cases
+passed. The checked online_outliers example processed 1,800 samples and
+returned query labels +1,+1,-1, with decision scores approximately .08950,
+.08993 and -.75404 on its illustrative fixture. Python syntax, Fortran
+formatting, inventories, reports and staged diff checks passed. Older Python
+reference suites were not rerun; existing SGD implementations and the legacy
+RNG helper were unchanged. MIT project licensing and full upstream notices
+remain in place.
