@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 155 public estimator, transformer, and splitter types. Each is a
+There are 156 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Fifty-three reference suites additionally check 59,011
+All types have native tests. Fifty-four reference suites additionally check 65,511
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -28,7 +28,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb`, `categorical_nb` | Empirical class priors, variance smoothing, strictly positive scalar alpha; Bernoulli threshold; optional complement normalization |
 | neighbors | `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with optional shrinkage and uniform priors; Euclidean kernel density |
 | cluster | `kmeans`, `bisecting_kmeans`, `mini_batch_kmeans`, `spectral_coclustering`, `spectral_biclustering`, `hdbscan`, `dbscan`, `agglomerative_clustering`, `feature_agglomeration`, `mean_shift`, `affinity_propagation`, `spectral_clustering`, `optics`, `birch`; `estimate_bandwidth`, `cluster_optics_dbscan`, `cluster_optics_xi` | Lloyd/k-means++; paired row/column spectral partitions and checkerboard biclustering; weighted streaming mini-batch centroids; bisecting centroid hierarchy with Lloyd/Elkan splits; density expansion; single/complete/average/Ward merge trees and feature pooling; flat-kernel mode seeking; damped exemplar messages; normalized-Laplacian clustering with k-means or pivoted QR assignment; OPTICS reachability ordering, Xi hierarchy and DBSCAN extraction; BIRCH streaming CF tree and optional Ward clustering |
-| decomposition | `pca`, `incremental_pca`, `truncated_svd`, `nmf`, `sparse_pca`, `mini_batch_sparse_pca`, `dictionary_learning`, `mini_batch_dictionary_learning`, `sparse_coder`, `latent_dirichlet_allocation`; `sparse_encode`; re-exports `kernel_pca`, `factor_analysis`, `fast_ica` | Direct Jacobi SVD; PCA whitening and inversion; streaming stacked-SVD IncrementalPCA; exact dense SVD; NMF multiplicative updates; sparse dictionary factorization and SparsePCA; five sparse coding methods; nonlinear kernel PCA; unrotated full-SVD factor analysis; parallel/deflation ICA |
+| decomposition | `pca`, `incremental_pca`, `truncated_svd`, `nmf`, `mini_batch_nmf`, `sparse_pca`, `mini_batch_sparse_pca`, `dictionary_learning`, `mini_batch_dictionary_learning`, `sparse_coder`, `latent_dirichlet_allocation`; `sparse_encode`; re-exports `kernel_pca`, `factor_analysis`, `fast_ica` | Direct Jacobi SVD; PCA whitening and inversion; streaming stacked-SVD IncrementalPCA; exact dense SVD; NMF multiplicative updates; sparse dictionary factorization and SparsePCA; five sparse coding methods; nonlinear kernel PCA; unrotated full-SVD factor analysis; parallel/deflation ICA |
 | cross_decomposition | `pls_regression`, `pls_canonical`, `cca`, `pls_svd` | Paired-matrix latent components: NIPALS regression/canonical deflation, CCA pseudoinverse mode, canonical direct SVD and PLSSVD cross-covariance projection; multiple response columns |
 | isotonic | `isotonic_regression`; `isotonic_fit`, `check_increasing` | Weighted pool-adjacent-violators, automatic Spearman direction, bounds, repeated-input aggregation and piecewise linear interpolation |
 | kernel_approximation | `rbf_sampler`, `nystroem`, `additive_chi2_sampler`, `skewed_chi2_sampler` | Random Fourier RBF maps; sampled-landmark inverse-square-root maps for RBF/linear/polynomial/cosine kernels; additive and skewed chi2 feature maps |
@@ -2592,3 +2592,84 @@ models. The backend is dense real64 CPU; n_jobs, callbacks, verbose output,
 object/global RNGs and float32 arrays are not implemented. Nonnegative scalar
 seeds are supported, with native random_state=0 by default. No runtime dependency
 or public algorithm extension is introduced.
+
+
+## MiniBatchNMF
+
+mini_batch_nmf implements dense sklearn 1.6.1 MiniBatchNMF with multiplicative
+beta-divergence updates, optional L1/L2 penalties, persistent numerator/denominator
+statistics, fresh coefficient restarts and minibatch early stopping. Native
+beta_loss is real: 2, 1 and 0 correspond to source frobenius, kullback-leibler
+and itakura-saito aliases; other finite real values use the general beta loss.
+The MM exponent is 1/(2-beta) below one, 1/(beta-1) above two and one otherwise.
+Updates preserve the source float32 epsilon (2**-23) denominator/power safeguards,
+float64 small-factor cutoffs and loss masking, even for real64 data.
+
+n_components=0 maps to source 'auto': infer the row count of custom H, otherwise
+the input feature count. init='auto' maps to None, selecting nndsvda when K fits
+within min(shape), otherwise random initialization. random uses scaled absolute
+Gaussian draws for H then W in logical NumPy row-major order. nndsvd/nndsvda/
+nndsvdar reuse the existing default randomized-SVD core, split positive/negative
+singular directions, and threshold values below 1e-6. The latter two fill zeros
+with the data mean or small absolute Gaussian values. NNDSVDAR restarts its
+scalar-seeded RNG for filling, matching source integer-seed behavior. Null
+singular directions are handled as zero factors before filling, avoiding invalid
+normalization with the native SVD's zero null columns. Explicit custom W/H must
+match (N,K)/(K,p), be finite/nonnegative and each contain a positive value. Native
+copies preserve supplied arrays. Other init modes ignore optional W/H as source
+does. NNDSVD requires K<=min(shape); random/custom may be overcomplete.
+
+fit/fit_transform use fixed consecutive batches without shuffling. Coefficient
+rows persist between visits unless fresh_restarts=true, which solves each batch
+from its deterministic mean-based start and performs a final full-data coefficient
+solve. fit_transform returns the fitted training factors; these need not equal a
+subsequent transform's freshly optimized factors. alpha_w is nonnegative;
+alpha_h=-1 means 'same as alpha_w'. Penalties scale by feature count for W and
+actual batch size for H, with l1_ratio in [0,1]. Batch costs follow the source's
+penalty scaling, and reconstruction_err_ excludes regularization and equals
+sqrt(2*beta_divergence), with source nonnegative rounding clamping.
+
+The cached forgetting weight is forget_factor**(clamped_batch_size/initial_N).
+Partial updates reuse this weight even when later array sizes or controls change.
+partial_fit performs one update on the entire supplied array and always solves
+fresh coefficients. Initial custom W is validated then discarded for this path,
+as in source; the native implementation avoids retaining an unused coefficient
+batch. Cached component count, beta/MM exponent, forgetting weight, batch size
+and transform iteration limit remain from initialization; fresh fit resets them.
+Regularization, tolerance and fresh-restart solve limits are read for each call.
+Copies of an object copy its accumulated statistics and reproduce continuation.
+
+transform starts from sqrt(mean(X)/K) and solves W against fixed components_.
+transform_max_iter=0 selects max_iter at initialization; positive values override
+it. inverse_transform is the linear product of finite coefficient rows and H.
+components_numerator_/components_denominator_ correspond to source private online
+statistics. n_steps_/n_iter_ use int64; fit sets n_iter_ to the ceiling of steps
+per epoch, while partial_fit leaves it and reconstruction_err_/convergence state
+stale. Partial-only models expose n_iter_=0 and NaN error/EWA state where source
+attributes are absent. The first fit step skips convergence monitoring, then
+EWA cost, relative H motion and patience follow source rules. tol=0 disables
+motion stopping; max_no_improvement=-1 disables patience, while zero is invalid
+for this estimator. Zero-norm motion cannot trigger convergence, matching source
+NaN comparisons without floating-point traps. Large iteration budgets allocate
+no histories proportional to the budget.
+
+Inputs for fitting/transformation must be nonempty, finite and nonnegative;
+nonpositive beta requires strictly positive X. Native applies this domain check
+consistently to streaming and transformation, including source paths that omit
+it. max_iter/fresh_restarts_max_iter must be positive. forget_factor lies in
+[0,1], and zero/one endpoints are supported. Only nonnegative scalar seeds are
+supported, with native default zero. Sparse/float32 arrays, global/object RNGs,
+verbose output, feature-name metadata and persistence are outside this scope.
+No existing NMF or randomized-SVD implementation is changed by this addition.
+
+compare_minibatch_nmf.py directly checks 6,500 source result groups across 164
+configurations and four seeds, including default training controls. It compares
+factors/components, both online accumulators, fitted/resolved state, convergence
+counters, transforms, inverse transforms and reconstruction errors at
+atol=rtol=3e-8, with exact metadata. Fixtures cover losses from -0.5 through 3,
+all five initializers plus automatic choice, custom auto rank, penalties,
+forgetting endpoints, short/unit/oversized batches, fresh restarts, huge-budget
+early stopping, streaming cached-control changes, dimension refits, tiny/sparse
+values, constant zeros and wide inputs. Native tests independently verify exact
+rank-one Frobenius/KL/IS fixed points, analytic accumulated-statistic recurrences,
+object copies, input preservation, zero-norm patience and null NNDSVD handling.

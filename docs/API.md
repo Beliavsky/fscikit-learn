@@ -1708,3 +1708,42 @@ Its components_ rows are sparse unit vectors or zeros, mean_ restores feature
 means and ridge_alpha controls projection regularization. It supports fit,
 fit_transform, transform and inverse_transform. See COVERAGE.md for randomized
 initialization, streaming/convergence rules, state lifetimes and supported scope.
+
+
+## MiniBatchNMF
+
+Import mini_batch_nmf from sklearn, sklearn_decomposition or
+sklearn_minibatch_nmf.
+
+```fortran
+type(mini_batch_nmf) :: model
+real(dp), allocatable :: factors(:,:),reconstruction(:,:)
+model%n_components=4
+model%init='nndsvdar'
+model%beta_loss=1._dp ! KL; use 2 for Frobenius or 0 for Itakura-Saito.
+model%batch_size=32
+model%max_iter=50
+factors=model%fit_transform(x)
+reconstruction=model%inverse_transform(factors)
+call model%partial_fit(next_batch)
+factors=model%transform(query)
+```
+
+n_components=0 selects source auto rank; init='auto' selects source default
+initialization. All random/NNDSVD/custom initializers and finite numeric beta
+losses are supported. Pass W=initial_w,H=initial_h to fit/fit_transform or the
+first partial_fit with init='custom'. Custom auto rank is inferred from H.
+Inputs and custom arrays are preserved. beta<=0 requires strictly positive X.
+
+alpha_w/alpha_h and l1_ratio control regularization; alpha_h=-1 means same as
+alpha_w. fresh_restarts optionally re-solves training coefficients, using
+fresh_restarts_max_iter. transform_max_iter=0 caches max_iter as its limit.
+max_no_improvement=-1 disables patience; tol=0 disables motion stopping.
+partial_fit uses one whole-array update with fresh coefficients and preserves
+cached rank, beta, forgetting weight and transform limit. Use fit to reset state.
+
+components_ is (K,p); online numerator/denominator arrays share that layout.
+n_steps_ counts updates and n_iter_/reconstruction_err_ describe the last fit;
+streaming does not refresh the latter fields. Partial-only error is NaN.
+See COVERAGE.md for loss conventions, clipping, cached controls, zero handling
+and the difference between training factors and a fresh transform.

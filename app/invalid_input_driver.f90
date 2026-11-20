@@ -25,6 +25,9 @@ program invalid_input_driver
   type(leave_one_group_out) :: logo_cv
   type(sgd_classifier) :: sgdc
   type(sgd_regressor) :: sgd
+  type(mini_batch_nmf) :: mbn_case
+  real(dp) :: mbn_x(6,3),mbn_w(6,2),mbn_h(2,3)
+  real(dp), allocatable :: mbn_values(:,:)
   type(mini_batch_dictionary_learning) :: mbd_case
   type(mini_batch_sparse_pca) :: mbsp_case
   real(dp) :: mbd_x(6,3)
@@ -188,7 +191,188 @@ program invalid_input_driver
   mbd_case%n_components=2; mbd_case%max_iter=1; mbd_case%batch_size=3
   mbd_case%fit_algorithm='cd'; mbd_case%transform_algorithm='lasso_cd'
   mbsp_case%n_components=2; mbsp_case%max_iter=1; mbsp_case%method='cd'; mbd_x=1
+  mbn_case%n_components=2; mbn_case%max_iter=1; mbn_case%init='random'
+  mbn_x=.5_dp; mbn_w=1; mbn_h=1
   select case(trim(mode))
+  case('mbn_components')
+    mbn_case%n_components=-1
+    call mbn_case%fit(mbn_x)
+  case('mbn_capacity')
+    mbn_case%n_components=huge(1)
+    call mbn_case%fit(mbn_x)
+  case('mbn_iterations_zero')
+    mbn_case%max_iter=0
+    call mbn_case%fit(mbn_x)
+  case('mbn_iterations_negative')
+    mbn_case%max_iter=-1
+    call mbn_case%fit(mbn_x)
+  case('mbn_restart_limit')
+    mbn_case%fresh_restarts_max_iter=0
+    call mbn_case%fit(mbn_x)
+  case('mbn_transform_limit')
+    mbn_case%transform_max_iter=-1
+    call mbn_case%fit(mbn_x)
+  case('mbn_batch')
+    mbn_case%batch_size=0
+    call mbn_case%fit(mbn_x)
+  case('mbn_seed')
+    mbn_case%random_state=-1
+    call mbn_case%fit(mbn_x)
+  case('mbn_patience_zero')
+    mbn_case%max_no_improvement=0
+    call mbn_case%fit(mbn_x)
+  case('mbn_patience_negative')
+    mbn_case%max_no_improvement=-2
+    call mbn_case%fit(mbn_x)
+  case('mbn_beta_nan')
+    mbn_case%beta_loss=ieee_value(0._dp,ieee_quiet_nan)
+    call mbn_case%fit(mbn_x)
+  case('mbn_beta_inf')
+    mbn_case%beta_loss=ieee_value(0._dp,ieee_positive_inf)
+    call mbn_case%fit(mbn_x)
+  case('mbn_tol_negative')
+    mbn_case%tol=-1
+    call mbn_case%fit(mbn_x)
+  case('mbn_tol_nan')
+    mbn_case%tol=ieee_value(0._dp,ieee_quiet_nan)
+    call mbn_case%fit(mbn_x)
+  case('mbn_alpha_w')
+    mbn_case%alpha_w=-1
+    call mbn_case%fit(mbn_x)
+  case('mbn_alpha_w_inf')
+    mbn_case%alpha_w=ieee_value(0._dp,ieee_positive_inf)
+    call mbn_case%fit(mbn_x)
+  case('mbn_alpha_h')
+    mbn_case%alpha_h=-2
+    call mbn_case%fit(mbn_x)
+  case('mbn_alpha_h_nan')
+    mbn_case%alpha_h=ieee_value(0._dp,ieee_quiet_nan)
+    call mbn_case%fit(mbn_x)
+  case('mbn_l1_negative')
+    mbn_case%l1_ratio=-.1_dp
+    call mbn_case%fit(mbn_x)
+  case('mbn_l1_high')
+    mbn_case%l1_ratio=1.1_dp
+    call mbn_case%fit(mbn_x)
+  case('mbn_forget_negative')
+    mbn_case%forget_factor=-.1_dp
+    call mbn_case%fit(mbn_x)
+  case('mbn_forget_high')
+    mbn_case%forget_factor=1.1_dp
+    call mbn_case%fit(mbn_x)
+  case('mbn_initializer')
+    mbn_case%init='bad'
+    call mbn_case%fit(mbn_x)
+  case('mbn_empty')
+    call mbn_case%fit(mbn_x(:0,:))
+  case('mbn_no_features')
+    call mbn_case%fit(mbn_x(:,:0))
+  case('mbn_nan')
+    mbn_x(1,1)=ieee_value(0._dp,ieee_quiet_nan)
+    call mbn_case%fit(mbn_x)
+  case('mbn_inf')
+    mbn_x(1,1)=ieee_value(0._dp,ieee_positive_inf)
+    call mbn_case%fit(mbn_x)
+  case('mbn_negative')
+    mbn_x(1,1)=-1
+    call mbn_case%fit(mbn_x)
+  case('mbn_is_zero')
+    mbn_case%beta_loss=0
+    mbn_x(1,1)=0
+    call mbn_case%fit(mbn_x)
+  case('mbn_negative_beta_zero')
+    mbn_case%beta_loss=-1
+    mbn_x(1,1)=0
+    call mbn_case%fit(mbn_x)
+  case('mbn_custom_missing')
+    mbn_case%init='custom'
+    call mbn_case%fit(mbn_x)
+  case('mbn_custom_w_missing')
+    mbn_case%init='custom'
+    call mbn_case%fit(mbn_x,h=mbn_h)
+  case('mbn_custom_h_missing')
+    mbn_case%init='custom'
+    call mbn_case%fit(mbn_x,w=mbn_w)
+  case('mbn_custom_w_shape')
+    mbn_case%init='custom'
+    call mbn_case%fit(mbn_x,mbn_w(:5,:),mbn_h)
+  case('mbn_custom_h_shape')
+    mbn_case%init='custom'
+    call mbn_case%fit(mbn_x,mbn_w,mbn_h(:,:2))
+  case('mbn_custom_w_negative')
+    mbn_case%init='custom'
+    mbn_w=-1
+    call mbn_case%fit(mbn_x,mbn_w,mbn_h)
+  case('mbn_custom_h_negative')
+    mbn_case%init='custom'
+    mbn_h=-1
+    call mbn_case%fit(mbn_x,mbn_w,mbn_h)
+  case('mbn_custom_w_nan')
+    mbn_case%init='custom'
+    mbn_w=ieee_value(0._dp,ieee_quiet_nan)
+    call mbn_case%fit(mbn_x,mbn_w,mbn_h)
+  case('mbn_custom_h_inf')
+    mbn_case%init='custom'
+    mbn_h=ieee_value(0._dp,ieee_positive_inf)
+    call mbn_case%fit(mbn_x,mbn_w,mbn_h)
+  case('mbn_custom_w_zero')
+    mbn_case%init='custom'
+    mbn_w=0
+    call mbn_case%fit(mbn_x,mbn_w,mbn_h)
+  case('mbn_custom_h_zero')
+    mbn_case%init='custom'
+    mbn_h=0
+    call mbn_case%fit(mbn_x,mbn_w,mbn_h)
+  case('mbn_nndsvd_rank')
+    mbn_case%n_components=4
+    mbn_case%init='nndsvd'
+    call mbn_case%fit(mbn_x)
+  case('mbn_unfit_transform')
+    mbn_values=mbn_case%transform(mbn_x)
+  case('mbn_unfit_inverse_transform')
+    mbn_values=mbn_case%inverse_transform(mbn_x)
+  case('mbn_query_features')
+    call mbn_case%fit(mbn_x)
+    mbn_values=mbn_case%transform(mbn_x(:,:2))
+  case('mbn_query_negative')
+    call mbn_case%fit(mbn_x)
+    mbn_x(1,1)=-1
+    mbn_values=mbn_case%transform(mbn_x)
+  case('mbn_query_nan')
+    call mbn_case%fit(mbn_x)
+    mbn_x(1,1)=ieee_value(0._dp,ieee_quiet_nan)
+    mbn_values=mbn_case%transform(mbn_x)
+  case('mbn_inverse_components')
+    call mbn_case%fit(mbn_x)
+    mbn_values=mbn_case%inverse_transform(mbn_x)
+  case('mbn_inverse_empty')
+    call mbn_case%fit(mbn_x)
+    mbn_values=mbn_case%inverse_transform(mbn_w(:0,:))
+  case('mbn_inverse_inf')
+    call mbn_case%fit(mbn_x)
+    mbn_w(1,1)=ieee_value(0._dp,ieee_positive_inf)
+    mbn_values=mbn_case%inverse_transform(mbn_w)
+  case('mbn_partial_empty')
+    call mbn_case%partial_fit(mbn_x(:0,:))
+  case('mbn_partial_negative')
+    mbn_x(1,1)=-1
+    call mbn_case%partial_fit(mbn_x)
+  case('mbn_partial_features')
+    call mbn_case%partial_fit(mbn_x)
+    call mbn_case%partial_fit(mbn_x(:,:2))
+  case('mbn_partial_nan')
+    call mbn_case%partial_fit(mbn_x)
+    mbn_x(1,1)=ieee_value(0._dp,ieee_quiet_nan)
+    call mbn_case%partial_fit(mbn_x)
+  case('mbn_partial_zero_beta')
+    mbn_case%beta_loss=0
+    call mbn_case%partial_fit(mbn_x)
+    mbn_x(1,1)=0
+    call mbn_case%partial_fit(mbn_x)
+  case('mbn_step_capacity')
+    call mbn_case%partial_fit(mbn_x)
+    mbn_case%n_steps_=huge(mbn_case%n_steps_)
+    call mbn_case%partial_fit(mbn_x)
   case('mbd_components')
     mbd_case%n_components=-1
     call mbd_case%fit(mbd_x)

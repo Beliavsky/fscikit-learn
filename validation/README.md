@@ -1985,3 +1985,58 @@ with reconstruction RMSE 0.3132014. Python syntax, Fortran formatting, report
 contents, inventories, unique registrations and git diff checks passed. Other
 Python reference suites were not rerun. MIT licensing and complete upstream
 notices are retained, with no runtime dependency or public extension added.
+
+
+## Mini-batch nonnegative matrix factorization (2026-11-20)
+
+Added mini_batch_nmf with source beta-divergence/MM updates, L1/L2 scaling,
+random/NNDSVD/custom initialization, online accumulators, fixed batching, fresh
+restarts, fitted transforms/inversion and EWA/motion/patience stopping. Native
+real beta_loss maps source named losses to 2/1/0 and supports other finite real
+values. Integer-seeded draw order and NNDSVDAR's scalar-seed restart match source.
+Native init='auto'/n_components=0 and alpha_h=-1/transform_max_iter=0/patience=-1
+sentinels map source None/auto/same controls. Partial calls always solve fresh
+coefficients, reuse cached beta/rank/rho/transform limit and read current scaled
+penalties. Fresh fit resets caches and supports dimension/rank changes.
+
+Explicit null singular directions and zero-norm convergence are handled without
+invalid arithmetic. Nonpositive beta's strictly-positive-input requirement is
+checked consistently for fit, streaming and transformation. Custom inputs are
+copied, and partial_fit discards unused initial W storage before solving its
+coefficient batch. Native int64 counters allow huge budgets with early stopping
+and no history allocation. Existing NMF, randomized-SVD and RNG helper bodies
+are unchanged; only a decomposition re-export integrates the new type.
+
+compare_minibatch_nmf.py checks 6,500 direct sklearn 1.6.1 groups across 164
+configurations and four seeds at atol=rtol=3e-8, with exact metadata. Comparisons
+cover training factors/components, both accumulators, resolved caches, counters,
+EWA/error state, transforms and inverses. Cases cover beta=-0.5/0/0.5/1/1.5/2/
+2.5/3 and named source aliases; all initializers and auto/custom ranks; L1/L2/mixed
+penalties; forget endpoints; fresh restarts; unit/short/oversized batches;
+huge-budget early stopping; cached-control changes; partial-only/mixed fits;
+new dimensions; tiny/sparse counts; all-zero random/automatic initialization;
+and default training controls. Native analytic tests verify exact rank-one
+Frobenius/KL/IS fixed points, accumulated-statistic recurrences, copied objects,
+input preservation, zero-norm patience and null NNDSVD handling.
+nonnegative_stream demonstrates fitting, KL reconstruction, transformation,
+linear inversion and incremental updates.
+
+Inventory: 156 core types, 73 source modules, 75 native test programs,
+54 reference suites and 65,511 result groups, plus 28 separate NumPy stream
+groups. Fifty-six new diagnostics bring the isolated invalid-input inventory
+to 1,402. MIT licensing and complete sklearn/NumPy notices and research
+attribution are retained. No runtime dependency or public extension was added.
+
+Validation completed on the final implementation: all 75 native test programs
+passed with -fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow and in release
+mode. The package-built driver passed all 6,500 direct sklearn groups across
+164 configurations. All 1,402 isolated invalid-input cases passed, including
+56 new MiniBatchNMF cases. The checked nonnegative_stream example stopped at
+four epochs/12 updates, reported KL reconstruction error 1.054803 and Frobenius
+RMSE 0.1220615, then reached 13 updates after streaming. Minimum component and
+factor values remained positive (0.002413391 and 4.86832e-7). Python syntax,
+Fortran formatting, strict JSON/report contents, inventories, unique diagnostic
+registrations and git diff checks passed. Earlier Python reference suites were
+not rerun; existing estimator and shared-backend bodies were unchanged apart
+from the new export. MIT licensing and complete upstream notices are retained,
+with no runtime dependency or public algorithm extension added.

@@ -1,4 +1,5 @@
 module sklearn_decomposition
+  use sklearn_minibatch_nmf, only: mini_batch_nmf
   use sklearn_lda, only: latent_dirichlet_allocation
   use sklearn_dictionary, only: sparse_pca,dictionary_learning,sparse_coder,sparse_encode, &
     mini_batch_dictionary_learning,mini_batch_sparse_pca
@@ -9,6 +10,7 @@ module sklearn_decomposition
   use sklearn_factor_analysis, only: factor_analysis
   implicit none
   private
+  public :: mini_batch_nmf
   public :: mini_batch_dictionary_learning,mini_batch_sparse_pca
   public :: latent_dirichlet_allocation
   public :: sparse_pca,dictionary_learning,sparse_coder,sparse_encode
