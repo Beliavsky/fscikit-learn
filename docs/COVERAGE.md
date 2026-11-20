@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 128 public estimator, transformer, and splitter types. Each is a
+There are 130 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Thirty-five reference suites additionally check 9,955 result
+All types have native tests. Thirty-six reference suites additionally check 11,087 result
 groups in total across seeded datasets against installed scikit-learn 1.6.1.
 
 This document counts core scikit-learn counterparts. Public extensions are
@@ -41,7 +41,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | tree | `decision_tree_classifier`, `decision_tree_regressor` | Exhaustive CART; Gini/entropy/log-loss classification, squared-error regression; depth/leaf/split/feature controls, normalized impurity importance, leaf indices |
 | ensemble | `random_forest_classifier`, `random_forest_regressor`, `extra_trees_classifier`, `extra_trees_regressor`, `gradient_boosting_regressor`, `gradient_boosting_classifier`, `adaboost_classifier` | Bootstrap forests, randomized feature subsets, random-threshold Extra Trees, squared-error residual boosting; binary/multiclass classification boosting with Newton leaf updates; weighted Gini-stump SAMME |
 | model_selection | `kfold`, `stratified_kfold`, `time_series_split`, `group_kfold`, `leave_one_out`, `leave_one_group_out`, `predefined_split`, `ridge_cv`; `train_test_split`, `shuffle_indices`, `cross_val_score` | Index-based splits; fraction test size; optional stratification; time gap/window; CV for linear-regression family and logistic regression; ridge CV selects negative mean squared error |
-| feature_selection | `variance_threshold`, `select_k_best`, `sequential_feature_selector`; `f_classif`, `f_regression`, `chi2` | Dense scores and masks; greedy forward/backward CV regression selection; inverse transform fills dropped columns with zero; no p-values |
+| feature_selection | `variance_threshold`, `select_k_best`, `sequential_feature_selector`, `rfe`, `rfecv`; `f_classif`, `f_regression`, `chi2` | Dense scores and masks; greedy forward/backward CV regression selection; coefficient-based recursive elimination and CV for regression/logistic classification; inverse transform fills dropped columns with zero; no p-values |
 | feature_extraction_text | `count_vectorizer`, `tfidf_transformer`, `tfidf_vectorizer` | Dense unigram counts; ASCII alphanumeric/underscore tokens of length 2-128; sorted vocabulary; min/max document frequency, binary counts and max features; smoothed/unsmoothed IDF, sublinear TF, l1/l2/no normalization |
 | dummy | `dummy_classifier`, `dummy_regressor` | Prior/most-frequent/stratified/uniform/constant classification; mean/median/quantile/constant regression |
 | kernel_ridge | `kernel_ridge` | Positive alpha; linear/RBF/polynomial/sigmoid kernels; no intercept |
@@ -1499,3 +1499,58 @@ Fitted `support_`, `n_features_in_` and `n_features_to_select_` describe the cho
 features. `get_support`, `transform`, `fit_transform` and `inverse_transform`
 are available; inverse fills unselected columns with zero. The selector stores
 no fitted estimator, and downstream fitting on the selected data is explicit.
+
+
+## Recursive Feature Elimination and RFECV
+
+`rfe%fit(x,y,estimator)` supports the existing `linear_regression` family with
+real regression targets (tested OLS, ridge, lasso and elastic net), and
+`logistic_regression` with integer binary/multiclass targets. Each elimination
+fits an independent estimator copy and removes the smallest squared coefficient
+importances; multiclass importances sum squares over classes. The caller's
+estimator is unchanged. `n_features_to_select=0` means floor(p/2); positive
+integers select that many columns, and counts above p retain all columns.
+Fractional feature counts, arbitrary importance getters, tree importances,
+weights, sparse arrays and multiple targets are outside this initial subset.
+
+`step` is a positive real: values below 1 remove max(1, int(step*p)) features
+per round, using the ORIGINAL feature count; values at least 1 remove int(step).
+The last removal is clipped to the requested count. Equal importances eliminate
+earlier input columns first; NumPy's unstable argsort can choose a different
+order on ties. `support_` preserves original column order; selected columns have
+`ranking_=1`, and earlier eliminated columns receive larger ranks.
+
+`rfecv` adds `min_features_to_select=1` and `cv=5`. It scores complete RFE paths
+in each unshuffled fold, chooses the best mean score (fewest columns on exact
+score ties), and repeats elimination plus final fitting on all data. Regression
+uses KFold/R2 and requires at least two test rows per fold. Classification uses
+StratifiedKFold/accuracy, encoding labels by first appearance as sklearn does.
+Each class must contain at least two samples, and at least one class must have
+cv members; classes smaller than cv are otherwise supported. Custom scorers,
+custom CV, parallelism and metadata routing are not implemented. RFECV uses
+min_features_to_select; its inherited n_features_to_select is ignored.
+
+`cv_results_` is an `rfecv_results` record with ascending `n_features`,
+`mean_test_score`, population `std_test_score`, and `split_test_score` shaped
+(number of feature counts, number of folds). It is a dictionary replacement,
+not an additional counted sklearn estimator. A minimum above p evaluates only
+all features. Fitted `n_features_`, `n_features_in_`, support and rankings are
+available, along with transform/fit_transform, get_support and zero-filled
+inverse_transform. Fitted copies are exposed as regression_estimator_ or
+classifier_estimator_ and refitting clears the other estimator kind.
+
+Fortran `predict` returns real regression values; `predict_classes` returns
+integer labels. Classification also exposes predict_proba and decision_function
+(binary decisions have shape n-by-1). `score` dispatches by target type. Inputs
+must be finite, and fitting requires at least two original features. Parameters,
+elimination paths and predictions inherit the supported estimator's numerical
+scope. Original MIT contributions retain the sklearn BSD attribution.
+
+
+RFE reference comparisons use unmodified sklearn coefficient ordering for OLS,
+ridge and logistic models. Elastic-net/lasso reference configurations supply an
+importance_getter that ranks sklearn squared coefficients with stable input-order
+ties, matching the native tie rule; final fitted coefficients remain unchanged.
+Multinomial intercepts and decisions are compared after removing their common
+class offset, which is not identifiable under softmax. Probabilities, class
+predictions, coefficients, masks, rankings and CV paths are checked directly.

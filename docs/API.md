@@ -1137,3 +1137,32 @@ Use `n_features_to_select=0` for auto and `use_tol=.true.` to enable an auto
 stopping tolerance. `get_support()` returns a logical mask in original column
 order; `inverse_transform` restores omitted columns as zeros. See COVERAGE.md
 for the supported estimator family, odd-feature auto behavior and R2 fold sizes.
+
+
+## Recursive elimination and cross-validated feature counts
+
+```fortran
+use sklearn, only: dp,rfe,rfecv,ridge,logistic_regression
+type(rfe) :: selector
+type(rfecv) :: search
+type(ridge) :: regressor
+type(logistic_regression) :: classifier
+real(dp), allocatable :: reduced(:,:),predictions(:),probabilities(:,:)
+integer, allocatable :: labels(:)
+selector%n_features_to_select=2
+selector%step=.25_dp
+call selector%fit(x,y,regressor) ! real y
+predictions=selector%predict(query)
+search%cv=4
+search%min_features_to_select=1
+reduced=search%fit_transform(x,integer_targets,classifier)
+labels=search%predict_classes(query)
+probabilities=search%predict_proba(query)
+! search%cv_results_%split_test_score(feature_count_index,fold_index)
+```
+
+Both selectors retain a fitted estimator on selected columns. Use real targets
+with linear-regression-family estimators and integer targets with logistic
+regression. Callers' estimators remain unchanged. Query arrays contain the
+original columns; prediction methods select the fitted mask internally.
+See COVERAGE.md for counts, step fractions, ranking, CV folds and supported scope.

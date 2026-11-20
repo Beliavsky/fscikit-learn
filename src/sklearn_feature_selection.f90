@@ -1,8 +1,10 @@
 module sklearn_feature_selection
+  use sklearn_recursive_selection, only: rfe,rfecv,rfecv_results
   use sklearn_sequential_selection, only: sequential_feature_selector
   use sklearn_common
   implicit none
   private
+  public :: rfe,rfecv,rfecv_results
   public :: sequential_feature_selector
   public :: variance_threshold,select_k_best,f_classif,f_regression,chi2
   type :: variance_threshold

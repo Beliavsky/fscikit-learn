@@ -1213,3 +1213,50 @@ sequential_selection example selected columns 2 and 4 and returned R2=1.
 Python syntax, Fortran line lengths, inventory, the reference report and staged
 diff checks passed. The initial estimator scope is regression only; no new
 dependency or public extension was added.
+
+
+## 2026-11-20: Recursive Feature Elimination and RFECV
+
+Added native RFE and RFECV with linear-regression-family and logistic-regression
+estimators, squared coefficient importances, iterative elimination/ranking,
+integer counts, fractional/integer step widths, fitted estimators, transformation,
+prediction, probabilities and type-dispatched scoring. RFECV evaluates complete
+per-fold paths, selects the feature count (fewer on exact score ties), and refits
+on all data. R2 uses unshuffled KFold; accuracy uses first-appearance-encoded
+StratifiedKFold, including imbalanced classes smaller than cv. Score/count grids,
+per-fold scores and population standard deviations are retained in cv_results_.
+Caller estimators remain unchanged and refits clear the other estimator kind.
+
+The new suite passed 1,132 result groups across four datasets and 20 settings:
+OLS/ridge/lasso/elastic net, binary/multiclass logistic models, default/fixed/all
+feature counts, nondivisible/fractional/oversized steps, varying CV/minimums,
+no intercept, strongly imbalanced classes, all masks/ranks/projections, final
+coefficients/intercepts/predictions, probabilities/decisions and every CV score.
+Of these, 924 groups use default sklearn coefficient ordering; 208 regularized
+regression groups use a sklearn importance_getter that standardizes exact-zero
+coefficient ties to stable input order. Multinomial intercepts/decisions are
+centered over classes to remove their unidentifiable common shift; probabilities
+and labels are checked directly. Numerical tolerances are atol=rtol=3e-8.
+
+Forty-two new input cases bring the total to 720. Native tests include an exact
+CV-score/coefficient tie, estimator independence, fitted mode changes, ranking,
+score-grid ordering and count/step boundaries. The recursive_selection example
+shows ridge RFECV selecting columns before prediction. See COVERAGE.md for the
+supported estimators, deterministic tie rule, R2 fold sizes and classification
+minimum counts. Sparse arrays, custom scorers/CV, tree importance getters,
+fractional feature counts and multiple targets remain outside this subset.
+Inventory: 130 core types, 54 modules, 56 native test programs, 36 reference
+suites and 11,087 reference result groups. Original contributions remain MIT
+with sklearn BSD attribution retained. No dependency or extension was added.
+
+
+Final validation: all 56 native test programs passed with runtime checks and
+floating-point traps (-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow)
+and in release mode. All 1,132 RFE/RFECV reference groups passed against
+sklearn 1.6.1 under the documented coefficient-tie and multinomial-gauge
+conventions. All 720 isolated input-error cases passed, including 42 new ones.
+The checked recursive_selection example selected columns 2 and 4, with
+full-data R2=0.9999805392 and mean validation R2=0.9999624316 at two features.
+Python syntax, Fortran line lengths, reference report, inventory and staged
+diff checks passed. Original contributions remain MIT, with upstream BSD
+notices retained. No dependency or extension was added.
