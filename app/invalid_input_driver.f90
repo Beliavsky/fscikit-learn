@@ -25,6 +25,9 @@ program invalid_input_driver
   type(leave_one_group_out) :: logo_cv
   type(sgd_classifier) :: sgdc
   type(sgd_regressor) :: sgd
+  type(latent_dirichlet_allocation) :: lda_case
+  real(dp) :: lda_x(4,3),lda_value
+  real(dp), allocatable :: lda_values(:,:)
   type(bernoulli_rbm) :: rbm_case
   real(dp) :: rbm_x(4,2)
   real(dp), allocatable :: rbm_values(:,:),rbm_scores(:)
@@ -177,7 +180,154 @@ program invalid_input_driver
   mb_case%n_clusters=2; mb_case%max_iter=2; mb_case%batch_size=6
   bisect_case%n_clusters=2
   rbm_case%n_components=2; rbm_case%n_iter=1; rbm_case%batch_size=3; rbm_x=.5_dp
+  lda_case%n_components=2; lda_case%max_iter=1; lda_case%batch_size=3; lda_x=.5_dp
   select case(trim(mode))
+  case('lda_components')
+    lda_case%n_components=0
+    call lda_case%fit(lda_x)
+  case('lda_batch')
+    lda_case%batch_size=0
+    call lda_case%fit(lda_x)
+  case('lda_iterations')
+    lda_case%max_iter=-1
+    call lda_case%fit(lda_x)
+  case('lda_doc_iterations')
+    lda_case%max_doc_update_iter=-1
+    call lda_case%fit(lda_x)
+  case('lda_seed')
+    lda_case%random_state=-1
+    call lda_case%fit(lda_x)
+  case('lda_method')
+    lda_case%learning_method='invalid'
+    call lda_case%fit(lda_x)
+  case('lda_doc_prior_zero')
+    lda_case%doc_topic_prior=0
+    call lda_case%fit(lda_x)
+  case('lda_doc_prior_negative')
+    lda_case%doc_topic_prior=-.5_dp
+    call lda_case%fit(lda_x)
+  case('lda_doc_prior_high')
+    lda_case%doc_topic_prior=1.1_dp
+    call lda_case%fit(lda_x)
+  case('lda_doc_prior_nan')
+    lda_case%doc_topic_prior=ieee_value(0._dp,ieee_quiet_nan)
+    call lda_case%fit(lda_x)
+  case('lda_doc_prior_inf')
+    lda_case%doc_topic_prior=ieee_value(0._dp,ieee_positive_inf)
+    call lda_case%fit(lda_x)
+  case('lda_word_prior_zero')
+    lda_case%topic_word_prior=0
+    call lda_case%fit(lda_x)
+  case('lda_word_prior_negative')
+    lda_case%topic_word_prior=-.5_dp
+    call lda_case%fit(lda_x)
+  case('lda_word_prior_high')
+    lda_case%topic_word_prior=1.1_dp
+    call lda_case%fit(lda_x)
+  case('lda_word_prior_nan')
+    lda_case%topic_word_prior=ieee_value(0._dp,ieee_quiet_nan)
+    call lda_case%fit(lda_x)
+  case('lda_word_prior_inf')
+    lda_case%topic_word_prior=ieee_value(0._dp,ieee_positive_inf)
+    call lda_case%fit(lda_x)
+  case('lda_decay_negative')
+    lda_case%learning_decay=-.1_dp
+    call lda_case%fit(lda_x)
+  case('lda_decay_high')
+    lda_case%learning_decay=1.1_dp
+    call lda_case%fit(lda_x)
+  case('lda_decay_nan')
+    lda_case%learning_decay=ieee_value(0._dp,ieee_quiet_nan)
+    call lda_case%fit(lda_x)
+  case('lda_offset')
+    lda_case%learning_offset=.5_dp
+    call lda_case%fit(lda_x)
+  case('lda_offset_inf')
+    lda_case%learning_offset=ieee_value(0._dp,ieee_positive_inf)
+    call lda_case%fit(lda_x)
+  case('lda_total_zero')
+    lda_case%total_samples=0
+    call lda_case%fit(lda_x)
+  case('lda_total_negative')
+    lda_case%total_samples=-1
+    call lda_case%fit(lda_x)
+  case('lda_total_nan')
+    lda_case%total_samples=ieee_value(0._dp,ieee_quiet_nan)
+    call lda_case%fit(lda_x)
+  case('lda_perp_tol')
+    lda_case%perp_tol=-1
+    call lda_case%fit(lda_x)
+  case('lda_mean_tol')
+    lda_case%mean_change_tol=-1
+    call lda_case%fit(lda_x)
+  case('lda_mean_tol_nan')
+    lda_case%mean_change_tol=ieee_value(0._dp,ieee_quiet_nan)
+    call lda_case%fit(lda_x)
+  case('lda_empty')
+    call lda_case%fit(lda_x(:0,:))
+  case('lda_no_features')
+    call lda_case%fit(lda_x(:,:0))
+  case('lda_negative')
+    lda_x(1,1)=-1
+    call lda_case%fit(lda_x)
+  case('lda_nan')
+    lda_x(1,1)=ieee_value(0._dp,ieee_quiet_nan)
+    call lda_case%fit(lda_x)
+  case('lda_inf')
+    lda_x(1,1)=ieee_value(0._dp,ieee_positive_inf)
+    call lda_case%fit(lda_x)
+  case('lda_partial_negative')
+    lda_x(1,1)=-1
+    call lda_case%partial_fit(lda_x)
+  case('lda_partial_empty')
+    call lda_case%partial_fit(lda_x(:0,:))
+  case('lda_partial_features')
+    call lda_case%partial_fit(lda_x)
+    call lda_case%partial_fit(lda_x(:,:2))
+  case('lda_partial_components')
+    call lda_case%partial_fit(lda_x)
+    lda_case%n_components=3
+    call lda_case%partial_fit(lda_x)
+  case('lda_unfit_transform')
+    lda_values=lda_case%transform(lda_x)
+  case('lda_features_transform')
+    call lda_case%fit(lda_x)
+    lda_values=lda_case%transform(lda_x(:,:2))
+  case('lda_negative_transform')
+    call lda_case%fit(lda_x)
+    lda_x(1,1)=-1
+    lda_values=lda_case%transform(lda_x)
+  case('lda_unfit_score')
+    lda_value=lda_case%score(lda_x)
+  case('lda_features_score')
+    call lda_case%fit(lda_x)
+    lda_value=lda_case%score(lda_x(:,:2))
+  case('lda_negative_score')
+    call lda_case%fit(lda_x)
+    lda_x(1,1)=-1
+    lda_value=lda_case%score(lda_x)
+  case('lda_unfit_perplexity')
+    lda_value=lda_case%perplexity(lda_x)
+  case('lda_features_perplexity')
+    call lda_case%fit(lda_x)
+    lda_value=lda_case%perplexity(lda_x(:,:2))
+  case('lda_negative_perplexity')
+    call lda_case%fit(lda_x)
+    lda_x(1,1)=-1
+    lda_value=lda_case%perplexity(lda_x)
+  case('lda_transform_nan')
+    call lda_case%fit(lda_x)
+    lda_x(1,1)=ieee_value(0._dp,ieee_quiet_nan)
+    lda_values=lda_case%transform(lda_x)
+  case('lda_perplexity_inf')
+    call lda_case%fit(lda_x)
+    lda_x(1,1)=ieee_value(0._dp,ieee_positive_inf)
+    lda_value=lda_case%perplexity(lda_x)
+  case('lda_fit_transform_empty')
+    lda_values=lda_case%fit_transform(lda_x(:0,:))
+  case('lda_partial_nan')
+    lda_x(1,1)=ieee_value(0._dp,ieee_quiet_nan)
+    call lda_case%partial_fit(lda_x)
   case('rbm_components_zero')
     rbm_case%n_components=0
     call rbm_case%fit(rbm_x)

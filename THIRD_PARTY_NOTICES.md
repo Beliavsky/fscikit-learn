@@ -21,6 +21,7 @@ Reference paths by module:
 
 | Fortran module | scikit-learn reference |
 | --- | --- |
+| lda | decomposition/_lda.py batch/online variational Bayes, stochastic sufficient statistics, partial-fit scaling, inference, evidence bounds and perplexity; _online_lda_fast.pyx AS 103 digamma/mean-change contracts (J. Bernardo, 1976); NumPy 2.2.6 legacy-distributions.c shape-100 gamma rejection sampler; native stable Dirichlet-bound algebra and Stirling remainder. Research attribution: Matthew D. Hoffman, David M. Blei and Francis Bach (2010); Hoffman, Blei, Chong Wang and John Paisley (2013). Translation references are the BSD-licensed sklearn and NumPy sources, with full notices retained below and in LICENSES/ |
 | rbm | neural_network/_rbm.py BernoulliRBM persistent contrastive-divergence updates, hidden/visible conditionals, free energy/pseudo-likelihood, minibatch scheduling, scalar-seeded fit/partial_fit/Gibbs RNG lifetimes and initialization; native stable softplus and existing NumPy-compatible legacy RNG |
 | hdbscan | cluster/_hdbscan/hdbscan.py dense brute orchestration, nonfinite markers, weighted centers and DBSCAN cuts; _reachability.pyx mutual reachability; _linkage.pyx Prim frontier/linkage; _tree.pyx condensing, stability, EOM/leaf/epsilon selection and membership strengths; native deterministic tie ordering and nonfinite-row corrections; component BSD notice in [LICENSES/hdbscan-BSD.md](LICENSES/hdbscan-BSD.md), copyright Leland McInnes, with contributors Steve Astels, John Healy, Meekail Zain and Guillaume Lemaitre |
 | bayesian_mixture | mixture/_bayesian_mixture.py Normal-Wishart/Beta/Dirichlet updates, normalized covariance conventions, expected log scores and simplified variational bound; _base.py initializer/restart/warm-start/zero-iteration and Gaussian sampling contracts; _gaussian_mixture.py sufficient statistics and precision Cholesky conventions; native positive digamma/log-Gamma, Cholesky solves and legacy seeded initialization |
@@ -146,7 +147,10 @@ Exact upstream tag: https://github.com/numpy/numpy/tree/v2.2.6/numpy/random/src
 The implementation uses int64 storage/masks to avoid signed 32-bit overflow,
 1-based Fortran indices, and explicit seed-state checks. No NumPy source or
 binary is compiled or linked. Array seeds, jumps and other distributions are
-not implemented by this helper.
+not implemented by this helper. LDA adds a private shape-100 Gamma sampler
+using the same legacy_standard_gamma contract from
+[numpy/random/src/legacy/legacy-distributions.c](https://github.com/numpy/numpy/blob/v2.2.6/numpy/random/src/legacy/legacy-distributions.c);
+it does not expand the helper's public distribution API.
 
 NumPy Developers' BSD notice is retained in LICENSES/numpy-COPYING. Original
 MT/RandomKit notices and the MIT-style uniform constants notice, including

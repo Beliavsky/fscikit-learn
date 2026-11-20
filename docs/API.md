@@ -1629,3 +1629,40 @@ persistent stream. fit preserves that stream if it already exists. Scoring
 restarts its scalar-seeded RNG each call without consuming the sampling stream.
 All inputs must be nonempty dense finite arrays with the fitted feature count.
 See COVERAGE.md for distribution assumptions, RNG contracts and supported scope.
+
+
+## LatentDirichletAllocation
+
+Import latent_dirichlet_allocation from sklearn, sklearn_decomposition or
+sklearn_lda. It operates on dense nonnegative document/word count arrays.
+
+```fortran
+type(latent_dirichlet_allocation) :: model
+real(dp), allocatable :: topics(:,:),gamma(:,:)
+real(dp) :: evidence,perplexity
+model%n_components=5
+model%learning_method='batch' ! or 'online'
+model%max_iter=20
+model%random_state=42
+topics=model%fit_transform(counts)
+gamma=model%transform(query,normalize=.false.)
+evidence=model%score(query)
+perplexity=model%perplexity(query)
+model%total_samples=10000
+call model%partial_fit(next_documents)
+```
+
+components_ contains topic-word Dirichlet pseudocounts in (K,vocabulary_size)
+layout; exp_dirichlet_component_ stores exponentiated expected log probabilities.
+Transform rows normally sum to one. doc_topic_prior/topic_word_prior=-1 choose
+default 1/K; explicit priors must be positive and <=1. Zero iteration budgets
+are allowed. partial_fit always uses online minibatches and preserves its RNG,
+resolved priors and existing fitted state. Fresh fit resets parameters and RNG.
+Inference is deterministic and does not advance the stream.
+
+bound_ is training perplexity from the last fit; it is NaN for partial-only
+models and remains stale after incremental updates. score is the evidence bound;
+perplexity optionally accepts sub_sampling=.true. n_iter_ follows source's
+early-stop counter convention; n_batch_iter_ counts EM updates plus one.
+See COVERAGE.md for scaling, zero-word/overflow behavior, numerical scoring
+corrections, parameter limits and validation against scikit-learn.

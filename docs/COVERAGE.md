@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 152 public estimator, transformer, and splitter types. Each is a
+There are 153 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Fifty-one reference suites additionally check 48,809
+All types have native tests. Fifty-two reference suites additionally check 55,543
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -28,7 +28,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb`, `categorical_nb` | Empirical class priors, variance smoothing, strictly positive scalar alpha; Bernoulli threshold; optional complement normalization |
 | neighbors | `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with optional shrinkage and uniform priors; Euclidean kernel density |
 | cluster | `kmeans`, `bisecting_kmeans`, `mini_batch_kmeans`, `spectral_coclustering`, `spectral_biclustering`, `hdbscan`, `dbscan`, `agglomerative_clustering`, `feature_agglomeration`, `mean_shift`, `affinity_propagation`, `spectral_clustering`, `optics`, `birch`; `estimate_bandwidth`, `cluster_optics_dbscan`, `cluster_optics_xi` | Lloyd/k-means++; paired row/column spectral partitions and checkerboard biclustering; weighted streaming mini-batch centroids; bisecting centroid hierarchy with Lloyd/Elkan splits; density expansion; single/complete/average/Ward merge trees and feature pooling; flat-kernel mode seeking; damped exemplar messages; normalized-Laplacian clustering with k-means or pivoted QR assignment; OPTICS reachability ordering, Xi hierarchy and DBSCAN extraction; BIRCH streaming CF tree and optional Ward clustering |
-| decomposition | `pca`, `incremental_pca`, `truncated_svd`, `nmf`, `sparse_pca`, `dictionary_learning`, `sparse_coder`; `sparse_encode`; re-exports `kernel_pca`, `factor_analysis`, `fast_ica` | Direct Jacobi SVD; PCA whitening and inversion; streaming stacked-SVD IncrementalPCA; exact dense SVD; NMF multiplicative updates; sparse dictionary factorization and SparsePCA; five sparse coding methods; nonlinear kernel PCA; unrotated full-SVD factor analysis; parallel/deflation ICA |
+| decomposition | `pca`, `incremental_pca`, `truncated_svd`, `nmf`, `sparse_pca`, `dictionary_learning`, `sparse_coder`, `latent_dirichlet_allocation`; `sparse_encode`; re-exports `kernel_pca`, `factor_analysis`, `fast_ica` | Direct Jacobi SVD; PCA whitening and inversion; streaming stacked-SVD IncrementalPCA; exact dense SVD; NMF multiplicative updates; sparse dictionary factorization and SparsePCA; five sparse coding methods; nonlinear kernel PCA; unrotated full-SVD factor analysis; parallel/deflation ICA |
 | cross_decomposition | `pls_regression`, `pls_canonical`, `cca`, `pls_svd` | Paired-matrix latent components: NIPALS regression/canonical deflation, CCA pseudoinverse mode, canonical direct SVD and PLSSVD cross-covariance projection; multiple response columns |
 | isotonic | `isotonic_regression`; `isotonic_fit`, `check_increasing` | Weighted pool-adjacent-violators, automatic Spearman direction, bounds, repeated-input aggregation and piecewise linear interpolation |
 | kernel_approximation | `rbf_sampler`, `nystroem`, `additive_chi2_sampler`, `skewed_chi2_sampler` | Random Fourier RBF maps; sampled-landmark inverse-square-root maps for RBF/linear/polynomial/cosine kernels; additive and skewed chi2 feature maps |
@@ -2439,3 +2439,78 @@ metadata and automatic classification are absent. random_state defaults to the
 native deterministic seed zero and must be nonnegative. learning_rate must be
 positive and finite; batch_size/n_components positive; n_iter nonnegative.
 No inverse transform or prediction method is supplied by the source estimator.
+
+
+## LatentDirichletAllocation
+
+latent_dirichlet_allocation implements dense single-worker sklearn 1.6.1 batch
+and online variational Bayes topic modeling. Inputs are nonnegative finite
+real64 document/word count matrices; fractional counts and empty documents are
+accepted. components_ is (n_components,n_features_in_), containing topic-word
+Dirichlet pseudocounts. Normalize each row to obtain topic-word means.
+exp_dirichlet_component_ stores exp(E[log beta]), which is not a normalized
+probability matrix. transform returns document-topic means, or unnormalized
+gamma parameters with normalize=false. fit_transform supports both forms.
+
+Native doc_topic_prior=-1 and topic_word_prior=-1 resolve independently to
+1/n_components. Explicit priors must be in (0,1]. Zero priors, although accepted
+by source parameter validation, define improper Dirichlet distributions and are
+rejected here. The E-step matches the source AS 103 positive-digamma approximation,
+self-consistency updates, machine-epsilon denominator and mean absolute change
+stopping test. max_doc_update_iter=0 preserves initial gamma values: deterministic
+ones for inference and seeded Gamma draws for training. max_iter=0 initializes
+model parameters and computes fitted perplexity without an EM update.
+
+fit resets latent parameters and its private scalar-seeded RNG. Batch mode uses
+one full-data update per epoch; online mode uses consecutive unshuffled chunks,
+weight=(learning_offset+n_batch_iter_)**(-learning_decay), and the actual corpus
+size for scaling. partial_fit always uses online updates, regardless of
+learning_method, splitting the supplied data by batch_size and scaling to
+total_samples. It preserves its RNG and resolved priors; changed seed/prior
+controls take effect on a fresh fit. Changed component counts require fit;
+changed batch size, decay, offset and total_samples affect future online steps.
+Copying an object copies its arrays and stream. Inference and scoring use
+constant initialization, are deterministic and do not consume training draws.
+The private shape-100 Gamma sampler follows NumPy's legacy rejection algorithm
+and existing MT19937/Gaussian helper without adding a runtime dependency.
+
+score returns the full variational evidence bound. perplexity returns
+exp(-bound/word_count), optionally using population subsampling compensation;
+the topic prior contribution is included only once after scaling document terms.
+bound_ stores fitted training perplexity, not the evidence bound. It is NaN for
+partial-fit-only models and is not refreshed by partial_fit after fit.
+evaluate_every>0 checks absolute perplexity changes against perp_tol;
+nonpositive values disable evaluation. n_batch_iter_ starts at one and counts
+actual EM updates plus one using int64. n_iter_ follows source behavior: it
+excludes the epoch triggering early stopping and is not incremented by streaming.
+
+Native Dirichlet bounds algebraically remove large linear terms using a stable
+log-Gamma/digamma remainder and a Stirling expansion for arguments >=16. Exact
+one-dimensional and prior-equal distributions contribute zero. This avoids
+cancellation when online updates represent very large populations. Infinite
+perplexity is returned explicitly on exponential overflow. Zero-word/zero-evidence
+perplexity is explicitly NaN, including roundoff-level prior equality; source
+can return NaN, zero or infinity from its rounded 0/0 calculation. Zero-word
+queries with a strictly negative bound return infinity. Native perplexity
+validates the fitted feature count and preserves metadata, correcting the source
+1.6.1 reset_n_features=True path that can accept truncated feature arrays.
+
+The 120 reference configurations check 6,734 result groups: 6,627 ordinary
+source comparisons at atol=rtol=3e-8 (metadata exact), 26 source score comparisons
+with a log-Gamma roundoff budget, 26 independent 60-digit mpmath evidence-bound
+certificates at the usual tolerance, and 55 explicit zero-word definition checks.
+The roundoff budget is 32*eps times the summed magnitudes of log-Gamma component
+and row-total terms, propagated through log perplexity. Observed bound-scale
+source/native differences reach 4.19e-5 for large populations; high-precision
+certificates validate the stable native result. No identity is claimed for
+undefined source perplexity. Fixtures cover both learning modes, streaming,
+priors, fractional/zero counts, unused columns, tiny priors, zero inner/outer
+iterations, early stopping, huge populations, single words/topics, more topics
+than documents, dimensional refits and mixed training/inference calls.
+
+The backend is dense real64 CPU with one worker. Sparse/float32 input, n_jobs,
+verbose logs, object/global RNGs, feature-name metadata and persistence are
+outside scope. random_state defaults to deterministic zero. There is no inverse
+transform or inductive classification contract. CountVectorizer output can be
+passed directly as the document/word matrix. mpmath is a validation dependency
+only; no additional Fortran runtime dependency or public extension is introduced.

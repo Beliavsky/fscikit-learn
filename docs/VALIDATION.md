@@ -2009,3 +2009,64 @@ formatting, report contents, inventories, unique diagnostic registrations and
 git diff checks passed. Earlier Python reference suites were not rerun;
 existing estimator bodies were unchanged apart from the new export. MIT
 licensing and full upstream notices are retained, with no runtime dependency.
+
+
+## Variational Latent Dirichlet Allocation (2026-11-20)
+
+Added latent_dirichlet_allocation with batch/online variational EM, streaming
+updates, normalized/unnormalized topic transforms, evidence-bound score and
+perplexity with optional population compensation. Source single-worker Gamma
+initialization/draw order, AS 103 digamma approximation, E-step stopping,
+minibatch scaling, evaluation frequency and early-stop counters are retained.
+Native controls use -1 for automatic priors; explicit priors must be in (0,1],
+excluding source's improper zero-prior boundary. Dense fractional counts, zero
+rows/columns, zero iteration budgets and fresh dimension/component refits are
+supported. partial_fit always performs online chunks, preserving resolved
+priors/RNG, while fit resets both. Inference does not consume training draws.
+Bound metadata follows source lifetimes; partial-only bound_ is native NaN.
+
+Native Dirichlet scoring removes cancellation through stable log-Gamma/digamma
+remainders, exact zero-KL identities and a Stirling expansion. Exponential
+overflow returns infinity explicitly; zero-word/zero-evidence perplexity returns
+NaN. Fitted feature counts are validated for perplexity, correcting the source
+metadata-reset/truncated-input behavior. Existing estimator bodies and the
+legacy RNG helper were unchanged apart from the decomposition re-export; the
+shape-100 Gamma sampler is private to LDA. Native analytic tests verify known
+NumPy initialization, one-topic posterior counts/conjugate evidence, score/
+perplexity identity, iteration counters, copied streams, empty documents,
+zero-word definitions, overflow handling and input preservation.
+
+compare_lda.py checks 6,734 groups across 120 configurations and four seeded
+datasets: 6,627 strict source comparisons, 26 source scoring comparisons with a
+roundoff budget, 26 additional independent 60-digit mpmath certificates and 55
+explicit zero-word definition checks. Ordinary tolerance is atol=rtol=3e-8;
+metadata is exact. The roundoff budget is 32*eps times summed absolute log-Gamma
+component and row-total terms, propagated through log perplexity; observed
+bound-scale discrepancies reach 4.19e-5 for large populations. The high-precision
+certificates validate native scoring at the ordinary tolerance. Undefined source
+perplexity is recorded separately, without claiming direct identity. The suite
+covers both learning modes, streaming, altered controls, single words/topics,
+topics exceeding documents, tiny/default/unit priors, zero/fractional counts,
+zero inner/outer budgets, early stopping, large populations and mixed calls.
+mpmath is required only by this validator. document_topics demonstrates fitting,
+per-document proportions, scoring, perplexity and streaming updates.
+
+Inventory: 153 core types, 71 source modules, 73 native test programs,
+52 reference suites and 55,543 result groups, plus 28 separate NumPy stream
+groups. Forty-nine new diagnostics bring the isolated invalid-input inventory
+to 1,295. MIT project licensing, complete sklearn and NumPy BSD notices and
+research attribution are retained. No runtime dependency or public extension
+was added.
+
+Validation completed on the final implementation: all 73 native test programs
+passed with -fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow and in release
+mode. The package-built LDA driver passed all 6,734 checks with the documented
+6,627/26/26/55 oracle breakdown. All 1,295 isolated invalid-input cases passed,
+including 49 new LDA cases. The checked document_topics example separated its
+two document groups, returned evidence bound -274.0400696 and perplexity
+5.0128289, and counted 31 EM updates after an incremental update. Python syntax,
+Fortran formatting, strict JSON/report contents, inventories, unique diagnostic
+registrations and git diff checks passed. Earlier Python reference suites were
+not rerun; existing estimator bodies and the RNG helper were unchanged apart
+from the new decomposition export. MIT licensing and complete upstream notices
+are retained, with no runtime dependency added.
