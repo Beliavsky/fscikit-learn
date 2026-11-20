@@ -21,6 +21,8 @@ Reference paths by module:
 
 | Fortran module | scikit-learn reference |
 | --- | --- |
+| bayesian_mixture | mixture/_bayesian_mixture.py Normal-Wishart/Beta/Dirichlet updates, normalized covariance conventions, expected log scores and simplified variational bound; _base.py initializer/restart/warm-start/zero-iteration and Gaussian sampling contracts; _gaussian_mixture.py sufficient statistics and precision Cholesky conventions; native positive digamma/log-Gamma, Cholesky solves and legacy seeded initialization |
+| centroid_core | extracted unweighted Lloyd helper formerly private to bicluster; cluster/_kmeans.py greedy/random initialization, variance-scaled stopping and same-partition restart selection; _k_means_lloyd.pyx and _k_means_common.pyx updates/relocation; reused by biclustering and Bayesian mixture initialization, including an optional continued RNG state |
 | bicluster | cluster/_bicluster.py scale/bistochastic/log normalization, Dhillon row-column embedding, Kluger piecewise-vector selection and original-data projections; base.py BiclusterMixin indicators/getters; _kmeans.py greedy/random centroid seeding, Lloyd convergence and same-partition restarts; _k_means_lloyd.pyx and _k_means_common.pyx dense updates, inertia and relocation; native thin SVD/null-space completion and existing MiniBatchKMeans/legacy RNG |
 | minibatch_kmeans | cluster/_kmeans.py MiniBatchKMeans initialization subset/restart selection, sampled batches, streaming state, reassignment and smoothed-inertia/center-motion stopping; _k_means_minibatch.pyx weighted dense running means; _k_means_lloyd.pyx and _k_means_common.pyx dense assignment/inertia; native implementation with existing legacy RNG |
 | bisecting_kmeans | cluster/_bisect_k_means.py leaf selection, split restarts, hierarchy/labels and prediction routing; _kmeans.py weighted random/greedy k-means++ initialization and Lloyd/Elkan stopping; _k_means_lloyd.pyx, _k_means_elkan.pyx and _k_means_common.pyx dense bounds, centroid updates, empty relocation and inertia; native implementation with existing legacy RNG |
@@ -130,7 +132,8 @@ Gaussian contracts, used for dictionary atom resampling, AdaBoost regression
 bootstraps, SGDOneClassSVM shuffle seeds, IsolationForest sampling/tree seeds,
 FastMCD permutations, BisectingKMeans initialization and MiniBatchKMeans
 initialization/batch/reassignment draws and spectral bicluster centroid
-initialization. Reference sources:
+initialization, Bayesian mixture initializations and native mixture Gaussian
+sampling. Reference sources:
 
 - numpy/random/src/mt19937/mt19937.c and mt19937.h
 - numpy/random/src/legacy/legacy-distributions.c (legacy_gauss)

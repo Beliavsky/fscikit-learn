@@ -1701,3 +1701,65 @@ Python syntax, Fortran formatting, inventories, report contents, unique
 registrations and git diff checks passed. Earlier Python reference suites
 were not rerun; existing estimator bodies and the RNG helper were unchanged.
 MIT project licensing and full upstream notices are retained.
+
+## Variational Bayesian Gaussian mixtures (2026-11-20)
+
+Added bayesian_gaussian_mixture with both source weight prior families, four
+covariance forms, four seeded initializers, prior validation/defaults, variational
+E/M updates, expected-log scoring, source lower-bound stopping and best-restart
+selection. Warm starts, zero-iteration initialization, fresh dimension/covariance
+refits, fit_predict and native Gaussian-mixture sampling are supported. All
+covariance/precision outputs use the native expanded (p,p,K) layout; tied degrees
+are repeated, and Dirichlet/Beta concentration arrays have one/two columns.
+Diagonal/spherical factorization avoids cubic work; tied factors are reused.
+Bound history grows with actual iterations, and int64 iteration counters allow
+large budgets without allocating their full histories.
+
+The tested private biclustering centroid helper was extracted into
+sklearn_centroid_core and is reused without changing its update math. It now
+accepts an optional continued legacy RNG state for mixture restarts. Existing
+public estimator and RNG helper bodies were unchanged apart from biclustering's
+delegation to this core and the new mixture re-export. Its 2,992 reference groups
+were rerun to verify this refactor.
+
+compare_bayesian_mixture.py checks 5,524 result groups across 280 configurations
+on four seeded datasets. Direct installed sklearn 1.6.1 comparisons cover all
+posterior parameters, resolved priors, precision factors, best-run bound history,
+convergence/iteration state, responsibilities, predictions and variational scores.
+Fixtures include both weight families, four covariance forms and initializers,
+restarts, custom priors, one-component models, constant/univariate/translated
+inputs, max_iter=0/1, tol=0, a billion-iteration budget with early stopping,
+same/shifted-data warm starts and fresh fits with changed dimension/covariance.
+Numerical tolerance is atol=rtol=3e-8; labels and metadata are exact. Source bound
+histories are observed without replacing source computation.
+
+Of these groups, 192 check native sampling frequency/moment certificates,
+grouped labels and repeated-call determinism on 20,000 draws per sampled model.
+Analytic mixture first/fourth moments supply seven-standard-error frequency,
+mean and covariance bounds. Sampling follows the source distribution and grouped
+labels, but categorical counts/Cholesky roots intentionally use a different
+seeded stream from NumPy multinomial/SVD sampling; posterior comparisons remain
+direct. Native tests independently verify analytic Normal-Wishart posterior
+means/covariances, mean precision and degrees of freedom, expected-log scores
+under both priors, covariance inverse identities, nondecreasing bounds,
+initialization-only state, warm continuation, huge-budget history allocation,
+refit shapes and Gaussian sampling moments.
+
+Inventory: 150 core types, 68 source modules, 70 native test programs,
+49 reference suites and 41,653 result groups, plus 28 separate NumPy stream
+groups. Fifty-four new isolated cases bring the inventory to 1,181.
+variational_mixture demonstrates posterior weights, effective components and
+query probabilities. MIT licensing and upstream notices remain in place;
+no runtime dependency or public extension was added.
+
+Validation completed on the final implementation: all 5,524 Bayesian mixture
+result groups and all 2,992 biclustering regression groups passed through their
+package-built drivers. All 70 native test programs passed with
+-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow and in release mode.
+All 1,181 isolated invalid-input cases passed, including 54 new Bayesian mixture
+cases. The checked variational_mixture example converged in 15 iterations,
+found two components above 0.05 weight, returned query labels 5/1/1 and unit
+probability row sums. Python syntax, Fortran formatting, inventories, report
+contents, unique registrations and git diff checks passed. Other Python
+reference suites were not rerun. MIT project licensing and complete upstream
+notices are retained, with no runtime dependency added.

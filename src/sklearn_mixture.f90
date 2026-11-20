@@ -1,9 +1,10 @@
 module sklearn_mixture
+  use sklearn_bayesian_mixture, only: bayesian_gaussian_mixture
   use sklearn_common
   use sklearn_cluster, only: kmeans
   implicit none
   private
-  public :: gaussian_mixture
+  public :: gaussian_mixture,bayesian_gaussian_mixture
   type :: gaussian_mixture
     integer :: n_components=1,max_iter=100,n_init=1,random_state=0,n_iter_=0
     real(dp) :: tol=1.e-3_dp,reg_covar=1.e-6_dp,lower_bound_=0

@@ -25,6 +25,10 @@ program invalid_input_driver
   type(leave_one_group_out) :: logo_cv
   type(sgd_classifier) :: sgdc
   type(sgd_regressor) :: sgd
+  type(bayesian_gaussian_mixture) :: bg_case
+  real(dp) :: bg_x(6,2),bg_scalar
+  real(dp), allocatable :: bg_prob(:,:),bg_scores(:),bg_draws(:,:)
+  integer, allocatable :: bg_labels(:)
   type(spectral_coclustering) :: bc_co
   type(spectral_biclustering) :: bc_bi
   real(dp) :: bc_x(4,4)
@@ -152,6 +156,9 @@ program invalid_input_driver
   elimination_cv%cv=2
   seq%cv=2
   x=1; y=1; call get_command_argument(1,mode)
+  bg_x(:,1)=[-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp]
+  bg_x(:,2)=[0._dp,1._dp,-1._dp,2._dp,0._dp,1._dp]
+  bg_case%n_components=2; bg_case%max_iter=3
   bc_x=reshape([12._dp,13._dp,2._dp,3._dp,12._dp,14._dp,2._dp,4._dp, &
     2._dp,3._dp,15._dp,16._dp,2._dp,4._dp,16._dp,18._dp],[4,4])
   bc_co%n_clusters=2; bc_co%n_init=1
@@ -159,6 +166,179 @@ program invalid_input_driver
   mb_case%n_clusters=2; mb_case%max_iter=2; mb_case%batch_size=6
   bisect_case%n_clusters=2
   select case(trim(mode))
+  case('bgm_components_zero')
+    bg_case%n_components=0
+    call bg_case%fit(bg_x)
+  case('bgm_components_high')
+    bg_case%n_components=7
+    call bg_case%fit(bg_x)
+  case('bgm_iterations')
+    bg_case%max_iter=-1
+    call bg_case%fit(bg_x)
+  case('bgm_restarts')
+    bg_case%n_init=0
+    call bg_case%fit(bg_x)
+  case('bgm_seed')
+    bg_case%random_state=-1
+    call bg_case%fit(bg_x)
+  case('bgm_tol_negative')
+    bg_case%tol=-1
+    call bg_case%fit(bg_x)
+  case('bgm_tol_nan')
+    bg_case%tol=ieee_value(0._dp,ieee_quiet_nan)
+    call bg_case%fit(bg_x)
+  case('bgm_reg_negative')
+    bg_case%reg_covar=-1
+    call bg_case%fit(bg_x)
+  case('bgm_reg_inf')
+    bg_case%reg_covar=ieee_value(0._dp,ieee_positive_inf)
+    call bg_case%fit(bg_x)
+  case('bgm_covariance_type')
+    bg_case%covariance_type='unknown'
+    call bg_case%fit(bg_x)
+  case('bgm_weight_type')
+    bg_case%weight_concentration_prior_type='unknown'
+    call bg_case%fit(bg_x)
+  case('bgm_init')
+    bg_case%init_params='unknown'
+    call bg_case%fit(bg_x)
+  case('bgm_weight_negative')
+    bg_case%weight_concentration_prior=-1
+    call bg_case%fit(bg_x)
+  case('bgm_weight_nan')
+    bg_case%weight_concentration_prior=ieee_value(0._dp,ieee_quiet_nan)
+    call bg_case%fit(bg_x)
+  case('bgm_mean_precision_zero')
+    bg_case%mean_precision_prior=0
+    call bg_case%fit(bg_x)
+  case('bgm_mean_precision_nan')
+    bg_case%mean_precision_prior=ieee_value(0._dp,ieee_quiet_nan)
+    call bg_case%fit(bg_x)
+  case('bgm_degrees_boundary')
+    bg_case%degrees_of_freedom_prior=1
+    call bg_case%fit(bg_x)
+  case('bgm_degrees_negative')
+    bg_case%degrees_of_freedom_prior=-1
+    call bg_case%fit(bg_x)
+  case('bgm_degrees_inf')
+    bg_case%degrees_of_freedom_prior=ieee_value(0._dp,ieee_positive_inf)
+    call bg_case%fit(bg_x)
+  case('bgm_weight_tiny')
+    bg_case%weight_concentration_prior=1.e-320_dp
+    call bg_case%fit(bg_x)
+  case('bgm_mean_shape')
+    bg_case%mean_prior=[0._dp]
+    call bg_case%fit(bg_x)
+  case('bgm_mean_nan')
+    bg_case%mean_prior=[0._dp,ieee_value(0._dp,ieee_quiet_nan)]
+    call bg_case%fit(bg_x)
+  case('bgm_covariance_shape')
+    bg_case%covariance_prior=reshape([1._dp],[1,1])
+    call bg_case%fit(bg_x)
+  case('bgm_covariance_nan')
+    bg_case%covariance_prior=reshape([1._dp,0._dp,0._dp, &
+      ieee_value(0._dp,ieee_quiet_nan)],[2,2])
+    call bg_case%fit(bg_x)
+  case('bgm_covariance_asymmetric')
+    bg_case%covariance_prior=reshape([1._dp,.2_dp,0._dp,1._dp],[2,2])
+    call bg_case%fit(bg_x)
+  case('bgm_covariance_indefinite')
+    bg_case%covariance_prior=reshape([1._dp,2._dp,2._dp,1._dp],[2,2])
+    call bg_case%fit(bg_x)
+  case('bgm_diag_off_diagonal')
+    bg_case%covariance_type='diag'
+    bg_case%covariance_prior=reshape([1._dp,.2_dp,.2_dp,1._dp],[2,2])
+    call bg_case%fit(bg_x)
+  case('bgm_diag_zero')
+    bg_case%covariance_type='diag'
+    bg_case%covariance_prior=reshape([1._dp,0._dp,0._dp,0._dp],[2,2])
+    call bg_case%fit(bg_x)
+  case('bgm_spherical_unequal')
+    bg_case%covariance_type='spherical'
+    bg_case%covariance_prior=reshape([1._dp,0._dp,0._dp,2._dp],[2,2])
+    call bg_case%fit(bg_x)
+  case('bgm_zero_covariance')
+    bg_case%reg_covar=0
+    call bg_case%fit(0*bg_x)
+  case('bgm_zero_diag_covariance')
+    bg_case%covariance_type='diag'; bg_case%reg_covar=0
+    call bg_case%fit(0*bg_x)
+  case('bgm_empty')
+    call bg_case%fit(reshape([real(dp)::],[0,2]))
+  case('bgm_single_row')
+    call bg_case%fit(bg_x(:1,:))
+  case('bgm_nan')
+    bg_x(1,1)=ieee_value(0._dp,ieee_quiet_nan)
+    call bg_case%fit(bg_x)
+  case('bgm_inf')
+    bg_x(1,1)=ieee_value(0._dp,ieee_positive_inf)
+    call bg_case%fit(bg_x)
+  case('bgm_warm_components')
+    call bg_case%fit(bg_x)
+    bg_case%warm_start=.true.
+    bg_case%n_components=3
+    call bg_case%fit(bg_x)
+  case('bgm_warm_covariance')
+    call bg_case%fit(bg_x)
+    bg_case%warm_start=.true.
+    bg_case%covariance_type='diag'
+    call bg_case%fit(bg_x)
+  case('bgm_warm_weights')
+    call bg_case%fit(bg_x)
+    bg_case%warm_start=.true.
+    bg_case%weight_concentration_prior_type='dirichlet_distribution'
+    call bg_case%fit(bg_x)
+  case('bgm_warm_features')
+    call bg_case%fit(bg_x)
+    bg_case%warm_start=.true.
+
+    call bg_case%fit(bg_x(:,:1))
+  case('bgm_unfitted_predict')
+    bg_labels=bg_case%predict(bg_x)
+  case('bgm_unfitted_proba')
+    bg_prob=bg_case%predict_proba(bg_x)
+  case('bgm_unfitted_scores')
+    bg_scores=bg_case%score_samples(bg_x)
+  case('bgm_unfitted_score')
+    bg_scalar=bg_case%score(bg_x)
+  case('bgm_unfitted_sample')
+    call bg_case%sample(1,bg_draws,bg_labels)
+  case('bgm_query_features')
+    call bg_case%fit(bg_x)
+    bg_labels=bg_case%predict(bg_x(:,:1))
+  case('bgm_query_nan')
+    call bg_case%fit(bg_x)
+    bg_x(1,1)=ieee_value(0._dp,ieee_quiet_nan)
+    bg_prob=bg_case%predict_proba(bg_x)
+  case('bgm_query_empty')
+    call bg_case%fit(bg_x)
+    bg_scores=bg_case%score_samples(reshape([real(dp)::],[0,2]))
+  case('bgm_query_changed_components')
+    call bg_case%fit(bg_x)
+    bg_case%n_components=3
+    bg_labels=bg_case%predict(bg_x)
+  case('bgm_query_changed_covariance')
+    call bg_case%fit(bg_x)
+    bg_case%covariance_type='diag'
+    bg_labels=bg_case%predict(bg_x)
+  case('bgm_query_changed_weights')
+    call bg_case%fit(bg_x)
+    bg_case%weight_concentration_prior_type='dirichlet_distribution'
+    bg_labels=bg_case%predict(bg_x)
+  case('bgm_sample_zero')
+    call bg_case%fit(bg_x)
+    call bg_case%sample(0,bg_draws,bg_labels)
+  case('bgm_sample_negative')
+    call bg_case%fit(bg_x)
+    call bg_case%sample(-1,bg_draws,bg_labels)
+  case('bgm_sample_seed')
+    call bg_case%fit(bg_x)
+    bg_case%random_state=-1
+    call bg_case%sample(1,bg_draws,bg_labels)
+  case('bgm_sample_changed')
+    call bg_case%fit(bg_x)
+    bg_case%n_components=3
+    call bg_case%sample(1,bg_draws,bg_labels)
   case('bcsp_co_clusters_one')
     bc_co%n_clusters=1
     call bc_co%fit(bc_x)

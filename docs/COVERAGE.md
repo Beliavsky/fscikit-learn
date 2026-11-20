@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 149 public estimator, transformer, and splitter types. Each is a
+There are 150 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Forty-eight reference suites additionally check 36,129
+All types have native tests. Forty-nine reference suites additionally check 41,653
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -48,7 +48,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | kernel_ridge | `kernel_ridge` | Positive alpha; linear/RBF/polynomial/sigmoid kernels; no intercept |
 | discriminant_analysis | `linear_discriminant_analysis`, `quadratic_discriminant_analysis` | LDA follows sklearn `solver='lsqr'` covariance convention with scalar shrinkage; QDA scalar regularization; singular covariance is rejected |
 | svm | `svc`, `nu_svc`, `linear_svc`, `linear_svr`; re-exports `svr`, `nu_svr`, `one_class_svm` | Primal L2 squared-loss linear classification/regression; OVO SVC/NuSVC; epsilon/nu support-vector regression and one-class detection; native pairwise dual optimization and weighted capacities |
-| mixture | `gaussian_mixture` | EM with k-means initialization, full/tied/diag/spherical covariances; posterior, log likelihood, BIC/AIC |
+| mixture | `gaussian_mixture`, `bayesian_gaussian_mixture` | EM Gaussian mixtures and variational Bayesian mixtures with finite Dirichlet or truncated stick-breaking weights; full/tied/diag/spherical covariances; responsibilities and likelihood scores; GaussianMixture BIC/AIC |
 | neural_network | `mlp_classifier`, `mlp_regressor` | Arbitrary dense hidden layer sizes, relu/tanh/logistic/identity, full-batch Adam, softmax classification or squared-error regression, L2 regularization |
 | gaussian_process | `gaussian_process_regressor`, `gaussian_process_classifier` | Fixed isotropic RBF amplitude/length scale plus white noise and diagonal alpha; Cholesky posterior, standard deviation/covariance, log marginal likelihood; optional target normalization; fixed-RBF Laplace binary/OVR classification |
 | covariance | `empirical_covariance`, `shrunk_covariance`, `ledoit_wolf`, `oas`, `graphical_lasso`, `min_cov_det`, `elliptic_envelope`; `fast_mcd` | Population covariance, pseudoinverse precision, squared Mahalanobis distance, likelihood, Frobenius/spectral covariance error; L1-penalized sparse precision via block coordinate descent; FastMCD robust covariance and elliptic outlier detection |
@@ -2230,3 +2230,90 @@ through the source shifts. Shift/margin overflow and nonpositive margins for
 scale/bistochastic normalization receive deliberate diagnostics. Log supports
 constant matrices through a completed null-space SVD basis. Original
 contributions retain MIT licensing with full upstream BSD notices.
+
+
+## BayesianGaussianMixture
+
+bayesian_gaussian_mixture implements sklearn's variational Gaussian mixture
+updates with dirichlet_process (default) and dirichlet_distribution weight
+priors, and full/tied/diag/spherical covariance forms. It estimates Beta stick
+or finite-Dirichlet concentrations, Gaussian mean precision, Wishart degrees of
+freedom, posterior means/covariances and Cholesky precision factors. Responsibilities
+use expected log weights and expected log precision, including mean uncertainty.
+score_samples returns the source variational log score, and score its mean;
+these are not ordinary Gaussian-mixture densities obtained by taking log(weights_).
+The simplified source lower bound, with its constant terms removed, drives
+convergence and restart selection. lower_bound_ is a total objective, rather
+than the per-row score returned by score.
+
+All four source initializers are supported: kmeans, random (row-normalized
+uniform responsibilities), random_from_data (uniform seeds without replacement),
+and k-means++ (greedy data seeds). Scalar-seeded legacy NumPy RNG state continues
+across initialization attempts. K-means initialization uses one native Lloyd fit
+with the source defaults and a shared centroid core. That core was extracted
+from the existing biclustering implementation without changing its update math;
+all 2,992 biclustering reference groups were rerun. Public KMeans, MiniBatchKMeans,
+GaussianMixture and the RNG helper bodies are unchanged.
+
+Native weight_concentration_prior=0 selects the source None default 1/K;
+positive values select an explicit prior. mean_precision_prior defaults to one,
+the resolved source None value. degrees_of_freedom_prior=0 selects p; explicit
+values must exceed p-1. Allocate mean_prior(p) for an explicit mean. Allocate
+covariance_prior(p,p) for an explicit covariance: full/tied require a finite
+symmetric positive-definite matrix; diag requires a positive diagonal matrix;
+spherical requires a positive scalar multiple of the identity. This expands the
+source's vector/scalar representations into a consistent Fortran matrix. Without
+an explicit covariance prior, the unbiased sample covariance/variances (ddof=1)
+are used, with spherical variance equal to their mean. A default prior can be
+singular, as in the source, provided regularization yields positive-definite
+posterior covariances. Nonfinite, incompatible or indefinite explicit priors
+receive deliberate diagnostics.
+
+n_init fits independent initializations using one continued RNG stream and
+retains the largest final bound. tol is an absolute bound change; zero disables
+tolerance stopping. max_iter=0 performs initialization only, retains the last
+initialization when n_init>1, sets n_iter_=0/converged_=false/lower_bound_=-infinity,
+and leaves an empty bound history. Posterior queries remain available. History
+storage grows with actual iterations, rather than the configured budget; an
+int64 loop counter supports large budgets with early stopping.
+
+With warm_start=true, a previously fitted model continues from its posterior
+and previous bound, using one run and recomputing default priors for the current
+data. The first warm-start fit still uses n_init attempts, following source
+behavior. Changing component count, feature count, covariance form or weight
+prior family requires a fresh fit with warm_start=false. Fresh fits may change
+feature/component counts and covariance form; explicit prior arrays must be
+reset to compatible shapes. Queries reject changes to fitted component/covariance/
+weight-family controls until refit. Fitted attributes otherwise follow the
+usual read-only convention.
+
+weights_, means_, mean_precision_, degrees_of_freedom_, weight_concentration_,
+covariances_, precisions_, precisions_cholesky_, n_iter_, converged_, lower_bound_
+and n_features_in_ expose source counterparts. Native covariance/precision
+arrays always have shape (p,p,K): tied matrices are repeated, and diag/spherical
+forms have zero off-diagonal entries. degrees_of_freedom_ repeats the tied scalar
+K times. weight_concentration_ has shape (K,2) for Beta (a,b) parameters or (K,1)
+for a finite Dirichlet vector. Resolved covariance_prior_ is likewise a full
+matrix. This consistent layout uses O(K*p*p) storage even in diagonal/spherical
+modes; their factorization avoids cubic work, and tied factorization is shared.
+Additional diagnostics are lower_bounds_ for the selected run and per-component
+log_det_precision_. The best-run history is checked against source per-iteration
+bounds; its final value matches lower_bound_.
+
+sample(n_samples,x,labels) draws from weights_, means_ and normalized
+covariances_, matching the source's Gaussian sampling distribution and grouping
+rows by zero-based component ID. It does not draw Student-t predictive samples.
+Each call restarts the configured scalar RNG seed. Native multinomial counts
+use independent categorical draws and full covariance sampling uses Cholesky
+roots, so the samples do not match NumPy's seeded multinomial/SVD stream bit for
+bit. Determinism, grouped labels, component frequencies and Gaussian-mixture
+first/second moments are verified separately from exact posterior comparisons.
+
+Native digamma uses positive-argument recurrence and a high-order asymptotic
+series; log-Gamma uses the Fortran intrinsic. No SciPy/Python runtime dependency
+is introduced. Fit requires at least two nonempty finite dense real64 rows,
+with 1<=K<=n_rows. tol/reg_covar are finite and nonnegative; scalar priors must
+be finite and valid, and extremely small digamma arguments that cannot have a
+finite real64 result are rejected. Sparse/float32 matrices, sample weights,
+verbose output, cloning and metadata routing are outside this subset. Original
+contributions retain MIT licensing, with sklearn/NumPy attribution preserved.

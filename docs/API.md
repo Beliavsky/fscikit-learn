@@ -1523,3 +1523,41 @@ Both types accept init='k-means++'/'random', positive n_init and scalar
 random_state; mini_batch=true uses the native MiniBatchKMeans centroid solver.
 See COVERAGE.md for normalization, vector selection, null-space/centroid ties,
 cluster-count bounds, diagnostic arrays and supported input/solver scope.
+
+
+## BayesianGaussianMixture
+
+Import bayesian_gaussian_mixture from sklearn, sklearn_mixture or
+sklearn_bayesian_mixture.
+
+```fortran
+type(bayesian_gaussian_mixture) :: model
+integer, allocatable :: labels(:),sample_labels(:)
+real(dp), allocatable :: probabilities(:,:),draws(:,:)
+model%n_components=8
+model%weight_concentration_prior_type='dirichlet_process'
+model%weight_concentration_prior=.1_dp
+model%covariance_type='full'
+model%max_iter=300
+call model%fit(x)
+probabilities=model%predict_proba(query)
+labels=model%predict(query)
+call model%sample(100,draws,sample_labels)
+```
+
+fit_predict returns fitted zero-based labels. score_samples returns per-row
+variational log scores; score returns their mean. init_params accepts kmeans,
+random, random_from_data or k-means++. Both weight prior families and all four
+covariance forms are supported. warm_start=true continues a compatible fitted
+posterior. max_iter=0 performs initialization only.
+
+Native scalar zero sentinels select default weight concentration 1/K and degrees
+of freedom p; mean precision defaults to one. Allocate mean_prior(p) or
+covariance_prior(p,p) for explicit priors. Diagonal covariance priors are positive
+diagonal matrices, and spherical priors are positive scalar identity matrices.
+All fitted covariance/precision arrays have shape (p,p,K), with repeated tied
+matrices and expanded diagonal/spherical entries. weight_concentration_ is (K,2)
+for Beta parameters or (K,1) for finite-Dirichlet concentrations. Resolved priors
+have trailing underscores. lower_bounds_ stores only the selected run's bounds.
+See COVERAGE.md for score semantics, warm/refit rules, history, storage cost,
+prior validation and native sampling reproducibility versus NumPy.
