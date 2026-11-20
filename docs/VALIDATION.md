@@ -2390,3 +2390,79 @@ Python syntax, Fortran line limits, diagnostic case-set equality/uniqueness,
 coverage/type/source/test/reference counts, license retention and git whitespace
 checks passed. Other Python reference suites were not rerun; their existing
 numerical estimator bodies were unchanged by this batch.
+
+## PolynomialCountSketch (2026-11-20)
+
+Added the core sklearn.kernel_approximation.PolynomialCountSketch counterpart,
+exported as polynomial_count_sketch by sklearn, sklearn_kernel_approximation
+and its focused module. Dense real64 fit/transform/fit_transform implement
+augmented polynomial TensorSketch: sqrt(gamma) feature scaling, an optional
+sqrt(coef0) constant, independent degree hash/sign tables, per-degree count
+sketches and the inverse FFT of their spectral product. Scalar seeds reproduce
+NumPy legacy RandomState integer draws, including C-order traversal and the
+one-bucket case. Public index_hash_ values remain zero-based, with table shape
+(degree,augmented_features); bit_hash_ stores -1/+1 signs. Refit replaces all
+hash tables and fitted dimensions. Inputs are preserved.
+
+Positive arbitrary component counts use radix-2 FFTs or Bluestein convolution,
+with a plan reused across rows/degrees within each transform. The MIT SciFort
+FFT helpers are adapted from local src/signal_spectral.f90, identified by SHA-256
+77283c0c5c14214e9a9c95c04ac9d737ee5153444a1027d38acd2f2d14f082a6.
+The SciFort copyright/header and complete MIT license are retained, and the
+modifications and Bluestein citation are recorded in THIRD_PARTY_NOTICES.md.
+The plan is implementation support, excluded from the sklearn facade/core type
+count. No SciFort runtime dependency or public algorithm extension is added.
+
+Controls default to gamma=1, degree=2, coef0=0, n_components=100 and native
+random_state=0. Fitted hash tables and n_features_in_/n_features_out_ are public.
+Source live controls are retained: gamma/coef0 magnitudes, a prefix degree and
+component counts that contain all active buckets can change after fitting.
+Actual output width follows current n_components; n_features_out_ stays at the
+fitted value, matching source. Changing zero/nonzero coef0 status requires a
+refit because it changes augmented width. Negative finite coef0 is accepted
+but produces source-compatible all-NaN features, implemented explicitly to
+avoid invalid floating traps. Native transform checks invalid changed controls
+and inconsistent fitted hashes with explicit diagnostics. Supported seeds are
+nonnegative default integers. Sparse input, Python RNG objects/global streams,
+feature-name methods and metadata routing are outside this wrapper.
+
+compare_polynomial_count_sketch.py checks 2,950 direct sklearn 1.6.1 result
+groups across five seeds, 140 scenarios and 590 fit/transform operations.
+Seeds include zero and the largest supported default integer. Each operation
+checks exact bucket/sign tables and fitted/output metadata, plus features and
+Gram matrices at atol=rtol=3e-8 with equal NaNs. Fixtures cover one/power-of-two/
+composite/prime component counts through 2,048, degrees 1 through 7, gamma=0,
+zero/positive/negative offsets, zero rows, one/wide/changing feature counts,
+constant inputs, live controls, repeated fitting and independent query data.
+All groups use the source oracle without identity-based substitutions.
+
+Native tests independently enumerate an exact degree-two tensor sketch and
+compare complex FFTs to direct Fourier sums for short lengths. Eighteen FFT
+lengths through 1,009 check forward/inverse round trips, including radix-2,
+composite and prime sizes. Additional checks cover input preservation, signed
+constant maps, deterministic seed/refit behavior and negative-offset NaNs.
+Thirty-six new isolated diagnostics cover parameter domains, empty/nonfinite
+data, unfitted transforms, query/augmented dimensions, invalid changed
+controls, hash shapes/buckets, integer work-size overflow and FFT plan misuse.
+The polynomial_kernel_features example uses the public facade to compare a
+mapped dot product with the corresponding exact polynomial kernel.
+
+Inventory: 165 core types, 77 source modules, 79 native test programs,
+58 reference suites and 91,321 result groups, plus 28 separate NumPy stream
+groups. Isolated invalid-input inventory is 1,555. Original contributions
+remain MIT licensed with complete upstream notices and specific attribution.
+
+Validation completed: all 79 native test programs passed with bounds checks,
+backtraces and invalid/zero/overflow traps, and all 79 passed in release mode.
+The 2,950-group source suite passed against both fpm checked and optimized
+release executables, with exact hashes/signs/metadata and no substituted
+oracles. All 1,555 isolated invalid-input cases passed. The checked public
+example mapped three samples to 1,009 components; its first-pair approximate
+kernel was 10.890624999999352 versus the exact polynomial kernel 11.390625.
+These illustrate a randomized approximation, not an exact kernel guarantee.
+Python syntax, all Fortran line limits/trailing whitespace, diagnostic case
+uniqueness/equality, type/module/test/reference inventories, retained licenses,
+source hash and git whitespace checks passed. Other Python estimator reference
+suites were not rerun; their existing numerical bodies were unchanged. Their
+saved passing results form the historical aggregate of 91,321 core groups,
+with the 28 NumPy stream groups reported separately.

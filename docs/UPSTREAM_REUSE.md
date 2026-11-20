@@ -6,6 +6,13 @@ These are engineering recommendations based on current project gaps and
 inspected upstream documentation/source, not adopted dependencies or measured
 performance claims. No candidate source has been integrated by this review.
 
+Subsequent integration, 2026-11-20: PolynomialCountSketch vendors the MIT FFT
+plan/radix-2/Bluestein helpers from the local SciFort source. This is separate
+from the candidate repositories reviewed below. The exact source SHA-256,
+retained SciFort copyright/license, modifications and Bluestein citation are
+recorded in [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md#scifort-fft-helpers-mit).
+It adds no runtime dependency or public algorithm extension.
+
 Apply the [scope policy](SCOPE.md) to every selected feature, not just to each
 repository as a whole. Core scikit-learn counterparts have priority; public
 extensions require explicit identification in [EXTENSIONS.md](EXTENSIONS.md)

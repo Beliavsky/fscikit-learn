@@ -1,11 +1,13 @@
 ! Dense kernel feature maps following sklearn/kernel_approximation.py.
 ! See THIRD_PARTY_NOTICES.md for upstream BSD-3-Clause attribution.
 module sklearn_kernel_approximation
+  use sklearn_polynomial_count_sketch, only: polynomial_count_sketch
   use sklearn_common
   use sklearn_metrics, only: linear_kernel,rbf_kernel,polynomial_kernel,cosine_similarity
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
   implicit none
   private
+  public :: polynomial_count_sketch
   public :: rbf_sampler,nystroem,additive_chi2_sampler,skewed_chi2_sampler
   ! Chi2 map contracts follow sklearn 1.6.1 kernel_approximation.py.
   type :: additive_chi2_sampler

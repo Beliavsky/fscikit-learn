@@ -21,6 +21,7 @@ Reference paths by module:
 
 | Fortran module | scikit-learn reference |
 | --- | --- |
+| polynomial_count_sketch | kernel_approximation.py PolynomialCountSketch index/sign draw order, augmented polynomial features, count sketches, FFT product/inverse and live transform-control semantics; native legacy RandomState helper described below; FFT kernels separately attributed to SciFort below |
 | univariate_selection | feature_selection/_univariate_selection.py ANOVA/regression/chi-square score and p-value contracts, percentile/NaN/tie rules, FPR, Benjamini-Hochberg FDR, Bonferroni FWE and generic mode selection; feature_selection/_base.py support, projection and inverse conventions; NumPy 2.2.6 lib/_function_base_impl.py percentile interpolation semantics. Native beta continued fraction (modified Lentz) from [NIST DLMF 8.17.22-23](https://dlmf.nist.gov/8.17#v), symmetry 8.17.4, and integer/half-integer upper-gamma recurrence [DLMF 8.8.6](https://dlmf.nist.gov/8.8#E6). No SciFort code was copied or linked; mathematical specifications were independently implemented. Native zero-column inverse restoration is explicitly documented |
 | omp_cv | linear_model/_omp.py OrthogonalMatchingPursuitCV and _omp_path_residues fold centering, minimum-length path truncation, equally weighted fold MSE selection and full-data refit; _cholesky_omp forward paths and _gram_omp auto-precomputed refit with column permutations and incremental triangular solves; model_selection/_split.py KFold/PredefinedSplit partition conventions. Native mask-based arbitrary partitions, path diagnostics and explicit empty-path diagnostic |
 | minibatch_nmf | decomposition/_nmf.py MiniBatchNMF beta-divergence/MM updates, regularization scaling, random/NNDSVD initialization and fill conventions, online numerator/denominator forgetting, fresh restarts, cached streaming parameters and EWA/motion/patience stopping; existing utils/extmath.py randomized-SVD backend and NumPy-compatible Gaussian stream. Research: C. Boutsidis and E. Gallopoulos, Pattern Recognition (2008), NNDSVD; C. Fevotte and J. Idier, Neural Computation (2011), beta-divergence algorithms; A. Lefevre, F. Bach and C. Fevotte (2011), online Itakura-Saito NMF. Native explicit null-direction/zero-norm handling and consistent beta-domain checks |
@@ -145,7 +146,12 @@ and pseudo-likelihood corruption. Mini-batch dictionary/SparsePCA initialization
 row shuffling and unused-atom resampling also reuse this stream. MiniBatchNMF
 uses its Gaussian draws for random/NNDSVD initialization and NNDSVDAR filling.
 Multi-task coordinate paths also reuse the bounded-integer stream to seed
-sklearn's separate uint32 XorShift coordinate sampler. Reference sources:
+sklearn's separate uint32 XorShift coordinate sampler.
+
+PolynomialCountSketch uses this same legacy stream for its bucket and sign
+tables, retaining source zero-based bucket values and C-order draw traversal.
+
+Reference sources:
 
 - numpy/random/src/mt19937/mt19937.c and mt19937.h
 - numpy/random/src/legacy/legacy-distributions.c (legacy_gauss)
@@ -171,3 +177,30 @@ notice is retained in LICENSES/numpy-DISTRIBUTIONS-LICENSE.md; the Julia-derived
 ziggurat implementations described there are not used. Applicable upstream
 terms continue to apply to adapted portions; original contributions retain
 the project MIT license.
+
+## SciFort FFT helpers (MIT)
+
+`src/sklearn_count_sketch_fft.f90` adapts the FFT plan, radix-2 transform and
+Bluestein convolution paths from the user-provided SciFort translation at
+`c:/fortran/scifort/src/signal_spectral.f90`, inspected 2026-11-20. The exact
+input file is identified by SHA-256
+`77283c0c5c14214e9a9c95c04ac9d737ee5153444a1027d38acd2f2d14f082a6`.
+Copyright (c) 2026 SciFort contributors. The full MIT license is retained in
+[`LICENSES/scifort-MIT.txt`](LICENSES/scifort-MIT.txt) and the source header
+retains the upstream copyright and license identifier.
+
+Adaptation isolates radix-2/Bluestein, uses project real64 kinds and explicit
+input/allocation diagnostics, removes unrelated spectral/window/mixed-radix
+code, and computes chirp phases with an int64 modular square. The radix-2
+stage loop stops before its final integer doubling. The helpers are vendored
+implementation support; no SciFort library, Python package or external FFT
+runtime is linked. The plan is absent from the core `sklearn` facade and
+algorithm counts. SciFort identifies these FFT kernels as original MIT work;
+its separately attributed Welch/window analysis code is not included here.
+
+Mathematical reference: Leo I. Bluestein, "A linear filtering approach to the
+computation of discrete Fourier transform," IEEE Transactions on Audio and
+Electroacoustics 18(4), 1970, pp. 451-455,
+[doi:10.1109/TAU.1970.1162132](https://doi.org/10.1109/TAU.1970.1162132).
+The estimator's sklearn contracts retain the existing BSD-3-Clause notice;
+original project contributions remain MIT.

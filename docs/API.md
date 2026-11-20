@@ -1876,3 +1876,55 @@ and masks are source checked, and separately reported score checks certify the
 underlying squared correlation within 64 machine epsilons. See
 [coverage](COVERAGE.md#statistical-univariate-selectors-2026-11-20) and
 `example/statistical_feature_selection.f90`.
+
+## PolynomialCountSketch
+
+Import `polynomial_count_sketch` from `sklearn`,
+`sklearn_kernel_approximation` or `sklearn_polynomial_count_sketch`.
+
+```fortran
+type(polynomial_count_sketch) :: features
+features%degree=3
+features%gamma=.5_dp
+features%coef0=1
+features%n_components=1009
+features%random_state=42
+z=features%fit_transform(x)
+query_features=features%transform(query)
+! dot_product(z(i,:),z(j,:)) approximates
+! (gamma*dot_product(x(i,:),x(j,:))+coef0)**degree.
+```
+
+Defaults are `degree=2`, `gamma=1`, `coef0=0`, `n_components=100` and native
+`random_state=0`. `fit(X)` builds seeded hash tables; `fit_transform(X)` fits
+and returns an allocated N-by-n_components matrix. Degree and component count
+must be positive, gamma finite and nonnegative, and coef0 finite. Negative
+coef0 is accepted by sklearn 1.6.1 but produces all-NaN transformed features;
+the native implementation returns quiet NaNs explicitly, including with
+floating-point traps enabled. Use nonnegative coef0 for a real polynomial map.
+
+Learned `index_hash_` and `bit_hash_` have shape `(degree,augmented_features)`;
+the augmented count is P+1 when coef0 is nonzero and P otherwise. Hash buckets
+are **zero-based**, matching source `indexHash_`, while signs are -1 or +1.
+This is an intentional exception to ordinary one-based native support indices.
+Scalar seeds in [0,huge(default integer)] reproduce the source NumPy legacy
+RandomState draw order. `n_features_in_` records P; `n_features_out_` records
+the fitted component count. A full refit replaces the tables and metadata.
+
+Source live transform controls are retained: gamma and coef0 magnitudes can
+change; degree can shrink to a prefix of fitted hash rows; component count can
+change when every retained bucket still fits. The output uses the current
+component count, while `n_features_out_` remains the fitted value, as in source.
+Switching coef0 between zero and nonzero changes the augmented width and
+requires refitting. Growing degree beyond fitted rows or excluding a stored
+bucket raises an explicit native diagnostic. Native transform revalidates
+controls, including invalid post-fit changes that source may reject less
+directly. Changing random_state affects the next fit, not existing tables.
+
+Dense finite real64 inputs, scalar seeds and allocated outputs are supported.
+Sparse matrices, Python RNG objects/global RNG state, feature-name methods and
+metadata routing are outside this interface. FFT work is O(degree*D*log(D))
+per sample, plus O(degree*P) hashing, using radix-2 and Bluestein paths; the
+plan is reused within each transform call. Native SciFort FFT helpers are
+vendored under MIT with attribution, without a runtime library dependency.
+See `example/polynomial_kernel_features.f90` for a complete program.

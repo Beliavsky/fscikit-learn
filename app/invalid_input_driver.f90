@@ -1,9 +1,13 @@
 ! Validation helper: each selected case must terminate with an input diagnostic.
 program invalid_input_driver
   use sklearn
+  use sklearn_count_sketch_fft, only: count_sketch_fft_plan
   use sklearn_legacy_rng, only: legacy_random_state
   use, intrinsic :: ieee_arithmetic, only: ieee_value,ieee_quiet_nan,ieee_positive_inf
   implicit none
+  type(polynomial_count_sketch) :: pcs
+  type(count_sketch_fft_plan) :: pcs_fft
+  complex(dp) :: pcs_complex(3)=cmplx(0._dp,0._dp,dp)
   type(sparse_pca) :: sp_projection
   type(dictionary_learning) :: sp_dictionary
   type(sparse_coder) :: sp_coder
@@ -220,6 +224,122 @@ program invalid_input_driver
   uv_x(:,1)=[-1._dp,-1._dp,1._dp,1._dp]; uv_x(:,2)=[-1._dp,1._dp,-1._dp,1._dp]; uv_x(:,3)=0
   uv_y=[-1,-1,1,1]; uv_scores=[1._dp,2._dp,3._dp]; uv_pvalues=[.01_dp,.04_dp,.8_dp]
   select case(trim(mode))
+  case('pcs_gamma_negative')
+    pcs%gamma=-1
+    call pcs%fit(uv_x)
+  case('pcs_gamma_nan')
+    pcs%gamma=ieee_value(0._dp,ieee_quiet_nan)
+    call pcs%fit(uv_x)
+  case('pcs_gamma_inf')
+    pcs%gamma=ieee_value(0._dp,ieee_positive_inf)
+    call pcs%fit(uv_x)
+  case('pcs_coef_nan')
+    pcs%coef0=ieee_value(0._dp,ieee_quiet_nan)
+    call pcs%fit(uv_x)
+  case('pcs_coef_inf')
+    pcs%coef0=ieee_value(0._dp,ieee_positive_inf)
+    call pcs%fit(uv_x)
+  case('pcs_degree_zero')
+    pcs%degree=0
+    call pcs%fit(uv_x)
+  case('pcs_degree_negative')
+    pcs%degree=-1
+    call pcs%fit(uv_x)
+  case('pcs_components_zero')
+    pcs%n_components=0
+    call pcs%fit(uv_x)
+  case('pcs_components_negative')
+    pcs%n_components=-1
+    call pcs%fit(uv_x)
+  case('pcs_seed')
+    pcs%random_state=-1
+    call pcs%fit(uv_x)
+  case('pcs_empty')
+    call pcs%fit(uv_x(:0,:))
+  case('pcs_no_features')
+    call pcs%fit(uv_x(:,:0))
+  case('pcs_nan')
+    uv_x(1,1)=ieee_value(0._dp,ieee_quiet_nan)
+    call pcs%fit(uv_x)
+  case('pcs_inf')
+    uv_x(1,1)=ieee_value(0._dp,ieee_positive_inf)
+    call pcs%fit(uv_x)
+  case('pcs_hash_overflow')
+    pcs%degree=huge(1)
+    call pcs%fit(uv_x)
+  case('pcs_fit_transform')
+    pcs%degree=0
+    uv_values=pcs%fit_transform(uv_x)
+  case('pcs_unfitted')
+    uv_values=pcs%transform(uv_x)
+  case('pcs_query_features')
+    call pcs%fit(uv_x)
+    uv_values=pcs%transform(uv_x(:,:2))
+  case('pcs_query_empty')
+    call pcs%fit(uv_x)
+    uv_values=pcs%transform(uv_x(:0,:))
+  case('pcs_query_nan')
+    call pcs%fit(uv_x)
+    uv_x(1,1)=ieee_value(0._dp,ieee_quiet_nan)
+    uv_values=pcs%transform(uv_x)
+  case('pcs_live_gamma')
+    call pcs%fit(uv_x)
+    pcs%gamma=-1
+    uv_values=pcs%transform(uv_x)
+  case('pcs_live_coef')
+    call pcs%fit(uv_x)
+    pcs%coef0=ieee_value(0._dp,ieee_positive_inf)
+    uv_values=pcs%transform(uv_x)
+  case('pcs_live_degree_zero')
+    call pcs%fit(uv_x)
+    pcs%degree=0
+    uv_values=pcs%transform(uv_x)
+  case('pcs_live_components_zero')
+    call pcs%fit(uv_x)
+    pcs%n_components=0
+    uv_values=pcs%transform(uv_x)
+  case('pcs_live_degree_high')
+    call pcs%fit(uv_x)
+    pcs%degree=3
+    uv_values=pcs%transform(uv_x)
+  case('pcs_add_constant')
+    call pcs%fit(uv_x)
+    pcs%coef0=1
+    uv_values=pcs%transform(uv_x)
+  case('pcs_remove_constant')
+    pcs%coef0=1
+    call pcs%fit(uv_x)
+    pcs%coef0=0
+    uv_values=pcs%transform(uv_x)
+  case('pcs_bucket_negative')
+    call pcs%fit(uv_x)
+    pcs%index_hash_(1,1)=-1
+    uv_values=pcs%transform(uv_x)
+  case('pcs_bucket_high')
+    call pcs%fit(uv_x)
+    pcs%index_hash_(1,1)=pcs%n_components
+    uv_values=pcs%transform(uv_x)
+  case('pcs_hash_shape')
+    call pcs%fit(uv_x)
+    deallocate(pcs%bit_hash_)
+    allocate(pcs%bit_hash_(1,3))
+    uv_values=pcs%transform(uv_x)
+  case('pcs_fft_zero')
+    call pcs_fft%initialize(0)
+  case('pcs_fft_overflow')
+    call pcs_fft%initialize(huge(1))
+  case('pcs_transform_overflow')
+    call pcs%fit(uv_x)
+    pcs%n_components=huge(1)
+    uv_values=pcs%transform(uv_x)
+  case('pcs_fft_uninitialized')
+    call pcs_fft%forward(pcs_complex)
+  case('pcs_fft_forward_width')
+    call pcs_fft%initialize(2)
+    call pcs_fft%forward(pcs_complex)
+  case('pcs_fft_inverse_width')
+    call pcs_fft%initialize(2)
+    call pcs_fft%inverse(pcs_complex)
   case('uv_percentile_negative')
     uv_percentile%percentile=-1
     call uv_percentile%fit_scores(uv_scores)
