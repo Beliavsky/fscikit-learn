@@ -1,4 +1,5 @@
 module sklearn_preprocessing
+  use sklearn_label_binarization, only: label_binarizer,multi_label_binarizer,label_set
   use sklearn_spline, only: spline_transformer
   use sklearn_knn_impute, only: knn_imputer,missing_indicator
   use sklearn_common
@@ -8,6 +9,7 @@ module sklearn_preprocessing
   use, intrinsic :: ieee_arithmetic, only: ieee_is_nan
   implicit none
   private
+  public :: label_binarizer,multi_label_binarizer,label_set
   public :: spline_transformer
   public :: knn_imputer,missing_indicator
   public :: power_transformer,kbins_discretizer,quantile_transformer

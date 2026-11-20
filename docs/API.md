@@ -1928,3 +1928,70 @@ per sample, plus O(degree*P) hashing, using radix-2 and Bluestein paths; the
 plan is reused within each transform call. Native SciFort FFT helpers are
 vendored under MIT with attribution, without a runtime library dependency.
 See `example/polynomial_kernel_features.f90` for a complete program.
+
+## Label and multilabel binarization
+
+`label_binarizer`, `multi_label_binarizer` and the native ragged container
+`label_set` are exported by `sklearn`, `sklearn_preprocessing` and
+`sklearn_label_binarization`. The container holds one sample's integer labels;
+it is supporting data representation, excluded from core algorithm counts.
+
+```fortran
+type(label_binarizer) :: target
+integer, allocatable :: indicator(:,:),restored(:)
+indicator=target%fit_transform([-3,7,7,-3]) ! shape (4,1), positive class 7
+restored=target%inverse_transform(indicator)
+```
+
+`fit(y)` and `fit_transform(y)` accept a nonempty rank-one integer target.
+Learned `classes_` are sorted; `y_type_` is 'binary' for one/two classes and
+'multiclass' otherwise. `neg_label=0` and `pos_label=1` are configurable
+integers, with neg_label<pos_label. Encoding returns an allocated integer
+matrix. Ordinary binary targets use one positive-class column; multiclass
+targets use one column per class. A one-class fit normally encodes all labels
+as neg_label. Unknown query labels receive negative entries.
+
+The source determines transform target type from each query: a query with
+three or more distinct labels uses all fitted class columns, even after a
+binary fit. With a one-class fit, this can encode the known class positively.
+Changing pos_label/neg_label affects subsequent transforms; refitting replaces
+the classes and target type. Transform rejects empty queries, as in source.
+
+`inverse_transform(scores,threshold)` accepts rank-two integer or real64
+scores and returns an allocated integer target. Binary inverse uses strict
+score>threshold, defaulting to the midpoint of pos_label and neg_label. With
+two score columns it uses column two. Multiclass inverse ignores threshold,
+selects the first maximum per row and clips an extra-column winning index to
+the last class, following source. Empty inverse row counts are supported.
+Native inverse requires finite scores, positive score width and a finite
+binary threshold. A one-class two-column inverse selecting the absent positive
+class receives an explicit diagnostic where source raises IndexError.
+Rank-two multilabel-indicator fitting, string/object labels and sparse outputs
+are outside this LabelBinarizer subset.
+
+```fortran
+type(multi_label_binarizer) :: tags
+type(label_set) :: samples(3)
+type(label_set), allocatable :: sets(:)
+samples(1)%values=[10,30,10] ! duplicates become one indicator
+samples(2)%values=[20,30]   ! sample 3 is empty (values unallocated)
+tags%classes=[30,10,20]     ! optional constructor control, in requested order
+indicator=tags%fit_transform(samples)
+sets=tags%inverse_transform(indicator)
+```
+
+Without allocated `classes`, fit discovers a sorted union. With allocated
+`classes`, fit preserves its order and requires unique entries. Empty class
+lists and empty datasets are supported. Learned `classes_` is a snapshot;
+changing constructor classes affects the next fit. Deallocate `classes` to
+resume automatic discovery. Repeated labels are idempotent; unknown transform
+labels are ignored, matching source values without emitting Python warnings.
+
+The output is an N-by-C integer 0/1 matrix, including N-by-zero when no classes
+are fitted. Both integer and real64 inverse indicators are accepted, but every
+entry must be exactly zero or one. Inverse returns allocated label_set rows
+in fitted class order, including allocated zero-length values for empty sets.
+Unallocated input values and allocated zero-length values both represent an
+empty set. Inputs are preserved. Generic Python iterables/object labels,
+sparse matrices and feature-name integration are outside this interface.
+See `example/label_encoding.f90` for a complete program.

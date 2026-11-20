@@ -2467,3 +2467,81 @@ source hash and git whitespace checks passed. Other Python estimator reference
 suites were not rerun; their existing numerical bodies were unchanged. Their
 saved passing results form the historical aggregate of 91,321 core groups,
 with the 28 NumPy stream groups reported separately.
+
+## LabelBinarizer and MultiLabelBinarizer (2026-11-20)
+
+Added label_binarizer and multi_label_binarizer as core sklearn preprocessing
+counterparts, exported by sklearn, sklearn_preprocessing and the focused
+sklearn_label_binarization module. Both implement fit, transform, fit_transform
+and integer/real inverse_transform overloads, with allocated integer outputs.
+The public label_set container represents a ragged row of integer labels;
+it is data representation, excluded from the algorithm count like index_split.
+No public algorithm extension or runtime dependency is added.
+
+LabelBinarizer discovers sorted classes from a nonempty rank-one integer target,
+preserves source one/two-class versus multiclass encoding, configurable integer
+negative/positive values and unknown-label negative entries. Default neg_label=0
+and pos_label=1 can change after fitting. One-class binary queries are entirely
+negative. Source query-dependent target typing is retained: three distinct
+query labels produce all fitted class columns even after binary fitting, and
+can mark a known single class positively. Refit replaces classes_/y_type_.
+Binary inverse uses a strict midpoint/explicit threshold, using the second
+column for two-column scores. Multiclass inverse picks the first maximal score
+and clips an extra-column winning index, as in source. Native midpoint
+arithmetic avoids default-integer overflow for extreme encoding values.
+Empty inverse row counts are supported. Native inverse requires finite scores,
+positive width and a finite binary threshold; source's absent single-class
+positive index becomes an explicit diagnostic. Rank-two multilabel-indicator
+LabelBinarizer fitting, sparse output and string/object labels are unsupported.
+
+MultiLabelBinarizer discovers a sorted union or preserves a unique constructor
+classes ordering. Constructor changes wait for the next fit; classes_ is a
+fitted snapshot. Repeated labels are idempotent. Unknown labels are ignored
+with source indicator values, without Python warnings. Unallocated/empty row
+values, empty datasets, empty fitted/configured vocabularies and zero-column
+indicator matrices are supported. Inverse validates exact 0/1 integer or real
+indicators and returns allocated label sets in fitted class order. Inputs are
+preserved. Python iterable/object/string APIs, sparse formats and feature-name
+integration are outside this wrapper.
+
+compare_label_binarization.py checks 6,285 exact sklearn 1.6.1 result groups
+across 555 scenarios and five seeds. The 375 LabelBinarizer scenarios check
+one/two/many classes, known/unknown/multiclass queries, zero/negative/positive/
+extreme integer encodings, fit and fit_transform parity, query dimensions,
+target type, both inverse overload paths, threshold equalities, tied maxima,
+changed score widths, live encoding controls and dimension-changing refits.
+The 180 MultiLabelBinarizer scenarios check automatically discovered, reversed,
+subset and empty class orders, duplicates, unknown labels, empty rows/datasets,
+integer and real inverse indicators, complemented indicators, fitted snapshots
+and rediscovery on refit. All groups use the source oracle and exact integer
+array equality, including ragged counts and flattened inverse values.
+
+Native tests independently assert binary class ordering, strict thresholds,
+query-dependent widths, zero positive encoding, first-max ties and index
+clipping, single-class negatives, empty inverse rows, duplicate/empty label
+sets, explicit class ordering, fitted snapshots, zero-column inverse and input
+preservation. Twenty-six new isolated diagnostics check invalid encoding
+controls, empty/unfitted label methods, inverse widths and nonfinite values,
+missing single-class positive labels, duplicate constructor classes and invalid
+integer/real indicators. example/label_encoding.f90 exercises both types through
+the public facade. sklearn source attribution and complete BSD notices remain
+retained; original contributions use the project MIT license.
+
+Inventory: 167 core types, 78 source modules, 80 native test programs,
+59 reference suites and 97,606 result groups, plus 28 separate NumPy stream
+groups. Isolated invalid-input inventory is 1,581.
+
+Validation completed: all 80 native test programs passed with bounds checks,
+backtraces and invalid/zero/overflow traps, and all 80 passed in release mode.
+All 6,285 exact source comparison groups passed against both fpm checked and
+optimized release executables, covering 555 scenarios with no substitute
+oracles. All 1,581 isolated invalid-input cases passed, including the 26 new
+diagnostics. The checked public example restored binary targets [-3,7,7,-3]
+and produced multilabel columns in requested order [30,10,20], preserving
+an empty sample and removing repeated labels on inverse restoration.
+Python syntax, Fortran line limits/trailing whitespace, diagnostic case
+uniqueness/equality, type/module/test/reference inventories, MIT/upstream
+notice retention and git whitespace checks passed. Other Python estimator
+reference suites were not rerun; their numerical bodies were unchanged.
+Their saved passing results form the historical aggregate of 97,606 core
+groups, with 28 NumPy stream groups reported separately.

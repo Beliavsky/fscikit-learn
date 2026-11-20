@@ -5,6 +5,12 @@ program invalid_input_driver
   use sklearn_legacy_rng, only: legacy_random_state
   use, intrinsic :: ieee_arithmetic, only: ieee_value,ieee_quiet_nan,ieee_positive_inf
   implicit none
+  type(label_binarizer) :: lb_case
+  type(multi_label_binarizer) :: mlb_case
+  type(label_set) :: lb_sets(2)
+  type(label_set), allocatable :: lb_restored(:)
+  integer, allocatable :: lb_encoded(:,:),lb_decoded(:)
+  real(dp) :: lb_scores(2,3)=0
   type(polynomial_count_sketch) :: pcs
   type(count_sketch_fft_plan) :: pcs_fft
   complex(dp) :: pcs_complex(3)=cmplx(0._dp,0._dp,dp)
@@ -224,6 +230,94 @@ program invalid_input_driver
   uv_x(:,1)=[-1._dp,-1._dp,1._dp,1._dp]; uv_x(:,2)=[-1._dp,1._dp,-1._dp,1._dp]; uv_x(:,3)=0
   uv_y=[-1,-1,1,1]; uv_scores=[1._dp,2._dp,3._dp]; uv_pvalues=[.01_dp,.04_dp,.8_dp]
   select case(trim(mode))
+  case('lb_labels_equal')
+    lb_case%pos_label=0
+    call lb_case%fit([1,2])
+  case('lb_labels_reversed')
+    lb_case%neg_label=2
+    call lb_case%fit([1,2])
+  case('lb_fit_empty')
+    call lb_case%fit([integer ::])
+  case('lb_fit_transform_invalid')
+    lb_case%pos_label=-1
+    lb_encoded=lb_case%fit_transform([1,2])
+  case('lb_unfitted_transform')
+    lb_encoded=lb_case%transform([1,2])
+  case('lb_unfitted_inverse')
+    lb_decoded=lb_case%inverse_transform(lb_scores)
+  case('lb_transform_empty')
+    call lb_case%fit([1,2])
+    lb_encoded=lb_case%transform([integer ::])
+  case('lb_changed_labels')
+    call lb_case%fit([1,2])
+    lb_case%neg_label=3
+    lb_encoded=lb_case%transform([1])
+  case('lb_inverse_zero_columns')
+    call lb_case%fit([1,2])
+    lb_decoded=lb_case%inverse_transform(lb_scores(:,:0))
+  case('lb_inverse_binary_width')
+    call lb_case%fit([1,2])
+    lb_decoded=lb_case%inverse_transform(lb_scores)
+  case('lb_inverse_integer_width')
+    call lb_case%fit([1,2])
+    lb_decoded=lb_case%inverse_transform(int(lb_scores))
+  case('lb_inverse_nan')
+    call lb_case%fit([1,2,3])
+    lb_scores(1,1)=ieee_value(0._dp,ieee_quiet_nan)
+    lb_decoded=lb_case%inverse_transform(lb_scores)
+  case('lb_inverse_inf')
+    call lb_case%fit([1,2,3])
+    lb_scores(1,1)=ieee_value(0._dp,ieee_positive_inf)
+    lb_decoded=lb_case%inverse_transform(lb_scores)
+  case('lb_inverse_threshold')
+    call lb_case%fit([1,2])
+    lb_decoded=lb_case%inverse_transform(lb_scores(:,:1),ieee_value(0._dp,ieee_quiet_nan))
+  case('lb_inverse_single_class')
+    call lb_case%fit([7])
+    lb_scores=1
+    lb_decoded=lb_case%inverse_transform(lb_scores(:,:2))
+  case('lb_empty_fitted_classes')
+    lb_case%classes_=[integer ::]
+    lb_encoded=lb_case%transform([1])
+  case('mlb_duplicate_classes')
+    mlb_case%classes=[1,2,1]
+    call mlb_case%fit(lb_sets)
+  case('mlb_fit_transform_duplicates')
+    mlb_case%classes=[2,2]
+    lb_encoded=mlb_case%fit_transform(lb_sets)
+  case('mlb_unfitted_transform')
+    lb_encoded=mlb_case%transform(lb_sets)
+  case('mlb_unfitted_inverse')
+    lb_restored=mlb_case%inverse_transform(lb_scores)
+  case('mlb_inverse_width')
+    mlb_case%classes=[1,2]
+    call mlb_case%fit(lb_sets)
+    lb_restored=mlb_case%inverse_transform(lb_scores)
+  case('mlb_inverse_negative')
+    mlb_case%classes=[1,2,3]
+    call mlb_case%fit(lb_sets)
+    lb_scores(1,1)=-1
+    lb_restored=mlb_case%inverse_transform(lb_scores)
+  case('mlb_inverse_fractional')
+    mlb_case%classes=[1,2,3]
+    call mlb_case%fit(lb_sets)
+    lb_scores(1,1)=.5_dp
+    lb_restored=mlb_case%inverse_transform(lb_scores)
+  case('mlb_inverse_integer')
+    mlb_case%classes=[1,2,3]
+    call mlb_case%fit(lb_sets)
+    lb_scores(1,1)=2
+    lb_restored=mlb_case%inverse_transform(int(lb_scores))
+  case('mlb_inverse_nan')
+    mlb_case%classes=[1,2,3]
+    call mlb_case%fit(lb_sets)
+    lb_scores(1,1)=ieee_value(0._dp,ieee_quiet_nan)
+    lb_restored=mlb_case%inverse_transform(lb_scores)
+  case('mlb_inverse_inf')
+    mlb_case%classes=[1,2,3]
+    call mlb_case%fit(lb_sets)
+    lb_scores(1,1)=ieee_value(0._dp,ieee_positive_inf)
+    lb_restored=mlb_case%inverse_transform(lb_scores)
   case('pcs_gamma_negative')
     pcs%gamma=-1
     call pcs%fit(uv_x)

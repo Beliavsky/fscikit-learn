@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 165 public estimator, transformer, and splitter types. Each is a
+There are 167 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Fifty-eight reference suites additionally check 91,321
+All types have native tests. Fifty-nine reference suites additionally check 97,606
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -23,7 +23,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 
 | Module (`sklearn_` prefix) | Public types and functions | Scope and numerical choices |
 | --- | --- | --- |
-| preprocessing | `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `knn_imputer`, `missing_indicator`, `spline_transformer`, `label_encoder`, `one_hot_encoder`, `power_transformer`, `kbins_discretizer`, `quantile_transformer`; `normalize`, `binarize`, `polynomial_features` | Population variance; linear percentile interpolation; NaN imputation with mean/median/most-frequent/constant; numeric categories; empirical uniform/normal quantile transforms; dense polynomial terms through degree 12 with optional interactions; B-spline features and extrapolation |
+| preprocessing | `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `knn_imputer`, `missing_indicator`, `spline_transformer`, `label_encoder`, `one_hot_encoder`, `label_binarizer`, `multi_label_binarizer`, `power_transformer`, `kbins_discretizer`, `quantile_transformer`; `normalize`, `binarize`, `polynomial_features` | Population variance; linear percentile interpolation; NaN imputation with mean/median/most-frequent/constant; numeric categories; empirical uniform/normal quantile transforms; dense polynomial terms through degree 12 with optional interactions; B-spline features and extrapolation |
 | linear_model | `linear_regression`, `lars`, `lasso_lars`, `lars_cv`, `lasso_lars_cv`, `lasso_lars_ic`, `ridge`, `ridge_classifier`, `ridge_classifier_cv`, `multi_task_elastic_net`, `multi_task_lasso`, `multi_task_elastic_net_cv`, `multi_task_lasso_cv`, `lasso`, `elastic_net`, `lasso_cv`, `elastic_net_cv`, `logistic_regression`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `sgd_regressor`, `sgd_classifier`, `sgd_one_class_svm`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `orthogonal_matching_pursuit_cv`, `huber_regressor`, `quantile_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; least-angle/Lasso homotopy paths with CV and AIC/BIC selection; coordinate descent with K-fold alpha/l1-ratio selection; logistic Newton solver; perceptron; PA-I/II classification/regression with averaging; streaming stochastic-gradient regression/classification and one-class detection; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; weighted L1-regularized quantile regression; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb`, `categorical_nb` | Empirical class priors, variance smoothing, strictly positive scalar alpha; Bernoulli threshold; optional complement normalization |
 | neighbors | `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with optional shrinkage and uniform priors; Euclidean kernel density |
@@ -2940,3 +2940,66 @@ Inventory: 165 core types, 77 source modules, 79 native test programs,
 58 reference suites and 91,321 result groups, plus 28 separate NumPy stream
 groups. Isolated invalid-input inventory is 1,555. Original contributions
 remain MIT licensed with complete upstream notices and specific attribution.
+
+## LabelBinarizer and MultiLabelBinarizer (2026-11-20)
+
+Added label_binarizer and multi_label_binarizer as core sklearn preprocessing
+counterparts, exported by sklearn, sklearn_preprocessing and the focused
+sklearn_label_binarization module. Both implement fit, transform, fit_transform
+and integer/real inverse_transform overloads, with allocated integer outputs.
+The public label_set container represents a ragged row of integer labels;
+it is data representation, excluded from the algorithm count like index_split.
+No public algorithm extension or runtime dependency is added.
+
+LabelBinarizer discovers sorted classes from a nonempty rank-one integer target,
+preserves source one/two-class versus multiclass encoding, configurable integer
+negative/positive values and unknown-label negative entries. Default neg_label=0
+and pos_label=1 can change after fitting. One-class binary queries are entirely
+negative. Source query-dependent target typing is retained: three distinct
+query labels produce all fitted class columns even after binary fitting, and
+can mark a known single class positively. Refit replaces classes_/y_type_.
+Binary inverse uses a strict midpoint/explicit threshold, using the second
+column for two-column scores. Multiclass inverse picks the first maximal score
+and clips an extra-column winning index, as in source. Native midpoint
+arithmetic avoids default-integer overflow for extreme encoding values.
+Empty inverse row counts are supported. Native inverse requires finite scores,
+positive width and a finite binary threshold; source's absent single-class
+positive index becomes an explicit diagnostic. Rank-two multilabel-indicator
+LabelBinarizer fitting, sparse output and string/object labels are unsupported.
+
+MultiLabelBinarizer discovers a sorted union or preserves a unique constructor
+classes ordering. Constructor changes wait for the next fit; classes_ is a
+fitted snapshot. Repeated labels are idempotent. Unknown labels are ignored
+with source indicator values, without Python warnings. Unallocated/empty row
+values, empty datasets, empty fitted/configured vocabularies and zero-column
+indicator matrices are supported. Inverse validates exact 0/1 integer or real
+indicators and returns allocated label sets in fitted class order. Inputs are
+preserved. Python iterable/object/string APIs, sparse formats and feature-name
+integration are outside this wrapper.
+
+compare_label_binarization.py checks 6,285 exact sklearn 1.6.1 result groups
+across 555 scenarios and five seeds. The 375 LabelBinarizer scenarios check
+one/two/many classes, known/unknown/multiclass queries, zero/negative/positive/
+extreme integer encodings, fit and fit_transform parity, query dimensions,
+target type, both inverse overload paths, threshold equalities, tied maxima,
+changed score widths, live encoding controls and dimension-changing refits.
+The 180 MultiLabelBinarizer scenarios check automatically discovered, reversed,
+subset and empty class orders, duplicates, unknown labels, empty rows/datasets,
+integer and real inverse indicators, complemented indicators, fitted snapshots
+and rediscovery on refit. All groups use the source oracle and exact integer
+array equality, including ragged counts and flattened inverse values.
+
+Native tests independently assert binary class ordering, strict thresholds,
+query-dependent widths, zero positive encoding, first-max ties and index
+clipping, single-class negatives, empty inverse rows, duplicate/empty label
+sets, explicit class ordering, fitted snapshots, zero-column inverse and input
+preservation. Twenty-six new isolated diagnostics check invalid encoding
+controls, empty/unfitted label methods, inverse widths and nonfinite values,
+missing single-class positive labels, duplicate constructor classes and invalid
+integer/real indicators. example/label_encoding.f90 exercises both types through
+the public facade. sklearn source attribution and complete BSD notices remain
+retained; original contributions use the project MIT license.
+
+Inventory: 167 core types, 78 source modules, 80 native test programs,
+59 reference suites and 97,606 result groups, plus 28 separate NumPy stream
+groups. Isolated invalid-input inventory is 1,581.
