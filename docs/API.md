@@ -832,7 +832,9 @@ rank-two target matrix and return rank-two predictions. coef_ is
 (n_targets,n_features), intercept_ is (n_targets). Set warm_start=true to reuse
 coefficients on subsequent fits of the same shape. score returns the uniform
 mean of per-target R2. Inspect n_iter_, dual_gap_, eps_ and converged_ for
-stopping status. See COVERAGE.md for the objective and supported controls.
+stopping status. selection accepts cyclic/random with scalar random_state.
+Finite alpha>=0 and l1_ratio in [0,1] include unpenalized/pure-L2 boundaries.
+See COVERAGE.md for the objective and supported controls.
 
 
 ## Categorical Naive Bayes
@@ -1747,3 +1749,38 @@ n_steps_ counts updates and n_iter_/reconstruction_err_ describe the last fit;
 streaming does not refresh the latter fields. Partial-only error is NaN.
 See COVERAGE.md for loss conventions, clipping, cached controls, zero handling
 and the difference between training factors and a fresh transform.
+
+
+## Multi-task cross-validation
+
+Import multi_task_elastic_net_cv and multi_task_lasso_cv from sklearn,
+sklearn_linear_model or sklearn_multitask.
+
+```fortran
+type(multi_task_elastic_net_cv) :: model
+real(dp), allocatable :: prediction(:,:)
+model%cv=5
+model%n_alphas=30
+model%l1_ratios=[.2_dp,.7_dp,1._dp]
+model%selection='random'
+model%random_state=42
+call model%fit(x,y) ! y is (n_samples,n_targets), even for one target.
+prediction=model%predict(query)
+! alpha_, l1_ratio_, best_mse_ report selection.
+```
+
+Allocate alphas(:) for explicit nonnegative candidates; otherwise eps/n_alphas
+control a full-data alpha grid. Zero mixing requires explicit alphas. LassoCV
+fixes mixing to one. Allocate test_fold(N) for predefined validation folds,
+with -1 for training-only rows and all other integer labels identifying folds.
+A predefined map can contain one holdout; integer cv otherwise needs 2..N splits.
+
+alphas_ is (n_alpha,n_ratio); mse_path_, fold_n_iter_ and fold_dual_gaps_ are
+(n_alpha,n_fold,n_ratio). Singleton axes remain present. coef_/intercept_ use
+the base multi-task layouts, and predict/score share its two-dimensional targets
+and uniform R2. Final refits are cold regardless of inherited warm_start.
+
+Source NumPy/uint32 seeded coordinate selection is supported by base and CV
+models. At alpha=0 the mixing ratio is inactive and last-bit validation ties can
+select a different equivalent ratio; effective penalties and fit results agree.
+See COVERAGE.md for grid ordering, stopping, folds, diagnostics and current scope.

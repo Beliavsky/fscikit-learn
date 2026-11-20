@@ -2187,3 +2187,62 @@ registrations and git diff checks passed. Earlier Python reference suites were
 not rerun; existing estimator and shared-backend bodies were unchanged apart
 from the new export. MIT licensing and complete upstream notices are retained,
 with no runtime dependency or public algorithm extension added.
+
+
+## Multi-task regularization-path cross-validation (2026-11-20)
+
+Added multi_task_elastic_net_cv and multi_task_lasso_cv with automatic/explicit
+alpha grids, scalar/vector mixing ratios, warm coefficient paths per fold,
+equal-fold mean multi-target MSE selection and cold full-data refits. Dense
+rank-two targets include a single column. Native CV results retain fixed
+(alpha,fold,ratio) axes and expose path iterations/gaps and partition metadata.
+Integer KFold and allocated test_fold PredefinedSplit maps support ordinary,
+unbalanced, train-only and single-holdout partitions. LassoCV fixes mixing to
+one. General splitter objects/pair iterables, weighting, parallelism and
+metadata routing remain outside the current wrapper scope.
+
+The shared base solver now supports selection=random with sklearn uint32
+XorShift/feature modulo seeded by the existing NumPy-compatible bounded draw.
+Path RNGs reset per fold/ratio and advance per alpha, and the refit starts from
+a fresh scalar seed. Cyclic arithmetic is unchanged. Base alpha=0 and mixing
+ratio=0 are now supported, matching source boundaries, with analytic least-
+squares/Ridge checks. The obsolete zero-alpha rejection was retired, and the
+old zero-ratio rejection now tests a negative ratio. With zero L1 strength,
+source dual-gap stopping can remain unsatisfied despite accurate coefficients;
+source iterations/diagnostics are retained. Inputs are preserved.
+
+compare_multitask_cv.py checks 7,960 groups across 272 cases and four seeds:
+192 CV scenarios and 80 base-model scenarios. All path computations remain the
+actual installed sklearn 1.6.1 functions, observed for iterations/gaps. There
+are 7,957 direct comparisons and three records for one zero-alpha selection
+with an equivalent inactive ratio (.5 native, 0 source). Both effective
+penalties are exactly zero and the native ratio is a supplied candidate;
+coefficients, predictions and all path diagnostics still compare directly.
+No active-penalty selection difference is permitted. Numeric tolerance is
+atol=rtol=3e-8; counters/partition metadata are exact. Fixtures include default
+controls, random warm/single-sweep updates, duplicate/zero/custom penalties,
+pure L2, predefined/leave-one-out/unequal folds, constant/tiny/zero targets,
+constant/duplicate features, single targets, wide matrices, epsilon ordering
+and repeated dimension changes. Native analytic tests verify known fold MSEs,
+selected coefficients, exact ties, predefined holdouts, input preservation and
+huge-budget zero-target stopping. multitask_penalty_selection demonstrates
+random-coordinate multi-ratio selection and joint prediction.
+
+Inventory: 158 core types, 73 source modules, 76 native test programs,
+55 reference suites and 73,471 result groups, plus 28 separate NumPy stream
+groups. Forty-six new diagnostic cases and one retired obsolete case bring the
+isolated invalid-input inventory to 1,447. MIT licensing and full sklearn/NumPy
+attribution remain in place. No runtime dependency or public algorithm
+extension was added.
+
+Validation completed: all 76 native test programs passed with bounds checks,
+backtraces and invalid/zero/overflow traps, and again with the release profile.
+The new reference suite passed 7,960 groups (7,957 direct source comparisons
+and three documented inactive-ratio equivalences); all 192 existing multi-task
+reference groups passed. All 1,447 isolated invalid-input checks passed.
+The checked example selected alpha=0.0017144762758537057 and l1_ratio=1,
+with validation MSE=0.0026628639982208802 and training mean R2=0.999729179755852.
+Python syntax, Fortran line limits, diagnostic case-set equality, inventory,
+license notices and git whitespace checks passed. Other reference suites were
+not rerun for this batch. Removed a stale numeric count from EXTENSIONS.md;
+its inventory still contains no implemented public extensions.

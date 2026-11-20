@@ -4,7 +4,7 @@ module sklearn_linear_model
   use sklearn_sgd_one_class, only: sgd_one_class_svm
   use sklearn_quantile, only: quantile_regressor
   use sklearn_sgd, only: sgd_regressor,sgd_classifier
-  use sklearn_multitask, only: multi_task_elastic_net,multi_task_lasso
+  use sklearn_multitask, only: multi_task_elastic_net,multi_task_lasso,multi_task_elastic_net_cv,multi_task_lasso_cv
   use sklearn_ridge_classification, only: ridge_classifier,ridge_classifier_cv
   use sklearn_common
   use sklearn_metrics, only: r2_score,accuracy_score
@@ -15,7 +15,7 @@ module sklearn_linear_model
   public :: sgd_one_class_svm
   public :: quantile_regressor
   public :: sgd_regressor,sgd_classifier
-  public :: multi_task_elastic_net,multi_task_lasso
+  public :: multi_task_elastic_net,multi_task_lasso,multi_task_elastic_net_cv,multi_task_lasso_cv
   public :: ridge_classifier,ridge_classifier_cv
   public :: elastic_net_cv,lasso_cv
   public :: linear_regression, ridge, lasso, elastic_net, logistic_regression, perceptron

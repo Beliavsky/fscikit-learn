@@ -49,7 +49,7 @@ Reference paths by module:
 | spline | preprocessing/_polynomial.py SplineTransformer knot placement, boundary extension, periodic coefficient folding, bias removal and extrapolation contracts; native Cox-de Boor basis and derivative recurrences replace scipy.interpolate.BSpline |
 | preprocessing | preprocessing/_data.py, _label.py, _encoders.py, _polynomial.py; impute/_base.py |
 | metrics | metrics/_regression.py, _classification.py, _ranking.py, pairwise.py; metrics/cluster/ |
-| multitask | linear_model/_coordinate_descent.py MultiTaskElasticNet/MultiTaskLasso centering and scaling; _cd_fast.pyx enet_coordinate_descent_multi_task block shrinkage and dual-gap stopping; native dense cyclic implementation |
+| multitask | linear_model/_coordinate_descent.py MultiTaskElasticNet/MultiTaskLasso centering/scaling, MultiTaskElasticNetCV/MultiTaskLassoCV alpha grids, warm paths, fold residuals, ordering and full-data refits; _cd_fast.pyx enet_coordinate_descent_multi_task block shrinkage and dual-gap stopping; utils/_random.pxd uint32 XorShift and 31-bit feature sampling; model_selection/_split.py KFold/PredefinedSplit partition semantics; existing NumPy-compatible bounded seed draws and native dense cyclic/random implementation |
 | ridge_classification | linear_model/_ridge.py RidgeClassifier encoding, weighting, centering and RidgeClassifierCV default leave-one-out scoring/results; native shared SVD and dual-resolvent implementation |
 | coordinate CV | linear_model/_coordinate_descent.py _alpha_grid and LinearModelCV (ElasticNetCV/LassoCV), model_selection/_split.py KFold boundaries; existing native coordinate solver |
 | sgd | linear_model/_stochastic_gradient.py and _sgd_fast.pyx.tp: SGDRegressor/SGDClassifier losses, binary/OVR and class-weight contracts, probability maps, update order, L2 decay, learning rates, averaging, sample clock and stopping contracts; native dense update implementation |
@@ -142,7 +142,8 @@ sampling, and BernoulliRBM initialization, persistent chains, Gibbs transitions
 and pseudo-likelihood corruption. Mini-batch dictionary/SparsePCA initialization,
 row shuffling and unused-atom resampling also reuse this stream. MiniBatchNMF
 uses its Gaussian draws for random/NNDSVD initialization and NNDSVDAR filling.
-Reference sources:
+Multi-task coordinate paths also reuse the bounded-integer stream to seed
+sklearn's separate uint32 XorShift coordinate sampler. Reference sources:
 
 - numpy/random/src/mt19937/mt19937.c and mt19937.h
 - numpy/random/src/legacy/legacy-distributions.c (legacy_gauss)

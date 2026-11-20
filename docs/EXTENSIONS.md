@@ -1,7 +1,7 @@
 # Public extension inventory
 
-**Implemented public extensions: none.** The current 64 public estimator,
-transformer and splitter types each have a scikit-learn counterpart. Their
+**Implemented public extensions: none.** All public estimator, transformer
+and splitter types have a scikit-learn counterpart. Their
 supported subsets and behavioral differences are documented in
 [COVERAGE.md](COVERAGE.md); these differences are not additional algorithms.
 

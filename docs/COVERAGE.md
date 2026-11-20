@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 156 public estimator, transformer, and splitter types. Each is a
+There are 158 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Fifty-four reference suites additionally check 65,511
+All types have native tests. Fifty-five reference suites additionally check 73,471
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -24,7 +24,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | Module (`sklearn_` prefix) | Public types and functions | Scope and numerical choices |
 | --- | --- | --- |
 | preprocessing | `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `knn_imputer`, `missing_indicator`, `spline_transformer`, `label_encoder`, `one_hot_encoder`, `power_transformer`, `kbins_discretizer`, `quantile_transformer`; `normalize`, `binarize`, `polynomial_features` | Population variance; linear percentile interpolation; NaN imputation with mean/median/most-frequent/constant; numeric categories; empirical uniform/normal quantile transforms; dense polynomial terms through degree 12 with optional interactions; B-spline features and extrapolation |
-| linear_model | `linear_regression`, `lars`, `lasso_lars`, `lars_cv`, `lasso_lars_cv`, `lasso_lars_ic`, `ridge`, `ridge_classifier`, `ridge_classifier_cv`, `multi_task_elastic_net`, `multi_task_lasso`, `lasso`, `elastic_net`, `lasso_cv`, `elastic_net_cv`, `logistic_regression`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `sgd_regressor`, `sgd_classifier`, `sgd_one_class_svm`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `huber_regressor`, `quantile_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; least-angle/Lasso homotopy paths with CV and AIC/BIC selection; coordinate descent with K-fold alpha/l1-ratio selection; logistic Newton solver; perceptron; PA-I/II classification/regression with averaging; streaming stochastic-gradient regression/classification and one-class detection; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; weighted L1-regularized quantile regression; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
+| linear_model | `linear_regression`, `lars`, `lasso_lars`, `lars_cv`, `lasso_lars_cv`, `lasso_lars_ic`, `ridge`, `ridge_classifier`, `ridge_classifier_cv`, `multi_task_elastic_net`, `multi_task_lasso`, `multi_task_elastic_net_cv`, `multi_task_lasso_cv`, `lasso`, `elastic_net`, `lasso_cv`, `elastic_net_cv`, `logistic_regression`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `sgd_regressor`, `sgd_classifier`, `sgd_one_class_svm`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `huber_regressor`, `quantile_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; least-angle/Lasso homotopy paths with CV and AIC/BIC selection; coordinate descent with K-fold alpha/l1-ratio selection; logistic Newton solver; perceptron; PA-I/II classification/regression with averaging; streaming stochastic-gradient regression/classification and one-class detection; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; weighted L1-regularized quantile regression; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb`, `categorical_nb` | Empirical class priors, variance smoothing, strictly positive scalar alpha; Bernoulli threshold; optional complement normalization |
 | neighbors | `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with optional shrinkage and uniform priors; Euclidean kernel density |
 | cluster | `kmeans`, `bisecting_kmeans`, `mini_batch_kmeans`, `spectral_coclustering`, `spectral_biclustering`, `hdbscan`, `dbscan`, `agglomerative_clustering`, `feature_agglomeration`, `mean_shift`, `affinity_propagation`, `spectral_clustering`, `optics`, `birch`; `estimate_bandwidth`, `cluster_optics_dbscan`, `cluster_optics_xi` | Lloyd/k-means++; paired row/column spectral partitions and checkerboard biclustering; weighted streaming mini-batch centroids; bisecting centroid hierarchy with Lloyd/Elkan splits; density expansion; single/complete/average/Ward merge trees and feature pooling; flat-kernel mode seeking; damped exemplar messages; normalized-Laplacian clustering with k-means or pivoted QR assignment; OPTICS reachability ordering, Xi hierarchy and DBSCAN extraction; BIRCH streaming CF tree and optional Ward clustering |
@@ -868,15 +868,16 @@ selects features across targets: the objective is ||Y-XW||_F^2/(2*n) +
 alpha*l1_ratio*sum_j ||W(j,:)||_2 + alpha*(1-l1_ratio)*||W||_F^2/2.
 The Lasso variant always uses l1_ratio=1, ignoring the inherited mixing field.
 Block coordinate descent updates one feature's complete target vector using
-group soft thresholding. Feature order is cyclic. Each intercept is an
+group soft thresholding. Feature order is cyclic or seeded random with replacement.
+Each intercept is an
 unpenalized response mean minus its coefficient-weighted feature means.
 
 Both provide fit, predict and uniform-average R2 score. coef_ has shape
 (n_targets,n_features), intercept_ has n_targets entries, and predictions
 have shape (n_samples,n_targets). Controls are alpha (default 1), fit_intercept
 (true), max_iter (1000), tol (1e-4), and warm_start (false). ElasticNet's mixing
-ratio defaults to .5. This port requires finite alpha>0 and 0<l1_ratio<=1;
-pure ridge and zero-penalty least squares are handled by existing estimators.
+ratio defaults to .5. Finite alpha>=0 and 0<=l1_ratio<=1 are supported, including
+unpenalized least squares and pure L2 boundary cases.
 Tolerance must be finite and nonnegative. Targets and features must be finite.
 
 Stopping first checks the largest coordinate update relative to the largest
@@ -888,11 +889,10 @@ with converged_=false. Warm starts reuse coefficients with matching target and
 feature dimensions; otherwise a fit starts at zero. Input arrays are not
 modified. Zero-norm centered features are skipped, matching the reference.
 
-Sparse matrices, sample weights, random coordinate selection, positivity
-constraints, regularization paths and the CV variants are not implemented.
-The types are re-exported through sklearn_linear_model and sklearn. The
-package now has 109 core types in 44 source modules. No runtime dependency or
-public extension was added; MIT and sklearn BSD attribution are retained.
+Sparse matrices, sample weights and positivity constraints are not implemented.
+The CV variants, warm-started alpha paths and seeded random updates are described
+below. The types are re-exported through sklearn_linear_model and sklearn.
+MIT and sklearn BSD attribution are retained.
 
 
 ## Categorical Naive Bayes
@@ -2673,3 +2673,77 @@ early stopping, streaming cached-control changes, dimension refits, tiny/sparse
 values, constant zeros and wide inputs. Native tests independently verify exact
 rank-one Frobenius/KL/IS fixed points, analytic accumulated-statistic recurrences,
 object copies, input preservation, zero-norm patience and null NNDSVD handling.
+
+
+## MultiTaskElasticNetCV and MultiTaskLassoCV
+
+multi_task_elastic_net_cv and multi_task_lasso_cv select joint multi-response
+penalties with sklearn 1.6.1-style alpha paths, fold errors and cold full-data
+refitting. Targets remain a rank-two (N,T) matrix, including T=1. Folds center
+features/targets using training means only, warm-start coefficients along the
+descending alpha path, restore the fold intercept and average squared errors
+over test rows and targets. Selection averages folds equally, even when sizes
+differ, and retains the first minimum in supplied ratio/descending-alpha order.
+Fresh fits always reset path models and cold-refit the selected penalty.
+
+Scalar l1_ratio defaults to .5 for ElasticNetCV; allocate l1_ratios(:) to supply
+several ratios in preference order. LassoCV fixes the ratio to one and ignores
+inherited ratio controls. Explicit alphas(:) are finite/nonnegative, sorted
+without removing duplicates, and shared across ratios. Otherwise n_alphas
+(default 100) values are generated from full-data centered group correlations,
+with alpha_max=max_j ||X(:,j).T Y||_2/(N*l1_ratio) and a geometric range controlled
+by eps (default 1e-3). Grids below 1e-15 collapse to that resolution floor.
+A zero mixing ratio requires explicit alphas; zero alphas are accepted by both
+CV and base multi-task estimators. The base kernel now supports [0,1] mixing,
+including pure L2. As in source, zero L1 strength can make the L1-feasibility
+dual-gap certificate insensitive to an already accurate least-squares/Ridge
+solution, so n_iter_ may reach the limit; analytic normal-equation cases are
+also tested. tol remains finite/nonnegative and max_iter positive.
+
+cv defaults to five nonshuffled KFold splits, with remainder rows in the first
+folds. Allocate test_fold(N) for PredefinedSplit semantics instead: -1 means
+training-only; other integer labels, including negative labels, are sorted into
+folds. This path permits a single holdout and ignores the integer cv control.
+Each fold must have nonempty train/test sets. General Python splitter objects,
+iterables of arbitrary train/test pairs, shuffle/group/time-series CV adapters,
+sample weights, parallel jobs, metadata routing and sparse/float32 inputs are
+outside this wrapper's current scope. Input arrays and supplied grids/fold maps
+are preserved. CV prediction and uniform-average multi-target R2 are inherited.
+
+Native alphas_ is always (n_alpha,n_ratio), and mse_path_ is always
+(n_alpha,n_fold,n_ratio), retaining singleton axes that source squeezes.
+fold_n_iter_ and fold_dual_gaps_ expose corresponding per-solution diagnostics,
+with gaps divided by each fold's training count. fold_labels_, fold_test_sizes_
+and n_splits_ describe validation partitions. alpha_, l1_ratio_ and best_mse_
+report selection; coef_, intercept_, dual_gap_, eps_, n_iter_, n_features_in_
+and converged_ describe the full-data refit. all_cv_converged_ is native and
+checks every fold/path dual gap. Inherited warm_start does not warm CV refits.
+For positive eps>1, source's ascending stored grid/descending solver-path
+association is reproduced; conventional eps<=1 gives the intended decreasing
+regularization range. Native storage does not squeeze dimensions.
+
+Both CV types and both base estimators support selection='cyclic'/'random'.
+Random mode samples features with replacement. A NumPy-compatible scalar RNG
+draws the source 31-bit seed for each coordinate solve, followed by sklearn's
+uint32 XorShift update and feature modulo. CV resets the scalar RNG per fold
+and ratio but advances it between alpha solves; final refitting uses a fresh
+scalar-seeded stream. Base warm fits similarly reseed each call. Native
+random_state defaults to zero; object/global RNGs are not exposed. Cyclic update
+arithmetic and existing warm-start/dual-gap behavior remain unchanged.
+
+compare_multitask_cv.py checks 7,960 groups over 272 seeded scenarios: 192 CV
+and 80 base-model cases. Of these, 7,957 compare directly with source, including
+exact fold/refit iterations, and three records describe the same zero-alpha
+selection whose inactive ratio differs (native .5, source 0) from last-bit CV
+error ties. Both effective penalties are identically zero, the selected ratio
+belongs to the supplied candidates, and final parameters/predictions and all
+path errors/iterations/gaps remain source comparisons. No active-penalty
+selection differences are accepted. Numerical tolerance is atol=rtol=3e-8;
+metadata is exact. Source paths are observed while retaining their computation.
+Fixtures include scalar/vector ratios, explicit/auto/duplicate/zero penalties,
+random single sweeps and warm fits, predefined and leave-one-out folds, single
+rows per holdout, zero/constant/tiny targets, zero/duplicate features, one target,
+wide designs, repeated dimension changes and source defaults. Native tests
+independently verify analytic fold MSEs, selected/full-data coefficients, exact
+ties, holdout semantics, zero/L2 solutions and zero-target huge-budget stopping.
+The existing 192 multi-task reference groups are rerun for the shared kernel.

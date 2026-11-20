@@ -25,6 +25,10 @@ program invalid_input_driver
   type(leave_one_group_out) :: logo_cv
   type(sgd_classifier) :: sgdc
   type(sgd_regressor) :: sgd
+  type(multi_task_elastic_net_cv) :: mtcv_case
+  type(multi_task_lasso_cv) :: mtlc_case
+  real(dp) :: mtcv_x(6,3),mtcv_y(6,2),mtcv_value
+  real(dp), allocatable :: mtcv_values(:,:)
   type(mini_batch_nmf) :: mbn_case
   real(dp) :: mbn_x(6,3),mbn_w(6,2),mbn_h(2,3)
   real(dp), allocatable :: mbn_values(:,:)
@@ -193,7 +197,144 @@ program invalid_input_driver
   mbsp_case%n_components=2; mbsp_case%max_iter=1; mbsp_case%method='cd'; mbd_x=1
   mbn_case%n_components=2; mbn_case%max_iter=1; mbn_case%init='random'
   mbn_x=.5_dp; mbn_w=1; mbn_h=1
+  mtcv_case%cv=2; mtcv_case%n_alphas=3; mtcv_case%max_iter=20
+  mtlc_case%cv=2; mtlc_case%n_alphas=3; mtlc_case%max_iter=20
+  mtcv_x(:,1)=[-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp]
+  mtcv_x(:,2)=[0._dp,1._dp,2._dp,0._dp,-1._dp,-2._dp]; mtcv_x(:,3)=1
+  mtcv_y(:,1)=mtcv_x(:,1)+.5_dp*mtcv_x(:,2); mtcv_y(:,2)=2*mtcv_x(:,1)
   select case(trim(mode))
+  case('mtcv_folds_small')
+    mtcv_case%cv=1
+    call mtcv_case%fit(mtcv_x,mtcv_y)
+  case('mtcv_folds_high')
+    mtcv_case%cv=7
+    call mtcv_case%fit(mtcv_x,mtcv_y)
+  case('mtcv_grid_count')
+    mtcv_case%n_alphas=0
+    call mtcv_case%fit(mtcv_x,mtcv_y)
+  case('mtcv_iterations')
+    mtcv_case%max_iter=0
+    call mtcv_case%fit(mtcv_x,mtcv_y)
+  case('mtcv_seed')
+    mtcv_case%random_state=-1
+    call mtcv_case%fit(mtcv_x,mtcv_y)
+  case('mtcv_selection')
+    mtcv_case%selection='bad'
+    call mtcv_case%fit(mtcv_x,mtcv_y)
+  case('mtcv_tol_negative')
+    mtcv_case%tol=-1
+    call mtcv_case%fit(mtcv_x,mtcv_y)
+  case('mtcv_tol_nan')
+    mtcv_case%tol=ieee_value(0._dp,ieee_quiet_nan)
+    call mtcv_case%fit(mtcv_x,mtcv_y)
+  case('mtcv_eps_zero')
+    mtcv_case%eps=0
+    call mtcv_case%fit(mtcv_x,mtcv_y)
+  case('mtcv_eps_nan')
+    mtcv_case%eps=ieee_value(0._dp,ieee_quiet_nan)
+    call mtcv_case%fit(mtcv_x,mtcv_y)
+  case('mtcv_mix_negative')
+    mtcv_case%l1_ratio=-.1_dp
+    call mtcv_case%fit(mtcv_x,mtcv_y)
+  case('mtcv_mix_high')
+    mtcv_case%l1_ratio=1.1_dp
+    call mtcv_case%fit(mtcv_x,mtcv_y)
+  case('mtcv_mix_nan')
+    mtcv_case%l1_ratio=ieee_value(0._dp,ieee_quiet_nan)
+    call mtcv_case%fit(mtcv_x,mtcv_y)
+  case('mtcv_mix_zero_grid')
+    mtcv_case%l1_ratio=0
+    call mtcv_case%fit(mtcv_x,mtcv_y)
+  case('mtcv_mix_vector_empty')
+    allocate(mtcv_case%l1_ratios(0))
+    call mtcv_case%fit(mtcv_x,mtcv_y)
+  case('mtcv_mix_vector_bad')
+    mtcv_case%l1_ratios=[.5_dp,2._dp]
+    call mtcv_case%fit(mtcv_x,mtcv_y)
+  case('mtcv_mix_vector_nan')
+    mtcv_case%l1_ratios=[.5_dp,ieee_value(0._dp,ieee_quiet_nan)]
+    call mtcv_case%fit(mtcv_x,mtcv_y)
+  case('mtcv_alphas_empty')
+    allocate(mtcv_case%alphas(0))
+    call mtcv_case%fit(mtcv_x,mtcv_y)
+  case('mtcv_alphas_negative')
+    mtcv_case%alphas=[.1_dp,-.1_dp]
+    call mtcv_case%fit(mtcv_x,mtcv_y)
+  case('mtcv_alphas_nan')
+    mtcv_case%alphas=[.1_dp,ieee_value(0._dp,ieee_quiet_nan)]
+    call mtcv_case%fit(mtcv_x,mtcv_y)
+  case('mtcv_alphas_inf')
+    mtcv_case%alphas=[.1_dp,ieee_value(0._dp,ieee_positive_inf)]
+    call mtcv_case%fit(mtcv_x,mtcv_y)
+  case('mtcv_fold_map_size')
+    mtcv_case%test_fold=[0,1]
+    call mtcv_case%fit(mtcv_x,mtcv_y)
+  case('mtcv_fold_map_none')
+    mtcv_case%test_fold=[-1,-1,-1,-1,-1,-1]
+    call mtcv_case%fit(mtcv_x,mtcv_y)
+  case('mtcv_fold_map_no_train')
+    mtcv_case%test_fold=[0,0,0,0,0,0]
+    call mtcv_case%fit(mtcv_x,mtcv_y)
+  case('mtcv_empty')
+    call mtcv_case%fit(mtcv_x(:0,:),mtcv_y(:0,:))
+  case('mtcv_no_features')
+    call mtcv_case%fit(mtcv_x(:,:0),mtcv_y)
+  case('mtcv_no_targets')
+    call mtcv_case%fit(mtcv_x,mtcv_y(:,:0))
+  case('mtcv_rows')
+    call mtcv_case%fit(mtcv_x,mtcv_y(:5,:))
+  case('mtcv_x_nan')
+    mtcv_x(1,1)=ieee_value(0._dp,ieee_quiet_nan)
+    call mtcv_case%fit(mtcv_x,mtcv_y)
+  case('mtcv_y_inf')
+    mtcv_y(1,1)=ieee_value(0._dp,ieee_positive_inf)
+    call mtcv_case%fit(mtcv_x,mtcv_y)
+  case('mtcv_unfit_predict')
+    mtcv_values=mtcv_case%predict(mtcv_x)
+  case('mtcv_unfit_score')
+    mtcv_value=mtcv_case%score(mtcv_x,mtcv_y)
+  case('mtcv_predict_features')
+    call mtcv_case%fit(mtcv_x,mtcv_y)
+    mtcv_values=mtcv_case%predict(mtcv_x(:,:2))
+  case('mtcv_predict_empty')
+    call mtcv_case%fit(mtcv_x,mtcv_y)
+    mtcv_values=mtcv_case%predict(mtcv_x(:0,:))
+  case('mtcv_predict_nan')
+    call mtcv_case%fit(mtcv_x,mtcv_y)
+    mtcv_x(1,1)=ieee_value(0._dp,ieee_quiet_nan)
+    mtcv_values=mtcv_case%predict(mtcv_x)
+  case('mtcv_score_targets')
+    call mtcv_case%fit(mtcv_x,mtcv_y)
+    mtcv_value=mtcv_case%score(mtcv_x,mtcv_y(:,:1))
+  case('mtcv_score_rows')
+    call mtcv_case%fit(mtcv_x,mtcv_y)
+    mtcv_value=mtcv_case%score(mtcv_x,mtcv_y(:5,:))
+  case('mtcv_lasso_folds')
+    mtlc_case%cv=1
+    call mtlc_case%fit(mtcv_x,mtcv_y)
+  case('mtcv_lasso_alphas')
+    mtlc_case%alphas=[-.1_dp]
+    call mtlc_case%fit(mtcv_x,mtcv_y)
+  case('mtcv_lasso_selection')
+    mtlc_case%selection='bad'
+    call mtlc_case%fit(mtcv_x,mtcv_y)
+  case('mtcv_lasso_unfit')
+    mtcv_values=mtlc_case%predict(mtcv_x)
+  case('mtcv_lasso_features')
+    call mtlc_case%fit(mtcv_x,mtcv_y)
+    mtcv_values=mtlc_case%predict(mtcv_x(:,:2))
+  case('mtcv_base_selection')
+    mt%selection='bad'
+    call mt%fit(x,mt_y)
+  case('mtcv_base_seed')
+    mt%random_state=-1
+    call mt%fit(x,mt_y)
+  case('mtcv_lasso_base_selection')
+    mt_lasso%selection='bad'
+    call mt_lasso%fit(x,mt_y)
+  case('mtcv_lasso_base_seed')
+    mt_lasso%random_state=-1
+    call mt_lasso%fit(x,mt_y)
   case('mbn_components')
     mbn_case%n_components=-1
     call mbn_case%fit(mbn_x)
@@ -2829,14 +2970,12 @@ program invalid_input_driver
     labels=[-3,-3,9,9]
     call cat%fit(x,labels); z=cat%predict_proba(x(:0,:))
 
-  case('mt_alpha')
-    mt%alpha=0; call mt%fit(x,mt_y)
   case('mt_negative_alpha')
     mt%alpha=-1; call mt%fit(x,mt_y)
   case('mt_nan_alpha')
     mt%alpha=ieee_value(0._dp,ieee_quiet_nan); call mt%fit(x,mt_y)
-  case('mt_mix_zero')
-    mt%l1_ratio=0; call mt%fit(x,mt_y)
+  case('mt_mix_negative')
+    mt%l1_ratio=-.1_dp; call mt%fit(x,mt_y)
   case('mt_mix_high')
     mt%l1_ratio=2; call mt%fit(x,mt_y)
   case('mt_nan_mix')
