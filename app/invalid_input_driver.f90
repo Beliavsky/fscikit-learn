@@ -3,6 +3,9 @@ program invalid_input_driver
   use sklearn
   use, intrinsic :: ieee_arithmetic, only: ieee_value,ieee_quiet_nan,ieee_positive_inf
   implicit none
+  logical, allocatable :: seq_mask(:)
+  type(sequential_feature_selector) :: seq
+  type(linear_regression) :: seq_est
   type(group_kfold) :: group_cv
   type(leave_one_out) :: loo_cv
   type(leave_one_group_out) :: logo_cv
@@ -96,8 +99,32 @@ program invalid_input_driver
   integer, allocatable :: labels(:)
   character(32) :: mode
   mt_y=1
+  seq%cv=2
   x=1; y=1; call get_command_argument(1,mode)
   select case(trim(mode))
+  case('seq_features'); call seq%fit(x(:,1:1),y,seq_est)
+  case('seq_count_negative'); seq%n_features_to_select=-1; call seq%fit(x,y,seq_est)
+  case('seq_count_all'); seq%n_features_to_select=2; call seq%fit(x,y,seq_est)
+  case('seq_cv_one'); seq%cv=1; call seq%fit(x,y,seq_est)
+  case('seq_cv_too_many'); seq%cv=3; call seq%fit(x,y,seq_est)
+  case('seq_cv_single_test'); call seq%fit(x(:2,:),y(:2),seq_est)
+  case('seq_direction'); seq%direction='unknown'; call seq%fit(x,y,seq_est)
+  case('seq_tol_negative'); seq%use_tol=.true.; seq%tol=-1; call seq%fit(x,y,seq_est)
+  case('seq_tol_nan'); seq%tol=ieee_value(0._dp,ieee_quiet_nan); call seq%fit(x,y,seq_est)
+  case('seq_tol_inf'); seq%tol=ieee_value(0._dp,ieee_positive_inf); call seq%fit(x,y,seq_est)
+  case('seq_targets'); call seq%fit(x,y(:3),seq_est)
+  case('seq_empty'); call seq%fit(x(:0,:),y(:0),seq_est)
+  case('seq_x_nan'); x(1,1)=ieee_value(0._dp,ieee_quiet_nan); call seq%fit(x,y,seq_est)
+  case('seq_y_nan'); y(1)=ieee_value(0._dp,ieee_quiet_nan); call seq%fit(x,y,seq_est)
+  case('seq_transform_unfitted'); z=seq%transform(x)
+  case('seq_inverse_unfitted'); z=seq%inverse_transform(x)
+  case('seq_support_unfitted'); seq_mask=seq%get_support()
+  case('seq_query_features'); call seq%fit(x,y,seq_est); z=seq%transform(x(:,1:1))
+  case('seq_inverse_features'); call seq%fit(x,y,seq_est); z=seq%inverse_transform(x)
+  case('seq_query_nan')
+    call seq%fit(x,y,seq_est); x(1,1)=ieee_value(0._dp,ieee_quiet_nan); z=seq%transform(x)
+  case('seq_inverse_nan')
+    call seq%fit(x,y,seq_est); x(1,1)=ieee_value(0._dp,ieee_quiet_nan); z=seq%inverse_transform(x(:,1:1))
   case('group_empty'); folds=group_cv%split([integer::])
   case('group_one_fold'); group_cv%n_splits=1; folds=group_cv%split([1,2,3])
   case('group_many_folds'); folds=group_cv%split([1,1,2])

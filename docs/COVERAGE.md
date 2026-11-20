@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 127 public estimator, transformer, and splitter types. Each is a
+There are 128 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Thirty-four reference suites additionally check 9,730 result
+All types have native tests. Thirty-five reference suites additionally check 9,955 result
 groups in total across seeded datasets against installed scikit-learn 1.6.1.
 
 This document counts core scikit-learn counterparts. Public extensions are
@@ -41,7 +41,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | tree | `decision_tree_classifier`, `decision_tree_regressor` | Exhaustive CART; Gini/entropy/log-loss classification, squared-error regression; depth/leaf/split/feature controls, normalized impurity importance, leaf indices |
 | ensemble | `random_forest_classifier`, `random_forest_regressor`, `extra_trees_classifier`, `extra_trees_regressor`, `gradient_boosting_regressor`, `gradient_boosting_classifier`, `adaboost_classifier` | Bootstrap forests, randomized feature subsets, random-threshold Extra Trees, squared-error residual boosting; binary/multiclass classification boosting with Newton leaf updates; weighted Gini-stump SAMME |
 | model_selection | `kfold`, `stratified_kfold`, `time_series_split`, `group_kfold`, `leave_one_out`, `leave_one_group_out`, `predefined_split`, `ridge_cv`; `train_test_split`, `shuffle_indices`, `cross_val_score` | Index-based splits; fraction test size; optional stratification; time gap/window; CV for linear-regression family and logistic regression; ridge CV selects negative mean squared error |
-| feature_selection | `variance_threshold`, `select_k_best`; `f_classif`, `f_regression`, `chi2` | Dense scores and masks; inverse transform fills dropped columns with zero; no p-values |
+| feature_selection | `variance_threshold`, `select_k_best`, `sequential_feature_selector`; `f_classif`, `f_regression`, `chi2` | Dense scores and masks; greedy forward/backward CV regression selection; inverse transform fills dropped columns with zero; no p-values |
 | feature_extraction_text | `count_vectorizer`, `tfidf_transformer`, `tfidf_vectorizer` | Dense unigram counts; ASCII alphanumeric/underscore tokens of length 2-128; sorted vocabulary; min/max document frequency, binary counts and max features; smoothed/unsmoothed IDF, sublinear TF, l1/l2/no normalization |
 | dummy | `dummy_classifier`, `dummy_regressor` | Prior/most-frequent/stratified/uniform/constant classification; mean/median/quantile/constant regression |
 | kernel_ridge | `kernel_ridge` | Positive alpha; linear/RBF/polynomial/sigmoid kernels; no intercept |
@@ -1472,3 +1472,30 @@ All four return allocated `index_split` arrays with ascending **1-based** sample
 indices. They materialize every train/test pair, so LeaveOneOut uses quadratic
 index storage. They do not add generic estimator cloning or new cross_val_score
 dispatch; callers can fit/score manually as in `example/group_validation.f90`.
+
+
+## SequentialFeatureSelector
+
+`sequential_feature_selector%fit(x,y,estimator)` accepts a real regression
+response and a `linear_regression`-family estimator, tested with OLS, ridge,
+lasso and elastic net. Each candidate gets an independent estimator copy and
+unshuffled K-fold mean R2 score; ties choose the first feature in input order.
+The caller's estimator is not fitted or modified. Classification, custom
+scorers/splitters, fractional feature counts, sample weights, metadata routing,
+parallel candidates and unsupervised estimators are outside this initial subset.
+
+`direction` is `forward` (default) or `backward`. Positive
+`n_features_to_select` must be less than the original feature count. Zero means
+sklearn's `auto`: without tolerance, forward selects floor(p/2), while backward
+removes floor(p/2) and retains ceil(p/2), following sklearn 1.6.1 even for odd p.
+Set `use_tol=.true.` for an explicit tolerance (`tol=0` by default). With auto,
+selection stops before accepting a step whose score improvement is below tol;
+the first step always happens. Forward tol must be nonnegative; backward tol
+may be negative. With a fixed count, tol is validated but does not stop selection.
+
+`cv` defaults to 5 and must leave at least two rows in every test fold, ensuring
+R2 is defined; at least two input features are required. Inputs must be finite.
+Fitted `support_`, `n_features_in_` and `n_features_to_select_` describe the chosen
+features. `get_support`, `transform`, `fit_transform` and `inverse_transform`
+are available; inverse fills unselected columns with zero. The selector stores
+no fitted estimator, and downstream fitting on the selected data is explicit.

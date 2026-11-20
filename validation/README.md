@@ -1031,3 +1031,36 @@ baseline result groups passed against sklearn 1.6.1. All 657 isolated input-erro
 cases passed. The checked group_validation example returned R2=1 on each of
 four held-out groups. Python syntax, Fortran line lengths, inventory, reference
 report and staged diff checks passed. No dependency or extension was added.
+
+
+## 2026-11-19: SequentialFeatureSelector for regression
+
+Added a native greedy forward/backward selector for the linear-regression
+family, with fixed counts, auto half-selection, tolerance-based auto stopping,
+unshuffled K-fold mean R2 scoring, logical support masks, fit_transform,
+transform and zero-filled inverse_transform. Candidate fits use independent
+estimator copies and leave the caller's estimator unchanged. The initial
+subset does not support classification, fractional counts or custom scorers/CV.
+R2 folds must each contain at least two test samples. See COVERAGE.md for
+sklearn 1.6.1's odd-feature backward auto behavior and tolerance rules.
+
+The reference suite passed 225 result groups across three seeded matrices and
+15 configurations: OLS/ridge/lasso/elastic net, both directions, fixed and auto
+counts, positive/negative tolerance, first-step stopping, ignored stopping for
+fixed counts, and one/p-1 selected features. Every support mask, fitted count,
+training/query transform and inverse projection matched sklearn 1.6.1.
+Twenty-one new isolated input-error cases bring the total to 678.
+The sequential_selection example selects informative columns before fitting.
+Inventory: 128 core types, 53 source modules, 55 native test programs,
+35 reference suites and 9,955 result groups. Original contributions remain MIT
+with retained sklearn BSD attribution. No dependency or public extension added.
+
+
+Final validation: all 55 native test programs passed with runtime checks and
+floating-point traps (-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow)
+and in release mode. All 225 new reference result groups passed against
+sklearn 1.6.1, and all 678 isolated input-error cases passed. The checked
+sequential_selection example selected columns 2 and 4 and returned R2=1.
+Python syntax, Fortran line lengths, inventory, the reference report and staged
+diff checks passed. The initial estimator scope is regression only; no new
+dependency or public extension was added.

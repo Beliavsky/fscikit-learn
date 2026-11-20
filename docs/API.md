@@ -1114,3 +1114,26 @@ folds=explicit%split([-1,0,0,4,4,-1])
 Indices start at 1. Pass fold train/test rows to the estimator manually.
 Predefined -1 rows always stay in training. The splitters store all folds in
 memory; group-count ties use descending group labels (see COVERAGE.md).
+
+
+## Sequential feature selection for regression
+
+```fortran
+use sklearn, only: dp,ridge,sequential_feature_selector
+type(ridge) :: estimator
+type(sequential_feature_selector) :: selector
+real(dp), allocatable :: selected(:,:)
+estimator%alpha=1._dp
+selector%n_features_to_select=2
+selector%direction='backward'
+selector%cv=4
+selected=selector%fit_transform(x,y,estimator)
+call estimator%fit(selected,y)
+```
+
+`y` is a real regression target. The selector scores independent estimator
+copies with unshuffled K-fold R2; fit the final estimator separately.
+Use `n_features_to_select=0` for auto and `use_tol=.true.` to enable an auto
+stopping tolerance. `get_support()` returns a logical mask in original column
+order; `inverse_transform` restores omitted columns as zeros. See COVERAGE.md
+for the supported estimator family, odd-feature auto behavior and R2 fold sizes.
