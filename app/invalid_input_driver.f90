@@ -25,6 +25,9 @@ program invalid_input_driver
   type(leave_one_group_out) :: logo_cv
   type(sgd_classifier) :: sgdc
   type(sgd_regressor) :: sgd
+  type(isolation_forest) :: iforest
+  real(dp), allocatable :: iforest_scores(:)
+  integer, allocatable :: iforest_labels(:)
   type(sgd_one_class_svm) :: sgdo
   real(dp), allocatable :: sgdo_scores(:)
   integer, allocatable :: sgdo_labels(:)
@@ -129,6 +132,87 @@ program invalid_input_driver
   seq%cv=2
   x=1; y=1; call get_command_argument(1,mode)
   select case(trim(mode))
+  case('iforest_count')
+    iforest%n_estimators=0
+    call iforest%fit(reshape([0._dp,1._dp],[2,1]))
+  case('iforest_seed')
+    iforest%random_state=-1
+    call iforest%fit(reshape([0._dp,1._dp],[2,1]))
+  case('iforest_samples_count')
+    iforest%max_samples=-1
+    call iforest%fit(reshape([0._dp,1._dp],[2,1]))
+  case('iforest_features_count')
+    iforest%max_features=-1
+    call iforest%fit(reshape([0._dp,1._dp],[2,1]))
+  case('iforest_samples_fraction')
+    iforest%max_samples_fraction=1.1_dp
+    call iforest%fit(reshape([0._dp,1._dp],[2,1]))
+  case('iforest_features_fraction')
+    iforest%max_features_fraction=-.1_dp
+    call iforest%fit(reshape([0._dp,1._dp],[2,1]))
+  case('iforest_samples_nan')
+    iforest%max_samples_fraction=ieee_value(0._dp,ieee_quiet_nan)
+    call iforest%fit(reshape([0._dp,1._dp],[2,1]))
+  case('iforest_features_nan')
+    iforest%max_features_fraction=ieee_value(0._dp,ieee_quiet_nan)
+    call iforest%fit(reshape([0._dp,1._dp],[2,1]))
+  case('iforest_samples_conflict')
+    iforest%max_samples=1; iforest%max_samples_fraction=.5_dp
+    call iforest%fit(reshape([0._dp,1._dp],[2,1]))
+  case('iforest_features_conflict')
+    iforest%max_features=1; iforest%max_features_fraction=.5_dp
+    call iforest%fit(reshape([0._dp,1._dp],[2,1]))
+  case('iforest_features_large')
+    iforest%max_features=2
+    call iforest%fit(reshape([0._dp,1._dp],[2,1]))
+  case('iforest_samples_empty')
+    iforest%max_samples_fraction=.01_dp
+    call iforest%fit(reshape([0._dp,1._dp],[2,1]))
+  case('iforest_contamination_zero')
+    iforest%contamination=0
+    call iforest%fit(reshape([0._dp,1._dp],[2,1]))
+  case('iforest_contamination_high')
+    iforest%contamination=.6_dp
+    call iforest%fit(reshape([0._dp,1._dp],[2,1]))
+  case('iforest_contamination_nan')
+    iforest%contamination=ieee_value(0._dp,ieee_quiet_nan)
+    call iforest%fit(reshape([0._dp,1._dp],[2,1]))
+  case('iforest_weights_shape')
+    call iforest%fit(reshape([0._dp,1._dp],[2,1]),[1._dp])
+  case('iforest_weights_negative')
+    call iforest%fit(reshape([0._dp,1._dp],[2,1]),[-1._dp,2._dp])
+  case('iforest_weights_nan')
+    call iforest%fit(reshape([0._dp,1._dp],[2,1]), &
+      [1._dp,ieee_value(0._dp,ieee_quiet_nan)])
+  case('iforest_empty')
+    call iforest%fit(reshape([real(dp)::],[0,1]))
+  case('iforest_nan')
+    call iforest%fit(reshape([ieee_value(0._dp,ieee_quiet_nan),1._dp],[2,1]))
+  case('iforest_range')
+    call iforest%fit(reshape([0._dp,1.e40_dp],[2,1]))
+  case('iforest_unfitted')
+    iforest_scores=iforest%score_samples(reshape([0._dp],[1,1]))
+  case('iforest_query_features')
+    call iforest%fit(reshape([0._dp,1._dp],[2,1]))
+    iforest_labels=iforest%predict(reshape([0._dp,1._dp],[1,2]))
+  case('iforest_query_nan')
+    call iforest%fit(reshape([0._dp,1._dp],[2,1]))
+    iforest_scores=iforest%decision_function(reshape([ieee_value(0._dp,ieee_quiet_nan)],[1,1]))
+  case('iforest_query_empty')
+    call iforest%fit(reshape([0._dp,1._dp],[2,1]))
+    iforest_labels=iforest%predict(reshape([real(dp)::],[0,1]))
+  case('iforest_query_range')
+    call iforest%fit(reshape([0._dp,1._dp],[2,1]))
+    iforest_labels=iforest%predict(reshape([1.e40_dp],[1,1]))
+  case('iforest_warm_features')
+    call iforest%fit(reshape([0._dp,1._dp],[2,1]))
+    iforest%warm_start=.true.
+    call iforest%fit(reshape([0._dp,1._dp],[1,2]))
+  case('iforest_warm_count')
+    call iforest%fit(reshape([0._dp,1._dp],[2,1]))
+    iforest%warm_start=.true.; iforest%n_estimators=1
+    call iforest%fit(reshape([0._dp,1._dp],[2,1]))
+
   case('sgdo_nu_zero')
     sgdo%nu=0
     call sgdo%fit(reshape([0._dp,1._dp],[2,1]))

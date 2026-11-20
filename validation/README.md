@@ -1435,3 +1435,58 @@ formatting, inventories, reports and staged diff checks passed. Older Python
 reference suites were not rerun; existing SGD implementations and the legacy
 RNG helper were unchanged. MIT project licensing and full upstream notices
 remain in place.
+
+
+## IsolationForest anomaly detection (2026-11-20)
+
+Added isolation_forest with dense random isolation trees, exact seeded row/
+feature sampling, bootstrap sample counts, weighted node statistics, automatic
+and empirical contamination thresholds, path-length scores, integer labels,
+fit_predict and warm-start tree growth. Native per-tree metadata stores the
+actual draws for all warm generations; tree storage exposes native node values,
+counts, splits and importances. Empty weighted roots use finite zero diagnostic
+statistics while matching sklearn's scoring. Shared native tree and forest
+builders were unchanged. MIT project licensing and existing sklearn/NumPy
+notices remain, with expanded provenance. No dependency or public extension
+was added.
+
+compare_isolation_forest.py adds 9,060 result groups across 84 configurations
+on four seeded datasets, including seed zero, more than 256 training rows and
+full 100-tree default fits. It checks train/query path scores, decisions, exact
+labels, offsets and fitted counts. Every retained tree compares selected
+features/rows (including bootstrap duplicates), random state, depth, leaf count,
+node thresholds/features/counts/values/impurities and normalized importances.
+Fixtures cover automatic/count/fraction sampling, all automatic sampling
+regimes, feature subsets, bootstrap, heterogeneous/zero/all-zero weights,
+empty weighted roots, warm growth, constant features/data, oversized row counts,
+singletons, empty bootstrap draws and empirical contamination. Nonempty-tree
+statistics and scores use atol=rtol=3e-10; sample/feature/node indices, counts,
+labels and per-tree seeds/depths/leaf counts match exactly. Empty-root NaN
+statistics are compared with the documented finite native zero convention.
+
+Native tests additionally check warm vs direct growth, empirical contamination,
+distant-point scores, fit_predict, automatic metadata, empty weighted roots and
+singleton/empty-bootstrap score normalization. Native accumulation preserves
+sklearn's path-length operation order, including exact label checks at
+constant-data decision boundaries.
+A zero-row fraction without bootstrap is rejected explicitly, matching the
+upstream failing path; the bootstrap variant remains supported.
+
+Inventory: 143 core types, 62 source modules, 65 native test programs,
+44 reference suites and 28,763 result groups, plus 28 separate NumPy stream
+groups. Twenty-eight new isolated diagnostics bring the inventory to 987.
+isolation_outliers demonstrates anomaly scores and query labels. The shared
+input-error runner now checks for duplicate literal registrations before
+building, protecting the case inventory from silent Python dictionary overrides.
+
+Final validation: all 65 native test programs passed checked builds with
+-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow and release builds.
+All 9,060 new sklearn result groups and all 987 isolated diagnostic cases
+passed. The checked isolation_outliers example uses a filled-grid fixture,
+fits 100 trees and returns query labels +1,+1,-1, with scores approximately
+-.48430, -.50903 and -.62710. These are illustrative fixture results.
+Python syntax, Fortran formatting, reference reports, inventory counts and
+staged diff checks passed. All registered diagnostic keys and native case
+labels are unique. Older Python reference suites were not rerun; shared tree
+builders and the legacy RNG helper were unchanged. MIT licensing and full
+upstream sklearn/NumPy notices remain in place.

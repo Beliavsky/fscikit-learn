@@ -1,10 +1,40 @@
 """Check public input diagnostics in isolated processes (expected error stops)."""
 from pathlib import Path
+import ast
 import json
 import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 CASES = {
+    "iforest_count": "invalid IsolationForest estimator count or seed",
+    "iforest_seed": "invalid IsolationForest estimator count or seed",
+    "iforest_samples_count": "negative IsolationForest sampling count",
+    "iforest_features_count": "negative IsolationForest sampling count",
+    "iforest_samples_fraction": "invalid IsolationForest sampling fraction",
+    "iforest_features_fraction": "invalid IsolationForest sampling fraction",
+    "iforest_samples_nan": "nonfinite IsolationForest controls",
+    "iforest_features_nan": "nonfinite IsolationForest controls",
+    "iforest_samples_conflict": "IsolationForest sampling count/fraction conflict",
+    "iforest_features_conflict": "IsolationForest sampling count/fraction conflict",
+    "iforest_features_large": "IsolationForest max_features exceeds input features",
+    "iforest_samples_empty": "IsolationForest sampling fraction selects no rows without bootstrap",
+    "iforest_contamination_zero": "IsolationForest contamination must be -1 (auto) or in (0,.5]",
+    "iforest_contamination_high": "IsolationForest contamination must be -1 (auto) or in (0,.5]",
+    "iforest_contamination_nan": "nonfinite IsolationForest controls",
+    "iforest_weights_shape": "IsolationForest sample weight shape mismatch",
+    "iforest_weights_negative": "IsolationForest weights must be finite and nonnegative",
+    "iforest_weights_nan": "IsolationForest weights must be finite and nonnegative",
+    "iforest_empty": "X must be nonempty",
+    "iforest_nan": "X contains NaN or infinity",
+    "iforest_range": "IsolationForest features exceed float32 range",
+    "iforest_unfitted": "IsolationForest is not fitted",
+    "iforest_query_features": "IsolationForest query feature count mismatch",
+    "iforest_query_nan": "X contains NaN or infinity",
+    "iforest_query_empty": "X must be nonempty",
+    "iforest_query_range": "IsolationForest features exceed float32 range",
+    "iforest_warm_features": "IsolationForest warm-start feature count mismatch",
+    "iforest_warm_count": "IsolationForest warm_start cannot reduce n_estimators",
+
     "sgdo_nu_zero": "SGDOneClassSVM nu must be in (0,1]",
     "sgdo_nu_high": "SGDOneClassSVM nu must be in (0,1]",
     "sgdo_nu_nan": "nonfinite SGDOneClassSVM controls",
@@ -879,6 +909,12 @@ CASES = {
 
 
 def main():
+    # A duplicate literal key silently drops a diagnostic before the driver runs.
+    assignments = ast.parse(Path(__file__).read_text()).body
+    registration = next(node.value for node in assignments if isinstance(node, ast.Assign)
+                        and any(isinstance(target, ast.Name) and target.id == "CASES" for target in node.targets))
+    case_keys = [ast.literal_eval(key) for key in registration.keys]
+    assert len(case_keys) == len(set(case_keys)), "duplicate input-error case registration"
     subprocess.run(["fpm", "build", "--flag", "-fcheck=all -fbacktrace"], cwd=ROOT, check=True)
     # Ask fpm for the selected executable instead of rediscovering its build
     # directory or starting a complete fpm process for every rejection case.

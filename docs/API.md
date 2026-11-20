@@ -1354,3 +1354,33 @@ larger integer starts it at that update index. eta0 must be positive for
 constant, invscaling and adaptive schedules; optimal permits zero. power_t
 may be negative. tol=-1 disables stopping. See COVERAGE.md for exact zero-weight,
 shuffle/averaging and warm/partial-fit contracts and unsupported options.
+
+
+## IsolationForest
+
+Import isolation_forest from sklearn, sklearn_ensemble or
+sklearn_isolation_forest.
+
+```fortran
+type(isolation_forest) :: model
+model%random_state=42
+model%max_samples=128       ! 0 selects auto; oversized counts are clipped
+model%contamination=.1_dp   ! -1 selects auto
+call model%fit(x,sample_weight=weights) ! weights optional
+scores=model%score_samples(query)
+decisions=model%decision_function(query)
+labels=model%predict(query) ! +1 inliers, -1 outliers
+model%warm_start=.true.
+model%n_estimators=150
+call model%fit(x)
+```
+
+fit_predict returns training labels after fit. To use max_samples_fraction,
+leave integer max_samples at zero; to use max_features_fraction, leave integer
+max_features at zero. Fraction zero disables that option. Fitted counts and
+offset_, estimators_, estimators_features_ and estimators_samples_ are exposed.
+Per-tree index metadata uses %values, for example
+model%estimators_samples_(1)%values. Indices start at one; row metadata preserves
+bootstrap duplicates and all actual warm-start generations. Tree feature
+indices are local to estimators_features_(i)%values. See COVERAGE.md for exact
+sampling, float32 rounding, weighted counts, empty roots, warm starts and scope.

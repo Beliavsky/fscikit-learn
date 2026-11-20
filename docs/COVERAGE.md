@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 142 public estimator, transformer, and splitter types. Each is a
+There are 143 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Forty-three reference suites additionally check 19,703
+All types have native tests. Forty-four reference suites additionally check 28,763
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -40,7 +40,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | outlier | `local_outlier_factor` | Training outlier scores and novelty detection, automatic/percentile threshold, Minkowski and other supported pairwise metrics |
 | semi_supervised | `label_propagation`, `label_spreading` | Dense RBF or directed k-neighbor graph, hard/soft clamping, transductive labels and inductive probabilities |
 | tree | `decision_tree_classifier`, `decision_tree_regressor` | Exhaustive CART; Gini/entropy/log-loss classification, squared-error regression; depth/leaf/split/feature controls, normalized impurity importance, leaf indices |
-| ensemble | `random_forest_classifier`, `random_forest_regressor`, `extra_trees_classifier`, `extra_trees_regressor`, `gradient_boosting_regressor`, `gradient_boosting_classifier`, `adaboost_classifier`, `adaboost_regressor` | Bootstrap forests, randomized feature subsets, random-threshold Extra Trees, squared-error residual boosting; binary/multiclass classification boosting with Newton leaf updates; weighted Gini-stump SAMME; AdaBoost.R2 with depth-controlled CART |
+| ensemble | `random_forest_classifier`, `random_forest_regressor`, `extra_trees_classifier`, `extra_trees_regressor`, `gradient_boosting_regressor`, `gradient_boosting_classifier`, `adaboost_classifier`, `adaboost_regressor`, `isolation_forest` | Bootstrap forests, randomized feature subsets, random-threshold Extra Trees, squared-error residual boosting; binary/multiclass classification boosting with Newton leaf updates; weighted Gini-stump SAMME; AdaBoost.R2 with depth-controlled CART; random isolation trees and path-length anomaly scores |
 | model_selection | `kfold`, `stratified_kfold`, `time_series_split`, `group_kfold`, `leave_one_out`, `leave_one_group_out`, `predefined_split`, `ridge_cv`; `train_test_split`, `shuffle_indices`, `cross_val_score` | Index-based splits; fraction test size; optional stratification; time gap/window; CV for linear-regression family and logistic regression; ridge CV selects negative mean squared error |
 | feature_selection | `variance_threshold`, `select_k_best`, `sequential_feature_selector`, `rfe`, `rfecv`; `f_classif`, `f_regression`, `chi2` | Dense scores and masks; greedy forward/backward CV regression selection; coefficient-based recursive elimination and CV for regression/logistic classification; inverse transform fills dropped columns with zero; no p-values |
 | feature_extraction_text | `count_vectorizer`, `tfidf_transformer`, `tfidf_vectorizer` | Dense unigram counts; ASCII alphanumeric/underscore tokens of length 2-128; sorted vocabulary; min/max document frequency, binary counts and max features; smoothed/unsmoothed IDF, sublinear TF, l1/l2/no normalization |
@@ -232,7 +232,7 @@ Not translated: sparse data paths, general estimator base/clone/parameter search
 framework, pipelines/column transformers, broader SVM/GLM/SGD options,
 histogram boosting, broader AdaBoost and bagging APIs,
 t-SNE and Hessian/modified LLE,
-outlier detection beyond LOF/OneClassSVM/SGDOneClassSVM,
+outlier detection beyond LOF/OneClassSVM/SGDOneClassSVM/IsolationForest,
 calibration, semi-supervised learning beyond label propagation/spreading,
 multiclass/multioutput wrappers,
 inspection/permutation importance, further feature-selection wrappers, image features,
@@ -1899,3 +1899,66 @@ query scores and labels, every recorded streaming/warm state and exact sample
 clock/epoch counts are compared with installed sklearn. Prior reference states
 are copied before later calls, since sklearn mutates coefficient buffers in
 place. Native initializers copy their inputs; no caller-array aliasing is used.
+
+
+## Isolation forests
+
+`isolation_forest` translates sklearn 1.6.1 IsolationForest's dense finite-data
+algorithm: random isolation trees, automatic/count/fraction row and feature
+sampling, bootstrap multiplicities, sample weights, contamination thresholds,
+fit_predict and warm-start growth. score_samples returns negative path-length
+scores (lower means more anomalous); decision_function subtracts offset_;
+predict returns +1 for nonnegative decisions and -1 otherwise. The default is
+100 trees, min(256,n_samples) rows, all features, no bootstrap and offset_=-0.5.
+
+Integer max_samples=0 selects auto; a positive count is clipped to the input
+row count as in sklearn. Alternatively set max_samples_fraction in (0,1] and
+leave max_samples=0. Integer max_features=0 selects all features; alternatively
+set max_features_fraction in (0,1], with its truncated feature count clamped to
+at least one. Count and fraction controls for the same axis cannot both be
+active. Fractions default to zero (disabled). contamination=-1 is auto;
+a fraction in (0,.5] selects the linear-interpolated training-score percentile.
+Native random_state is a nonnegative default-integer seed and defaults to zero.
+
+Sampling follows sklearn's tracking-selection, RandomState permutation and
+reservoir branches, including their exact RNG consumption and order. Seeded
+random targets, estimator seeds and splitter Xorshift states match the pinned
+sklearn/NumPy streams. Tree features are float32-rounded, random cuts use the
+Cython endpoint convention, constant features are cached, and weighted target
+impurities/early leaves follow dense ExtraTreeRegressor. The original shared
+native tree/forest builders are unchanged. Query features are also rounded to
+float32. Nonfinite/out-of-float32-range features are rejected. Missing values,
+sparse arrays, signed weights, parallel backends and metadata routing are
+outside this subset.
+
+Sample weights must be finite and nonnegative; zeros are excluded from each
+tree's active rows. Bootstrap counts multiply the weights. Node sample counts
+and path corrections use unique active rows, while score normalization uses
+the requested max_samples_, matching sklearn. All-zero weights can therefore
+produce empty weighted roots. Their native value, impurity and importances
+are zero instead of sklearn's NaNs; forest path scores still agree. A sample
+fraction that truncates to zero is rejected without bootstrap (sklearn also
+fails that path); with bootstrap it produces empty trees and scores -0.5, as
+sklearn does. Singleton sampling also scores -0.5.
+
+Fitted n_estimators_, n_features_in_, max_samples_, max_features_ and offset_
+are exposed. estimators_ contains native decision_tree_regressor storage with
+1-based node/feature indices, 0 leaf links and root depth zero. It supports
+apply/get_depth/get_n_leaves and node inspection; sample arrays returned by the
+forest use original training row indices starting at one. Tree features are
+local indices into each bag's feature list. estimators_features_(i)%values and
+estimators_samples_(i)%values expose the actual selected feature/row indices,
+including bootstrap duplicates. Unlike sklearn's reconstructed warm-start
+sample property, native metadata retains the actual draws for every tree,
+including those fitted on earlier calls.
+
+Warm starts retain existing trees and consume/skip the same initial estimator
+seeds before appending new trees. n_estimators cannot shrink, and feature
+count must remain unchanged. A warm fit without added trees retains the model
+and recalculates its threshold on the supplied data. Stored per-tree feature
+lists are always applied during prediction; tree training controls are not
+reapplied to old trees. Warm fits can keep distinct per-tree sampling lists;
+the latest max_samples_ supplies the current normalization, as in sklearn.
+Path-length accumulation preserves the source operation order, which matters
+at the exact auto threshold for constant data. Numerical parity is established
+for the reference fixtures rather than claimed for all floating-point ties.
