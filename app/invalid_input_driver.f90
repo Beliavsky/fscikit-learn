@@ -25,6 +25,10 @@ program invalid_input_driver
   type(leave_one_group_out) :: logo_cv
   type(sgd_classifier) :: sgdc
   type(sgd_regressor) :: sgd
+  type(mini_batch_kmeans) :: mb_case
+  real(dp), allocatable :: mbkm_distances(:,:)
+  integer, allocatable :: mbkm_labels(:)
+  real(dp) :: mbkm_value
   type(bisecting_kmeans) :: bisect_case
   real(dp), allocatable :: bkm_distances(:,:)
   integer, allocatable :: bkm_labels(:)
@@ -141,8 +145,114 @@ program invalid_input_driver
   elimination_cv%cv=2
   seq%cv=2
   x=1; y=1; call get_command_argument(1,mode)
+  mb_case%n_clusters=2; mb_case%max_iter=2; mb_case%batch_size=6
   bisect_case%n_clusters=2
   select case(trim(mode))
+  case('mbkm_clusters_zero')
+    mb_case%n_clusters=0
+    call mb_case%fit(reshape([-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp],[6,1]))
+  case('mbkm_clusters_high')
+    mb_case%n_clusters=7
+    call mb_case%fit(reshape([-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp],[6,1]))
+  case('mbkm_iterations')
+    mb_case%max_iter=0
+    call mb_case%fit(reshape([-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp],[6,1]))
+  case('mbkm_batch')
+    mb_case%batch_size=0
+    call mb_case%fit(reshape([-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp],[6,1]))
+  case('mbkm_restarts')
+    mb_case%n_init=-1
+    call mb_case%fit(reshape([-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp],[6,1]))
+  case('mbkm_init_size')
+    mb_case%init_size=-1
+    call mb_case%fit(reshape([-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp],[6,1]))
+  case('mbkm_no_improvement')
+    mb_case%max_no_improvement=-2
+    call mb_case%fit(reshape([-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp],[6,1]))
+  case('mbkm_seed')
+    mb_case%random_state=-1
+    call mb_case%fit(reshape([-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp],[6,1]))
+  case('mbkm_tol_negative')
+    mb_case%tol=-1
+    call mb_case%fit(reshape([-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp],[6,1]))
+  case('mbkm_tol_nan')
+    mb_case%tol=ieee_value(0._dp,ieee_quiet_nan)
+    call mb_case%fit(reshape([-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp],[6,1]))
+  case('mbkm_ratio_negative')
+    mb_case%reassignment_ratio=-1
+    call mb_case%fit(reshape([-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp],[6,1]))
+  case('mbkm_ratio_nan')
+    mb_case%reassignment_ratio=ieee_value(0._dp,ieee_quiet_nan)
+    call mb_case%fit(reshape([-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp],[6,1]))
+  case('mbkm_init')
+    mb_case%init='unknown'
+    call mb_case%fit(reshape([-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp],[6,1]))
+  case('mbkm_center_shape')
+    mb_case%initial_centers=reshape([0._dp],[1,1])
+    call mb_case%fit(reshape([-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp],[6,1]))
+  case('mbkm_center_nan')
+    mb_case%initial_centers=reshape([0._dp,ieee_value(0._dp,ieee_quiet_nan)],[2,1])
+    call mb_case%fit(reshape([-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp],[6,1]))
+  case('mbkm_weights_shape')
+    call mb_case%fit(reshape([-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp],[6,1]), &
+      [1._dp])
+  case('mbkm_weights_negative')
+    call mb_case%fit(reshape([-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp],[6,1]), &
+      [-1._dp,1._dp,1._dp,1._dp,1._dp,1._dp])
+  case('mbkm_weights_nan')
+    call mb_case%fit(reshape([-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp],[6,1]), &
+      [ieee_value(0._dp,ieee_quiet_nan),1._dp,1._dp,1._dp,1._dp,1._dp])
+  case('mbkm_weights_overflow')
+    call mb_case%fit(reshape([-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp],[6,1]), &
+      spread(huge(1._dp),1,6))
+  case('mbkm_random_positive_rows')
+    mb_case%init='random'
+    call mb_case%fit(reshape([-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp],[6,1]),[1._dp,0._dp,0._dp,0._dp,0._dp,0._dp])
+  case('mbkm_zero_weight')
+    call mb_case%fit(reshape([-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp],[6,1]),spread(0._dp,1,6))
+  case('mbkm_empty')
+    call mb_case%fit(reshape([real(dp)::],[0,1]))
+  case('mbkm_nan')
+    call mb_case%fit(reshape([0._dp,ieee_value(0._dp,ieee_quiet_nan)],[2,1]))
+  case('mbkm_partial_first_rows')
+    call mb_case%partial_fit(reshape([0._dp],[1,1]))
+  case('mbkm_partial_features')
+    call mb_case%fit(reshape([-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp],[6,1]))
+    call mb_case%partial_fit(reshape([0._dp,1._dp],[1,2]))
+  case('mbkm_changed_clusters')
+    call mb_case%fit(reshape([-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp],[6,1]))
+    mb_case%n_clusters=3
+    call mb_case%partial_fit(reshape([0._dp],[1,1]))
+  case('mbkm_unfitted_predict')
+    mbkm_labels=mb_case%predict(reshape([0._dp],[1,1]))
+  case('mbkm_unfitted_transform')
+    mbkm_distances=mb_case%transform(reshape([0._dp],[1,1]))
+  case('mbkm_unfitted_score')
+    mbkm_value=mb_case%score(reshape([0._dp],[1,1]))
+  case('mbkm_query_features')
+    call mb_case%fit(reshape([-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp],[6,1]))
+    mbkm_labels=mb_case%predict(reshape([0._dp,1._dp],[1,2]))
+  case('mbkm_query_empty')
+    call mb_case%fit(reshape([-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp],[6,1]))
+    mbkm_labels=mb_case%predict(reshape([real(dp)::],[0,1]))
+  case('mbkm_query_nan')
+    call mb_case%fit(reshape([-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp],[6,1]))
+    mbkm_labels=mb_case%predict(reshape([ieee_value(0._dp,ieee_quiet_nan)],[1,1]))
+  case('mbkm_score_weights_shape')
+    call mb_case%fit(reshape([-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp],[6,1]))
+    mbkm_value=mb_case%score(reshape([0._dp,1._dp],[2,1]),[1._dp])
+  case('mbkm_score_weights_negative')
+    call mb_case%fit(reshape([-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp],[6,1]))
+    mbkm_value=mb_case%score(reshape([0._dp,1._dp],[2,1]),[-1._dp,2._dp])
+  case('mbkm_fit_predict_no_labels')
+    mb_case%compute_labels=.false.
+    mbkm_labels=mb_case%fit_predict(reshape([-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp],[6,1]))
+  case('mbkm_reassign_all')
+    mb_case%reassignment_ratio=2
+    call mb_case%fit(reshape([-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp],[6,1]))
+  case('mbkm_partial_weights_shape')
+    call mb_case%fit(reshape([-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp],[6,1]))
+    call mb_case%partial_fit(reshape([-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp],[6,1]),[1._dp])
   case('bkm_clusters_zero')
     bisect_case%n_clusters=0
     call bisect_case%fit(reshape([-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp],[6,1]))

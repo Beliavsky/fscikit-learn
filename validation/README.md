@@ -1585,3 +1585,61 @@ cases. The hierarchical_centroids example passed, producing query labels
 inventory/report checks and git diff checks passed. Older Python reference
 suites were not rerun; existing KMeans bodies and the legacy RNG helper were
 unchanged. No runtime dependency or public extension was added.
+
+## MiniBatchKMeans batch and streaming clustering (2026-11-20)
+
+Added mini_batch_kmeans with full-data sampled-batch fitting and persistent
+partial_fit. Weighted running centers/counts, NumPy-compatible seeded random
+and greedy k-means++ initialization, explicit initial centers, validation-set
+restart selection, automatic initialization sizing, low-count reassignment and
+batch/epoch counters are implemented. fit monitors source variance-scaled center
+motion and exponentially smoothed batch inertia. As in the source, tol=0 skips
+the full-data variance pass. partial_fit applies one update
+to every row supplied. predict/transform/score and fit_predict/fit_transform are
+available. Existing KMeans, BisectingKMeans and the RNG helper bodies are unchanged.
+
+compare_minibatch_kmeans.py checks 2,440 direct sklearn 1.6.1 result groups in
+136 configurations across four seeded datasets, including seed zero and more
+than one source chunk. It compares centers, accumulated cluster weights,
+labels/inertia, batch/epoch counters, predictions, distance transforms, weighted
+scores and fit method outputs. Streaming fixtures compare every batch's state,
+including fit followed by partial_fit and partial_fit followed by fit. The
+source OpenMP thread count is fixed to one for reproducible reductions.
+Numerical tolerances are atol=rtol=3e-8; labels and metadata match exactly.
+
+Fixtures cover random/greedy/explicit initialization, automatic/explicit restart
+counts, initialization subsampling/fallback, both stopping rules and their
+disabled forms, one epoch/one cluster, heterogeneous/zero/all-zero weights,
+compute_labels=false, a short final streaming batch, translated data, constant
+features and duplicate zero centers. A distinct-count fixture checks the
+reassignment cap and reset counts. A billion-iteration budget exits after two
+steps and verifies that sample/iteration products use wide integer arithmetic.
+Equal-count ties at the cap use native first-
+index order; NumPy's unstable argsort may choose different tied centers. Near-
+ties between duplicate floating-point centers may also differ. These limits
+and native sentinel values are documented in COVERAGE.md and API.md.
+
+Native tests independently verify analytic weighted running means/counts and
+scores, zero-weight state preservation, wide iteration budgets with early
+stopping, small subsequent batches, deterministic
+fit resets, copied streaming state, counters and unavailable one-step smoothed
+inertia. The native has_inertia_ flag handles the source corner where
+compute_labels=false with only one update leaves no smoothed estimate.
+
+Inventory: 147 core types, 65 source modules, 68 native test programs,
+47 reference suites and 33,137 result groups, plus 28 separate NumPy stream
+groups. Thirty-seven new isolated cases bring the inventory to 1,080.
+streaming_centroids demonstrates two successive batch updates and prediction.
+MIT project licensing and complete upstream notices remain in place; no
+runtime dependency or public extension was added.
+
+Validation completed on the final implementation: all 2,440 sklearn result
+groups passed through the package-built reference driver. All 68 native test
+programs passed with -fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow
+and in release mode, including the wide-budget early-stopping regression.
+All 1,080 isolated invalid-input cases passed. The runtime-checked
+streaming_centroids example passed with centers -2/5, accumulated weights 3/4
+and query labels 0/1. Python syntax, Fortran formatting, inventories, report
+contents, unique diagnostic registrations and git diff checks passed. Earlier
+Python reference suites were not rerun; existing estimator and RNG helper
+bodies were unchanged. MIT licensing and full upstream notices are retained.

@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 146 public estimator, transformer, and splitter types. Each is a
+There are 147 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Forty-six reference suites additionally check 30,697
+All types have native tests. Forty-seven reference suites additionally check 33,137
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -27,7 +27,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | linear_model | `linear_regression`, `lars`, `lasso_lars`, `lars_cv`, `lasso_lars_cv`, `lasso_lars_ic`, `ridge`, `ridge_classifier`, `ridge_classifier_cv`, `multi_task_elastic_net`, `multi_task_lasso`, `lasso`, `elastic_net`, `lasso_cv`, `elastic_net_cv`, `logistic_regression`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `sgd_regressor`, `sgd_classifier`, `sgd_one_class_svm`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `huber_regressor`, `quantile_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; least-angle/Lasso homotopy paths with CV and AIC/BIC selection; coordinate descent with K-fold alpha/l1-ratio selection; logistic Newton solver; perceptron; PA-I/II classification/regression with averaging; streaming stochastic-gradient regression/classification and one-class detection; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; weighted L1-regularized quantile regression; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb`, `categorical_nb` | Empirical class priors, variance smoothing, strictly positive scalar alpha; Bernoulli threshold; optional complement normalization |
 | neighbors | `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with optional shrinkage and uniform priors; Euclidean kernel density |
-| cluster | `kmeans`, `bisecting_kmeans`, `dbscan`, `agglomerative_clustering`, `feature_agglomeration`, `mean_shift`, `affinity_propagation`, `spectral_clustering`, `optics`, `birch`; `estimate_bandwidth`, `cluster_optics_dbscan`, `cluster_optics_xi` | Lloyd/k-means++; bisecting centroid hierarchy with Lloyd/Elkan splits; density expansion; single/complete/average/Ward merge trees and feature pooling; flat-kernel mode seeking; damped exemplar messages; normalized-Laplacian clustering with k-means or pivoted QR assignment; OPTICS reachability ordering, Xi hierarchy and DBSCAN extraction; BIRCH streaming CF tree and optional Ward clustering |
+| cluster | `kmeans`, `bisecting_kmeans`, `mini_batch_kmeans`, `dbscan`, `agglomerative_clustering`, `feature_agglomeration`, `mean_shift`, `affinity_propagation`, `spectral_clustering`, `optics`, `birch`; `estimate_bandwidth`, `cluster_optics_dbscan`, `cluster_optics_xi` | Lloyd/k-means++; weighted streaming mini-batch centroids; bisecting centroid hierarchy with Lloyd/Elkan splits; density expansion; single/complete/average/Ward merge trees and feature pooling; flat-kernel mode seeking; damped exemplar messages; normalized-Laplacian clustering with k-means or pivoted QR assignment; OPTICS reachability ordering, Xi hierarchy and DBSCAN extraction; BIRCH streaming CF tree and optional Ward clustering |
 | decomposition | `pca`, `incremental_pca`, `truncated_svd`, `nmf`, `sparse_pca`, `dictionary_learning`, `sparse_coder`; `sparse_encode`; re-exports `kernel_pca`, `factor_analysis`, `fast_ica` | Direct Jacobi SVD; PCA whitening and inversion; streaming stacked-SVD IncrementalPCA; exact dense SVD; NMF multiplicative updates; sparse dictionary factorization and SparsePCA; five sparse coding methods; nonlinear kernel PCA; unrotated full-SVD factor analysis; parallel/deflation ICA |
 | cross_decomposition | `pls_regression`, `pls_canonical`, `cca`, `pls_svd` | Paired-matrix latent components: NIPALS regression/canonical deflation, CCA pseudoinverse mode, canonical direct SVD and PLSSVD cross-covariance projection; multiple response columns |
 | isotonic | `isotonic_regression`; `isotonic_fit`, `check_increasing` | Weighted pool-adjacent-violators, automatic Spearman direction, bounds, repeated-input aggregation and piecewise linear interpolation |
@@ -2079,3 +2079,67 @@ aggregates these flags. The source does not expose a global n_iter_ for this
 estimator. Existing native KMeans behavior is unchanged. Floating-point ties
 and parallel reductions can affect equivalent cluster choices; seeded reference
 fixtures use one source OpenMP thread and compare the hierarchy explicitly.
+
+
+## MiniBatchKMeans
+
+mini_batch_kmeans implements dense sklearn MiniBatchKMeans fitting and streaming
+partial_fit. fit draws training batches uniformly with replacement, applies
+weighted running-mean updates, and monitors variance-scaled center motion and
+exponentially weighted batch inertia. The first update is excluded from stopping
+checks. max_no_improvement=0 stops at the second step; -1 disables this check.
+A positive tol is multiplied by the mean population feature variance, as in the
+source. A zero tolerance disables the center-motion check. n_iter_ is the ceiling
+of processed batch rows divided by training rows; n_steps_ counts updates in a
+64-bit integer. Iteration budgets and initialization/reassignment clock products
+use wide integer arithmetic before division or capping.
+
+Initialization supports weighted random sampling without replacement, greedy
+k-means++ with 2+floor(log(K)) local trials, or explicit initial_centers. Native
+n_init=0 implements sklearn 'auto': one k-means++ start or three random starts.
+Multiple starts select the smallest inertia on a common sampled validation set;
+they do not run complete fits before selection. init_size=0 implements automatic
+sizing. A positive size smaller than K is replaced by 3*K, and the effective size
+is capped by the number of rows. Initialization subsets and validation sets are
+sampled with replacement. Explicit centers still consume source-compatible
+initialization subsampling draws and force one start. The legacy NumPy-compatible
+RandomState generator supplies seeded batch draws, weighted choices and uniform
+permutations; no Python or NumPy runtime dependency is introduced.
+
+partial_fit initializes only on its first call and updates using every supplied
+row, without resampling. Its RNG state and accumulated cluster weights persist
+between calls. The first batch must have at least K rows; later batches can be
+smaller. fit resets centers/counts and batch/epoch counters for a new optimization.
+As in the source, fit uses a local seeded RNG rather than advancing an existing
+partial_fit RNG. Training labels/inertia after partial_fit describe only its
+latest supplied batch. predict assigns nearest final centers, transform returns
+Euclidean distances, and score returns negative weighted nearest-center SSE.
+
+Low-count centers can be reassigned uniformly to observations from the current
+batch. Reassignment is checked when a count is zero or at least 10*K effective
+batch rows have elapsed. At most floor(current_batch_rows/2) centers are reset;
+reset counts become the minimum retained count. reassignment_ratio=0 disables
+this operation. Equal counts at the cap use increasing native cluster index;
+NumPy's unstable argsort can choose another tied center. Such ties and floating-
+point near-ties between duplicate centers can lead to different assignments,
+optimization histories or local minima. Reference fixtures compare unambiguous
+rankings; an explicit weighted fixture exercises the cap and count reset.
+
+Finite nonnegative weights, including zeros, are supported. Random initialization
+requires K positive-weight rows in its sampled subset; k-means++ needs positive
+subset total weight. Explicit initialization also allows all-zero weights.
+Sparse/float32 matrices, callable initializers, parallel/verbose controls,
+cloning and metadata routing are outside this subset. Inputs are preserved.
+Original contributions retain MIT licensing with upstream BSD notices.
+
+Native counts_ exposes the source's private accumulated weights. converged_
+records early stopping during fit, not a streaming convergence test. n_iter_
+starts at zero and is set by fit; partial_fit only increments n_steps_. With
+compute_labels=false, fit omits labels and estimates inertia from the smoothed
+batch cost. This estimate is unavailable for a single update; the native
+has_inertia_ flag is false and inertia_ is a placeholder zero, whereas sklearn
+1.6.1 raises when it tries to use its uninitialized smoothed cost in this corner.
+A fresh partial_fit with labels disabled similarly has no inertia. Subsequent
+partial_fit calls with labels disabled retain previously available label/inertia
+state, matching the source; query methods remain available. fit_predict requires
+compute_labels=true and reports a deliberate diagnostic otherwise.

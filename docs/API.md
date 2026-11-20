@@ -1448,3 +1448,39 @@ iterations/inertias/convergence and aggregate converged_ are available.
 See COVERAGE.md for seeded weighted initialization, native Elkan bounds,
 empty leaves, one-cluster root behavior, tolerance and the distinction between
 hierarchical predict and global nearest-center score.
+
+
+## MiniBatchKMeans
+
+Import mini_batch_kmeans from sklearn, sklearn_cluster or
+sklearn_minibatch_kmeans.
+
+```fortran
+type(mini_batch_kmeans) :: model
+model%n_clusters=4
+model%batch_size=64
+model%random_state=42
+call model%partial_fit(first_batch,sample_weight=first_weights)
+call model%partial_fit(next_batch,sample_weight=next_weights)
+labels=model%predict(query)
+distances=model%transform(query)
+negative_inertia=model%score(query,sample_weight=query_weights)
+```
+
+fit runs sampled mini-batch optimization on a complete training matrix;
+partial_fit applies one update to the entire supplied batch. The first supplied
+batch needs at least n_clusters rows; later batches can be smaller. fit_predict
+and fit_transform fit before returning labels or final-center distances.
+Labels are zero-based. cluster_centers_, labels_, inertia_, n_features_in_,
+n_steps_ and (after fit) n_iter_ have sklearn counterpart semantics. Native
+counts_ exposes accumulated weights; n_steps_ is a 64-bit integer. converged_ reports early stopping in fit;
+has_inertia_ indicates whether inertia_ is meaningful.
+
+Native sentinels are n_init=0 for 'auto' (one k-means++ or three random starts),
+init_size=0 for automatic sizing and max_no_improvement=-1 for None. Allocate
+initial_centers(n_clusters,n_features) for explicit initialization; deallocate
+it to resume the string init method. Supplied centers force one initialization.
+With compute_labels=false, labels are omitted and fit reports smoothed inertia
+when at least two optimization steps ran. A single-step fit has has_inertia_
+false; a fresh partial_fit with labels disabled has no inertia either. See
+COVERAGE.md for restart selection, reassignment, stopping, RNG and scope limits.
