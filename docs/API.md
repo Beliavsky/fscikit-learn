@@ -1822,3 +1822,57 @@ Path-tail iteration counts and nonunique coefficient representations may differ
 at machine precision; see [coverage](COVERAGE.md#orthogonalmatchingpursuitcv-2026-11-20).
 No zero-feature candidate is scored; zero-step fold paths raise an explicit
 diagnostic. See `example/omp_sparsity_selection.f90` for a complete program.
+
+
+## Statistical univariate feature selection
+
+`select_percentile`, `select_fpr`, `select_fdr`, `select_fwe` and
+`generic_univariate_select` are exported by `sklearn`, `sklearn_feature_selection`
+and `sklearn_univariate_selection`.
+
+```fortran
+type(select_fdr) :: selector
+! Integer y selects classification; real y selects regression.
+selector%alpha=.05_dp
+call selector%fit(x,y)
+mask=selector%get_support()
+indices=selector%get_support_indices() ! one-based Fortran indices
+selected=selector%transform(x)
+restored=selector%inverse_transform(selected) ! removed columns become zero
+```
+
+The threshold types use `alpha` (default .05) in [0,1]. FPR uses p<alpha;
+FWE uses p<alpha/P; FDR is the inclusive Benjamini-Hochberg step-up rule.
+SelectPercentile uses `percentile` (default 10) in [0,100], NumPy's linear
+percentile threshold and input-order tie filling. GenericUnivariateSelect uses
+`mode='percentile'` (default) or `'k_best'`, `'fpr'`, `'fdr'`, `'fwe'` and real
+`param` (default 1.e-5). In k_best mode param must be integral, zero selects
+none, k>P selects all and `k_all=.true.` represents the source `'all'` option.
+Top-k ties favor later columns, matching source stable sorting. Controls are
+read again by get_support/transform/inverse_transform, so changing them after
+fitting changes the projection without rescoring.
+
+Default `score_func='auto'` uses f_classif for integer labels and f_regression
+for real targets, following the existing Fortran select_k_best convention.
+Classification accepts `score_func='chi2'` (also an optional third fit argument),
+requiring nonnegative X. Regression accepts `center=.false.`; force_finite=True
+is fixed. Fitted `scores_`, `pvalues_` and `n_features_in_` are public. The helper
+subroutines `univariate_classification_scores(X,y,scores,pvalues,score_func)` and
+`univariate_regression_scores(X,y,scores,pvalues,center)` return allocated arrays.
+The existing score-only f_classif/f_regression/chi2 functions remain unchanged.
+
+For a custom scoring routine, call `fit_scores(scores,pvalues)` after computing
+its arrays. Percentile and k_best also accept `fit_scores(scores)` alone;
+probability-threshold modes require p-values. Score NaNs/infinities are supported
+with source selection semantics. Inputs to ordinary fit and transform must be
+finite dense real64 arrays. Sparse matrices, object labels, feature names and
+Python callback objects are outside this interface.
+
+Transforming to zero columns is supported. The native inverse of an N-by-zero
+matrix returns an N-by-P zero matrix, consistent with the other native selectors;
+sklearn 1.6.1's dense inverse raises a minimum-feature error on that input.
+Near-perfect regression F scores are ill-conditioned; retained probabilities
+and masks are source checked, and separately reported score checks certify the
+underlying squared correlation within 64 machine epsilons. See
+[coverage](COVERAGE.md#statistical-univariate-selectors-2026-11-20) and
+`example/statistical_feature_selection.f90`.

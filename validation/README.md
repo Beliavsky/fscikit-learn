@@ -2168,3 +2168,79 @@ The final checked report has 1,921 direct comparisons, one coefficient
 equivalence and 14 unused tail-counter differences. The release report has
 1,922 direct comparisons and 14 unused tail-counter differences; no coefficient
 exception is needed in that profile.
+
+
+## Statistical univariate selectors (2026-11-20)
+
+Added SelectPercentile, SelectFpr, SelectFdr, SelectFwe and GenericUnivariateSelect
+in sklearn_univariate_selection, with exports through sklearn_feature_selection
+and the facade. Controls reproduce source linear percentile interpolation,
+NaN cleaning, input-order percentile ties, stable top-k ties, strict FPR/FWE
+and inclusive Benjamini-Hochberg FDR thresholds. Generic mode supports
+percentile/k_best/fpr/fdr/fwe, including zero/all/above-P top-k. Projection
+controls remain live after fitting. fit_scores accepts external scoring results;
+probability-free scores work for percentile/top-k. Public fitted arrays retain
+scores, p-values and feature counts. Refit replaces/clears state correctly.
+
+New classification/regression score helpers provide ANOVA, chi-square and
+force-finite regression F scores with p-values, without modifying the older
+score-only routines or SelectKBest. Typed fit defaults follow the existing
+Fortran convention (integer classification, real regression). Classification
+can choose chi2; regression can disable centering. Explicit IEEE handling
+preserves constant/degenerate NaNs, exact-correlation finite maxima and the
+negative-F rounding endpoint distinction between source stats.f.sf and fdtrc.
+Native private survival functions use DLMF beta fractions/symmetry, modified
+Lentz evaluation and integer/half-integer upper-gamma recurrences with erfc and
+positive log-domain terms. Mathematical provenance links and sklearn/NumPy
+BSD notices are retained; no SciFort source is copied and no dependency added.
+
+The standalone checked suite passed 12,964 groups across 1,320 cases: four
+seeds, five types and 66 successive fits per type/seed. There are 11,060 direct
+source comparisons, 1,884 zero-column inverse identities and 20 separately
+reported near-perfect squared-correlation checks. The native zero-column
+inverse returns N-by-P zeros, consistent with existing native selectors; the
+source dense inverse's minimum-feature rejection is explicitly verified.
+Regression F scores above 1.e10 that fail ordinary comparison must still agree
+in 1-df/(F+df) within 64 machine epsilons; all other score elements and all
+probabilities, masks and data projections remain source checked. Maximum
+observed squared-correlation difference was 5.78e-15. Positive normal-range
+p-values have 1,092 additional log-tail groups, avoiding misleading absolute
+near-zero agreement. Numeric tolerance is atol=rtol=3e-8 for ordinary scores/
+probabilities and atol=1e-7, rtol=3e-8 for log tails; masks, indices, dimensions
+and copied/restored input values are exact.
+
+Fixtures cover balanced/unbalanced/many/single/one-sample-per-class targets,
+constant/duplicate/zero features, real target constants and perfect correlation,
+centering, feature scaling, single/wide/changing feature counts, large N,
+all generic modes, threshold equalities, zero/full selections, NaN/infinite/
+extreme/tied custom scores and tiny probabilities. Analytic native tests check
+masks, tie rules, strict/inclusive boundaries, post-fit control changes, refits,
+input preservation, null restoration and independent F(1,2), F(2,2) and
+chi-square(2) tail identities. Forty-two new isolated diagnostics cover invalid
+controls, mode/score mismatches, missing probabilities, residual degrees of
+freedom, data/query dimensions and finiteness, nonnegative chi2 and unfitted
+methods. A statistical_feature_selection example fits a regression after FDR
+screening. Dense real64 arrays and integer classification labels remain the
+supported data representation; sparse/object inputs, Python callback objects,
+feature-name integration, metadata routing and other score families are outside
+this wrapper.
+
+Inventory: 164 core types, 75 source modules, 78 native test programs,
+57 reference suites and 88,371 result groups, plus 28 separate NumPy stream
+groups. Isolated invalid-input inventory is 1,519. Original contributions
+remain MIT licensed with complete upstream notices and specific attribution.
+No runtime dependency or public algorithm extension was added.
+
+Validation completed: all 78 native test programs passed in both checked and
+release profiles. The full checked suite was repeated successfully on the final
+sources after the regression rounding-edge correction. The 12,964-group suite
+passed against both fpm checked and optimized release executables, with the
+same breakdown in each: 11,060 direct source comparisons, 1,884 explicit
+zero-column inverse identities and 20 near-perfect squared-correlation checks.
+All 1,092 log-tail groups passed. All 1,519 isolated invalid-input cases passed.
+The checked example selected columns 1 and 3, with p-values 2.347592312456038e-11
+and 1.377539268473622e-20 and post-selection training R2=0.9985943264061256.
+Python syntax, Fortran line limits, diagnostic case-set equality/uniqueness,
+coverage/type/source/test/reference counts, license retention and git whitespace
+checks passed. Other Python reference suites were not rerun; their existing
+numerical estimator bodies were unchanged by this batch.

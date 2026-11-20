@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 159 public estimator, transformer, and splitter types. Each is a
+There are 164 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Fifty-six reference suites additionally check 75,407
+All types have native tests. Fifty-seven reference suites additionally check 88,371
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -42,7 +42,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | tree | `decision_tree_classifier`, `decision_tree_regressor` | Exhaustive CART; Gini/entropy/log-loss classification, squared-error regression; depth/leaf/split/feature controls, normalized impurity importance, leaf indices |
 | ensemble | `random_forest_classifier`, `random_forest_regressor`, `extra_trees_classifier`, `extra_trees_regressor`, `gradient_boosting_regressor`, `gradient_boosting_classifier`, `adaboost_classifier`, `adaboost_regressor`, `isolation_forest` | Bootstrap forests, randomized feature subsets, random-threshold Extra Trees, squared-error residual boosting; binary/multiclass classification boosting with Newton leaf updates; weighted Gini-stump SAMME; AdaBoost.R2 with depth-controlled CART; random isolation trees and path-length anomaly scores |
 | model_selection | `kfold`, `stratified_kfold`, `time_series_split`, `group_kfold`, `leave_one_out`, `leave_one_group_out`, `predefined_split`, `ridge_cv`; `train_test_split`, `shuffle_indices`, `cross_val_score` | Index-based splits; fraction test size; optional stratification; time gap/window; CV for linear-regression family and logistic regression; ridge CV selects negative mean squared error |
-| feature_selection | `variance_threshold`, `select_k_best`, `sequential_feature_selector`, `rfe`, `rfecv`; `f_classif`, `f_regression`, `chi2` | Dense scores and masks; greedy forward/backward CV regression selection; coefficient-based recursive elimination and CV for regression/logistic classification; inverse transform fills dropped columns with zero; no p-values |
+| feature_selection | `variance_threshold`, `select_k_best`, `select_percentile`, `select_fpr`, `select_fdr`, `select_fwe`, `generic_univariate_select`, `sequential_feature_selector`, `rfe`, `rfecv`; `f_classif`, `f_regression`, `chi2` | Dense scores and masks; greedy forward/backward CV regression selection; coefficient-based recursive elimination and CV for regression/logistic classification; inverse transform fills dropped columns with zero; new statistical selectors include p-values and multiplicity control |
 | feature_extraction_text | `count_vectorizer`, `tfidf_transformer`, `tfidf_vectorizer` | Dense unigram counts; ASCII alphanumeric/underscore tokens of length 2-128; sorted vocabulary; min/max document frequency, binary counts and max features; smoothed/unsmoothed IDF, sublinear TF, l1/l2/no normalization |
 | dummy | `dummy_classifier`, `dummy_regressor` | Prior/most-frequent/stratified/uniform/constant classification; mean/median/quantile/constant regression |
 | kernel_ridge | `kernel_ridge` | Positive alpha; linear/RBF/polynomial/sigmoid kernels; no intercept |
@@ -2808,3 +2808,74 @@ folds, leave-one-out, two features, wide matrices, duplicate/constant/dependent
 columns, near dependence, scaling, noiseless targets, grouped/time-series/
 shuffled partitions and changing fitted dimensions. Thirty new rejection cases
 cover data/query shapes and finiteness, fold controls, masks and empty paths.
+
+
+## Statistical univariate selectors (2026-11-20)
+
+SelectPercentile, SelectFpr, SelectFdr, SelectFwe and GenericUnivariateSelect are
+implemented in sklearn_univariate_selection and re-exported by
+sklearn_feature_selection and the facade. Native controls and defaults reproduce
+source percentile/tie rules, strict false-positive/family-wise thresholds,
+inclusive Benjamini-Hochberg step-up thresholds, and generic percentile/k_best/
+fpr/fdr/fwe modes. Generic k_best supports zero, values above P and the native
+k_all flag for source 'all'. Percentile accepts real percentages. Controls are
+read lazily on every projection, as in source get_support, including changes
+after fitting. Native support indices are one-based. Shape changes on refitting
+replace score/probability state, including clearing old p-values when omitted.
+
+Integer targets default to ANOVA f_classif, real targets to centered
+force-finite f_regression, following the project's existing generic fit
+convention; source Python classes default to f_classif independently of dtype.
+Classification can instead use chi2, and regression can disable centering.
+Scores and p-values use installed sklearn 1.6.1's moment/correlation/count
+contracts, including constant/degenerate NaNs, zero-correlation regression
+fallbacks, maximal finite exact-correlation scores and the negative-F rounding
+endpoint. Regression's stats.f.sf returns 1 below support, while ANOVA's
+special.fdtrc returns NaN there; these paths are distinguished. Explicit IEEE
+branches preserve these results under invalid/zero/overflow traps. Older
+score-only functions and SelectKBest bodies are unchanged.
+
+F survival uses a native regularized beta fraction with symmetry and separately
+computed complementary coordinates, and chi-square survival uses the
+integer/half-integer upper-gamma recurrence with erfc and log-domain positive
+terms. Formulas follow NIST DLMF 8.17.4/22/23 and 8.8.6; modified Lentz iteration
+has a convergence diagnostic. This adds no SciFort, SciPy or Python runtime
+dependency. The numerical routines are private implementation helpers.
+
+fit_scores(scores,pvalues) is the native custom-score entry point; percentile
+and k_best also work without p-values. This represents callback results without
+requiring a Python callable ABI. scores_, pvalues_ and n_features_in_ are public.
+Score NaNs/infinities follow source cleaning, sorting, comparison and percentile
+interpolation behavior, including extreme interpolation overflow without raising
+a native floating trap. Dense X and real regression targets must be finite;
+classification labels are integers. Sparse/object arrays, pandas/feature names,
+metadata routing, Python callbacks and unimplemented statistical score families
+are outside the wrapper. Regression needs positive residual degrees of freedom.
+Class-degenerate ANOVA/chi-square scores retain source NaNs rather than warnings.
+
+transform projects columns; inverse_transform restores omitted columns to
+zero. For an N-by-zero selected matrix the native inverse returns N-by-P zeros,
+consistent with the existing native selector helpers. The source dense inverse
+rejects zero features. Those inverse checks verify a zero-fill identity and
+explicitly confirm the source rejection, rather than claim source equality.
+Very large regression F scores amplify last-bit correlation differences. When
+both source and native F exceed 1.e10, an otherwise failing score comparison
+must instead match F/(F+df), calculated stably as 1-df/(F+df), within 64 machine
+epsilons. Other score entries still use ordinary tolerances; probability arrays,
+log tails, masks, transformed data and zero-filled results remain independently
+checked. Such groups are explicitly identified in the report. Severe moment
+cancellation and perfectly correlated rounding can remain platform-sensitive,
+as in source. No claim of bitwise statistical equality is made.
+
+The native test has analytic masks, strict/inclusive boundaries, stable tie
+behavior, perfect/constant/degenerate scores, post-fit parameter changes,
+custom score refits, input preservation and inverse zero filling. Independent
+F(1,2), F(2,2) and chi-square(2) tail identities verify the probability backend.
+The reference suite covers four seeds, all five types and generic modes,
+ANOVA/chi-square/regression/custom scores, balanced/unbalanced/many/single/
+one-sample-per-class labels, single/wide/changing feature counts, large N,
+centering, scaling, extreme/NaN/infinite/tied scores, very small probabilities,
+zero/full projections and threshold equalities. It includes logarithmic checks
+for every positive normal-range tail. Forty-two new rejection cases check
+controls, malformed/missing scores, p-values, modes, degrees of freedom,
+nonnegative counts, fitting state, data/query shapes and finiteness.

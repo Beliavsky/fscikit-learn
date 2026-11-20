@@ -25,6 +25,16 @@ program invalid_input_driver
   type(leave_one_group_out) :: logo_cv
   type(sgd_classifier) :: sgdc
   type(sgd_regressor) :: sgd
+  type(generic_univariate_select) :: uv_case
+  type(select_percentile) :: uv_percentile
+  type(select_fpr) :: uv_fpr
+  type(select_fdr) :: uv_fdr
+  type(select_fwe) :: uv_fwe
+  real(dp) :: uv_x(4,3),uv_yr(4),uv_scores(3),uv_pvalues(3)
+  integer :: uv_y(4)
+  real(dp), allocatable :: uv_values(:,:)
+  logical, allocatable :: uv_mask(:)
+  integer, allocatable :: uv_indices(:)
   type(orthogonal_matching_pursuit_cv) :: ompcv
   real(dp) :: ompcv_x(6,3),ompcv_y(6),ompcv_value
   real(dp), allocatable :: ompcv_values(:)
@@ -207,7 +217,126 @@ program invalid_input_driver
   mtcv_y(:,1)=mtcv_x(:,1)+.5_dp*mtcv_x(:,2); mtcv_y(:,2)=2*mtcv_x(:,1)
   ompcv%cv=2; ompcv%max_iter=2; ompcv_x=mtcv_x
   ompcv_y=mtcv_y(:,1)
+  uv_x(:,1)=[-1._dp,-1._dp,1._dp,1._dp]; uv_x(:,2)=[-1._dp,1._dp,-1._dp,1._dp]; uv_x(:,3)=0
+  uv_y=[-1,-1,1,1]; uv_scores=[1._dp,2._dp,3._dp]; uv_pvalues=[.01_dp,.04_dp,.8_dp]
   select case(trim(mode))
+  case('uv_percentile_negative')
+    uv_percentile%percentile=-1
+    call uv_percentile%fit_scores(uv_scores)
+  case('uv_percentile_high')
+    uv_percentile%percentile=101
+    call uv_percentile%fit_scores(uv_scores)
+  case('uv_percentile_nan')
+    uv_percentile%percentile=ieee_value(0._dp,ieee_quiet_nan)
+    call uv_percentile%fit_scores(uv_scores)
+  case('uv_fpr_negative')
+    uv_fpr%alpha=-1
+    call uv_fpr%fit_scores(uv_scores,uv_pvalues)
+  case('uv_fpr_high')
+    uv_fpr%alpha=2
+    call uv_fpr%fit_scores(uv_scores,uv_pvalues)
+  case('uv_fdr_negative')
+    uv_fdr%alpha=-1
+    call uv_fdr%fit_scores(uv_scores,uv_pvalues)
+  case('uv_fwe_high')
+    uv_fwe%alpha=2
+    call uv_fwe%fit_scores(uv_scores,uv_pvalues)
+  case('uv_alpha_inf')
+    uv_fpr%alpha=ieee_value(0._dp,ieee_positive_inf)
+    call uv_fpr%fit_scores(uv_scores,uv_pvalues)
+  case('uv_mode')
+    uv_case%mode='bogus'
+    call uv_case%fit_scores(uv_scores,uv_pvalues)
+  case('uv_generic_percentile')
+    uv_case%param=101
+    call uv_case%fit_scores(uv_scores,uv_pvalues)
+  case('uv_generic_alpha')
+    uv_case%mode='fdr'; uv_case%param=2
+    call uv_case%fit_scores(uv_scores,uv_pvalues)
+  case('uv_k_negative')
+    uv_case%mode='k_best'; uv_case%param=-1
+    call uv_case%fit_scores(uv_scores)
+  case('uv_k_fractional')
+    uv_case%mode='k_best'; uv_case%param=1.5_dp
+    call uv_case%fit_scores(uv_scores)
+  case('uv_k_overflow')
+    uv_case%mode='k_best'; uv_case%param=huge(1._dp)
+    call uv_case%fit_scores(uv_scores)
+  case('uv_param_nan')
+    uv_case%param=ieee_value(0._dp,ieee_quiet_nan)
+    call uv_case%fit_scores(uv_scores)
+  case('uv_empty_scores')
+    call uv_case%fit_scores(uv_scores(:0))
+  case('uv_pvalues_length')
+    call uv_case%fit_scores(uv_scores,uv_pvalues(:2))
+  case('uv_fpr_missing_pvalues')
+    call uv_fpr%fit_scores(uv_scores)
+  case('uv_fdr_missing_pvalues')
+    call uv_fdr%fit_scores(uv_scores)
+  case('uv_generic_missing_pvalues')
+    uv_case%mode='fwe'; uv_case%param=.05_dp
+    call uv_case%fit_scores(uv_scores)
+  case('uv_unknown_class_score')
+    uv_fpr%score_func='bogus'
+    call uv_fpr%fit(uv_x,uv_y)
+  case('uv_unknown_reg_score')
+    uv_fpr%score_func='chi2'
+    call uv_fpr%fit(uv_x,real(uv_y,dp))
+  case('uv_empty_x')
+    call uv_fpr%fit(uv_x(:0,:),uv_y(:0))
+  case('uv_no_features')
+    call uv_fpr%fit(uv_x(:,:0),uv_y)
+  case('uv_y_length')
+    call uv_fpr%fit(uv_x,uv_y(:3))
+  case('uv_x_nan')
+    uv_x(1,1)=ieee_value(0._dp,ieee_quiet_nan)
+    call uv_fpr%fit(uv_x,uv_y)
+  case('uv_y_nan')
+    uv_yr=real(uv_y,dp); uv_yr(1)=ieee_value(0._dp,ieee_quiet_nan)
+    call uv_fpr%fit(uv_x,uv_yr)
+  case('uv_reg_degrees')
+    call uv_fpr%fit(uv_x(:2,:),real(uv_y(:2),dp))
+  case('uv_reg_uncentered_degrees')
+    uv_fpr%center=.false.
+    call uv_fpr%fit(uv_x(:1,:),real(uv_y(:1),dp))
+  case('uv_chi_negative')
+    uv_fpr%score_func='chi2'
+    call uv_fpr%fit(uv_x,uv_y)
+  case('uv_unfitted_support')
+    uv_mask=uv_case%get_support()
+  case('uv_unfitted_indices')
+    uv_indices=uv_case%get_support_indices()
+  case('uv_unfitted_transform')
+    uv_values=uv_case%transform(uv_x)
+  case('uv_unfitted_inverse')
+    uv_values=uv_case%inverse_transform(uv_x)
+  case('uv_transform_features')
+    call uv_case%fit_scores(uv_scores)
+    uv_values=uv_case%transform(uv_x(:,:2))
+  case('uv_transform_empty')
+    call uv_case%fit_scores(uv_scores)
+    uv_values=uv_case%transform(uv_x(:0,:))
+  case('uv_transform_nan')
+    call uv_case%fit_scores(uv_scores)
+    uv_x(1,1)=ieee_value(0._dp,ieee_quiet_nan)
+    uv_values=uv_case%transform(uv_x)
+  case('uv_inverse_features')
+    uv_case%param=100; call uv_case%fit_scores(uv_scores)
+    uv_values=uv_case%inverse_transform(uv_x(:,:2))
+  case('uv_inverse_rows')
+    call uv_case%fit_scores(uv_scores)
+    uv_values=uv_case%inverse_transform(uv_x(:0,:0))
+  case('uv_inverse_inf')
+    uv_case%param=100; call uv_case%fit_scores(uv_scores)
+    uv_x(1,1)=ieee_value(0._dp,ieee_positive_inf)
+    uv_values=uv_case%inverse_transform(uv_x)
+  case('uv_changed_parameter')
+    call uv_case%fit_scores(uv_scores)
+    uv_case%param=-1; uv_mask=uv_case%get_support()
+  case('uv_missing_pvalues_refit')
+    call uv_case%fit_scores(uv_scores,uv_pvalues)
+    call uv_case%fit_scores(uv_scores)
+    uv_case%mode='fpr'; uv_mask=uv_case%get_support()
   case('ompcv_cv_small')
     ompcv%cv=1
     call ompcv%fit(ompcv_x,ompcv_y)
