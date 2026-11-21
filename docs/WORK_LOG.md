@@ -3829,3 +3829,91 @@ original integration checks were not rerun. Final audits verify extracted
 code identity, Python syntax, Fortran line formatting, diagnostic registration,
 report parity/accounting, retained license files and git whitespace. Numerical
 production sources were unchanged during these final profile/source gates.
+
+
+## Stacking ensembles and LOO RidgeCV (2026-11-21)
+
+Added stacking_classifier and stacking_regressor with cloned named native
+bases, dropped slots, source-order response selection, binary probability
+column removal, passthrough, independent full/fold fits, custom partitioned CV
+and prefit modes. Source first-appearance stratification handles minority
+counts without the older native splitter's stricter per-class constraint.
+Native introspection retains fitted fold models and actual OOF designs, making
+training leakage and final-layer fitting independently inspectable. Default
+classification uses strict native Newton logistic fitting; default regression
+uses genuine source LOO/GCV RidgeCV rather than substituting K-fold selection.
+The existing ridge_cv type adds cv=0 while keeping its historical cv=5 default.
+
+Weighted linear fitting and composite scores were moved into internal shared
+modules. RidgeCV LOO supports weighted ensemble dispatch, selected alphas,
+candidate scores, wide designs and singleton/no-intercept behavior. The new
+shared decision-response/class metadata dispatch supports stacking auto mode.
+No new dependency, imported repository or public extension was added. Original
+work remains MIT and sklearn/NumPy attribution is retained.
+
+A weighted multinomial stacking fixture exposed false convergence in the
+existing Newton line search: an objective decrease below floating-point
+resolution triggered backtracking and then the small-step stopping test while
+the unnormalized gradient was still 1.13e-8 at a requested 1e-10 tolerance.
+The exact emitted meta design is retained in
+validation/fixtures/stacking_logistic_roundoff.json. Armijo acceptance now
+includes a bounded roundoff allowance, matching the existing native linear-SVM
+solver's approach. The retained design now satisfies an independent gradient
+check and source coefficient/probability comparisons. This improves the shared
+logistic implementation, including existing composite estimators.
+
+The checked stacking/LOO suite passed 3,569 groups across 193 fixtures: 128
+stacking fits, 64 standalone LOO cases and the retained logistic regression.
+The suite compares split order, response widths/methods, emitted OOF and full
+transforms, final fitting/selection, predictions, probabilities, decisions,
+weighted scores and input preservation. Source tree alternatives require the
+existing CART/RNG certificate. LinearSVC alternatives require independent
+squared-hinge stationarity/objective and strong-convexity score bounds. A
+source Newton stopping difference is bounded using unprojected logistic
+stationarity/objective checks and segment-Hessian curvature in the zero-mean
+multinomial gauge; source optimizer warnings are retained. No ordinary
+comparison tolerance was widened, and the failing meta design was preserved.
+
+An initial GNU 17 unlimited-polymorphic allocation through a nested array
+SOURCE expression crashed despite valid dimensions. Copying the original
+estimator slot to a scalar prototype before fold cloning avoids that compiler
+behavior and preserves the intended cloned configuration. Checked native
+stacking tests cover copy/refit behavior, OOF versus full features, weighted
+fits, prefit original labels, missing fold classes and custom split ordering.
+All 99 native programs passed the checked/runtime/FPE profile after the solver
+fix. All 2,304 isolated diagnostic cases passed, including 44 new stacking/LOO
+cases. Stacking diagnostic keys use stk_ to avoid the existing st_ self-training
+namespace; AST uniqueness and driver argument-length checks are enforced.
+
+Current inventory: 192 core types, 100 source modules, 99 native programs and
+78 core reference suites. This remains a dense practical subset with explicit
+base capability and numerical conventions, documented in API.md/COVERAGE.md.
+
+
+Both checked and optimized source runs passed identical 3,569 group/oracle
+records over 193 fixtures. Counts: 2,721 direct sklearn groups, 294 final fits
+on verified native meta designs, 512 input identities, 39 conditioned stacking
+reductions, two logistic stationarity parameter groups and one independent
+gradient regression check. Reports retain one CART alternative, 14 LinearSVC
+and one logistic optimizer certificates, and two source line-search warnings.
+Ordinary tolerance settings and retained failure fixtures are unchanged.
+Retained core reference inventory is now 305,111 groups across 78 suites,
+plus 28 separate NumPy RNG groups.
+
+Final stacking batch gates: all 99 native test programs passed in checked and
+optimized builds. The fpm stacking example exited successfully (accuracy 1,
+regression R2 0.99999995908987271). All 2,304 invalid-input records passed.
+Selected existing checked source suites passed: Bagging 32,100 groups,
+weighted/streaming classifiers 16,536, multiclass 27,490, classifier chains
+8,665, calibration 13,760, self-training 4,905, basic estimators 192, and voting
+16,965. Optimized Bagging also passed all 32,100 groups. These are selected
+regressions; the retained 78-suite inventory was not rerun in its entirety.
+
+The initial cached checked voting reference executable stalled. Its executable,
+object and input were preserved under ignored validation/results/stacking_probe;
+a fresh compile against the current checked modules/archive passed the identical
+input and the complete 1,200-fixture voting suite. The stale process was stopped.
+The underlying cached-artifact cause was not established. Production sources
+were unchanged during these final gates. Python syntax, Fortran line lengths
+and whitespace, report parity, and git diff checks passed. MIT licensing and
+retained third-party BSD attribution are unchanged.

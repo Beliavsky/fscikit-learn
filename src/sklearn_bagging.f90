@@ -1,6 +1,8 @@
 ! Bagging: sklearn 1.6.1 ensemble/_bagging.py and _base.py (BSD-3-Clause).
 ! Dense native adaptation; see THIRD_PARTY_NOTICES.md and LICENSES.
 module sklearn_bagging
+  use sklearn_composite_scores, only: score_weights,regression_score
+  use sklearn_weighted_linear, only: weighted_linear
   use sklearn_common, only: dp,require,check_xy,check_x,unique_labels,label_index,dense_svd
   use sklearn_linear_model, only: linear_regression,ridge
   use sklearn_tree, only: decision_tree_classifier,decision_tree_regressor
@@ -58,50 +60,6 @@ contains
       value=.true.
     end select
   end function
-
-  subroutine weighted_linear(model,x,y,w,alpha)
-    class(linear_regression), intent(inout) :: model
-    real(dp), intent(in) :: x(:,:),y(:),w(:),alpha
-    real(dp) :: xc(size(x,1),size(x,2)),yc(size(y)),xm(size(x,2)),ym
-    real(dp) :: u(size(x,1),size(x,2)),s(size(x,2)),v(size(x,2),size(x,2)),projection(size(x,2))
-    real(dp) :: mass,scale,cutoff,limit
-    integer :: i,j
-    call require(ieee_is_finite(alpha),'bagging ridge alpha must be finite')
-    call require(alpha>=0,'bagging ridge alpha must be nonnegative')
-    call require(all(w>=0),'bagging linear weights must be nonnegative')
-    mass=ieee_total(w)
-    call require(ieee_is_finite(mass),'bagging linear weight sum must be finite')
-    xm=0; ym=0
-    if(model%fit_intercept) then
-      call require(mass>0,'bagging linear weights must have a positive sum')
-      do j=1,size(x,2)
-        xm(j)=ieee_mean(x(:,j),w)
-      end do
-      ym=ieee_mean(y,w)
-    end if
-    call require(all(ieee_is_finite(xm)).and.ieee_is_finite(ym),'bagging linear weighted centering overflow')
-    do i=1,size(y)
-      scale=sqrt(w(i)); yc(i)=ieee_product(ieee_difference(y(i),ym),scale)
-      do j=1,size(x,2)
-        xc(i,j)=ieee_product(ieee_difference(x(i,j),xm(j)),scale)
-      end do
-    end do
-    call require(all(ieee_is_finite(xc)).and.all(ieee_is_finite(yc)),'bagging linear rescaling overflow')
-    limit=sqrt(huge(1._dp))/sqrt(real(max(size(x,1),size(x,2)),dp))/4
-    call require(maxval(abs(xc))<=limit.and.maxval(abs(yc))<=limit,'bagging linear design exceeds working range')
-    call dense_svd(xc,s,u,v)
-    cutoff=epsilon(1._dp)*max(size(x,1),size(x,2))*maxval(s)
-    model%rank_=count(s>cutoff); projection=matmul(transpose(u),yc)
-    do j=1,size(s)
-      if(s(j)>cutoff.or.alpha>0) then
-        projection(j)=ieee_quotient(ieee_product(projection(j),s(j)), &
-          ieee_difference(ieee_product(s(j),s(j)),-alpha))
-      else
-        projection(j)=0
-      end if
-    end do
-    model%coef_=matmul(v,projection); model%intercept_=ym-dot_product(xm,model%coef_)
-  end subroutine
 
   subroutine fit_weighted_regression(model,x,y,w)
     class(*), intent(inout) :: model
@@ -402,17 +360,6 @@ contains
     self%oob_score_=regression_score(y,self%oob_prediction_)
   end subroutine
 
-  subroutine score_weights(w,n)
-    real(dp), intent(in), optional :: w(:)
-    integer, intent(in) :: n
-    real(dp) :: mass
-    if(.not.present(w)) return
-    call require(size(w)==n,'bagging score weight length mismatch')
-    call require(all(ieee_is_finite(w)),'bagging score weights must be finite')
-    mass=ieee_total(w)
-    if(.not.ieee_is_nan(mass)) call require(mass/=0,'bagging score weights must have a nonzero sum')
-  end subroutine
-
   real(dp) function classifier_score(self,x,y,sample_weight) result(value)
     class(bagging_classifier), intent(in) :: self
     real(dp), intent(in) :: x(:,:)
@@ -423,36 +370,6 @@ contains
     call require(size(y)==size(predicted),'bagging score target length mismatch')
     call score_weights(sample_weight,size(y))
     value=ieee_mean(merge(1._dp,0._dp,predicted==y),sample_weight)
-  end function
-
-  real(dp) function regression_score(y,predicted,w) result(value)
-    real(dp), intent(in) :: y(:),predicted(:)
-    real(dp), intent(in), optional :: w(:)
-    real(dp) :: residual(size(y)),centered(size(y)),center,num,den,difference
-    integer :: i
-    call require(size(y)==size(predicted),'bagging score target length mismatch')
-    call require(all(ieee_is_finite(y)),'bagging score targets must be finite')
-    call require(all(ieee_is_finite(predicted)),'bagging score predictions must be finite')
-    if(size(y)<2) then
-      if(present(w)) then
-        call require(size(w)==size(y),'bagging score weight length mismatch')
-        call require(all(ieee_is_finite(w)),'bagging score weights must be finite')
-      end if
-      value=ieee_value(0._dp,ieee_quiet_nan); return
-    end if
-    call score_weights(w,size(y)); center=ieee_mean(y,w)
-    do i=1,size(y)
-      difference=ieee_difference(y(i),predicted(i)); residual(i)=ieee_product(difference,difference)
-      difference=ieee_difference(y(i),center); centered(i)=ieee_product(difference,difference)
-    end do
-    num=ieee_mean(residual,w); den=ieee_mean(centered,w)
-    value=ieee_value(0._dp,ieee_quiet_nan)
-    if(ieee_is_nan(num).or.ieee_is_nan(den)) return
-    value=1
-    if(num/=0) then
-      value=0
-      if(den/=0) value=ieee_difference(1._dp,ieee_quotient(num,den))
-    end if
   end function
 
   real(dp) function regressor_score(self,x,y,sample_weight) result(value)

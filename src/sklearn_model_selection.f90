@@ -1,4 +1,5 @@
 module sklearn_model_selection
+  use sklearn_weighted_linear, only: weighted_ridge_loo
   use sklearn_common
   use sklearn_resampling
   use sklearn_linear_model
@@ -330,6 +331,10 @@ contains
     integer :: i,j,best
     call check_xy(x,size(y))
     if(.not.allocated(self%alphas)) self%alphas=[0.1_dp,1._dp,10._dp]
+    if(self%cv==0) then
+      call weighted_ridge_loo(self,x,y,self%alphas,self%alpha_,self%best_score_,self%cv_scores_)
+      self%alpha=self%alpha_; return
+    end if
     call require(size(self%alphas)>0.and.all(self%alphas>=0),'invalid ridge CV alphas')
     splitter%n_splits=self%cv; folds=splitter%split(size(y)); model%fit_intercept=self%fit_intercept
     self%cv_scores_=self%alphas*0

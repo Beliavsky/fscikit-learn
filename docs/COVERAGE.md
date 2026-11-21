@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 190 public estimator, transformer, and splitter types. Each is a
+There are 192 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Seventy-seven reference suites additionally check 301,542
+All types have native tests. Seventy-eight reference suites additionally check 305,111
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -43,7 +43,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | outlier | `local_outlier_factor` | Training outlier scores and novelty detection, automatic/percentile threshold, Minkowski and other supported pairwise metrics |
 | semi_supervised | `label_propagation`, `label_spreading`, `self_training_classifier` | Dense RBF or directed k-neighbor graph, hard/soft clamping, transductive labels and inductive probabilities; threshold/k-best self-training with logistic, Gaussian NB or KNN bases |
 | tree | `decision_tree_classifier`, `decision_tree_regressor`, `extra_tree_classifier`, `extra_tree_regressor` | Weighted CART and standalone randomized trees; Gini/entropy/log-loss classification, squared-error regression; depth/leaf/split/feature controls, normalized impurity importance, leaf indices |
-| ensemble | `bagging_classifier`, `bagging_regressor`, `random_forest_classifier`, `random_forest_regressor`, `extra_trees_classifier`, `extra_trees_regressor`, `gradient_boosting_regressor`, `gradient_boosting_classifier`, `adaboost_classifier`, `adaboost_regressor`, `isolation_forest`, `voting_classifier`, `voting_regressor` | Heterogeneous hard/soft voting and averaged regression; bootstrap forests, randomized feature subsets, random-threshold Extra Trees, squared-error residual boosting; binary/multiclass classification boosting with Newton leaf updates; weighted Gini-stump SAMME; AdaBoost.R2 with depth-controlled CART; random isolation trees and path-length anomaly scores |
+| ensemble | `stacking_classifier`, `stacking_regressor`, `bagging_classifier`, `bagging_regressor`, `random_forest_classifier`, `random_forest_regressor`, `extra_trees_classifier`, `extra_trees_regressor`, `gradient_boosting_regressor`, `gradient_boosting_classifier`, `adaboost_classifier`, `adaboost_regressor`, `isolation_forest`, `voting_classifier`, `voting_regressor` | Heterogeneous hard/soft voting and averaged regression; bootstrap forests, randomized feature subsets, random-threshold Extra Trees, squared-error residual boosting; binary/multiclass classification boosting with Newton leaf updates; weighted Gini-stump SAMME; AdaBoost.R2 with depth-controlled CART; random isolation trees and path-length anomaly scores |
 | model_selection | `kfold`, `stratified_kfold`, `time_series_split`, `group_kfold`, `leave_one_out`, `leave_one_group_out`, `predefined_split`, `shuffle_split`, `stratified_shuffle_split`, `group_shuffle_split`, `repeated_kfold`, `repeated_stratified_kfold`, `leave_p_out`, `leave_p_groups_out`, `ridge_cv`; `train_test_split`, `shuffle_indices`, `cross_val_score` | Index-based splits; seeded random/group/stratified holdouts; repeated shuffled folds; exhaustive sample/group combinations; fraction/count size controls; optional stratification; time gap/window; CV for linear-regression family and logistic regression; ridge CV selects negative mean squared error |
 | feature_selection | `variance_threshold`, `select_k_best`, `select_percentile`, `select_fpr`, `select_fdr`, `select_fwe`, `generic_univariate_select`, `sequential_feature_selector`, `rfe`, `rfecv`; `f_classif`, `f_regression`, `chi2`, `r_regression`, `mutual_info_classif`, `mutual_info_regression` | Dense scores and masks; greedy forward/backward CV regression selection; coefficient-based recursive elimination and CV for regression/logistic classification; inverse transform fills dropped columns with zero; new statistical selectors include p-values and multiplicity control |
 | feature_extraction_text | `count_vectorizer`, `tfidf_transformer`, `tfidf_vectorizer` | Dense unigram counts; ASCII alphanumeric/underscore tokens of length 2-128; sorted vocabulary; min/max document frequency, binary counts and max features; smoothed/unsmoothed IDF, sublinear TF, l1/l2/no normalization |
@@ -3946,3 +3946,73 @@ incompatible-width case is diagnosed explicitly. Regression scoring rejects
 nonfinite predictions/targets and returns NaN for a singleton. Refit without
 OOB deallocates old OOB response arrays; consult the arrays' allocation status
 before using the scalar OOB score.
+
+
+## StackingClassifier and StackingRegressor
+
+`stacking_classifier`, `stacking_regressor` and the named `stacking_estimator`
+container are available from `sklearn`, `sklearn_ensemble` and
+`sklearn_stacking`. The container is the same native type as voting_estimator,
+with `name`, allocatable polymorphic `estimator`, and `drop` components.
+Call `fit(x,y,estimators,final_estimator,sample_weight,splits)`; the final
+estimator, weights and explicit index_split arrays are optional. Targets are
+integer label vectors for classification and real64 vectors for regression.
+Input arrays and supplied estimator templates are preserved.
+
+By default, `cv=5` uses nonshuffled StratifiedKFold for classification and
+KFold for regression. Classification allocation follows source first-appearance
+label ordering and permits minority counts below cv when not every class is
+too small. Supplied one-based splits must have nonempty, bounded train/test
+indices and test sets that partition every row exactly once. Explicit train
+order, test order and repeated training indices are retained; train/test
+overlap is permitted as in source's iterable split protocol. `prefit=.true.`
+uses copied fitted base states and their full training responses instead of CV;
+it cannot be combined with explicit splits. Prefit bases retain their original
+label responses, including when stacking encodes the final classifier targets.
+
+Full fitted bases are used by `transform` and prediction. Separate fold fits
+produce the out-of-fold design used to train the final estimator. Classifier
+`stack_method='auto'` prefers predict_proba, then decision_function, then predict;
+these three names can also be requested explicitly. Binary probability stacks
+drop their first column. Multiclass probability and decision columns are kept;
+missing fold probability classes are padded with zero, and source's unsupported
+imbalanced decision-fold cases are diagnosed. `passthrough=.true.` appends the
+original features after the base responses. Regressors stack scalar predictions.
+`fit_transform` returns the full fitted-base transform, not the OOF design.
+
+The default final classifier is native LogisticRegression with C=1, Newton
+optimization, tolerance 1e-10 and at most 500 iterations. The default final
+regressor is RidgeCV with leave-one-out selection over [.1,1,10]. The existing
+`ridge_cv` type now uses LOO/GCV when `cv=0`; its historical standalone default
+remains five-fold selection. Positive finite LOO alphas are required. LOO
+weights are supported through the native ensemble dispatch; the standalone
+inherited fit signature remains unweighted. GCV reports selected `alpha_`,
+`best_score_` and per-candidate `cv_scores_`, including quiet singleton NaNs.
+
+Supported base/final families are the explicit native voting/bagging dispatch
+families for the appropriate target kind. Weights require native weighted fit
+support; exact OLS/Ridge use the shared weighted SVD adapter, and LOO RidgeCV
+supports weighted selection. In prefit mode only the final estimator is fitted,
+so its weight capability is checked independently of the bases. Tree fits use
+the weighted float32/xorshift builder with implicit unit weights when weights
+are omitted, matching source split geometry and random feature ordering.
+Existing base optimization choices and floating-point tie conventions apply.
+
+Learned fields include `estimators_` (active named fitted slots),
+`active_indices_`, polymorphic `final_estimator_`, `stack_method_`,
+`n_feature_outs_`, `n_features_in_`, and `n_features_out_`. Classifiers add sorted
+`classes_` and `n_classes_`. `training_meta_features_` retains the actual final
+training design; `cv_splits_` and `cv_estimators_(fold,base)%estimator` retain the
+fold plans and fitted states for inspection. These are native introspection
+containers, not additional algorithms. They increase memory use relative to
+source's transient fold fits. Passthrough layout is captured at fit time.
+
+`predict`, `transform` and weighted `score` are supported; classifiers also
+expose predict_proba/decision_function when the final estimator supports them.
+Binary decision responses are real64 matrices with one column. Regression
+score uses source force-finite R2 and returns NaN for a singleton. Fit features
+must be finite. Query NaNs are forwarded to bases, and any passthrough NaNs
+then reach the final estimator's own checks. Infinities and invalid widths are
+diagnosed. Meta designs exceeding the native numerical working range are
+rejected. Sparse data, multilabel indicators, arbitrary estimator protocols,
+metadata routing and parallel fitting remain outside this subset.

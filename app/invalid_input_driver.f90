@@ -8,6 +8,12 @@ program invalid_input_driver
   use sklearn_legacy_rng, only: legacy_random_state
   use, intrinsic :: ieee_arithmetic, only: ieee_value,ieee_quiet_nan,ieee_positive_inf
   implicit none
+  type(stacking_classifier) :: st_c
+  type(stacking_regressor) :: st_r
+  type(stacking_estimator) :: st_bases(2)
+  type(index_split) :: st_plans(2)
+  type(ridge_cv) :: st_loo
+  type(logistic_regression) :: st_logistic
   type(ridge) :: bg_ridge
   type(bagging_classifier) :: bg_c
   type(bagging_regressor) :: bg_r
@@ -332,6 +338,235 @@ program invalid_input_driver
   mi_x(:,2)=[0._dp,0._dp,1._dp,1._dp,2._dp,2._dp]; mi_x(:,3)=1
   mi_y=mi_x(:,1); mi_labels=[-1,-1,-1,2,2,2]
   select case(trim(mode))
+  case('stk_prefit_splits')
+    call wt_clf%fit(wt_x,wt_y)
+    st_bases(1)%name='tree'
+    allocate(st_bases(1)%estimator,source=wt_clf)
+    st_c%cv=2
+    st_c%prefit=.true.
+    call st_c%fit(wt_x,wt_y,st_bases(:1),splits=st_plans)
+  case('stk_prefit_no_features')
+    call wt_clf%fit(wt_x,[0,0,0,0])
+    st_bases(1)%name='tree'
+    allocate(st_bases(1)%estimator,source=wt_clf)
+    st_c%cv=2
+    st_c%prefit=.true.
+    call st_c%fit(wt_x,wt_y,st_bases(:1))
+  case('stk_fold_decision_missing')
+    st_bases(1)%name='ridge'
+    allocate(st_bases(1)%estimator,source=rc)
+    st_c%stack_method='decision_function'
+    st_plans(1)%train=[1,2]; st_plans(1)%test=[3,4]
+    st_plans(2)%train=[3,4]; st_plans(2)%test=[1,2]
+    call st_c%fit(wt_x,[0,1,2,2],st_bases(:1),splits=st_plans)
+  case('stk_final_negative_weights')
+    st_bases(1)%name='tree'
+    allocate(st_bases(1)%estimator,source=wt_reg)
+    st_r%cv=2; wt_w=-1
+    call st_r%fit(wt_x,real(wt_y,dp),st_bases(:1),sample_weight=wt_w)
+
+  case('stk_unfitted_c')
+    bg_i=st_c%predict(wt_x)
+  case('stk_unfitted_r')
+    wt_pred=st_r%predict(wt_x)
+  case('stk_empty_list')
+    call st_c%fit(wt_x,wt_y,st_bases(:0))
+  case('stk_name_empty')
+    allocate(st_bases(1)%estimator,source=wt_clf)
+    call st_c%fit(wt_x,wt_y,st_bases(:1))
+  case('stk_names_duplicate')
+    st_bases%name='tree'
+    allocate(st_bases(1)%estimator,source=wt_clf)
+    allocate(st_bases(2)%estimator,source=wt_clf)
+    call st_c%fit(wt_x,wt_y,st_bases)
+  case('stk_name_dunder')
+    st_bases(1)%name='tree__x'
+    allocate(st_bases(1)%estimator,source=wt_clf)
+    call st_c%fit(wt_x,wt_y,st_bases(:1))
+  case('stk_name_parameter')
+    st_bases(1)%name='cv'
+    allocate(st_bases(1)%estimator,source=wt_clf)
+    call st_c%fit(wt_x,wt_y,st_bases(:1))
+  case('stk_all_drop')
+    st_bases(1)%name='tree'
+    st_bases(1)%drop=.true.
+    call st_c%fit(wt_x,wt_y,st_bases(:1))
+  case('stk_missing_base')
+    st_bases(1)%name='tree'
+    call st_c%fit(wt_x,wt_y,st_bases(:1))
+  case('stk_unsupported')
+    st_bases(1)%name='regressor'
+    allocate(st_bases(1)%estimator,source=wt_reg)
+    call st_c%fit(wt_x,wt_y,st_bases(:1))
+  case('stk_weight_length')
+    st_bases(1)%name='tree'
+    allocate(st_bases(1)%estimator,source=wt_clf)
+    st_c%cv=2
+    call st_c%fit(wt_x,wt_y,st_bases(:1),sample_weight=wt_w(:3))
+  case('stk_weight_nan')
+    st_bases(1)%name='tree'
+    allocate(st_bases(1)%estimator,source=wt_clf)
+    st_c%cv=2
+    wt_w(1)=ieee_value(0._dp,ieee_quiet_nan)
+    call st_c%fit(wt_x,wt_y,st_bases(:1),sample_weight=wt_w)
+  case('stk_unknown_method')
+    st_bases(1)%name='tree'
+    allocate(st_bases(1)%estimator,source=wt_clf)
+    st_c%cv=2
+    st_c%stack_method='bad'
+    call st_c%fit(wt_x,wt_y,st_bases(:1))
+  case('stk_no_decision')
+    st_bases(1)%name='tree'
+    allocate(st_bases(1)%estimator,source=wt_clf)
+    st_c%cv=2
+    st_c%stack_method='decision_function'
+    call st_c%fit(wt_x,wt_y,st_bases(:1))
+  case('stk_no_probability')
+    st_bases(1)%name='ridge'
+    allocate(st_bases(1)%estimator,source=rc)
+    st_c%stack_method='predict_proba'
+    call st_c%fit(wt_x,wt_y,st_bases(:1))
+  case('stk_weight_base')
+    st_bases(1)%name='knn'
+    allocate(st_bases(1)%estimator,source=bg_knn)
+    call st_c%fit(wt_x,wt_y,st_bases(:1),sample_weight=wt_w)
+  case('stk_cv_one')
+    st_bases(1)%name='tree'
+    allocate(st_bases(1)%estimator,source=wt_clf)
+    st_c%cv=2
+    st_c%cv=1
+    call st_c%fit(wt_x,wt_y,st_bases(:1))
+  case('stk_cv_large')
+    st_bases(1)%name='tree'
+    allocate(st_bases(1)%estimator,source=wt_reg)
+    st_r%cv=2
+    st_r%cv=5
+    call st_r%fit(wt_x,real(wt_y,dp),st_bases(:1))
+  case('stk_cv_all_classes')
+    st_bases(1)%name='tree'
+    allocate(st_bases(1)%estimator,source=wt_clf)
+    st_c%cv=2
+    st_c%cv=3
+    call st_c%fit(wt_x,wt_y,st_bases(:1))
+  case('stk_prefit_unfitted')
+    st_bases(1)%name='tree'
+    allocate(st_bases(1)%estimator,source=wt_clf)
+    st_c%cv=2
+    st_c%prefit=.true.
+    call st_c%fit(wt_x,wt_y,st_bases(:1))
+  case('stk_splits_none')
+    st_bases(1)%name='tree'
+    allocate(st_bases(1)%estimator,source=wt_clf)
+    st_c%cv=2
+    call st_c%fit(wt_x,wt_y,st_bases(:1),splits=st_plans(:0))
+  case('stk_splits_unallocated')
+    st_bases(1)%name='tree'
+    allocate(st_bases(1)%estimator,source=wt_clf)
+    st_c%cv=2
+    call st_c%fit(wt_x,wt_y,st_bases(:1),splits=st_plans)
+  case('stk_splits_empty')
+    st_bases(1)%name='tree'
+    allocate(st_bases(1)%estimator,source=wt_clf)
+    st_c%cv=2
+    st_plans(1)%train=[1,2]; st_plans(1)%test=[integer::]
+    call st_c%fit(wt_x,wt_y,st_bases(:1),splits=st_plans(:1))
+  case('stk_splits_bounds')
+    st_bases(1)%name='tree'
+    allocate(st_bases(1)%estimator,source=wt_clf)
+    st_c%cv=2
+    st_plans(1)%train=[1,2]; st_plans(1)%test=[0,3,4]
+    call st_c%fit(wt_x,wt_y,st_bases(:1),splits=st_plans(:1))
+  case('stk_splits_partition')
+    st_bases(1)%name='tree'
+    allocate(st_bases(1)%estimator,source=wt_clf)
+    st_c%cv=2
+    st_plans(1)%train=[1,2]; st_plans(1)%test=[3,4]
+    call st_c%fit(wt_x,wt_y,st_bases(:1),splits=st_plans(:1))
+  case('stk_splits_duplicate')
+    st_bases(1)%name='tree'
+    allocate(st_bases(1)%estimator,source=wt_clf)
+    st_c%cv=2
+    st_plans(1)%train=[1,2]; st_plans(1)%test=[1,2,3,3]
+    call st_c%fit(wt_x,wt_y,st_bases(:1),splits=st_plans(:1))
+  case('stk_final_unsupported')
+    st_bases(1)%name='tree'
+    allocate(st_bases(1)%estimator,source=wt_clf)
+    st_c%cv=2
+    call st_c%fit(wt_x,wt_y,st_bases(:1),wt_reg)
+  case('stk_query_features')
+    st_bases(1)%name='tree'
+    allocate(st_bases(1)%estimator,source=wt_clf)
+    st_c%cv=2
+    call st_c%fit(wt_x,wt_y,st_bases(:1))
+    bg_i=st_c%predict(mo_x)
+  case('stk_query_empty')
+    st_bases(1)%name='tree'
+    allocate(st_bases(1)%estimator,source=wt_clf)
+    st_c%cv=2
+    call st_c%fit(wt_x,wt_y,st_bases(:1))
+    bg_i=st_c%predict(wt_x(:0,:))
+  case('stk_query_inf')
+    st_bases(1)%name='tree'
+    allocate(st_bases(1)%estimator,source=wt_clf)
+    st_c%cv=2
+    call st_c%fit(wt_x,wt_y,st_bases(:1))
+    wt_x(1,1)=ieee_value(0._dp,ieee_positive_inf)
+    bg_i=st_c%predict(wt_x)
+  case('stk_final_no_proba')
+    st_bases(1)%name='tree'
+    allocate(st_bases(1)%estimator,source=wt_clf)
+    st_c%cv=2
+    call st_c%fit(wt_x,wt_y,st_bases(:1),rc)
+    bg_p=st_c%predict_proba(wt_x)
+  case('stk_final_no_decision')
+    st_bases(1)%name='tree'
+    allocate(st_bases(1)%estimator,source=wt_clf)
+    st_c%cv=2
+    call st_c%fit(wt_x,wt_y,st_bases(:1),wt_clf)
+    bg_p=st_c%decision_function(wt_x)
+  case('stk_score_length')
+    st_bases(1)%name='tree'
+    allocate(st_bases(1)%estimator,source=wt_clf)
+    st_c%cv=2
+    call st_c%fit(wt_x,wt_y,st_bases(:1))
+    wt_score=st_c%score(wt_x,wt_y(:3))
+  case('stk_score_w_length')
+    st_bases(1)%name='tree'
+    allocate(st_bases(1)%estimator,source=wt_clf)
+    st_c%cv=2
+    call st_c%fit(wt_x,wt_y,st_bases(:1))
+    wt_score=st_c%score(wt_x,wt_y,wt_w(:3))
+  case('stk_score_w_nan')
+    st_bases(1)%name='tree'
+    allocate(st_bases(1)%estimator,source=wt_clf)
+    st_c%cv=2
+    call st_c%fit(wt_x,wt_y,st_bases(:1))
+    wt_w(1)=ieee_value(0._dp,ieee_quiet_nan)
+    wt_score=st_c%score(wt_x,wt_y,wt_w)
+  case('stk_score_w_zero')
+    st_bases(1)%name='tree'
+    allocate(st_bases(1)%estimator,source=wt_clf)
+    st_c%cv=2
+    call st_c%fit(wt_x,wt_y,st_bases(:1))
+    wt_w=0
+    wt_score=st_c%score(wt_x,wt_y,wt_w)
+  case('stk_reg_score_target')
+    st_bases(1)%name='tree'
+    allocate(st_bases(1)%estimator,source=wt_reg)
+    st_r%cv=2
+    call st_r%fit(wt_x,real(wt_y,dp),st_bases(:1))
+    wt_w(1)=ieee_value(0._dp,ieee_quiet_nan)
+    wt_score=st_r%score(wt_x,wt_w)
+  case('rcv_loo_empty_alpha')
+    st_loo%cv=0; st_loo%alphas=[real(dp)::]
+    call st_loo%fit(wt_x,real(wt_y,dp))
+  case('rcv_loo_nan_alpha')
+    st_loo%cv=0; st_loo%alphas=[ieee_value(0._dp,ieee_quiet_nan)]
+    call st_loo%fit(wt_x,real(wt_y,dp))
+  case('rcv_loo_zero_alpha')
+    st_loo%cv=0; st_loo%alphas=[0._dp]
+    call st_loo%fit(wt_x,real(wt_y,dp))
+
   case('bg_linear_negative_w')
     wt_w=-1
     call bg_r%fit(wt_x,real(wt_y,dp),mo_lr,wt_w)

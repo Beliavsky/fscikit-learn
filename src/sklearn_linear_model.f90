@@ -1102,7 +1102,7 @@ contains
     real(dp), intent(in), optional :: sample_weight(:)
     real(dp) :: observation_weight(size(y)),mass,gradient_tol
     real(dp), allocatable :: design(:,:),w(:,:),prob(:,:),gradient(:,:),hess(:,:),step(:),trial(:,:),scaling(:)
-    real(dp) :: objective,new_objective,rate,penalty,v
+    real(dp) :: objective,new_objective,rate,penalty,v,objective_slack
     integer :: n,p,k,q,it,i,j,a,b,ia,ib,target
     call check_xy(x,size(y)); self%classes_=unique_labels(y); k=size(self%classes_)
     call require(k>=2,'logistic regression requires at least two classes')
@@ -1181,9 +1181,13 @@ contains
         step=solve_system(hess,reshape(gradient,[q*k]))
       end if
       rate=1
+      ! Near a minimizer the predicted decrease can be below evaluation
+      ! roundoff. Permit that roundoff so backtracking cannot falsely satisfy
+      ! the small-step convergence test while the gradient is still too large.
+      objective_slack=10*epsilon(1._dp)*max(1._dp,abs(objective))
       do j=1,50
         trial=w-rate*reshape(step,[q,k]); call evaluate(trial,new_objective,prob)
-        if(new_objective<=objective-1.e-4_dp*rate*sum(reshape(gradient,[q*k])*step)) exit
+        if(new_objective<=objective-1.e-4_dp*rate*sum(reshape(gradient,[q*k])*step)+objective_slack) exit
         rate=rate/2
       end do
       w=trial

@@ -3278,3 +3278,73 @@ incompatible-width case is diagnosed explicitly. Regression scoring rejects
 nonfinite predictions/targets and returns NaN for a singleton. Refit without
 OOB deallocates old OOB response arrays; consult the arrays' allocation status
 before using the scalar OOB score.
+
+
+## StackingClassifier and StackingRegressor
+
+`stacking_classifier`, `stacking_regressor` and the named `stacking_estimator`
+container are available from `sklearn`, `sklearn_ensemble` and
+`sklearn_stacking`. The container is the same native type as voting_estimator,
+with `name`, allocatable polymorphic `estimator`, and `drop` components.
+Call `fit(x,y,estimators,final_estimator,sample_weight,splits)`; the final
+estimator, weights and explicit index_split arrays are optional. Targets are
+integer label vectors for classification and real64 vectors for regression.
+Input arrays and supplied estimator templates are preserved.
+
+By default, `cv=5` uses nonshuffled StratifiedKFold for classification and
+KFold for regression. Classification allocation follows source first-appearance
+label ordering and permits minority counts below cv when not every class is
+too small. Supplied one-based splits must have nonempty, bounded train/test
+indices and test sets that partition every row exactly once. Explicit train
+order, test order and repeated training indices are retained; train/test
+overlap is permitted as in source's iterable split protocol. `prefit=.true.`
+uses copied fitted base states and their full training responses instead of CV;
+it cannot be combined with explicit splits. Prefit bases retain their original
+label responses, including when stacking encodes the final classifier targets.
+
+Full fitted bases are used by `transform` and prediction. Separate fold fits
+produce the out-of-fold design used to train the final estimator. Classifier
+`stack_method='auto'` prefers predict_proba, then decision_function, then predict;
+these three names can also be requested explicitly. Binary probability stacks
+drop their first column. Multiclass probability and decision columns are kept;
+missing fold probability classes are padded with zero, and source's unsupported
+imbalanced decision-fold cases are diagnosed. `passthrough=.true.` appends the
+original features after the base responses. Regressors stack scalar predictions.
+`fit_transform` returns the full fitted-base transform, not the OOF design.
+
+The default final classifier is native LogisticRegression with C=1, Newton
+optimization, tolerance 1e-10 and at most 500 iterations. The default final
+regressor is RidgeCV with leave-one-out selection over [.1,1,10]. The existing
+`ridge_cv` type now uses LOO/GCV when `cv=0`; its historical standalone default
+remains five-fold selection. Positive finite LOO alphas are required. LOO
+weights are supported through the native ensemble dispatch; the standalone
+inherited fit signature remains unweighted. GCV reports selected `alpha_`,
+`best_score_` and per-candidate `cv_scores_`, including quiet singleton NaNs.
+
+Supported base/final families are the explicit native voting/bagging dispatch
+families for the appropriate target kind. Weights require native weighted fit
+support; exact OLS/Ridge use the shared weighted SVD adapter, and LOO RidgeCV
+supports weighted selection. In prefit mode only the final estimator is fitted,
+so its weight capability is checked independently of the bases. Tree fits use
+the weighted float32/xorshift builder with implicit unit weights when weights
+are omitted, matching source split geometry and random feature ordering.
+Existing base optimization choices and floating-point tie conventions apply.
+
+Learned fields include `estimators_` (active named fitted slots),
+`active_indices_`, polymorphic `final_estimator_`, `stack_method_`,
+`n_feature_outs_`, `n_features_in_`, and `n_features_out_`. Classifiers add sorted
+`classes_` and `n_classes_`. `training_meta_features_` retains the actual final
+training design; `cv_splits_` and `cv_estimators_(fold,base)%estimator` retain the
+fold plans and fitted states for inspection. These are native introspection
+containers, not additional algorithms. They increase memory use relative to
+source's transient fold fits. Passthrough layout is captured at fit time.
+
+`predict`, `transform` and weighted `score` are supported; classifiers also
+expose predict_proba/decision_function when the final estimator supports them.
+Binary decision responses are real64 matrices with one column. Regression
+score uses source force-finite R2 and returns NaN for a singleton. Fit features
+must be finite. Query NaNs are forwarded to bases, and any passthrough NaNs
+then reach the final estimator's own checks. Infinities and invalid widths are
+diagnosed. Meta designs exceeding the native numerical working range are
+rejected. Sparse data, multilabel indicators, arbitrary estimator protocols,
+metadata routing and parallel fitting remain outside this subset.

@@ -1,6 +1,8 @@
 ! Internal native base dispatch shared by voting and bagging ensembles.
 ! Existing voting dispatch semantics and diagnostics are retained.
 module sklearn_base_dispatch
+  use sklearn_model_selection, only: ridge_cv
+  use sklearn_weighted_linear, only: weighted_ridge_loo
   use sklearn_common, only: dp,require,check_x,check_xy,unique_labels,label_index
   use sklearn_linear_model, only: linear_regression,elastic_net,logistic_regression,perceptron, &
     passive_aggressive_classifier,passive_aggressive_regressor,ransac_regressor,theil_sen_regressor
@@ -17,7 +19,7 @@ module sklearn_base_dispatch
   implicit none
   private
   public :: train_classifier,train_regressor,labels,regression,probabilities
-  public :: base_weighted,base_supported,base_proba,base_classes,seed_base
+  public :: base_weighted,base_supported,base_proba,base_classes,seed_base,base_decision,decisions
 contains
   subroutine train_classifier(model,x,y,weights)
     class(*), intent(inout) :: model
@@ -68,6 +70,15 @@ contains
     select type(model)
     type is(sgd_regressor)
       call model%fit(x,y,weights)
+    type is(ridge_cv)
+      if(model%cv==0) then
+        if(.not.allocated(model%alphas)) model%alphas=[.1_dp,1._dp,10._dp]
+        call weighted_ridge_loo(model,x,y,model%alphas,model%alpha_,model%best_score_,model%cv_scores_,weights)
+        model%alpha=model%alpha_
+      else
+        call require(.not.present(weights),'voting base has no native weighted fit')
+        call model%fit(x,y)
+      end if
     class is(linear_regression)
       call require(.not.present(weights),'voting base has no native weighted fit')
       call model%fit(x,y)
@@ -220,6 +231,8 @@ contains
     type is(gaussian_nb)
     type is(sgd_classifier)
     type is(sgd_regressor)
+    type is(ridge_cv)
+      ok=model%cv==0
     class is(decision_tree_classifier)
     class is(decision_tree_regressor)
     class is(ridge_classifier)
@@ -262,8 +275,56 @@ contains
       values=model%classes_
     type is(dummy_classifier)
       values=model%classes_
+    type is(perceptron)
+      values=model%classes_
+    type is(passive_aggressive_classifier)
+      values=model%classes_
+    class is(ridge_classifier)
+      values=model%classes_
+    type is(linear_svc)
+      values=model%classes_
+    type is(svc)
+      values=model%classes_
     class default
       call require(.false.,'native base has no class probability metadata')
+    end select
+  end function
+  logical function base_decision(model) result(ok)
+    class(*), intent(in) :: model
+    ok=.true.
+    select type(model)
+    type is(logistic_regression)
+    type is(sgd_classifier)
+    type is(perceptron)
+    type is(passive_aggressive_classifier)
+    class is(ridge_classifier)
+    type is(linear_svc)
+    type is(svc)
+    class default
+      ok=.false.
+    end select
+  end function
+  function decisions(model,x) result(value)
+    class(*), intent(in) :: model
+    real(dp), intent(in) :: x(:,:)
+    real(dp), allocatable :: value(:,:)
+    select type(model)
+    type is(logistic_regression)
+      value=model%decision_function(x)
+    type is(sgd_classifier)
+      value=model%decision_function(x)
+    type is(perceptron)
+      value=model%decision_function(x)
+    type is(passive_aggressive_classifier)
+      value=model%decision_function(x)
+    class is(ridge_classifier)
+      value=model%decision_function(x)
+    type is(linear_svc)
+      value=model%decision_function(x)
+    type is(svc)
+      value=model%decision_function(x)
+    class default
+      call require(.false.,'native base has no decision_function')
     end select
   end function
   subroutine seed_base(model,seed)

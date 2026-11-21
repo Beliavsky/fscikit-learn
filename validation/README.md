@@ -3342,3 +3342,40 @@ is retained exactly in `fixtures/bagging_ols_rank_deficient.json`; every source
 run checks its predictions, coefficients, intercept and numerical rank. The
 suite also exercises explicit nonuniform weights for these adapters. Original
 ordinary comparison tolerances and the failing fixture are preserved.
+
+
+### Stacking and leave-one-out RidgeCV
+
+`python validation/compare_stacking.py` validates stacking and the new
+RidgeCV cv=0 path; add `--profile release` or use `--executable PATH` with a
+profile-compatible reference driver. Per-profile input/output files permit
+independent checked and release source runs. The suite exercises response
+selection, binary probability-column removal, multiclass decision columns,
+full and OOF transforms, weights, dropped bases, explicit split order, prefit
+original labels, missing fold probability classes, final estimators, weighted
+scores, and singleton/wide/weighted/no-intercept LOO calculations.
+
+The exact weighted multinomial false-convergence design is retained in
+fixtures/stacking_logistic_roundoff.json. It failed the requested gradient
+tolerance before adding roundoff slack to the native Armijo acceptance test.
+Every run compares that design with source and independently checks its
+unnormalized weighted gradient. Ordinary tolerances remain fixed at 3e-8
+relative and 3e-9 absolute; integer choices/labels and split arrays are exact.
+
+Fold and full tree states use the existing source-conditioned CART/RNG oracle.
+LinearSVC optimizer differences require an independent squared-hinge objective
+and gradient check, plus a score-error bound from L2 strong convexity. Logistic
+optimizer differences require unprojected stationarity/objective checks and a
+positive segment-Hessian lower bound; multinomial parameter distances are
+measured in the zero-mean class gauge, with the original gauge difference
+retained in score bounds. Source optimizer warnings are recorded in reports.
+The certificates verify the native solution rather than loosening ordinary
+comparisons to match a less accurate source stopping point.
+
+The final source estimator is fitted independently on the verified emitted
+native OOF design. Coefficients, intercepts, LOO scores and selected alpha are
+labeled source_on_verified_meta; source default Newton counterparts use the
+native algorithm's strict optimization settings. Final predictions, transforms
+and scores are also compared with the complete source stacking model whenever
+no certified member/optimizer alternative is involved. Reports retain all
+group-level oracles, split/optimizer witnesses and primary-source hashes.
