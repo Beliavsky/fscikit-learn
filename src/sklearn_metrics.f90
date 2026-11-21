@@ -3,6 +3,8 @@ module sklearn_metrics
     contingency_matrix,pair_confusion_matrix,entropy,expected_mutual_information,homogeneity_completeness_v_measure
   use sklearn_mutual_info, only: mutual_info_score
   use sklearn_common
+  use sklearn_ranking, only: roc_curve,precision_recall_curve,det_curve,auc,roc_auc_score, &
+    average_precision_score,brier_score_loss
   implicit none
   private
   public :: normalized_mutual_info_score,adjusted_mutual_info_score,fowlkes_mallows_score,contingency_matrix
@@ -14,6 +16,7 @@ module sklearn_metrics
   public :: accuracy_score, confusion_matrix, precision_score, recall_score, f1_score
   public :: balanced_accuracy_score, matthews_corrcoef, cohen_kappa_score, log_loss
   public :: roc_auc_score, average_precision_score, hamming_loss, jaccard_score
+  public :: roc_curve,precision_recall_curve,det_curve,auc,brier_score_loss
   public :: pairwise_distances, euclidean_distances, manhattan_distances, cosine_similarity
   public :: linear_kernel, rbf_kernel, polynomial_kernel, sigmoid_kernel
   public :: silhouette_samples, silhouette_score, calinski_harabasz_score, davies_bouldin_score
@@ -240,47 +243,6 @@ contains
       row=row/sum(row); v=v-log(row(k))
     end do
     v=v/size(y)
-  end function
-  real(dp) function roc_auc_score(y,scores,pos_label) result(v)
-    integer, intent(in) :: y(:)
-    real(dp), intent(in) :: scores(:)
-    integer, intent(in), optional :: pos_label
-    integer :: i,j,pos,np,nn
-    integer, allocatable :: classes(:)
-    call require(size(y)==size(scores),'AUC size mismatch')
-    classes=unique_labels(y); call require(size(classes)==2,'AUC requires two classes')
-    pos=classes(2); if(present(pos_label)) pos=pos_label
-    np=count(y==pos); nn=size(y)-np; call require(np>0.and.nn>0,'invalid positive label')
-    v=0
-    do i=1,size(y)
-      if(y(i)/=pos) cycle
-      do j=1,size(y)
-        if(y(j)==pos) cycle
-        if(scores(i)>scores(j)) v=v+1
-        if(scores(i)==scores(j)) v=v+0.5_dp
-      end do
-    end do
-    v=v/(real(np,dp)*nn)
-  end function
-  real(dp) function average_precision_score(y,scores,pos_label) result(v)
-    integer, intent(in) :: y(:)
-    real(dp), intent(in) :: scores(:)
-    integer, intent(in), optional :: pos_label
-    integer :: order(size(y)),i,j,pos,tp,previous,np
-    call require(size(y)>0.and.size(y)==size(scores),'AP size mismatch')
-    pos=1; if(present(pos_label)) pos=pos_label
-    order=argsort(-scores); np=count(y==pos); v=0; tp=0; i=1
-    if(np==0) return
-    do while(i<=size(y))
-      j=i
-      do while(j<size(y))
-        if(scores(order(j+1))/=scores(order(i))) exit
-        j=j+1
-      end do
-      previous=tp; tp=tp+count(y(order(i:j))==pos)
-      v=v+real(tp-previous,dp)*tp/j; i=j+1
-    end do
-    v=v/np
   end function
   function pairwise_distances(x,y,metric,p) result(d)
     real(dp), intent(in) :: x(:,:),y(:,:)

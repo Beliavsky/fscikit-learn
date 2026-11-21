@@ -3,6 +3,7 @@ module sklearn
   use sklearn_common, only: dp
   use sklearn_preprocessing
   use sklearn_metrics
+  use sklearn_calibration
   use sklearn_linear_model
   use sklearn_naive_bayes
   use sklearn_neighbors

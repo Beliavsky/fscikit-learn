@@ -2355,3 +2355,85 @@ or large modified Householder tolerances can make results depend strongly on
 local QR/SVD frames; eigenvalue ties and duplicate-distance neighborhoods can
 also differ across native and sklearn linear-algebra/neighbor backends.
 See `example/lle_variants.f90` and `validation/compare_lle_variants.py`.
+
+## Ranking curves, probability calibration and weighted scores
+
+`sklearn_metrics` and `sklearn` export `roc_curve`, `precision_recall_curve`,
+`det_curve`, `auc` and `brier_score_loss`. `calibration_curve` is exported by
+`sklearn_calibration` and `sklearn`. Existing `roc_auc_score` and
+`average_precision_score` now share the `sklearn_ranking` threshold backend.
+Their first three arguments remain compatible; new optional controls are:
+
+```fortran
+call roc_curve(y,scores,fpr,tpr,thresholds, &
+  pos_label=1,sample_weight=weights,drop_intermediate=.true.)
+call precision_recall_curve(y,scores,precision,recall,thresholds, &
+  pos_label=1,sample_weight=weights,drop_intermediate=.false.)
+call det_curve(y,scores,fpr,fnr,thresholds,pos_label=1,sample_weight=weights)
+area=auc(fpr,tpr)
+area=roc_auc_score(y,scores,pos_label=1,sample_weight=weights,max_fpr=.5_dp)
+ap=average_precision_score(y,scores,pos_label=1,sample_weight=weights)
+loss=brier_score_loss(y,prob,pos_label=1,sample_weight=weights)
+call calibration_curve(y,prob,prob_true,prob_pred,n_bins=5,strategy='quantile',pos_label=1)
+```
+
+Targets are rank-one default integers and scores/probabilities/weights are
+rank-one real64 arrays. Inputs must be nonempty, length-matched and finite.
+Returned curve arrays are allocatable real64 outputs. Scores can be arbitrary
+finite decision values; Brier/calibration probabilities must lie in [0,1].
+The shared stable merge sort is ascending-stable then reversed, matching the
+source tie order. Zero-weight samples are removed before threshold creation
+and positive-label inference. True/false weighted cumulative counts are
+sample-by-sample, and all tied scores form one threshold. Sorting is
+O(samples*log(samples)) rather than the former quadratic ROC AUC/AP paths.
+An explicit nonzero-weight sample is required when weights are used by curves.
+Signed weights retain source arithmetic; rates/scores can leave their usual
+ranges, and DET can return empty arrays. The sum of absolute weights must
+remain within the native working range (at most huge(real64)/8).
+
+ROC thresholds decrease, beginning with positive infinity and the origin.
+The default drop_intermediate=true removes source second-difference-collinear
+points. Precision-recall thresholds increase; precision/recall have one extra
+terminal point (1,0). Their default drop_intermediate=false can optionally
+remove interior constant-true-positive points. DET retains the source trimmed
+interval from the initial false-positive plateau through the first full
+true-positive count, reversed to increasing thresholds.
+
+Without pos_label, ROC/PR/DET/calibration infer 1 only for targets contained in
+{0,1} or {-1,1}. Other integer labels require an explicit positive label.
+ROC/PR can binarize multiclass targets with an explicit label; DET requires
+exactly two original classes. ROC AUC/AP/Brier/calibration accept binary or
+single-class targets only. AP defaults to positive label 1; for two classes
+that label must occur, while a singleton can omit it. ROC AUC defaults to the
+larger label, retaining the existing native pos_label convenience as explicit
+binary relabeling. Brier uses source canonical-label inference and falls back
+to the largest numeric label for other label sets, including arbitrary
+singletons. These defaults intentionally differ among the source functions.
+
+No-positive PR recall is one at each threshold, followed by terminal zero;
+AP is zero there. Undefined ROC rates and single-class ROC AUC are quiet IEEE
+NaNs, with no Python warning channel. This single-class AUC behavior replaces
+the former native error stop. Zero weights can remove a class even when two
+original labels occur: full AUC then returns NaN. Partial AUC returns NaN when
+positive support is removed, but requires negative-class support, matching
+sklearn 1.6.1's otherwise failing one-point partial curve. DET uses IEEE
+NaN/infinity for zero weighted denominators. AP is the source step integral,
+not trapezoidal PR area.
+
+Optional max_fpr lies in (0,1]. A value below one truncates/interpolates the
+ROC curve and applies the source McClish standardized partial-area correction.
+Generic auc accepts at least two equal-length finite coordinate vectors;
+x must be monotonic in either direction, allowing repeated coordinates.
+It preserves signed y-area and corrects direction for descending x. Signed
+weights can make ROC x nonmonotonic, which AUC rejects as in sklearn.
+Brier returns the weighted mean squared probability error; weight sum zero
+(including signed cancellation) is rejected.
+
+Calibration defaults to five uniform bins. Positive n_bins selects bin count;
+strategy is uniform or quantile. Quantile edges use source NumPy linear
+percentiles; duplicate edges are allowed. Left search assigns values equal
+to an interior edge to the lower bin. Empty bins are omitted and outputs are
+observed positive fraction and mean predicted probability in increasing bin
+order. Calibration has no sample_weight argument in sklearn 1.6.1. Calibrated
+estimators, multilabel/multiclass score matrices and plot displays are outside
+this batch. See example/ranking_curves.f90 and validation/compare_ranking.py.

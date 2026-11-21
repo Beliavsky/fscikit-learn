@@ -94,6 +94,7 @@ Reference paths by module:
 | manifold (Isomap) | manifold/_isomap.py; utils/graph.py (connected-component completion) |
 | semi_supervised | semi_supervised/_label_propagation.py; RBF/KNN diffusion and clamping |
 | mds | manifold/_mds.py; metric/nonmetric SMACOF updates, stress normalization, legacy convergence and multi-start selection; native isotonic fitting and independent Fortran RNG |
+| ranking / calibration | metrics/_ranking.py binary threshold curves, AUC/AP and partial-area conventions; metrics/_classification.py Brier loss; calibration.py reliability bins; NumPy pairwise sum and percentile interpolation |
 | locally_linear / lle_variants | manifold/_locally_linear.py; local barycentric reconstruction, standard/Hessian/modified/LTSA alignment objectives and query interpolation; native QR, orthogonal completion, Jacobi local SVD/eigensolver and dense global eigensolver |
 | cross_decomposition | cross_decomposition/_pls.py; centering/scaling, NIPALS mode A/B, regression/canonical deflation, rotations, prediction and PLSSVD contracts; native dense SVD/pseudoinverse including historical CCA rank cutoff |
 | isotonic | isotonic.py, _isotonic.pyx; weighted monotonic fitting/interpolation contracts, Spearman direction, near-duplicate aggregation and threshold trimming; native PAVA implementation |
@@ -208,7 +209,7 @@ pairwise summation order from
 [`numpy/_core/src/umath/loops_utils.h.src`](https://github.com/numpy/numpy/blob/v2.2.6/numpy/_core/src/umath/loops_utils.h.src)
 in the private `numpy_sum` helper of `src/sklearn_mutual_info.f90` and
 `pairwise_sum` in `src/sklearn_cluster_information.f90` and `pair_sum` in
-`src/sklearn_tsne_core.f90`. The native
+`src/sklearn_tsne_core.f90` and `src/sklearn_ranking.f90`. The native
 adaptation uses real64 array sections, eight partial accumulators, a 128-value
 block cutoff and aligned recursive splits, with no compiled NumPy dependency.
 The complete NumPy BSD license/copyright is retained in `LICENSES/numpy-COPYING`.
@@ -323,3 +324,30 @@ standard-LLE/LTSA attribution remains applicable to shared fitting and query
 interpolation. Original contributions retain MIT; adapted sklearn portions
 retain BSD-3-Clause and the complete notices in LICENSES/scikit-learn-COPYING.
 No new dependency is added.
+
+## Ranking curves, calibration and Brier loss (BSD)
+
+`src/sklearn_ranking.f90` adapts sklearn 1.6.1 `metrics/_ranking.py`:
+_binary_clf_curve zero-weight removal, stable score order and tied cumulative
+thresholds, ROC/PR thinning and endpoints, DET trimming, trapezoidal AUC,
+weighted binary ROC AUC/AP and McClish partial-area correction. Binary Brier
+label inference and weighted squared error follow `metrics/_classification.py`;
+uniform/quantile calibration bins, left-edge assignment and empty-bin removal
+follow `calibration.py`. `src/sklearn_calibration.f90` re-exports the source
+calibration counterpart, and sklearn_metrics re-exports the ranking metrics.
+Installed baseline SHA-256 hashes:
+
+- `metrics/_ranking.py`: `1857a13da466d965db1ac18c9c383bc06eeb56aec146f4dcf3f0abe6bb9cdc21`
+- `metrics/_classification.py`: `569fff857c6a27025ad6f4fb61a6ebc30cca07b35c786c8ce026af1fc0b7f7dd`
+- `calibration.py`: `d7a4a6c186bdf5c84ee359ee89cc841d3180659eafbe99012b468fce945425c9`
+
+NumPy 2.2.6 `pair_sum` reduction order uses the pairwise-summation source
+recorded above; linear percentile interpolation/linspace conventions follow
+`numpy/lib/_function_base_impl.py`, SHA-256
+`dd3d59d7025ab419fc7d5ee890df66a0ba222f98d288d30646f7b1d2345f86f8`.
+The stable bottom-up merge sort and safe IEEE denominator handling are native
+implementations. The trapezoid formula is implemented directly; no SciPy
+runtime or new dependency is required. Original contributions remain MIT;
+adapted portions retain the existing complete sklearn/NumPy BSD notices in
+LICENSES/. The source's partial-AUC and probability-calibration references
+remain attributed to the sklearn implementation.

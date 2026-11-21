@@ -9,6 +9,7 @@ python validation/compare_cluster_information.py
 python validation/compare_resampling.py
 python validation/compare_tsne.py
 python validation/compare_lle_variants.py
+python validation/compare_ranking.py
 python validation/compare_mutual_info.py
 python validation/compare_label_binarization.py
 python validation/compare_polynomial_count_sketch.py
@@ -2831,3 +2832,65 @@ certificate witnesses, inventory totals, upstream source hashes, retained
 licenses and git diff checks. Numerical sources did not change after the
 checked/release tests. Other reference suites retain previously recorded
 results in the aggregate inventory and were not all rerun for this batch.
+
+## Ranking curves, calibration and weighted-score batch
+
+Added six public sklearn functions: roc_curve, precision_recall_curve,
+det_curve, auc, calibration_curve and brier_score_loss. Added sklearn_ranking
+and sklearn_calibration modules, metric re-exports and the calibration facade
+import. Existing roc_auc_score and average_precision_score now use the shared
+stable O(N log N) threshold backend, retain their first three native arguments,
+and add sample_weight; ROC AUC also adds standardized max_fpr partial area.
+The backend follows source stable-ascending/reversed tie order, zero-weight
+filtering, independent weighted cumulative counts, curve thinning, endpoint
+and DET trimming conventions. Explicit positive-label and single-class rules,
+quiet IEEE undefined outputs and signed-weight arithmetic follow source
+semantics. Partial AUC specifically preserves the source rejection when
+zero weights remove all negative support. Calibration uses uniform/quantile
+bins, source linear interpolation and left-edge assignment, and drops empty
+bins. Brier uses source numeric-label inference and weighted squared error.
+Native score/probability/AUC-coordinate inputs are finite dense real64 values;
+working-range and invalid-domain diagnostics are explicit.
+
+The new reference suite checks 5,584 groups over 365 fixtures and five seeds
+(0,7,42,2026,314159): 5,215 direct sklearn groups, 365 unchanged-input checks
+and four source/native partial-AUC rejections. Cases cover 1--513 samples,
+unique/tied/constant scores, uniform/random/log-scale/zero/signed weights,
+removed classes, singleton and custom labels, explicit one-vs-rest curves,
+all thinning choices, increasing/decreasing/constant AUC coordinates,
+partial limits .01--1, 1--11 uniform/quantile bins, repeated probabilities,
+empty calibration bins and IEEE NaN/infinite outputs. Curve thresholds and
+array shapes are compared exactly; other values use tight 3.e-12 tolerances
+with matching NaNs. No alternative numerical oracle replaces source checks.
+
+Independent native tests verify analytic ROC/PR/DET outputs, trapezoidal and
+partial ROC areas, AP step integration, calibration edge/duplicate behavior,
+weighted and singleton Brier rules, singleton/zero-support NaNs, signed AP
+and a 100,000-sample closed-form rank identity. Fifty-three new diagnostic
+cases cover every public path's sizes, finite data, labels, weights, partial
+limits, coordinate monotonicity and calibration controls. All passed a
+standalone checked probe before full fpm testing; two fixture literals were
+corrected to real64 to match the max_fpr interface. The ranking_curves example
+demonstrates threshold curves, scoring and calibration. Existing numerical bodies outside
+ROC AUC/AP remain unchanged. Provenance and complete upstream notices are
+retained; original work stays MIT. No new public type, extension or dependency
+is added; the existing native positive-label AUC convenience is documented.
+Inventory: 175 core types, 86 source modules, 86 native test programs,
+65 reference suites and 136,541 result groups, plus 28 separate NumPy RNG
+stream groups. Isolated invalid-input inventory is 1,818.
+
+Completed validation: all 86 native test programs passed checked
+(-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow) and release builds.
+Each profile passed 5,584 result groups: 5,215 direct sklearn comparisons,
+365 exact input identities and four paired source/native partial-AUC
+rejections. The original 192-group integration comparison and all 1,818
+isolated invalid-input cases passed. The checked example returned ROC AUC
+.75, standardized partial AUC 2/3, average precision 5/6, Brier loss .158125
+and calibration fractions [0,.5,1] at mean probabilities [.1,.375,.8].
+The 100,000-sample native rank identity passed both profiles. Final audits
+passed Python syntax, Fortran formatting, exact diagnostic registration,
+report/oracle/rejection accounting, inventory totals, sklearn/NumPy source
+hashes, retained licenses and git diff checks. Numerical sources did not
+change after checked/release testing. Other reference suites retain their
+previously recorded results in the aggregate inventory and were not all
+rerun for this batch.
