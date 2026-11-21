@@ -3072,3 +3072,57 @@ registration, result/oracle accounting, inventory totals, upstream source
 hashes, retained licenses and git diff checks. Numerical sources did not
 change after checked/release testing. Existing reference suites retain their
 previously recorded aggregate results; they were not all rerun for this batch.
+
+
+## CalibratedClassifierCV validation
+
+`python validation/compare_calibrated.py` exercises sigmoid/isotonic maps,
+ensemble and pooled out-of-fold CV, prefit calibration, weighted KNN CV and
+weighted prefit calibration with Gaussian NB, KNN and logistic bases. It
+accepts --executable or --profile release. All 690 fixtures use installed
+sklearn 1.6.1 with five seeds, 2/3/4 classes, source first-appearance fold
+encoding, 3/5 folds, uniform/distance KNN, missing/unknown calibration
+labels, zero calibration weights and large decision scores.
+
+Raw base calibration/query responses and public probabilities compare
+directly to source at atol=rtol=2e-6 (3e-6 for logistic). Every sigmoid map
+also passes an independent source-objective gradient bound of 2.1e-9 and
+cannot exceed a source optimizer loss by more than 2e-10, using native raw
+responses. Each isotonic map is compared to a fresh sklearn fit on native
+responses at the union of both knot sets and query responses, certifying
+its complete piecewise linear function at 3e-12. Composition, original
+estimator and input data have separate identities. Prediction differences
+are allowed only when both probability gaps are within 64 machine epsilons;
+all four observed source gaps are exactly zero and individually recorded.
+
+Native analytic tests cover constant-score Platt smoothing versus empirical
+isotonic means, weighted/zero priors, complements, deep copies, CV encoding,
+mandatory refitting, state replacement and multiclass uniform fallback.
+The shared logistic fit now centers multiclass intercepts to remove a
+softmax null mode from pooled decision scores. This preserves its model
+probabilities and improves calibration fidelity; binary fitting is unchanged.
+Scope and current base/weight limitations are explicit in docs/API.md and
+docs/COVERAGE.md. The package remains MIT with retained upstream BSD notices.
+
+Completed validation: all 88 native test programs passed checked
+(-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow) and release builds.
+Each profile passed all 11,680 calibration groups over 690 fixtures with the
+same oracle accounting: 6,086 direct sklearn groups, 3,520 fitted-map
+certificates, 1,380 input identities, 690 composition identities and four
+machine-precision argmax-tie groups. The source probability gap in every
+recorded argmax exception is exactly zero, and both native/source gaps are
+checked against 64 machine epsilons. Self-training additionally passed its
+4,905-group source/identity/certificate suite in both profiles after the
+shared logistic gauge correction. The original 192-group integration
+comparison and all 1,860 isolated invalid-input cases passed.
+
+The checked example returned sigmoid ensemble positive probabilities
+[.23250143941352105,.38829563824685470,.76859123230451598] at inputs
+[-2,0,2], and out-of-fold isotonic query labels [0,1,1]. Its output marker
+was explicitly verified, preventing an unmatched fpm target from counting
+as a successful example run. Final audits passed Python syntax, Fortran
+formatting, exact diagnostic registration, report/oracle/exception
+accounting, inventory totals, upstream source hashes, retained licenses
+and git diff checks. Numerical sources did not change after checked/release
+testing. Other existing reference suites retain their previously recorded
+aggregate results; they were not all rerun for this batch.

@@ -369,3 +369,28 @@ supervised methods," ACL (1995).
 Original contributions remain MIT. Adapted sklearn portions retain the
 complete BSD-3-Clause notice in `LICENSES/scikit-learn-COPYING`.
 No dependency is added.
+
+## Cross-validated probability calibration (BSD)
+
+`src/sklearn_calibrated_classifier.f90` adapts scikit-learn 1.6.1
+`calibration.py`: classifier/calibrator fold pairs, out-of-fold responses and
+full refitting, prefit calibration, binary/one-vs-rest targets, sigmoid target
+smoothing and score scaling, isotonic calibration, probability normalization
+and ensemble averaging. Installed source SHA-256:
+`d7a4a6c186bdf5c84ee359ee89cc841d3180659eafbe99012b468fce945425c9`.
+Stratified fold allocation follows `model_selection/_split.py`'s
+first-appearance class encoding, with its existing retained attribution.
+Installed source SHA-256:
+`1dc467b09b1b4903c15db0329ee5431e66a7d67c8e44f61ebe70885f33e5ff1b`.
+
+Sigmoid fitting uses a native two-variable damped Newton optimizer for the
+same Platt objective; no SciPy optimizer code is copied. Research attribution
+follows the source reference to J. Platt, "Probabilistic Outputs for Support
+Vector Machines." Isotonic fitting reuses the attributed weighted PAV and
+interpolation implementation. Native logistic fitting now removes the common
+softmax-intercept null mode before downstream raw-score calibration. Its
+existing objective and solver provenance remain applicable.
+
+Original contributions remain MIT; adapted portions retain BSD-3-Clause and
+the complete notice in `LICENSES/scikit-learn-COPYING`. No new dependency or
+Python runtime is needed by the Fortran package.

@@ -3097,3 +3097,92 @@ registration, result/oracle accounting, inventory totals, upstream source
 hashes, retained licenses and git diff checks. Numerical sources did not
 change after checked/release testing. Existing reference suites retain their
 previously recorded aggregate results; they were not all rerun for this batch.
+
+
+## Cross-validated probability calibration batch
+
+Added calibrated_classifier_cv, exported by sklearn_calibration and sklearn.
+It implements sigmoid and isotonic calibration using native logistic,
+Gaussian NB or KNN bases. Integer CV uses source first-appearance class
+encoding and unshuffled stratified allocation. Ensemble fitting averages
+individually normalized fold classifier/map pairs; nonensemble fitting
+collects out-of-fold responses and refits the final base on all rows.
+Prefit calibration copies an already fitted base without refitting it and
+retains its output classes, including missing/unknown calibration labels.
+Binary response selection/complement, one-vs-rest multiclass targets,
+zero-mass uniform fallback and final probability handling follow source.
+
+Weighted CV is supported for KNN; weighted prefit calibration supports all
+three bases. Weighted logistic/Gaussian NB CV fitting is explicitly rejected
+until those native base fit APIs support weights. Weights are finite,
+nonnegative and bounded by the documented native working range. All-zero
+sigmoid weights retain source .5 map outputs; isotonic fitting requires
+positive weight support. General estimator/default LinearSVC cloning,
+FrozenEstimator, custom CV splitters, sparse arrays, metadata routing,
+parallelism and arbitrary fit parameters remain outside this interface.
+
+Sigmoid maps minimize the source Platt objective with weighted Bayesian
+smoothing and response scaling at maximum absolute score >=30. A native
+damped two-variable Newton solver uses a rank-one pseudoinverse direction
+for constant designs and a gradient-decrease certificate when summed loss
+roundoff obstructs a near-optimal step. Isotonic maps reuse weighted PAV and
+clipped interpolation, explicitly bounding binary-target fits to [0,1] to
+contain endpoint roundoff. The shared logistic solver now centers fitted
+multiclass intercepts: this removes an arbitrary common softmax offset that
+otherwise varies across fold fits and contaminates pooled raw scores.
+Its probabilities retain the same model; binary fitting is unchanged.
+
+The new suite checks 11,680 groups across 690 fixtures and five seeds
+(0,7,42,2026,314159), with 2/3/4 classes, both map methods, all three bases,
+3/5-fold CV, ensemble/nonensemble/prefit paths, uniform/distance KNN,
+weighted/zero-weight fits, missing/unknown calibration labels and very large
+logistic decision scores. There are 6,086 direct sklearn groups, 3,520
+source-calibrator certificates, 1,380 input identities, 690 composition
+identities and four machine-precision argmax-tie groups. Each sigmoid map's
+independent normalized gradient must be at most 2.1e-9, and its objective
+cannot exceed a source optimizer fit by more than 2e-10. Each isotonic map
+must match a fresh source fit on native response values to 3e-12 over the
+union of both knot sets and query responses, certifying the full piecewise
+linear function. Raw base responses and final probabilities compare directly
+to source; the latter use 2e-6 tolerances (3e-6 for logistic). Argmax exceptions
+require both native and source gaps within 64 machine epsilons and are
+recorded individually; all four observed source gaps are exactly zero.
+
+Native analytic tests cover smoothed versus empirical constant-score targets,
+weighted priors and zero support, complements, deep copies, source fold
+encoding, mandatory full-data refitting, input estimator preservation,
+canonical softmax gauge, refit state replacement and uniform multiclass
+fallback. Twenty-three isolated diagnostics cover invalid controls, data,
+weight domains, unsupported bases/weighted CV paths, prefit/fitted state,
+class counts, feature mismatches and zero-weight isotonic fits. A checked
+standalone probe passed the new native tests, all 23 diagnostics and the
+complete reference suite before full package validation.
+
+Original contributions remain MIT with retained sklearn BSD attribution.
+No dependency or public extension is added. Inventory: 177 core types,
+88 source modules, 88 native test programs, 67 reference suites and 153,126
+result groups, plus 28 separate NumPy RNG groups. Isolated diagnostic
+inventory is 1,860.
+
+Completed validation: all 88 native test programs passed checked
+(-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow) and release builds.
+Each profile passed all 11,680 calibration groups over 690 fixtures with the
+same oracle accounting: 6,086 direct sklearn groups, 3,520 fitted-map
+certificates, 1,380 input identities, 690 composition identities and four
+machine-precision argmax-tie groups. The source probability gap in every
+recorded argmax exception is exactly zero, and both native/source gaps are
+checked against 64 machine epsilons. Self-training additionally passed its
+4,905-group source/identity/certificate suite in both profiles after the
+shared logistic gauge correction. The original 192-group integration
+comparison and all 1,860 isolated invalid-input cases passed.
+
+The checked example returned sigmoid ensemble positive probabilities
+[.23250143941352105,.38829563824685470,.76859123230451598] at inputs
+[-2,0,2], and out-of-fold isotonic query labels [0,1,1]. Its output marker
+was explicitly verified, preventing an unmatched fpm target from counting
+as a successful example run. Final audits passed Python syntax, Fortran
+formatting, exact diagnostic registration, report/oracle/exception
+accounting, inventory totals, upstream source hashes, retained licenses
+and git diff checks. Numerical sources did not change after checked/release
+testing. Other existing reference suites retain their previously recorded
+aggregate results; they were not all rerun for this batch.

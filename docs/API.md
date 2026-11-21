@@ -2434,15 +2434,15 @@ strategy is uniform or quantile. Quantile edges use source NumPy linear
 percentiles; duplicate edges are allowed. Left search assigns values equal
 to an interior edge to the lower bin. Empty bins are omitted and outputs are
 observed positive fraction and mean predicted probability in increasing bin
-order. Calibration has no sample_weight argument in sklearn 1.6.1. Calibrated
-estimators, multilabel/multiclass score matrices and plot displays are outside
-this batch. See example/ranking_curves.f90 and validation/compare_ranking.py.
+order. The calibration_curve function has no sample_weight argument in sklearn
+1.6.1. Calibrated estimators are documented below; multilabel/multiclass score
+matrices and plot displays remain outside the ranking-functions batch. See example/ranking_curves.f90 and validation/compare_ranking.py.
 
 ## Self-training classification
 
 `self_training_classifier` is available from `sklearn_semi_supervised` and
 `sklearn`. Pass a configured `logistic_regression`, `gaussian_nb` or
-`kneighbors_classifier` as the required fourth fit argument:
+`kneighbors_classifier` as the required estimator argument to fit:
 
 ```fortran
 type(self_training_classifier) :: model
@@ -2494,3 +2494,75 @@ logistic decision matrix has the usual unidentifiable common intercept;
 reference comparisons center logits per row while comparing probabilities
 directly. See `example/self_training.f90` and
 `validation/compare_self_training.py`.
+
+## CalibratedClassifierCV
+
+`calibrated_classifier_cv` is exported by `sklearn_calibration` and `sklearn`.
+Supply a configured native logistic_regression, gaussian_nb or
+kneighbors_classifier as the required estimator argument to fit:
+
+```fortran
+type(calibrated_classifier_cv) :: model
+type(gaussian_nb) :: estimator
+model%method='sigmoid'
+model%cv=5
+model%ensemble=.true.
+call model%fit(x,y,estimator)
+prob=model%predict_proba(query)
+labels=model%predict(query)
+accuracy=model%score(query,query_labels)
+```
+
+Inputs are dense finite real64 feature matrices with samples in rows and
+rank-one integer labels. At least two estimator classes are required.
+method is sigmoid (default) or isotonic. cv defaults to five integer,
+unshuffled stratified folds; every class needs at least cv samples. The fold
+allocation reproduces sklearn's first-appearance class encoding. Native
+fold_id_ holds 1-based fold numbers. Explicit splitters/indices, a default
+LinearSVC base, general estimator cloning, FrozenEstimator, sparse data,
+metadata routing, parallel fitting and arbitrary fit parameters are outside
+this native interface.
+
+ensemble=true fits one base/map pair per fold and averages calibrated query
+probabilities. ensemble=false collects out-of-fold responses, fits one set
+of calibration maps and refits the base on all input rows. Set prefit=true
+for sklearn 1.6.1's cv='prefit' workflow: the supplied estimator must already
+be fitted, its classes define the output columns, and it is copied without
+refitting. That path uses one pair, regardless of ensemble/cv. The Python
+deprecation warning is not emitted. Missing calibration classes are allowed;
+unknown calibration labels are binarized to zero, as in the source.
+
+Optional sample_weight must match the calibration rows, be finite and
+nonnegative, and have maximum weight at most huge(real64)/(16*n_samples).
+Weighted CV fitting is supported for KNN, whose source fit does not consume
+weights: weights affect calibration maps only. Native logistic/Gaussian NB
+base fitting does not yet support weights, so weighted CV with those bases
+is rejected explicitly. Weighted prefit calibration supports all three bases.
+Zero-weight rows do not affect isotonic maps; every isotonic fit needs positive
+weight support. An all-zero-weight sigmoid fit returns probability .5 before
+multiclass normalization. Signed weights are outside this convex-fitting API.
+
+Logistic uses decision_function responses; Gaussian NB/KNN use probabilities.
+Binary calibration maps the second sorted class only and obtains the first
+column by complement. Multiclass fits one-vs-rest maps and normalizes each
+row; all-zero map output becomes uniform. Each ensemble member normalizes
+before averaging. Sigmoid uses source weighted Bayesian target smoothing
+and the source score rescaling at maximum absolute response >=30. A damped
+two-variable Newton optimizer replaces source L-BFGS-B while minimizing the
+same objective. Independent reference checks certify its gradient and loss.
+Isotonic uses the existing weighted PAV implementation with clipped query
+extrapolation and binary-target bounds [0,1] to contain arithmetic roundoff.
+
+Multiclass logistic intercepts now have zero mean, removing a numerical
+softmax null mode that otherwise introduces arbitrary fold-dependent offsets
+into raw calibration scores. Probabilities retain the same softmax model.
+The reference suite checks raw calibration/query responses directly against
+source and separately records argmax differences at machine-precision ties.
+
+classes_, n_features_in_ and calibrated_classifiers_ expose fitted state.
+Each pair contains a polymorphic estimator_ and calibrators_; sigmoid maps
+store a_/b_ and isotonic maps store isotonic_model_. Refit replaces all pairs
+and clears obsolete fold metadata. Query features must match fit dimensions.
+The input estimator and arrays are preserved. There is no decision_function
+or predict_log_proba on the source calibrated wrapper. See
+example/calibrated_probabilities.f90 and validation/compare_calibrated.py.

@@ -8,6 +8,13 @@ program invalid_input_driver
   use sklearn_legacy_rng, only: legacy_random_state
   use, intrinsic :: ieee_arithmetic, only: ieee_value,ieee_quiet_nan,ieee_positive_inf
   implicit none
+  type(calibrated_classifier_cv) :: cc_case
+  type(gaussian_nb) :: cc_nb
+  type(kneighbors_classifier) :: cc_knn
+  type(logistic_regression) :: cc_lr
+  real(dp) :: cc_x(6,1)=reshape([-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp],[6,1]),cc_weights(6)=1
+  integer :: cc_y(6)=[0,0,0,1,1,1]
+  real(dp), allocatable :: cc_prob(:,:)
   type(self_training_classifier) :: st_case
   type(gaussian_nb) :: st_nb
   type(kneighbors_classifier) :: st_knn
@@ -276,6 +283,95 @@ program invalid_input_driver
   mi_x(:,2)=[0._dp,0._dp,1._dp,1._dp,2._dp,2._dp]; mi_x(:,3)=1
   mi_y=mi_x(:,1); mi_labels=[-1,-1,-1,2,2,2]
   select case(trim(mode))
+  case('cc_method')
+    cc_case%cv=3
+    cc_case%method='unknown'
+    call cc_case%fit(cc_x,cc_y,cc_nb)
+  case('cc_cv_zero')
+    cc_case%cv=3
+    cc_case%cv=0
+    call cc_case%fit(cc_x,cc_y,cc_nb)
+  case('cc_cv_one')
+    cc_case%cv=3
+    cc_case%cv=1
+    call cc_case%fit(cc_x,cc_y,cc_nb)
+  case('cc_cv_large')
+    cc_case%cv=3
+    cc_case%cv=7
+    call cc_case%fit(cc_x,cc_y,cc_nb)
+  case('cc_cv_class')
+    cc_case%cv=3
+    cc_case%cv=4
+    call cc_case%fit(cc_x,cc_y,cc_nb)
+  case('cc_single_class')
+    cc_case%cv=3
+    cc_y=0
+    call cc_case%fit(cc_x,cc_y,cc_nb)
+  case('cc_nan')
+    cc_case%cv=3
+    cc_x(1,1)=ieee_value(0._dp,ieee_quiet_nan)
+    call cc_case%fit(cc_x,cc_y,cc_nb)
+  case('cc_empty')
+    cc_case%cv=3
+    call cc_case%fit(cc_x(:0,:),cc_y(:0),cc_nb)
+  case('cc_length')
+    cc_case%cv=3
+    call cc_case%fit(cc_x,cc_y(:5),cc_nb)
+  case('cc_unsupported')
+    cc_case%cv=3
+    call cc_case%fit(cc_x,cc_y,1)
+  case('cc_unfit')
+    cc_case%cv=3
+    cc_prob=cc_case%predict_proba(cc_x)
+  case('cc_prefit_unfit')
+    cc_case%cv=3
+    cc_case%prefit=.true.
+    call cc_case%fit(cc_x,cc_y,cc_nb)
+  case('cc_prefit_single')
+    cc_case%cv=3
+    call cc_nb%fit(cc_x,0*cc_y)
+    cc_case%prefit=.true.
+    call cc_case%fit(cc_x,cc_y,cc_nb)
+  case('cc_weight_logistic')
+    cc_case%cv=3
+    call cc_case%fit(cc_x,cc_y,cc_lr,cc_weights)
+  case('cc_weight_nb')
+    cc_case%cv=3
+    call cc_case%fit(cc_x,cc_y,cc_nb,cc_weights)
+  case('cc_weight_length')
+    cc_case%cv=3
+    call cc_case%fit(cc_x,cc_y,cc_knn,cc_weights(:5))
+  case('cc_weight_nan')
+    cc_case%cv=3
+    cc_weights(1)=ieee_value(0._dp,ieee_quiet_nan)
+    call cc_case%fit(cc_x,cc_y,cc_knn,cc_weights)
+  case('cc_weight_inf')
+    cc_case%cv=3
+    cc_weights(1)=ieee_value(0._dp,ieee_positive_inf)
+    call cc_case%fit(cc_x,cc_y,cc_knn,cc_weights)
+  case('cc_weight_negative')
+    cc_case%cv=3
+    cc_weights(1)=-1
+    call cc_case%fit(cc_x,cc_y,cc_knn,cc_weights)
+  case('cc_weight_mass')
+    cc_case%cv=3
+    cc_weights=huge(1._dp)
+    call cc_case%fit(cc_x,cc_y,cc_knn,cc_weights)
+  case('cc_iso_zero_weights')
+    cc_case%cv=3
+    cc_case%method='isotonic'
+    cc_knn%n_neighbors=1
+    call cc_case%fit(cc_x,cc_y,cc_knn,0*cc_weights)
+  case('cc_query_features')
+    cc_case%cv=3
+    call cc_case%fit(cc_x,cc_y,cc_nb)
+    cc_prob=cc_case%predict_proba(spread(cc_x(:,1),2,2))
+  case('cc_query_nan')
+    cc_case%cv=3
+    call cc_case%fit(cc_x,cc_y,cc_nb)
+    cc_x(1,1)=ieee_value(0._dp,ieee_quiet_nan)
+    cc_prob=cc_case%predict_proba(cc_x)
+
   case('st_threshold_nan')
     st_case%threshold=ieee_value(0._dp,ieee_quiet_nan)
     call st_case%fit(st_x,st_y,st_nb)

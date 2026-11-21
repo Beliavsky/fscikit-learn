@@ -1154,6 +1154,9 @@ contains
     self%n_iter_=min(it,self%max_iter)
     self%coef_=transpose(w(:p,:)); self%intercept_=spread(0._dp,1,k)
     if(q>p) self%intercept_=w(q,:)
+    ! Remove the softmax intercept null mode: fold-dependent numerical drift
+    ! changes raw scores used by downstream calibration despite identical proba.
+    if(k>1) self%intercept_=self%intercept_-sum(self%intercept_)/k
   contains
     subroutine evaluate(weights,loss,probabilities)
       real(dp), intent(in) :: weights(:,:)

@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 176 public estimator, transformer, and splitter types. Each is a
+There are 177 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Sixty-six reference suites additionally check 141,446
+All types have native tests. Sixty-seven reference suites additionally check 153,126
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -52,7 +52,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | neural_network | `mlp_classifier`, `mlp_regressor`, `bernoulli_rbm` | Arbitrary dense hidden layer sizes, relu/tanh/logistic/identity, full-batch Adam, softmax classification or squared-error regression, L2 regularization |
 | gaussian_process | `gaussian_process_regressor`, `gaussian_process_classifier` | Fixed isotropic RBF amplitude/length scale plus white noise and diagonal alpha; Cholesky posterior, standard deviation/covariance, log marginal likelihood; optional target normalization; fixed-RBF Laplace binary/OVR classification |
 | covariance | `empirical_covariance`, `shrunk_covariance`, `ledoit_wolf`, `oas`, `graphical_lasso`, `min_cov_det`, `elliptic_envelope`; `fast_mcd` | Population covariance, pseudoinverse precision, squared Mahalanobis distance, likelihood, Frobenius/spectral covariance error; L1-penalized sparse precision via block coordinate descent; FastMCD robust covariance and elliptic outlier detection |
-| calibration | `calibration_curve` | Uniform/quantile reliability bins; binary labels with explicit/default positive class; empty-bin removal |
+| calibration | `calibrated_classifier_cv`; `calibration_curve` | Sigmoid/isotonic CV ensembles, out-of-fold calibration and prefit calibration with logistic, Gaussian NB or KNN bases; uniform/quantile reliability bins |
 | datasets | `make_blobs`, `make_regression`, `make_moons`, `make_circles` | Native synthetic generators; optional deterministic seed; no bundled real-world datasets |
 
 ## Metrics and kernels
@@ -243,7 +243,7 @@ framework, pipelines/column transformers, broader SVM/GLM/SGD options,
 histogram boosting, broader AdaBoost and bagging APIs,
 Barnes-Hut t-SNE,
 outlier detection beyond LOF/OneClassSVM/SGDOneClassSVM/IsolationForest/EllipticEnvelope,
-calibrated estimators, semi-supervised learning beyond label propagation/spreading,
+calibration with further base estimators and general metadata routing,
 multiclass/multioutput wrappers,
 inspection/permutation importance, further feature-selection wrappers, image features,
 real dataset loaders and the full plotting/display API.
@@ -3439,3 +3439,69 @@ original contributions remain MIT. No extension or dependency is added.
 Inventory: 176 core types, 87 source modules, 87 native test programs,
 66 reference suites and 141,446 result groups, plus 28 separate NumPy RNG
 stream groups. Isolated invalid-input inventory is 1,837.
+
+
+## Cross-validated probability calibration batch
+
+Added calibrated_classifier_cv, exported by sklearn_calibration and sklearn.
+It implements sigmoid and isotonic calibration using native logistic,
+Gaussian NB or KNN bases. Integer CV uses source first-appearance class
+encoding and unshuffled stratified allocation. Ensemble fitting averages
+individually normalized fold classifier/map pairs; nonensemble fitting
+collects out-of-fold responses and refits the final base on all rows.
+Prefit calibration copies an already fitted base without refitting it and
+retains its output classes, including missing/unknown calibration labels.
+Binary response selection/complement, one-vs-rest multiclass targets,
+zero-mass uniform fallback and final probability handling follow source.
+
+Weighted CV is supported for KNN; weighted prefit calibration supports all
+three bases. Weighted logistic/Gaussian NB CV fitting is explicitly rejected
+until those native base fit APIs support weights. Weights are finite,
+nonnegative and bounded by the documented native working range. All-zero
+sigmoid weights retain source .5 map outputs; isotonic fitting requires
+positive weight support. General estimator/default LinearSVC cloning,
+FrozenEstimator, custom CV splitters, sparse arrays, metadata routing,
+parallelism and arbitrary fit parameters remain outside this interface.
+
+Sigmoid maps minimize the source Platt objective with weighted Bayesian
+smoothing and response scaling at maximum absolute score >=30. A native
+damped two-variable Newton solver uses a rank-one pseudoinverse direction
+for constant designs and a gradient-decrease certificate when summed loss
+roundoff obstructs a near-optimal step. Isotonic maps reuse weighted PAV and
+clipped interpolation, explicitly bounding binary-target fits to [0,1] to
+contain endpoint roundoff. The shared logistic solver now centers fitted
+multiclass intercepts: this removes an arbitrary common softmax offset that
+otherwise varies across fold fits and contaminates pooled raw scores.
+Its probabilities retain the same model; binary fitting is unchanged.
+
+The new suite checks 11,680 groups across 690 fixtures and five seeds
+(0,7,42,2026,314159), with 2/3/4 classes, both map methods, all three bases,
+3/5-fold CV, ensemble/nonensemble/prefit paths, uniform/distance KNN,
+weighted/zero-weight fits, missing/unknown calibration labels and very large
+logistic decision scores. There are 6,086 direct sklearn groups, 3,520
+source-calibrator certificates, 1,380 input identities, 690 composition
+identities and four machine-precision argmax-tie groups. Each sigmoid map's
+independent normalized gradient must be at most 2.1e-9, and its objective
+cannot exceed a source optimizer fit by more than 2e-10. Each isotonic map
+must match a fresh source fit on native response values to 3e-12 over the
+union of both knot sets and query responses, certifying the full piecewise
+linear function. Raw base responses and final probabilities compare directly
+to source; the latter use 2e-6 tolerances (3e-6 for logistic). Argmax exceptions
+require both native and source gaps within 64 machine epsilons and are
+recorded individually; all four observed source gaps are exactly zero.
+
+Native analytic tests cover smoothed versus empirical constant-score targets,
+weighted priors and zero support, complements, deep copies, source fold
+encoding, mandatory full-data refitting, input estimator preservation,
+canonical softmax gauge, refit state replacement and uniform multiclass
+fallback. Twenty-three isolated diagnostics cover invalid controls, data,
+weight domains, unsupported bases/weighted CV paths, prefit/fitted state,
+class counts, feature mismatches and zero-weight isotonic fits. A checked
+standalone probe passed the new native tests, all 23 diagnostics and the
+complete reference suite before full package validation.
+
+Original contributions remain MIT with retained sklearn BSD attribution.
+No dependency or public extension is added. Inventory: 177 core types,
+88 source modules, 88 native test programs, 67 reference suites and 153,126
+result groups, plus 28 separate NumPy RNG groups. Isolated diagnostic
+inventory is 1,860.
