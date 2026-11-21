@@ -3865,3 +3865,51 @@ Final audits verified upstream source hashes, tested binary hashes, strict JSON,
 source/Python formatting, fresh production and 109 native test objects in each
 profile, and staged Git whitespace. The active broader translation goal remains
 open; this increment is one additional core sklearn algorithm.
+
+
+## Numeric histogram gradient boosting (2026-11-21)
+
+Added HistGradientBoostingRegressor and HistGradientBoostingClassifier, exposed
+through sklearn_ensemble and the sklearn facade. Numeric binning and best-first
+Newton trees support missing values, sample weights, monotonic constraints,
+warm starts and staged outputs. Regression losses are squared_error,
+absolute_error, quantile, poisson and gamma; classification uses log_loss.
+Early stopping optionally monitors training loss. Categorical features,
+validation holdouts, feature subsampling and composite dispatch remain outside
+this increment; see API.md and COVERAGE.md for the precise subset.
+
+Both checked runtime/FPE-trap and optimized fpm builds passed all 110 native
+programs. The new direct sklearn comparisons pass 1,452 groups across 242 tree
+fixtures and 5,234 groups across 487 complete boosting fixtures per profile.
+These include exact bins, thresholds, node metadata, staged outputs, weights,
+missing routing, warm starts, monotonicity, unsigned binning seeds and two
+200,017-row subsampling fixtures. Additional fixtures cover valid maximum
+integer min_samples_leaf, constant 1e308 median/quantile baselines and stable
+150-round binary loss tails with zero stopping tolerance. The latter checks
+loss and probability tails with zero absolute tolerance. No conditional replay
+or substitute oracle is used for these new comparisons.
+
+All 69 new isolated invalid-input checks and 42 separate NumPy RandomState
+stream groups pass in both profiles. RNG streams include full unsigned 32-bit
+seeds; the existing default-integer seed binding is preserved. The existing
+192-group sklearn integration gate passed against the updated checked build;
+this does not claim a rerun of every historical reference suite.
+
+The public histogram_boosting example passes both profiles and matches an
+independent sklearn run: synthetic training R2 0.9941744173693174 and accuracy
+1.0. These are fixture results, not general performance claims.
+
+Inventory is now 205 core public types, 111 source modules, 110 native test
+programs and 90 reference suites retaining 383,711 core result groups. The
+separate RNG stream groups are excluded from that core count. Six invalid-input
+registries retain 2,694 cases. Original code remains MIT; adapted sklearn and
+NumPy contracts retain their BSD attribution in THIRD_PARTY_NOTICES.md.
+
+Reproduce this increment with compare_histogram_tree.py,
+compare_hist_boosting.py, check_hist_boosting_invalid_inputs.py and
+compare_legacy_rng.py. Each accepts --profile checked or --profile release;
+--executable supplies a prebuilt matching driver and bypasses fpm. Full boosting
+reports have cases_filter=null; --cases is only for targeted debugging.
+Reports in validation/results include binary hashes and, for source comparison
+suites, upstream source hashes. Numerical tolerances are 3e-11 for tree results
+and 3e-10 for boosting outputs, with discrete structure compared exactly.

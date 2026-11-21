@@ -637,3 +637,19 @@ with its existing notices. The truncated-Gaussian inverse-CDF implementation
 is original Fortran using intrinsic erf/erfc, centered Newton iteration and
 monotone bisection; no SciPy implementation or approximation coefficients are
 copied or distributed. SciPy is used only by the installed validation reference.
+
+
+### Histogram gradient boosting and numeric tree grower
+
+`src/sklearn_hist_gradient_boosting.f90`, `sklearn_histogram_tree.f90` and
+`sklearn_histogram_binning.f90` adapt scikit-learn 1.6.1
+`ensemble/_hist_gradient_boosting/{gradient_boosting.py,binning.py,grower.py,
+splitting.pyx,histogram.pyx}`, `_loss/{loss.py,_loss.pyx.tp}`, and the lower
+weighted percentile contract in `utils/stats.py`. Copyright The scikit-learn
+developers, BSD-3-Clause; retained in `LICENSES/scikit-learn-COPYING`.
+Numeric binning, best-first Newton splits, missing routing, monotonic bounds,
+loss derivatives, baseline/link functions, nonsmooth terminal refits and
+training-loss stopping follow those contracts. Mergesort and histogram storage
+are native Fortran implementations. The existing NumPy-derived legacy RNG
+notices also cover its full uint32 seeding helper; no new runtime or external
+implementation is linked or distributed. Original contributions retain MIT.

@@ -1,4 +1,5 @@
 module sklearn_ensemble
+  use sklearn_hist_gradient_boosting, only: hist_gradient_boosting_regressor,hist_gradient_boosting_classifier
   use sklearn_tree_embedding, only: random_trees_embedding
   use sklearn_stacking, only: stacking_classifier,stacking_regressor,stacking_estimator
   use sklearn_bagging, only: bagging_classifier,bagging_regressor
@@ -13,6 +14,7 @@ module sklearn_ensemble
   use sklearn_metrics, only: accuracy_score,r2_score
   implicit none
   private
+  public :: hist_gradient_boosting_regressor,hist_gradient_boosting_classifier
   public :: random_trees_embedding
   public :: voting_classifier,voting_regressor,voting_estimator
   public :: bagging_classifier,bagging_regressor

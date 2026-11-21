@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 203 public estimator, transformer, and splitter types. Each is a
+There are 205 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Eighty-eight reference suites additionally check 377,025
+All types have native tests. Ninety reference suites additionally check 383,711
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -48,7 +48,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | outlier | `local_outlier_factor` | Training outlier scores and novelty detection, automatic/percentile threshold, Minkowski and other supported pairwise metrics |
 | semi_supervised | `label_propagation`, `label_spreading`, `self_training_classifier` | Dense RBF or directed k-neighbor graph, hard/soft clamping, transductive labels and inductive probabilities; threshold/k-best self-training with logistic, Gaussian NB or KNN bases |
 | tree | `decision_tree_classifier`, `decision_tree_regressor`, `extra_tree_classifier`, `extra_tree_regressor` | Weighted CART and standalone randomized trees; Gini/entropy/log-loss classification, squared-error regression; depth/leaf/split/feature controls, normalized impurity importance, leaf indices |
-| ensemble | `stacking_classifier`, `stacking_regressor`, `bagging_classifier`, `bagging_regressor`, `random_forest_classifier`, `random_forest_regressor`, `extra_trees_classifier`, `extra_trees_regressor`, `gradient_boosting_regressor`, `gradient_boosting_classifier`, `adaboost_classifier`, `adaboost_regressor`, `isolation_forest`, `voting_classifier`, `voting_regressor` | Heterogeneous hard/soft voting and averaged regression; bootstrap forests, randomized feature subsets, random-threshold Extra Trees, squared-error residual boosting; binary/multiclass classification boosting with Newton leaf updates; weighted Gini-stump SAMME; AdaBoost.R2 with depth-controlled CART; random isolation trees and path-length anomaly scores |
+| ensemble | `hist_gradient_boosting_regressor`, `hist_gradient_boosting_classifier`, `stacking_classifier`, `stacking_regressor`, `bagging_classifier`, `bagging_regressor`, `random_forest_classifier`, `random_forest_regressor`, `extra_trees_classifier`, `extra_trees_regressor`, `gradient_boosting_regressor`, `gradient_boosting_classifier`, `adaboost_classifier`, `adaboost_regressor`, `isolation_forest`, `voting_classifier`, `voting_regressor` | Histogram Newton boosting with missing-value routing and five regression losses; heterogeneous hard/soft voting and averaged regression; bootstrap forests, randomized feature subsets, random-threshold Extra Trees, squared-error residual boosting; binary/multiclass classification boosting with Newton leaf updates; weighted Gini-stump SAMME; AdaBoost.R2 with depth-controlled CART; random isolation trees and path-length anomaly scores |
 | model_selection | `kfold`, `stratified_kfold`, `time_series_split`, `group_kfold`, `leave_one_out`, `leave_one_group_out`, `predefined_split`, `shuffle_split`, `stratified_shuffle_split`, `group_shuffle_split`, `repeated_kfold`, `repeated_stratified_kfold`, `leave_p_out`, `leave_p_groups_out`, `ridge_cv`; `train_test_split`, `shuffle_indices`, `cross_val_score` | Index-based splits; seeded random/group/stratified holdouts; repeated shuffled folds; exhaustive sample/group combinations; fraction/count size controls; optional stratification; time gap/window; CV for linear-regression family and logistic regression; ridge CV selects negative mean squared error |
 | feature_selection | `variance_threshold`, `select_k_best`, `select_percentile`, `select_fpr`, `select_fdr`, `select_fwe`, `generic_univariate_select`, `sequential_feature_selector`, `rfe`, `rfecv`; `f_classif`, `f_regression`, `chi2`, `r_regression`, `mutual_info_classif`, `mutual_info_regression` | Dense scores and masks; greedy forward/backward CV regression selection; coefficient-based recursive elimination and CV for regression/logistic classification; inverse transform fills dropped columns with zero; new statistical selectors include p-values and multiplicity control |
 | feature_extraction_text | `count_vectorizer`, `tfidf_transformer`, `tfidf_vectorizer` | Dense unigram counts; ASCII alphanumeric/underscore tokens of length 2-128; sorted vocabulary; min/max document frequency, binary counts and max features; smoothed/unsmoothed IDF, sublinear TF, l1/l2/no normalization |
@@ -4555,3 +4555,100 @@ then replay sklearn with that certified native covariance. Direct-default
 output discrepancies remain in the report; they are not hidden by larger
 numerical tolerances. This affects four of the current 324 fixtures, while
 all other fixtures compare directly with sklearn's default BayesianRidge.
+
+
+## Histogram gradient boosting (numeric features)
+
+`hist_gradient_boosting_regressor` and `hist_gradient_boosting_classifier` are
+exported by `sklearn_hist_gradient_boosting`, `sklearn_ensemble`, and `sklearn`.
+These implement sklearn's numeric histogram/Newton boosting family, including
+native missing-value routing. Input features are dense real64 and may include
+NaN and +/-infinity. Targets must be finite. Regression losses are squared_error
+(default), absolute_error, quantile, poisson and gamma; quantile=0.5 by default.
+Poisson targets must be nonnegative with at least one positive value; Gamma
+targets must all be positive. Poisson/Gamma predictions use an exponential link.
+Classification uses log_loss, arbitrary integer labels and one Newton tree per
+class for multiclass problems (one tree for binary and single-class problems).
+
+Common controls: max_iter=100, learning_rate=0.1, max_leaf_nodes=31,
+max_depth=0 (Python None), min_samples_leaf=20, max_bins=255,
+l2_regularization=0, random_state=0, optional integer monotonic_cst(:), and
+warm_start=false. max_leaf_nodes=0 similarly means Python None. Binning uses
+feature-wise distinct-value midpoints or midpoint quantiles, excluding NaNs.
+Above 200,000 rows it uses a seeded sample of that size without replacement.
+Thresholds are clipped above at 1e300, with a dedicated final missing-value bin.
+Gradients and Hessians are float32 as in sklearn, while histogram sums, Newton
+values, gains and predictions are float64. Numeric best-first growth includes
+histogram subtraction, depth/leaf limits, 1e-3 minimum child Hessian sums,
+regularized leaf values and monotonic child bounds. For absolute/quantile losses,
+terminal values are refitted to residual medians/quantiles and ignore L2, as in
+source. Odd medians and these quantile baselines avoid an unnecessary mean
+calculation, preserving valid constant large targets such as 1e308.
+
+NaN routing is learned by scanning both directions when a feature had missing
+training values. If none were seen, new NaNs follow the child with more rows;
+ties go right. Infinite numerical thresholds distinguish missing-only splits.
+Sample weights are optional, finite, nonnegative and must have positive total
+mass; zero-weight rows still count toward minimum leaf sizes and binning.
+Classification accepts class_weight='none' or 'balanced', plus optional
+class_weights(:) in sorted classes_ order. An explicit vector takes precedence.
+Signed sample weights and arbitrary class-weight dictionaries are outside this
+native interface. Monotonic constraints must be -1, 0 or 1, one per feature;
+any constraint array is rejected for multiclass classification, matching source.
+
+This increment implements numeric splits with all features available at each
+node. Categorical splits, dtype/category discovery, max_features subsampling,
+interaction constraints, custom loss/scorer objects, parallel backends and
+recursive partial dependence are not yet provided. The default native
+`early_stopping=.false.` explicitly disables stopping. Set it true for
+training-loss stopping with n_iter_no_change=10 and tol=1e-7; this corresponds
+to Python early_stopping=True, scoring='loss', validation_fraction=None.
+Sklearn's default auto mode and validation holdouts are not reproduced here.
+The stop test requires that none of the latest n scores exceed the earlier
+reference score plus tol; higher scores mean smaller loss. No convergence
+warning is emitted. Check early_stopped_ and n_iter_.
+
+Warm starts retain the original baseline and prefix trees, refit the bin mapper,
+and append up to max_iter. Shrinking below n_iter_, changing feature width,
+changing loss family, or changing classifier labels/classes is rejected.
+Other growth controls affect appended trees. As in source, warm training raw
+predictions use the new bin map with existing bin cuts, while public prediction
+uses stored numerical thresholds. Fit parameters should normally be kept stable
+when continuing training. Fitted assignment deep-copies all trees and bin maps.
+
+Learned fields: n_iter_, n_features_in_, n_classes_, n_trees_per_iteration_,
+baseline_prediction_, predictors_, bin_mapper_, train_score_, early_stopped_,
+and classifier classes_. predictors_ has shape (iteration, tree/class).
+Each internal histogram_tree holds a depth-first nodes_ array with feature,
+bin_threshold, numerical threshold, left/right child indices, count, depth,
+missing_go_to_left, value and gain. Indices and bin cuts are 1-based; zero
+feature/children mark leaves. Leaf values include shrinkage, while internal
+values follow the unshrunk source grower convention. A budget-finalized leaf
+can retain a positive candidate gain, as in sklearn. Internal helper modules
+sklearn_histogram_binning and sklearn_histogram_tree support this family and
+are not additional estimator algorithms or general public tree APIs.
+
+`predict(x)` returns a real vector or integer class labels. `predict_proba(x)`
+returns binary two-column or multiclass probabilities. For a single fitted
+class sklearn still returns two probability columns; this behavior is retained.
+`decision_function(x)` and `raw_predict(x)` return (rows, trees-per-iteration)
+matrices, including a one-column matrix for binary classification. Staged
+methods materialize arrays: staged_predict returns (rows, iterations),
+staged_predict_proba returns (rows, probabilities, iterations), and
+staged_raw_predict returns (rows, trees-per-iteration, iterations). Score uses
+the existing unweighted R2/accuracy implementations and their limits.
+
+Overflowing baselines, nonfinite gradients and gradients outside float32 range
+are diagnosed. Use well-scaled targets and weights whose loss arithmetic stays
+in the working range. The independent uint32 binning seed can span the full
+0..2**32-1 range; internal seeding uses the new standalone
+seed_legacy_uint32(rng,seed_int64) helper. Existing legacy_random_state%seed
+keeps its original nonnegative default-integer interface. This helper extends
+NumPy stream support without introducing another ML algorithm or dependency.
+See `example/histogram_boosting.f90` for both estimators.
+
+Class labels are sorted in O(n log n) time. Binary training loss retains the
+source softplus cutoffs and stable negative tails, including zero-tolerance
+stopping on a one-class, heavily weighted fixture. Existing composite estimator
+dispatch (including voting, bagging, stacking and threshold wrappers) does not
+yet accept these two estimator types.

@@ -1,6 +1,6 @@
 program test_legacy_rng
   use sklearn_common, only: dp,require
-  use sklearn_legacy_rng, only: legacy_random_state
+  use sklearn_legacy_rng, only: legacy_random_state,seed_legacy_uint32
   use, intrinsic :: iso_fortran_env, only: int64
   implicit none
   type(legacy_random_state) :: rng
@@ -18,5 +18,11 @@ program test_legacy_rng
     index=rng%integer_index(17)
     call require(index>=1.and.index<=17,'bounded integer draw')
   end do
+  call seed_legacy_uint32(rng,2147483648_int64)
+  call require(rng%uniform()==.15200287353446562_dp,'RandomState seed at signed uint32 boundary')
+  call require(rng%uniform()==.8205427554297966_dp,'uint32 seeded stream second draw')
+  call seed_legacy_uint32(rng,4294967295_int64)
+  call require(rng%uniform()==.0976320289940138_dp,'RandomState maximum uint32 seed')
+  call require(rng%uniform()==.9123828453026218_dp,'maximum uint32 seeded stream second draw')
   print *, 'Legacy RandomState tests passed'
 end program

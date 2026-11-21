@@ -1,7 +1,7 @@
 # fscikit-learn
 
 A native Fortran fpm package translating a practical array subset of
-scikit-learn: **203 estimator, transformer and splitter types**, metrics,
+scikit-learn: **205 estimator, transformer and splitter types**, metrics,
 kernels, text features and synthetic dataset generators. This is not a complete
 or drop-in translation. Read [coverage and limits](docs/COVERAGE.md) before use.
 OpenAI Codex generated the code.
@@ -16,6 +16,7 @@ See the [scope policy](docs/SCOPE.md) for admission and attribution rules.
 ```
 fpm build
 fpm test
+fpm run --example histogram_boosting
 fpm run --example chained_imputation
 fpm run --example neighbor_graphs
 fpm run --example random_feature_maps

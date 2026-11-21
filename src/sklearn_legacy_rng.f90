@@ -6,7 +6,7 @@ module sklearn_legacy_rng
   use, intrinsic :: iso_fortran_env, only: int64
   implicit none
   private
-  public :: legacy_random_state
+  public :: legacy_random_state,seed_legacy_uint32
   integer(int64), parameter :: mask32=int(z'FFFFFFFF',int64)
   type :: legacy_random_state
     private
@@ -25,9 +25,15 @@ contains
   subroutine legacy_seed(self,seed)
     class(legacy_random_state), intent(inout) :: self
     integer, intent(in) :: seed
-    integer :: i
     call require(seed>=0,'legacy RNG seed must be nonnegative')
-    self%state(1)=int(seed,int64)
+    call seed_legacy_uint32(self,int(seed,int64))
+  end subroutine
+  subroutine seed_legacy_uint32(self,seed)
+    class(legacy_random_state), intent(inout) :: self
+    integer(int64), intent(in) :: seed
+    integer :: i
+    call require(seed>=0.and.seed<=mask32,'legacy RNG seed must fit uint32')
+    self%state(1)=seed
     do i=2,624
       self%state(i)=iand(1812433253_int64*ieor(self%state(i-1),ishft(self%state(i-1),-30))+i-1,mask32)
     end do
