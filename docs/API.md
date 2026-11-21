@@ -4030,3 +4030,79 @@ source behavior even with runtime floating-point traps enabled. Image and patch
 dimensions must be positive, patches must fit, and channel counts must agree.
 Image graph builders, sparse pixel graphs and arbitrary-dimensional patch
 extraction are not provided by this increment.
+
+
+## Neighborhood components analysis
+
+`neighborhood_components_analysis` is exported by `sklearn_nca`,
+`sklearn_neighbors` and the `sklearn` facade. It learns a dense linear embedding
+by maximizing the expected number of correctly classified stochastic
+leave-one-out neighbors. The diagonal neighbor probability is zero. Squared
+Euclidean distances feed a row-wise stable softmax; fitting uses the analytic
+matrix gradient and unbounded L-BFGS-B with ten corrections.
+
+Controls mirror sklearn NCA: `n_components=0` means None/default input width,
+`init='auto'`, `warm_start=.false.`, `max_iter=50`, `tol=1e-5`, and native integer
+`random_state=0`. tol controls both projected-gradient and relative-function
+stopping, as in scipy.optimize.minimize(tol=...). The optimizer's default
+15,000 evaluation limit and 20 line-search evaluations are retained. max_iter
+must be positive; zero iterations are not an initialization-only API.
+
+Initialization supports identity, random Gaussian, PCA, LDA and auto. Auto
+chooses LDA if output width <= min(input width,classes-1); otherwise PCA if
+output width < min(input width,samples); otherwise identity. Assign an
+allocatable `init_matrix(rows,input_width)` to use an explicit transform,
+taking precedence over init. If n_components is nonzero, its value must equal
+the matrix's row count. With an existing warm-start model, the previous
+components are reused after validation, even if a different n_components is
+requested, matching source behavior. Feature width changes are rejected.
+PCA uses native Jacobi SVD; LDA implements the source within-class standard
+scaling and between-class SVD. Nonunique SVD bases/signs can differ. A deficient
+LDA between-class rank can reduce the actual output width; zero usable rank is
+diagnosed. Automatic/explicit LDA needs more samples than classes. One-class
+and all-singleton labels remain valid with identity/random initialization.
+
+Methods are `fit(x,y)`, `transform(x)` and `fit_transform(x,y)`, using dense
+finite real64 feature matrices and integer labels. Fit needs at least two
+samples. Transform returns raw X times transpose(components_), without
+centering; the result has one column per fitted component. Inputs are not
+modified. Learned state includes components_, initial_components_, gradient_,
+objective_ (the positive objective being maximized), n_features_in_,
+n_optimizer_iter_, n_function_evaluations_, converged_ and optimization_message_.
+`n_iter_` follows sklearn's callback counter: one plus the number of completed
+optimizer iterations, including 1 for immediate convergence. The diagnostic
+objective/gradient evaluation after termination is excluded from the optimizer
+evaluation count. The latest line-search status, relative step, bracket bounds
+and bracket flag are available in line_search_status_, line_search_step_,
+line_search_bracket_ and line_search_bracketed_.
+
+An optional procedure pointer `callback` receives (transformation,iteration)
+after each accepted optimizer step. The real64 vector is flattened in Python
+row-major order, and iteration starts at one. Callback arguments are read-only;
+a callback may inspect the current line-search diagnostics. Python callback
+mutation, verbose console formatting, metadata routing and feature names are
+not implemented. Explicit matrix initialization and deep-copy warm starts are
+covered by native tests. See `example/neighborhood_components.f90`.
+
+NCA has O(samples**2) working memory and a nonconvex objective. Native Fortran
+reductions and the vendored Fortran optimizer can produce different long
+optimization trajectories from NumPy/SciPy's C/BLAS implementation. This can
+materially change final components and query transforms on sensitive fixtures;
+identical matrices or iteration counts are not promised. Validation retains
+direct fitted-output comparisons where they agree and reports every divergent
+fixture separately. It checks source objective/gradient formulas at native
+parameters, source transforms, initialization metrics, accepted-step decrease,
+Wolfe curvature or the optimizer's explicit bracket-warning termination, and
+source stopping conditions. It does not mark divergent matrices as direct
+matches. SVD initialization comparisons use the induced metric A.T*A to account
+for orthogonal basis freedom; source fitting is replayed from the checked
+native initialization matrix when comparing optimization outputs.
+
+Large intermediate products outside the native working range are diagnosed;
+finite input alone cannot guarantee representable SVD, squared-distance or
+gradient arithmetic. `nca_objective_gradient` in sklearn_nca is an internal
+numerical/validation helper and is not re-exported by the sklearn facade.
+The L-BFGS-B 3.0 numerical kernel is a pinned, unmodified local fpm dependency
+under vendor/lbfgsb with retained BSD-3-Clause terms; original project code
+remains MIT. Its four vendor modules are excluded from core source-module and
+estimator counts. No external BLAS binary or network fetch is required.

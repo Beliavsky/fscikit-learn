@@ -16,3 +16,6 @@ source-form = "free"
 
 [install]
 library = true
+
+[dependencies]
+lbfgsb = { path = "vendor/lbfgsb" }

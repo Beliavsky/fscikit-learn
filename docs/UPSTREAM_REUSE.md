@@ -102,3 +102,20 @@ immutable snapshots identify inspection points, not adopted dependency pins:
 | comp-physics/roseNNa | `7a3f57b694ef2faa53e0fb97f623ad94b7c19d04` |
 | thchang/NN_MOD | `1f2b8991900dda36b40d997da77d287c25541bac` |
 | nedtaylor/athena | `4b81aeac07113628c2c9a476648d5ac2a91b7c91` |
+
+
+## Imported L-BFGS-B kernel (2026-11-21)
+
+Imported Jacob Williams's `lbfgsb` 1.0.0 numerical sources as a local fpm
+dependency under `vendor/lbfgsb`, retaining the complete BSD-3-Clause license,
+authorship headers and upstream manifest. Pinned commit:
+`bcb0ddc71ae1afdf5715ededaf9453aa704c2384` (annotated tag object
+`3ec3a438f6295c5e991a0d95a3f78088b2255102`). The four Fortran files, license
+and manifest match the upstream release after LF normalization; digests are
+stored in PROVENANCE.json. The import was found in SciFort's local dependency
+cache and independently verified against the upstream tag. No upstream tests,
+examples, prebuilt binaries or SciFort optimizer wrapper are copied. Built-in
+Fortran BLAS/LINPACK support avoids an external binary dependency. This helper
+serves sklearn NeighborhoodComponentsAnalysis; it is not a new ML extension.
+The project MIT license continues to cover original contributions, while the
+import retains its BSD terms. See THIRD_PARTY_NOTICES.md.

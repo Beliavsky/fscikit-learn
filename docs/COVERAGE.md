@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 206 public estimator, transformer, and splitter types. Each is a
+There are 207 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Ninety-one reference suites additionally check 386,847
+All types have native tests. Ninety-two reference suites additionally check 388,947
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -34,7 +34,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | preprocessing | `kernel_centerer`, `ordinal_encoder`, `target_encoder`, `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `iterative_imputer`, `knn_imputer`, `missing_indicator`, `spline_transformer`, `label_encoder`, `one_hot_encoder`, `label_binarizer`, `multi_label_binarizer`, `power_transformer`, `kbins_discretizer`, `quantile_transformer`; `normalize`, `binarize`, `polynomial_features` | Ordinal category codes and infrequent grouping; cross-fitted target means; population variance; linear percentile interpolation; NaN imputation with mean/median/most-frequent/constant; numeric categories; empirical uniform/normal quantile transforms; dense polynomial terms through degree 12 with optional interactions; B-spline features and extrapolation |
 | linear_model | `linear_regression`, `lars`, `lasso_lars`, `lars_cv`, `lasso_lars_cv`, `lasso_lars_ic`, `ridge`, `ridge_classifier`, `ridge_classifier_cv`, `multi_task_elastic_net`, `multi_task_lasso`, `multi_task_elastic_net_cv`, `multi_task_lasso_cv`, `lasso`, `elastic_net`, `lasso_cv`, `elastic_net_cv`, `logistic_regression`, `logistic_regression_cv`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `sgd_regressor`, `sgd_classifier`, `sgd_one_class_svm`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `orthogonal_matching_pursuit_cv`, `huber_regressor`, `quantile_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; least-angle/Lasso homotopy paths with CV and AIC/BIC selection; coordinate descent with K-fold alpha/l1-ratio selection; weighted logistic Newton solver with raw-score prediction; perceptron; PA-I/II classification/regression with averaging; streaming stochastic-gradient regression/classification and one-class detection; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; weighted L1-regularized quantile regression; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb`, `categorical_nb` | Weighted/streaming Gaussian moments, empirical/fixed priors and variance smoothing; strictly positive scalar alpha; Bernoulli threshold; optional complement normalization |
-| neighbors | `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with optional shrinkage and uniform priors; Euclidean kernel density |
+| neighbors | `neighborhood_components_analysis`, `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Supervised NCA metric learning; brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with optional shrinkage and uniform priors; Euclidean kernel density |
 | cluster | `kmeans`, `bisecting_kmeans`, `mini_batch_kmeans`, `spectral_coclustering`, `spectral_biclustering`, `hdbscan`, `dbscan`, `agglomerative_clustering`, `feature_agglomeration`, `mean_shift`, `affinity_propagation`, `spectral_clustering`, `optics`, `birch`; `estimate_bandwidth`, `cluster_optics_dbscan`, `cluster_optics_xi` | Lloyd/k-means++; paired row/column spectral partitions and checkerboard biclustering; weighted streaming mini-batch centroids; bisecting centroid hierarchy with Lloyd/Elkan splits; density expansion; single/complete/average/Ward merge trees and feature pooling; flat-kernel mode seeking; damped exemplar messages; normalized-Laplacian clustering with k-means or pivoted QR assignment; OPTICS reachability ordering, Xi hierarchy and DBSCAN extraction; BIRCH streaming CF tree and optional Ward clustering |
 | decomposition | `pca`, `incremental_pca`, `truncated_svd`, `nmf`, `mini_batch_nmf`, `sparse_pca`, `mini_batch_sparse_pca`, `dictionary_learning`, `mini_batch_dictionary_learning`, `sparse_coder`, `latent_dirichlet_allocation`; `sparse_encode`; re-exports `kernel_pca`, `factor_analysis`, `fast_ica` | Direct Jacobi SVD; PCA whitening and inversion; streaming stacked-SVD IncrementalPCA; exact dense SVD; NMF multiplicative updates; sparse dictionary factorization and SparsePCA; five sparse coding methods; nonlinear kernel PCA; unrotated full-SVD factor analysis; parallel/deflation ICA |
 | cross_decomposition | `pls_regression`, `pls_canonical`, `cca`, `pls_svd` | Paired-matrix latent components: NIPALS regression/canonical deflation, CCA pseudoinverse mode, canonical direct SVD and PLSSVD cross-covariance projection; multiple response columns |
@@ -4704,3 +4704,79 @@ source behavior even with runtime floating-point traps enabled. Image and patch
 dimensions must be positive, patches must fit, and channel counts must agree.
 Image graph builders, sparse pixel graphs and arbitrary-dimensional patch
 extraction are not provided by this increment.
+
+
+## Neighborhood components analysis
+
+`neighborhood_components_analysis` is exported by `sklearn_nca`,
+`sklearn_neighbors` and the `sklearn` facade. It learns a dense linear embedding
+by maximizing the expected number of correctly classified stochastic
+leave-one-out neighbors. The diagonal neighbor probability is zero. Squared
+Euclidean distances feed a row-wise stable softmax; fitting uses the analytic
+matrix gradient and unbounded L-BFGS-B with ten corrections.
+
+Controls mirror sklearn NCA: `n_components=0` means None/default input width,
+`init='auto'`, `warm_start=.false.`, `max_iter=50`, `tol=1e-5`, and native integer
+`random_state=0`. tol controls both projected-gradient and relative-function
+stopping, as in scipy.optimize.minimize(tol=...). The optimizer's default
+15,000 evaluation limit and 20 line-search evaluations are retained. max_iter
+must be positive; zero iterations are not an initialization-only API.
+
+Initialization supports identity, random Gaussian, PCA, LDA and auto. Auto
+chooses LDA if output width <= min(input width,classes-1); otherwise PCA if
+output width < min(input width,samples); otherwise identity. Assign an
+allocatable `init_matrix(rows,input_width)` to use an explicit transform,
+taking precedence over init. If n_components is nonzero, its value must equal
+the matrix's row count. With an existing warm-start model, the previous
+components are reused after validation, even if a different n_components is
+requested, matching source behavior. Feature width changes are rejected.
+PCA uses native Jacobi SVD; LDA implements the source within-class standard
+scaling and between-class SVD. Nonunique SVD bases/signs can differ. A deficient
+LDA between-class rank can reduce the actual output width; zero usable rank is
+diagnosed. Automatic/explicit LDA needs more samples than classes. One-class
+and all-singleton labels remain valid with identity/random initialization.
+
+Methods are `fit(x,y)`, `transform(x)` and `fit_transform(x,y)`, using dense
+finite real64 feature matrices and integer labels. Fit needs at least two
+samples. Transform returns raw X times transpose(components_), without
+centering; the result has one column per fitted component. Inputs are not
+modified. Learned state includes components_, initial_components_, gradient_,
+objective_ (the positive objective being maximized), n_features_in_,
+n_optimizer_iter_, n_function_evaluations_, converged_ and optimization_message_.
+`n_iter_` follows sklearn's callback counter: one plus the number of completed
+optimizer iterations, including 1 for immediate convergence. The diagnostic
+objective/gradient evaluation after termination is excluded from the optimizer
+evaluation count. The latest line-search status, relative step, bracket bounds
+and bracket flag are available in line_search_status_, line_search_step_,
+line_search_bracket_ and line_search_bracketed_.
+
+An optional procedure pointer `callback` receives (transformation,iteration)
+after each accepted optimizer step. The real64 vector is flattened in Python
+row-major order, and iteration starts at one. Callback arguments are read-only;
+a callback may inspect the current line-search diagnostics. Python callback
+mutation, verbose console formatting, metadata routing and feature names are
+not implemented. Explicit matrix initialization and deep-copy warm starts are
+covered by native tests. See `example/neighborhood_components.f90`.
+
+NCA has O(samples**2) working memory and a nonconvex objective. Native Fortran
+reductions and the vendored Fortran optimizer can produce different long
+optimization trajectories from NumPy/SciPy's C/BLAS implementation. This can
+materially change final components and query transforms on sensitive fixtures;
+identical matrices or iteration counts are not promised. Validation retains
+direct fitted-output comparisons where they agree and reports every divergent
+fixture separately. It checks source objective/gradient formulas at native
+parameters, source transforms, initialization metrics, accepted-step decrease,
+Wolfe curvature or the optimizer's explicit bracket-warning termination, and
+source stopping conditions. It does not mark divergent matrices as direct
+matches. SVD initialization comparisons use the induced metric A.T*A to account
+for orthogonal basis freedom; source fitting is replayed from the checked
+native initialization matrix when comparing optimization outputs.
+
+Large intermediate products outside the native working range are diagnosed;
+finite input alone cannot guarantee representable SVD, squared-distance or
+gradient arithmetic. `nca_objective_gradient` in sklearn_nca is an internal
+numerical/validation helper and is not re-exported by the sklearn facade.
+The L-BFGS-B 3.0 numerical kernel is a pinned, unmodified local fpm dependency
+under vendor/lbfgsb with retained BSD-3-Clause terms; original project code
+remains MIT. Its four vendor modules are excluded from core source-module and
+estimator counts. No external BLAS binary or network fetch is required.

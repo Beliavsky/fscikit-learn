@@ -1,7 +1,7 @@
 # fscikit-learn
 
 A native Fortran fpm package translating a practical array subset of
-scikit-learn: **206 estimator, transformer and splitter types**, metrics,
+scikit-learn: **207 estimator, transformer and splitter types**, metrics,
 kernels, text and image features, and synthetic dataset generators. This is not a complete
 or drop-in translation. Read [coverage and limits](docs/COVERAGE.md) before use.
 OpenAI Codex generated the code.
@@ -18,6 +18,7 @@ fpm build
 fpm test
 fpm run --example histogram_boosting
 fpm run --example image_patches
+fpm run --example neighborhood_components
 fpm run --example chained_imputation
 fpm run --example neighbor_graphs
 fpm run --example random_feature_maps
@@ -159,10 +160,11 @@ Reference: locally installed scikit-learn 1.6.1 (BSD-3-Clause). The Fortran
 implementations are adapted to native arrays and do not invoke Python at runtime.
 Python is used only for optional reference validation. See `docs/COVERAGE.md`.
 
-SciFort at `../scifort` is available as a future numerical backend; the initial
-package intentionally needs no external dependency or network fetch to build.
+SciFort at `../scifort` is available as a future numerical backend. NCA uses
+a vendored, statically linked L-BFGS-B kernel under BSD-3-Clause; its pinned
+source and license are in `vendor/lbfgsb`. No network fetch is needed to build.
 
 Original project contributions use the [MIT License](LICENSE).
-Scikit-learn- and LIBSVM-derived portions retain their BSD-3-Clause notices; see
+Scikit-learn-, LIBSVM- and L-BFGS-B-derived portions retain their BSD-3-Clause notices; see
 [third-party notices](THIRD_PARTY_NOTICES.md). Recommended external Fortran code
 and its attribution requirements are reviewed in [UPSTREAM_REUSE.md](docs/UPSTREAM_REUSE.md).

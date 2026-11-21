@@ -1,0 +1,13 @@
+{
+  "repository": "https://github.com/jacobwilliams/lbfgsb",
+  "tag": "1.0.0",
+  "commit": "bcb0ddc71ae1afdf5715ededaf9453aa704c2384",
+  "normalized_sha256": {
+    "fpm.toml": "f759254aa366a7b8aecb309730e20a895083c6a9d0a5abd02319d5e012a85d9a",
+    "License.txt": "919e78c1c48cc7d179efe63075590cfb5942e6ae1da2bf373dd754fe795139b5",
+    "src/lbfgsb.f90": "e63515bddebd9a049b1e1bb5dcca076cd36555514c6a1d318d84df8841f02e8d",
+    "src/lbfgsb_blas_module.F90": "54cf9e902e9b1be10fb4c78ff552229922bf1c0c2b74684de877013322ef8371",
+    "src/lbfgsb_kinds_module.F90": "518418b9947c4e99e99491d6e8e480d58555a6fdf25182f316bdfbd439aa638b",
+    "src/lbfgsb_linpack_module.f90": "97e1e3b1becd293f9d11cdc40b121b589f0afb6efffecc1b0c559799ebfd651f"
+  }
+}

@@ -12,8 +12,9 @@ copyright (c) 2007-2024 The scikit-learn developers, BSD-3-Clause. Its license i
 retained in `LICENSES/scikit-learn-COPYING`. No scikit-learn DLL, Cython extension,
 Python runtime, NumPy binary, or SciPy binary is distributed by this project.
 
-Numerical algorithms are rewritten for dense real64 Fortran arrays. In
-particular the Ledoit-Wolf and OAS shrinkage formulas are adapted from
+The sklearn adaptations use dense real64 Fortran arrays. Explicitly identified
+vendored kernels below retain their upstream implementations. In particular
+the Ledoit-Wolf and OAS shrinkage formulas are adapted from
 `sklearn/covariance/_shrunk_covariance.py`. Reference comparisons invoke the
 installed Python package only from the validation scripts.
 
@@ -665,3 +666,28 @@ developers; BSD-3-Clause terms are retained in `LICENSES/scikit-learn-COPYING`.
 The existing NumPy-derived RandomState helper supplies sampling. Original
 Fortran storage, overloads and quiet IEEE arithmetic retain the project MIT
 license. No new external implementation or runtime dependency is linked.
+
+
+### Neighborhood components analysis and L-BFGS-B
+
+`src/sklearn_nca.f90` adapts scikit-learn 1.6.1 `neighbors/_nca.py`, its
+soft leave-one-out same-class objective and analytic gradient, initialization,
+warm starts and optimizer/callback contracts. LDA initialization follows the
+SVD scaling in `discriminant_analysis.py`; PCA uses the existing native Jacobi
+SVD. Copyright The scikit-learn developers, BSD-3-Clause; terms are retained
+in `LICENSES/scikit-learn-COPYING`. Original Fortran adapters retain MIT.
+
+`vendor/lbfgsb` contains unmodified numerical source, License.txt and fpm.toml
+from Jacob Williams's lbfgsb 1.0.0, commit
+`bcb0ddc71ae1afdf5715ededaf9453aa704c2384`:
+https://github.com/jacobwilliams/lbfgsb/tree/1.0.0 . It is the modern Fortran
+refactoring of L-BFGS-B 3.0 by J. Nocedal and J. L. Morales, originally Ciyou Zhu,
+R. H. Byrd, P. Lu-Chen and J. Nocedal. Upstream identifies copyright Regents of
+the University of California and licenses it under BSD-3-Clause. Its complete
+upstream License.txt, authorship headers and manifest are retained in place;
+PROVENANCE.json records normalized SHA256 hashes. All four source files and
+the license/manifest were compared against the upstream tag, differing only
+in Windows line endings. The files were sourced from SciFort's dependency
+cache; no SciFort optimizer adapter is copied. The numerical kernel is an
+internal implementation dependency of a core sklearn algorithm, rather than
+an additional public ML extension. No Python, SciPy or external BLAS binary is linked.

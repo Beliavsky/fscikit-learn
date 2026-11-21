@@ -1,4 +1,5 @@
 module sklearn_neighbors
+  use sklearn_nca, only: neighborhood_components_analysis
   use sklearn_neighbor_graph, only: kneighbors_transformer,radius_neighbors_transformer
   use sklearn_sparse, only: csr_matrix,csr_from_dense,csr_from_arrays
   use sklearn_common
@@ -7,6 +8,7 @@ module sklearn_neighbors
   use sklearn_metrics, only: pairwise_distances,accuracy_score,r2_score
   implicit none
   private
+  public :: neighborhood_components_analysis
   public :: nearest_neighbors,kneighbors_classifier,kneighbors_regressor
   public :: radius_neighbors_classifier,radius_neighbors_regressor,nearest_centroid
   public :: local_outlier_factor

@@ -4477,3 +4477,81 @@ fresh objects for all 112 source modules and 111 native test programs in each
 profile. Fortran formatting, Python compilation and staged Git whitespace
 checks passed. Production code and native tests remained fixed during these
 final gates. The broader translation goal remains active.
+
+
+## Neighborhood components analysis (2026-11-21)
+
+Added NeighborhoodComponentsAnalysis with the source leave-one-out stochastic
+neighbor objective, analytic gradient and L-BFGS-B fitting. Supported controls
+include identity/random/PCA/LDA/auto initialization, explicit matrices, output
+dimension, stopping tolerances, max iterations, integer seeds, warm starts and
+read-only iteration callbacks. Methods include fit, transform and fit_transform.
+The source callback counter, fitted objective/gradient, evaluation counts and
+optimizer/line-search statuses are exposed. Dense working-range and rank
+limitations are documented in API.md and COVERAGE.md.
+
+The numerical kernel is an unmodified vendored local fpm dependency from
+Jacob Williams lbfgsb 1.0.0 (commit bcb0ddc71ae1afdf5715ededaf9453aa704c2384),
+found in SciFort's dependency cache and independently compared with upstream.
+The four Fortran sources, license and upstream manifest match after LF
+normalization. Full provenance and BSD-3-Clause terms are retained in
+vendor/lbfgsb; original adapter code remains MIT. The dependency uses its own
+Fortran BLAS/LINPACK helpers, with no external BLAS binary or network build
+requirement. No public extension ML algorithm is introduced.
+
+The reference suite has 276 fixtures and 2,100 groups: 180 complete fits with
+all six initialization choices (including matrices), plus 96 independent
+source objective/gradient fixtures. It checks source initialization metrics,
+exact seeded random matrices, transforms, callback metadata and 18 warm-start
+prefixes. Every fitted native final objective/gradient is checked directly
+against sklearn's formula. Every accepted step is checked for descent and
+Armijo decrease plus strong Wolfe curvature, or the optimizer's explicitly
+recorded bracket-warning criterion. Converged fits require the source gradient
+or relative-function stopping test; capped fits must reach max_iter. SVD basis
+freedom is checked through initialization A.T*A, then source fitting is replayed
+from that checked native matrix. Direct fitted matrices/outputs are retained
+where they agree within 3e-7 relative/absolute tolerances; every divergent fit is listed separately and its
+source transforms at native parameters and optimizer trajectory are certified.
+Divergent matrices are not counted as direct sklearn fitted-output matches.
+The reports retain upstream sklearn/SciPy source hashes, tested binary hashes,
+optimizer provenance, fit comparisons, stopping messages and per-step evidence.
+
+There are now 207 core public types, 113 core source modules, 112 native test
+programs and 92 reference suites retaining 388,947 core result groups. Four
+vendored optimizer modules are excluded from core module/type counts; the
+separate 42 NumPy RNG checks remain excluded from core reference groups.
+The 40 new isolated rejection cases bring eight registries to 2,758 retained
+cases. The public neighborhood_components example uses only the sklearn
+facade to learn a two-dimensional embedding of a synthetic 24-row dataset.
+
+
+Final gates passed all 112 native programs in clean checked runtime/FPE-trap
+and optimized fpm builds. Both profiles passed the full unfiltered 276-fixture,
+2,100-group reference suite and all 40 isolated rejection checks against their
+final fpm executables. The profile-specific optimization evidence is:
+
+checked: 165 direct fitted-output fixtures, 15 trajectory-certified fixtures, 3148 accepted-step certificates, 6 certified bracket-warning steps; maximum source gradient error at native fitted parameters 1.11e-10.
+
+release: 166 direct fitted-output fixtures, 14 trajectory-certified fixtures, 3152 accepted-step certificates, 7 certified bracket-warning steps; maximum source gradient error at native fitted parameters 3.02e-10.
+
+The 96 standalone objective/gradient fixtures and 18 warm-start prefix checks
+passed in each profile. Both reports cover the same fixture configurations;
+the direct-versus-certified fitted-output classification differs by profile
+and is retained explicitly. No divergent fitted matrix is recorded as a direct
+match. The existing 192-group sklearn integration gate passed on the updated
+checked executable; this does not claim a rerun of all older reference suites.
+
+The public example matched independent sklearn: a (24,2) embedding, five
+optimizer steps and objective 23.980587277129224 (checked) or
+23.980587277129221 (optimized). The source value is 23.980587277129224.
+These are synthetic fixture results, not general performance guarantees.
+
+Final audits verified strict JSON, unique result identifiers, complete fixture
+coverage, upstream sklearn/SciPy hashes, tested canonical executable hashes,
+all six pinned vendor-file digests and fresh objects for 113 core source
+modules, four vendor modules and 112 native test programs in each profile.
+New Fortran formatting and Python compilation passed. Staged Git whitespace
+passed except for intentionally pristine upstream License.txt whitespace.
+Production Fortran and native tests remained fixed through the final gates.
+Native logs are retained in validation/results/nca_native_checked.log and
+nca_native_release.log. The broader translation goal remains active.
