@@ -49,7 +49,12 @@ program reference_calibrated_driver
   if(.not.model%ensemble.and..not.model%prefit) then
     do f=1,model%cv
       train=pack(ids,model%fold_id_/=f); test=pack(ids,model%fold_id_==f)
-      allocate(work,source=estimator); call fit_base(work,x(train,:),y(train))
+      allocate(work,source=estimator)
+      if(weighted==1) then
+        call fit_base(work,x(train,:),y(train),weights(train))
+      else
+        call fit_base(work,x(train,:),y(train))
+      end if
       raw=base_response(work,x(test,:)); scores(test,:)=raw; deallocate(work)
     end do
   end if
@@ -95,17 +100,18 @@ contains
       write(out,'(*(es25.16e3,1x))') a(row,:)
     end do
   end subroutine
-  subroutine fit_base(a,b,c)
+  subroutine fit_base(a,b,c,w)
     class(*), intent(inout) :: a
     real(dp), intent(in) :: b(:,:)
     integer, intent(in) :: c(:)
+    real(dp), intent(in), optional :: w(:)
     select type(a)
     type is(gaussian_nb)
-      call a%fit(b,c)
+      call a%fit(b,c,w)
     type is(kneighbors_classifier)
       call a%fit(b,c)
     type is(logistic_regression)
-      call a%fit(b,c)
+      call a%fit(b,c,w)
     end select
   end subroutine
   function base_probability(a,b) result(v)

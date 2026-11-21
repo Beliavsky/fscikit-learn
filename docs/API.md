@@ -2534,10 +2534,11 @@ unknown calibration labels are binarized to zero, as in the source.
 
 Optional sample_weight must match the calibration rows, be finite and
 nonnegative, and have maximum weight at most huge(real64)/(16*n_samples).
-Weighted CV fitting is supported for KNN, whose source fit does not consume
-weights: weights affect calibration maps only. Native logistic/Gaussian NB
-base fitting does not yet support weights, so weighted CV with those bases
-is rejected explicitly. Weighted prefit calibration supports all three bases.
+Weighted CV fitting is supported for all three bases. Logistic/Gaussian NB
+receive training-fold weights and a full-data refit receives all weights.
+KNN does not consume training weights, as in sklearn, so its weights affect
+calibration maps only. Weighted prefit calibration supports all three bases.
+Each native base fit also enforces its documented numerical working range.
 Zero-weight rows do not affect isotonic maps; every isotonic fit needs positive
 weight support. An all-zero-weight sigmoid fit returns probability .5 before
 multiclass normalization. Signed weights are outside this convex-fitting API.
@@ -2566,3 +2567,88 @@ and clears obsolete fold metadata. Query features must match fit dimensions.
 The input estimator and arrays are preserved. There is no decision_function
 or predict_log_proba on the source calibrated wrapper. See
 example/calibrated_probabilities.f90 and validation/compare_calibrated.py.
+
+## Weighted and streaming classifiers
+
+`gaussian_nb%fit(x,y,sample_weight)` and
+`logistic_regression%fit(x,y,sample_weight)` accept an optional real64 weight
+vector. Existing unweighted calls retain their signatures. Weights must be
+finite, nonnegative and length-matched. Both fits bound each weight by
+sqrt(huge(real64))/(16*n_samples); Gaussian NB also bounds cumulative class
+mass by sqrt(huge(real64))/16. Additional Gaussian moment/feature-range and
+logistic scaled-penalty checks produce explicit diagnostics before unsafe
+arithmetic. Logistic requires positive total weight; Gaussian NB preserves
+the source's undefined empirical priors at zero total weight. Signed weights,
+scalar weight broadcasting and logistic class_weight configuration remain
+outside these native interfaces.
+
+Weighted logistic minimizes the weighted binomial/multinomial log loss plus
+the source L2 penalty. Its internal mean-loss scaling uses 1/(C*sum(weights));
+the weighted Newton system is diagonally equilibrated. Forming the combined
+penalty supports tiny C values whose reciprocal alone would overflow when
+large weights keep the scaled problem representable. Native solver stopping
+and iteration counts differ from sklearn's solvers. All tested fits have an
+independently checked normalized gradient of at most 3e-8. With classes of
+zero total weight, an unregularized intercept can have only a limiting optimum;
+reference validation checks coefficients, probabilities and gradient while
+recording the unmatched finite intercept/decision representation separately.
+
+Logistic predict now follows source raw-score classification: the second
+binary class is selected for a strictly positive decision value, and multiclass
+prediction uses the largest raw logit. This preserves classification when
+probabilities round to .5 or a uniform vector. Self-training predict delegates
+to its fitted base's predict method, retaining that distinction. Self-training
+selection and probability queries require finite base probabilities; undefined
+Gaussian responses have a clear diagnostic before confidence comparisons.
+
+Gaussian NB supports incremental fitting:
+
+```fortran
+type(gaussian_nb) :: model
+model%priors=[.4_dp,.6_dp] ! Optional; order follows sorted classes.
+call model%partial_fit(x_first,y_first,classes=[0,1],sample_weight=w_first)
+call model%partial_fit(x_next,y_next,sample_weight=w_next)
+prob=model%predict_proba(query)
+```
+
+The first unfitted partial_fit requires the complete class set; later calls
+can omit classes or repeat the same set. Ordering and duplicate declarations
+are normalized as in sklearn. New labels or changed feature counts are rejected.
+fit always resets accumulated statistics and re-infers classes, retaining
+the configured priors. n_features_in_, class_count_, theta_, var_, class_prior_
+and epsilon_ expose the fitted state. Counts are real64 sums of weights.
+
+Optional allocated priors is a nonnegative finite vector whose length matches
+the sorted classes and whose sum satisfies source np.isclose tolerances
+(1e-8 absolute plus 1e-5 relative at one). Accepted priors are retained without
+renormalizing. Leave priors unallocated for empirical class frequencies.
+Weighted population moments use Chan/Golub/LeVeque updates. As in sklearn
+1.6.1, weighted class batches of mass <=1e-8 skip moment updates while still
+increasing counts. Smoothing uses unweighted current-batch feature variance,
+and streaming subtracts the CURRENT batch epsilon from old variances before
+combining and restoring it. Thus nonzero-smoothing streaming results need
+not equal one pooled fit; this pinned-source behavior is explicitly tested.
+
+Declared but unseen classes retain zero mass and initial moments. With positive
+variances a zero prior has posterior zero and log posterior negative infinity.
+Zero empirical total mass or zero variances can yield quiet IEEE NaN
+posteriors, as in source; these cases no longer raise the former zero-variance
+fit error. Gaussian predict uses joint likelihoods and source first-NaN argmax
+behavior, which differs from applying argmax to normalized NaN posteriors.
+Infinite tail likelihoods are handled without a log-zero/divide-zero trap.
+The package does not emit Python's warning messages for undefined outputs.
+
+CalibratedClassifierCV now forwards training weights to logistic/Gaussian NB
+in every CV fold and the full-data refit; all three supported base types can
+use weighted CV. KNN retains source calibration-only weighting. Prefit behavior
+is unchanged. Calibration requires finite base responses; a zero-total Gaussian
+training fit is therefore diagnosed there, while zero-total sigmoid calibration
+weights on an already valid base retain their source behavior.
+
+See example/weighted_streaming_classifiers.f90 and
+validation/compare_weighted_classifiers.py. A saved synthetic fixture in
+validation/fixtures/logistic_tiny_weight_line_search.json preserves a source
+Newton-CG line-search stall. Its recovery uses sklearn Newton-Cholesky only
+after independent source/native gradients establish the stall, and checks
+loss equality with the recovered source solution. Such checks are recorded
+separately from ordinary Newton-CG comparisons.

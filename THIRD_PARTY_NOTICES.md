@@ -394,3 +394,34 @@ existing objective and solver provenance remain applicable.
 Original contributions remain MIT; adapted portions retain BSD-3-Clause and
 the complete notice in `LICENSES/scikit-learn-COPYING`. No new dependency or
 Python runtime is needed by the Fortran package.
+
+## Weighted and streaming Gaussian/logistic classification (BSD)
+
+`src/sklearn_naive_bayes.f90` adapts sklearn 1.6.1 `naive_bayes.py`:
+Gaussian weighted population moments, partial-fit class/state checks,
+Chan/Golub/LeVeque updates, current-batch unweighted smoothing and source
+epsilon subtraction, tiny-mass skipping with count accumulation, optional
+fixed priors and joint-likelihood prediction. Explicit quiet IEEE handling
+retains undefined posteriors and first-NaN prediction behavior without
+raising floating-point traps for those source-defined cases.
+
+Weighted logistic objective/regularization conventions in
+`src/sklearn_linear_model.f90` follow `linear_model/_logistic.py` and
+`_linear_loss.py`. Raw-score classifier prediction follows
+`linear_model/_base.py`. The native Newton solver and its new diagonal
+equilibration remain original implementations; no SciPy solver code is copied.
+Training-weight routing in sklearn_calibrated_classifier and base prediction
+delegation in sklearn_self_training retain their existing source attribution.
+
+Installed source SHA-256:
+
+- `naive_bayes.py`: `4126fb342ef030d92e95f418d168e3af1ca5e22278435d792512b84d51e0208d`
+- `linear_model/_logistic.py`: `14b72d51a007c2c1c2af7ab1824783818c058f3f611584eb7e7432a1b4e0426a`
+- `linear_model/_linear_loss.py`: `8792fb74ec8ab80219b2918dd9be88075de5c8bf817fc69335672215e94d381b`
+- `linear_model/_base.py`: `d9a38e2aea003351917b744f85fcb7d0a5f849b55b3d12480fbae560ebc38bd0`
+
+The moment-update research attribution follows source: Chan, Golub and
+LeVeque, Stanford technical report STAN-CS-79-773. The regression fixture is
+synthetic native-project validation data. Original contributions remain MIT;
+adapted portions retain BSD-3-Clause and the complete sklearn notice in
+`LICENSES/scikit-learn-COPYING`. No dependency is added.

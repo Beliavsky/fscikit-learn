@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 177 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Sixty-seven reference suites additionally check 153,126
+All types have native tests. Sixty-eight reference suites additionally check 171,742
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -24,8 +24,8 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | Module (`sklearn_` prefix) | Public types and functions | Scope and numerical choices |
 | --- | --- | --- |
 | preprocessing | `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `knn_imputer`, `missing_indicator`, `spline_transformer`, `label_encoder`, `one_hot_encoder`, `label_binarizer`, `multi_label_binarizer`, `power_transformer`, `kbins_discretizer`, `quantile_transformer`; `normalize`, `binarize`, `polynomial_features` | Population variance; linear percentile interpolation; NaN imputation with mean/median/most-frequent/constant; numeric categories; empirical uniform/normal quantile transforms; dense polynomial terms through degree 12 with optional interactions; B-spline features and extrapolation |
-| linear_model | `linear_regression`, `lars`, `lasso_lars`, `lars_cv`, `lasso_lars_cv`, `lasso_lars_ic`, `ridge`, `ridge_classifier`, `ridge_classifier_cv`, `multi_task_elastic_net`, `multi_task_lasso`, `multi_task_elastic_net_cv`, `multi_task_lasso_cv`, `lasso`, `elastic_net`, `lasso_cv`, `elastic_net_cv`, `logistic_regression`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `sgd_regressor`, `sgd_classifier`, `sgd_one_class_svm`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `orthogonal_matching_pursuit_cv`, `huber_regressor`, `quantile_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; least-angle/Lasso homotopy paths with CV and AIC/BIC selection; coordinate descent with K-fold alpha/l1-ratio selection; logistic Newton solver; perceptron; PA-I/II classification/regression with averaging; streaming stochastic-gradient regression/classification and one-class detection; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; weighted L1-regularized quantile regression; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
-| naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb`, `categorical_nb` | Empirical class priors, variance smoothing, strictly positive scalar alpha; Bernoulli threshold; optional complement normalization |
+| linear_model | `linear_regression`, `lars`, `lasso_lars`, `lars_cv`, `lasso_lars_cv`, `lasso_lars_ic`, `ridge`, `ridge_classifier`, `ridge_classifier_cv`, `multi_task_elastic_net`, `multi_task_lasso`, `multi_task_elastic_net_cv`, `multi_task_lasso_cv`, `lasso`, `elastic_net`, `lasso_cv`, `elastic_net_cv`, `logistic_regression`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `sgd_regressor`, `sgd_classifier`, `sgd_one_class_svm`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `orthogonal_matching_pursuit_cv`, `huber_regressor`, `quantile_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; least-angle/Lasso homotopy paths with CV and AIC/BIC selection; coordinate descent with K-fold alpha/l1-ratio selection; weighted logistic Newton solver with raw-score prediction; perceptron; PA-I/II classification/regression with averaging; streaming stochastic-gradient regression/classification and one-class detection; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; weighted L1-regularized quantile regression; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
+| naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb`, `categorical_nb` | Weighted/streaming Gaussian moments, empirical/fixed priors and variance smoothing; strictly positive scalar alpha; Bernoulli threshold; optional complement normalization |
 | neighbors | `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with optional shrinkage and uniform priors; Euclidean kernel density |
 | cluster | `kmeans`, `bisecting_kmeans`, `mini_batch_kmeans`, `spectral_coclustering`, `spectral_biclustering`, `hdbscan`, `dbscan`, `agglomerative_clustering`, `feature_agglomeration`, `mean_shift`, `affinity_propagation`, `spectral_clustering`, `optics`, `birch`; `estimate_bandwidth`, `cluster_optics_dbscan`, `cluster_optics_xi` | Lloyd/k-means++; paired row/column spectral partitions and checkerboard biclustering; weighted streaming mini-batch centroids; bisecting centroid hierarchy with Lloyd/Elkan splits; density expansion; single/complete/average/Ward merge trees and feature pooling; flat-kernel mode seeking; damped exemplar messages; normalized-Laplacian clustering with k-means or pivoted QR assignment; OPTICS reachability ordering, Xi hierarchy and DBSCAN extraction; BIRCH streaming CF tree and optional Ward clustering |
 | decomposition | `pca`, `incremental_pca`, `truncated_svd`, `nmf`, `mini_batch_nmf`, `sparse_pca`, `mini_batch_sparse_pca`, `dictionary_learning`, `mini_batch_dictionary_learning`, `sparse_coder`, `latent_dirichlet_allocation`; `sparse_encode`; re-exports `kernel_pca`, `factor_analysis`, `fast_ica` | Direct Jacobi SVD; PCA whitening and inversion; streaming stacked-SVD IncrementalPCA; exact dense SVD; NMF multiplicative updates; sparse dictionary factorization and SparsePCA; five sparse coding methods; nonlinear kernel PCA; unrotated full-SVD factor analysis; parallel/deflation ICA |
@@ -189,8 +189,8 @@ distances; cosine similarity; linear, RBF, polynomial and sigmoid kernels.
 - K-means++ uses one draw per center, not sklearn's greedy local trials. Empty
   cluster relocation may differ. DBSCAN/agglomerative tie ordering may differ.
 - LDA has no SVD solver or discriminant transform. QDA requires positive-definite
-  (possibly regularized) class covariance. Gaussian NB rejects all-zero
-  variance when smoothing cannot make it positive.
+  (possibly regularized) class covariance. Gaussian NB retains zero-variance
+  statistics and source-compatible undefined posteriors, as described below.
 - SVC exposes one decision column per class pair, positive toward the pair's
   second class. This differs from sklearn's multiclass decision conventions.
   SVR, NuSVC and one-class SVM are separate native types. Platt probability
@@ -3454,9 +3454,9 @@ retains its output classes, including missing/unknown calibration labels.
 Binary response selection/complement, one-vs-rest multiclass targets,
 zero-mass uniform fallback and final probability handling follow source.
 
-Weighted CV is supported for KNN; weighted prefit calibration supports all
-three bases. Weighted logistic/Gaussian NB CV fitting is explicitly rejected
-until those native base fit APIs support weights. Weights are finite,
+The initial weighted CV scope was KNN, with weighted prefit calibration for
+all three bases. The weighted/streaming classifier batch below subsequently
+adds weighted logistic/Gaussian NB CV fitting. Weights are finite,
 nonnegative and bounded by the documented native working range. All-zero
 sigmoid weights retain source .5 map outputs; isotonic fitting requires
 positive weight support. General estimator/default LinearSVC cloning,
@@ -3505,3 +3505,88 @@ No dependency or public extension is added. Inventory: 177 core types,
 88 source modules, 88 native test programs, 67 reference suites and 153,126
 result groups, plus 28 separate NumPy RNG groups. Isolated diagnostic
 inventory is 1,860.
+
+
+## Weighted and streaming Gaussian/logistic classifier batch
+
+Extended existing Gaussian NB and logistic fit APIs with optional real64
+sample weights. Gaussian NB adds partial_fit, optional fixed priors and
+n_features_in_. Initial streaming calls declare the full class set; repeated
+class declarations normalize order/duplicates and later calls reject changed
+classes, unknown targets and feature counts. fit resets accumulated state.
+Weighted population moments use Chan/Golub/LeVeque merging. The pinned source's
+unweighted current-batch smoothing, current-epsilon subtraction and <=1e-8
+weighted-mass moment skip are retained, including count accumulation for
+skipped updates. Priors use source length/nonnegative/np.isclose validation
+and are retained without normalization. Zero empirical mass and zero
+variances preserve source IEEE undefined posteriors; zero priors and unseen
+classes are handled explicitly. Gaussian prediction uses joint likelihoods,
+including the source's first-NaN argmax behavior. This replaces the former
+native zero-variance fit rejection.
+
+Weighted logistic uses mean weighted loss plus 1/(C*sum(weights)) L2 strength,
+diagonal equilibration of its Newton system and safe combined-penalty
+formation. Tiny C can be supported with large weights even if 1/C alone
+would overflow. Binary/multiclass prediction now uses source raw decision
+scores, preserving labels when sigmoid/softmax probabilities round to .5
+or a uniform vector. Self-training prediction delegates to its base; its
+confidence/probability paths require finite base probabilities. Existing
+unweighted fit calls remain supported. Inputs/weights are finite dense
+real64 arrays; weights are nonnegative and bounded by documented numerical
+working ranges. Signed/scalar weights and logistic class_weight are outside
+this interface.
+
+CalibratedClassifierCV now forwards training-fold weights to Gaussian NB
+and logistic and forwards all weights for the nonensemble full-data refit.
+All three supported bases therefore allow weighted CV; KNN retains source
+calibration-only weighting. Two obsolete unsupported-weighted-CV diagnostic
+cases now check weight-length errors. Forty-two additional diagnostics cover
+streaming class/state/feature rules, priors, weights, finite data, moment and
+penalty working ranges, zero-mass logistic rejection and undefined base
+responses in calibration/self-training. All 42 passed isolated checked probes.
+
+The new reference suite has 16,536 groups across 681 fixtures and five seeds
+(0,7,42,2026,314159), including 1,441 Gaussian fitted/streaming/refit states.
+Cases span one through four observed classes (plus an additional declared
+unseen class in selected streaming fixtures), 1/4 features, uniform/integer/random/
+log-scale/tiny/zero weights, missing or declared unseen classes, fixed/zero/
+approximately normalized priors, changing batch scales and smoothing,
+constant data and tiny-C/large-weight logistic fits. Counts and epsilon use
+zero absolute tolerance with 4e-11 relative tolerance; other statistics use
+4e-11 absolute/relative, Gaussian posterior outputs 3e-8 and logistic outputs
+3e-6. Prediction labels are exact. All 481 logistic fits additionally satisfy
+an independent normalized gradient bound of 3e-8.
+
+Oracle accounting: 15,309 ordinary direct sklearn groups, 681 input
+identities, 481 independent optimality groups, 60 limiting-intercept groups
+from 30 zero-weight-class cases, and five direct sklearn Newton-Cholesky
+groups from one certified Newton-CG recovery. Zero-weight classes can have
+no finite unregularized intercept optimum; their coefficients, probabilities,
+predictions and gradient remain checked, while finite intercept/decision
+representations are recorded separately. Conditional softmax common-offset
+comparison is available for nonunique intercept gauges; none was needed in
+the final checked prototype corpus.
+
+The saved synthetic line-search regression has source Newton-CG normalized
+gradient 5.58358e-6 despite requested tolerance 1e-12. Native gradient is
+7.37199e-12; source Newton-Cholesky reaches 1.11022e-16. Native and recovered
+source losses both equal .6924822701505227, below the stalled source loss
+.6924822702129585. Recovery requires an independently measured source stall,
+a much smaller native gradient and source-recovered loss agreement; it does
+not increase public-output tolerances or remove the difficult case.
+
+The expanded calibration suite has 13,760 groups over 810 fixtures: 7,166
+direct source groups, 4,160 source-map certificates, 1,620 input identities,
+810 composition identities and four machine-precision argmax exceptions.
+It adds weighted ensemble/nonensemble CV for Gaussian NB and logistic.
+Native analytic tests cover weighted moments, pooled/streaming equivalence
+at zero smoothing, zero-weight batches, source mass-cutoff boundaries,
+fixed priors, quiet undefined outputs, integer-weight replication, tiny-mass
+intercept fitting, safe C rescaling and raw-score prediction/delegation.
+A runnable weighted_streaming_classifiers example demonstrates both models.
+
+Original contributions remain MIT with retained sklearn BSD attribution;
+no dependency or public extension is added. Core type count stays 177.
+Inventory: 88 source modules, 89 native test programs, 68 reference suites
+and 171,742 core result groups, plus 28 separate NumPy RNG groups.
+Isolated invalid-input inventory is 1,902.

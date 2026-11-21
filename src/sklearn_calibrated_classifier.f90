@@ -34,15 +34,16 @@ module sklearn_calibrated_classifier
     procedure :: score=>calibrated_score
   end type
 contains
-  subroutine fit_base(model,x,y)
+  subroutine fit_base(model,x,y,sample_weight)
     class(*), intent(inout) :: model
     real(dp), intent(in) :: x(:,:)
     integer, intent(in) :: y(:)
+    real(dp), intent(in), optional :: sample_weight(:)
     select type(model)
     type is(logistic_regression)
-      call model%fit(x,y)
+      call model%fit(x,y,sample_weight)
     type is(gaussian_nb)
-      call model%fit(x,y)
+      call model%fit(x,y,sample_weight)
     type is(kneighbors_classifier)
       call model%fit(x,y)
     class default
@@ -221,9 +222,7 @@ contains
     call require(self%method=='sigmoid'.or.self%method=='isotonic','unknown calibration method')
     select type(estimator)
     type is(logistic_regression)
-      call require(.not.present(sample_weight).or.self%prefit,'weighted logistic calibration CV is not supported')
     type is(gaussian_nb)
-      call require(.not.present(sample_weight).or.self%prefit,'weighted Gaussian NB calibration CV is not supported')
     type is(kneighbors_classifier)
     class default
       call require(.false.,'unsupported calibrated classifier estimator')
@@ -258,7 +257,12 @@ contains
       allocate(oof(n,q))
       do f=1,self%cv
         train=pack(ids,self%fold_id_/=f); test=pack(ids,self%fold_id_==f)
-        allocate(model,source=estimator); call fit_base(model,x(train,:),y(train))
+        allocate(model,source=estimator)
+        if(present(sample_weight)) then
+          call fit_base(model,x(train,:),y(train),weights(train))
+        else
+          call fit_base(model,x(train,:),y(train))
+        end if
         scores=response(model,x(test,:))
         if(self%ensemble) then
           call move_alloc(model,self%calibrated_classifiers_(f)%estimator_)
@@ -269,7 +273,7 @@ contains
       end do
       if(.not.self%ensemble) then
         allocate(self%calibrated_classifiers_(1)%estimator_,source=estimator)
-        call fit_base(self%calibrated_classifiers_(1)%estimator_,x,y)
+        call fit_base(self%calibrated_classifiers_(1)%estimator_,x,y,sample_weight)
         call fit_maps(self%calibrated_classifiers_(1),oof,y,self%classes_,self%method,weights)
       end if
     end if

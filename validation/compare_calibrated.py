@@ -74,7 +74,7 @@ def main():
                         weighted = mode in [3, 4, 5, 9, 10]
                         ensemble = mode not in [1, 5]
                         cv = 5 if mode == 6 else 3
-                        if weighted and not prefit and base != 1:
+                        if mode == 9 and base != 1:
                             continue
                         if mode == 7 and base != 2:
                             continue
@@ -153,7 +153,8 @@ def main():
                         reconstructed = np.zeros_like(probability)
                         if not ensemble and not prefit:
                             source_oof = cross_val_predict(estimator, cx, cy, cv=cv,
-                                method='decision_function' if base == 2 else 'predict_proba')
+                                method='decision_function' if base == 2 else 'predict_proba',
+                                params={'sample_weight': weights} if weighted and base != 1 else None)
                             if k == 2 and base != 2:
                                 source_oof = source_oof[:, 1:2]
                             source_oof = source_oof.reshape(n, -1)

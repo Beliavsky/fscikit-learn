@@ -68,6 +68,7 @@ contains
     type is(kneighbors_classifier)
       prob=model%predict_proba(x)
     end select
+    call require(all(ieee_is_finite(prob)), 'self-training base probabilities must be finite')
   end function
 
   ! Stable merge ordering: equal confidence selects earlier input rows first.
@@ -200,8 +201,17 @@ contains
     class(self_training_classifier), intent(in) :: self
     real(dp), intent(in) :: x(:,:)
     integer :: labels(size(x,1))
-    real(dp), allocatable :: prob(:,:)
-    prob=self%predict_proba(x); labels=self%classes_(maxloc(prob,dim=2))
+    call check_query(self,x)
+    select type(model=>self%estimator_)
+    type is(logistic_regression)
+      labels=model%predict(x)
+    type is(gaussian_nb)
+      labels=model%predict(x)
+    type is(kneighbors_classifier)
+      labels=model%predict(x)
+    class default
+      call require(.false.,'unsupported self-training estimator')
+    end select
   end function
 
   function self_decision(self,x) result(values)

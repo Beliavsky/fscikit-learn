@@ -3186,3 +3186,115 @@ accounting, inventory totals, upstream source hashes, retained licenses
 and git diff checks. Numerical sources did not change after checked/release
 testing. Other existing reference suites retain their previously recorded
 aggregate results; they were not all rerun for this batch.
+
+
+## Weighted and streaming classifier batch
+
+Extended existing Gaussian NB and logistic fit APIs with optional real64
+sample weights. Gaussian NB adds partial_fit, optional fixed priors and
+n_features_in_. Initial streaming calls declare the full class set; repeated
+class declarations normalize order/duplicates and later calls reject changed
+classes, unknown targets and feature counts. fit resets accumulated state.
+Weighted population moments use Chan/Golub/LeVeque merging. The pinned source's
+unweighted current-batch smoothing, current-epsilon subtraction and <=1e-8
+weighted-mass moment skip are retained, including count accumulation for
+skipped updates. Priors use source length/nonnegative/np.isclose validation
+and are retained without normalization. Zero empirical mass and zero
+variances preserve source IEEE undefined posteriors; zero priors and unseen
+classes are handled explicitly. Gaussian prediction uses joint likelihoods,
+including the source's first-NaN argmax behavior. This replaces the former
+native zero-variance fit rejection.
+
+Weighted logistic uses mean weighted loss plus 1/(C*sum(weights)) L2 strength,
+diagonal equilibration of its Newton system and safe combined-penalty
+formation. Tiny C can be supported with large weights even if 1/C alone
+would overflow. Binary/multiclass prediction now uses source raw decision
+scores, preserving labels when sigmoid/softmax probabilities round to .5
+or a uniform vector. Self-training prediction delegates to its base; its
+confidence/probability paths require finite base probabilities. Existing
+unweighted fit calls remain supported. Inputs/weights are finite dense
+real64 arrays; weights are nonnegative and bounded by documented numerical
+working ranges. Signed/scalar weights and logistic class_weight are outside
+this interface.
+
+CalibratedClassifierCV now forwards training-fold weights to Gaussian NB
+and logistic and forwards all weights for the nonensemble full-data refit.
+All three supported bases therefore allow weighted CV; KNN retains source
+calibration-only weighting. Two obsolete unsupported-weighted-CV diagnostic
+cases now check weight-length errors. Forty-two additional diagnostics cover
+streaming class/state/feature rules, priors, weights, finite data, moment and
+penalty working ranges, zero-mass logistic rejection and undefined base
+responses in calibration/self-training. All 42 passed isolated checked probes.
+
+The new reference suite has 16,536 groups across 681 fixtures and five seeds
+(0,7,42,2026,314159), including 1,441 Gaussian fitted/streaming/refit states.
+Cases span one through four observed classes (plus an additional declared
+unseen class in selected streaming fixtures), 1/4 features, uniform/integer/random/
+log-scale/tiny/zero weights, missing or declared unseen classes, fixed/zero/
+approximately normalized priors, changing batch scales and smoothing,
+constant data and tiny-C/large-weight logistic fits. Counts and epsilon use
+zero absolute tolerance with 4e-11 relative tolerance; other statistics use
+4e-11 absolute/relative, Gaussian posterior outputs 3e-8 and logistic outputs
+3e-6. Prediction labels are exact. All 481 logistic fits additionally satisfy
+an independent normalized gradient bound of 3e-8.
+
+Oracle accounting: 15,309 ordinary direct sklearn groups, 681 input
+identities, 481 independent optimality groups, 60 limiting-intercept groups
+from 30 zero-weight-class cases, and five direct sklearn Newton-Cholesky
+groups from one certified Newton-CG recovery. Zero-weight classes can have
+no finite unregularized intercept optimum; their coefficients, probabilities,
+predictions and gradient remain checked, while finite intercept/decision
+representations are recorded separately. Conditional softmax common-offset
+comparison is available for nonunique intercept gauges; none was needed in
+the final checked prototype corpus.
+
+The saved synthetic line-search regression has source Newton-CG normalized
+gradient 5.58358e-6 despite requested tolerance 1e-12. Native gradient is
+7.37199e-12; source Newton-Cholesky reaches 1.11022e-16. Native and recovered
+source losses both equal .6924822701505227, below the stalled source loss
+.6924822702129585. Recovery requires an independently measured source stall,
+a much smaller native gradient and source-recovered loss agreement; it does
+not increase public-output tolerances or remove the difficult case.
+
+The expanded calibration suite has 13,760 groups over 810 fixtures: 7,166
+direct source groups, 4,160 source-map certificates, 1,620 input identities,
+810 composition identities and four machine-precision argmax exceptions.
+It adds weighted ensemble/nonensemble CV for Gaussian NB and logistic.
+Native analytic tests cover weighted moments, pooled/streaming equivalence
+at zero smoothing, zero-weight batches, source mass-cutoff boundaries,
+fixed priors, quiet undefined outputs, integer-weight replication, tiny-mass
+intercept fitting, safe C rescaling and raw-score prediction/delegation.
+A runnable weighted_streaming_classifiers example demonstrates both models.
+
+Original contributions remain MIT with retained sklearn BSD attribution;
+no dependency or public extension is added. Core type count stays 177.
+Inventory: 88 source modules, 89 native test programs, 68 reference suites
+and 171,742 core result groups, plus 28 separate NumPy RNG groups.
+Isolated invalid-input inventory is 1,902.
+
+Completed validation (2026-11-21): all 89 native test programs passed checked
+(-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow) and release builds.
+Each profile passed all 16,536 classifier groups over 681 fixtures, including
+1,441 Gaussian snapshots and independent gradient checks for 481 logistic
+fits. Both profiles retained identical oracle accounting: 15,309 ordinary
+source groups, 681 input identities, 481 optimality checks, 60 limiting
+intercept/decision groups and five source Newton-Cholesky groups from the
+single saved Newton-CG stall. No softmax gauge exception was needed.
+
+Both profiles additionally passed the expanded 13,760-group calibration
+suite over 810 fixtures and the 4,905-group self-training regression over
+495 fixtures. Their oracle counts and four calibration argmax-tie cases
+remained identical between profiles. The original 192-group integration
+comparison and all 1,902 isolated input diagnostics passed. The checked
+example accumulated class masses [6,0] then [6,6], predicted Gaussian query
+labels [0,1,1], and returned weighted logistic positive probabilities
+[.08027985401471212,.54245967513063542,.94153307049888624] at [-2,0,2].
+The example's actual output marker was verified.
+
+Final audits passed Python syntax, Fortran formatting, unique diagnostic
+registration/driver coverage, report/oracle/recovery accounting, inventory
+counts, upstream source hashes, retained licenses and git diff checks.
+Numerical sources stayed unchanged after checked/release validation.
+Other reference suites retain their previously recorded aggregate results;
+they were not all rerun for this batch. Original work remains MIT with
+retained sklearn BSD attribution and no added dependency or public extension.

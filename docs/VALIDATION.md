@@ -3126,3 +3126,64 @@ accounting, inventory totals, upstream source hashes, retained licenses
 and git diff checks. Numerical sources did not change after checked/release
 testing. Other existing reference suites retain their previously recorded
 aggregate results; they were not all rerun for this batch.
+
+
+## Weighted and streaming classifier validation
+
+`python validation/compare_weighted_classifiers.py` accepts --executable
+or --profile release. It validates every Gaussian batch/partial/refit state,
+weighted logistic parameters and outputs, exact labels and unchanged inputs.
+There are 681 fixtures with five seeds, 1--4 observed classes plus a declared
+unseen class in selected cases, 1/4 features, uniform/integer/random/log-scale/
+tiny/zero weights, fixed/zero/approximately normalized priors, changing batch
+scales, constant data and tiny-C/large-weight fits. The 1,441 Gaussian
+snapshots include source NaNs and infinite log posteriors under checked FP
+traps. Counts/epsilon have zero absolute tolerance and 4e-11 relative tolerance;
+other statistics use 4e-11, Gaussian outputs 3e-8, logistic outputs 3e-6.
+
+All 481 logistic fits independently satisfy a normalized gradient bound of
+3e-8. Thirty zero-weight-class cases have no finite intercept optimum;
+probabilities, coefficients, predictions and gradients remain checked, with
+60 finite intercept/decision groups recorded as limiting representations.
+A synthetic saved fixture reproduces source Newton-CG line-search stalling.
+Recovery requires a measured source gradient above 1e-8 and at least 100
+times the native gradient (with a 1e-12 floor), a source Newton-Cholesky
+solution whose gradient is at most 3e-8, non-worse native loss and recovered
+loss agreement within 1e-10. Five resulting public-output groups are labeled
+separately. The saved regression is retained in
+validation/fixtures/logistic_tiny_weight_line_search.json.
+
+The calibration suite now covers weighted CV for all three native bases,
+including full-data refitting. Native tests additionally verify moment-skip
+boundaries, source NaN argmax behavior, integer-weight replication, tiny-mass
+intercept fitting, combined C/weight scaling and raw-score classification
+when probabilities round to .5/uniform values. Self-training prediction
+delegation and finite-confidence diagnostics are covered. See docs/API.md
+for explicit API, weight and numerical-working-range limits.
+
+Completed validation (2026-11-21): all 89 native test programs passed checked
+(-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow) and release builds.
+Each profile passed all 16,536 classifier groups over 681 fixtures, including
+1,441 Gaussian snapshots and independent gradient checks for 481 logistic
+fits. Both profiles retained identical oracle accounting: 15,309 ordinary
+source groups, 681 input identities, 481 optimality checks, 60 limiting
+intercept/decision groups and five source Newton-Cholesky groups from the
+single saved Newton-CG stall. No softmax gauge exception was needed.
+
+Both profiles additionally passed the expanded 13,760-group calibration
+suite over 810 fixtures and the 4,905-group self-training regression over
+495 fixtures. Their oracle counts and four calibration argmax-tie cases
+remained identical between profiles. The original 192-group integration
+comparison and all 1,902 isolated input diagnostics passed. The checked
+example accumulated class masses [6,0] then [6,6], predicted Gaussian query
+labels [0,1,1], and returned weighted logistic positive probabilities
+[.08027985401471212,.54245967513063542,.94153307049888624] at [-2,0,2].
+The example's actual output marker was verified.
+
+Final audits passed Python syntax, Fortran formatting, unique diagnostic
+registration/driver coverage, report/oracle/recovery accounting, inventory
+counts, upstream source hashes, retained licenses and git diff checks.
+Numerical sources stayed unchanged after checked/release validation.
+Other reference suites retain their previously recorded aggregate results;
+they were not all rerun for this batch. Original work remains MIT with
+retained sklearn BSD attribution and no added dependency or public extension.

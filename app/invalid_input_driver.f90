@@ -8,6 +8,11 @@ program invalid_input_driver
   use sklearn_legacy_rng, only: legacy_random_state
   use, intrinsic :: ieee_arithmetic, only: ieee_value,ieee_quiet_nan,ieee_positive_inf
   implicit none
+  type(gaussian_nb) :: wg_nb
+  type(logistic_regression) :: wg_lr
+  real(dp) :: wg_x(6,1)=reshape([-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp],[6,1]),wg_w(6)=1
+  integer :: wg_y(6)=[0,0,0,1,1,1],wg_i
+  real(dp), allocatable :: wg_prob(:,:)
   type(calibrated_classifier_cv) :: cc_case
   type(gaussian_nb) :: cc_nb
   type(kneighbors_classifier) :: cc_knn
@@ -283,6 +288,137 @@ program invalid_input_driver
   mi_x(:,2)=[0._dp,0._dp,1._dp,1._dp,2._dp,2._dp]; mi_x(:,3)=1
   mi_y=mi_x(:,1); mi_labels=[-1,-1,-1,2,2,2]
   select case(trim(mode))
+  case('wg_first_classes')
+    call wg_nb%partial_fit(wg_x,wg_y)
+  case('wg_empty_classes')
+    call wg_nb%partial_fit(wg_x,wg_y,wg_y(:0))
+  case('wg_changed_classes')
+    call wg_nb%fit(wg_x,wg_y)
+    call wg_nb%partial_fit(wg_x,wg_y,[0,2])
+  case('wg_changed_class_count')
+    call wg_nb%fit(wg_x,wg_y)
+    call wg_nb%partial_fit(wg_x,wg_y,[0,1,2])
+  case('wg_empty_later_classes')
+    call wg_nb%fit(wg_x,wg_y)
+    call wg_nb%partial_fit(wg_x,wg_y,wg_y(:0))
+  case('wg_unknown_class')
+    wg_y(6)=2
+    call wg_nb%partial_fit(wg_x,wg_y,[0,1])
+  case('wg_features')
+    call wg_nb%fit(wg_x,wg_y)
+    call wg_nb%partial_fit(spread(wg_x(:,1),2,2),wg_y)
+  case('wg_fit_empty')
+    call wg_nb%fit(wg_x(:0,:),wg_y(:0))
+  case('wg_fit_length')
+    call wg_nb%fit(wg_x,wg_y(:5))
+  case('wg_fit_nan')
+    wg_x(1,1)=ieee_value(0._dp,ieee_quiet_nan)
+    call wg_nb%fit(wg_x,wg_y)
+  case('wg_smoothing_nan')
+    wg_nb%var_smoothing=ieee_value(0._dp,ieee_quiet_nan)
+    call wg_nb%fit(wg_x,wg_y)
+  case('wg_smoothing_inf')
+    wg_nb%var_smoothing=ieee_value(0._dp,ieee_positive_inf)
+    call wg_nb%fit(wg_x,wg_y)
+  case('wg_smoothing_negative')
+    wg_nb%var_smoothing=-1
+    call wg_nb%fit(wg_x,wg_y)
+  case('wg_weight_length')
+    call wg_nb%fit(wg_x,wg_y,wg_w(:5))
+  case('wg_weight_nan')
+    wg_w(1)=ieee_value(0._dp,ieee_quiet_nan)
+    call wg_nb%fit(wg_x,wg_y,wg_w)
+  case('wg_weight_inf')
+    wg_w(1)=ieee_value(0._dp,ieee_positive_inf)
+    call wg_nb%fit(wg_x,wg_y,wg_w)
+  case('wg_weight_negative')
+    wg_w(1)=-1
+    call wg_nb%fit(wg_x,wg_y,wg_w)
+  case('wg_weight_mass')
+    wg_w=huge(1._dp)
+    call wg_nb%fit(wg_x,wg_y,wg_w)
+  case('wg_weight_cumulative')
+    wg_w=sqrt(huge(1._dp))/(64*size(wg_w))
+    call wg_nb%partial_fit(wg_x,wg_y,[0,1],wg_w)
+    do wg_i=1,6
+      call wg_nb%partial_fit(wg_x,wg_y,sample_weight=wg_w)
+    end do
+  case('wg_prior_length')
+    wg_nb%priors=[1._dp]
+    call wg_nb%fit(wg_x,wg_y)
+  case('wg_prior_nan')
+    wg_nb%priors=[ieee_value(0._dp,ieee_quiet_nan),1._dp]
+    call wg_nb%fit(wg_x,wg_y)
+  case('wg_prior_inf')
+    wg_nb%priors=[ieee_value(0._dp,ieee_positive_inf),1._dp]
+    call wg_nb%fit(wg_x,wg_y)
+  case('wg_prior_negative')
+    wg_nb%priors=[-.1_dp,1.1_dp]
+    call wg_nb%fit(wg_x,wg_y)
+  case('wg_prior_sum')
+    wg_nb%priors=[.2_dp,.2_dp]
+    call wg_nb%fit(wg_x,wg_y)
+  case('wg_prior_large')
+    wg_nb%priors=[huge(1._dp),huge(1._dp)]
+    call wg_nb%fit(wg_x,wg_y)
+  case('wg_prior_refit')
+    wg_nb%priors=[.5_dp,.5_dp]
+    call wg_nb%fit(wg_x,wg_y)
+    call wg_nb%fit(wg_x,0*wg_y)
+  case('wg_feature_mass')
+    wg_x=huge(1._dp)/2
+    call wg_nb%fit(wg_x,wg_y)
+  case('wg_weighted_feature_mass')
+    wg_x=1.e200_dp
+    wg_w=sqrt(huge(1._dp))/(32*size(wg_w))
+    call wg_nb%fit(wg_x,wg_y,wg_w)
+  case('wg_variance_mass')
+    wg_x(1,1)=-1.e154_dp
+    wg_x(2,1)=1.e154_dp
+    call wg_nb%fit(wg_x,wg_y)
+  case('wg_smoothing_mass')
+    wg_nb%var_smoothing=huge(1._dp)
+    call wg_nb%fit(wg_x,wg_y)
+  case('wg_mean_separation')
+    wg_x=1.e153_dp
+    call wg_nb%fit(wg_x,wg_y)
+    wg_x=-1.e154_dp
+    call wg_nb%partial_fit(wg_x,wg_y)
+  case('wl_weight_length')
+    call wg_lr%fit(wg_x,wg_y,wg_w(:5))
+  case('wl_weight_nan')
+    wg_w(1)=ieee_value(0._dp,ieee_quiet_nan)
+    call wg_lr%fit(wg_x,wg_y,wg_w)
+  case('wl_weight_inf')
+    wg_w(1)=ieee_value(0._dp,ieee_positive_inf)
+    call wg_lr%fit(wg_x,wg_y,wg_w)
+  case('wl_weight_negative')
+    wg_w(1)=-1
+    call wg_lr%fit(wg_x,wg_y,wg_w)
+  case('wl_weight_zero')
+    call wg_lr%fit(wg_x,wg_y,0*wg_w)
+  case('wl_weight_mass')
+    wg_w=huge(1._dp)
+    call wg_lr%fit(wg_x,wg_y,wg_w)
+  case('wl_c_working')
+    wg_lr%c=tiny(1._dp)/16
+    call wg_lr%fit(wg_x,wg_y)
+  case('wl_penalty_working')
+    wg_lr%c=1.e-200_dp
+    wg_w=1.e-200_dp
+    call wg_lr%fit(wg_x,wg_y,wg_w)
+  case('cc_gauss_zero_fit')
+    cc_case%cv=3
+    cc_weights=0
+    call cc_case%fit(cc_x,cc_y,cc_nb,cc_weights)
+  case('cc_logistic_zero_fit')
+    cc_case%cv=3
+    cc_weights=0
+    call cc_case%fit(cc_x,cc_y,cc_lr,cc_weights)
+  case('st_undefined_base')
+    st_x=0
+    call st_case%fit(st_x,st_y,st_nb)
+
   case('cc_method')
     cc_case%cv=3
     cc_case%method='unknown'
@@ -334,10 +470,10 @@ program invalid_input_driver
     call cc_case%fit(cc_x,cc_y,cc_nb)
   case('cc_weight_logistic')
     cc_case%cv=3
-    call cc_case%fit(cc_x,cc_y,cc_lr,cc_weights)
+    call cc_case%fit(cc_x,cc_y,cc_lr,cc_weights(:5))
   case('cc_weight_nb')
     cc_case%cv=3
-    call cc_case%fit(cc_x,cc_y,cc_nb,cc_weights)
+    call cc_case%fit(cc_x,cc_y,cc_nb,cc_weights(:5))
   case('cc_weight_length')
     cc_case%cv=3
     call cc_case%fit(cc_x,cc_y,cc_knn,cc_weights(:5))

@@ -1095,11 +1095,13 @@ contains
     call elastic_fit(self,x,y); self%n_features_in_=p
   end subroutine
 
-  subroutine logistic_fit(self,x,y)
+  subroutine logistic_fit(self,x,y,sample_weight)
     class(logistic_regression), intent(inout) :: self
     real(dp), intent(in) :: x(:,:)
     integer, intent(in) :: y(:)
-    real(dp), allocatable :: design(:,:),w(:,:),prob(:,:),gradient(:,:),hess(:,:),step(:),trial(:,:)
+    real(dp), intent(in), optional :: sample_weight(:)
+    real(dp) :: observation_weight(size(y)),mass,gradient_tol
+    real(dp), allocatable :: design(:,:),w(:,:),prob(:,:),gradient(:,:),hess(:,:),step(:),trial(:,:),scaling(:)
     real(dp) :: objective,new_objective,rate,penalty,v
     integer :: n,p,k,q,it,i,j,a,b,ia,ib,target
     call check_xy(x,size(y)); self%classes_=unique_labels(y); k=size(self%classes_)
@@ -1108,9 +1110,36 @@ contains
     n=size(x,1); p=size(x,2); q=p+merge(1,0,self%fit_intercept)
     ! Binary has one logit; multiclass uses one logit per class and softmax.
     if(k==2) k=1
-    allocate(design(n,q),w(q,k),prob(n,k),gradient(q,k),hess(q*k,q*k),step(q*k),trial(q,k))
+    allocate(design(n,q),w(q,k),prob(n,k),gradient(q,k),hess(q*k,q*k),step(q*k),trial(q,k),scaling(q*k))
     design(:,:p)=x; if(q>p) design(:,q)=1
-    w=0; penalty=1/self%c; self%converged_=.false.
+    observation_weight=1; gradient_tol=self%tol
+    if(present(sample_weight)) then
+      call require(size(sample_weight)==n,'logistic sample weight length mismatch')
+      call require(all(ieee_is_finite(sample_weight)),'logistic sample weights must be finite')
+      call require(all(sample_weight>=0),'logistic sample weights must be nonnegative')
+      call require(maxval(sample_weight)<=sqrt(huge(1._dp))/(16*real(n,dp)), &
+        'logistic sample weight mass exceeds working range')
+      mass=sum(sample_weight)
+      call require(mass>0,'logistic sample weights require positive total')
+      if(ieee_is_finite(self%c)) then
+        call require(log(self%c)+log(mass)>=-log(huge(1._dp)/16), &
+          'weighted logistic penalty exceeds working range')
+        penalty=0
+        if(mass<=1) then
+          penalty=1/(self%c*mass)
+        else if(self%c<=huge(1._dp)/mass) then
+          penalty=1/(self%c*mass)
+        end if
+      else
+        penalty=0
+      end if
+      observation_weight=sample_weight/mass
+      if(mass>=1) gradient_tol=self%tol/mass
+    else
+      call require(self%c>=1/huge(1._dp),'logistic C is below native working range')
+      penalty=1/self%c
+    end if
+    w=0; self%converged_=.false.
     do it=1,self%max_iter
       call evaluate(w,objective,prob)
       gradient=0; hess=0
@@ -1119,9 +1148,9 @@ contains
         do a=1,k
           v=prob(i,a)
           if((k==1.and.target==2).or.(k>1.and.target==a)) v=v-1
-          gradient(:,a)=gradient(:,a)+design(i,:)*v
+          gradient(:,a)=gradient(:,a)+design(i,:)*(v*observation_weight(i))
           do b=1,k
-            v=prob(i,a)*(merge(1._dp,0._dp,a==b)-prob(i,b))
+            v=prob(i,a)*(merge(1._dp,0._dp,a==b)-prob(i,b))*observation_weight(i)
             do j=1,q
               ia=(a-1)*q+j
               hess(ia,(b-1)*q+1:b*q)=hess(ia,(b-1)*q+1:b*q)+v*design(i,j)*design(i,:)
@@ -1137,10 +1166,21 @@ contains
           hess(ia,ia)=hess(ia,ia)+1.e-10_dp
         end do
       end do
-      if(maxval(abs(gradient))<self%tol) then
+      if(maxval(abs(gradient))<gradient_tol) then
         self%converged_=.true.; exit
       end if
-      step=solve_system(hess,reshape(gradient,[q*k])); rate=1
+      if(present(sample_weight)) then
+        ! Equilibrate the weighted Newton system, especially for tiny total
+        ! weight with an unregularized intercept and a large scaled penalty.
+        do j=1,q*k
+          scaling(j)=sqrt(hess(j,j))
+        end do
+        hess=hess/spread(scaling,2,q*k)/spread(scaling,1,q*k)
+        step=solve_system(hess,reshape(gradient,[q*k])/scaling)/scaling
+      else
+        step=solve_system(hess,reshape(gradient,[q*k]))
+      end if
+      rate=1
       do j=1,50
         trial=w-rate*reshape(step,[q,k]); call evaluate(trial,new_objective,prob)
         if(new_objective<=objective-1.e-4_dp*rate*sum(reshape(gradient,[q*k])*step)) exit
@@ -1169,11 +1209,11 @@ contains
         cl=label_index(self%classes_,y(row))
         if(k==1) then
           z=logits(1); probabilities(row,1)=sigmoid(z)
-          loss=loss+max(z,0._dp)+log(1+exp(-abs(z)))
-          if(cl==2) loss=loss-z
+          loss=loss+observation_weight(row)*max(z,0._dp)+observation_weight(row)*log(1+exp(-abs(z)))
+          if(cl==2) loss=loss-observation_weight(row)*z
         else
           normalizer=logsumexp(logits); probabilities(row,:)=exp(logits-normalizer)
-          loss=loss+normalizer-logits(cl)
+          loss=loss+observation_weight(row)*normalizer-observation_weight(row)*logits(cl)
         end if
       end do
     end subroutine
@@ -1204,11 +1244,15 @@ contains
     class(logistic_regression), intent(in) :: self
     real(dp), intent(in) :: x(:,:)
     integer :: y(size(x,1)),i
-    real(dp), allocatable :: prob(:,:)
-    prob=self%predict_proba(x)
-    do i=1,size(y)
-      y(i)=self%classes_(maxloc(prob(i,:),dim=1))
-    end do
+    real(dp), allocatable :: decision(:,:)
+    decision=self%decision_function(x)
+    if(size(self%classes_)==2) then
+      y=self%classes_(merge(2,1,decision(:,1)>0))
+    else
+      do i=1,size(y)
+        y(i)=self%classes_(maxloc(decision(i,:),dim=1))
+      end do
+    end if
   end function
   real(dp) function logistic_score(self,x,y) result(s)
     class(logistic_regression), intent(in) :: self
