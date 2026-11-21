@@ -151,9 +151,12 @@ not guarantee convergence if `max_iter` was exhausted. MLP convergence means
 training loss failed to improve by `tol` for `n_iter_no_change` iterations;
 there is no held-out validation-set stopping criterion.
 
-Set `random_state` for repeatable stochastic fits. Seeding uses the Fortran
-runtime's global RNG, not NumPy's RNG; matching integer seeds do not reproduce
-Python initialization. Stochastic results need not match across compilers.
+Set `random_state` for repeatable stochastic fits. Most stochastic estimators
+use the Fortran runtime's global RNG; their matching integer seeds do not
+reproduce Python initialization, and results need not match across compilers.
+Algorithms explicitly documented with a local NumPy-compatible RandomState
+backend, including the new randomized/repeated resampling types, follow that
+backend's seeded stream instead. Consult each algorithm's RNG contract.
 
 See [COVERAGE.md](COVERAGE.md) for the complete type list, supported algorithm
 variants, resource limits, omitted parameters and remaining translation work.
@@ -2126,3 +2129,72 @@ score there. The native source formula is retained. Validation explicitly
 certifies MI/expected-MI/entropy agreement and the epsilon-guarded ratio interval
 on those exact degeneracies; other methods and ordinary AMI remain directly
 source checked. See `example/clustering_agreement.f90`.
+
+## Randomized, repeated and exhaustive resampling
+
+`sklearn_model_selection` and the `sklearn` facade export seven additional
+splitter types. The implementations and shared `index_split` type live in
+`sklearn_resampling`, which can also be imported directly. Existing code
+importing `index_split` from `sklearn_model_selection` remains valid. Each
+`split` returns an allocated array of `index_split` values with allocated,
+one-based integer `train` and `test` indices; inputs are unchanged.
+
+| Type | Split call | Count call | Defaults |
+| --- | --- | --- | --- |
+| `shuffle_split` | `split(n_samples)` | `get_n_splits()` | `n_splits=10`, 10% test samples |
+| `stratified_shuffle_split` | `split(labels)` | `get_n_splits()` | `n_splits=10`, 10% test samples |
+| `group_shuffle_split` | `split(groups)` | `get_n_splits()` | `n_splits=5`, 20% test groups |
+| `repeated_kfold` | `split(n_samples)` | `get_n_splits()` | `n_splits=5`, `n_repeats=10` |
+| `repeated_stratified_kfold` | `split(labels)` | `get_n_splits()` | `n_splits=5`, `n_repeats=10` |
+| `leave_p_out` | `split(n_samples)` | `get_n_splits(n_samples)` | `p=2` |
+| `leave_p_groups_out` | `split(groups)` | `get_n_splits(groups)` | `n_groups=2` |
+
+Labels/groups are rank-one default-integer arrays. Sample-count arguments are
+scalar default integers. Randomized/repeated types have `random_state=0` by
+default; nonnegative default-integer seeds produce the NumPy legacy
+RandomState sequence. Each call starts a local stream, repeats retain that
+stream internally, and calls neither seed nor consume Fortran's global RNG.
+Python's `None`/RandomState-object inputs and seeds beyond the positive
+Fortran default-integer range are not supported.
+
+All three shuffle types support real64 `test_size` and `train_size`, with
+`-1` meaning unspecified. Explicit fractions must lie strictly between zero
+and one. Integer `test_count`/`train_count` fields, zero meaning unspecified,
+provide the corresponding sklearn integer-size behavior; an explicitly
+selected count must be positive and smaller than the sample/group population.
+A count and fraction for the same side cannot both be selected. Test
+fractions round upward; train fractions round downward. An unspecified side
+uses the complement; two specified sides can leave samples/groups unused.
+Two unspecified sides select the type's default test fraction. Training sets
+must be nonempty and combined sizes cannot exceed the population.
+
+ShuffleSplit preserves permutation order. StratifiedShuffleSplit uses sorted
+class labels, source approximate hypergeometric quotas with random tie
+breaking, per-class permutations and final train/test permutations. It
+requires at least two samples per class and train/test sizes at least the
+number of classes. These constraints do not guarantee every class occurs in
+every holdout when counts are very imbalanced, matching sklearn. Group sizes
+refer to distinct sorted group labels; selected groups are expanded to sorted
+sample indices, with no group shared between training and testing.
+
+Repeated splitters always shuffle. RepeatedKFold balances fold sizes with
+larger folds first. RepeatedStratifiedKFold encodes classes by first occurrence,
+allocates counts round-robin and shuffles fold assignments within each class.
+A class with fewer than `n_splits` members is allowed when another class has
+at least that many; sklearn emits a warning there, while Fortran returns the
+same indices without a warning channel. Both return sorted training/testing
+indices. Every sample is tested exactly once per repeat.
+
+LeavePOut/LeavePGroupsOut require `1 <= p < n_samples` or
+`1 <= n_groups < number_of_unique_groups`. They enumerate lexicographic
+combinations of sample indices/sorted group labels, then return sorted sample
+indices. `get_n_splits` computes the binomial count without materializing
+folds. Counts beyond the native default-integer range are rejected before
+allocation. All splitters eagerly materialize folds, unlike Python generators;
+exhaustive splitting can consume combinatorial time and memory even when the
+count fits an integer. Allocation failure is an error stop. No arbitrary
+materialization cap is imposed.
+
+See `example/resampling.f90` and `validation/compare_resampling.py` for usage
+and exact source comparisons. These are core sklearn algorithms, with no new
+public extensions or dependencies.

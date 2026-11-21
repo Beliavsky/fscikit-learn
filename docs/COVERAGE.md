@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 167 public estimator, transformer, and splitter types. Each is a
+There are 174 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Sixty-one reference suites additionally check 102,522
+All types have native tests. Sixty-two reference suites additionally check 125,802
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -41,7 +41,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | semi_supervised | `label_propagation`, `label_spreading` | Dense RBF or directed k-neighbor graph, hard/soft clamping, transductive labels and inductive probabilities |
 | tree | `decision_tree_classifier`, `decision_tree_regressor` | Exhaustive CART; Gini/entropy/log-loss classification, squared-error regression; depth/leaf/split/feature controls, normalized impurity importance, leaf indices |
 | ensemble | `random_forest_classifier`, `random_forest_regressor`, `extra_trees_classifier`, `extra_trees_regressor`, `gradient_boosting_regressor`, `gradient_boosting_classifier`, `adaboost_classifier`, `adaboost_regressor`, `isolation_forest` | Bootstrap forests, randomized feature subsets, random-threshold Extra Trees, squared-error residual boosting; binary/multiclass classification boosting with Newton leaf updates; weighted Gini-stump SAMME; AdaBoost.R2 with depth-controlled CART; random isolation trees and path-length anomaly scores |
-| model_selection | `kfold`, `stratified_kfold`, `time_series_split`, `group_kfold`, `leave_one_out`, `leave_one_group_out`, `predefined_split`, `ridge_cv`; `train_test_split`, `shuffle_indices`, `cross_val_score` | Index-based splits; fraction test size; optional stratification; time gap/window; CV for linear-regression family and logistic regression; ridge CV selects negative mean squared error |
+| model_selection | `kfold`, `stratified_kfold`, `time_series_split`, `group_kfold`, `leave_one_out`, `leave_one_group_out`, `predefined_split`, `shuffle_split`, `stratified_shuffle_split`, `group_shuffle_split`, `repeated_kfold`, `repeated_stratified_kfold`, `leave_p_out`, `leave_p_groups_out`, `ridge_cv`; `train_test_split`, `shuffle_indices`, `cross_val_score` | Index-based splits; seeded random/group/stratified holdouts; repeated shuffled folds; exhaustive sample/group combinations; fraction/count size controls; optional stratification; time gap/window; CV for linear-regression family and logistic regression; ridge CV selects negative mean squared error |
 | feature_selection | `variance_threshold`, `select_k_best`, `select_percentile`, `select_fpr`, `select_fdr`, `select_fwe`, `generic_univariate_select`, `sequential_feature_selector`, `rfe`, `rfecv`; `f_classif`, `f_regression`, `chi2`, `r_regression`, `mutual_info_classif`, `mutual_info_regression` | Dense scores and masks; greedy forward/backward CV regression selection; coefficient-based recursive elimination and CV for regression/logistic classification; inverse transform fills dropped columns with zero; new statistical selectors include p-values and multiplicity control |
 | feature_extraction_text | `count_vectorizer`, `tfidf_transformer`, `tfidf_vectorizer` | Dense unigram counts; ASCII alphanumeric/underscore tokens of length 2-128; sorted vocabulary; min/max document frequency, binary counts and max features; smoothed/unsmoothed IDF, sublinear TF, l1/l2/no normalization |
 | dummy | `dummy_classifier`, `dummy_regressor` | Prior/most-frequent/stratified/uniform/constant classification; mean/median/quantile/constant regression |
@@ -3169,3 +3169,52 @@ Inventory: 167 core types, 80 source modules, 82 native test programs,
 groups. Isolated invalid-input inventory is 1,649. The original integration
 comparison is rerun because the existing H/C/V numerical wrappers changed;
 compare_sklearn.py now also accepts a prebuilt executable for profile reuse.
+
+## Randomized, repeated and exhaustive resampling batch
+
+Added seven core splitter types: shuffle_split, stratified_shuffle_split,
+group_shuffle_split, repeated_kfold, repeated_stratified_kfold, leave_p_out,
+and leave_p_groups_out. Both sklearn_model_selection and sklearn export them;
+the new sklearn_resampling backend also owns index_split, whose existing
+model_selection import remains source compatible. All seven expose split and
+get_n_splits. Randomized splits reproduce scalar-seeded NumPy RandomState
+indices via the existing native legacy RNG. Repeated folds keep a single
+stream across repeats and return sorted sample indices. Stratified shuffling
+uses source quota allocation and randomized ties, while repeated stratified
+folds encode classes by order of first appearance. Group holdouts operate on
+distinct sorted labels and prevent group leakage. Exhaustive holdouts follow
+lexicographic combinations with checked binomial counts before allocation.
+
+Shuffle controls support independent integer counts or real64 fractions,
+source ceil/floor/complement rules, and partially unused samples/groups.
+GroupShuffleSplit defaults to five iterations and 20% of groups; other shuffle
+types default to ten iterations and 10% of samples. All random seeds default
+to zero; Python None/object seeds are outside the native API. Repeated
+stratification allows rare classes when another class meets n_splits, returning
+the source indices without Python's warning. Returned folds are eager arrays,
+so exhaustive splitting retains combinatorial memory/time costs. Core API and
+limitations are documented in API.md; no new extension or dependency is added.
+
+The new reference suite checks 23,280 ordered-index/count/identity groups over
+820 fixtures and five seeds (0, 7, 42, 2026, 314159): 20,820 sklearn groups and
+2,460 input-preservation/repeatability groups. Cases include populations
+2--513, unequal class/group sizes, a single class, rare classes, randomly
+ordered negative labels, quota ties, rounded/fractional/count/mixed controls,
+unused samples/groups, uneven repeated folds, up to 127 folds per repeat,
+and exhaustive p=1/2/n-1 combinations. Every native index is compared exactly
+with sklearn's one-based translated output; no tolerance or alternative RNG
+oracle is used. New native tests independently check defaults, source counts,
+no sample/group leakage, balanced class allocations, sorted repeated indices,
+once-per-repeat sample coverage and lexicographic exhaustive combinations.
+
+Forty-five additional isolated diagnostic cases cover invalid samples,
+counts/fractions/conflicts, nonfinite fractions, empty training sets, class
+constraints, group constraints, repeat controls, invalid seeds and split-count
+overflow. A resampling example demonstrates random/repeated/group holdouts.
+Baseline source paths/hashes and retained BSD notices are recorded in
+THIRD_PARTY_NOTICES.md. Original contributions remain MIT.
+Inventory: 174 public core types, 81 source modules, 83 native test programs,
+62 reference suites and 125,802 result groups, plus 28 separate NumPy RNG
+stream groups. Isolated invalid-input inventory is 1,694. Existing numerical
+splitter implementations are unchanged; the original integration comparison
+and group-splitter reference suite are rerun to check the index_split move.

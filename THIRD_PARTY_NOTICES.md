@@ -21,6 +21,7 @@ Reference paths by module:
 
 | Fortran module | scikit-learn reference |
 | --- | --- |
+| resampling | model_selection/_split.py random/group/stratified holdouts, repeated folds and exhaustive combinations; utils/extmath.py _approximate_mode quotas and random tie breaking; existing NumPy legacy RNG backend |
 | cluster_information | metrics/cluster/_supervised.py normalized/adjusted MI averages and signed epsilon denominator, Fowlkes-Mallows, contingency smoothing/order, ordered pair orientation, entropy and homogeneity/completeness/weighted V-measure conventions; _expected_mutual_info_fast.pyx hypergeometric expected MI with log factorials. Native heap-sorted observed cells, int64 counts, cached intrinsic log-gamma and explicit validation; existing H/C/V metric wrappers delegate to this backend |
 | mutual_info | feature_selection/_mutual_info.py Kraskov continuous/continuous and Ross continuous/discrete nearest-neighbor MI, singleton removal, adaptive class-wise neighbor counts, scaling and seeded Gaussian jitter; neighbors/_base.py auto backend rule and metrics/_pairwise_distances_reduction/_argkmin.pyx.tp ordered Euclidean Gram terms; _univariate_selection.py r_regression moment and IEEE contracts; metrics/cluster/_supervised.py mutual_info_score contingency/log/epsilon rules. Native pair selection and integer harmonic digamma differences; source-compatible scalar-seeded legacy Gaussian stream |
 | label_binarization | preprocessing/_label.py LabelBinarizer sorted target classes, binary/query-dependent output width, configurable positive/negative labels, threshold and clipped-argmax inverse contracts; MultiLabelBinarizer discovered/configured class order, duplicate/unknown label handling, dense indicators and inverse set ordering. Native integer ragged label_set representation; explicit diagnostics for unsupported inverse scores and source single-class positive-index failure |
@@ -245,3 +246,26 @@ Electroacoustics 18(4), 1970, pp. 451-455,
 [doi:10.1109/TAU.1970.1162132](https://doi.org/10.1109/TAU.1970.1162132).
 The estimator's sklearn contracts retain the existing BSD-3-Clause notice;
 original project contributions remain MIT.
+
+## Randomized, repeated and exhaustive splitters (BSD)
+
+`src/sklearn_resampling.f90` adapts scikit-learn 1.6.1
+`model_selection/_split.py`: ShuffleSplit, StratifiedShuffleSplit,
+GroupShuffleSplit, RepeatedKFold, RepeatedStratifiedKFold, LeavePOut and
+LeavePGroupsOut; and `utils/extmath.py` `_approximate_mode` class quota and
+random tie-breaking logic. Source files under the installed baseline have
+SHA-256 hashes:
+
+- `_split.py`: `1dc467b09b1b4903c15db0329ee5431e66a7d67c8e44f61ebe70885f33e5ff1b`
+- `extmath.py`: `8b608e1ba07b779dcb9cc063131494c36c64f602e4bbd8ba0dc26a9cad573720`
+
+The existing `sklearn_legacy_rng` backend supplies NumPy-compatible seeded
+integer draws; its existing NumPy notices remain applicable. Native
+Fisher-Yates permutations reproduce RandomState.permutation and the complete
+permutation consumed by RandomState.choice without replacement, including
+full-size tie choices. Combinations use a native lexicographic successor and
+checked int64 binomial recurrence; no itertools code was copied. The shared
+`index_split` declaration moved from `sklearn_model_selection`, which re-exports
+it and the new types. No upstream binary or new dependency is distributed.
+Original contributions retain MIT; adapted portions retain the full upstream
+BSD-3-Clause terms in `LICENSES/scikit-learn-COPYING`.

@@ -2746,3 +2746,70 @@ Fortran line lengths/whitespace, unique and complete diagnostic registration,
 report/inventory totals, source hashes, retained licenses and git diff checks.
 Other reference suites contribute their previously recorded results to the
 aggregate inventory; they were not all rerun for this batch.
+
+## Randomized, repeated and exhaustive resampling batch
+
+Added seven core splitter types: shuffle_split, stratified_shuffle_split,
+group_shuffle_split, repeated_kfold, repeated_stratified_kfold, leave_p_out,
+and leave_p_groups_out. Both sklearn_model_selection and sklearn export them;
+the new sklearn_resampling backend also owns index_split, whose existing
+model_selection import remains source compatible. All seven expose split and
+get_n_splits. Randomized splits reproduce scalar-seeded NumPy RandomState
+indices via the existing native legacy RNG. Repeated folds keep a single
+stream across repeats and return sorted sample indices. Stratified shuffling
+uses source quota allocation and randomized ties, while repeated stratified
+folds encode classes by order of first appearance. Group holdouts operate on
+distinct sorted labels and prevent group leakage. Exhaustive holdouts follow
+lexicographic combinations with checked binomial counts before allocation.
+
+Shuffle controls support independent integer counts or real64 fractions,
+source ceil/floor/complement rules, and partially unused samples/groups.
+GroupShuffleSplit defaults to five iterations and 20% of groups; other shuffle
+types default to ten iterations and 10% of samples. All random seeds default
+to zero; Python None/object seeds are outside the native API. Repeated
+stratification allows rare classes when another class meets n_splits, returning
+the source indices without Python's warning. Returned folds are eager arrays,
+so exhaustive splitting retains combinatorial memory/time costs. Core API and
+limitations are documented in API.md; no new extension or dependency is added.
+
+The new reference suite checks 23,280 ordered-index/count/identity groups over
+820 fixtures and five seeds (0, 7, 42, 2026, 314159): 20,820 sklearn groups and
+2,460 input-preservation/repeatability groups. Cases include populations
+2--513, unequal class/group sizes, a single class, rare classes, randomly
+ordered negative labels, quota ties, rounded/fractional/count/mixed controls,
+unused samples/groups, uneven repeated folds, up to 127 folds per repeat,
+and exhaustive p=1/2/n-1 combinations. Every native index is compared exactly
+with sklearn's one-based translated output; no tolerance or alternative RNG
+oracle is used. New native tests independently check defaults, source counts,
+no sample/group leakage, balanced class allocations, sorted repeated indices,
+once-per-repeat sample coverage and lexicographic exhaustive combinations.
+
+Forty-five additional isolated diagnostic cases cover invalid samples,
+counts/fractions/conflicts, nonfinite fractions, empty training sets, class
+constraints, group constraints, repeat controls, invalid seeds and split-count
+overflow. A resampling example demonstrates random/repeated/group holdouts.
+Baseline source paths/hashes and retained BSD notices are recorded in
+THIRD_PARTY_NOTICES.md. Original contributions remain MIT.
+Inventory: 174 public core types, 81 source modules, 83 native test programs,
+62 reference suites and 125,802 result groups, plus 28 separate NumPy RNG
+stream groups. Isolated invalid-input inventory is 1,694. Existing numerical
+splitter implementations are unchanged; the original integration comparison
+and group-splitter reference suite are rerun to check the index_split move.
+
+Completed validation: all 83 native test programs passed both checked
+(-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow) and release builds.
+Each profile passed all 23,280 new result groups across 820 fixtures:
+20,820 exact sklearn index/count comparisons and 2,460 input-preservation or
+repeatability checks. The original 192-group integration suite and all 362
+existing group-splitter result groups also passed. All 1,694 isolated
+invalid-input cases passed. Two empty-group rejection expectations initially
+named the outer splitter diagnostic, while the shared label helper correctly
+reported 'labels must be nonempty'; the expectations were corrected before
+the full diagnostic rerun passed. Numerical sources did not change after the
+checked/release tests. The checked resampling example passed, reporting six
+repeated stratified folds and six exhaustive two-group holdouts, with first
+held-out sample indices [4,5,6,7]. Final audits passed for Python syntax,
+Fortran formatting, unique/complete diagnostic registration, exact oracle and
+inventory totals, upstream source hashes, retained licenses and git diff
+checks. Other reference suites retain previously recorded results in the
+aggregate inventory and were not all rerun for this batch.

@@ -1,15 +1,15 @@
 module sklearn_model_selection
   use sklearn_common
+  use sklearn_resampling
   use sklearn_linear_model
   use sklearn_metrics, only: mean_squared_error
   implicit none
   private
   public :: train_test_split,shuffle_indices,kfold,stratified_kfold,time_series_split,index_split
   public :: group_kfold,leave_one_out,leave_one_group_out,predefined_split
+  public :: shuffle_split,stratified_shuffle_split,group_shuffle_split
+  public :: repeated_kfold,repeated_stratified_kfold,leave_p_out,leave_p_groups_out
   public :: cross_val_score,ridge_cv
-  type :: index_split
-    integer, allocatable :: train(:),test(:)
-  end type
   type :: kfold
     integer :: n_splits=5,random_state=0
     logical :: shuffle=.false.
