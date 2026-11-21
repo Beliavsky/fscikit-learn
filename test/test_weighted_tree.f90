@@ -19,6 +19,8 @@ program test_weighted_tree
   type(decision_tree_classifier) :: clf,copy
   type(decision_tree_regressor) :: reg
   type(extra_tree_classifier) :: extra
+  type(decision_tree_classifier) :: close_clf
+  type(extra_tree_regressor) :: close_extra
   type(extra_tree_regressor) :: extra_reg
   real(dp) :: x(4,2),w(4),query(1,2),target(4)
   real(dp), allocatable :: p(:,:),prediction(:)
@@ -88,6 +90,11 @@ program test_weighted_tree
   call require(abs(extra_reg%score(x,[0._dp,0._dp,1._dp,1._dp],w)+1)<1.e-14_dp,'tree weighted R2')
   w=0; call voter_reg%fit(x,target,bases,w); prediction=voter_reg%predict(x)
   call require(all(ieee_is_nan(prediction)),'voting preserves undefined weighted regression predictions')
+  close_clf%max_depth=1; close_extra%max_depth=1
+  call close_clf%fit(reshape([0._dp,5.e-8_dp],[2,1]),[0,1])
+  call close_extra%fit(reshape([0._dp,5.e-8_dp],[2,1]),[0._dp,1._dp])
+  call require(close_clf%node_count_==3.and.close_extra%node_count_==3, &
+    'tested sklearn binary keeps distinct float32 values below 1e-7 distinct')
   print *, 'weighted and standalone extra trees: PASS'
 contains
   subroutine check_classifier_mass(model)

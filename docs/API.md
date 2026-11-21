@@ -3180,7 +3180,8 @@ singleton R2 returns quiet NaN. Score weight sums must be nonzero when an
 average is required.
 
 Decision trees and standalone ExtraTrees use float32 feature
-geometry, sklearn's 1e-7 split grouping threshold and seeded legacy NumPy /
+geometry, the observed zero split tolerance of the installed sklearn 1.6.1
+binary, and seeded legacy NumPy /
 xorshift feature selection. Training features must be finite and within
 float32 range. Queries may contain NaNs: each missing feature follows the
 larger active-row child, with ties going right, matching a source tree trained
@@ -3675,3 +3676,66 @@ Learned metadata includes sorted `classes_`, `n_features_in_`, `estimator_`,
 curve, while `fold_thresholds_(fold,candidate)` and
 `fold_scores_(fold,candidate)` store fold curves. Refitting with storage disabled
 clears those optional arrays. See `example/threshold_tuning.f90`.
+
+## RandomTreesEmbedding
+
+`random_trees_embedding` is exported by `sklearn_tree_embedding`,
+`sklearn_ensemble`, and `sklearn`. `fit(x,sample_weight)` and
+`fit_transform(x,sample_weight)` draw a seeded uniform random target, fit
+ExtraTree regressors with one sampled feature per node, and fit a dense
+`one_hot_encoder_` to their leaf assignments. `transform` returns real64 binary
+codes, with one active column per fitted tree. This corresponds to source
+`sparse_output=False`; sparse storage is not implemented.
+
+Controls are `n_estimators=100`, `max_depth=5`, `min_samples_split=2`,
+`min_samples_leaf=1`, `min_impurity_decrease=0`, `random_state=0`, and
+`warm_start=.false.`. Depth -1 means unbounded; depth zero retains the native
+root-only convention. Sample counts are integers and impurity decrease is
+finite/nonnegative. Finite sample weights, including zero/signed weights,
+follow the underlying tree rules. Fits require finite float32-representable
+features. Queries may contain NaNs, using learned missing routing in `apply`.
+
+Warm fits preserve prefix trees and skip their seed draws before appending.
+Changing controls affects newly added trees. Shrinking the forest or changing
+feature width during a warm fit is rejected. A no-growth fit keeps all trees
+but rebuilds the encoder from the current training rows. Consequently, an old
+leaf absent from that dataset becomes an unknown category on later transform,
+as in sklearn. The encoder's unknown-category policy resets on every fit.
+
+`apply(x)` returns 1-based leaf IDs, and numeric `one_hot_encoder_%categories_`
+use the same IDs. `get_feature_names_out()` returns source-style
+`randomtreesembedding_TREE_LEAF` names using zero-based tree/node numbers.
+Optional input names are accepted for width validation. `decision_path(x,ptr)`
+returns a dense integer indicator; optional allocatable `ptr(:)` and learned
+`node_offsets_` are zero-based cumulative node counts. In sklearn 1.6.1,
+NaNs go right in dense `decision_path`, even if `apply` goes left using learned
+missing routing. This source distinction is preserved and tested.
+
+Learned metadata includes `estimators_`, `estimator_seeds_`, `random_target_`,
+`n_features_in_`, `n_features_out_`, `n_estimators_`, `n_samples_fit_`,
+`n_added_`, `n_outputs_=1`, `node_offsets_`, and `feature_importances_`.
+Importances average non-root-only trees and normalize, or return zeros when
+all trees are roots. Degenerate signed weights may produce quiet nonfinite
+importances, as in source. `estimators_samples()` returns every current fit
+row for every tree. Like the source property, it reflects the latest row count
+even when warm prefix trees were trained on earlier data.
+
+## KernelCenterer
+
+`kernel_centerer` is exported by `sklearn_kernel_centering`,
+`sklearn_preprocessing`, and `sklearn`. `fit(kernel)` accepts a finite square
+matrix; symmetry or positive semidefiniteness is not required. It stores
+`k_fit_rows_` (training column means), `k_fit_all_` (their mean), and
+`n_features_in_`. `transform(kernel)` accepts rectangular query-by-training
+kernels and subtracts training column means and query row means, then adds
+the training grand mean. `fit_transform` combines those steps.
+
+Transformations allocate new arrays and preserve the caller's input.
+`get_feature_names_out()` returns `kernelcenterer0`, `kernelcenterer1`, etc.,
+with optional input-name width validation. Reduction order follows the tested
+C-contiguous sklearn/NumPy reference, including NumPy's blocked pairwise
+contiguous sums. IEEE helpers retain source NaN/Inf results if finite inputs
+overflow intermediate sums/subtractions, with floating-point traps enabled.
+Different NumPy input layouts may differ in reduction roundoff.
+See `example/random_feature_maps.f90` for both transformers in a classifier
+and centered-kernel workflow.

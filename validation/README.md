@@ -3625,3 +3625,89 @@ The public example matches an independent sklearn fit: threshold
 0.933333 for both default and tuned prediction. These synthetic-fixture values
 are not a general performance guarantee. Validation used GNU Fortran 17 on
 Windows and installed sklearn 1.6.1.
+
+## Random tree embeddings and kernel centering (2026-11-21)
+
+Added RandomTreesEmbedding and KernelCenterer counterparts, with native tests,
+source comparison drivers, a combined classifier/kernel example and retained
+BSD attribution in the MIT project. Embeddings support dense leaf encodings,
+weighted randomized trees, exact scalar-seeded NumPy random targets/tree seeds,
+warm growth and no-growth encoder refits, feature names, sample metadata,
+apply and dense decision paths. Centering supports arbitrary square kernels,
+rectangular query kernels, copies/refits and source-order arithmetic, including
+quiet nonfinite outputs from finite inputs that overflow intermediate operations.
+
+A near-constant float32 fixture exposed a source/binary discrepancy. The local
+and release-tag Cython sources declare FEATURE_THRESHOLD=1e-7, but the installed
+1.6.1 extension exports 0.0. Read-only Cython capsule inspection in fresh Python
+processes and two-point DecisionTree/ExtraTree fits both confirmed zero runtime
+tolerance. Native CART/ExtraTree grouping now keeps distinct float32 values
+distinct, matching this installed reference. `sklearn_tree_runtime.py` records
+the capsule ABI/value and SHA-256 of four loaded tree binaries; it does not
+modify the installation. Reports retain source hashes as well. This is an
+observation about the tested installation, not a claim about every 1.6.1 build.
+
+The same source sweep found sklearn 1.6.1 decision_path sends NaNs right while
+apply uses learned missing routing. The new path method reproduces that
+distinction rather than reconstructing paths from apply's leaf IDs. No source
+fixture was removed and structural comparisons remain exact.
+
+Checked new reference gates passed 2,175 embedding groups across 115 fixtures
+and 145 fits, and 6,240 kernel-centering groups across 520 fixtures. Five seeds
+cover staged growth, changed seeds/data/controls, no-growth encoder changes,
+non-warm width resets, signed/zero/tiny/large weights, all-constant features,
+near-constant float32 data, unbounded depth, a single sample, 100 trees and
+130 input features. Embedding matrices, leaf IDs, paths, seeds, names and all
+structural metadata are exact; importances use rtol=3e-10/atol=3e-12.
+Uniform random targets exactly match the NumPy protocol.
+
+Kernel fixtures include linear/RBF/nonsymmetric kernels, large offsets,
+cancellation, constants, signed zero and overflow. Sizes around 8 and 128
+exercise NumPy's eight-accumulator/recursive pairwise boundaries. Reference
+arrays use C layout; ordinary numeric tolerance is rtol=3e-13/atol=3e-13,
+with explicit NaN/Inf comparison and exact finite-zero sign bits. The pinned
+NumPy 2.2.6 summation source URL/hash is retained; validation needs no network.
+All new groups use direct sklearn/NumPy or input identities, with no conditional
+replacement oracle or widened tolerance.
+
+The expanded tree regression suite passed 9,932 groups across 768 fixtures,
+including 48 new below-1e-7 geometry fixtures (624 added groups). Existing
+threshold, 192-group basic and 510-group GradientBoostingClassifier gates are
+also run against the corrected kernel. The new isolated rejection driver
+passed 44 cases. Full native and diagnostic profile gates follow below.
+
+Current inventory: 200 core types, 105 source modules, 107 native programs and
+86 core reference suites retaining 368,883 groups, plus separate RNG checks.
+The three rejection registries contain 2,549 cases. Earlier source suites
+outside the stated regression gates are retained but are not all rerun here.
+No public algorithm outside sklearn or external runtime dependency was added.
+
+Final checked and optimized gates passed all 107 native programs and the public
+`random_feature_maps` fpm example. New suites passed 2,175 embedding and 6,240
+centering groups per profile; expanded tree and existing threshold suites
+passed 9,932 and 10,535 groups respectively. Checked/optimized fixture, oracle,
+warning, source hash, binary provenance and certificate records agree.
+The new suites have no conditional groups: embedding has 2,030 sklearn groups
+and 145 exact NumPy RNG groups; centering has 5,720 sklearn groups and 520 input
+identities. Ten source no-growth warnings and 470 expected centering arithmetic
+warnings are retained. The older tree/threshold conditional checks keep their
+existing recorded scope.
+
+All 2,549 unique isolated invalid-input cases passed against the updated
+checked library. Final audits verified source/binary hashes, strict JSON,
+Python syntax, Fortran formatting, module/test inventory and fresh test objects
+for both profiles. Production Fortran remained fixed through these gates.
+The example matches independent sklearn output: 39 leaf features, held-out
+accuracy 0.95, centered-kernel column residual 9.325873406851315e-15 and a
+40-by-80 query kernel. These synthetic-fixture values are not a general
+performance guarantee. Validation used GNU Fortran 17 on Windows and the
+installed sklearn 1.6.1 / NumPy 2.2.6 baseline.
+
+Run `python validation/compare_tree_embedding.py` and
+`python validation/compare_kernel_centering.py`; add `--profile release` for
+optimized checks or `--executable` for an existing matching driver. Source
+reports/inputs/outputs are profile-specific. `check_feature_maps_invalid_inputs.py`
+adds 44 rejections to the existing 2,447 and threshold 58 cases. Rejection mains
+omit floating-point traps to inspect nonfinite-input diagnostics; valid-input
+native tests use invalid/divide-by-zero/overflow traps. Source and binary
+provenance is read-only, and future validation does not fetch network data.

@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 198 public estimator, transformer, and splitter types. Each is a
+There are 200 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Eighty-four reference suites additionally check 359,844
+All types have native tests. Eighty-six reference suites additionally check 368,883
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -24,10 +24,11 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | Module (`sklearn_` prefix) | Public types and functions | Scope and numerical choices |
 | --- | --- | --- |
 | threshold | `fixed_threshold_classifier`, `tuned_threshold_classifier_cv` | Binary probability/margin cutoffs; weighted fold score curves, interpolation and first-best threshold selection; holdout, custom folds and prefit validation |
+| tree_embedding | `random_trees_embedding` (also exported by `ensemble`) | Seeded totally random regression trees, dense one-hot leaf codes, warm starts, weights, leaf assignments and dense decision paths |
 | multiclass | `one_vs_rest_classifier`, `one_vs_one_classifier`, `output_code_classifier` | Dense independent binary reductions; supported native classifier and regressor bases; constant heads; weighted fitting where the base supports it; Gaussian NB/SGD classification streaming for OVR/OVO; seeded legacy NumPy codebooks |
 | inspection | `permutation_importance`, `permutation_importance_multi`, `partial_dependence` | Dense callback-based permutation importance and brute partial dependence/ICE; seeded subsampling/shuffles; weighted averages; categorical and Cunnane percentile grids; numeric multiple-output responses |
 | multioutput | `multi_output_regressor`, `multi_output_classifier`, `regressor_chain`, `classifier_chain` | Independent fitted base models per response column; supported native linear/SGD, NB, neighbors and tree families; ragged class probabilities; SGD/Gaussian NB streaming; native base weighting limits apply |
-| preprocessing | `ordinal_encoder`, `target_encoder`, `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `knn_imputer`, `missing_indicator`, `spline_transformer`, `label_encoder`, `one_hot_encoder`, `label_binarizer`, `multi_label_binarizer`, `power_transformer`, `kbins_discretizer`, `quantile_transformer`; `normalize`, `binarize`, `polynomial_features` | Ordinal category codes and infrequent grouping; cross-fitted target means; population variance; linear percentile interpolation; NaN imputation with mean/median/most-frequent/constant; numeric categories; empirical uniform/normal quantile transforms; dense polynomial terms through degree 12 with optional interactions; B-spline features and extrapolation |
+| preprocessing | `kernel_centerer`, `ordinal_encoder`, `target_encoder`, `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `knn_imputer`, `missing_indicator`, `spline_transformer`, `label_encoder`, `one_hot_encoder`, `label_binarizer`, `multi_label_binarizer`, `power_transformer`, `kbins_discretizer`, `quantile_transformer`; `normalize`, `binarize`, `polynomial_features` | Ordinal category codes and infrequent grouping; cross-fitted target means; population variance; linear percentile interpolation; NaN imputation with mean/median/most-frequent/constant; numeric categories; empirical uniform/normal quantile transforms; dense polynomial terms through degree 12 with optional interactions; B-spline features and extrapolation |
 | linear_model | `linear_regression`, `lars`, `lasso_lars`, `lars_cv`, `lasso_lars_cv`, `lasso_lars_ic`, `ridge`, `ridge_classifier`, `ridge_classifier_cv`, `multi_task_elastic_net`, `multi_task_lasso`, `multi_task_elastic_net_cv`, `multi_task_lasso_cv`, `lasso`, `elastic_net`, `lasso_cv`, `elastic_net_cv`, `logistic_regression`, `logistic_regression_cv`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `sgd_regressor`, `sgd_classifier`, `sgd_one_class_svm`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `orthogonal_matching_pursuit_cv`, `huber_regressor`, `quantile_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; least-angle/Lasso homotopy paths with CV and AIC/BIC selection; coordinate descent with K-fold alpha/l1-ratio selection; weighted logistic Newton solver with raw-score prediction; perceptron; PA-I/II classification/regression with averaging; streaming stochastic-gradient regression/classification and one-class detection; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; weighted L1-regularized quantile regression; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb`, `categorical_nb` | Weighted/streaming Gaussian moments, empirical/fixed priors and variance smoothing; strictly positive scalar alpha; Bernoulli threshold; optional complement normalization |
 | neighbors | `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with optional shrinkage and uniform priors; Euclidean kernel density |
@@ -3849,7 +3850,8 @@ singleton R2 returns quiet NaN. Score weight sums must be nonzero when an
 average is required.
 
 Decision trees and standalone ExtraTrees use float32 feature
-geometry, sklearn's 1e-7 split grouping threshold and seeded legacy NumPy /
+geometry, the observed zero split tolerance of the installed sklearn 1.6.1
+binary, and seeded legacy NumPy /
 xorshift feature selection. Training features must be finite and within
 float32 range. Queries may contain NaNs: each missing feature follows the
 larger active-row child, with ties going right, matching a source tree trained
@@ -4344,3 +4346,66 @@ Learned metadata includes sorted `classes_`, `n_features_in_`, `estimator_`,
 curve, while `fold_thresholds_(fold,candidate)` and
 `fold_scores_(fold,candidate)` store fold curves. Refitting with storage disabled
 clears those optional arrays. See `example/threshold_tuning.f90`.
+
+## RandomTreesEmbedding
+
+`random_trees_embedding` is exported by `sklearn_tree_embedding`,
+`sklearn_ensemble`, and `sklearn`. `fit(x,sample_weight)` and
+`fit_transform(x,sample_weight)` draw a seeded uniform random target, fit
+ExtraTree regressors with one sampled feature per node, and fit a dense
+`one_hot_encoder_` to their leaf assignments. `transform` returns real64 binary
+codes, with one active column per fitted tree. This corresponds to source
+`sparse_output=False`; sparse storage is not implemented.
+
+Controls are `n_estimators=100`, `max_depth=5`, `min_samples_split=2`,
+`min_samples_leaf=1`, `min_impurity_decrease=0`, `random_state=0`, and
+`warm_start=.false.`. Depth -1 means unbounded; depth zero retains the native
+root-only convention. Sample counts are integers and impurity decrease is
+finite/nonnegative. Finite sample weights, including zero/signed weights,
+follow the underlying tree rules. Fits require finite float32-representable
+features. Queries may contain NaNs, using learned missing routing in `apply`.
+
+Warm fits preserve prefix trees and skip their seed draws before appending.
+Changing controls affects newly added trees. Shrinking the forest or changing
+feature width during a warm fit is rejected. A no-growth fit keeps all trees
+but rebuilds the encoder from the current training rows. Consequently, an old
+leaf absent from that dataset becomes an unknown category on later transform,
+as in sklearn. The encoder's unknown-category policy resets on every fit.
+
+`apply(x)` returns 1-based leaf IDs, and numeric `one_hot_encoder_%categories_`
+use the same IDs. `get_feature_names_out()` returns source-style
+`randomtreesembedding_TREE_LEAF` names using zero-based tree/node numbers.
+Optional input names are accepted for width validation. `decision_path(x,ptr)`
+returns a dense integer indicator; optional allocatable `ptr(:)` and learned
+`node_offsets_` are zero-based cumulative node counts. In sklearn 1.6.1,
+NaNs go right in dense `decision_path`, even if `apply` goes left using learned
+missing routing. This source distinction is preserved and tested.
+
+Learned metadata includes `estimators_`, `estimator_seeds_`, `random_target_`,
+`n_features_in_`, `n_features_out_`, `n_estimators_`, `n_samples_fit_`,
+`n_added_`, `n_outputs_=1`, `node_offsets_`, and `feature_importances_`.
+Importances average non-root-only trees and normalize, or return zeros when
+all trees are roots. Degenerate signed weights may produce quiet nonfinite
+importances, as in source. `estimators_samples()` returns every current fit
+row for every tree. Like the source property, it reflects the latest row count
+even when warm prefix trees were trained on earlier data.
+
+## KernelCenterer
+
+`kernel_centerer` is exported by `sklearn_kernel_centering`,
+`sklearn_preprocessing`, and `sklearn`. `fit(kernel)` accepts a finite square
+matrix; symmetry or positive semidefiniteness is not required. It stores
+`k_fit_rows_` (training column means), `k_fit_all_` (their mean), and
+`n_features_in_`. `transform(kernel)` accepts rectangular query-by-training
+kernels and subtracts training column means and query row means, then adds
+the training grand mean. `fit_transform` combines those steps.
+
+Transformations allocate new arrays and preserve the caller's input.
+`get_feature_names_out()` returns `kernelcenterer0`, `kernelcenterer1`, etc.,
+with optional input-name width validation. Reduction order follows the tested
+C-contiguous sklearn/NumPy reference, including NumPy's blocked pairwise
+contiguous sums. IEEE helpers retain source NaN/Inf results if finite inputs
+overflow intermediate sums/subtractions, with floating-point traps enabled.
+Different NumPy input layouts may differ in reduction roundoff.
+See `example/random_feature_maps.f90` for both transformers in a classifier
+and centered-kernel workflow.

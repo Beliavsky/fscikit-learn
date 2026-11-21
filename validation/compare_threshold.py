@@ -12,6 +12,7 @@ os.environ.setdefault('OMP_NUM_THREADS','2')
 os.environ.setdefault('OPENBLAS_NUM_THREADS','2')
 import numpy as np
 import sklearn
+from sklearn_tree_runtime import tree_runtime_provenance
 from sklearn import config_context
 from sklearn.base import clone
 from sklearn.linear_model import LogisticRegression,LogisticRegressionCV,RidgeClassifier
@@ -96,6 +97,8 @@ def main():
     parser.add_argument('--profile',choices=['checked','release'],default='checked')
     parser.add_argument('--seeds',type=int,nargs='+',default=[0,7,42,2026,314159]);args=parser.parse_args()
     RESULTS.mkdir(exist_ok=True);exe=args.executable.resolve() if args.executable else resolve(args.profile)
+    runtime=tree_runtime_provenance()
+    assert runtime['feature_threshold']==0., 'native tree baseline requires runtime FEATURE_THRESHOLD=0'
     checks=[];source_warnings=[];fixture_controls=[];certificates=[];fixtures=0
     def run(seed,case,x,y,query,truth,kind,method,scoring,mode,refit,positive_option,explicit,weighted,store=True):
         nonlocal fixtures
@@ -279,7 +282,7 @@ def main():
            root/'metrics/_scorer.py',root/'metrics/_classification.py',root/'utils/_response.py']
     paths+=list({Path(inspect.getfile(type(base_model(k)))) for k in range(1,8)})
     report=dict(sklearn=sklearn.__version__,profile=args.profile,fixtures=fixtures,seeds=args.seeds,checks=checks,
-                source_warnings=source_warnings,tree_boundary_certificates=certificates,fixture_controls=fixture_controls,source_sha256={str(p.relative_to(root)):hashlib.sha256(p.read_bytes()).hexdigest()
+                source_warnings=source_warnings,tree_runtime=runtime,tree_boundary_certificates=certificates,fixture_controls=fixture_controls,source_sha256={str(p.relative_to(root)):hashlib.sha256(p.read_bytes()).hexdigest()
                                                              for p in sorted(set(paths))})
     (RESULTS/f'threshold_{args.profile}.json').write_text(json.dumps(report,indent=2,allow_nan=False)+'\n')
     print(f'{len(checks)} threshold groups across {fixtures} fixtures passed')

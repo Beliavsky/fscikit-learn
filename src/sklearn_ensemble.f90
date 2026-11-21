@@ -1,4 +1,5 @@
 module sklearn_ensemble
+  use sklearn_tree_embedding, only: random_trees_embedding
   use sklearn_stacking, only: stacking_classifier,stacking_regressor,stacking_estimator
   use sklearn_bagging, only: bagging_classifier,bagging_regressor
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
@@ -12,6 +13,7 @@ module sklearn_ensemble
   use sklearn_metrics, only: accuracy_score,r2_score
   implicit none
   private
+  public :: random_trees_embedding
   public :: voting_classifier,voting_regressor,voting_estimator
   public :: bagging_classifier,bagging_regressor
   public :: stacking_classifier,stacking_regressor,stacking_estimator

@@ -12,6 +12,7 @@ import subprocess
 import warnings
 import numpy as np
 import sklearn
+from sklearn_tree_runtime import tree_runtime_provenance
 from sklearn.tree import (DecisionTreeClassifier, DecisionTreeRegressor,
                           ExtraTreeClassifier, ExtraTreeRegressor)
 
@@ -205,9 +206,13 @@ def fixtures():
                 if mode < 2 and case in [0,3,4,5,6,7]:
                     yield (seed, mode, case+100, x, q, y, np.ones(n), depth, leaf, split,
                            nf, 0, criterion, decrease)
+            yield (seed, mode, 200, np.array([[0.],[5.e-8]]), np.array([[0.],[2.5e-8],[5.e-8],[np.nan]]),
+                   np.array([-4.,3.]) if mode%2==0 else np.array([0.,1.]), np.ones(2), 1,1,2,0,0,0,0.)
 
 
 def run(exe, profile):
+    runtime=tree_runtime_provenance()
+    assert runtime["feature_threshold"]==0., "native tree baseline requires runtime FEATURE_THRESHOLD=0"
     groups = 0
     cases = 0
     pure_topology_cases = 0
@@ -343,6 +348,7 @@ def run(exe, profile):
                   cases=cases, groups=groups, checks=checks,
                   pure_topology_cases=pure_topology_cases,
                   certificates=certificates,
+                  tree_runtime=runtime,
                   note='Source comparisons plus recorded source-conditioned split/response and pure-subtree certificates.')
     source_root = Path(sklearn.__file__).parent
     report['source_sha256'] = {name: hashlib.sha256((source_root/name).read_bytes()).hexdigest()

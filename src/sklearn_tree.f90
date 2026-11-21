@@ -206,7 +206,10 @@ contains
         end if
         fj=fj+found; f=all_features(fj+1)
         ordered=ids(argsort(z(ids,f))); low=z(ordered(1),f); high=z(ordered(n),f)
-        if(high<=real(real(low,real32)+1.e-7_real32,dp)) then
+        ! The tested sklearn 1.6.1 binary exports FEATURE_THRESHOLD=0.0,
+        ! despite the 1e-7 initializer in its .pxd source. Keep distinct
+        ! float32 values distinct, matching the observed binary behavior.
+        if(high<=low) then
           call swap(all_features(fj+1),all_features(nconstant+1)); found=found+1; nconstant=nconstant+1; cycle
         end if
         fi=fi-1; call swap(all_features(fi+1),all_features(fj+1))
@@ -219,7 +222,7 @@ contains
         do cut=first,last
           if(cut<self%min_samples_leaf.or.n-cut<self%min_samples_leaf) cycle
           if(.not.self%random_thresholds) then
-            if(z(ordered(cut+1),f)<=real(real(z(ordered(cut),f),real32)+1.e-7_real32,dp)) cycle
+            if(z(ordered(cut+1),f)<=z(ordered(cut),f)) cycle
             threshold=z(ordered(cut),f)/2+z(ordered(cut+1),f)/2
             if(threshold==z(ordered(cut+1),f)) threshold=z(ordered(cut),f)
           end if

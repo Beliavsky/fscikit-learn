@@ -590,3 +590,23 @@ its prior retained attribution continues to apply. Reference reports record
 hashes of consulted installed source files. Original Fortran interfaces,
 callbacks and validation code remain MIT. No external repository or runtime
 dependency was imported.
+
+### RandomTreesEmbedding and KernelCenterer
+
+`src/sklearn_tree_embedding.f90` adapts sklearn 1.6.1 `ensemble/_forest.py`,
+`ensemble/_base.py`, and `preprocessing/_encoders.py`, reusing the retained
+sklearn-derived ExtraTree kernel and NumPy-compatible RNG. The source BSD notice
+remains in `LICENSES/scikit-learn-COPYING`.
+
+`src/sklearn_kernel_centering.f90` adapts sklearn `preprocessing/_data.py` and
+NumPy 2.2.6's pairwise summation ordering from
+[numpy/_core/src/umath/loops_utils.h.src](https://github.com/numpy/numpy/blob/v2.2.6/numpy/_core/src/umath/loops_utils.h.src).
+NumPy copyright (c) 2005-2024 NumPy Developers; its BSD notice is retained in
+`LICENSES/numpy-COPYING`. Consulted file SHA-256:
+`ed85d5b99f0b457cb7a316bf8c4acb884034bbbb81a89c5cedb62be80bf7c4f8`.
+
+The tested sklearn tree binary exports FEATURE_THRESHOLD=0 despite its .pxd
+initializer of 1e-7. The native grouping now follows the observed runtime;
+validation records source and binary hashes and reads the exported capsule
+without modifying it. Original interfaces and validation remain MIT.
+No external runtime dependency was added.
