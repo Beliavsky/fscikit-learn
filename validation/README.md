@@ -3432,3 +3432,43 @@ instead of a runtime bounds error. Successful inverses compare the exact numeric
 result and the source None/infrequent tags. Source inverse receives a copy of
 its input; the native driver additionally verifies that its own input is
 preserved. Source hashes cover preprocessing/_encoders.py and utils/_encode.py.
+
+
+## GraphicalLassoCV reference checks
+
+`python validation/compare_graphical_cv.py` resolves the checked fpm driver;
+add `--profile release` or supply `--executable` for a built matching driver.
+Per-profile input/output files and reports are retained in validation/results.
+Five seeds cover refined and explicit grids, duplicates and unsorted alphas,
+centered/uncentered final fits, capped and zero iterations, custom folds with
+ordering/repeats/overlap, a single fold, all-candidate failures, n_samples=2,
+exactly diagonal automatic grids, scaling and more features than training rows.
+The driver emits complete CV arrays, exact fold indices, endpoint matrices,
+final covariance/precision/location/history and prediction scores/distances.
+
+Ordinary numeric tolerance is rtol=3e-8 and atol=3e-8, matching the existing
+standalone GraphicalLasso comparison. Fold indices, feature/iteration counts
+and convergence flags are exact. Source warnings are retained; NaN/negative
+infinity results are compared explicitly. Reports record hashes for
+_graph_lasso.py, _empirical_covariance.py, _split.py and _cd_fast.pyx.
+
+Endpoint conditioning checks apply only when the appended empirical score or
+precision fails ordinary comparison. Covariance/test moments must agree with
+source at rtol=3e-13 and atol=3e-14. For a full-rank empirical covariance, both
+inverses must be backward stable, and their difference must satisfy the inverse
+perturbation identity including the two residual terms. The endpoint likelihood
+then uses sklearn on the verified native precision and test moment. For rank
+deficiency, all four Moore-Penrose equations and the source precision comparison
+must pass and numerical rank must agree. A partial-pivot growth/Weyl singular
+value bound limits the log determinant when roundoff changes its sign near zero.
+The finite/-infinity endpoint score and its recomputed aggregates are retained
+with a source_conditioned_empirical_endpoint oracle and detailed certificate.
+No positive-alpha score, selected alpha or final model is replaced by such a
+certificate. Nonfinite certificate scalars use strings in strict JSON reports.
+
+The existing compare_graphical_lasso.py remains a regression gate for the shared
+CD kernel. The sole change to that kernel is source's zero-Gram-diagonal skip,
+needed for constant/one-row CV folds. Native tests independently cover inverse
+consistency, final standalone equivalence, refined-grid shape, exact ties,
+refitting/copying, zero-iteration conventions and restoration of IEEE halting
+modes and flags after failed/NaN-grid paths.

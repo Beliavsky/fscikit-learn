@@ -3929,3 +3929,80 @@ optimized builds, the public example matched sklearn, and the new source suite
 passed 16,214 groups in each profile. Existing numerical implementations were
 unchanged; the 80-suite reference inventory includes retained earlier results
 and does not imply that all older source suites were rerun in this batch.
+
+
+## Refined sparse-covariance cross-validation
+
+Added graphical_lasso_cv to sklearn_covariance and the sklearn facade, using
+the existing coordinate-descent kernel and a source-compatible warm-start path.
+Implemented automatic/refined and explicit grids, stable smaller-alpha tie
+selection, exact default/custom split handling, failed-candidate recovery,
+independent-centered path scores, full-data assume_centered semantics and the
+separate unselected empirical endpoint. Learned endpoint matrices are native
+inspection data, not new estimator/extension types. The normal scalar
+GraphicalLasso fit is unchanged; its shared CD kernel now skips zero diagonal
+Gram entries exactly as the source does.
+
+Source probes confirmed single-point grids fail upstream, scalar zero-count
+grids fail upstream, and an exactly diagonal covariance can produce an automatic
+grid with zero and NaN alphas and select zero. The latter path is implemented,
+including direct inverse failure propagation and its iteration/history shape.
+One-row folds can fail every positive candidate yet leave a valid final fit;
+negative-infinity ties choose the smaller alpha and reported std is NaN.
+A scoped IEEE environment allows those candidate failures and restores all
+three relevant halting modes and flags. Focused native FPE checks passed.
+
+The exploratory source suite passed 5,980 groups over 255 fixtures with five
+seeds. It includes p>n folds and covariance conditions around 1e10, rather than
+removing ill-conditioned empirical endpoints. Twenty-six endpoint certificates
+(six inverse-backward-error and twenty rank/determinant-roundoff certificates)
+account for those conditioning differences; ordinary positive-alpha comparisons
+and selected/final models passed at the unchanged tolerance. Full checked and
+optimized builds, a standalone-family regression, the public example and all
+input diagnostics are the final gates recorded below when complete.
+
+
+The frozen checked source run passed 5,980 groups over 255 fixtures: 5,940 direct
+sklearn groups and 40 source-conditioned empirical-endpoint groups. It retains
+26 certificates (six inverse backward-error and twenty rank/determinant bounds)
+and 338 source warnings (120 ConvergenceWarning, 143 RuntimeWarning and 75
+UserWarning, including repeated source endpoint fits). Reports use strict JSON,
+encoding nonfinite certificate values as strings. All 102 native programs passed
+the checked/runtime/FPE profile. The existing GraphicalLasso source regression
+passed all 144 groups. The public fpm example ran successfully and its selected
+alpha, likelihood, grid size and precision row matched sklearn independently.
+Current inventory: 195 core estimator/transformer/splitter types, 102 source
+modules, 102 native tests and 81 core reference suites with 339,475 groups,
+plus 28 separate NumPy RNG groups.
+
+
+A final proof audit corrected the singular-determinant perturbation bound to
+include both dimension factors in the ||L|| ||U|| matrix-norm estimate. The
+checked 5,980-group comparison was rerun successfully with that corrected
+certificate; the Fortran implementation stayed frozen. Its cached executable
+was no longer present, so it was relinked from the validated checked object and
+archive into a temporary directory. During optimized compilation, a live f951
+process briefly showed almost no CPU time; it exited and compilation resumed
+before inspection attached. No process was terminated or build restarted.
+
+
+All 102 native programs passed in the optimized build. The optimized source
+run passed all 5,980 groups; checked/optimized fixture, check/oracle, warning
+and source-hash records are identical. Both profiles use six inverse and twenty
+rank/determinant certificates. Floating certificate values vary across profiles;
+the adaptive rank-deficient certificate triggers also differ for two folds
+(seed 42/fold 2 in checked versus seed 0/fold 0 in release, cases 45/46).
+Those changes are confined to the unselected singular empirical endpoint and
+each profile independently satisfies its proof bounds. The corrected matrix-norm
+bound is used in both final reports. No selected alpha or final-model group
+uses an endpoint certificate.
+
+
+Final gates passed all 2,401 unique isolated invalid-input cases (33 new), all
+102 native programs in checked and optimized profiles, the 144-group existing
+GraphicalLasso source suite, the public fpm example, and 5,980 new reference
+groups per profile. Final audits passed Python syntax, Fortran line lengths/
+whitespace, source hashes, strict JSON, per-profile oracle/certificate scope,
+facade exports and MIT/retained BSD attribution. Production Fortran remained
+frozen through the final gates. The 81-suite inventory includes retained earlier
+results; all older source suites were not rerun for this batch.

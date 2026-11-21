@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 194 public estimator, transformer, and splitter types. Each is a
+There are 195 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Eighty reference suites additionally check 333,495
+All types have native tests. Eighty-one reference suites additionally check 339,475
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -54,7 +54,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | mixture | `gaussian_mixture`, `bayesian_gaussian_mixture` | EM Gaussian mixtures and variational Bayesian mixtures with finite Dirichlet or truncated stick-breaking weights; full/tied/diag/spherical covariances; responsibilities and likelihood scores; GaussianMixture BIC/AIC |
 | neural_network | `mlp_classifier`, `mlp_regressor`, `bernoulli_rbm` | Arbitrary dense hidden layer sizes, relu/tanh/logistic/identity, full-batch Adam, softmax classification or squared-error regression, L2 regularization |
 | gaussian_process | `gaussian_process_regressor`, `gaussian_process_classifier` | Fixed isotropic RBF amplitude/length scale plus white noise and diagonal alpha; Cholesky posterior, standard deviation/covariance, log marginal likelihood; optional target normalization; fixed-RBF Laplace binary/OVR classification |
-| covariance | `empirical_covariance`, `shrunk_covariance`, `ledoit_wolf`, `oas`, `graphical_lasso`, `min_cov_det`, `elliptic_envelope`; `fast_mcd` | Population covariance, pseudoinverse precision, squared Mahalanobis distance, likelihood, Frobenius/spectral covariance error; L1-penalized sparse precision via block coordinate descent; FastMCD robust covariance and elliptic outlier detection |
+| covariance | `empirical_covariance`, `shrunk_covariance`, `ledoit_wolf`, `oas`, `graphical_lasso`, `graphical_lasso_cv`, `min_cov_det`, `elliptic_envelope`; `fast_mcd` | Population covariance, pseudoinverse precision, squared Mahalanobis distance, likelihood, Frobenius/spectral covariance error; L1-penalized sparse precision via block coordinate descent and refined cross-validation; FastMCD robust covariance and elliptic outlier detection |
 | calibration | `calibrated_classifier_cv`; `calibration_curve` | Sigmoid/isotonic CV ensembles, out-of-fold calibration and prefit calibration with logistic, Gaussian NB or KNN bases; uniform/quantile reliability bins |
 | datasets | `make_blobs`, `make_regression`, `make_moons`, `make_circles` | Native synthetic generators; optional deterministic seed; no bundled real-world datasets |
 
@@ -4150,3 +4150,84 @@ those source index failures. Forward encodings and learned grouping remain
 usable for these configurations. The reference suite retains and tests these
 source exceptions explicitly. Category discovery uses the existing dense
 insertion sort; transform category lookup uses binary search.
+
+
+## GraphicalLasso cross-validation
+
+`graphical_lasso_cv` is exported by `sklearn_covariance` and the `sklearn`
+facade. `fit(x)` selects an alpha and fits the full-data sparse inverse
+covariance. It inherits covariance, precision, location, objective/duality-gap
+history, iteration/convergence state, Mahalanobis distances and covariance-error
+norms from the existing GraphicalLasso family. Its `score(x)` uses the fitted
+location and precision with the source Gaussian likelihood, including negative
+infinity for a singular precision. Inputs are finite dense real64 arrays with
+at least two features. Fitting bounds their magnitude by
+`sqrt(huge(real64))/(16*n_samples*n_features)` to protect covariance arithmetic.
+Only `mode='cd'` and `covariance='empirical'` are supported; LARS, sparse data,
+metadata routing and parallel jobs remain outside this native interface.
+
+Unallocated `alphas` selects a refined grid: `n_alphas=4` points per refinement,
+`n_refinements=4`, initial upper bound equal to the maximum absolute off-diagonal
+full-data empirical covariance and initial lower bound one hundredth of that.
+Set allocatable `alphas(:)` for an explicit positive finite grid; supplied order
+and duplicates are retained during each fold's warm-start path, after which all
+results are stably sorted descending. Explicit grids use one refinement. Both
+grid forms require at least two points because source 1.6.1 fails with a single
+point. Refinement follows source neighboring-score and failed-candidate rules;
+exact score ties select the last candidate in descending order, favoring the
+smaller alpha. `alpha_` is the selected value; inherited `alpha` mirrors it after
+fitting. Native `best_score_` records the selection score.
+
+`cv=5` uses nonshuffled KFold. Allocate constructor `splits(:)` with native
+`index_split` records for explicit folds; indices are 1-based, nonempty and
+bounded. Their order, repeated rows and overlap are allowed, and they need not
+partition the data. One explicit fold is supported. `cv_splits_` retains the
+actual folds. Every refinement starts a fresh path per fold; within a path,
+each successful covariance initializes the next candidate with source's 0.95
+off-diagonal shrinkage. Failed candidates have score negative infinity and
+retain the preceding successful warm start. Fold paths use
+`int(0.1*max_iter)` iterations, including the source zero-iteration convention.
+The final model uses `max_iter` (default 100). Nonnegative max_iter, positive
+finite tol/enet_tol/eps and positive n_refinements are required.
+
+An important source convention is preserved: positive-alpha CV paths center
+both training and test data independently, regardless of assume_centered.
+The full-data covariance and location honor `assume_centered`. The final
+alpha-zero report row instead uses an EmpiricalCovariance fold fit and scores
+test observations relative to that fold's training mean. That appended row is
+never considered for selection. For an exactly diagonal full covariance,
+source's automatic grid itself can contain alpha zero and NaNs; the native
+implementation preserves that grid, its failures and possible zero selection.
+A singular direct alpha-zero fit is diagnosed, matching source's unhandled
+inverse failure. Successful zero-alpha fits have n_iter_=0 and one cost pair;
+a positive-alpha zero-iteration fit has n_iter_=1 and an empty cost history.
+
+`cv_results_` contains `alphas(:)`, `split_test_score(candidate,fold)`,
+`mean_test_score(:)` and population `std_test_score(:)`. Negative-infinity means
+and NaN standard deviations are preserved for failed folds. Native inspection
+arrays `empirical_covariance(:,:,fold)`, `empirical_precision(:,:,fold)` and
+`empirical_test_covariance(:,:,fold)` retain the actual alpha-zero endpoint
+matrices; these are data containers, not extra estimators or algorithms.
+Refit replaces the result arrays and fitted model. The existing scalar
+GraphicalLasso remains unchanged except for source's zero-Gram-diagonal CD skip,
+needed when a CV training fold has constant features.
+
+Candidate numerical failures are handled with a local IEEE exception scope,
+like NumPy errstate: invalid/divide-by-zero/overflow halting modes and their
+flags are restored on return. Native tests exercise restoration after NaN-grid
+and failed-path calculations. Invalid input, a singular required direct inverse,
+or a failed final fit still uses the package's normal diagnostic/error-stop API.
+
+The numerical backend is the existing dense Jacobi eigensolver and native
+partial-pivot determinant calculation. Near-singular empirical endpoints can
+differ numerically from SciPy's eigensolver/LU at the same input precision.
+Validation retains such cases and verifies covariance moments, inverse backward
+errors or all four Moore-Penrose equations, and conditioned likelihoods. For a
+rank-deficient precision, a partial-pivot growth/Weyl bound checks determinant
+roundoff when its sign is numerically indeterminate. These checks apply only
+to the appended, unselected empirical endpoint; positive-alpha path scores,
+selection and final fits retain ordinary direct sklearn comparisons. Certificates
+and source warnings are retained in the reference reports; no ordinary numeric
+tolerance is widened for these endpoints. Which singular folds require a
+certificate may vary across optimization profiles because determinant signs
+near zero are roundoff-sensitive.

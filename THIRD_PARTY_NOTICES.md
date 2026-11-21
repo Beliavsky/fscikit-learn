@@ -21,6 +21,7 @@ Reference paths by module:
 
 | Fortran module | scikit-learn reference |
 | --- | --- |
+| graphical_lasso_cv (covariance) | covariance/_graph_lasso.py refined CV grids and warm-start paths; covariance/_empirical_covariance.py likelihood and alpha-zero baseline; linear_model/_cd_fast.pyx zero-diagonal CD skip; model_selection/_split.py KFold; shared native Jacobi and IEEE environment helpers |
 | ordinal_encoding | preprocessing/_encoders.py numeric OrdinalEncoder, category grouping and inverse index conventions; utils/_encode.py counting contracts; shared native numeric category container from target_encoding |
 | target_encoding | preprocessing/_target_encoder.py, preprocessing/_target_encoder_fast.pyx, preprocessing/_encoders.py numeric categories and empirical Bayes encodings; model_selection/_split.py cross-fitting; existing NumPy legacy RNG backend |
 | tsne / tsne_core | manifold/_t_sne.py exact TSNE and trustworthiness; manifold/_utils.pyx perplexity search; existing legacy RNG, randomized SVD and NumPy pairwise reduction backends |

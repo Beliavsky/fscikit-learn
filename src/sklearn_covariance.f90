@@ -1,13 +1,17 @@
 ! Dense covariance estimators. Shrinkage formulas follow sklearn/covariance/
 ! _shrunk_covariance.py (scikit-learn 1.6.1, BSD-3-Clause; see THIRD_PARTY_NOTICES).
 module sklearn_covariance
+  use sklearn_resampling, only: index_split
   use sklearn_robust_covariance, only: min_cov_det,elliptic_envelope,fast_mcd
   use sklearn_common
-  use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
+  use, intrinsic :: ieee_arithmetic, only: ieee_is_finite,ieee_value,ieee_negative_inf,ieee_positive_inf,ieee_quiet_nan
+  use, intrinsic :: ieee_exceptions, only: ieee_invalid,ieee_divide_by_zero,ieee_overflow, &
+    ieee_get_halting_mode,ieee_set_halting_mode,ieee_get_flag,ieee_set_flag
   implicit none
   private
   public :: min_cov_det,elliptic_envelope,fast_mcd
   public :: empirical_covariance,shrunk_covariance,ledoit_wolf,oas,graphical_lasso
+  public :: graphical_lasso_cv
   type :: empirical_covariance
     logical :: assume_centered=.false.
     real(dp), allocatable :: location_(:),covariance_(:,:),precision_(:,:)
@@ -42,6 +46,20 @@ module sklearn_covariance
   contains
     procedure :: fit=>graphical_fit
   end type
+  type :: graphical_cv_results
+    real(dp), allocatable :: alphas(:),split_test_score(:,:),mean_test_score(:),std_test_score(:)
+    real(dp), allocatable :: empirical_covariance(:,:,:),empirical_precision(:,:,:),empirical_test_covariance(:,:,:)
+  end type
+  type, extends(graphical_lasso) :: graphical_lasso_cv
+    integer :: n_alphas=4,n_refinements=4,cv=5,n_features_in_=0
+    real(dp) :: alpha_=0,best_score_=0
+    real(dp), allocatable :: alphas(:)
+    type(index_split), allocatable :: splits(:),cv_splits_(:)
+    type(graphical_cv_results) :: cv_results_
+  contains
+    procedure :: fit=>graphical_cv_fit
+    procedure :: score=>graphical_cv_score
+  end type
 contains
   ! sklearn 1.6.1 covariance/_graph_lasso.py and linear_model/_cd_fast.pyx.
   ! Cyclic Gram coordinate descent, including the upstream inner dual-gap test.
@@ -56,6 +74,7 @@ contains
     do it=1,max_iter
       change=0; largest=0
       do j=1,size(row)
+        if(gram(j,j)==0) cycle
         old=coefs(j); h=h-old*gram(:,j); value=row(j)-h(j)
         coefs(j)=sign(max(abs(value)-alpha,0._dp),value)/gram(j,j)
         h=h+coefs(j)*gram(:,j)
@@ -171,6 +190,360 @@ contains
     end do
     self%n_iter_=min(it,self%max_iter); self%costs_=history(:self%n_iter_,:)
   end subroutine
+
+  ! GraphicalLassoCV and its private warm-start path follow sklearn 1.6.1
+  ! covariance/_graph_lasso.py. Failed candidates are data, not fatal fits.
+  subroutine graph_cv_fp_begin(modes,flags)
+    logical, intent(out) :: modes(3),flags(3)
+    call ieee_get_halting_mode(ieee_invalid,modes(1)); call ieee_get_flag(ieee_invalid,flags(1))
+    call ieee_get_halting_mode(ieee_divide_by_zero,modes(2)); call ieee_get_flag(ieee_divide_by_zero,flags(2))
+    call ieee_get_halting_mode(ieee_overflow,modes(3)); call ieee_get_flag(ieee_overflow,flags(3))
+    call ieee_set_halting_mode(ieee_invalid,.false.)
+    call ieee_set_halting_mode(ieee_divide_by_zero,.false.)
+    call ieee_set_halting_mode(ieee_overflow,.false.)
+  end subroutine
+  subroutine graph_cv_fp_end(modes,flags)
+    logical, intent(in) :: modes(3),flags(3)
+    call ieee_set_flag(ieee_invalid,flags(1)); call ieee_set_flag(ieee_divide_by_zero,flags(2))
+    call ieee_set_flag(ieee_overflow,flags(3))
+    call ieee_set_halting_mode(ieee_invalid,modes(1))
+    call ieee_set_halting_mode(ieee_divide_by_zero,modes(2))
+    call ieee_set_halting_mode(ieee_overflow,modes(3))
+  end subroutine
+
+  function graph_cv_cov(x,centered) result(cov)
+    real(dp), intent(in) :: x(:,:)
+    logical, intent(in) :: centered
+    real(dp) :: cov(size(x,2),size(x,2)),work(size(x,1),size(x,2)),mean(size(x,2))
+    mean=0; if(.not.centered) mean=sum(x,dim=1)/size(x,1)
+    work=x-spread(mean,1,size(x,1)); cov=matmul(transpose(work),work)/size(x,1)
+  end function
+
+  function graph_cv_pinv(cov) result(precision)
+    real(dp), intent(in) :: cov(:,:)
+    real(dp) :: precision(size(cov,1),size(cov,1)),values(size(cov,1)),vectors(size(cov,1),size(cov,1))
+    real(dp) :: inverse(size(cov,1)),cutoff
+    integer :: i
+    call symmetric_eigen(cov,values,vectors)
+    cutoff=size(cov,1)*epsilon(1._dp)*maxval(abs(values)); inverse=0
+    do i=1,size(values)
+      if(abs(values(i))>cutoff) inverse(i)=1/values(i)
+    end do
+    precision=matmul(vectors*spread(inverse,1,size(values)),transpose(vectors))
+  end function
+
+  real(dp) function graph_cv_logdet(precision) result(value)
+    real(dp), intent(in) :: precision(:,:)
+    real(dp) :: work(size(precision,1),size(precision,2)),row(size(precision,1)),pivot
+    integer :: i,j,k,sign_det,p
+    value=ieee_value(0._dp,ieee_negative_inf); p=size(precision,1)
+    if(.not.all(ieee_is_finite(precision))) return
+    work=precision; sign_det=1; value=0
+    do i=1,p
+      k=i-1+maxloc(abs(work(i:,i)),dim=1)
+      if(k/=i) then
+        row=work(i,:); work(i,:)=work(k,:); work(k,:)=row; sign_det=-sign_det
+      end if
+      pivot=work(i,i)
+      if(pivot==0.or..not.ieee_is_finite(pivot)) then
+        value=ieee_value(0._dp,ieee_negative_inf); return
+      end if
+      if(pivot<0) sign_det=-sign_det
+      value=value+log(abs(pivot))
+      do j=i+1,p
+        work(j,i+1:)=work(j,i+1:)-(work(j,i)/pivot)*work(i,i+1:)
+      end do
+    end do
+    if(sign_det<0) value=ieee_value(0._dp,ieee_negative_inf)
+  end function
+
+  real(dp) function graph_cv_likelihood(cov,precision) result(value)
+    real(dp), intent(in) :: cov(:,:),precision(:,:)
+    value=(graph_cv_logdet(precision)-sum(cov*precision)-size(cov,1)*log(2*acos(-1._dp)))/2
+  end function
+
+  function graph_cv_inverse(cov,ok) result(precision)
+    real(dp), intent(in) :: cov(:,:)
+    logical, intent(out) :: ok
+    real(dp) :: precision(size(cov,1),size(cov,1)),work(size(cov,1),size(cov,1)),row(size(cov,1)),pivot
+    integer :: i,j,k,p
+    p=size(cov,1); work=cov; precision=0; ok=.false.
+    do i=1,p
+      precision(i,i)=1
+    end do
+    do i=1,p
+      k=i-1+maxloc(abs(work(i:,i)),dim=1)
+      if(k/=i) then
+        row=work(i,:); work(i,:)=work(k,:); work(k,:)=row
+        row=precision(i,:); precision(i,:)=precision(k,:); precision(k,:)=row
+      end if
+      pivot=work(i,i); if(pivot==0.or..not.ieee_is_finite(pivot)) return
+      work(i,:)=work(i,:)/pivot; precision(i,:)=precision(i,:)/pivot
+      do j=1,p
+        if(j==i) cycle
+        pivot=work(j,i); work(j,:)=work(j,:)-pivot*work(i,:)
+        precision(j,:)=precision(j,:)-pivot*precision(i,:)
+      end do
+    end do
+    ok=all(ieee_is_finite(precision))
+  end function
+
+  subroutine graph_cv_solve(self,emp_cov,alpha,initial,max_iter,cov,precision,costs,n_iter,converged,ok)
+    class(graphical_lasso_cv), intent(in) :: self
+    real(dp), intent(in) :: emp_cov(:,:),alpha,initial(:,:)
+    integer, intent(in) :: max_iter
+    real(dp), allocatable, intent(out) :: cov(:,:),precision(:,:),costs(:,:)
+    integer, intent(out) :: n_iter
+    logical, intent(out) :: converged,ok
+    real(dp), allocatable :: gram(:,:),row(:),coefs(:),history(:,:)
+    real(dp) :: denominator,gap,cost,penalty
+    integer :: i,j,p,it,indices(size(emp_cov,1)-1)
+    p=size(emp_cov,1); n_iter=1; converged=.false.; ok=.false.
+    if(alpha==0) then
+      cov=emp_cov; precision=graph_cv_inverse(emp_cov,ok); if(.not.ok) return
+      gap=sum(emp_cov*precision)-p
+      cost=-graph_cv_logdet(precision)+sum(emp_cov*precision)+2*p*log(2*acos(-1._dp))
+      allocate(costs(1,2)); costs(1,:)=[cost,gap]; n_iter=0; converged=abs(gap)<self%tol; return
+    end if
+    cov=.95_dp*initial
+    do j=1,p
+      cov(j,j)=emp_cov(j,j)
+    end do
+    if(.not.all(ieee_is_finite(cov))) return
+    precision=graph_cv_pinv(cov); allocate(history(max_iter,2))
+    do it=1,max_iter
+      do j=1,p
+        indices=pack([(i,i=1,p)],[(i/=j,i=1,p)])
+        gram=cov(indices,indices); row=emp_cov(indices,j)
+        coefs=-precision(indices,j)/(precision(j,j)+1000*self%eps)
+        call graphical_cd(gram,row,alpha,coefs,max_iter,self%enet_tol)
+        if(.not.all(ieee_is_finite(coefs))) return
+        denominator=cov(j,j)-dot_product(cov(indices,j),coefs)
+        if(denominator==0) return
+        precision(j,j)=1/denominator
+        precision(indices,j)=-precision(j,j)*coefs; precision(j,indices)=precision(indices,j)
+        cov(indices,j)=matmul(gram,coefs); cov(j,indices)=cov(indices,j)
+      end do
+      if(.not.ieee_is_finite(sum(precision))) return
+      penalty=0
+      do j=1,p
+        penalty=penalty+sum(abs(precision(:j-1,j)))+sum(abs(precision(j+1:,j)))
+      end do
+      gap=sum(emp_cov*precision)-p+alpha*penalty
+      cost=-graph_cv_logdet(precision)+sum(emp_cov*precision)+2*p*log(2*acos(-1._dp))+alpha*penalty
+      history(it,:)=[cost,gap]
+      if(abs(gap)<self%tol) then
+        converged=.true.; exit
+      end if
+      if(.not.ieee_is_finite(cost).and.it>1) return
+    end do
+    n_iter=min(it,max_iter); if(max_iter==0) n_iter=1
+    costs=history(:min(it,max_iter),:); ok=.true.
+  end subroutine
+
+  subroutine graph_cv_folds(self,n)
+    class(graphical_lasso_cv), intent(inout) :: self
+    integer, intent(in) :: n
+    integer :: f,i,width,first
+    if(allocated(self%splits)) then
+      self%cv_splits_=self%splits
+      call require(size(self%cv_splits_)>0,'GraphicalLassoCV needs at least one split')
+    else
+      call require(self%cv>=2.and.self%cv<=n,'invalid GraphicalLassoCV cv count')
+      if(allocated(self%cv_splits_)) deallocate(self%cv_splits_)
+      allocate(self%cv_splits_(self%cv)); first=1
+      do f=1,self%cv
+        width=n/self%cv; if(f<=mod(n,self%cv)) width=width+1
+        self%cv_splits_(f)%test=[(i,i=first,first+width-1)]
+        self%cv_splits_(f)%train=pack([(i,i=1,n)],[(i<first.or.i>=first+width,i=1,n)])
+        first=first+width
+      end do
+    end if
+    do f=1,size(self%cv_splits_)
+      call require(allocated(self%cv_splits_(f)%train).and.allocated(self%cv_splits_(f)%test), &
+        'GraphicalLassoCV split indices are unallocated')
+      call require(size(self%cv_splits_(f)%train)>0.and.size(self%cv_splits_(f)%test)>0, &
+        'GraphicalLassoCV split indices must be nonempty')
+      call require(all(self%cv_splits_(f)%train>=1).and.all(self%cv_splits_(f)%train<=n).and. &
+        all(self%cv_splits_(f)%test>=1).and.all(self%cv_splits_(f)%test<=n), &
+        'GraphicalLassoCV split index is out of bounds')
+    end do
+  end subroutine
+
+  function graph_cv_logspace(high,low,n) result(grid)
+    real(dp), intent(in) :: high,low
+    integer, intent(in) :: n
+    real(dp) :: grid(n),lo,hi
+    integer :: i
+    if(.not.all(ieee_is_finite([high,low])).or.high<=0.or.low<=0) then
+      grid=ieee_value(0._dp,ieee_quiet_nan); return
+    end if
+    lo=log10(low); hi=log10(high)
+    do i=1,n
+      grid(i)=10._dp**(hi+(lo-hi)*real(i-1,dp)/real(n-1,dp))
+    end do
+  end function
+
+  function graph_cv_order(path) result(order)
+    real(dp), intent(in) :: path(:)
+    integer :: order(size(path)),i,j,v
+    order=[(i,i=1,size(path))]
+    do i=2,size(path)
+      v=order(i); j=i-1
+      do while(j>=1)
+        ! Unlike argsort(-path), this preserves Python's stable NaN ordering.
+        if(.not.(path(order(j))<path(v))) exit
+        order(j+1)=order(j); j=j-1
+      end do
+      order(j+1)=v
+    end do
+  end function
+
+  subroutine graphical_cv_fit(self,x)
+    class(graphical_lasso_cv), intent(inout) :: self
+    real(dp), intent(in) :: x(:,:)
+    real(dp), allocatable :: empirical(:,:),grid(:),path(:),scores(:,:),new_scores(:,:),cov(:,:),precision(:,:), &
+      initial(:,:),train_cov(:,:),test_cov(:,:),costs(:,:),previous(:),values(:),centered(:,:)
+    integer, allocatable :: train(:),test(:),order(:)
+    real(dp) :: high,low,mean,best,negative_inf
+    integer :: p,n,refinements,ref,f,j,i,best_index,last_finite,nold,nfolds,it,npth
+    logical :: modes(3),flags(3),ok,converged
+    call check_x(x); n=size(x,1); p=size(x,2)
+    call require(p>=2,'GraphicalLassoCV requires at least two features')
+    call require(maxval(abs(x))<=sqrt(huge(1._dp))/(16*real(n,dp)*real(p,dp)), &
+      'GraphicalLassoCV data exceeds safe covariance range')
+    call require(all(ieee_is_finite([self%tol,self%enet_tol,self%eps])),'nonfinite GraphicalLassoCV controls')
+    call require(self%tol>0.and.self%enet_tol>0.and.self%eps>0,'invalid GraphicalLassoCV tolerances')
+    call require(self%max_iter>=0,'GraphicalLassoCV max_iter must be nonnegative')
+    call require(self%mode=='cd','GraphicalLassoCV supports mode cd only')
+    call require(self%covariance=='empirical','GraphicalLassoCV requires empirical covariance mode')
+    call require(self%n_refinements>=1,'GraphicalLassoCV n_refinements must be positive')
+    refinements=self%n_refinements
+    empirical=graph_cv_cov(x,self%assume_centered)
+    if(allocated(self%alphas)) then
+      call require(size(self%alphas)>=2,'GraphicalLassoCV needs at least two explicit alphas')
+      call require(all(ieee_is_finite(self%alphas)),'GraphicalLassoCV alphas must be finite')
+      call require(all(self%alphas>0),'GraphicalLassoCV explicit alphas must be positive')
+      grid=self%alphas; refinements=1
+    else
+      call require(self%n_alphas>=2,'GraphicalLassoCV n_alphas must be at least two')
+      high=0
+      do j=1,p
+        high=max(high,maxval(abs(empirical(:j-1,j))),maxval(abs(empirical(j+1:,j))))
+      end do
+      if(.01_dp*high==0) then
+        allocate(grid(self%n_alphas)); grid=ieee_value(0._dp,ieee_quiet_nan); grid(1)=high
+      else
+        grid=graph_cv_logspace(high,.01_dp*high,self%n_alphas)
+      end if
+    end if
+    call graph_cv_folds(self,n); nfolds=size(self%cv_splits_)
+    self%n_features_in_=p; self%location_=sum(x,dim=1)/n
+    if(self%assume_centered) self%location_=0
+    negative_inf=ieee_value(0._dp,ieee_negative_inf)
+    allocate(path(0),scores(0,nfolds)); call graph_cv_fp_begin(modes,flags)
+    do ref=1,refinements
+      allocate(new_scores(size(grid),nfolds))
+      do f=1,nfolds
+        train=self%cv_splits_(f)%train; test=self%cv_splits_(f)%test
+        ! Source path always centers both parts, even when the final fit does not.
+        train_cov=graph_cv_cov(x(train,:),.false.); test_cov=graph_cv_cov(x(test,:),.false.)
+        initial=train_cov
+        do j=1,size(grid)
+          call graph_cv_solve(self,train_cov,grid(j),initial,int(.1_dp*self%max_iter), &
+            cov,precision,costs,it,converged,ok)
+          if(grid(j)==0.and..not.ok) then
+            call graph_cv_fp_end(modes,flags)
+            call require(.false.,'GraphicalLassoCV zero-alpha covariance is singular')
+          end if
+          mean=negative_inf
+          if(ok) then
+            initial=cov; mean=graph_cv_likelihood(test_cov,precision)
+          end if
+          if(.not.ieee_is_finite(mean)) mean=negative_inf
+          new_scores(j,f)=mean
+        end do
+      end do
+      nold=size(path); path=[path,grid]
+      block
+        real(dp) :: combined(size(path),nfolds)
+        combined(:nold,:)=scores; combined(nold+1:,:)=new_scores; scores=combined
+      end block
+      order=graph_cv_order(path); path=path(order); scores=scores(order,:)
+      best=negative_inf; best_index=1; last_finite=1
+      do j=1,size(path)
+        mean=sum(scores(j,:))/nfolds
+        if(mean>=.1_dp/epsilon(1._dp)) mean=ieee_value(0._dp,ieee_quiet_nan)
+        if(ieee_is_finite(mean)) last_finite=j
+        if(mean>=best) then
+          best=mean; best_index=j
+        end if
+      end do
+      if(best_index==1) then
+        high=path(1); low=path(2)
+      else if(best_index==last_finite.and.best_index/=size(path)) then
+        high=path(best_index); low=path(best_index+1)
+      else if(best_index==size(path)) then
+        high=path(best_index); low=.01_dp*high
+      else
+        high=path(best_index-1); low=path(best_index+1)
+      end if
+      if(.not.allocated(self%alphas)) then
+        previous=graph_cv_logspace(high,low,self%n_alphas+2); grid=previous(2:size(previous)-1)
+      end if
+      deallocate(new_scores)
+    end do
+    self%alpha_=path(best_index); self%alpha=self%alpha_; self%best_score_=best
+    npth=size(path); self%cv_results_%alphas=[path,0._dp]
+    if(allocated(self%cv_results_%split_test_score)) deallocate(self%cv_results_%split_test_score)
+    allocate(self%cv_results_%split_test_score(npth+1,nfolds)); self%cv_results_%split_test_score(:npth,:)=scores
+    if(allocated(self%cv_results_%empirical_covariance)) deallocate(self%cv_results_%empirical_covariance, &
+      self%cv_results_%empirical_precision,self%cv_results_%empirical_test_covariance)
+    allocate(self%cv_results_%empirical_covariance(p,p,nfolds),self%cv_results_%empirical_precision(p,p,nfolds), &
+      self%cv_results_%empirical_test_covariance(p,p,nfolds))
+    do f=1,nfolds
+      train=self%cv_splits_(f)%train; test=self%cv_splits_(f)%test
+      train_cov=graph_cv_cov(x(train,:),.false.); precision=graph_cv_pinv(train_cov)
+      centered=x(test,:)-spread(sum(x(train,:),dim=1)/size(train),1,size(test))
+      test_cov=graph_cv_cov(centered,.true.)
+      self%cv_results_%empirical_covariance(:,:,f)=train_cov
+      self%cv_results_%empirical_precision(:,:,f)=precision
+      self%cv_results_%empirical_test_covariance(:,:,f)=test_cov
+      self%cv_results_%split_test_score(npth+1,f)=graph_cv_likelihood(test_cov,precision)
+    end do
+    allocate(values(npth+1))
+    do j=1,npth+1
+      values(j)=sum(self%cv_results_%split_test_score(j,:))/nfolds
+    end do
+    self%cv_results_%mean_test_score=values
+    do j=1,npth+1
+      mean=values(j); values(j)=ieee_value(0._dp,ieee_quiet_nan)
+      if(ieee_is_finite(mean)) values(j)=sqrt(sum((self%cv_results_%split_test_score(j,:)-mean)**2)/nfolds)
+    end do
+    self%cv_results_%std_test_score=values
+    call graph_cv_solve(self,empirical,self%alpha_,empirical,self%max_iter, &
+      cov,precision,costs,it,converged,ok)
+    call graph_cv_fp_end(modes,flags)
+    call require(ok,'GraphicalLassoCV final fit is ill-conditioned')
+    self%covariance_=cov; self%precision_=precision; self%costs_=costs; self%n_iter_=it; self%converged_=converged
+    self%objective_=ieee_value(0._dp,ieee_positive_inf); self%dual_gap_=self%objective_
+    if(size(costs,1)>0) then
+      self%objective_=costs(size(costs,1),1); self%dual_gap_=costs(size(costs,1),2)
+    end if
+  end subroutine
+
+  real(dp) function graphical_cv_score(self,x) result(value)
+    class(graphical_lasso_cv), intent(in) :: self
+    real(dp), intent(in) :: x(:,:)
+    real(dp) :: centered(size(x,1),size(x,2))
+    logical :: modes(3),flags(3)
+    call require(allocated(self%precision_),'GraphicalLassoCV is not fitted')
+    call check_x(x); call require(size(x,2)==self%n_features_in_,'GraphicalLassoCV query feature count mismatch')
+    call graph_cv_fp_begin(modes,flags)
+    centered=x-spread(self%location_,1,size(x,1))
+    value=graph_cv_likelihood(graph_cv_cov(centered,.true.),self%precision_)
+    call graph_cv_fp_end(modes,flags)
+  end function
 
   subroutine empirical_fit(self,x)
     class(empirical_covariance), intent(inout) :: self
