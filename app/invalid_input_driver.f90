@@ -1,12 +1,19 @@
 ! Validation helper: each selected case must terminate with an input diagnostic.
 program invalid_input_driver
   use sklearn
+  use sklearn_lle_variants, only: lle_hessian_alignment,lle_modified_alignment
   use sklearn_tsne_core, only: tsne_joint_probabilities,tsne_exact_objective
   use, intrinsic :: iso_fortran_env, only: int64,real32
   use sklearn_count_sketch_fft, only: count_sketch_fft_plan
   use sklearn_legacy_rng, only: legacy_random_state
   use, intrinsic :: ieee_arithmetic, only: ieee_value,ieee_quiet_nan,ieee_positive_inf
   implicit none
+  type(locally_linear_embedding) :: lv_case
+  real(dp) :: lv_x(8,3),lv_scalar(3,1)=reshape([0._dp,-1._dp,1._dp],[3,1])
+  real(dp), allocatable :: lv_matrix(:,:)
+  integer :: lv_i,lv_j
+  integer :: lv_ids(4,3)=reshape([2,1,1,1,3,3,2,2,4,4,4,3],[4,3])
+  integer :: lv_ids3(3,2)=reshape([2,1,1,3,3,2],[3,2])
   type(tsne) :: sne
   real(dp) :: sne_d(4,4)=1,sne_position(4,2)=.01_dp,sne_error
   real(dp), allocatable :: sne_p(:),sne_g(:,:)
@@ -214,6 +221,12 @@ program invalid_input_driver
   integer, allocatable :: labels(:)
   character(32) :: mode
   sne%perplexity=2; sne%init="random"; sne%max_iter=250
+  lv_case%n_neighbors=3
+  do lv_i=1,8
+    do lv_j=1,3
+      lv_x(lv_i,lv_j)=sin(.731_dp*lv_i*lv_j)+cos(.213_dp*lv_i*lv_i+.191_dp*lv_j)
+    end do
+  end do
   mt_y=1
   sp_projection%max_iter=3; sp_dictionary%max_iter=3
   angle_cv%cv=2; angle_sparse_cv%cv=2
@@ -254,6 +267,56 @@ program invalid_input_driver
   mi_x(:,2)=[0._dp,0._dp,1._dp,1._dp,2._dp,2._dp]; mi_x(:,3)=1
   mi_y=mi_x(:,1); mi_labels=[-1,-1,-1,2,2,2]
   select case(trim(mode))
+  case('lv_hessian_negative')
+    lv_case%hessian_tol=-1; call lv_case%fit(x)
+  case('lv_hessian_nan')
+    lv_case%hessian_tol=ieee_value(0._dp,ieee_quiet_nan); call lv_case%fit(x)
+  case('lv_hessian_inf')
+    lv_case%hessian_tol=ieee_value(0._dp,ieee_positive_inf); call lv_case%fit(x)
+  case('lv_modified_negative')
+    lv_case%modified_tol=-1; call lv_case%fit(x)
+  case('lv_modified_nan')
+    lv_case%modified_tol=ieee_value(0._dp,ieee_quiet_nan); call lv_case%fit(x)
+  case('lv_modified_inf')
+    lv_case%modified_tol=ieee_value(0._dp,ieee_positive_inf); call lv_case%fit(x)
+  case('lv_hessian_neighbors_one')
+    lv_case%method="hessian"; lv_case%n_components=1; lv_case%n_neighbors=2; call lv_case%fit(x)
+  case('lv_hessian_neighbors_two')
+    lv_case%method="hessian"; lv_case%n_neighbors=3; call lv_case%fit(x)
+  case('lv_modified_neighbors')
+    lv_case%method="modified"; lv_case%n_neighbors=1; call lv_case%fit(x)
+  case('lv_modified_zero')
+    lv_case%method="modified"; lv_case%n_neighbors=3; call lv_case%fit(x)
+  case('lv_modified_empty')
+    lv_case%method="modified"; lv_case%n_neighbors=2; call lv_case%fit(lv_x)
+  case('lv_householder_zero')
+    lv_matrix=lle_modified_alignment(lv_scalar,lv_ids3,1,0._dp)
+  case('lv_neighbor_rows')
+    lv_matrix=lle_hessian_alignment(x,lv_ids(:3,:),1,1.e-4_dp)
+  case('lv_neighbors_empty')
+    lv_matrix=lle_hessian_alignment(x,lv_ids(:,:0),1,1.e-4_dp)
+  case('lv_neighbor_zero')
+    lv_ids(1,1)=0; lv_matrix=lle_hessian_alignment(x,lv_ids,1,1.e-4_dp)
+  case('lv_neighbor_large')
+    lv_ids(1,1)=5; lv_matrix=lle_modified_alignment(x,lv_ids,1,1.e-12_dp)
+  case('lv_dimension_zero')
+    lv_matrix=lle_hessian_alignment(x,lv_ids,0,1.e-4_dp)
+  case('lv_dimension_large')
+    lv_matrix=lle_modified_alignment(x,lv_ids,3,1.e-12_dp)
+  case('lv_input_nan')
+    x(1,1)=ieee_value(0._dp,ieee_quiet_nan); lv_matrix=lle_hessian_alignment(x,lv_ids,1,1.e-4_dp)
+  case('lv_hessian_helper_negative')
+    lv_matrix=lle_hessian_alignment(x,lv_ids,1,-1._dp)
+  case('lv_hessian_helper_nan')
+    lv_matrix=lle_hessian_alignment(x,lv_ids,1,ieee_value(0._dp,ieee_quiet_nan))
+  case('lv_hessian_helper_inf')
+    lv_matrix=lle_hessian_alignment(x,lv_ids,1,ieee_value(0._dp,ieee_positive_inf))
+  case('lv_modified_helper_negative')
+    lv_matrix=lle_modified_alignment(x,lv_ids,1,-1._dp)
+  case('lv_modified_helper_nan')
+    lv_matrix=lle_modified_alignment(x,lv_ids,1,ieee_value(0._dp,ieee_quiet_nan))
+  case('lv_modified_helper_inf')
+    lv_matrix=lle_modified_alignment(x,lv_ids,1,ieee_value(0._dp,ieee_positive_inf))
   case('tsne_objective_position')
     sne_position=huge(1._dp)/2; call tsne_exact_objective(sne_position, &
       spread(.1_dp,1,6),1,sne_error,sne_g)

@@ -2893,3 +2893,80 @@ hashes, retained licenses and git diff checks. Numerical sources did not
 change after checked/release testing. Other reference suites retain their
 previously recorded results in the aggregate inventory and were not all
 rerun for this batch.
+
+## Hessian eigenmapping and modified LLE batch
+
+Extended the existing locally_linear_embedding type with method='hessian'
+and method='modified', completing all four sklearn LLE methods. New finite,
+nonnegative hessian_tol=1.e-4 and modified_tol=1.e-12 controls follow source
+validation. Hessian fitting builds centered tangent/monomial neighborhoods,
+full Householder QR complements and tolerance-normalized alignment blocks.
+Modified fitting builds full local eigensystems, fixed trace-regularized
+affine weights, median spectral ratios, cumulative-energy/searchsorted
+almost-null-space sizes and Householder multiple-weight blocks. The native
+backend reuses Jacobi SVD/eigen routines and completes local orthogonal bases.
+The shared fit/fit_transform/transform and analytic constant-mode removal
+remain intact; public reg affects fitting only for standard LLE and affects
+query interpolation for every method. No public type or extension is added.
+
+The new reference suite checks 3,535 groups over 95 fixtures and five seeds
+(0,7,42,2026,314159), covering 18--32 samples, 3--12 input features,
+6--12 neighbors, 1/2/3 embedding dimensions, both SVD and local covariance
+branches, odd/even median selection, default/modified tolerances and nondefault
+query regularization. Local source alignments are captured from the installed
+sklearn implementation before global eigenanalysis. Source local spectral
+values, regularized weights, thresholds, nullities, ordinary fitted/query
+geometry and reconstruction error are compared; native local bases also
+satisfy independent orthogonality and covariance eigen-residual identities.
+Every modified alignment is independently rebuilt using the source formulas
+on its validated native local eigensystem.
+
+Nonunique global eigenspaces use source-matrix residual/lowest restricted
+energy, orthogonality, zero-mean and source barycentric-query certificates.
+Spectral-cutoff differences require measured near-equality bounds and a
+counterfactual native-frame assembly using source nullities that matches the
+source alignment. The initial checked prototype recorded 695 direct sklearn
+groups, 2,620 spectral identities, 95 input identities, 50 source-formula/native
+frame assemblies, 51 nonunique-eigenspace comparisons and 24 cutoff-certified
+comparisons. There were 17 nonunique spectral fixtures and four single-row
+cutoff fixtures. Final profiles retain their own complete oracle/certificate
+accounting; no broad coordinate tolerance replaces these checks.
+
+Native tests independently check alignment symmetry, positive semidefiniteness,
+constant-mode annihilation, translation/scale invariance, affine constrained
+regularized weights, embedding orthonormality and energy, deterministic refit,
+input preservation, query transforms and the public reg control's distinct
+fit/query behavior. Twenty-five new diagnostics cover tolerance domains,
+method-specific neighborhood limits, zero spectra/empty nullspaces, zero
+Householder denominator, malformed neighbor arrays and invalid feature data.
+All 25 also passed a standalone checked probe before full fpm validation.
+An lle_variants example demonstrates both methods and query coordinates.
+
+The existing compare_manifold.py additionally accepts --executable, preserving
+its default fpm invocation while enabling checked-profile regression testing
+without a redundant build. Standard LLE, LTSA and MDS source comparisons are
+rerun because the LLE type/interface was extended. Existing standard/LTSA
+numerical bodies are unchanged. Dense spectral/rank/tie/working-range
+limitations and source paths/hashes/research attribution are documented.
+Original work remains MIT with retained sklearn BSD notices.
+Inventory: 175 public core types, 84 source modules, 85 native test programs,
+64 reference suites and 130,957 result groups, plus 28 separate NumPy RNG
+stream groups. Isolated invalid-input inventory is 1,765. No dependency is added.
+
+Completed validation: all 85 native test programs passed both checked
+(-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow) and release builds.
+Each profile passed all 3,535 result groups: 695 direct sklearn comparisons,
+2,620 local spectral identities, 95 input identities, 50 source-formula/native
+frame assemblies, 51 nonunique-eigenspace comparisons and 24 cutoff-certified
+comparisons. Both recorded 17 nonunique spectral fixtures and four single-row
+near-threshold cutoff fixtures. The original 192-group integration comparison
+and all 138 existing MDS/standard-LLE/LTSA reference groups passed as well.
+All 1,765 isolated invalid-input cases passed. The checked lle_variants example
+ran both methods, returning 24-by-2 embeddings and query coordinates, with
+alignment energies 0.99104370270070774 (Hessian) and 0.77574065232598721
+(modified). Final audits passed Python syntax, Fortran formatting,
+unique/complete diagnostic registration, report and oracle accounting,
+certificate witnesses, inventory totals, upstream source hashes, retained
+licenses and git diff checks. Numerical sources did not change after the
+checked/release tests. Other reference suites retain previously recorded
+results in the aggregate inventory and were not all rerun for this batch.

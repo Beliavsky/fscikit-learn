@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 175 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Sixty-three reference suites additionally check 127,422
+All types have native tests. Sixty-four reference suites additionally check 130,957
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -34,7 +34,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | kernel_approximation | `rbf_sampler`, `nystroem`, `additive_chi2_sampler`, `skewed_chi2_sampler`, `polynomial_count_sketch` | Random Fourier RBF maps; sampled-landmark inverse-square-root maps for RBF/linear/polynomial/cosine kernels; additive and skewed chi2 maps; seeded polynomial TensorSketch with arbitrary-length FFTs |
 | random_projection | `gaussian_random_projection`, `sparse_random_projection`; `johnson_lindenstrauss_min_dim` | Gaussian/three-point random matrices, dense storage, automatic JL dimension, cached or on-demand pseudoinverse |
 | kernel_pca | `kernel_pca` | Centered linear/RBF/polynomial/sigmoid/cosine/precomputed Gram matrices; dense Jacobi eigensolver; out-of-sample transform |
-| manifold | `isomap`, `tsne`; `trustworthiness`; re-exports `spectral_embedding`, `mds`, `locally_linear_embedding` | Isomap graph paths; dense exact t-SNE with adaptive gains and two-stage momentum; neighborhood rank trustworthiness; spectral embedding; metric/nonmetric SMACOF; dense standard LLE and LTSA with barycentric query transforms |
+| manifold | `isomap`, `tsne`; `trustworthiness`; re-exports `spectral_embedding`, `mds`, `locally_linear_embedding` | Isomap graph paths; dense exact t-SNE with adaptive gains and two-stage momentum; neighborhood rank trustworthiness; spectral embedding; metric/nonmetric SMACOF; dense standard/Hessian/modified LLE and LTSA with barycentric query transforms |
 | spectral | `spectral_embedding` | Dense symmetric eigensolver; RBF, symmetrized nearest-neighbor or precomputed affinity; degree normalization; connected-component count |
 | density | `kernel_density` | Exact Euclidean log densities with Gaussian/tophat/Epanechnikov/exponential/linear kernels; sample weights; fixed/Scott/Silverman bandwidth; Gaussian/tophat sampling |
 | outlier | `local_outlier_factor` | Training outlier scores and novelty detection, automatic/percentile threshold, Minkowski and other supported pairwise metrics |
@@ -238,7 +238,7 @@ distances; cosine similarity; linear, RBF, polynomial and sigmoid kernels.
 Not translated: sparse data paths, general estimator base/clone/parameter search
 framework, pipelines/column transformers, broader SVM/GLM/SGD options,
 histogram boosting, broader AdaBoost and bagging APIs,
-Barnes-Hut t-SNE and Hessian/modified LLE,
+Barnes-Hut t-SNE,
 outlier detection beyond LOF/OneClassSVM/SGDOneClassSVM/IsolationForest/EllipticEnvelope,
 calibration, semi-supervised learning beyond label propagation/spreading,
 multiclass/multioutput wrappers,
@@ -380,7 +380,7 @@ All-zero metric dissimilarities return a zero embedding and zero stress; a
 collapsed initialization with positive dissimilarities fails diagnostically.
 There is no new-observation transform, inverse transform or threaded backend.
 
-LLE supports `method='standard'` (default) and `method='ltsa'`, with a native
+LLE supports `method='standard'` (default), `hessian`, `modified` and `ltsa`, with a native
 dense eigensolver. `fit`, `fit_transform` and `transform` use Euclidean nearest
 neighbors, local regularized barycentric weights, and the lowest nonconstant
 alignment modes. The known constant mode is removed analytically with an
@@ -394,14 +394,16 @@ regularization) fails with a diagnostic.
 Fitted fields include `x_fit_`, `embedding_`, `reconstruction_error_` (sum of
 selected eigenvalues, floored at zero for roundoff), and one-based `neighbors_`.
 `weights_` stores (samples, neighbors) barycentric fitting weights for standard
-LLE and is zero for LTSA, whose objective uses local tangent projectors. LTSA
-uses regularization only in query transforms. Queries use the fitted neighbors
+LLE and is zero for the three nonstandard methods. LTSA and Hessian use local
+projectors; modified LLE uses multiple weights and its fixed source fit
+regularizer. For nonstandard methods, the public reg control applies only
+to query transforms. Queries use the fitted neighbors
 count and barycentric projection of training coordinates; a query equal to a
 training point can have a different neighbor set from the training fit.
 Neighbor ties, disconnected graphs, unreferenced LTSA observations, or repeated
 alignment eigenvalues can make truncated embeddings nonunique across solvers.
-No Hessian/modified methods, ARPACK, sparse graph path or inverse transform is
-implemented.
+Hessian/modified details and tolerances are described below. ARPACK, sparse
+graph paths and inverse transforms remain unimplemented.
 
 ## Support-vector regression and one-class detection
 
@@ -3281,3 +3283,62 @@ Inventory: 175 public core types, 83 source modules, 84 native test programs,
 63 reference suites and 127,422 result groups, plus 28 separate NumPy RNG
 stream groups. Isolated invalid-input inventory is 1,740. Existing numerical
 implementations are unchanged; manifold re-exports the new implementation.
+
+## Hessian eigenmapping and modified LLE batch
+
+Extended the existing locally_linear_embedding type with method='hessian'
+and method='modified', completing all four sklearn LLE methods. New finite,
+nonnegative hessian_tol=1.e-4 and modified_tol=1.e-12 controls follow source
+validation. Hessian fitting builds centered tangent/monomial neighborhoods,
+full Householder QR complements and tolerance-normalized alignment blocks.
+Modified fitting builds full local eigensystems, fixed trace-regularized
+affine weights, median spectral ratios, cumulative-energy/searchsorted
+almost-null-space sizes and Householder multiple-weight blocks. The native
+backend reuses Jacobi SVD/eigen routines and completes local orthogonal bases.
+The shared fit/fit_transform/transform and analytic constant-mode removal
+remain intact; public reg affects fitting only for standard LLE and affects
+query interpolation for every method. No public type or extension is added.
+
+The new reference suite checks 3,535 groups over 95 fixtures and five seeds
+(0,7,42,2026,314159), covering 18--32 samples, 3--12 input features,
+6--12 neighbors, 1/2/3 embedding dimensions, both SVD and local covariance
+branches, odd/even median selection, default/modified tolerances and nondefault
+query regularization. Local source alignments are captured from the installed
+sklearn implementation before global eigenanalysis. Source local spectral
+values, regularized weights, thresholds, nullities, ordinary fitted/query
+geometry and reconstruction error are compared; native local bases also
+satisfy independent orthogonality and covariance eigen-residual identities.
+Every modified alignment is independently rebuilt using the source formulas
+on its validated native local eigensystem.
+
+Nonunique global eigenspaces use source-matrix residual/lowest restricted
+energy, orthogonality, zero-mean and source barycentric-query certificates.
+Spectral-cutoff differences require measured near-equality bounds and a
+counterfactual native-frame assembly using source nullities that matches the
+source alignment. The initial checked prototype recorded 695 direct sklearn
+groups, 2,620 spectral identities, 95 input identities, 50 source-formula/native
+frame assemblies, 51 nonunique-eigenspace comparisons and 24 cutoff-certified
+comparisons. There were 17 nonunique spectral fixtures and four single-row
+cutoff fixtures. Final profiles retain their own complete oracle/certificate
+accounting; no broad coordinate tolerance replaces these checks.
+
+Native tests independently check alignment symmetry, positive semidefiniteness,
+constant-mode annihilation, translation/scale invariance, affine constrained
+regularized weights, embedding orthonormality and energy, deterministic refit,
+input preservation, query transforms and the public reg control's distinct
+fit/query behavior. Twenty-five new diagnostics cover tolerance domains,
+method-specific neighborhood limits, zero spectra/empty nullspaces, zero
+Householder denominator, malformed neighbor arrays and invalid feature data.
+All 25 also passed a standalone checked probe before full fpm validation.
+An lle_variants example demonstrates both methods and query coordinates.
+
+The existing compare_manifold.py additionally accepts --executable, preserving
+its default fpm invocation while enabling checked-profile regression testing
+without a redundant build. Standard LLE, LTSA and MDS source comparisons are
+rerun because the LLE type/interface was extended. Existing standard/LTSA
+numerical bodies are unchanged. Dense spectral/rank/tie/working-range
+limitations and source paths/hashes/research attribution are documented.
+Original work remains MIT with retained sklearn BSD notices.
+Inventory: 175 public core types, 84 source modules, 85 native test programs,
+64 reference suites and 130,957 result groups, plus 28 separate NumPy RNG
+stream groups. Isolated invalid-input inventory is 1,765. No dependency is added.

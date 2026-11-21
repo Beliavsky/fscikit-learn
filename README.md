@@ -23,9 +23,11 @@ fpm run --example nonlinear_feature_scoring
 fpm run --example clustering_agreement
 fpm run --example resampling
 fpm run --example nonlinear_embedding
+fpm run --example lle_variants
 python validation/compare_cluster_information.py
 python validation/compare_resampling.py
 python validation/compare_tsne.py
+python validation/compare_lle_variants.py
 python validation/compare_mutual_info.py
 python validation/compare_label_binarization.py
 python validation/compare_polynomial_count_sketch.py

@@ -474,7 +474,7 @@ projected=lle%transform(query)
 ```
 
 `mds%normalized_stress` accepts the strings `auto`, `true`, or `false`.
-There is no MDS query transform. Both `standard` and `ltsa` LLE methods support
+There is no MDS query transform. All four `standard`, `hessian`, `modified` and `ltsa` LLE methods support
 query transforms through local barycentric projection. The implementation
 uses a dense eigensolver and one-based fitted neighbor indices. See
 `COVERAGE.md` for rank/connectivity limits and the sklearn 1.6.1 MDS stress
@@ -2289,3 +2289,69 @@ NumPy sorting and sklearn neighbor backends can resolve ties differently.
 The reference suite records both source and native results for tied embedding
 neighborhoods, checks the native stable-rank identity and certifies valid rank
 bounds where original-space ranks are unique. See `example/nonlinear_embedding.f90`.
+
+## Hessian eigenmapping and modified LLE
+
+`locally_linear_embedding` now supports all four sklearn methods through the
+existing `sklearn_manifold` and `sklearn` imports:
+
+```fortran
+type(locally_linear_embedding) :: model
+model%n_neighbors=11
+model%n_components=2
+model%method='hessian'             ! Or 'modified'.
+embedding=model%fit_transform(x)
+query_embedding=model%transform(query)
+```
+
+New controls are `hessian_tol=1.e-4` and `modified_tol=1.e-12`, both finite and
+nonnegative, including when another method is selected. The existing
+`method='standard'`, neighbor/component controls and reg defaults are unchanged.
+Hessian eigenmapping requires `n_neighbors > d*(d+3)/2`, where
+`d=n_components`; the integer dimension expression is checked in int64 before
+workspace allocation. It centers each neighborhood, estimates tangent vectors
+using SVD or covariance eigenvectors, forms constant/linear/quadratic features,
+uses a full Householder QR basis and applies the source column-sum tolerance
+normalization before accumulating the local alignment blocks.
+
+Modified LLE requires `n_neighbors >= n_components`, then computes full local
+spectral bases of neighbor-minus-center differences. It uses the source fixed
+`1.e-3*local_eigenvalue_sum` regularizer for affine weights, the median
+small/large spectral energy ratio, source cumulative-spectrum/searchsorted
+selection of each almost-null-space size and the multiple-weight Householder
+alignment update. This fit regularizer is independent of the public `reg`
+control. The data can still select an empty local nullspace, a zero spectrum
+or a zero Householder denominator at tolerance zero; these cases fail with
+explicit diagnostics instead of passing invalid arithmetic to the eigensolver.
+Zero Hessian normalization sums also have a diagnostic.
+
+All four methods share the existing dense global Jacobi eigensolver, analytic
+constant-mode removal with a Helmert basis, canonical signs, fit/fit_transform
+and Euclidean barycentric transform. Native neighbor ties use stable increasing
+indices and always exclude the training point itself. New-method weights_
+remains zero: a single standard-LLE fitting weight matrix does not represent
+these objectives. Public `reg` controls their query transforms. Changing it
+before a refit does not change their fitted alignment, as in sklearn. Query
+transforms use the fitted neighborhood size and training coordinates.
+
+The internal `sklearn_lle_variants` backend provides local spectral and
+alignment helpers for implementation/reference validation; these are not
+exported by the facade. It uses the existing native Jacobi SVD/eigensolvers,
+full orthogonal completion and Householder QR, with no new dependency.
+Modified LLE retains the source O(samples*neighbors**2) spectral storage as
+well as dense global alignment storage. These are dense small/medium-data
+implementations; sparse graphs and ARPACK are not implemented.
+
+Local nullspace frames and repeated/near-zero global alignment eigenvalues
+are not unique. The source's median/cumulative spectral cutoff can also change
+an integer nullspace size at a rounding-level equality. The validator checks
+actual local eigensystems and alignment assembly, compares the source matrix
+directly when cutoffs agree, and requires a bounded near-threshold witness and
+source-size counterfactual alignment when they differ. Nonunique fitted
+subspaces require orthogonality, zero-mean, eigen-residual, lowest restricted
+energy and source barycentric-query checks. Ordinary unique embeddings and
+transforms are compared directly. Very small Hessian normalization tolerances
+or large modified Householder tolerances can make results depend strongly on
+local QR/SVD frames; eigenvalue ties and duplicate-distance neighborhoods can
+also differ across native and sklearn linear-algebra/neighbor backends.
+See `example/lle_variants.f90` and `validation/compare_lle_variants.py`.

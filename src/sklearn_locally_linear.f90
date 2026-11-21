@@ -1,7 +1,8 @@
-! Dense standard LLE and LTSA adapted from sklearn/manifold/_locally_linear.py.
+! Dense standard/Hessian/modified LLE and LTSA adapted from sklearn/manifold/_locally_linear.py.
 ! See THIRD_PARTY_NOTICES.md for upstream BSD-3-Clause attribution.
 module sklearn_locally_linear
   use sklearn_common
+  use sklearn_lle_variants, only: lle_hessian_alignment,lle_modified_alignment
   use sklearn_metrics, only: pairwise_distances
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
   implicit none
@@ -9,7 +10,7 @@ module sklearn_locally_linear
   public :: locally_linear_embedding
   type :: locally_linear_embedding
     integer :: n_neighbors=5,n_components=2
-    real(dp) :: reg=1.e-3_dp,reconstruction_error_=0
+    real(dp) :: reg=1.e-3_dp,reconstruction_error_=0,hessian_tol=1.e-4_dp,modified_tol=1.e-12_dp
     character(8) :: method='standard'
     real(dp), allocatable :: embedding_(:,:),x_fit_(:,:),weights_(:,:)
     integer, allocatable :: neighbors_(:,:)
@@ -49,7 +50,12 @@ contains
     call require(d>0.and.d<=p.and.d<n,'invalid LLE n_components')
     call require(ieee_is_finite(self%reg),'invalid LLE regularization')
     call require(self%reg>=0,'invalid LLE regularization')
-    call require(self%method=='standard'.or.self%method=='ltsa','unsupported LLE method')
+    call require(ieee_is_finite(self%hessian_tol),'LLE hessian_tol must be finite')
+    call require(self%hessian_tol>=0,'LLE hessian_tol must be nonnegative')
+    call require(ieee_is_finite(self%modified_tol),'LLE modified_tol must be finite')
+    call require(self%modified_tol>=0,'LLE modified_tol must be nonnegative')
+    call require(self%method=='standard'.or.self%method=='ltsa'.or.self%method=='hessian'.or. &
+      self%method=='modified','unsupported LLE method')
     if(self%method=='ltsa') call require(k>d,'LTSA needs n_neighbors > n_components')
     self%x_fit_=x; distances=pairwise_distances(x,x)
     if(allocated(self%neighbors_)) deallocate(self%neighbors_,self%weights_)
@@ -68,6 +74,10 @@ contains
         w(i,i)=w(i,i)+1
       end do
       alignment=matmul(transpose(w),w)
+    else if(self%method=='hessian') then
+      alignment=lle_hessian_alignment(x,self%neighbors_,d,self%hessian_tol)
+    else if(self%method=='modified') then
+      alignment=lle_modified_alignment(x,self%neighbors_,d,self%modified_tol)
     else
       allocate(local_values(k),local_vectors(k,k))
       do i=1,n

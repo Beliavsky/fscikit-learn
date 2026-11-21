@@ -1,6 +1,7 @@
 """Dense MDS/SMACOF and LLE/LTSA reference checks against sklearn 1.6.1."""
 from pathlib import Path
 import json
+import argparse
 import os
 import subprocess
 import warnings
@@ -61,6 +62,9 @@ def reference(x, init, actual):
 
 
 def main():
+    parser=argparse.ArgumentParser()
+    parser.add_argument("--executable",type=Path)
+    args=parser.parse_args()
     RESULTS.mkdir(exist_ok=True)
     checks = []
     for seed, n, p in ((7, 24, 3), (42, 30, 4), (2026, 36, 5)):
@@ -71,8 +75,9 @@ def main():
         with data.open("w") as stream:
             stream.write(f"{n} {p}\n")
             np.savetxt(stream, np.column_stack([x, init]), fmt="%.17g")
-        subprocess.run(["fpm", "run", "--target", "reference_manifold_driver", "--", str(data), str(output)],
-                       cwd=ROOT, check=True)
+        command=([str(args.executable.resolve()),str(data),str(output)] if args.executable else
+                 ["fpm","run","--target","reference_manifold_driver","--",str(data),str(output)])
+        subprocess.run(command,cwd=ROOT,check=True)
         actual = {}
         for line in output.read_text().splitlines():
             name, *values = line.split()

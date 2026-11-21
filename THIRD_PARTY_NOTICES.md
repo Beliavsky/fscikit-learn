@@ -94,7 +94,7 @@ Reference paths by module:
 | manifold (Isomap) | manifold/_isomap.py; utils/graph.py (connected-component completion) |
 | semi_supervised | semi_supervised/_label_propagation.py; RBF/KNN diffusion and clamping |
 | mds | manifold/_mds.py; metric/nonmetric SMACOF updates, stress normalization, legacy convergence and multi-start selection; native isotonic fitting and independent Fortran RNG |
-| locally_linear | manifold/_locally_linear.py; local barycentric reconstruction, standard/LTSA alignment objectives and query interpolation; native linear solve and dense eigensolver |
+| locally_linear / lle_variants | manifold/_locally_linear.py; local barycentric reconstruction, standard/Hessian/modified/LTSA alignment objectives and query interpolation; native QR, orthogonal completion, Jacobi local SVD/eigensolver and dense global eigensolver |
 | cross_decomposition | cross_decomposition/_pls.py; centering/scaling, NIPALS mode A/B, regression/canonical deflation, rotations, prediction and PLSSVD contracts; native dense SVD/pseudoinverse including historical CCA rank cutoff |
 | isotonic | isotonic.py, _isotonic.pyx; weighted monotonic fitting/interpolation contracts, Spearman direction, near-duplicate aggregation and threshold trimming; native PAVA implementation |
 | kernel_approximation | kernel_approximation.py (including AdditiveChi2Sampler defaults, harmonic map and layout; SkewedChi2Sampler inverse-CDF weights, offsets, shifted-log map and domain); RBFSampler Fourier distribution/transform and Nystroem landmark normalization contracts; independent Fortran RNG and native PSD eigensolver |
@@ -301,3 +301,25 @@ does not allocate traces. New original contributions remain MIT, adapted
 portions retain BSD-3-Clause and the complete existing upstream notices in
 `LICENSES/scikit-learn-COPYING` and the applicable NumPy license files.
 No new dependency or Python/SciPy runtime is required by the Fortran package.
+
+## Hessian eigenmapping and modified LLE (BSD)
+
+`src/sklearn_lle_variants.f90` and the extended
+`src/sklearn_locally_linear.f90` adapt sklearn 1.6.1
+`manifold/_locally_linear.py`: Hessian tangent/monomial/full-QR construction,
+column-sum normalization, modified-LLE local eigensystems, fixed trace
+regularization, median spectral ratio and cumulative-spectrum search,
+Householder multiple weights and dense alignment accumulation. Installed
+source SHA-256:
+`1c4e17b21891c57d802492f627a7c65e0af0cc1347bdcd40a1e486b5b12fbe29`.
+The existing native Jacobi SVD and eigensolver are reused; new full Householder
+QR and orthogonal-completion routines implement the required matrix operations.
+
+Research attribution follows the source references: D. Donoho and C.
+Grimes, "Hessian eigenmaps: Locally linear embedding techniques for
+high-dimensional data," PNAS 100:5591 (2003); Z. Zhang and J. Wang,
+"MLLE: Modified Locally Linear Embedding Using Multiple Weights." Existing
+standard-LLE/LTSA attribution remains applicable to shared fitting and query
+interpolation. Original contributions retain MIT; adapted sklearn portions
+retain BSD-3-Clause and the complete notices in LICENSES/scikit-learn-COPYING.
+No new dependency is added.
