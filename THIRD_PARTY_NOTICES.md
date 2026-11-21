@@ -496,3 +496,21 @@ Installed source SHA-256:
 Adapted portions retain BSD-3-Clause attribution and the complete notice in
 `LICENSES/scikit-learn-COPYING`. Original contributions remain MIT. No runtime
 dependency or public extension is introduced.
+
+
+### Voting ensembles
+
+`src/sklearn_voting.f90` adapts fitting, dropped-estimator filtering, class
+encoding, hard/soft voting, averaging and transform layouts from sklearn
+1.6.1 `ensemble/_voting.py`; name validation follows `ensemble/_base.py`.
+Scoring follows the accuracy/R2 mixin contracts and force-finite R2 behavior
+in `metrics/_regression.py`. Native configuration containers and dispatch
+are original work. Installed source SHA-256:
+
+- `ensemble/_voting.py`: `8f08b8c94dc77e372dc4e8a8366e339e62d117f04a067e8ce94afba0a989d5aa`
+- `ensemble/_base.py`: `a1d7f71030dd358bbae7b7a782e9a4410e9785976c16a82d12b16a319b705790`
+- `metrics/_regression.py`: `60453695ff142bd8242274f894ad141fbc025814996f51b4507660bf6688dfd1`
+
+Adapted portions retain BSD-3-Clause and the complete notice in
+`LICENSES/scikit-learn-COPYING`. Original contributions remain MIT. No
+additional runtime dependency or public extension is introduced.

@@ -1,6 +1,7 @@
 module sklearn_ensemble
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
   use, intrinsic :: iso_fortran_env, only: real32
+  use sklearn_voting, only: voting_classifier,voting_regressor,voting_estimator
   use sklearn_isolation_forest, only: isolation_forest
   use sklearn_adaboost_regression, only: adaboost_regressor
   use sklearn_adaboost, only: adaboost_classifier
@@ -9,6 +10,7 @@ module sklearn_ensemble
   use sklearn_metrics, only: accuracy_score,r2_score
   implicit none
   private
+  public :: voting_classifier,voting_regressor,voting_estimator
   public :: isolation_forest
   public :: adaboost_classifier,adaboost_regressor
   public :: random_forest_classifier,random_forest_regressor,extra_trees_classifier,extra_trees_regressor

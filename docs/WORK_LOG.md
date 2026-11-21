@@ -3507,3 +3507,58 @@ Original work remains MIT with retained sklearn BSD notices. No runtime
 dependency or public extension was added. Inventory: 184 core public types,
 90 source modules, 93 native programs, 72 core reference suites and 214,138
 retained core groups, plus 28 separately counted NumPy RNG groups.
+
+
+## Voting ensembles - 2026-11-21
+
+Added the core VotingClassifier and VotingRegressor counterparts, with named
+heterogeneous native bases, dropped slots, fresh fitted clones, class-label
+encoding/restoration, hard/soft voting, signed averaging weights, per-base
+transforms and unflattened probability tensors. Metadata includes fitted
+names, one-based active input indices, original classifier labels and feature
+count. Fitted templates and inputs are preserved; refits replace the fitted
+ensemble, and Fortran assignment deep-copies models. Base capabilities and
+weighting limits remain explicit native dispatch. No numerical production
+code in existing estimators was changed; sklearn_ensemble re-exports the new
+module. API.md documents controls, rank adaptations and supported bases.
+
+Completed gates on the existing Windows/fpm/GNU Fortran toolchain:
+
+- All 94 native test programs passed in checked/runtime-trap and optimized
+  release profiles.
+- Both profiles passed 16,965 new reference groups across 1,200 fixtures and
+  five seeds, covering 15 classifier and 10 regressor configurations.
+- Cases include single/mixed lists, dropped unallocated slots, noncontiguous
+  and constant labels/targets, signed voting and scoring weights, all-zero
+  hard-voting weights, weighted base fits, zero-weight Gaussian NB NaNs,
+  singleton queries, source transform layouts, refits, deep copies and
+  complete emitted template-state/input preservation.
+- The existing 192-group integration comparison passed. All 2,150 isolated
+  invalid-input cases passed, including 38 new diagnostics. The checked
+  voting_ensembles example ran with labels [-7,-7,19]; its actual output
+  markers were verified.
+
+Checked oracle counts: sklearn=10,482, input_identity=4,900, source_native_base_identity=1,370, source_cart_certificate=180, source_template_cart_certificate=3, source_certified_base=18, source_certified_reduction=10, source_template_label_boundary=2.
+Release oracle counts: sklearn=10,482, input_identity=4,900, source_native_base_identity=1,370, source_cart_certificate=180, source_template_cart_certificate=3, source_certified_base=18, source_certified_reduction=10, source_template_label_boundary=2.
+Certificate record counts, checked/release: template_tree=3, tree=16, template_label_boundary=2, label_boundary=2 / template_tree=3, tree=16, template_label_boundary=2, label_boundary=2.
+
+Ordinary base responses and supported learned parameter states retain fixed
+source tolerances. Source ensemble copies independently combine actual
+native base responses, checking transformations, final predictions and
+weighted scores. CART alternatives require exhaustive Gini/SSE-optimal split
+certificates and source stump cost agreement. All equal-cost alternative
+partitions are counted, including when the source stump and full source tree
+choose different optimal partitions. Label boundary differences require
+recorded scaled 64-epsilon witnesses. No fixture was removed and no ordinary
+tolerance widened.
+
+Production numerics were unchanged after the checked native run. Reference
+certificates were strengthened afterward. Other retained reference suites
+were not all rerun in this batch. Final audits verify Python syntax, Fortran
+formatting, diagnostic registry/driver correspondence, report/oracle and
+certificate accounting, source hashes, retained licenses and git diff checks.
+
+Original work remains MIT with retained sklearn BSD notices; no runtime
+dependency or public extension was added. Inventory: 186 core types,
+91 source modules, 94 native programs, 73 core reference suites and 231,103
+retained core result groups, plus 28 separately counted NumPy RNG groups.

@@ -2934,3 +2934,70 @@ unchanged. Multiclass Perceptron retains one row per class.
 
 See `example/multiclass_reductions.f90` and
 `validation/compare_multiclass.py` for usage and source comparisons.
+
+
+## Voting ensembles
+
+`voting_classifier`, `voting_regressor` and the configuration container
+`voting_estimator` are exported by sklearn_ensemble and the sklearn facade.
+Fill an array of voting_estimator slots with distinct nonempty names (up to
+64 characters) and allocate each active slot's polymorphic `estimator` from
+a native base. Set `drop=.true.` to skip a slot, including an unallocated one.
+Call `fit(x,y,estimators,sample_weight)`; supplied fitted templates and input
+arrays are preserved. Active models are fitted afresh on all rows, even when
+their voting weight is zero. Refit replaces all models; Fortran assignment
+deep-copies fitted ensembles. Python constructor parameter names and names
+containing a double underscore are rejected as estimator names.
+
+Supported classifier families are logistic regression, Gaussian NB, SGD
+classification, KNN, decision trees, multinomial/Bernoulli/Complement NB,
+Perceptron, passive-aggressive classification, RidgeClassifier (including
+RidgeClassifierCV), LinearSVC, SVC and DummyClassifier. Regressor families
+are the native linear-regression hierarchy (OLS, Ridge, ElasticNet, Lasso
+and its native descendants), SGD regression, KNN regression, decision trees,
+passive-aggressive regression, KernelRidge and DummyRegressor. Every base
+retains its existing native controls, numerical limitations and responses.
+Training weights are accepted by logistic, Gaussian NB, SGD classification,
+ridge classification, LinearSVC and SGD regression bases; all active bases
+must support them. Dropped bases are not fitted or capability checked.
+
+Classifier `voting='hard'` (default) combines encoded class predictions;
+`voting='soft'` averages probabilities. Labels are sorted and encoded as
+0..K-1 before base fitting, and restored to original labels for `predict`.
+Fitted `classes_`, `n_features_in_`, `active_indices_` (one-based configured
+slot numbers), and `estimators_(:)%name/estimator` expose fitted metadata.
+Regressor metadata follows the same active-slot layout without classes_.
+The native named slots replace Python's named_estimators_ dictionary.
+
+Allocate optional `weights(:)` with one finite value per CONFIGURED slot,
+including dropped slots; otherwise all active weights equal one. Signed
+voting weights are supported. Soft voting and regression require a nonzero
+sum of active weights when predicting. Hard voting allows a zero sum and
+all-zero weights. Hard ties choose the first encoded bin; its bincount ends
+at the highest label actually predicted in that row, preserving source
+behavior even with negative weights. Soft ties choose the first maximum,
+including source first-NaN argmax behavior. Undefined Gaussian NB posterior
+probabilities remain quiet NaNs in the average.
+
+Classifier `transform(x)` returns real64 encoded labels with hard voting,
+or horizontally concatenated per-base probabilities with soft voting.
+These are encoded labels, not original integer labels. For soft voting,
+`transform_proba(x)` returns (n_active_estimators,n_samples,n_classes),
+matching the source unflattened shape. The default flatten_transform is true;
+when false, use transform_proba rather than the rank-two transform interface.
+Regressor transform returns (n_samples,n_active_estimators) predictions.
+Transforms exclude dropped slots and ignore voting weights. Both types offer
+rank-two `fit_transform(x,y,estimators,sample_weight)` convenience functions.
+
+`predict_proba` and transform_proba require soft voting and probability
+support from every active base. Fitting a soft ensemble with a hard-only
+base succeeds; querying its probabilities then fails, as in source. There
+is no partial_fit or decision_function interface. The APIs accept dense
+single-output targets; sparse inputs, arbitrary Python estimators, general
+metadata routing, job scheduling, feature-name generation and persistence
+are outside this translation.
+
+`score(x,y,sample_weight)` computes accuracy or source force-finite R2.
+Query weights may be finite and signed with nonzero sum. A singleton R2
+query returns quiet NaN, as in sklearn; warning messages are not emitted.
+See example/voting_ensembles.f90 and validation/compare_voting.py.

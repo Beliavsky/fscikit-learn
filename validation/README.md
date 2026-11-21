@@ -3198,3 +3198,27 @@ nearest-neighbor boundary alternatives require explicit scaled 64-epsilon
 witnesses; reports identify them separately. Ordinary tolerances remain fixed.
 Native decoding uses explicit distances, so the identity checks also certify
 rare equal-cost choices of source's optimized distance implementation.
+
+
+## Voting ensembles
+
+Run `python validation/compare_voting.py` (optionally `--profile release`,
+`--executable PATH`, or repeatable `--seed N`). Five seeds check 16,965 groups
+across 1,200 fixtures with 15 classifier and 10 regressor configurations.
+Cases cover single and heterogeneous lists, dropped/unallocated slots,
+noncontiguous labels, constant and binary targets, signed voting and score
+weights, all-zero hard-voting weights, per-base transforms, flattened/tensor
+probabilities, weighted fitting, zero-weight Gaussian NB NaNs, singleton
+queries, refits and fitted-template/input preservation.
+
+Native base responses and learned linear/Gaussian/count-NB/KNN/dummy/kernel
+ridge states are compared with source. CART predictions additionally require
+exhaustive split-cost optimality and agreement with source stump costs; all
+equal-cost alternative partitions are counted. Source VotingClassifier and
+VotingRegressor copies combine the actual native base responses, independently
+checking the native reductions, transformed outputs and weighted scores.
+The source proxy retains real estimator types and class metadata. Genuine
+label boundaries require recorded scaled 64-epsilon witnesses. Certificates
+are distinct from ordinary fixed-tolerance source comparisons. Every template
+has its full emitted parameter state and predictions checked before and
+after ensemble fitting/refitting.
