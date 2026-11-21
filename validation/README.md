@@ -3776,3 +3776,92 @@ test objects, Python syntax, Fortran line lengths/whitespace and staged Git
 whitespace checks passed. No older reference-suite rerun is implied beyond the
 192-group integration gate. Original MIT licensing and sklearn BSD attribution
 remain in place; no dependency or public extension algorithm was added.
+
+
+## Iterative multivariate imputation increment (2026-11-21)
+
+Added the experimental sklearn IterativeImputer counterpart using native
+Bayesian ridge chained equations, including posterior sampling. The inventory
+is 203 core types, 108 source modules, 109 native programs, and 88 core reference
+suites retaining 377,025 groups, plus the separate existing RNG checks.
+The five rejection registries retain 2,625 unique cases; this increment adds
+and runs 34 cases without claiming a rerun of the older registries.
+
+`validation/compare_iterative_impute.py` retains 2,592 groups across 324 fixtures:
+2,240 direct sklearn groups, 324 exact input/observed-value identities and
+28 explicitly conditional source-replay groups across four fixtures. The 300
+seeded fixtures use five seeds, NaN and finite markers, all five update orders,
+all four initial strategies, posterior/deterministic fits, optional indicators,
+empty columns kept/dropped, newly missing complete-at-fit features, scalar and
+vector bounds, finite/infinite limits, correlation-weighted neighborhoods,
+zero-variance matrices, early exits and repeated stochastic transforms.
+Twenty-four additional fixtures have only one to three rows with seven to
+12 features, covering wide/underdetermined fits as well as rank deficiency.
+
+Each output/query/repeated-query/statistics group is compared at rtol=atol=3e-11;
+metadata, names, feature indices and every stored update/neighbor sequence are
+exact. Native drivers return their unchanged input arrays, so input identity
+is checked after actual Fortran calls, including NaN masks. Python reference
+calls receive copies because sklearn 1.6.1 can mutate an F-contiguous input
+when retaining empty features (one-row arrays are both C/F contiguous).
+
+The four posterior conditional fixtures retain sklearn's direct-default
+output deltas and 126 independent covariance certificates. The native
+Bayesian ridge baseline already documents nonunique thin-SVD covariance in
+wide rank-deficient problems. Certificates require covariance symmetry,
+correct eigenvalues and unique action on the observed centered row space;
+these establish a legitimate retained null-space completion. A validation-only
+BayesianRidge subclass runs sklearn fitting on the replay's CURRENT predictors
+and targets, checks each native fitted coefficient/precision against that fit,
+and substitutes the certified covariance only in that mathematically nonunique
+case. All subsequent source imputation, clipping, truncnorm draws, RNG advances,
+ordering and transforms run normally. No installed reference code is patched.
+The conditional groups are explicitly distinguished from direct-default parity;
+original discrepancies can exceed one and are not accepted by the 3e-11 test.
+
+Source warnings (including nonconvergence and dropped empty columns), source
+hashes, native binary hashes, profile/version metadata, maximum numerical
+errors and covariance certificates are stored in ignored validation/results.
+`python validation/compare_iterative_impute.py --profile checked` or `--profile
+release` builds the driver; `--executable PATH` bypasses fpm. The isolated
+rejection script has the same options. Its 34 cases exercise unfitted use,
+empty/mismatched arrays and names, bad controls/sentinels, infinities, scalar
+and vector bounds, integer sequence capacity and invalid estimator settings.
+
+The native test independently checks correlated-feature recovery, unchanged
+observed values, indicator masks, stored sequence replay, deep-copy/refit
+isolation, the source constant-fill naming quirk, empty-column retention,
+finite markers, bounded posterior draws, persistent RNG state and newly
+missing complete-at-fit features with skip_complete. The public
+`chained_imputation` example demonstrates recovery and indicators. The code
+retains MIT/BSD attribution and adds no dependency or public extension algorithm.
+
+
+Final gates passed all 109 native programs under checked runtime/FPE-trap flags
+and optimized fpm builds. Both profiles passed all 2,592 groups with the same
+oracle classification (2,240 direct, 324 identity, 28 certified replay), the
+same four conditional cases, and 126 covariance certificates per profile.
+The 34 isolated rejections passed both profiles. The existing 192-group sklearn
+integration gate passed against the updated checked executable; no broader
+older-suite rerun is implied. Largest output errors against the stated oracle
+were 5.01e-14 checked and 4.90e-14 optimized. Certificates use 3e-9 relative/
+absolute tolerance for spectral/row-space and fitted-parameter checks, and
+3e-11 for covariance symmetry; output comparisons remain 3e-11.
+
+The public example passed both profiles and matched independent sklearn: three
+rounds, six output columns including indicators, and recovered values
+1.9999994241590575, 8.000000361057754, 17.9999999536776. These are synthetic
+fixture results, not general recovery guarantees. Production Fortran and the
+native test stayed fixed through the final gates. Validation driver diagnostic
+output was expanded afterward, and the final checked build refreshed both
+application drivers without changing the tested library or native tests.
+
+Reference drivers were linked against current fpm libraries in temporary
+directories during the builds. Their executable .text hashes match the final
+fpm executables exactly: checked
+c4c93bbaa4c216e44abbdc44b539f1c29e60809acf6862e22a57e42836687820,
+optimized e536ee221fc7a288d96c35ee86280ce5f331d2a3ecf39401788c02e4654c6cb1.
+Final audits verified upstream source hashes, tested binary hashes, strict JSON,
+source/Python formatting, fresh production and 109 native test objects in each
+profile, and staged Git whitespace. The active broader translation goal remains
+open; this increment is one additional core sklearn algorithm.

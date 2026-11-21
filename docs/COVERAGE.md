@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 202 public estimator, transformer, and splitter types. Each is a
+There are 203 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Eighty-seven reference suites additionally check 374,433
+All types have native tests. Eighty-eight reference suites additionally check 377,025
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -31,7 +31,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | multiclass | `one_vs_rest_classifier`, `one_vs_one_classifier`, `output_code_classifier` | Dense independent binary reductions; supported native classifier and regressor bases; constant heads; weighted fitting where the base supports it; Gaussian NB/SGD classification streaming for OVR/OVO; seeded legacy NumPy codebooks |
 | inspection | `permutation_importance`, `permutation_importance_multi`, `partial_dependence` | Dense callback-based permutation importance and brute partial dependence/ICE; seeded subsampling/shuffles; weighted averages; categorical and Cunnane percentile grids; numeric multiple-output responses |
 | multioutput | `multi_output_regressor`, `multi_output_classifier`, `regressor_chain`, `classifier_chain` | Independent fitted base models per response column; supported native linear/SGD, NB, neighbors and tree families; ragged class probabilities; SGD/Gaussian NB streaming; native base weighting limits apply |
-| preprocessing | `kernel_centerer`, `ordinal_encoder`, `target_encoder`, `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `knn_imputer`, `missing_indicator`, `spline_transformer`, `label_encoder`, `one_hot_encoder`, `label_binarizer`, `multi_label_binarizer`, `power_transformer`, `kbins_discretizer`, `quantile_transformer`; `normalize`, `binarize`, `polynomial_features` | Ordinal category codes and infrequent grouping; cross-fitted target means; population variance; linear percentile interpolation; NaN imputation with mean/median/most-frequent/constant; numeric categories; empirical uniform/normal quantile transforms; dense polynomial terms through degree 12 with optional interactions; B-spline features and extrapolation |
+| preprocessing | `kernel_centerer`, `ordinal_encoder`, `target_encoder`, `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `iterative_imputer`, `knn_imputer`, `missing_indicator`, `spline_transformer`, `label_encoder`, `one_hot_encoder`, `label_binarizer`, `multi_label_binarizer`, `power_transformer`, `kbins_discretizer`, `quantile_transformer`; `normalize`, `binarize`, `polynomial_features` | Ordinal category codes and infrequent grouping; cross-fitted target means; population variance; linear percentile interpolation; NaN imputation with mean/median/most-frequent/constant; numeric categories; empirical uniform/normal quantile transforms; dense polynomial terms through degree 12 with optional interactions; B-spline features and extrapolation |
 | linear_model | `linear_regression`, `lars`, `lasso_lars`, `lars_cv`, `lasso_lars_cv`, `lasso_lars_ic`, `ridge`, `ridge_classifier`, `ridge_classifier_cv`, `multi_task_elastic_net`, `multi_task_lasso`, `multi_task_elastic_net_cv`, `multi_task_lasso_cv`, `lasso`, `elastic_net`, `lasso_cv`, `elastic_net_cv`, `logistic_regression`, `logistic_regression_cv`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `sgd_regressor`, `sgd_classifier`, `sgd_one_class_svm`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `orthogonal_matching_pursuit_cv`, `huber_regressor`, `quantile_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; least-angle/Lasso homotopy paths with CV and AIC/BIC selection; coordinate descent with K-fold alpha/l1-ratio selection; weighted logistic Newton solver with raw-score prediction; perceptron; PA-I/II classification/regression with averaging; streaming stochastic-gradient regression/classification and one-class detection; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; weighted L1-regularized quantile regression; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb`, `categorical_nb` | Weighted/streaming Gaussian moments, empirical/fixed priors and variance smoothing; strictly positive scalar alpha; Bernoulli threshold; optional complement normalization |
 | neighbors | `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with optional shrinkage and uniform priors; Euclidean kernel density |
@@ -4469,3 +4469,89 @@ zeros by default; set `store_zeros=.true.` to retain them. Generic CSR storage
 permits nonfinite data, but graph estimators require finite distances. There is
 no claim that other existing estimators accept CSR. See
 `example/neighbor_graphs.f90` for a public-facade example.
+
+
+## IterativeImputer: Bayesian chained regression
+
+`iterative_imputer` is exported by `sklearn_iterative_impute`,
+`sklearn_preprocessing`, and the `sklearn` facade. It implements sklearn's
+experimental core IterativeImputer algorithm, rather than a public extension.
+`fit(x)`, `fit_transform(x)`, and `transform(x)` accept dense real64 matrices.
+Each selected feature is regressed on the other current feature estimates using
+observed target rows, and only missing target values are replaced. The complete
+fitted sequence of regressors is replayed at transform time. Observed caller
+values are preserved, including values outside the imputation bounds.
+
+The `estimator` prototype is a native `bayesian_ridge`, defaulting to sklearn's
+BayesianRidge controls. Its public controls can be changed before fitting; each
+step gets a fresh value copy. Arbitrary Python estimators, other native base
+families, sample weights, metadata routing, sparse inputs and callbacks are not
+part of this interface. Posterior uncertainty uses the existing Bayesian ridge
+covariance and noise precision. The package has no Python/SciPy runtime dependency.
+
+Controls include `max_iter=10`, `tol=1e-3`, `initial_strategy` (mean, median,
+most_frequent or constant), `fill_value=0`, `imputation_order` (ascending,
+descending, roman, arabic or random), `skip_complete`, `keep_empty_features`,
+`add_indicator`, `sample_posterior`, `random_state=0`, and
+`n_nearest_features=0` (zero means Python None/all other features). Correlation-
+weighted neighbor sampling without replacement follows NumPy RandomState draw
+batching. Zero-variance correlations get the source exploration floor 1e-6.
+Random update order follows the same initial shuffle and per-round reshuffles.
+The private MT19937 state persists through transforms and subsequent fits,
+matching sklearn's reused random_state_ behavior; copied fitted models have
+independent copies of that state. Configure controls before fitting.
+
+NaN marks missing values by default. For a finite marker, set
+`missing_is_nan=.false.` and assign `missing_values`. Other NaN/Inf inputs are
+rejected in finite-marker mode; infinities are rejected in NaN mode. Original
+missing masks determine appended indicators, including indicators for dropped
+empty columns. Empty columns are dropped unless `keep_empty_features=.true.`;
+retained empty columns use initial constant fill or zero for other strategies.
+Complete-at-fit columns get regressors by default so they can be imputed later;
+`skip_complete=.true.` instead uses their initial statistics for new missingness.
+A one-column fit, max_iter=0, or an entirely missing effective matrix returns
+initial imputation without constructing a regression sequence. An entirely
+missing query matrix also uses initial imputation, matching source's fast path.
+
+Deterministic fits clip predictions to scalar `min_value`/`max_value`, or optional
+full-input-width `min_values(:)`/`max_values(:)` vectors; dropped columns are
+removed from these vectors. Defaults are the finite real64 extremes, equivalent
+to unbounded imputation for ordinary finite results; IEEE infinite limits are
+also accepted. Bounds must be ordered and cannot contain NaN. Posterior mode
+uses inverse-CDF sampling from the corresponding truncated Gaussian, clamping
+posterior means that lie outside bounds as in source. It runs all rounds without
+early stopping, and repeated transforms advance the RNG. Deterministic early
+stopping uses the maximum row sum of absolute changes, strictly below tol times
+the largest absolute observed value. `converged_` reports that early-stop test;
+no convergence warning is printed by the native library. Use well-scaled
+matrices whose regression and covariance arithmetic stays in real64 range.
+
+Learned fields include `n_features_in_`, `n_features_with_missing_`, `n_iter_`,
+`valid_features_`, `indicator_features_`, `initial_statistics_`, and
+`imputation_sequence_`. The missing-feature count follows source and includes
+complete features when skip_complete is false. Each `imputer_triplet` stores
+`feat_idx`, `neighbor_feat_idx`, and its fitted `estimator`; indices are 1-based
+positions in the retained feature matrix. Valid/indicator feature indices refer
+to original input columns. Initial statistics use zero for dropped empty
+columns, whereas Python's internal SimpleImputer stores NaN there.
+
+`get_feature_names_out()` returns original x0/x1/etc. names, or accepts optional
+input names for width validation, followed by missingindicator_NAME indicator names.
+Returned names have fixed length 128. A tested sklearn 1.6.1 naming quirk is
+preserved: constant initialization with keep_empty_features=false drops empty
+data columns but retains their names through its initial imputer. Names can
+therefore outnumber data columns for that specific source case. Fitted-model
+assignment deep-copies the sequence and RNG; refitting replaces the learned
+sequence, statistics, masks and bounds. See `example/chained_imputation.f90`.
+
+
+Posterior values inherit the Bayesian ridge thin-SVD convention documented
+above: in wide rank-deficient regressions, the retained null-space completion
+is nonunique. Different valid SVD bases can change predictive uncertainty and
+therefore posterior draws, later regressions and transformed values. Exact
+sklearn-default posterior parity is not promised for this case. The retained
+hard fixtures validate covariance spectra and action on the observed row space,
+then replay sklearn with that certified native covariance. Direct-default
+output discrepancies remain in the report; they are not hidden by larger
+numerical tolerances. This affects four of the current 324 fixtures, while
+all other fixtures compare directly with sklearn's default BayesianRidge.

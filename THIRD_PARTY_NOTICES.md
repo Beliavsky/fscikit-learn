@@ -623,3 +623,17 @@ semantics and k+1 distance-mode selection follow these sources.
 `src/sklearn_sparse.f90` is original MIT Fortran storage code using the standard
 compressed-row representation; no SciPy implementation code is copied.
 Reference checks use installed sklearn, SciPy and NumPy only during validation.
+
+
+### Iterative multivariate imputation
+
+`src/sklearn_iterative_impute.f90` adapts scikit-learn 1.6.1
+`sklearn/impute/_iterative.py` (The scikit-learn developers, BSD-3-Clause).
+The retained license is `LICENSES/scikit-learn-COPYING`. Round-robin fitting,
+feature ordering, correlation-weighted neighborhoods, convergence, empty-feature
+handling, prediction clipping and posterior mean guards follow that source.
+Bayesian ridge fitting and NumPy-compatible MT19937 use existing package code
+with its existing notices. The truncated-Gaussian inverse-CDF implementation
+is original Fortran using intrinsic erf/erfc, centered Newton iteration and
+monotone bisection; no SciPy implementation or approximation coefficients are
+copied or distributed. SciPy is used only by the installed validation reference.

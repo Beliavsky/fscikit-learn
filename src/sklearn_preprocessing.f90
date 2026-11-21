@@ -1,4 +1,5 @@
 module sklearn_preprocessing
+  use sklearn_iterative_impute, only: iterative_imputer,imputer_triplet
   use sklearn_kernel_centering, only: kernel_centerer
   use sklearn_ordinal_encoding, only: ordinal_encoder,ordinal_category
   use sklearn_target_encoding, only: target_encoder,target_category
@@ -12,6 +13,7 @@ module sklearn_preprocessing
   use, intrinsic :: ieee_arithmetic, only: ieee_is_nan
   implicit none
   private
+  public :: iterative_imputer,imputer_triplet
   public :: kernel_centerer
   public :: ordinal_encoder,ordinal_category
   public :: target_encoder,target_category
