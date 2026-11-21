@@ -21,6 +21,7 @@ Reference paths by module:
 
 | Fortran module | scikit-learn reference |
 | --- | --- |
+| ordinal_encoding | preprocessing/_encoders.py numeric OrdinalEncoder, category grouping and inverse index conventions; utils/_encode.py counting contracts; shared native numeric category container from target_encoding |
 | target_encoding | preprocessing/_target_encoder.py, preprocessing/_target_encoder_fast.pyx, preprocessing/_encoders.py numeric categories and empirical Bayes encodings; model_selection/_split.py cross-fitting; existing NumPy legacy RNG backend |
 | tsne / tsne_core | manifold/_t_sne.py exact TSNE and trustworthiness; manifold/_utils.pyx perplexity search; existing legacy RNG, randomized SVD and NumPy pairwise reduction backends |
 | resampling | model_selection/_split.py random/group/stratified holdouts, repeated folds and exhaustive combinations; utils/extmath.py _approximate_mode quotas and random tie breaking; existing NumPy legacy RNG backend |

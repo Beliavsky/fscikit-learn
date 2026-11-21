@@ -1,4 +1,5 @@
 module sklearn_preprocessing
+  use sklearn_ordinal_encoding, only: ordinal_encoder,ordinal_category
   use sklearn_target_encoding, only: target_encoder,target_category
   use sklearn_label_binarization, only: label_binarizer,multi_label_binarizer,label_set
   use sklearn_spline, only: spline_transformer
@@ -10,6 +11,7 @@ module sklearn_preprocessing
   use, intrinsic :: ieee_arithmetic, only: ieee_is_nan
   implicit none
   private
+  public :: ordinal_encoder,ordinal_category
   public :: target_encoder,target_category
   public :: label_binarizer,multi_label_binarizer,label_set
   public :: spline_transformer

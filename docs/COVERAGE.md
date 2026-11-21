@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 193 public estimator, transformer, and splitter types. Each is a
+There are 194 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Seventy-nine reference suites additionally check 317,281
+All types have native tests. Eighty reference suites additionally check 333,495
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -26,7 +26,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | multiclass | `one_vs_rest_classifier`, `one_vs_one_classifier`, `output_code_classifier` | Dense independent binary reductions; supported native classifier and regressor bases; constant heads; weighted fitting where the base supports it; Gaussian NB/SGD classification streaming for OVR/OVO; seeded legacy NumPy codebooks |
 | inspection | `permutation_importance`, `permutation_importance_multi`, `partial_dependence` | Dense callback-based permutation importance and brute partial dependence/ICE; seeded subsampling/shuffles; weighted averages; categorical and Cunnane percentile grids; numeric multiple-output responses |
 | multioutput | `multi_output_regressor`, `multi_output_classifier`, `regressor_chain`, `classifier_chain` | Independent fitted base models per response column; supported native linear/SGD, NB, neighbors and tree families; ragged class probabilities; SGD/Gaussian NB streaming; native base weighting limits apply |
-| preprocessing | `target_encoder`, `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `knn_imputer`, `missing_indicator`, `spline_transformer`, `label_encoder`, `one_hot_encoder`, `label_binarizer`, `multi_label_binarizer`, `power_transformer`, `kbins_discretizer`, `quantile_transformer`; `normalize`, `binarize`, `polynomial_features` | Cross-fitted target means; population variance; linear percentile interpolation; NaN imputation with mean/median/most-frequent/constant; numeric categories; empirical uniform/normal quantile transforms; dense polynomial terms through degree 12 with optional interactions; B-spline features and extrapolation |
+| preprocessing | `ordinal_encoder`, `target_encoder`, `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `knn_imputer`, `missing_indicator`, `spline_transformer`, `label_encoder`, `one_hot_encoder`, `label_binarizer`, `multi_label_binarizer`, `power_transformer`, `kbins_discretizer`, `quantile_transformer`; `normalize`, `binarize`, `polynomial_features` | Ordinal category codes and infrequent grouping; cross-fitted target means; population variance; linear percentile interpolation; NaN imputation with mean/median/most-frequent/constant; numeric categories; empirical uniform/normal quantile transforms; dense polynomial terms through degree 12 with optional interactions; B-spline features and extrapolation |
 | linear_model | `linear_regression`, `lars`, `lasso_lars`, `lars_cv`, `lasso_lars_cv`, `lasso_lars_ic`, `ridge`, `ridge_classifier`, `ridge_classifier_cv`, `multi_task_elastic_net`, `multi_task_lasso`, `multi_task_elastic_net_cv`, `multi_task_lasso_cv`, `lasso`, `elastic_net`, `lasso_cv`, `elastic_net_cv`, `logistic_regression`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `sgd_regressor`, `sgd_classifier`, `sgd_one_class_svm`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `orthogonal_matching_pursuit_cv`, `huber_regressor`, `quantile_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; least-angle/Lasso homotopy paths with CV and AIC/BIC selection; coordinate descent with K-fold alpha/l1-ratio selection; weighted logistic Newton solver with raw-score prediction; perceptron; PA-I/II classification/regression with averaging; streaming stochastic-gradient regression/classification and one-class detection; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; weighted L1-regularized quantile regression; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb`, `categorical_nb` | Weighted/streaming Gaussian moments, empirical/fixed priors and variance smoothing; strictly positive scalar alpha; Bernoulli threshold; optional complement normalization |
 | neighbors | `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with optional shrinkage and uniform priors; Euclidean kernel density |
@@ -4083,3 +4083,70 @@ these source quirks. `target_category` and `cv_splits_` are data containers,
 not additional estimator algorithms or extensions beyond sklearn. Category discovery
 uses the existing dense insertion sort and lookup scans category lists; this
 implementation is intended for moderate sample sizes and category counts.
+
+
+## Numeric ordinal encoding
+
+`ordinal_encoder` is exported by `sklearn_preprocessing` and the `sklearn`
+facade. It provides `fit(x)`, `transform(x)`, `fit_transform(x)` and
+`inverse_transform(z,unknown_mask,infrequent_mask)` on dense real64 matrices.
+Numeric categories may include NaN; infinity and empty data are rejected.
+Codes are zero-based, stored as real64, and each input feature produces one
+output feature. String/object categories, integer output dtypes and feature-name
+metadata are outside this native interface.
+
+`categories` is optional: allocate one `ordinal_category` record per input
+feature and assign its `values(:)` to provide sorted unique numeric categories,
+with optional NaN last. Unallocated categories select automatic discovery.
+Unused specified categories are retained. `categories_` and
+`infrequent_categories_` use the same ragged representation; an empty
+infrequent vector means no grouped category, including disabled grouping. `ordinal_category` aliases the
+numeric container already used by TargetEncoder, not an additional algorithm.
+`n_features_in_` records the fitted width. `mappings_` retains category counts,
+zero-based codes, 1-based infrequent indices and the 1-based missing index
+(zero means absent) as native inspection data.
+
+`handle_unknown='error'` is the default and requires unallocated `unknown_value`
+(the native representation of Python None). Use
+`handle_unknown='use_encoded_value'` and assign the allocatable scalar
+`unknown_value` an integral real64 value or NaN to encode unseen categories.
+The allocatable `encoded_missing_value` defaults to unallocated, meaning NaN;
+assign an integral real64 value or NaN to override it. NaN is treated as missing
+only if included in the learned categories; otherwise it is unknown. Unknown
+training values excluded by explicit categories are allowed only in the
+use_encoded_value mode and do not contribute to category counts.
+
+`min_frequency_count=0`, `min_frequency_fraction=0` and `max_categories=0`
+disable their respective controls (Python None). A positive integer count or
+a fraction strictly between zero and one marks categories whose counts are
+strictly below the threshold. Count and fraction are mutually exclusive.
+Fractional thresholds use all training rows, including missing/unknown rows.
+A positive `max_categories` caps finite category codes including the grouped
+infrequent code. Missing and unknown sentinels do not count toward the cap.
+NaN is excluded from frequency grouping. Source stable count sorting is
+retained: ties favor larger sorted numeric categories as frequent categories.
+Grouped finite categories receive the last code after frequent categories.
+Grouping parameters are consumed at fit time; missing/unknown controls remain
+live for transforms, matching valid source parameter changes. Refit replaces
+learned categories and mappings, including changes of feature width.
+
+Inverse transforms return real64 values. Source None values and the literal
+`infrequent_sklearn` have no numeric value, so both use NaN placeholders;
+request the optional allocatable logical `unknown_mask` and `infrequent_mask`
+outputs to distinguish them. Actual numeric NaNs have both tags false. Source
+inverse ordering is retained: replace the missing sentinel, detect unknown
+and infrequent codes, and let the infrequent marker win if markers coincide.
+Sentinel collisions admitted by source's grouped-cardinality validation are
+also admitted here and may discard category identity. Native inverse transforms
+preserve their input; source inverse may mutate its encoded array.
+
+The inverse follows source NumPy indexing conventions, including truncating
+fractional codes toward zero and wrapping negative indices. Invalid indices
+produce a diagnostic before array access. sklearn 1.6.1 has a grouped/missing
+index inconsistency: with a NaN category, its inverse may decode a grouped code
+as a numeric/NaN category or raise IndexError for the original missing index.
+The native implementation preserves observable source results and diagnoses
+those source index failures. Forward encodings and learned grouping remain
+usable for these configurations. The reference suite retains and tests these
+source exceptions explicitly. Category discovery uses the existing dense
+insertion sort; transform category lookup uses binary search.

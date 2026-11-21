@@ -3415,3 +3415,70 @@ these source quirks. `target_category` and `cv_splits_` are data containers,
 not additional estimator algorithms or extensions beyond sklearn. Category discovery
 uses the existing dense insertion sort and lookup scans category lists; this
 implementation is intended for moderate sample sizes and category counts.
+
+
+## Numeric ordinal encoding
+
+`ordinal_encoder` is exported by `sklearn_preprocessing` and the `sklearn`
+facade. It provides `fit(x)`, `transform(x)`, `fit_transform(x)` and
+`inverse_transform(z,unknown_mask,infrequent_mask)` on dense real64 matrices.
+Numeric categories may include NaN; infinity and empty data are rejected.
+Codes are zero-based, stored as real64, and each input feature produces one
+output feature. String/object categories, integer output dtypes and feature-name
+metadata are outside this native interface.
+
+`categories` is optional: allocate one `ordinal_category` record per input
+feature and assign its `values(:)` to provide sorted unique numeric categories,
+with optional NaN last. Unallocated categories select automatic discovery.
+Unused specified categories are retained. `categories_` and
+`infrequent_categories_` use the same ragged representation; an empty
+infrequent vector means no grouped category, including disabled grouping. `ordinal_category` aliases the
+numeric container already used by TargetEncoder, not an additional algorithm.
+`n_features_in_` records the fitted width. `mappings_` retains category counts,
+zero-based codes, 1-based infrequent indices and the 1-based missing index
+(zero means absent) as native inspection data.
+
+`handle_unknown='error'` is the default and requires unallocated `unknown_value`
+(the native representation of Python None). Use
+`handle_unknown='use_encoded_value'` and assign the allocatable scalar
+`unknown_value` an integral real64 value or NaN to encode unseen categories.
+The allocatable `encoded_missing_value` defaults to unallocated, meaning NaN;
+assign an integral real64 value or NaN to override it. NaN is treated as missing
+only if included in the learned categories; otherwise it is unknown. Unknown
+training values excluded by explicit categories are allowed only in the
+use_encoded_value mode and do not contribute to category counts.
+
+`min_frequency_count=0`, `min_frequency_fraction=0` and `max_categories=0`
+disable their respective controls (Python None). A positive integer count or
+a fraction strictly between zero and one marks categories whose counts are
+strictly below the threshold. Count and fraction are mutually exclusive.
+Fractional thresholds use all training rows, including missing/unknown rows.
+A positive `max_categories` caps finite category codes including the grouped
+infrequent code. Missing and unknown sentinels do not count toward the cap.
+NaN is excluded from frequency grouping. Source stable count sorting is
+retained: ties favor larger sorted numeric categories as frequent categories.
+Grouped finite categories receive the last code after frequent categories.
+Grouping parameters are consumed at fit time; missing/unknown controls remain
+live for transforms, matching valid source parameter changes. Refit replaces
+learned categories and mappings, including changes of feature width.
+
+Inverse transforms return real64 values. Source None values and the literal
+`infrequent_sklearn` have no numeric value, so both use NaN placeholders;
+request the optional allocatable logical `unknown_mask` and `infrequent_mask`
+outputs to distinguish them. Actual numeric NaNs have both tags false. Source
+inverse ordering is retained: replace the missing sentinel, detect unknown
+and infrequent codes, and let the infrequent marker win if markers coincide.
+Sentinel collisions admitted by source's grouped-cardinality validation are
+also admitted here and may discard category identity. Native inverse transforms
+preserve their input; source inverse may mutate its encoded array.
+
+The inverse follows source NumPy indexing conventions, including truncating
+fractional codes toward zero and wrapping negative indices. Invalid indices
+produce a diagnostic before array access. sklearn 1.6.1 has a grouped/missing
+index inconsistency: with a NaN category, its inverse may decode a grouped code
+as a numeric/NaN category or raise IndexError for the original missing index.
+The native implementation preserves observable source results and diagnoses
+those source index failures. Forward encodings and learned grouping remain
+usable for these configurations. The reference suite retains and tests these
+source exceptions explicitly. Category discovery uses the existing dense
+insertion sort; transform category lookup uses binary search.

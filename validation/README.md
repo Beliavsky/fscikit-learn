@@ -3405,3 +3405,30 @@ fitting and final-fold unknown-mask behavior; the implementation matches those
 observable source results, as documented in API.md. Large integral-looking
 floating targets check NumPy int64-range inference, and forced binary fits
 check fractional numeric label handling separately from cross-fitting.
+
+
+## OrdinalEncoder source validation
+
+Run `python validation/compare_ordinal_encoding.py` for the checked fpm driver,
+or add `--profile release`. `--executable` selects an already built matching
+reference driver, allowing source comparisons to overlap a different profile's
+build without concurrent fpm processes. Per-profile reports and input/output
+files are retained under ignored validation/results.
+
+The five-seed suite compares training/query codes, sorted categories, category
+counts, infrequent categories and their sizes, learned width, fitted grouping
+snapshots, inverse numeric values and None/infrequent tags, input preservation,
+and refitting to a new width after grouping. All comparisons use exact array
+equality, treating NaNs at matching positions as equal; no optimizer or wider
+tolerance certificates are needed. Recipes cover explicit unused and omitted
+categories, automatic NaNs, entirely missing features, count/fraction thresholds,
+max-category limits and count ties, error/encoded-value unknown handling,
+sentinel collisions, negative/fractional inverse indices and invalid indices.
+
+sklearn 1.6.1 grouped/missing inverse errors are retained as source_errors in
+the report. Such fixtures first compare all normal learned/forward fields,
+then require the native driver to fail with an explicit inverse-index diagnostic
+instead of a runtime bounds error. Successful inverses compare the exact numeric
+result and the source None/infrequent tags. Source inverse receives a copy of
+its input; the native driver additionally verifies that its own input is
+preserved. Source hashes cover preprocessing/_encoders.py and utils/_encode.py.

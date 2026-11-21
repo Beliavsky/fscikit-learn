@@ -3979,3 +3979,64 @@ frozen throughout the final gates. Existing numerical implementations were
 unchanged; the 79-suite reference inventory includes retained earlier results,
 rather than a complete rerun of every older source suite. Only the new suite
 was run in both profiles for this batch, alongside all 100 native programs.
+
+
+## Numeric OrdinalEncoder
+
+Added the sklearn OrdinalEncoder counterpart for numeric real64 category
+matrices, with learned/manual categories, NaN missing values, unknown sentinels,
+frequency-count/fraction grouping, max_categories and stable count-tie handling.
+The native ragged category type aliases the existing TargetEncoder container;
+its use does not change TargetEncoder's implementation. Query lookup uses binary
+search after category discovery with the existing dense sort.
+
+Inverse transforms return numeric values and optional allocatable logical
+unknown/infrequent masks for source None/string values. Actual missing NaNs
+remain distinct through both masks being false. Source's sentinel collision
+precedence and negative/fractional NumPy indexing are reproduced. Source 1.6.1
+has grouped/missing inverse index inconsistencies; the port preserves source
+outputs and converts its index failures to checked input diagnostics. Unlike
+the source inverse, the native function preserves its input array. These
+representation choices and upstream edge cases are documented in API/COVERAGE.
+
+The exploratory checked native unit passed, including refits, sentinel tags,
+source grouping ties and admitted group/unknown collisions. An initial source
+run passed 1,315 fixtures across five seeds, including 549 expected source
+inverse IndexErrors. The final harness additionally checks learned category
+counts through the source counting helper and genuine refitting after grouped
+state. Final full-profile and diagnostic gates are recorded below when complete.
+
+
+The final checked source comparison passed 16,214 result groups over 1,315
+fixtures. Of these, 15,448 groups use sklearn directly (including 549 expected
+source inverse failures), and 766 verify preservation of native inverse inputs.
+All 549 source failures are IndexErrors; five source RuntimeWarnings arise from
+NaN-to-int inverse-index conversion. Both failures and warnings are retained.
+All 101 native programs passed the checked/runtime/FPE profile. The public fpm
+example exited successfully, and its training/query codes and inverse tags
+matched an independent sklearn recipe exactly.
+Current inventory is 194 core types, 102 source modules, 101 native programs
+and 80 retained core reference suites with 333,495 groups, plus 28 separate
+NumPy RNG groups. No existing numerical estimator implementation was changed.
+
+
+All 101 native programs also passed the optimized profile. The implementation
+remained frozen through the checked and optimized gates; the source comparator
+uses a separately resolved executable when overlapping a different profile's
+build, so no fpm processes run concurrently.
+
+
+The optimized source comparison passed the same 16,214 groups over 1,315
+fixtures. Its group records, 549 expected source inverse errors, five source
+warnings and two source hashes are identical to the checked report. No numeric
+tolerances were widened; categorical and inverse results use exact equality.
+
+
+Final diagnostic gate passed all 2,368 unique invalid-input cases, including
+37 new ordinal cases. Final audits passed Python syntax, Fortran line-length/
+whitespace checks, report parity, source hashes, facade exports, and MIT with
+retained BSD attribution. All 101 native programs passed in checked and
+optimized builds, the public example matched sklearn, and the new source suite
+passed 16,214 groups in each profile. Existing numerical implementations were
+unchanged; the 80-suite reference inventory includes retained earlier results
+and does not imply that all older source suites were rerun in this batch.
