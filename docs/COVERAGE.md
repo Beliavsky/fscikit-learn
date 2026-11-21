@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 181 public estimator, transformer, and splitter types. Each is a
+There are 184 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Seventy-one reference suites additionally check 186,648
+All types have native tests. Seventy-two reference suites additionally check 214,138
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -23,6 +23,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 
 | Module (`sklearn_` prefix) | Public types and functions | Scope and numerical choices |
 | --- | --- | --- |
+| multiclass | `one_vs_rest_classifier`, `one_vs_one_classifier`, `output_code_classifier` | Dense independent binary reductions; supported native classifier and regressor bases; constant heads; weighted fitting where the base supports it; Gaussian NB/SGD classification streaming for OVR/OVO; seeded legacy NumPy codebooks |
 | multioutput | `multi_output_regressor`, `multi_output_classifier`, `regressor_chain`, `classifier_chain` | Independent fitted base models per response column; supported native linear/SGD, NB, neighbors and tree families; ragged class probabilities; SGD/Gaussian NB streaming; native base weighting limits apply |
 | preprocessing | `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `knn_imputer`, `missing_indicator`, `spline_transformer`, `label_encoder`, `one_hot_encoder`, `label_binarizer`, `multi_label_binarizer`, `power_transformer`, `kbins_discretizer`, `quantile_transformer`; `normalize`, `binarize`, `polynomial_features` | Population variance; linear percentile interpolation; NaN imputation with mean/median/most-frequent/constant; numeric categories; empirical uniform/normal quantile transforms; dense polynomial terms through degree 12 with optional interactions; B-spline features and extrapolation |
 | linear_model | `linear_regression`, `lars`, `lasso_lars`, `lars_cv`, `lasso_lars_cv`, `lasso_lars_ic`, `ridge`, `ridge_classifier`, `ridge_classifier_cv`, `multi_task_elastic_net`, `multi_task_lasso`, `multi_task_elastic_net_cv`, `multi_task_lasso_cv`, `lasso`, `elastic_net`, `lasso_cv`, `elastic_net_cv`, `logistic_regression`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `sgd_regressor`, `sgd_classifier`, `sgd_one_class_svm`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `orthogonal_matching_pursuit_cv`, `huber_regressor`, `quantile_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; least-angle/Lasso homotopy paths with CV and AIC/BIC selection; coordinate descent with K-fold alpha/l1-ratio selection; weighted logistic Newton solver with raw-score prediction; perceptron; PA-I/II classification/regression with averaging; streaming stochastic-gradient regression/classification and one-class detection; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; weighted L1-regularized quantile regression; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
@@ -245,7 +246,7 @@ histogram boosting, broader AdaBoost and bagging APIs,
 Barnes-Hut t-SNE,
 outlier detection beyond LOF/OneClassSVM/SGDOneClassSVM/IsolationForest/EllipticEnvelope,
 calibration with further base estimators and general metadata routing,
-multiclass wrappers,
+additional multiclass base estimators and sparse reductions,
 inspection/permutation importance, further feature-selection wrappers, image features,
 real dataset loaders and the full plotting/display API.
 
@@ -3734,3 +3735,24 @@ integration comparison and the checked example passed. Inventory: 181 core
 types, 89 modules, 92 native programs, 71 reference suites and 186,648
 core groups, plus 28 separate NumPy RNG groups. Other suites retain their
 recorded results and were not all rerun in this batch.
+
+
+## Multiclass reductions
+
+The three sklearn multiclass wrappers are available through sklearn_multiclass
+and the sklearn facade. Supported native classifiers include linear/SGD,
+naive Bayes, nearest-neighbor, CART and SVM families; OVR/OVO also accept the
+supported regression bases. OVR supports multilabel indicator matrices.
+Gaussian NB/SGD classification support streaming for OVR/OVO. Output-code
+classification uses seeded row-major legacy NumPy codebooks and explicit
+Euclidean decoding. Constant heads retain source response/tag semantics.
+See API.md for exact interfaces, weighting, shapes and streaming restrictions.
+Binary Perceptron now exposes one coefficient row and one decision column.
+
+All 93 native programs passed checked and release profiles. Both profiles
+passed 27,490 new reference groups, 8,665 classifier-chain regression groups
+and 3,030 multioutput regression groups; all 2,112 input diagnostics, the
+192-group integration comparison and the checked example passed. Core
+inventory is 184 types, 90 source modules, 72 reference suites and 214,138
+retained result groups, plus 28 separate NumPy RNG groups. These are subset
+API counterparts, not a percentage of full sklearn feature parity.

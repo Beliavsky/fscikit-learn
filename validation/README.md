@@ -3170,3 +3170,31 @@ Ordinary probabilities/decisions/linear state and CV feature comparisons
 retain 3e-7 tolerances, NB moments/log parameters use 3e-8, and score/tree
 identity checks use 3e-12. These exceptions are explicitly reported by oracle
 and witness rather than widening tolerances or removing difficult inputs.
+
+
+## Multiclass reductions
+
+Run `python validation/compare_multiclass.py` (optionally `--profile release`
+or `--executable PATH`). Five seeds exercise 1,930 fixtures and 27,490 groups
+for OVR, OVO and output-code classification across 19 native base
+configurations. Cases include binary/multiclass/constant targets, multilabel
+indicators, one-column matrices, shared nonzero indicator labels, signed
+scoring weights, weighted fitting, singleton queries, constant code columns,
+streaming with unused declared classes, skipped OVO pairs, averaged SGD,
+modified Huber/hinge/log losses, zero-weight Gaussian NB NaNs and refits.
+Template parameters, fitted state, counters, predictions and input arrays
+are checked before and after use as well as across refits.
+
+Ordinary fitted responses and model parameters are compared against sklearn
+1.6.1. For reduction identities, a copy of the actual source wrapper receives
+the observed native head responses while retaining source estimator tags and
+response capabilities. Thus source thresholding and combination routines
+check native reduction behavior independently of small fitted-head differences.
+Tree alternatives require exhaustive optimal split certificates and source
+stump cost agreement; binary regression-tree SSE is checked through its
+exact Gini equivalence. SVC heads require dual feasibility, KKT residuals and
+source objective agreement as well as response comparisons. Label and code
+nearest-neighbor boundary alternatives require explicit scaled 64-epsilon
+witnesses; reports identify them separately. Ordinary tolerances remain fixed.
+Native decoding uses explicit distances, so the identity checks also certify
+rare equal-cost choices of source's optimized distance implementation.

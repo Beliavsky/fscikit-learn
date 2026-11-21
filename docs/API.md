@@ -2853,3 +2853,84 @@ equal-gain CART alternatives using exhaustive Gini scans/source stumps, and
 Complement NB label alternatives only when source log scores tie within a
 scaled 64-machine-epsilon bound. These certified alternatives can propagate
 through earlier predicted-label features; ordinary tolerances are unchanged.
+
+
+## Multiclass reductions
+
+`one_vs_rest_classifier`, `one_vs_one_classifier` and `output_code_classifier`
+are exported by `sklearn_multiclass` and the `sklearn` facade. Call
+`fit(x,y,estimator,sample_weight)` with dense real64 features and integer
+labels. Each binary head receives a fresh configuration clone of the supplied
+native template; fitted template statistics and input arrays are preserved.
+Refitting replaces prior heads and metadata; Fortran assignment deep-copies
+fitted wrappers.
+
+Supported classifier bases are logistic regression, Gaussian NB, SGD
+classification, KNN, decision trees, multinomial/Bernoulli/Complement NB,
+Perceptron, passive-aggressive classification, RidgeClassifier (including
+RidgeClassifierCV), LinearSVC and SVC. OVR and OVO also support the native
+linear-regression hierarchy (including Ridge), SGD regression, KNN regression
+and decision-tree regression. Output-code bases must supply a decision
+function or probabilities. Training weights are available with logistic,
+Gaussian NB, SGD classification/regression, ridge classification and LinearSVC
+bases. Other bases reject weights; their existing native limits still apply.
+This is explicit native dispatch, without an arbitrary Python estimator,
+metadata-routing, sparse or precomputed-kernel protocol.
+
+OVR `fit` also accepts an integer matrix of indicator targets. Multiple
+columns must collectively contain at most two distinct integers, following
+source detection rather than requiring 0/1 values. Use `predict(x)` for label
+vectors and `predict_indicator(x)` for multilabel matrices; using the wrong
+rank interface is diagnosed. A one-column matrix follows vector semantics.
+`classes_` contains sorted labels for vectors or zero-based column numbers
+for multilabel targets. `multilabel_`, `n_classes_` and `n_features_in_` expose
+fitted metadata. `decision_function(x)` always returns a matrix, including
+(n_samples,1) for binary classification. `predict_proba(x)` uses each head's
+positive probability, expands one head to [1-p,p], and normalizes rows only
+for single-label tasks. The one-class OVR result consequently has two
+probability columns despite having one class label, matching sklearn 1.6.1.
+Zero or undefined probability mass produces quiet NaNs, including the
+source-compatible undefined Gaussian NB posterior path.
+
+OVR prefers decision scores, otherwise positive probabilities or regression
+predictions. Binary decision classifiers use threshold zero; other heads use
+0.5. A constant head also uses 0.5, reflecting sklearn's constant predictor
+estimator tags. Multilabel thresholds follow the first fitted head. Multiclass
+OVR ties choose the last class, including source maximum/NaN propagation.
+
+OVO requires at least two classes, fits all sorted class pairs on their own
+rows, and maps each pair's labels to 0/1. It combines votes with bounded
+confidence corrections: sum/(3*(abs(sum)+1)). Binary decisions return the
+second class's column; multiclass decisions return one column per class.
+Multiclass ties choose the first class. It provides `predict`,
+`decision_function` and `score`, without a probability interface.
+
+OVR and OVO `partial_fit(x,y,estimator,classes,sample_weight)` support Gaussian
+NB and SGD classification. On the first call supply the global class set;
+subsequent sets must match. Empty OVO pairs are skipped, and querying a pair
+that has never received rows is diagnosed. Fresh multilabel partial_fit is
+unsupported in sklearn 1.6.1; native multilabel streaming requires an initial
+fit and nonconstant heads. Constant heads and SGD regression do not support
+these streaming calls. Averaged SGD retains its native partial-fit limits.
+
+Output-code classification sets `code_size` (default 1.5) and nonnegative
+`random_state` (default zero). It draws the class-by-bit `code_book_` in
+row-major order using the legacy NumPy RandomState generator. There are
+int(n_classes*code_size) bits, with at least one required. Codes are -1/+1
+for decision-function bases and 0/1 for probability bases. Prediction minimizes
+squared Euclidean code distance, choosing the first minimum. It offers
+`predict` and `score`, without streaming or wrapper probabilities/decisions.
+Query responses must be finite and within the checked distance working range.
+
+All wrappers expose `estimators_(:)%estimator_` for trained models. Constant
+heads instead set `constant_` and `constant_value_`, leaving estimator_
+unallocated. Slots record `n_features_in_`. Scores use accuracy or exact
+multilabel subset accuracy and accept finite signed query weights with a
+nonzero sum. Training weights retain the underlying base's validation.
+
+The binary Perceptron now stores one positive-class coefficient row and
+returns a single decision column, following source; label predictions are
+unchanged. Multiclass Perceptron retains one row per class.
+
+See `example/multiclass_reductions.f90` and
+`validation/compare_multiclass.py` for usage and source comparisons.

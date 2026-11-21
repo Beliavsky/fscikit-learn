@@ -477,3 +477,22 @@ Installed source SHA-256:
 Adapted portions retain BSD-3-Clause and the complete scikit-learn notice in
 `LICENSES/scikit-learn-COPYING`; original contributions remain MIT. No
 additional runtime dependency or public extension is introduced.
+
+
+### Multiclass reductions and binary Perceptron layout
+
+`src/sklearn_multiclass.f90` adapts OVR, OVO, output-code, constant predictor,
+streaming and response-combination semantics from sklearn 1.6.1
+`multiclass.py` and `utils/multiclass.py`. Output-code sampling uses the
+previously attributed NumPy-compatible legacy RNG. The binary Perceptron
+layout in `src/sklearn_linear_model.f90` follows the single positive-class
+head in `linear_model/_stochastic_gradient.py`.
+Installed source SHA-256:
+
+- `multiclass.py`: `b54b232c9f22c725a8a7f665f7341d07e53a5f5ea9a4c600c8cd702f025c12b1`
+- `utils/multiclass.py`: `55589d96c1ac5f6544630f53b68cbfb10c9b49446eef23f646c7e282af9e71ab`
+- `linear_model/_stochastic_gradient.py`: `794fb96ab273ba06aad41e7470e05bc47422e8e047d07a99703d0dbb8447aa0b`
+
+Adapted portions retain BSD-3-Clause attribution and the complete notice in
+`LICENSES/scikit-learn-COPYING`. Original contributions remain MIT. No runtime
+dependency or public extension is introduced.

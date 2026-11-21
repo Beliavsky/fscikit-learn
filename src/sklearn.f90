@@ -31,6 +31,7 @@ module sklearn
   use sklearn_isotonic
   use sklearn_kernel_approximation
   use sklearn_cross_decomposition
+  use sklearn_multiclass
   use sklearn_multioutput
   implicit none
   public

@@ -3344,3 +3344,55 @@ Original work remains MIT with retained sklearn BSD attribution. There is
 no new runtime dependency or public extension. Inventory: 181 core public
 types, 89 source modules, 92 native test programs, 71 core reference suites
 and 186,648 retained core result groups, plus 28 separate NumPy RNG groups.
+
+
+## Multiclass reductions - 2026-11-21
+
+Added OneVsRestClassifier, OneVsOneClassifier and OutputCodeClassifier
+counterparts with 19 tested native base configurations, fresh fitted heads,
+constant heads, source response thresholds/ties, multilabel OVR, weighted
+fitting for supported bases, Gaussian NB/SGD classification streaming,
+sorted class pairs and legacy NumPy-compatible seeded output codebooks.
+The binary Perceptron coefficient/decision shape now uses one positive-class
+head; its label behavior and multiclass layout are preserved. API.md details
+rank adaptations, response availability, streaming restrictions and limits.
+
+Completed validation on the existing Windows/fpm/GNU Fortran toolchain:
+
+- All 93 native test programs passed with bounds/runtime checks and floating
+  point traps, and in the optimized release profile.
+- Both profiles passed 27,490 new groups over 1,930 fixtures and five seeds.
+  Cases include all supported base configurations, binary/multiclass/constant
+  and indicator targets, nonzero indicators, singleton queries, weighted
+  fits/signed scoring, zero-weight Gaussian NB NaNs, streamed unused classes,
+  skipped OVO pairs, averaged SGD, constant code columns, refits, deep copies,
+  and full template state/input preservation.
+- Both profiles also passed 8,665 existing classifier-chain and 3,030
+  multioutput groups. The 192-group integration comparison passed.
+- All 2,112 isolated invalid-input cases passed, including 97 new diagnostics.
+- The checked multiclass_reductions example ran and its actual output markers
+  were verified. All three reductions predicted [-7,4,19]; the output-code book had shape
+  [3,6]. Actual output is retained in multiclass_example.log.
+
+New-suite checked oracle counts: sklearn=20,753, source_native_head_identity=2,169, input_identity=3,860, source_cart_certificate=390, source_svm_optimality=225, source_binary_cart_certificate=41, source_certified_head_reduction=39, source_native_decoder_boundary=1, source_decoder_boundary=6, source_label_boundary=6.
+Release oracle counts: sklearn=20,753, source_native_head_identity=2,169, input_identity=3,860, source_cart_certificate=390, source_svm_optimality=225, source_binary_cart_certificate=41, source_certified_head_reduction=39, source_native_decoder_boundary=1, source_decoder_boundary=6, source_label_boundary=6.
+Certificate record counts, checked/release: tree=41, native_decoder_boundary=1, decoder_boundary=3, head_boundary=6 / tree=41, native_decoder_boundary=1, decoder_boundary=3, head_boundary=6.
+Ordinary fitted-head comparisons retain their fixed tolerances. Source
+wrappers also combine observed native head responses while retaining their
+original estimator tags and method capabilities. Tree differences require
+exhaustive Gini/SSE-equivalent split optimality and source stump agreement.
+SVC fits require dual feasibility, KKT and objective checks. Label/code
+boundary alternatives require recorded scaled 64-epsilon witnesses; no
+fixture was removed or ordinary tolerance widened.
+
+Reference-driver template-state witnesses were strengthened after the
+checked native run; numerical production sources were unchanged through
+both native profiles and final comparisons. Other retained reference suites
+were not all rerun. Final audits check Python syntax, Fortran formatting,
+unique diagnostic registration/branches, report/oracle/certificate accounting,
+installed source hashes, retained licenses and git diff consistency.
+
+Original work remains MIT with retained sklearn BSD notices. No runtime
+dependency or public extension was added. Inventory: 184 core public types,
+90 source modules, 93 native programs, 72 core reference suites and 214,138
+retained core groups, plus 28 separately counted NumPy RNG groups.

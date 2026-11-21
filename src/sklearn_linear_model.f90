@@ -1265,16 +1265,18 @@ contains
     real(dp), intent(in) :: x(:,:)
     integer, intent(in) :: y(:)
     real(dp) :: target,margin
-    integer :: it,i,c,k,errors
+    integer :: it,i,c,k,errors,heads,positive
     call check_xy(x,size(y)); self%classes_=unique_labels(y); k=size(self%classes_)
     call require(k>=2.and.self%max_iter>0.and.self%eta0>0,'invalid perceptron controls')
     if(allocated(self%coef_)) deallocate(self%coef_,self%intercept_)
-    allocate(self%coef_(k,size(x,2)),self%intercept_(k)); self%coef_=0; self%intercept_=0
+    heads=k; if(k==2) heads=1
+    allocate(self%coef_(heads,size(x,2)),self%intercept_(heads)); self%coef_=0; self%intercept_=0
     do it=1,self%max_iter
       errors=0
       do i=1,size(y)
-        do c=1,k
-          target=merge(1._dp,-1._dp,y(i)==self%classes_(c))
+        do c=1,heads
+          positive=c; if(k==2) positive=2
+          target=merge(1._dp,-1._dp,y(i)==self%classes_(positive))
           margin=dot_product(self%coef_(c,:),x(i,:))+self%intercept_(c)
           if(target*margin<=0) then
             self%coef_(c,:)=self%coef_(c,:)+self%eta0*target*x(i,:)
@@ -1302,7 +1304,11 @@ contains
     real(dp), allocatable :: z(:,:)
     z=self%decision_function(x)
     do i=1,size(y)
-      y(i)=self%classes_(maxloc(z(i,:),dim=1))
+      if(size(self%classes_)==2) then
+        y(i)=self%classes_(merge(2,1,z(i,1)>0))
+      else
+        y(i)=self%classes_(maxloc(z(i,:),dim=1))
+      end if
     end do
   end function
   real(dp) function perceptron_score(self,x,y) result(s)
