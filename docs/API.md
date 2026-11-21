@@ -3001,3 +3001,75 @@ are outside this translation.
 Query weights may be finite and signed with nonzero sum. A singleton R2
 query returns quiet NaN, as in sklearn; warning messages are not emitted.
 See example/voting_ensembles.f90 and validation/compare_voting.py.
+
+
+## Permutation importance
+
+`sklearn_inspection` and the sklearn facade export
+`permutation_importance(x,scorer,n_repeats,random_state,sample_weight,max_samples)`.
+It returns permutation_importance_result with source-shaped fields:
+`importances(n_features,n_repeats)`, `importances_mean(n_features)` and
+`importances_std(n_features)`, using population standard deviation.
+The result container is not an additional estimator type.
+
+The native scoring interface replaces Python estimator/scorer dispatch with
+an explicit Fortran callback. A scalar callback has this interface:
+
+```fortran
+function scorer(features,rows,sample_weight) result(value)
+  use sklearn, only: dp
+  real(dp), intent(in) :: features(:,:)
+  integer, intent(in) :: rows(:)
+  real(dp), intent(in), optional :: sample_weight(:)
+  real(dp) :: value
+end function
+```
+
+The callback captures a fitted estimator and targets through host or module
+association. Use original targets indexed by the one-based `rows`, e.g.
+`model%score(features,y(rows))`; optional scoring weights have already been
+subset to the same rows. This works with any native estimator and scalar,
+multiple-output, classification, regression or unsupervised scoring contract
+that the callback implements. There is no automatic default score or Python
+scorer-name registry. The algorithm never fits an estimator. Callback side
+effects remain the caller's responsibility.
+
+`permutation_importance_multi` takes a callback with identical arguments
+returning an allocated, nonempty real64 vector, of fixed length across calls.
+It returns an allocated result array in that vector's metric order. Scoring
+is called once per perturbed matrix for all metrics together; the callback
+can reuse model predictions. Abstract interfaces permutation_score and
+permutation_scores are public for explicit procedure declarations.
+
+Defaults are n_repeats=5 and random_state=0, with at least one repeat and a
+nonnegative default-integer seed required. The legacy NumPy-compatible RNG
+first draws a shared worker seed, then resets it for every feature. Each
+feature consequently uses the same row subset and shuffle sequence.
+Subsampling follows sklearn's tracking-selection, permutation or reservoir
+algorithm as appropriate. Row-shuffling indices and the permuted column both
+persist across repeats, matching source cumulative shuffles.
+
+Omit max_samples for all rows. An integer (default or int64 kind) selects
+1..n_samples rows; a real32/real64 fraction in (0,1] is multiplied by the row
+count and truncated. Thus integer 1 means one row, while real 1.0 means all
+rows. Real32 fractions are promoted to real64 before multiplication, matching
+a supported Python float constructed from the same represented value. For
+example, at ten rows, .7 (real32) selects six while .7_dp selects seven.
+A small valid fraction may round to zero: source allows this, and the
+callback then receives empty feature/row/weight arrays. The callback decides
+whether such a score is meaningful.
+
+The baseline always uses ALL original rows, even when permutation scoring
+uses a subset. Importance is baseline minus permuted score; constant-column
+importance can therefore reflect the change of evaluation rows. Features
+and supplied weights are preserved, and each feature works on a fresh copy.
+Finite signed sample weights are forwarded unchanged; the callback chooses
+its normalization and any nonzero-total requirements. Features may contain
+NaNs, but not infinities; the scorer decides how to handle missing data.
+
+NaN/infinite scores and overflowing score differences follow quiet IEEE
+source reduction behavior. Matching infinities subtract to NaN, and summary
+means/deviations propagate nonfinite values. No Python warnings are emitted.
+The implementation is dense, sequential and real64. Sparse/pandas paths,
+Python metadata routing and joblib execution are outside this interface.
+See example/permutation_importance.f90 and validation/compare_inspection.py.

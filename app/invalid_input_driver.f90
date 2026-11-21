@@ -8,6 +8,9 @@ program invalid_input_driver
   use sklearn_legacy_rng, only: legacy_random_state
   use, intrinsic :: ieee_arithmetic, only: ieee_value,ieee_quiet_nan,ieee_positive_inf
   implicit none
+  type(permutation_importance_result) :: pi_result
+  type(permutation_importance_result), allocatable :: pi_results(:)
+  integer :: pi_bad=0,pi_calls=0
   type(voting_classifier) :: vote_c
   type(voting_regressor) :: vote_r
   type(voting_estimator) :: vote_bases(2)
@@ -316,6 +319,51 @@ program invalid_input_driver
   mi_x(:,2)=[0._dp,0._dp,1._dp,1._dp,2._dp,2._dp]; mi_x(:,3)=1
   mi_y=mi_x(:,1); mi_labels=[-1,-1,-1,2,2,2]
   select case(trim(mode))
+  case('pi_empty_rows')
+    pi_result=permutation_importance(mo_x(:0,:),pi_score)
+  case('pi_empty_columns')
+    pi_result=permutation_importance(mo_x(:,:0),pi_score)
+  case('pi_repeat_zero')
+    pi_result=permutation_importance(mo_x,pi_score,n_repeats=0)
+  case('pi_repeat_negative')
+    pi_result=permutation_importance(mo_x,pi_score,n_repeats=-1)
+  case('pi_negative_seed')
+    pi_result=permutation_importance(mo_x,pi_score,random_state=-1)
+  case('pi_count_zero')
+    pi_result=permutation_importance(mo_x,pi_score,max_samples=0)
+  case('pi_count_negative')
+    pi_result=permutation_importance(mo_x,pi_score,max_samples=-1)
+  case('pi_count_large')
+    pi_result=permutation_importance(mo_x,pi_score,max_samples=5)
+  case('pi_count_large64')
+    pi_result=permutation_importance(mo_x,pi_score,max_samples=5_int64)
+  case('pi_fraction_zero')
+    pi_result=permutation_importance(mo_x,pi_score,max_samples=0._dp)
+  case('pi_fraction_negative')
+    pi_result=permutation_importance(mo_x,pi_score,max_samples=-.1_dp)
+  case('pi_fraction_large')
+    pi_result=permutation_importance(mo_x,pi_score,max_samples=1.1_dp)
+  case('pi_fraction_nan')
+    pi_result=permutation_importance(mo_x,pi_score,max_samples=ieee_value(0._dp,ieee_quiet_nan))
+  case('pi_fraction_inf')
+    pi_result=permutation_importance(mo_x,pi_score,max_samples=ieee_value(0._dp,ieee_positive_inf))
+  case('pi_wrong_samples_type')
+    pi_result=permutation_importance(mo_x,pi_score,max_samples='bad')
+  case('pi_weight_length')
+    pi_result=permutation_importance(mo_x,pi_score,sample_weight=mo_w(:3))
+  case('pi_weight_nan')
+    pi_result=permutation_importance(mo_x,pi_score,sample_weight=[ieee_value(0._dp,ieee_quiet_nan),1._dp,1._dp,1._dp])
+  case('pi_weight_inf')
+    pi_result=permutation_importance(mo_x,pi_score,sample_weight=[ieee_value(0._dp,ieee_positive_inf),1._dp,1._dp,1._dp])
+  case('pi_infinite_features')
+    mo_x(1,1)=ieee_value(0._dp,ieee_positive_inf)
+    pi_result=permutation_importance(mo_x,pi_score)
+  case('pi_empty_scores')
+    pi_bad=1
+    pi_results=permutation_importance_multi(mo_x,pi_scores)
+  case('pi_score_count_changed')
+    pi_bad=2
+    pi_results=permutation_importance_multi(mo_x,pi_scores)
   case('vot_c_unfitted')
     mwr_pred=vote_c%predict(mo_x)
   case('vot_r_unfitted')
@@ -5699,4 +5747,22 @@ program invalid_input_driver
   case default; error stop 'unknown validation mode'
   end select
   print *, 'ERROR: invalid input was accepted'
+contains
+  function pi_score(features,rows,sample_weight) result(value)
+    real(dp), intent(in) :: features(:,:)
+    integer, intent(in) :: rows(:)
+    real(dp), intent(in), optional :: sample_weight(:)
+    real(dp) :: value
+    value=0
+  end function
+  function pi_scores(features,rows,sample_weight) result(values)
+    real(dp), intent(in) :: features(:,:)
+    integer, intent(in) :: rows(:)
+    real(dp), intent(in), optional :: sample_weight(:)
+    real(dp), allocatable :: values(:)
+    pi_calls=pi_calls+1
+    values=[0._dp]
+    if(pi_bad==1) values=[real(dp) ::]
+    if(pi_bad==2.and.pi_calls>1) values=[0._dp,0._dp]
+  end function
 end program

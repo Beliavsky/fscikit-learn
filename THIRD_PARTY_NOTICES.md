@@ -514,3 +514,22 @@ are original work. Installed source SHA-256:
 Adapted portions retain BSD-3-Clause and the complete notice in
 `LICENSES/scikit-learn-COPYING`. Original contributions remain MIT. No
 additional runtime dependency or public extension is introduced.
+
+
+### Permutation feature importance
+
+`src/sklearn_inspection.f90` adapts baseline-minus-permuted scoring, seeded
+worker setup, repeated shuffles, row subsampling and multiple-score reduction
+from sklearn 1.6.1 `inspection/_permutation_importance.py`. Subsampling follows
+`ensemble/_bagging.py` and `utils/_random.pyx`; the native implementation shares
+the already attributed sampling/RNG contracts used by IsolationForest.
+Fortran callback interfaces and guarded quiet-IEEE arithmetic are original
+work; reductions follow NumPy mean/std semantics. Installed source SHA-256:
+
+- `inspection/_permutation_importance.py`: `70b1969b1feeb6c601b807f8102fc465d556240fbc3e687891b4595a1b983d26`
+- `ensemble/_bagging.py`: `fd07bd726787e8c1d4c0d02518a7763ce9f38f017b5c867db2955869e31f5b86`
+- `utils/_random.pyx`: `d5e999626dd7af7200ff531f35e00f4d5f0748fcca2e4325a960bd17dec35321`
+
+Adapted portions retain BSD-3-Clause and the complete sklearn notice in
+`LICENSES/scikit-learn-COPYING`; prior NumPy notices are retained. Original
+contributions remain MIT. No runtime dependency or public extension is added.

@@ -3451,3 +3451,56 @@ Original work remains MIT with retained sklearn BSD notices; no runtime
 dependency or public extension was added. Inventory: 186 core types,
 91 source modules, 94 native programs, 73 core reference suites and 231,103
 retained core result groups, plus 28 separately counted NumPy RNG groups.
+
+
+## Permutation importance - 2026-11-21
+
+Added dense scalar and multiple-score permutation importance. Native Fortran
+callbacks capture any fitted estimator and arbitrary targets, receiving
+features, original one-based row identities and optional subset scoring
+weights. The implementation follows source's full-data baseline, shared
+worker seed, per-feature reset, all three subsampling branches and cumulative
+column/index shuffles. Results expose raw importances and population means
+and deviations. Integer and real32/real64 sample limits are distinguished;
+a valid fraction rounded to zero forwards empty arrays to the scorer, as in
+source. Quiet IEEE arithmetic handles NaN/infinite scores and overflow.
+API.md describes callback contracts and the absence of Python scorer dispatch.
+
+Completed gates on the existing Windows/fpm/GNU Fortran toolchain:
+
+- All 95 native programs passed checked/runtime-trap and optimized release
+  profiles, including deterministic repeats, one-repeat deviation, multiple
+  metrics, missing features, empty subsamples and real32/int64 sample limits.
+- Both profiles passed 17,820 source reference groups over 600 fixtures and
+  five seeds. A multiple-output analytic scorer and fitted OLS, Ridge,
+  logistic, Gaussian NB and KNN models exercise scalar and dictionary-of-score
+  source paths versus their native callback equivalents.
+- Every scorer call is checked for EXACT feature values, original row
+  identities and scoring weights, in addition to numerical scores. This
+  directly proves baseline/subset alignment, RNG consumption, sampling,
+  cumulative permutations, callback count and shared multiple-score work.
+- Cases include integer/fraction limits, full/single/empty subsets, single
+  rows/features/repeats, constant columns, finite signed scoring weights,
+  NaN features, NaN/infinite scores, and overflowing score differences and
+  reductions. Raw importances and population summaries match source;
+  emitted model state, responses and input arrays are preserved.
+- The existing 192-group integration comparison passed. All 2,171 isolated
+  invalid-input cases passed, including 21 new diagnostics. The checked
+  permutation_importance example ran and verified that the informative
+  feature has positive importance while the unused feature has zero importance.
+
+Checked oracle counts: sklearn=16,230, input_identity=1,590.
+Release oracle counts: sklearn=16,230, input_identity=1,590.
+No source fixture was removed and ordinary tolerances were not widened.
+Numeric production sources were frozen before the final full checked/native
+and reference runs. Other retained source suites were not all rerun. Final
+audits check Python syntax, Fortran formatting, diagnostic registry/driver
+correspondence, report/oracle accounting, installed source hashes, retained
+licenses and git diff consistency.
+
+Original contributions remain MIT with retained sklearn BSD and NumPy
+notices. No runtime dependency or public extension was added. There are
+still 186 core estimator/transformer/splitter types; the importance result is
+a container, not an estimator. Inventory: 92 source modules, 95 native
+programs, 74 core reference suites and 248,923 retained core groups, plus
+28 separately counted NumPy RNG groups.

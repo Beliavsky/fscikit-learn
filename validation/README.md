@@ -3222,3 +3222,24 @@ label boundaries require recorded scaled 64-epsilon witnesses. Certificates
 are distinct from ordinary fixed-tolerance source comparisons. Every template
 has its full emitted parameter state and predictions checked before and
 after ensemble fitting/refitting.
+
+
+## Permutation importance
+
+Run `python validation/compare_inspection.py` (optionally `--profile release`,
+`--executable PATH` or repeatable `--seed N`). Five seeds check 17,820 groups
+across 600 fixtures using an analytic multiple-output scorer and fitted OLS,
+Ridge, logistic, Gaussian NB and nearest-neighbor models. Source sklearn is
+called with the same fitted model/scoring contract and one-based row identity
+labels. Both the scalar callable and dictionary-of-scores source paths are
+compared with their native callback counterparts.
+
+Every scorer call is traced: exact feature matrices, original row indices,
+scoring weights, metric values and call count. This independently checks all
+three sampling branches, cumulative shuffles, shared per-feature seeds,
+full-data baselines and callback caching. Cases include integer/fraction
+limits, single rows/features/repeats, weighted and signed scoring, constant
+columns, NaN features, fractions rounded to empty subsets, NaN/infinite scores
+and finite-score subtraction/summary overflow. Raw importances and population
+mean/deviation are compared with source; emitted model state, responses and
+input arrays are preserved. No fit is performed by the inspection algorithm.

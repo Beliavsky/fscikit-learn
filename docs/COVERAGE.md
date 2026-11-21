@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 186 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Seventy-three reference suites additionally check 231,103
+All types have native tests. Seventy-four reference suites additionally check 248,923
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -24,6 +24,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | Module (`sklearn_` prefix) | Public types and functions | Scope and numerical choices |
 | --- | --- | --- |
 | multiclass | `one_vs_rest_classifier`, `one_vs_one_classifier`, `output_code_classifier` | Dense independent binary reductions; supported native classifier and regressor bases; constant heads; weighted fitting where the base supports it; Gaussian NB/SGD classification streaming for OVR/OVO; seeded legacy NumPy codebooks |
+| inspection | `permutation_importance`, `permutation_importance_multi` | Dense callback-based scalar/multiple-score feature permutation importance; exact legacy seeded subsampling/shuffles; finite signed scoring weights; NaN features and nonfinite score reductions |
 | multioutput | `multi_output_regressor`, `multi_output_classifier`, `regressor_chain`, `classifier_chain` | Independent fitted base models per response column; supported native linear/SGD, NB, neighbors and tree families; ragged class probabilities; SGD/Gaussian NB streaming; native base weighting limits apply |
 | preprocessing | `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `knn_imputer`, `missing_indicator`, `spline_transformer`, `label_encoder`, `one_hot_encoder`, `label_binarizer`, `multi_label_binarizer`, `power_transformer`, `kbins_discretizer`, `quantile_transformer`; `normalize`, `binarize`, `polynomial_features` | Population variance; linear percentile interpolation; NaN imputation with mean/median/most-frequent/constant; numeric categories; empirical uniform/normal quantile transforms; dense polynomial terms through degree 12 with optional interactions; B-spline features and extrapolation |
 | linear_model | `linear_regression`, `lars`, `lasso_lars`, `lars_cv`, `lasso_lars_cv`, `lasso_lars_ic`, `ridge`, `ridge_classifier`, `ridge_classifier_cv`, `multi_task_elastic_net`, `multi_task_lasso`, `multi_task_elastic_net_cv`, `multi_task_lasso_cv`, `lasso`, `elastic_net`, `lasso_cv`, `elastic_net_cv`, `logistic_regression`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `sgd_regressor`, `sgd_classifier`, `sgd_one_class_svm`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `orthogonal_matching_pursuit_cv`, `huber_regressor`, `quantile_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; least-angle/Lasso homotopy paths with CV and AIC/BIC selection; coordinate descent with K-fold alpha/l1-ratio selection; weighted logistic Newton solver with raw-score prediction; perceptron; PA-I/II classification/regression with averaging; streaming stochastic-gradient regression/classification and one-class detection; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; weighted L1-regularized quantile regression; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
@@ -247,7 +248,7 @@ Barnes-Hut t-SNE,
 outlier detection beyond LOF/OneClassSVM/SGDOneClassSVM/IsolationForest/EllipticEnvelope,
 calibration with further base estimators and general metadata routing,
 additional multiclass base estimators and sparse reductions,
-inspection/permutation importance, further feature-selection wrappers, image features,
+partial-dependence and other inspection utilities, further feature-selection wrappers, image features,
 real dataset loaders and the full plotting/display API.
 
 SciFort is available at `../scifort` but not linked by this initial package.
@@ -3775,3 +3776,24 @@ input diagnostics and the checked example passed. Inventory: 186 core types,
 91 modules, 73 core reference suites and 231,103 retained result groups, plus
 28 separately counted NumPy RNG groups. Sparse paths, arbitrary estimator
 protocols and scheduling remain outside this dense native subset.
+
+
+## Permutation feature importance
+
+The core inspection function supports scalar and multiple-score callbacks,
+raw importances, population means/deviations, repeat controls, source-compatible
+legacy seeding, all three subsampling branches and exact cumulative shuffles.
+Callbacks receive one-based original row identities and optional subset
+weights, allowing any fitted native model and target/scoring shape. There
+is no automatic estimator-score dispatcher; see API.md for the callback
+contract. The baseline uses all rows, even with subsampled permutations.
+NaN features, empty fractional subsets, signed finite scoring weights and
+quiet nonfinite score reductions follow documented source behavior.
+
+Both profiles passed 17,820 new groups across 600 fixtures, checking every
+callback's exact rows, feature matrix and weights as well as its scores and
+all importance summaries. All 95 native programs, 2,171 input diagnostics,
+the 192-group integration comparison and the checked example passed. The
+result is a container rather than a new estimator: the core type count
+remains 186. Inventory: 92 source modules, 74 core reference suites and
+248,923 retained core groups, plus 28 separate NumPy RNG groups.
