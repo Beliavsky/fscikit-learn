@@ -8,6 +8,12 @@ program invalid_input_driver
   use sklearn_legacy_rng, only: legacy_random_state
   use, intrinsic :: ieee_arithmetic, only: ieee_value,ieee_quiet_nan,ieee_positive_inf
   implicit none
+  type(ridge) :: bg_ridge
+  type(bagging_classifier) :: bg_c
+  type(bagging_regressor) :: bg_r
+  type(kneighbors_classifier) :: bg_knn
+  real(dp), allocatable :: bg_p(:,:)
+  integer, allocatable :: bg_i(:)
   type(extra_tree_classifier) :: wt_clf
   type(extra_tree_regressor) :: wt_reg
   real(dp) :: wt_x(4,1)=reshape([0._dp,1._dp,2._dp,3._dp],[4,1]),wt_w(4)=1,wt_score
@@ -326,6 +332,147 @@ program invalid_input_driver
   mi_x(:,2)=[0._dp,0._dp,1._dp,1._dp,2._dp,2._dp]; mi_x(:,3)=1
   mi_y=mi_x(:,1); mi_labels=[-1,-1,-1,2,2,2]
   select case(trim(mode))
+  case('bg_linear_negative_w')
+    wt_w=-1
+    call bg_r%fit(wt_x,real(wt_y,dp),mo_lr,wt_w)
+  case('bg_linear_zero_w')
+    wt_w=0
+    call bg_r%fit(wt_x,real(wt_y,dp),mo_lr,wt_w)
+  case('bg_ridge_alpha_nan')
+    bg_ridge%alpha=ieee_value(0._dp,ieee_quiet_nan)
+    call bg_r%fit(wt_x,real(wt_y,dp),bg_ridge)
+  case('bg_ridge_alpha_inf')
+    bg_ridge%alpha=ieee_value(0._dp,ieee_positive_inf)
+    call bg_r%fit(wt_x,real(wt_y,dp),bg_ridge)
+  case('bg_ridge_alpha_negative')
+    bg_ridge%alpha=-1
+    call bg_r%fit(wt_x,real(wt_y,dp),bg_ridge)
+
+  case('bg_oob_class_shape')
+    bg_c%n_estimators=1; bg_c%max_samples=2; bg_c%oob_score=.true.; bg_knn%n_neighbors=1
+    call bg_c%fit(wt_x,[0,1,2,2],bg_knn)
+
+  case('bg_unfitted_c')
+    bg_i=bg_c%predict(wt_x)
+  case('bg_unfitted_r')
+    wt_pred=bg_r%predict(wt_x)
+  case('bg_count_zero')
+    bg_c%n_estimators=0
+    call bg_c%fit(wt_x,wt_y)
+  case('bg_count_negative')
+    bg_r%n_estimators=-1
+    call bg_r%fit(wt_x,real(wt_y,dp))
+  case('bg_seed')
+    bg_c%random_state=-1
+    call bg_c%fit(wt_x,wt_y)
+  case('bg_negative_rows')
+    bg_c%max_samples=-1
+    call bg_c%fit(wt_x,wt_y)
+  case('bg_negative_features')
+    bg_c%max_features=-1
+    call bg_c%fit(wt_x,wt_y)
+  case('bg_fraction_nan')
+    bg_c%max_samples_fraction=ieee_value(0._dp,ieee_quiet_nan)
+    call bg_c%fit(wt_x,wt_y)
+  case('bg_fraction_inf')
+    bg_r%max_features_fraction=ieee_value(0._dp,ieee_positive_inf)
+    call bg_r%fit(wt_x,real(wt_y,dp))
+  case('bg_fraction_negative')
+    bg_c%max_samples_fraction=-.1_dp
+    call bg_c%fit(wt_x,wt_y)
+  case('bg_fraction_large')
+    bg_c%max_features_fraction=1.1_dp
+    call bg_c%fit(wt_x,wt_y)
+  case('bg_row_conflict')
+    bg_c%max_samples=2
+    bg_c%max_samples_fraction=.5_dp
+    call bg_c%fit(wt_x,wt_y)
+  case('bg_feature_conflict')
+    bg_c%max_features=1
+    bg_c%max_features_fraction=.5_dp
+    call bg_c%fit(wt_x,wt_y)
+  case('bg_rows_large')
+    bg_c%max_samples=5
+    call bg_c%fit(wt_x,wt_y)
+  case('bg_features_large')
+    bg_c%max_features=2
+    call bg_c%fit(wt_x,wt_y)
+  case('bg_oob_no_bootstrap')
+    bg_c%bootstrap=.false.
+    bg_c%oob_score=.true.
+    call bg_c%fit(wt_x,wt_y)
+  case('bg_oob_warm')
+    bg_r%warm_start=.true.
+    bg_r%oob_score=.true.
+    call bg_r%fit(wt_x,real(wt_y,dp))
+  case('bg_warm_reduce')
+    bg_c%n_estimators=2
+    call bg_c%fit(wt_x,wt_y)
+    bg_c%warm_start=.true.
+    bg_c%n_estimators=1
+    call bg_c%fit(wt_x,wt_y)
+  case('bg_warm_features')
+    call bg_c%fit(wt_x,wt_y)
+    bg_c%warm_start=.true.
+    call bg_c%fit(mo_x,wt_y)
+  case('bg_warm_class_count')
+    call bg_c%fit(wt_x,wt_y)
+    bg_c%warm_start=.true.
+    call bg_c%fit(wt_x,[0,1,2,2])
+  case('bg_warm_classes')
+    call bg_c%fit(wt_x,wt_y)
+    bg_c%warm_start=.true.
+    call bg_c%fit(wt_x,wt_y+1)
+  case('bg_weight_length')
+    call bg_c%fit(wt_x,wt_y,sample_weight=wt_w(:3))
+  case('bg_weight_nan')
+    wt_w(1)=ieee_value(0._dp,ieee_quiet_nan)
+    call bg_c%fit(wt_x,wt_y,sample_weight=wt_w)
+  case('bg_weight_inf')
+    wt_w(1)=ieee_value(0._dp,ieee_positive_inf)
+    call bg_r%fit(wt_x,real(wt_y,dp),sample_weight=wt_w)
+  case('bg_weight_base')
+    call bg_c%fit(wt_x,wt_y,bg_knn,wt_w)
+  case('bg_unsupported_c')
+    call bg_c%fit(wt_x,wt_y,wt_reg)
+  case('bg_unsupported_r')
+    call bg_r%fit(wt_x,real(wt_y,dp),wt_clf)
+  case('bg_weight_overflow')
+    wt_w=huge(1._dp)
+    call bg_c%fit(wt_x,wt_y,sample_weight=wt_w)
+  case('bg_query_features')
+    call bg_c%fit(wt_x,wt_y)
+    bg_i=bg_c%predict(mo_x)
+  case('bg_query_empty')
+    call bg_c%fit(wt_x,wt_y)
+    bg_i=bg_c%predict(wt_x(:0,:))
+  case('bg_query_inf')
+    call bg_r%fit(wt_x,real(wt_y,dp))
+    wt_x(1,1)=ieee_value(0._dp,ieee_positive_inf)
+    wt_pred=bg_r%predict(wt_x)
+  case('bg_score_length')
+    call bg_c%fit(wt_x,wt_y)
+    wt_score=bg_c%score(wt_x,wt_y(:3))
+  case('bg_score_w_length')
+    call bg_c%fit(wt_x,wt_y)
+    wt_score=bg_c%score(wt_x,wt_y,wt_w(:3))
+  case('bg_score_w_nan')
+    call bg_c%fit(wt_x,wt_y)
+    wt_w(1)=ieee_value(0._dp,ieee_quiet_nan)
+    wt_score=bg_c%score(wt_x,wt_y,wt_w)
+  case('bg_score_w_zero')
+    call bg_c%fit(wt_x,wt_y)
+    wt_w=0
+    wt_score=bg_c%score(wt_x,wt_y,wt_w)
+  case('bg_score_target_nan')
+    call bg_r%fit(wt_x,real(wt_y,dp))
+    wt_w(1)=ieee_value(0._dp,ieee_quiet_nan)
+    wt_score=bg_r%score(wt_x,wt_w)
+  case('bg_score_undefined')
+    wt_w=0
+    call bg_r%fit(wt_x,real(wt_y,dp),sample_weight=wt_w)
+    wt_score=bg_r%score(wt_x,real(wt_y,dp))
+
   case('wt_weight_length')
     call wt_clf%fit(wt_x,wt_y,wt_w(:3))
   case('wt_weight_nan')

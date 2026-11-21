@@ -3202,3 +3202,79 @@ interfaces and forward training weights to both tree families. Tree streaming
 (`partial_fit`) remains unavailable. The new internal `sklearn_ieee_math`
 module handles quiet nonfinite arithmetic in weighted trees and composite
 reductions; it adds no public estimator or external runtime dependency.
+
+
+## BaggingClassifier and BaggingRegressor
+
+`bagging_classifier` and `bagging_regressor` are available from `sklearn`,
+`sklearn_ensemble`, and `sklearn_bagging`. Call
+`fit(x,y,estimator,sample_weight)` with an optional native base template;
+omitting it selects the corresponding DecisionTree. Classification targets
+are integer label vectors; regression targets are real64 vectors. The fitted
+template and supplied arrays are copied/preserved. `predict`, classifier
+`predict_proba`, and weighted `score` expose the combined model.
+
+Controls are `n_estimators=10`, nonnegative `random_state=0`, `bootstrap=.true.`,
+`bootstrap_features=.false.`, `warm_start=.false.` and `oob_score=.false.`.
+Configure integer `max_samples`/`max_features`, or their real64
+`max_samples_fraction`/`max_features_fraction` counterparts. Zero means unset;
+when neither count nor fraction is set the whole population is used. A count
+and fraction cannot both be set for an axis. Positive fractions truncate to an
+integer row count; feature counts clamp to at least one, as in source. A tiny
+positive row fraction can select zero rows; whether that fit is defined depends
+on the base. Counts may not exceed the population even with replacement.
+Sampling with/without replacement follows sklearn's RandomState draws,
+tracking/permutation/reservoir switching and feature-before-row draw order.
+The base seed is derived independently from each member seed.
+
+Supported bases match the native voting families: logistic regression,
+Gaussian NB, SGD classification, KNN, decision/Extra trees, multinomial,
+Bernoulli and Complement NB, perceptron, passive-aggressive classification,
+ridge classification, LinearSVC, SVC and DummyClassifier; and the linear
+regression hierarchy, SGD regression, KNN, decision/Extra trees, KernelRidge,
+and DummyRegressor. Each base retains its native numerical conventions and
+supported options. If the native base supports weighted fit, bagging trains on
+all rows with bootstrap multiplicities (or a subsampling mask) multiplied by
+optional finite fitting weights. Bagging also provides a weighted least-squares adapter for exact
+`linear_regression` and `ridge` bases, using the full original row count for
+centering and numerical rank decisions. This adapter accepts nonnegative
+weights; the public standalone base fit signatures are unchanged. Other bases
+train on sampled rows; explicit fit weights are rejected for those bases. This is the native capability
+boundary, including bases whose Python counterpart additionally accepts
+weights. The resulting sampled-row fit can have different learned class
+metadata or smoothing from a source weighted fit. Sparse data, arbitrary
+Python-style estimator protocols, metadata routing, parallel jobs, decision
+functions and log-probability aggregation are outside this initial API.
+
+Fitted `estimator_` stores the copied template. `estimators_(j)%estimator`
+contains each fitted dynamic model. `estimators_features_(j)%values` and
+`estimators_samples_(j)%values` hold actual one-based draws, including repeats;
+`seeds_`, `n_estimators_`, `n_features_in_`, `max_samples_` and `max_features_`
+record the fit. Classifiers add sorted `classes_` and `n_classes_`. Per-member
+class probabilities are aligned to global classes; bases without probability
+methods contribute hard votes. Native decision trees retain their depth limit
+of 100 when the source default is unbounded. Fit inputs must be finite. NaN
+queries are forwarded to bases that support them; infinities are rejected.
+
+Warm starts append new fitted members and skip prior ensemble seed draws.
+An unchanged count preserves the ensemble; reducing the count is rejected.
+Feature width and classification labels must stay fixed during warm starts.
+Stored sampling records always describe every actual fitted member. In
+sklearn 1.6.1, `estimators_samples_` after warm start exposes only the latest
+batch, because its generator uses the latest seeds. Native records preserve
+all fitted draws; validation identifies this source property discrepancy.
+Sampling records also retain original draws when later warm-start controls
+change, rather than regenerating them from the latest configuration.
+
+OOB scoring requires bootstrap and forbids warm start. Classifiers expose
+`oob_decision_function_` and `oob_score_`; uncovered rows have NaN probabilities
+but participate in accuracy through the first encoded class, as in sklearn.
+Regressors expose `oob_prediction_` and `oob_score_`; uncovered rows retain zero
+predictions for R2. OOB scores are unweighted. The source classifier OOB
+implementation directly adds local probability arrays without class
+alignment: a single local class broadcasts across global classes, while other
+incompatible class widths fail. This source behavior is retained and the
+incompatible-width case is diagnosed explicitly. Regression scoring rejects
+nonfinite predictions/targets and returns NaN for a singleton. Refit without
+OOB deallocates old OOB response arrays; consult the arrays' allocation status
+before using the scalar OOB score.

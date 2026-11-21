@@ -3301,3 +3301,44 @@ by impurity roundoff without removing fixtures or widening ordinary comparison
 tolerances. The suite does not promise identical topology for every floating
 point dataset. Training NaNs and unsupported single-tree options remain out
 of scope as documented in the public coverage/API records.
+
+
+### Bagging ensembles
+
+`python validation/compare_bagging.py` checks BaggingClassifier/Regressor
+against sklearn 1.6.1; add `--profile release`, or supply `--executable PATH`
+for an already compiled reference driver. Successful fixtures cover default
+and custom decision/Extra trees, KNN, Gaussian NB, logistic/ridge
+classification, OLS/Ridge/ElasticNet, weighted and indexed fitting, both
+sampling axes with/without replacement, tracking/permutation/reservoir
+boundaries, nonuniform/zero/signed fitting weights, hard-vote fallback,
+warm starts, missing local classes and OOB reductions. An incompatible OOB
+class-width fixture separately checks the observed source broadcast error.
+
+Every member's sample/feature arrays are compared with source-generated draws;
+tree seeds and local class lists are checked separately. Member training and
+query responses, ensemble reductions, weighted scores and OOB results are
+compared. Native tree responses that differ because of weighted CART roundoff
+ties require the source-conditioned stump/RNG certificate in
+`compare_weighted_trees.py`; aggregation is then checked using those verified
+members, with distinct oracle labels. Ordinary comparisons keep fixed 3e-8
+relative/3e-9 absolute tolerance; integer choices and labels are exact. Source
+warm-start sample-property discrepancies are recorded rather than substituting
+that incomplete source property for the actual stored member draws. The
+reports include group-level oracles, split witnesses and primary-source hashes.
+
+A fresh build is required to audit binary compatibility after public Fortran
+type layouts change. An observed fpm 0.12 alpha incremental build reused a test
+object predating the tree layout while relinking a newer library; that binary
+crashed, whereas freshly compiling the same test passed. This batch preserves
+the old cache under ignored validation results and runs full checked/release
+builds from freshly generated objects. Source comparisons run against those
+fresh libraries/executables.
+
+
+Bagging OLS and Ridge use a native weighted SVD adapter on the original row
+count, matching the source weighted fit path. The observed OLS rank failure
+is retained exactly in `fixtures/bagging_ols_rank_deficient.json`; every source
+run checks its predictions, coefficients, intercept and numerical rank. The
+suite also exercises explicit nonuniform weights for these adapters. Original
+ordinary comparison tolerances and the failing fixture are preserved.

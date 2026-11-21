@@ -1,6 +1,7 @@
 ! IsolationForest: sklearn 1.6.1 ensemble/_iforest.py, _bagging.py and dense random tree contracts.
 ! BSD notices retained in LICENSES and THIRD_PARTY_NOTICES.md; native Fortran implementation.
 module sklearn_isolation_forest
+  use sklearn_bagging_sampling, only: sample_indices
   use sklearn_common, only: dp,require,check_x,argsort
   use sklearn_tree, only: decision_tree_regressor
   use sklearn_legacy_rng, only: legacy_random_state
@@ -33,41 +34,6 @@ contains
     call check_x(x)
     call require(maxval(abs(x))<=real(huge(0._real32),dp),'IsolationForest features exceed float32 range')
     z=real(real(x,real32),dp)
-  end function
-  function sample_indices(rng,population,count,replace) result(ids)
-    type(legacy_random_state), intent(inout) :: rng
-    integer, intent(in) :: population,count
-    logical, intent(in) :: replace
-    integer :: ids(count),pool(population),i,j,tmp
-    real(dp) :: ratio
-    if(replace) then
-      do i=1,count
-        ids(i)=rng%integer_index(population)
-      end do
-      return
-    end if
-    ratio=real(count,dp)/population
-    if(ratio>.01_dp.and.ratio<.99_dp) then
-      pool=[(i,i=1,population)]
-      do i=population,2,-1
-        j=rng%integer_index(i); tmp=pool(i); pool(i)=pool(j); pool(j)=tmp
-      end do
-      ids=pool(:count)
-    else if(ratio<.2_dp) then
-      do i=1,count
-        do
-          j=rng%integer_index(population)
-          if(.not.any(ids(:i-1)==j)) exit
-        end do
-        ids(i)=j
-      end do
-    else
-      ids=[(i,i=1,count)]
-      do i=count+1,population
-        j=rng%integer_index(i)
-        if(j<=count) ids(j)=i
-      end do
-    end if
   end function
   subroutine fit(self,x,sample_weight)
     class(isolation_forest), intent(inout) :: self

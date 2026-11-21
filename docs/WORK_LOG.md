@@ -3735,3 +3735,97 @@ used those rebuilt checked executables; the release weighted reference driver
 was compiled directly against the rebuilt release archive. Retained suites
 not listed here were not rerun. Python syntax, Fortran formatting, report
 accounting, retained license files and git whitespace checks passed.
+
+
+## Bagging ensembles (2026-11-21)
+
+Added `bagging_classifier` and `bagging_regressor`, exported through
+sklearn_bagging, sklearn_ensemble and the main facade. Native bases are cloned;
+weighted-capable bases receive bootstrap multiplicities or a subsampling mask,
+while other native bases receive sampled rows. Source-compatible legacy NumPy
+seed derivation and sampling support row/feature counts or fractions, repeated
+features, nonreplacement tracking/permutation/reservoir selection, warm starts,
+class probability alignment, hard-vote fallback, weighted scores and OOB
+responses/scores. Actual one-based member draws and seeds remain inspectable.
+No new dependency, imported repository or public extension was introduced.
+Original work remains MIT with retained sklearn/NumPy upstream notices.
+
+Existing voting fit/prediction dispatch and IsolationForest index sampling were
+extracted unchanged into internal sklearn_base_dispatch and
+sklearn_bagging_sampling modules. Dispatch adds capability/class metadata and
+base seed helpers for bagging. The native base capability boundary is explicit;
+standalone estimator signatures remain unchanged.
+
+Source comparisons exposed a real weighted OLS issue: indexing duplicated
+bootstrap rows can change the numerical rank cutoff relative to source's
+weighted full training table. The exact failing fixture is retained in
+validation/fixtures/bagging_ols_rank_deficient.json. Bagging now uses a native
+weighted SVD adapter for exact OLS/Ridge bases, preserving the original row
+count, weighted centering/rescaling and OLS source rank convention. Predictions,
+coefficients, intercept and OLS rank are checked against source. Explicit
+nonuniform weights and no-intercept/zero-weight identities are also covered.
+Ordinary comparison tolerances were not widened and the failing fixture was
+not removed.
+
+The checked source suite passed 32,100 groups across 527 successful fixtures
+plus one separately verified source OOB shape-error fixture. Oracle counts:
+29,662 direct sklearn comparisons, 2,108 input identities, 183 groups backed
+by 61 source-conditioned tree certificates, 146 conditioned member reductions,
+and one source error. Certificates use the retained weighted-tree stump/RNG
+oracle to verify actual member responses and importance before aggregating.
+All 56 warm-start sample-property discrepancies are recorded: sklearn 1.6.1
+exposes only the newest batch through estimators_samples_, while native records
+retain every fitted member's actual draws. Source OOB single-class probability
+broadcasting and incompatible-width failure are verified explicitly. Reports
+retain source hashes, per-group oracle labels and split witnesses.
+
+An initial incremental native build linked a cached forest test object from
+03:50 against tree layout changes compiled at 05:45 and crashed. Freshly
+compiling that unchanged test passed repeatedly. The previous build cache was
+preserved under ignored validation/results/pre_bagging_build_20261121, and a
+full clean checked build passed all 98 programs. After the weighted linear
+adapter change, all 98 checked programs passed again; the final focused unit
+also passed the added no-intercept and zero-weight OLS identities. The fresh
+checked voting (16,965), IsolationForest (9,060) and original integration (192)
+source suites passed. Their existing algorithms and ordinary oracles remain
+unchanged.
+
+Current inventory: 190 core estimator/transformer/splitter types, 97 source
+modules, 98 native programs, 77 core reference suites and 301,542 retained core
+groups plus 28 separate NumPy RNG groups. Public limits are documented in
+API.md and COVERAGE.md; this is a dense practical subset, not a complete Python
+estimator-protocol port.
+
+
+The public Bagging example's exact Fortran-generated arrays are retained as
+additional fixtures. Classifier predictions/scores match sklearn directly.
+Three fully grown ExtraTree regression members choose different equal-cost
+splits; their full random protocols, fitted leaves, predictions, importance
+and OOB reductions pass the source-conditioned certificate. These are recorded
+as members 16, 18 and 20 (zero-based) of example fixture 101. The checked
+example scores are classification 1.0 / OOB 0.975, regression R2
+0.99839820861863493 / OOB R2 0.98786969877112196. These small-fixture figures
+are validation observations, not general performance guarantees.
+
+
+Final Bagging gates: all 98 native programs passed both checked/runtime/FPE
+and freshly built optimized release profiles. Both source profiles passed the
+same 32,100 groups over 527 successful fixtures plus the expected OOB error,
+with identical group/oracle records, primary source hashes and 56 warm-start
+property observations. The final focused checked/release unit passed the
+weighted OLS adapter, no-intercept/zero-weight identities, stochastic
+base seed derivation and quiet zero-weight tree reductions. All 2,260 isolated
+invalid-input diagnostics passed, including 43 new Bagging cases. The invalid
+driver was compiled against the fresh checked modules/archive with the
+canonical `-fcheck=all -fbacktrace` harness flags.
+
+The fpm-selected release reference executable additionally passed 591 groups
+on the retained OLS regression and exact public example arrays, including its
+expected OOB error. `fpm run --profile release --example bagging_ensembles`
+completed with process exit code zero and matched the recorded example scores.
+The full source suites used drivers linked against the freshly built profile
+archives; other retained source suites beyond the listed voting, isolation and
+original integration checks were not rerun. Final audits verify extracted
+code identity, Python syntax, Fortran line formatting, diagnostic registration,
+report parity/accounting, retained license files and git whitespace. Numerical
+production sources were unchanged during these final profile/source gates.

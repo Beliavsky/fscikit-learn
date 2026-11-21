@@ -1,4 +1,5 @@
 module sklearn_ensemble
+  use sklearn_bagging, only: bagging_classifier,bagging_regressor
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
   use, intrinsic :: iso_fortran_env, only: real32
   use sklearn_voting, only: voting_classifier,voting_regressor,voting_estimator
@@ -11,6 +12,7 @@ module sklearn_ensemble
   implicit none
   private
   public :: voting_classifier,voting_regressor,voting_estimator
+  public :: bagging_classifier,bagging_regressor
   public :: isolation_forest
   public :: adaboost_classifier,adaboost_regressor
   public :: random_forest_classifier,random_forest_regressor,extra_trees_classifier,extra_trees_regressor
