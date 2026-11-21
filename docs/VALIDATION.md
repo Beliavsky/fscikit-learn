@@ -3504,3 +3504,63 @@ still 186 core estimator/transformer/splitter types; the importance result is
 a container, not an estimator. Inventory: 92 source modules, 95 native
 programs, 74 core reference suites and 248,923 retained core groups, plus
 28 separately counted NumPy RNG groups.
+
+
+## Brute partial dependence and ICE - 2026-11-21
+
+Added callback-based brute partial dependence with averaged responses,
+individual conditional expectation curves or both. Numeric/categorical grids,
+Cunnane percentile endpoints (SciPy alphap=betap=.4), source unique-count
+cutoffs, Cartesian feature order, repeated-feature substitutions and signed
+weighted means follow the documented numerical contracts. Fixed-rank result
+arrays flatten the grid dimensions; ragged axis values preserve their sizes
+and ordering. Callbacks choose the resolved regression, probability or decision
+response and preserve their output dimension. API.md describes this native
+interface and its limits; tree-recursion estimation is not implemented.
+
+Completed validation on the existing Windows/fpm/GNU Fortran toolchain:
+
+- All 96 native programs passed checked/runtime-trap and optimized release
+  profiles. Unit probes additionally cover weighted ICE invariance, copied
+  result storage, categorical masks, duplicate features and NaN quantile grids.
+- Both profiles passed 13,395 new source groups across 835 fixtures and five
+  seeds, using an analytic multiple-output model, OLS, Ridge, logistic
+  probabilities/decisions, Gaussian NB, KNN probabilities and LinearSVC.
+- Every substituted feature matrix and predictor response is checked; untouched
+  background columns are exact input identities. Axes, Cunnane interpolation,
+  strict unique/resolution boundary, categorical logical/default-int64 selectors,
+  unused categorical indices, duplicate/reordered/three-way axes, all result
+  kinds, singleton/two-row backgrounds and signed/negative-total weights are
+  covered. NaN axes and nonfinite prediction reductions retain quiet source
+  semantics. Emitted fitted responses/parameters and inputs are preserved.
+- Both profiles passed the existing 17,820-group permutation-importance suite.
+  The original 192 integration comparisons and all 2,202 isolated invalid-input
+  diagnostics passed, including 31 new cases. The checked partial_dependence
+  example's grid and averaged response were compared with source Ridge.
+
+Checked new-suite oracle counts: sklearn=10,830, input_identity=2,505, source_binary_shape_identity=60.
+Release oracle counts: sklearn=10,830, input_identity=2,505, source_binary_shape_identity=60.
+
+Each report retains 30 observed sklearn 1.6.1 binary-response reshape failures,
+restricted to two grid points or two background rows and the expected cannot-
+reshape diagnostic, with a complete prediction trace. Native callbacks expose
+the response axis explicitly and return the complete mathematical curve.
+The 60 affected average/individual groups are independently compared with
+weighted means and individual responses from those actual source predictions,
+and labeled source_binary_shape_identity. Ordinary source estimator tags and
+response-method names are preserved by tracing; no source fixture was removed
+and no ordinary comparison tolerance was widened.
+
+Numerical production sources were frozen before the full checked/release
+native and final reference runs. Other retained source suites were not all
+rerun. Final audits verify syntax, formatting, diagnostic registration and
+branches, source/error/oracle report accounting, source hashes, retained
+licenses, exact example responses and git diff consistency.
+
+Original work remains MIT. Retained sklearn BSD notices now also include the
+SciPy source BSD notice for the percentile adaptation; no SciPy binary or
+runtime is linked. No runtime dependency or public extension was added. The
+result/axis helpers are containers, so core estimator/transformer/splitter
+count remains 186. Inventory: 93 source modules, 96 native programs, 75 core
+reference suites and 262,318 retained core groups, plus 28 separate NumPy RNG
+groups.

@@ -3243,3 +3243,30 @@ columns, NaN features, fractions rounded to empty subsets, NaN/infinite scores
 and finite-score subtraction/summary overflow. Raw importances and population
 mean/deviation are compared with source; emitted model state, responses and
 input arrays are preserved. No fit is performed by the inspection algorithm.
+
+
+## Partial dependence and ICE
+
+Run `python validation/compare_partial_dependence.py` (optionally
+`--profile release`, `--executable PATH` or repeatable `--seed N`). Five seeds
+check 13,395 groups over 835 fixtures: analytical multiple-output regression,
+OLS, Ridge, logistic probabilities/decisions, Gaussian NB, nearest-neighbor
+probabilities and LinearSVC decisions. Source runs use method='brute' and
+real estimator tags; traced methods preserve their response-method names.
+Every substituted feature matrix and numerical response is checked, with
+unchanged background columns compared exactly. Axes, Cartesian order, means,
+ICE arrays, fitted responses/parameters and original inputs are also checked.
+
+Cases include all result kinds, reordered and duplicate feature axes,
+three-way grids, Cunnane interpolation, the strict unique-count cutoff,
+categorical logical/default-int64 selectors, unused categorical indices,
+single/two-row backgrounds, signed/negative-total weights, NaN unique and
+percentile grids, and NaN/infinite prediction reductions.
+
+Source sklearn 1.6.1's binary response reshape errors are retained as explicit
+fixtures. A failure is accepted only for binary responses with two grid points
+or two background rows, the known cannot-reshape message, and a complete
+source prediction trace. Source-trace weighted averages and individual
+responses independently verify the native mathematical curve. The report
+records each source error and labels these result groups separately as
+source_binary_shape_identity. Ordinary source tolerances remain fixed.

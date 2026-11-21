@@ -8,6 +8,8 @@ program invalid_input_driver
   use sklearn_legacy_rng, only: legacy_random_state
   use, intrinsic :: ieee_arithmetic, only: ieee_value,ieee_quiet_nan,ieee_positive_inf
   implicit none
+  type(partial_dependence_result) :: pd_result
+  integer :: pd_bad=0,pd_calls=0
   type(permutation_importance_result) :: pi_result
   type(permutation_importance_result), allocatable :: pi_results(:)
   integer :: pi_bad=0,pi_calls=0
@@ -319,6 +321,72 @@ program invalid_input_driver
   mi_x(:,2)=[0._dp,0._dp,1._dp,1._dp,2._dp,2._dp]; mi_x(:,3)=1
   mi_y=mi_x(:,1); mi_labels=[-1,-1,-1,2,2,2]
   select case(trim(mode))
+  case('pd_empty_rows')
+    pd_result=partial_dependence(mo_x(:0,:),[1],pd_predict)
+  case('pd_empty_columns')
+    pd_result=partial_dependence(mo_x(:,:0),[1],pd_predict)
+  case('pd_empty_features')
+    pd_result=partial_dependence(mo_x,[integer ::],pd_predict)
+  case('pd_zero_feature')
+    pd_result=partial_dependence(mo_x,[0],pd_predict)
+  case('pd_large_feature')
+    pd_result=partial_dependence(mo_x,[3],pd_predict)
+  case('pd_pct_length')
+    pd_result=partial_dependence(mo_x,[1],pd_predict,percentiles=[0._dp])
+  case('pd_pct_empty')
+    pd_result=partial_dependence(mo_x,[1],pd_predict,percentiles=[real(dp) ::])
+  case('pd_pct_nan')
+    pd_result=partial_dependence(mo_x,[1],pd_predict,percentiles=[ieee_value(0._dp,ieee_quiet_nan),1._dp])
+  case('pd_pct_inf')
+    pd_result=partial_dependence(mo_x,[1],pd_predict,percentiles=[0._dp,ieee_value(0._dp,ieee_positive_inf)])
+  case('pd_pct_negative')
+    pd_result=partial_dependence(mo_x,[1],pd_predict,percentiles=[-.1_dp,1._dp])
+  case('pd_pct_large')
+    pd_result=partial_dependence(mo_x,[1],pd_predict,percentiles=[0._dp,1.1_dp])
+  case('pd_pct_reverse')
+    pd_result=partial_dependence(mo_x,[1],pd_predict,percentiles=[1._dp,0._dp])
+  case('pd_pct_equal')
+    pd_result=partial_dependence(mo_x,[1],pd_predict,percentiles=[.5_dp,.5_dp])
+  case('pd_resolution')
+    pd_result=partial_dependence(mo_x,[1],pd_predict,grid_resolution=1)
+  case('pd_negative_resolution')
+    pd_result=partial_dependence(mo_x,[1],pd_predict,grid_resolution=-1)
+  case('pd_kind')
+    pd_result=partial_dependence(mo_x,[1],pd_predict,kind='unknown')
+  case('pd_weights_length')
+    pd_result=partial_dependence(mo_x,[1],pd_predict,sample_weight=mo_w(:3))
+  case('pd_weights_nan')
+    pd_result=partial_dependence(mo_x,[1],pd_predict,sample_weight=[ieee_value(0._dp,ieee_quiet_nan),1._dp,1._dp,1._dp])
+  case('pd_weights_inf')
+    pd_result=partial_dependence(mo_x,[1],pd_predict,sample_weight=[ieee_value(0._dp,ieee_positive_inf),1._dp,1._dp,1._dp])
+  case('pd_weights_zero')
+    pd_result=partial_dependence(mo_x,[1],pd_predict,sample_weight=0*mo_w)
+  case('pd_individual_zero')
+    pd_result=partial_dependence(mo_x,[1],pd_predict,kind='individual',sample_weight=0*mo_w)
+  case('pd_cat_mask_length')
+    pd_result=partial_dependence(mo_x,[1],pd_predict,categorical_features=[.true.])
+  case('pd_cat_type')
+    pd_result=partial_dependence(mo_x,[1],pd_predict,categorical_features=[1._dp])
+  case('pd_cat_percentiles')
+    pd_result=partial_dependence(mo_x,[1],pd_predict,categorical_features=[.true.,.true.],percentiles=[1._dp,0._dp])
+  case('pd_cat_resolution')
+    pd_result=partial_dependence(mo_x,[1],pd_predict,categorical_features=[.true.,.true.],grid_resolution=1)
+  case('pd_infinite_x')
+    mo_x(1,1)=ieee_value(0._dp,ieee_positive_inf)
+    pd_result=partial_dependence(mo_x,[1],pd_predict)
+  case('pd_close_percentiles')
+    pd_result=partial_dependence(mo_x,[1],pd_predict,grid_resolution=2,percentiles=[.5_dp,.50000000001_dp])
+  case('pd_grid_overflow')
+    pd_result=partial_dependence(mo_x,spread(1,1,16),pd_predict)
+  case('pd_response_rows')
+    pd_bad=1
+    pd_result=partial_dependence(mo_x,[1],pd_predict)
+  case('pd_no_outputs')
+    pd_bad=2
+    pd_result=partial_dependence(mo_x,[1],pd_predict)
+  case('pd_changed_outputs')
+    pd_bad=3
+    pd_result=partial_dependence(mo_x,[1],pd_predict)
   case('pi_empty_rows')
     pi_result=permutation_importance(mo_x(:0,:),pi_score)
   case('pi_empty_columns')
@@ -5764,5 +5832,15 @@ contains
     values=[0._dp]
     if(pi_bad==1) values=[real(dp) ::]
     if(pi_bad==2.and.pi_calls>1) values=[0._dp,0._dp]
+  end function
+  function pd_predict(features) result(values)
+    real(dp), intent(in) :: features(:,:)
+    real(dp), allocatable :: values(:,:)
+    integer :: rows,outputs
+    pd_calls=pd_calls+1; rows=size(features,1); outputs=1
+    if(pd_bad==1) rows=rows-1
+    if(pd_bad==2) outputs=0
+    if(pd_bad==3.and.pd_calls>1) outputs=2
+    allocate(values(rows,outputs)); values=0
   end function
 end program

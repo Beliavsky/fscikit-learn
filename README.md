@@ -24,6 +24,7 @@ fpm run --example clustering_agreement
 fpm run --example resampling
 fpm run --example nonlinear_embedding
 fpm run --example lle_variants
+fpm run --example partial_dependence
 fpm run --example permutation_importance
 fpm run --example voting_ensembles
 fpm run --example multiclass_reductions
@@ -38,6 +39,7 @@ python validation/compare_cluster_information.py
 python validation/compare_resampling.py
 python validation/compare_tsne.py
 python validation/compare_lle_variants.py
+python validation/compare_partial_dependence.py
 python validation/compare_inspection.py
 python validation/compare_voting.py
 python validation/compare_multiclass.py

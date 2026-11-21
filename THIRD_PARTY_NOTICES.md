@@ -533,3 +533,24 @@ work; reductions follow NumPy mean/std semantics. Installed source SHA-256:
 Adapted portions retain BSD-3-Clause and the complete sklearn notice in
 `LICENSES/scikit-learn-COPYING`; prior NumPy notices are retained. Original
 contributions remain MIT. No runtime dependency or public extension is added.
+
+
+### Brute partial dependence and individual conditional expectation
+
+`src/sklearn_partial_dependence.f90` adapts grids, categorical/unique selection,
+Cartesian evaluation, brute averaging and individual-response semantics from
+sklearn 1.6.1 `inspection/_partial_dependence.py`. Empirical grid endpoints
+follow SciPy 1.15.3 `stats/_mstats_basic.py` mquantiles with alphap=betap=.4.
+The SciPy source module credits original author Pierre GF Gerard-Marchant
+(2007). SciPy copyright (c) 2001-2002 Enthought, Inc. 2003-2024 SciPy Developers;
+its source BSD-3-Clause notice is retained in `LICENSES/scipy-COPYING`.
+No bundled SciPy binary component or runtime is used. Native callbacks,
+flattened grid-axis storage and guarded IEEE arithmetic are original work.
+Installed source SHA-256:
+
+- `sklearn/inspection/_partial_dependence.py`: `82ecaf365bb7734ce9745799f1da8fa9cb1d899236088583f65aadaf52b3b80b`
+- `scipy/stats/_mstats_basic.py`: `d6822a0a1e7d62e05b9f39425e145102861fb79a1fcc7be4da0e77cffb766d68`
+
+Adapted portions retain their sklearn/SciPy BSD-3-Clause attribution and
+complete retained notices. Original contributions remain MIT. No runtime
+dependency or public extension is introduced.

@@ -1,6 +1,7 @@
 ! Permutation importance adapted from sklearn 1.6.1 inspection/_permutation_importance.py.
 ! BSD attribution: THIRD_PARTY_NOTICES.md and LICENSES/scikit-learn-COPYING.
 module sklearn_inspection
+  use sklearn_partial_dependence, only: partial_dependence,partial_dependence_result,dependence_axis,dependence_predictor
   use sklearn_common, only: dp,require
   use sklearn_legacy_rng, only: legacy_random_state
   use, intrinsic :: iso_fortran_env, only: int64,real32
@@ -8,6 +9,7 @@ module sklearn_inspection
     ieee_quiet_nan,ieee_positive_inf,ieee_negative_inf
   implicit none
   private
+  public :: partial_dependence,partial_dependence_result,dependence_axis,dependence_predictor
   public :: permutation_importance,permutation_importance_multi,permutation_importance_result
   public :: permutation_score,permutation_scores
   type :: permutation_importance_result

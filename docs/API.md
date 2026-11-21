@@ -3073,3 +3073,83 @@ means/deviations propagate nonfinite values. No Python warnings are emitted.
 The implementation is dense, sequential and real64. Sparse/pandas paths,
 Python metadata routing and joblib execution are outside this interface.
 See example/permutation_importance.f90 and validation/compare_inspection.py.
+
+
+## Partial dependence and individual conditional expectation
+
+`partial_dependence(x,features,predictor,percentiles,grid_resolution,
+categorical_features,kind,sample_weight)` is exported by sklearn_inspection,
+sklearn_partial_dependence and the sklearn facade. This implements sklearn's
+brute numerical method, averaging predictions over the supplied background
+rows. Tree-recursion estimation and automatic Python response-method dispatch
+are outside this interface. No estimator is fitted by the algorithm.
+
+The predictor is a Fortran callback with this interface:
+
+```fortran
+function predictor(features) result(values)
+  use sklearn, only: dp
+  real(dp), intent(in) :: features(:,:)
+  real(dp), allocatable :: values(:,:)
+end function
+```
+
+Capture a fitted estimator through host/module association. Return a matrix
+(n_samples,n_outputs) with an allocated, nonempty output axis and a constant
+output count across calls. A regression predict vector can be reshaped to
+(n_samples,1); multiple-output regression and multiclass probabilities or
+decisions retain their columns. For sklearn-compatible binary probabilities,
+select the highest sorted class's probability column; binary decisions use
+one column. Response selection belongs to the callback, so its numeric meaning
+is explicit. Callback side effects remain the caller's responsibility.
+
+`features(:)` contains one-based original feature indices, in axis order.
+Each Cartesian grid point replaces those columns for every original row,
+then calls the predictor once. Other columns and the original input are
+preserved. Repeated feature indices are accepted; the last substitution wins,
+as in source. The result container exposes:
+
+- grid_values(j)%values: a ragged numeric vector for each selected feature;
+- average(n_outputs,n_grid_points), when kind is average or both;
+- individual(n_outputs,n_samples,n_grid_points), when kind is individual or both.
+
+Default kind is average. Unrequested result fields remain unallocated. The
+last selected axis varies fastest in the flattened grid-point dimension.
+For two axes of lengths a and b, index (i,j) maps to (i-1)*b+j. This fixed-rank
+representation replaces Python arrays with a variable number of grid axes.
+Result assignment deep-copies all axes and response arrays.
+
+Default grid_resolution is 100 and must exceed one. Numeric features use
+sorted unique values when their count is STRICTLY less than grid_resolution;
+otherwise an evenly spaced grid spans the two empirical percentiles.
+Percentiles default to [.05,.95]; supply two finite, increasing real64 values
+in [0,1]. The interpolation follows SciPy mquantiles with alphap=betap=.4,
+matching sklearn 1.6.1. Source's default allclose threshold rejects numerical
+percentile ranges that are too close to form a grid.
+
+Categorical features always use all sorted unique values. Supply a logical
+mask over all original columns or a default-integer or int64 list of one-based
+categorical indices. Entries not among the selected features are ignored.
+Numeric categories and NaNs are supported; strings, pandas, sparse arrays
+and masked-array metadata are outside this dense real64 interface.
+
+Features can contain NaNs, but not infinities. Missing values are retained
+in unique axes; source percentile calculations can produce all-NaN grid axes.
+The predictor decides whether it can evaluate those points. Sample weights
+must be finite with a nonzero sum; signed weights are supported. They affect
+averaged responses and leave individual curves unchanged. Even individual-
+only evaluation validates this averaging requirement, following source.
+Quiet IEEE arithmetic handles nonfinite predictions, including zero-weight
+infinite responses and mixed infinities. Python warnings are not emitted.
+
+Sklearn 1.6.1 has a binary-response reshape failure when the grid contains
+two points, or when the background has two rows. Native callbacks have an
+explicit output dimension and retain the complete mathematical curve in
+these cases. Validation records the source failure and checks the native
+means/individual curves against the predictions actually produced by source
+at every grid point. These are labeled source_binary_shape_identity rather
+than ordinary public-API comparisons.
+
+See example/partial_dependence.f90 and
+validation/compare_partial_dependence.py. The helper axis/result containers
+are not additional estimator types.
