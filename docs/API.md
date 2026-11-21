@@ -3739,3 +3739,60 @@ overflow intermediate sums/subtractions, with floating-point traps enabled.
 Different NumPy input layouts may differ in reduction roundoff.
 See `example/random_feature_maps.f90` for both transformers in a classifier
 and centered-kernel workflow.
+
+
+## KNeighborsTransformer and RadiusNeighborsTransformer
+
+`kneighbors_transformer` and `radius_neighbors_transformer` are exported through
+`sklearn_neighbor_graph`, `sklearn_neighbors`, and `sklearn`. The latter two also
+export `csr_matrix`, `csr_from_dense`, and `csr_from_arrays`. These are storage
+helpers for core sklearn graphs, not additional machine-learning algorithms.
+
+`fit(x)`, `transform(x)`, and `fit_transform(x)` accept dense real64 features or
+precomputed distances (`metric='precomputed'`). Precomputed training distances
+must be square; query columns correspond to training samples. CSR precomputed
+inputs use only stored entries: missing edges are unavailable neighbors, while
+stored zeros are valid zero-distance edges. Repeated columns are retained and
+can supply multiple stored neighbors. Sorting is stable by stored distance and
+never modifies caller arrays. Finite nonnegative distances are required.
+
+Controls: `mode='distance'` or `'connectivity'`, `n_neighbors=5` for the nearest
+graph, `radius=1` for the radius graph, and `metric` / `p=2`. Supported metrics
+are euclidean, sqeuclidean, manhattan, cityblock, chebyshev, minkowski with finite
+p>=1, cosine, and precomputed. Search is brute force; there are no tree-search,
+parallel, callable-metric, weighted-metric, fractional-p, or sparse-feature
+interfaces. Dense queries currently materialize their full pairwise distance
+matrix and CSR copy. This is not a large-data sparse search implementation.
+Use well-scaled inputs whose distance arithmetic stays in real64 working range.
+
+Distance-mode KNeighborsTransformer requests **k+1** neighbors for every query,
+including held-out queries; connectivity mode requests k. Enough fitted samples
+and enough stored CSR entries in every row are required at transform time.
+Radius graphs include d<=radius, permit zero/infinite radius, and may have empty
+rows. Distance rows are sorted by distance. Dense connectivity radius rows use
+training index order; precomputed CSR rows retain distance order. Equal-distance
+neighbors use stable input order. Sklearn's optimized heaps/NumPy partitions can
+choose or order different exact ties; exact index parity is not promised there.
+
+Calling `transform()` without x means an implicit training query: self indices
+are excluded, as in Python `transform(None)`. K selection first requests one
+additional candidate and removes self (or the first candidate if self is absent).
+Repeated self entries in the selected CSR candidates are rejected for this
+implicit K query; explicit queries retain duplicates. `fit_transform(x)` is an
+explicit training query, so self edges are eligible. For dense features,
+`transform(x,self_query=.true.)` explicitly requests the training-array identity
+semantics used by cosine's zero-vector diagonal; x must equal the fitted values.
+Ordinary `transform(x)` treats x as an independent query. Fitted arrays and the
+effective metric/p are value copies; refitting replaces prior dense/CSR state.
+Learned metadata is `n_features_in_`, `n_features_out_`, `n_samples_fit_`.
+`get_feature_names_out()` uses sklearn's class prefix and zero-based positions.
+
+CSR row pointers and column indices are **1-based**, including terminal
+`indptr(n_rows+1)=nnz+1`. `validate()` checks structure; `nnz()` counts stored
+entries including zeros/duplicates; `to_dense()` sums duplicate columns;
+`stored_mask()` reports presence independently of value; `matmul(rhs)` multiplies
+a dense right-hand side, also summing repeated entries. `csr_from_dense(x)` omits
+zeros by default; set `store_zeros=.true.` to retain them. Generic CSR storage
+permits nonfinite data, but graph estimators require finite distances. There is
+no claim that other existing estimators accept CSR. See
+`example/neighbor_graphs.f90` for a public-facade example.

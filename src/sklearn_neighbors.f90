@@ -1,4 +1,6 @@
 module sklearn_neighbors
+  use sklearn_neighbor_graph, only: kneighbors_transformer,radius_neighbors_transformer
+  use sklearn_sparse, only: csr_matrix,csr_from_dense,csr_from_arrays
   use sklearn_common
   use sklearn_outlier, only: local_outlier_factor
   use sklearn_density, only: kernel_density
@@ -9,6 +11,7 @@ module sklearn_neighbors
   public :: radius_neighbors_classifier,radius_neighbors_regressor,nearest_centroid
   public :: local_outlier_factor
   public :: kernel_density
+  public :: kneighbors_transformer,radius_neighbors_transformer,csr_matrix,csr_from_dense,csr_from_arrays
   type :: nearest_neighbors
     integer :: n_neighbors=5
     character(16) :: metric='minkowski'

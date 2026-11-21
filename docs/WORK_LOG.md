@@ -4340,3 +4340,68 @@ accuracy 0.95, centered-kernel column residual 9.325873406851315e-15 and a
 40-by-80 query kernel. These synthetic-fixture values are not a general
 performance guarantee. Validation used GNU Fortran 17 on Windows and the
 installed sklearn 1.6.1 / NumPy 2.2.6 baseline.
+
+
+## Neighbor graph transformer increment (2026-11-21)
+
+Added KNeighborsTransformer and RadiusNeighborsTransformer with original MIT CSR
+storage helpers. This raises the core inventory to 202 types in 107 source
+modules, with 108 native test programs. There are 87 core reference suites with
+374,433 retained result groups, plus the separate existing NumPy RNG checks.
+Four invalid-input registries now contain 2,591 unique cases; this increment
+adds and reruns 42 cases rather than rerunning the older three registries.
+
+`validation/compare_neighbor_graph.py` retains 5,550 groups across 1,110 fixtures
+and five seeds: 4,440 source-based shape/nnz, pointer, edge-value and neighbor-
+distance groups plus 1,110 caller-input identity groups. It exercises eight
+metrics, both modes, explicit/implicit training queries, held-out queries,
+integer/duplicate/zero-vector inputs, unsorted sparse precomputed rows, missing
+edges, repeated columns and stored zero distances. Thirty additional boundary
+fixtures cover zero/infinite radius, empty held-out graphs and near-limit k. Both matrix structure and
+stored slot values are checked for CSR inputs, without coalescing duplicates.
+Expected unsorted-sparse warnings are captured (120 per profile).
+
+Dense stable tie selection differs from sklearn's optimized heap/partition
+selection in 245 retained fixtures. Each changed support must have exactly the
+same source-computed distance multiset, and each changed position must be an
+exact distance tie. Certificates record source/native indices by row. Membership
+and ordering certificates use exact equality: the 2e-12 numerical edge-distance
+tolerance cannot admit a different-distance neighbor. Radius connectivity
+order and sparse precomputed indices/data are checked directly. These are
+specified subset differences, not claims of exact backend tie parity.
+
+Run `python validation/compare_neighbor_graph.py --profile checked` or
+`--profile release`; `--executable PATH` bypasses fpm for an already-built driver.
+`validation/check_neighbor_graph_invalid_inputs.py` accepts the same options.
+Its 42 isolated subprocess checks cover bad modes/metrics/powers/counts/radii,
+NaN/Inf inputs, empty inputs, nonsquare/negative precomputed distances, too few
+neighbors, malformed CSR pointers/columns and unsupported sparse features.
+JSON reports in ignored `validation/results` record profile, source/native
+hashes, versions, check results, warnings and exact-tie certificates.
+
+`test_neighbor_graph` independently checks k versus k+1 counts, stored zeros,
+self inclusion/exclusion, inclusive and zero-radius boundaries, copy/refit
+state, feature names, duplicate-preserving precomputed graphs, input identity,
+empty radius rows, dense conversion and CSR multiplication. The public example
+`neighbor_graphs` constructs both graphs and aggregates values through CSR.
+Only dense features and dense/CSR precomputed neighbor distances are supported;
+this increment does not add general sparse inputs to existing estimators.
+
+
+Final gates: all 108 native programs passed both checked runtime/FPE-trap and
+optimized fpm builds. Both profiles passed all 5,550 new reference groups and
+42 isolated rejections, with identical 245-fixture exact-tie certificates.
+The existing 192-group sklearn integration comparison also passed against the
+updated checked executable. The public example passed both profiles and matched
+independent sklearn: 15 stored distance edges and radius-one neighbor sums
+[3, 6, 5, 4, 5]. Production Fortran stayed fixed through these final gates.
+
+The optimized reference executable was linked from the current fpm release
+object and archive into a temporary directory while the remaining fpm targets
+built. Its .text section SHA256 is identical to the final fpm driver
+(b2b1827c8a72681de72041dce5bfab15148ccd1b5c072bb710cff7ae33dae974).
+Source hashes, report binary hashes, strict JSON, both profiles' 108 fresh native
+test objects, Python syntax, Fortran line lengths/whitespace and staged Git
+whitespace checks passed. No older reference-suite rerun is implied beyond the
+192-group integration gate. Original MIT licensing and sklearn BSD attribution
+remain in place; no dependency or public extension algorithm was added.

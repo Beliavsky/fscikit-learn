@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 200 public estimator, transformer, and splitter types. Each is a
+There are 202 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Eighty-six reference suites additionally check 368,883
+All types have native tests. Eighty-seven reference suites additionally check 374,433
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -15,14 +15,17 @@ tracked separately in [EXTENSIONS.md](EXTENSIONS.md) and excluded from the
 selective, clearly identified extensions while prioritizing core correctness.
 
 Global scope: dense real64 CPU arrays, integer classification labels, generally one target
-per sample; cross-decomposition, multi-task regression and independent multioutput wrappers explicitly accept multiple response columns. Sparse matrices, pandas integration, Python estimator cloning,
+per sample; cross-decomposition, multi-task regression and independent multioutput wrappers explicitly accept multiple response columns. General sparse estimator inputs, pandas integration, Python estimator cloning,
 metadata routing, parallel backends and binary model persistence are outside the
-initial translation. Fortran identifiers use snake_case rather than CamelCase.
+initial translation. The neighbor graph transformers provide CSR graph outputs and
+accept CSR precomputed distances; other estimator inputs remain dense.
+Fortran identifiers use snake_case rather than CamelCase.
 
 ## Implemented domains
 
 | Module (`sklearn_` prefix) | Public types and functions | Scope and numerical choices |
 | --- | --- | --- |
+| neighbor_graph / sparse | `kneighbors_transformer`, `radius_neighbors_transformer`; `csr_matrix` storage helper | Brute dense-feature and dense/CSR precomputed distances; connectivity/distance CSR outputs with explicit zeros |
 | threshold | `fixed_threshold_classifier`, `tuned_threshold_classifier_cv` | Binary probability/margin cutoffs; weighted fold score curves, interpolation and first-best threshold selection; holdout, custom folds and prefit validation |
 | tree_embedding | `random_trees_embedding` (also exported by `ensemble`) | Seeded totally random regression trees, dense one-hot leaf codes, warm starts, weights, leaf assignments and dense decision paths |
 | multiclass | `one_vs_rest_classifier`, `one_vs_one_classifier`, `output_code_classifier` | Dense independent binary reductions; supported native classifier and regressor bases; constant heads; weighted fitting where the base supports it; Gaussian NB/SGD classification streaming for OVR/OVO; seeded legacy NumPy codebooks |
@@ -4409,3 +4412,60 @@ overflow intermediate sums/subtractions, with floating-point traps enabled.
 Different NumPy input layouts may differ in reduction roundoff.
 See `example/random_feature_maps.f90` for both transformers in a classifier
 and centered-kernel workflow.
+
+
+## KNeighborsTransformer and RadiusNeighborsTransformer
+
+`kneighbors_transformer` and `radius_neighbors_transformer` are exported through
+`sklearn_neighbor_graph`, `sklearn_neighbors`, and `sklearn`. The latter two also
+export `csr_matrix`, `csr_from_dense`, and `csr_from_arrays`. These are storage
+helpers for core sklearn graphs, not additional machine-learning algorithms.
+
+`fit(x)`, `transform(x)`, and `fit_transform(x)` accept dense real64 features or
+precomputed distances (`metric='precomputed'`). Precomputed training distances
+must be square; query columns correspond to training samples. CSR precomputed
+inputs use only stored entries: missing edges are unavailable neighbors, while
+stored zeros are valid zero-distance edges. Repeated columns are retained and
+can supply multiple stored neighbors. Sorting is stable by stored distance and
+never modifies caller arrays. Finite nonnegative distances are required.
+
+Controls: `mode='distance'` or `'connectivity'`, `n_neighbors=5` for the nearest
+graph, `radius=1` for the radius graph, and `metric` / `p=2`. Supported metrics
+are euclidean, sqeuclidean, manhattan, cityblock, chebyshev, minkowski with finite
+p>=1, cosine, and precomputed. Search is brute force; there are no tree-search,
+parallel, callable-metric, weighted-metric, fractional-p, or sparse-feature
+interfaces. Dense queries currently materialize their full pairwise distance
+matrix and CSR copy. This is not a large-data sparse search implementation.
+Use well-scaled inputs whose distance arithmetic stays in real64 working range.
+
+Distance-mode KNeighborsTransformer requests **k+1** neighbors for every query,
+including held-out queries; connectivity mode requests k. Enough fitted samples
+and enough stored CSR entries in every row are required at transform time.
+Radius graphs include d<=radius, permit zero/infinite radius, and may have empty
+rows. Distance rows are sorted by distance. Dense connectivity radius rows use
+training index order; precomputed CSR rows retain distance order. Equal-distance
+neighbors use stable input order. Sklearn's optimized heaps/NumPy partitions can
+choose or order different exact ties; exact index parity is not promised there.
+
+Calling `transform()` without x means an implicit training query: self indices
+are excluded, as in Python `transform(None)`. K selection first requests one
+additional candidate and removes self (or the first candidate if self is absent).
+Repeated self entries in the selected CSR candidates are rejected for this
+implicit K query; explicit queries retain duplicates. `fit_transform(x)` is an
+explicit training query, so self edges are eligible. For dense features,
+`transform(x,self_query=.true.)` explicitly requests the training-array identity
+semantics used by cosine's zero-vector diagonal; x must equal the fitted values.
+Ordinary `transform(x)` treats x as an independent query. Fitted arrays and the
+effective metric/p are value copies; refitting replaces prior dense/CSR state.
+Learned metadata is `n_features_in_`, `n_features_out_`, `n_samples_fit_`.
+`get_feature_names_out()` uses sklearn's class prefix and zero-based positions.
+
+CSR row pointers and column indices are **1-based**, including terminal
+`indptr(n_rows+1)=nnz+1`. `validate()` checks structure; `nnz()` counts stored
+entries including zeros/duplicates; `to_dense()` sums duplicate columns;
+`stored_mask()` reports presence independently of value; `matmul(rhs)` multiplies
+a dense right-hand side, also summing repeated entries. `csr_from_dense(x)` omits
+zeros by default; set `store_zeros=.true.` to retain them. Generic CSR storage
+permits nonfinite data, but graph estimators require finite distances. There is
+no claim that other existing estimators accept CSR. See
+`example/neighbor_graphs.f90` for a public-facade example.

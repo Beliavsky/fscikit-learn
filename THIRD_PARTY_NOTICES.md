@@ -610,3 +610,16 @@ initializer of 1e-7. The native grouping now follows the observed runtime;
 validation records source and binary hashes and reads the exported capsule
 without modifying it. Original interfaces and validation remain MIT.
 No external runtime dependency was added.
+
+
+### Neighbor graph transformers and CSR storage
+
+`src/sklearn_neighbor_graph.f90` adapts the behavior of scikit-learn 1.6.1
+`sklearn/neighbors/_graph.py` and `_base.py` (The scikit-learn developers,
+BSD-3-Clause; retained in `LICENSES/scikit-learn-COPYING`). The native brute
+implementation uses existing package metrics and stable ordering rather than
+copying upstream Cython heap/partition code. Dense versus CSR stored-edge
+semantics and k+1 distance-mode selection follow these sources.
+`src/sklearn_sparse.f90` is original MIT Fortran storage code using the standard
+compressed-row representation; no SciPy implementation code is copied.
+Reference checks use installed sklearn, SciPy and NumPy only during validation.
