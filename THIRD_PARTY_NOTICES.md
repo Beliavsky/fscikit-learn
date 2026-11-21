@@ -21,6 +21,7 @@ Reference paths by module:
 
 | Fortran module | scikit-learn reference |
 | --- | --- |
+| cluster_information | metrics/cluster/_supervised.py normalized/adjusted MI averages and signed epsilon denominator, Fowlkes-Mallows, contingency smoothing/order, ordered pair orientation, entropy and homogeneity/completeness/weighted V-measure conventions; _expected_mutual_info_fast.pyx hypergeometric expected MI with log factorials. Native heap-sorted observed cells, int64 counts, cached intrinsic log-gamma and explicit validation; existing H/C/V metric wrappers delegate to this backend |
 | mutual_info | feature_selection/_mutual_info.py Kraskov continuous/continuous and Ross continuous/discrete nearest-neighbor MI, singleton removal, adaptive class-wise neighbor counts, scaling and seeded Gaussian jitter; neighbors/_base.py auto backend rule and metrics/_pairwise_distances_reduction/_argkmin.pyx.tp ordered Euclidean Gram terms; _univariate_selection.py r_regression moment and IEEE contracts; metrics/cluster/_supervised.py mutual_info_score contingency/log/epsilon rules. Native pair selection and integer harmonic digamma differences; source-compatible scalar-seeded legacy Gaussian stream |
 | label_binarization | preprocessing/_label.py LabelBinarizer sorted target classes, binary/query-dependent output width, configurable positive/negative labels, threshold and clipped-argmax inverse contracts; MultiLabelBinarizer discovered/configured class order, duplicate/unknown label handling, dense indicators and inverse set ordering. Native integer ragged label_set representation; explicit diagnostics for unsupported inverse scores and source single-class positive-index failure |
 | polynomial_count_sketch | kernel_approximation.py PolynomialCountSketch index/sign draw order, augmented polynomial features, count sketches, FFT product/inverse and live transform-control semantics; native legacy RandomState helper described below; FFT kernels separately attributed to SciFort below |
@@ -180,12 +181,31 @@ ziggurat implementations described there are not used. Applicable upstream
 terms continue to apply to adapted portions; original contributions retain
 the project MIT license.
 
+## Clustering information metrics (BSD)
+
+The clustering-information adaptation was inspected locally on 2026-11-20 in
+the installed sklearn 1.6.1 package. Exact source SHA-256 identifiers:
+
+- `metrics/cluster/_supervised.py`:
+  `b295e06460372e48fa426308413029796c69241b75412eae77749dacf4de27e4`
+- `metrics/cluster/_expected_mutual_info_fast.pyx`:
+  `c489de6ee38a9c22578088e73cc51eac9f9e9444ae0cb4f36cd809da733e3e5c`
+
+Native changes use sorted int64 histograms, heap sorting, scalar/vector Fortran
+interfaces, cached intrinsic log factorials and explicit validity checks.
+The original sklearn BSD notice remains in `LICENSES/scikit-learn-COPYING`.
+Research references, following sklearn's source: Vinh, Epps and Bailey (2010),
+"Information Theoretic Measures for Clusterings Comparison: Variants,
+Properties, Normalization and Correction for Chance," JMLR; E. B. Fowlkes and
+C. L. Mallows (1983), "A Method for Comparing Two Hierarchical Clusterings."
+
 ## NumPy pairwise summation (BSD)
 
 The mutual-information implementation also adapts NumPy 2.2.6's real
 pairwise summation order from
 [`numpy/_core/src/umath/loops_utils.h.src`](https://github.com/numpy/numpy/blob/v2.2.6/numpy/_core/src/umath/loops_utils.h.src)
-in the private `numpy_sum` helper of `src/sklearn_mutual_info.f90`. The native
+in the private `numpy_sum` helper of `src/sklearn_mutual_info.f90` and
+`pairwise_sum` in `src/sklearn_cluster_information.f90`. The native
 adaptation uses real64 array sections, eight partial accumulators, a 128-value
 block cutoff and aligned recursive splits, with no compiled NumPy dependency.
 The complete NumPy BSD license/copyright is retained in `LICENSES/numpy-COPYING`.

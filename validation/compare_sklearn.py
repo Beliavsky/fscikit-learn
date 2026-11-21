@@ -4,6 +4,7 @@ Run: python validation/compare_sklearn.py
 Python dependencies are validation-only: numpy, scipy, scikit-learn.
 """
 from pathlib import Path
+import argparse
 import json
 import os
 import subprocess
@@ -141,6 +142,10 @@ def reference(x, y, labels):
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--executable', type=Path)
+    args = parser.parse_args()
+    executable = args.executable.resolve() if args.executable else None
     RESULTS.mkdir(exist_ok=True)
     report = {"sklearn_version": sklearn.__version__, "checks": []}
     for seed, classes in [(7, 2), (42, 3), (2026, 4)]:
@@ -154,8 +159,9 @@ def main():
         with data.open("w") as f:
             f.write(f"{len(x)} {x.shape[1]}\n")
             np.savetxt(f, np.column_stack([x, y, labels]), fmt="%.17g")
-        subprocess.run(["fpm", "run", "--target", "reference_driver", "--",
-                        str(data), str(output)], cwd=ROOT, check=True)
+        command = ([str(executable), str(data), str(output)] if executable else
+                   ["fpm", "run", "--target", "reference_driver", "--", str(data), str(output)])
+        subprocess.run(command, cwd=ROOT, check=True)
         actual = {}
         for line in output.read_text().splitlines():
             name, *values = line.split()

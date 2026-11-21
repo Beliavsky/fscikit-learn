@@ -6,6 +6,41 @@ import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 CASES = {
+    "ci_homogeneity_length": "cluster information label count mismatch",
+    "ci_completeness_length": "cluster information label count mismatch",
+    "ci_v_wrapper_length": "cluster information label count mismatch",
+    "ci_v_wrapper_beta_negative": "cluster V-measure beta must be nonnegative",
+    "ci_v_wrapper_beta_nan": "cluster V-measure beta must be finite",
+    "ci_v_wrapper_beta_inf": "cluster V-measure beta must be finite",
+    "ci_v_beta_zero_denominator": "cluster V-measure beta yields zero denominator",
+    "ci_normal_length": "cluster information label count mismatch",
+    "ci_adjusted_length": "cluster information label count mismatch",
+    "ci_fowlkes_length": "cluster information label count mismatch",
+    "ci_contingency_length": "cluster information label count mismatch",
+    "ci_pairs_length": "cluster information label count mismatch",
+    "ci_hcv_length": "cluster information label count mismatch",
+    "ci_normal_method": "unknown cluster MI average_method",
+    "ci_normal_method_suffix": "unknown cluster MI average_method",
+    "ci_adjusted_method": "unknown cluster MI average_method",
+    "ci_empty_invalid_method": "unknown cluster MI average_method",
+    "ci_eps_negative": "cluster contingency eps must be nonnegative",
+    "ci_eps_nan": "cluster contingency eps must be finite",
+    "ci_eps_inf": "cluster contingency eps must be finite",
+    "ci_beta_negative": "cluster V-measure beta must be nonnegative",
+    "ci_beta_nan": "cluster V-measure beta must be finite",
+    "ci_beta_inf": "cluster V-measure beta must be finite",
+    "ci_beta_zero_denominator": "cluster V-measure beta yields zero denominator",
+    "ci_expected_negative_n": "expected MI n_samples must be nonnegative",
+    "ci_expected_negative_counts": "expected MI counts must be nonnegative",
+    "ci_expected_negative_counts64": "expected MI counts must be nonnegative",
+    "ci_expected_empty": "expected MI contingency must be nonempty",
+    "ci_expected_zero_rows": "expected MI contingency must be nonempty",
+    "ci_expected_sum_high": "expected MI count sum mismatch",
+    "ci_expected_sum_low": "expected MI count sum mismatch",
+    "ci_expected_zero_n": "expected MI count sum mismatch",
+    "ci_expected_sum_overflow": "expected MI count sum mismatch",
+    "ci_expected_work_overflow": "expected MI sample count exceeds native index range",
+
     "mi_class_neighbors_zero": "MI n_neighbors must be positive",
     "mi_reg_neighbors_negative": "MI n_neighbors must be positive",
     "mi_class_seed": "MI seed must be nonnegative",
@@ -1559,6 +1594,8 @@ def main():
                         and any(isinstance(target, ast.Name) and target.id == "CASES" for target in node.targets))
     case_keys = [ast.literal_eval(key) for key in registration.keys]
     assert len(case_keys) == len(set(case_keys)), "duplicate input-error case registration"
+    # invalid_input_driver stores its command argument in character(32).
+    assert max(map(len, case_keys)) <= 32, "input-error case exceeds driver argument buffer"
     subprocess.run(["fpm", "build", "--flag", "-fcheck=all -fbacktrace"], cwd=ROOT, check=True)
     # Ask fpm for the selected executable instead of rediscovering its build
     # directory or starting a complete fpm process for every rejection case.

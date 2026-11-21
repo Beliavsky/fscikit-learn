@@ -1,8 +1,12 @@
 module sklearn_metrics
+  use sklearn_cluster_information, only: normalized_mutual_info_score,adjusted_mutual_info_score,fowlkes_mallows_score, &
+    contingency_matrix,pair_confusion_matrix,entropy,expected_mutual_information,homogeneity_completeness_v_measure
   use sklearn_mutual_info, only: mutual_info_score
   use sklearn_common
   implicit none
   private
+  public :: normalized_mutual_info_score,adjusted_mutual_info_score,fowlkes_mallows_score,contingency_matrix
+  public :: pair_confusion_matrix,entropy,expected_mutual_information,homogeneity_completeness_v_measure
   public :: mutual_info_score
   public :: mean_squared_error, root_mean_squared_error, mean_absolute_error
   public :: median_absolute_error, mean_absolute_percentage_error, r2_score, explained_variance_score
@@ -469,37 +473,20 @@ contains
     pairs=real(size(y),dp)*(size(y)-1)/2; v=1
     if(pairs>0) v=1-(sum(a*(a-1)/2)+sum(b*(b-1)/2)-sum(t*(t-1)))/pairs
   end function
-  subroutine information(y,p,h,c)
-    integer, intent(in) :: y(:),p(:)
-    real(dp), intent(out) :: h,c
-    real(dp), allocatable :: t(:,:),a(:),b(:)
-    real(dp) :: ha,hb,mi,n
-    integer :: i,j
-    call contingency(y,p,t); a=sum(t,dim=2); b=sum(t,dim=1); n=size(y)
-    ha=-sum(a/n*log(a/n)); hb=-sum(b/n*log(b/n)); mi=0
-    do j=1,size(b)
-      do i=1,size(a)
-        if(t(i,j)>0) mi=mi+t(i,j)/n*log(t(i,j)*n/(a(i)*b(j)))
-      end do
-    end do
-    h=1; c=1
-    if(ha>0) h=mi/ha
-    if(hb>0) c=mi/hb
-  end subroutine
   real(dp) function homogeneity_score(y,p) result(v)
     integer, intent(in) :: y(:),p(:)
-    real(dp) :: c
-    call information(y,p,v,c)
+    real(dp) :: c,measure
+    call homogeneity_completeness_v_measure(y,p,v,c,measure)
   end function
   real(dp) function completeness_score(y,p) result(v)
     integer, intent(in) :: y(:),p(:)
-    real(dp) :: h
-    call information(y,p,h,v)
+    real(dp) :: h,measure
+    call homogeneity_completeness_v_measure(y,p,h,v,measure)
   end function
-  real(dp) function v_measure_score(y,p) result(v)
+  real(dp) function v_measure_score(y,p,beta) result(v)
     integer, intent(in) :: y(:),p(:)
+    real(dp), intent(in), optional :: beta
     real(dp) :: h,c
-    call information(y,p,h,c); v=0
-    if(h+c>0) v=2*h*c/(h+c)
+    call homogeneity_completeness_v_measure(y,p,h,c,v,beta)
   end function
 end module

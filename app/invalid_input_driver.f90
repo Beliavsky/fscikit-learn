@@ -1,10 +1,16 @@
 ! Validation helper: each selected case must terminate with an input diagnostic.
 program invalid_input_driver
   use sklearn
+  use, intrinsic :: iso_fortran_env, only: int64
   use sklearn_count_sketch_fft, only: count_sketch_fft_plan
   use sklearn_legacy_rng, only: legacy_random_state
   use, intrinsic :: ieee_arithmetic, only: ieee_value,ieee_quiet_nan,ieee_positive_inf
   implicit none
+  integer :: ci_a(4)=[0,0,1,1],ci_b(4)=[0,1,0,1],ci_counts(2,2)=1
+  integer(int64), allocatable :: ci_table(:,:)
+  integer(int64) :: ci_pairs(2,2)
+  real(dp), allocatable :: ci_smooth(:,:)
+  real(dp) :: ci_value,ci_h,ci_c,ci_v
   real(dp) :: mi_x(6,3),mi_y(6),mi_value
   integer :: mi_labels(6)
   real(dp), allocatable :: mi_scores(:)
@@ -236,6 +242,83 @@ program invalid_input_driver
   mi_x(:,2)=[0._dp,0._dp,1._dp,1._dp,2._dp,2._dp]; mi_x(:,3)=1
   mi_y=mi_x(:,1); mi_labels=[-1,-1,-1,2,2,2]
   select case(trim(mode))
+  case('ci_homogeneity_length')
+    ci_value=homogeneity_score(ci_a,ci_b(:3))
+  case('ci_completeness_length')
+    ci_value=completeness_score(ci_a,ci_b(:3))
+  case('ci_v_wrapper_length')
+    ci_value=v_measure_score(ci_a,ci_b(:3))
+  case('ci_v_wrapper_beta_negative')
+    ci_value=v_measure_score(ci_a,ci_b,beta=-1._dp)
+  case('ci_v_wrapper_beta_nan')
+    ci_value=v_measure_score(ci_a,ci_b,beta=ieee_value(0._dp,ieee_quiet_nan))
+  case('ci_v_wrapper_beta_inf')
+    ci_value=v_measure_score(ci_a,ci_b,beta=ieee_value(0._dp,ieee_positive_inf))
+  case('ci_v_beta_zero_denominator')
+    ci_value=v_measure_score([0,0,0,0],ci_b,beta=0._dp)
+  case('ci_normal_length')
+    ci_value=normalized_mutual_info_score(ci_a,ci_b(:3))
+  case('ci_adjusted_length')
+    ci_value=adjusted_mutual_info_score(ci_a,ci_b(:3))
+  case('ci_fowlkes_length')
+    ci_value=fowlkes_mallows_score(ci_a,ci_b(:3))
+  case('ci_contingency_length')
+    ci_table=contingency_matrix(ci_a,ci_b(:3))
+  case('ci_pairs_length')
+    ci_pairs=pair_confusion_matrix(ci_a,ci_b(:3))
+  case('ci_hcv_length')
+    call homogeneity_completeness_v_measure(ci_a,ci_b(:3),ci_h,ci_c,ci_v)
+  case('ci_normal_method')
+    ci_value=normalized_mutual_info_score(ci_a,ci_b,average_method="invalid")
+  case('ci_normal_method_suffix')
+    ci_value=normalized_mutual_info_score(ci_a,ci_b,average_method="arithmeticx")
+  case('ci_adjusted_method')
+    ci_value=adjusted_mutual_info_score(ci_a,ci_b,average_method="invalid")
+  case('ci_empty_invalid_method')
+    ci_value=adjusted_mutual_info_score(ci_a(:0),ci_b(:0),average_method="invalid")
+  case('ci_eps_negative')
+    ci_smooth=contingency_matrix(ci_a,ci_b,eps=-1._dp)
+  case('ci_eps_nan')
+    ci_smooth=contingency_matrix(ci_a,ci_b,eps=ieee_value(0._dp,ieee_quiet_nan))
+  case('ci_eps_inf')
+    ci_smooth=contingency_matrix(ci_a,ci_b,eps=ieee_value(0._dp,ieee_positive_inf))
+  case('ci_beta_negative')
+    call homogeneity_completeness_v_measure(ci_a,ci_b,ci_h,ci_c,ci_v,beta=-1._dp)
+  case('ci_beta_nan')
+    call homogeneity_completeness_v_measure(ci_a,ci_b,ci_h,ci_c,ci_v, &
+      beta=ieee_value(0._dp,ieee_quiet_nan))
+  case('ci_beta_inf')
+    call homogeneity_completeness_v_measure(ci_a,ci_b,ci_h,ci_c,ci_v, &
+      beta=ieee_value(0._dp,ieee_positive_inf))
+  case('ci_beta_zero_denominator')
+    call homogeneity_completeness_v_measure([0,0,0,0],ci_b,ci_h,ci_c,ci_v,beta=0._dp)
+  case('ci_expected_negative_n')
+    ci_value=expected_mutual_information(ci_counts,-1)
+  case('ci_expected_negative_counts')
+    ci_counts(1,1)=-1
+    ci_value=expected_mutual_information(ci_counts,4)
+  case('ci_expected_negative_counts64')
+    ci_table=int(ci_counts,int64)
+    ci_table(1,1)=-1
+    ci_value=expected_mutual_information(ci_table,4)
+  case('ci_expected_empty')
+    ci_value=expected_mutual_information(ci_counts(:0,:0),0)
+  case('ci_expected_zero_rows')
+    ci_value=expected_mutual_information(ci_counts(:0,:),0)
+  case('ci_expected_sum_high')
+    ci_value=expected_mutual_information(ci_counts,3)
+  case('ci_expected_sum_low')
+    ci_value=expected_mutual_information(ci_counts,5)
+  case('ci_expected_zero_n')
+    ci_value=expected_mutual_information(ci_counts,0)
+  case('ci_expected_sum_overflow')
+    ci_table=int(ci_counts,int64)
+    ci_table=huge(0_int64)
+    ci_value=expected_mutual_information(ci_table,4)
+  case('ci_expected_work_overflow')
+    ci_counts=0
+    ci_counts(1,1)=huge(1)
+    ci_value=expected_mutual_information(ci_counts,huge(1))
   case('mi_class_neighbors_zero')
     mi_scores=mutual_info_classif(mi_x,mi_labels,n_neighbors=0)
   case('mi_reg_neighbors_negative')

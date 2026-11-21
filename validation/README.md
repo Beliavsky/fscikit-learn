@@ -5,6 +5,7 @@ Run from the package root:
 ```
 fpm test --flag "-fcheck=all -fbacktrace"
 fpm test --profile release
+python validation/compare_cluster_information.py
 python validation/compare_mutual_info.py
 python validation/compare_label_binarization.py
 python validation/compare_polynomial_count_sketch.py
@@ -2506,3 +2507,99 @@ rerun; their numerical bodies were unchanged. Their saved passing results
 contribute to the historical aggregate of 99,802 core groups, with 28 NumPy
 stream groups reported separately. The project MIT license and complete
 sklearn/NumPy upstream notices remain retained.
+
+## Clustering information and pair agreement (2026-11-20)
+
+Added normalized_mutual_info_score, adjusted_mutual_info_score,
+fowlkes_mallows_score, contingency_matrix, pair_confusion_matrix, entropy,
+expected_mutual_information and homogeneity_completeness_v_measure. All eight
+are sklearn.metrics.cluster counterparts, exported through sklearn_metrics and
+sklearn, with focused access through sklearn_cluster_information. Existing
+homogeneity_score/completeness_score/v_measure_score now delegate to the same
+backend, adding source empty-input conventions and optional V-measure beta.
+These add metrics/helpers rather than estimator types. No public extension or
+runtime dependency is introduced.
+
+Sorted label bins and observed joint cells use heap sorting and O(N) histogram
+storage. Observed information follows source log/epsilon conventions with
+NumPy-compatible pairwise reduction. Pair confusion stores ordered distinct
+sample counts in int64, with rows TN/FP and FN/TP; Fowlkes-Mallows uses the
+geometric mean of pair precision/recall, returning zero with no true positives.
+The explicit contingency function allocates a dense sorted-class count matrix;
+its two-argument overload returns int64, while real64 eps selects an allocated
+real64 matrix with finite nonnegative smoothing added to every cell. Metrics
+themselves do not materialize a dense K-by-L matrix.
+
+Normalized and adjusted MI implement min/geometric/arithmetic/max entropy
+averages, defaulting to arithmetic. Expected MI follows sklearn's hypergeometric
+sum over feasible joint counts with cached intrinsic log factorials. AMI
+retains negative values and source signed-epsilon denominator flooring. The
+public expected-MI helper accepts default/int64 nonnegative count matrices,
+requires their sum to match nonnegative n_samples, supports zero margins and
+nonempty all-zero tables, and guards invalid extents/work sizes and sum overflow.
+
+Dense integer label arrays must have equal lengths. Empty NMI/AMI and H/C/V
+return one, entropy(empty) returns one, contingency(empty) is 0-by-0, pair
+confusion(empty) is zero and empty/singleton Fowlkes-Mallows is zero, following
+source. Beta is finite/nonnegative. Source's beta=0, zero-completeness division
+error becomes an explicit native diagnostic; independent partitions with H=C=0
+still give V=0. Sparse matrices, dtype overrides, object/string labels and the
+deprecated ignored FMI sparse flag are not exposed. Inputs are preserved.
+
+compare_cluster_information.py checks 2,720 groups over five seeds, 200 paired
+partition fixtures and 125 manual count matrices. The initial checked run has
+2,510 direct source groups, 200 exact input identities and ten AMI groups with
+explicit zero-chance-gap certificates. Every ordinary AMI value and unaffected
+normalization remains directly source compared at atol=rtol=3e-8. Expected MI
+is directly compared at atol=rtol=5e-11; all integer tables, pair counts, shapes
+and input copies are exact. Source beta-zero division and empty expected-table
+rejections are explicitly verified, not reported as numerical equalities.
+
+The adjustment denominator is mathematically zero for min-normalized AMI when
+one partition is entirely singleton clusters (and for every average when both
+are singleton partitions). Intrinsic/SciPy/libc log-gamma rounding can then
+substantially change the final source/native score. Certificates are limited to
+those exact partition conditions: source/native MI and expected MI must agree
+with the other entropy within 64*N*epsilon*max(1,H), and each reported adjusted
+score must lie in the source epsilon-guarded ratio interval obtained from its
+observed NMI/entropy/expected MI, allowing four epsilon units for reconstructing
+the observed MI. All nondegenerate components remain source checked. Reports
+record conditions, source/native values, component witnesses and ratio bounds.
+
+Fixtures cover N=0,1,2,3,4,5,7,16,31,64,127,257,513, independent/identical/
+renamed/refined/unbalanced/singleton partitions, all four averages, zero through
+1.e300 beta, eps 0/1.e-12/.25/10, empty and zero-entropy limits, zero matrix
+margins, count overloads and expected MI up to N=1,200. Native tests independently
+check sorted contingency orientation, smoothing, analytic ordered pairs/FMI,
+binary entropy, the exact balanced hypergeometric EMI log(2)/3, AMI=-.5 on
+balanced independent partitions, perfect-label scores, empty conventions,
+weighted V-measure wrappers and 70,000-sample counts above 32-bit range.
+Thirty-four new diagnostics cover lengths, methods, eps/beta controls,
+zero denominators, negative/inconsistent counts, empty matrices and overflow.
+The clustering_agreement example exercises all eight functions through sklearn.
+
+Source paths/hashes, sklearn and NumPy BSD notices, and Vinh/Epps/Bailey (2010)
+and Fowlkes/Mallows (1983) research references are recorded in
+THIRD_PARTY_NOTICES.md. Original contributions retain the project MIT license.
+Inventory: 167 core types, 80 source modules, 82 native test programs,
+61 reference suites and 102,522 result groups, plus 28 separate NumPy stream
+groups. Isolated invalid-input inventory is 1,649. The original integration
+comparison is rerun because the existing H/C/V numerical wrappers changed;
+compare_sklearn.py now also accepts a prebuilt executable for profile reuse.
+
+Completed validation: all 82 native test programs passed both the checked
+build (-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow) and release
+build. Each profile passed 2,720 new result groups: 2,510 direct sklearn
+comparisons, 200 input-preservation checks and 10 explicitly recorded
+zero-chance-gap AMI certificates. The original 192-group integration suite
+also passed against the checked executable. All 1,649 isolated invalid-input
+cases passed, and the checked clustering_agreement example ran successfully
+(NMI 0.18872187554086706, AMI 0.08346281722824393, FMI 0.5).
+A diagnostic fixture initially exceeded the driver's 32-character argument
+buffer; its name was shortened and a registration-length guard added before
+the complete diagnostic rerun passed. No numerical implementation changed
+after the checked/release tests. Final audits passed for Python syntax,
+Fortran line lengths/whitespace, unique and complete diagnostic registration,
+report/inventory totals, source hashes, retained licenses and git diff checks.
+Other reference suites contribute their previously recorded results to the
+aggregate inventory; they were not all rerun for this batch.

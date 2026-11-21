@@ -2059,3 +2059,70 @@ data and inconsistent lengths. Sparse matrices and estimator callbacks are
 outside the interface. To select columns using MI, pass its score vector to
 `generic_univariate_select%fit_scores`, using a score-only mode such as k_best
 or percentile. See `example/nonlinear_feature_scoring.f90`.
+
+## Clustering information and pair agreement
+
+`sklearn` and `sklearn_metrics` export `normalized_mutual_info_score`,
+`adjusted_mutual_info_score`, `fowlkes_mallows_score`, `contingency_matrix`,
+`pair_confusion_matrix`, `entropy`, `expected_mutual_information` and
+`homogeneity_completeness_v_measure`. These eight functions/subroutines are
+also available directly from `sklearn_cluster_information`. Existing
+`homogeneity_score`, `completeness_score` and `v_measure_score` use this backend.
+
+```fortran
+use, intrinsic :: iso_fortran_env, only: int64
+! truth(:), predicted(:): default integers; labels need not be consecutive.
+integer(int64), allocatable :: counts(:,:)
+integer(int64) :: pairs(2,2)
+real(dp) :: normalized,adjusted,h,c,v
+counts=contingency_matrix(truth,predicted)
+pairs=pair_confusion_matrix(truth,predicted)
+normalized=normalized_mutual_info_score(truth,predicted)
+adjusted=adjusted_mutual_info_score(truth,predicted,average_method='arithmetic')
+call homogeneity_completeness_v_measure(truth,predicted,h,c,v,beta=2._dp)
+```
+
+All paired inputs must have equal lengths. Contingency rows follow sorted true
+labels and columns sorted predicted labels. Without eps, contingency_matrix
+returns an allocated **int64** count matrix. Supplying real64
+`eps=...` selects its real64 overload, adding a finite nonnegative value to
+every cell, including zeros. Sparse output and dtype overrides are not exposed.
+`pair_confusion_matrix` returns an int64 2-by-2 matrix with rows `[TN,FP]` and
+`[FN,TP]`; these are **ordered** distinct-sample pairs, summing to N*(N-1).
+Use int64 output variables because ordinary datasets can exceed 32-bit pair
+counts. Fowlkes-Mallows is sqrt(TP/(TP+FP))*sqrt(TP/(TP+FN)), or zero when TP=0.
+
+MI averages accept `'min'`, `'geometric'`, `'arithmetic'` (default), or `'max'`.
+NMI divides observed MI by the chosen entropy average. AMI subtracts the
+hypergeometric expectation and retains the source signed-epsilon denominator
+floor; negative adjusted scores are valid. Entropy and expected MI use natural
+logarithms (nats). `expected_mutual_information(counts,n_samples)` accepts
+default-integer or int64 nonnegative matrices, with a nonnegative default-integer
+sample count equal to their sum. Zero margins and nonempty all-zero tables are
+supported. Empty matrix extents and work sizes outside native indexing limits
+raise diagnostics. Smoothed real-valued contingency matrices are not raw counts.
+
+Internal marginal/joint histograms use heap sorting and O(N) storage. Entropy,
+observed MI, pair scores and H/C/V use O(N*log(N)) sorting work without a dense
+K-by-L intermediate. Only the explicit contingency_matrix function materializes
+that matrix. Expected MI additionally sums feasible hypergeometric counts over
+all pairs of cluster margins, using cached log factorials; many clusters can
+make AMI expensive. All routines preserve input labels. Only dense integer
+labels are exposed; sparse matrices, object/string labels and parallel options
+are outside this interface.
+
+The source edge conventions are retained: empty NMI/AMI and H/C/V return one;
+empty entropy returns one; empty contingency is 0-by-0; empty pair confusion is
+all zeros; empty/single-sample Fowlkes-Mallows is zero. Individual H/C/V wrappers
+now accept empty input, and `v_measure_score(y,p,beta)` supports the same finite
+nonnegative beta as the combined subroutine. Beta=0 with zero completeness and
+positive homogeneity raises an explicit diagnostic, corresponding to the
+source's ZeroDivisionError; independent partitions with H=C=0 still return V=0.
+
+All-singleton partitions, or min-normalized AMI with one singleton partition,
+have a mathematically zero chance-adjustment denominator. Last-bit differences
+between intrinsic log_gamma and SciPy/libc can substantially change the adjusted
+score there. The native source formula is retained. Validation explicitly
+certifies MI/expected-MI/entropy agreement and the epsilon-guarded ratio interval
+on those exact degeneracies; other methods and ordinary AMI remain directly
+source checked. See `example/clustering_agreement.f90`.
