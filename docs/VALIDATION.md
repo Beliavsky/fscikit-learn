@@ -4555,3 +4555,76 @@ passed except for intentionally pristine upstream License.txt whitespace.
 Production Fortran and native tests remained fixed through the final gates.
 Native logs are retained in validation/results/nca_native_checked.log and
 nca_native_release.log. The broader translation goal remains active.
+
+
+## Structured feature mappings (2026-11-21)
+
+Added DictVectorizer and FeatureHasher in sklearn_feature_extraction, exported
+through the sklearn facade. Native ordered feature_row/item/string records
+support numeric values, string categories, iterable string categories,
+explicit None values, UTF-8 names, embedded NULs and trailing blanks. Forward
+outputs use the existing 1-based real64 CSR helper, with explicit dense methods.
+DictVectorizer uses a growing hash-table vocabulary, optional lexicographic
+ordering, unknown-name omission, feature restriction and dense/CSR inverse
+mapping. FeatureHasher supports dict/pair/string inputs, optional hash-dependent sign flips,
+ canonical collision aggregation and int32-range feature widths.
+MurmurHash3 x86_32 uses explicit byte assembly and bounded int64 arithmetic for
+portable uint32 products, including the signed INT32_MIN result. Helpers are
+not counted as additional estimator algorithms.
+
+The reference suite retains 2,945 groups across 853 fixtures: 128 dictionary
+fixtures, 192 hashing fixtures and 533 exact signed-hash fixtures. Four data
+seeds, three hasher input modes, sorted/first-seen vocabularies, category lists,
+zero-width results, restriction and live separators are exercised. Cases
+include empty strings, raw bytes, long UTF-8 keys, 1,200 learned columns,
+2,000-token rows, explicit/cancelled zeros, NaN/Inf forward values, overflow,
+all hash-tail lengths, uint32 seeds and an inverted four-byte preimage of
+INT32_MIN across multiple feature widths. The hash, feature names and CSR
+shape/pointer/index comparisons are exact. Dictionary stored-value multisets
+are compared exactly, allowing equivalent ordering among duplicate columns.
+Numeric outputs use 3e-13 relative/absolute tolerance. Protocol placeholders
+for absent hasher vocabularies are not counted as algorithm result groups.
+
+An initial reduction-order investigation found that SciPy sparse scalar lookup
+uses get_csr_submatrix(...).data.sum(dtype=...), hence NumPy's pairwise sum.
+The native CSR inverse originally used sequential addition. After identifying
+the actual operation, it was changed to the source pairwise order using the
+existing attributed quiet-IEEE KernelCenterer reduction. The obsolete release
+build was deliberately stopped for this correction. A native regression checks
+16 for sparse inverse versus 0.5 for dense materialization on 48 ill-conditioned
+contributions; the reference suite also exercises 280-term recursive blocks.
+All observed discrepancies were removed. Diagnostic forward-error calculations
+remain available on a mismatch, but the suite accepts no roundoff exceptions.
+The NumPy 2.2.6 loops_utils.h.src SHA256 was reverified against upstream.
+
+Inventory is now 209 core public types, 115 core source modules, 113 native
+test programs and 93 retained reference suites totaling 391,892 core groups.
+Four existing vendor modules and the separate 42 NumPy RNG checks are excluded
+from those core counts. The 40 new isolated rejections bring nine registries
+to 2,798 cases. Original code remains MIT, with sklearn, SciPy and NumPy BSD
+attribution and Austin Appleby's public-domain MurmurHash provenance retained.
+No dependency or public extension algorithm is added by this increment.
+
+
+Final gates passed all 113 native programs in checked runtime/FPE-trap and
+optimized fpm builds after the pairwise-reduction correction. Both final fpm
+reference executables passed all 2,945 groups across the same 853 fixtures,
+with zero measured numerical difference and no roundoff exceptions. Each
+profile also passed all 40 isolated rejections. The existing 192-group sklearn
+integration gate passed on the updated checked executable; no rerun of all
+older reference suites is claimed.
+
+The structured_features example passes both profiles and matches independent
+sklearn: dictionary shape (2,3), temperature column 3 in native indexing,
+hashed shape (2,32), and four stored hashed entries. These are illustrative
+fixture results, not general performance claims.
+
+Final audits verified strict JSON, unique result identifiers, identical
+checked/release check configurations, complete unfiltered reports, upstream
+sklearn/SciPy hashes and tested canonical executable hashes. Fresh objects were
+verified for all 115 core source modules and 113 native test programs in each
+profile. Fortran formatting, Python compilation and staged Git whitespace
+checks passed. Production code and native tests remained fixed through these
+final gates. Native logs are retained in validation/results as
+feature_mapping_native_checked.log and feature_mapping_native_release.log.
+The broader translation goal remains active.

@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 207 public estimator, transformer, and splitter types. Each is a
+There are 209 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Ninety-two reference suites additionally check 388,947
+All types have native tests. Ninety-three reference suites additionally check 391,892
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -52,6 +52,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | model_selection | `kfold`, `stratified_kfold`, `time_series_split`, `group_kfold`, `leave_one_out`, `leave_one_group_out`, `predefined_split`, `shuffle_split`, `stratified_shuffle_split`, `group_shuffle_split`, `repeated_kfold`, `repeated_stratified_kfold`, `leave_p_out`, `leave_p_groups_out`, `ridge_cv`; `train_test_split`, `shuffle_indices`, `cross_val_score` | Index-based splits; seeded random/group/stratified holdouts; repeated shuffled folds; exhaustive sample/group combinations; fraction/count size controls; optional stratification; time gap/window; CV for linear-regression family and logistic regression; ridge CV selects negative mean squared error |
 | feature_selection | `variance_threshold`, `select_k_best`, `select_percentile`, `select_fpr`, `select_fdr`, `select_fwe`, `generic_univariate_select`, `sequential_feature_selector`, `rfe`, `rfecv`; `f_classif`, `f_regression`, `chi2`, `r_regression`, `mutual_info_classif`, `mutual_info_regression` | Dense scores and masks; greedy forward/backward CV regression selection; coefficient-based recursive elimination and CV for regression/logistic classification; inverse transform fills dropped columns with zero; new statistical selectors include p-values and multiplicity control |
 | image | `patch_extractor`; `extract_patches_2d`, `reconstruct_from_patches_2d` | Exhaustive or seeded with-replacement image patches; grayscale and multichannel batches; source overlap averaging |
+| feature_extraction | `dict_vectorizer`, `feature_hasher` | Named numeric/categorical mappings; string lists; learned or hashed columns; real64 CSR and dense outputs |
 | feature_extraction_text | `count_vectorizer`, `tfidf_transformer`, `tfidf_vectorizer` | Dense unigram counts; ASCII alphanumeric/underscore tokens of length 2-128; sorted vocabulary; min/max document frequency, binary counts and max features; smoothed/unsmoothed IDF, sublinear TF, l1/l2/no normalization |
 | dummy | `dummy_classifier`, `dummy_regressor` | Prior/most-frequent/stratified/uniform/constant classification; mean/median/quantile/constant regression |
 | kernel_ridge | `kernel_ridge` | Positive alpha; linear/RBF/polynomial/sigmoid kernels; no intercept |
@@ -4780,3 +4781,101 @@ The L-BFGS-B 3.0 numerical kernel is a pinned, unmodified local fpm dependency
 under vendor/lbfgsb with retained BSD-3-Clause terms; original project code
 remains MIT. Its four vendor modules are excluded from core source-module and
 estimator counts. No external BLAS binary or network fetch is required.
+
+
+## Dictionary vectorization and feature hashing
+
+`sklearn_feature_extraction` and the `sklearn` facade export `dict_vectorizer`
+and `feature_hasher`, with helper records feature_row, feature_item and
+feature_string. These records represent native ordered feature streams; they
+are storage helpers, not additional estimator algorithms. Both vectorizers
+produce real64 CSR matrices with 1-based pointers and column indices.
+`transform` and `fit_transform` return csr_matrix; `transform_dense` and
+`fit_transform_dense` explicitly materialize dense real64 arrays. This method
+choice replaces Python's dynamically typed sparse/dense return value; there
+is no native sparse or dtype constructor switch. General estimator support
+for CSR inputs remains limited to the APIs listed elsewhere in coverage.
+
+A feature_row has allocatable items(:) or tokens(:). Each feature_item has an
+allocatable key, a numeric value (default 1), optional category string, optional
+categories(:) of feature_string, and is_none flag (default false). Assigning a
+category creates a unit indicator; a category list creates unit indicators for
+each entry, including repeats, and an empty list creates none. Numeric values
+use the key unchanged; is_none maps Python None to NaN for DictVectorizer.
+A feature_string stores its exact bytes in allocatable text. Keys and strings
+must be allocated, but empty strings are valid. A row with neither collection
+allocated represents an empty mapping/token list. Supplying both collections,
+both category forms, or a categorical None value is diagnosed. Item order is
+preserved and keys may repeat, corresponding to a .items() stream or pair
+input. Fortran fixed-length padded strings retain their trailing blanks; use
+trim explicitly when those blanks are not part of the intended name.
+
+DictVectorizer defaults to sort=true and separator='=' (an unallocated native
+separator means the default). Assign a deferred-length separator for arbitrary,
+empty or multibyte separators. fit learns numeric keys and key+separator+value
+categorical names; a hash table provides vocabulary lookup without scanning
+all learned names. sort=false preserves first encounter order; sort=true
+orders strings lexicographically by unsigned bytes. For valid UTF-8 strings
+this matches Python Unicode ordering. No Unicode normalization or case folding
+is performed. String keys are supported; arbitrary Python object keys and
+alternative numeric dtypes are outside this native API.
+
+Methods include fit, transform, fit_transform, the dense variants,
+get_feature_names_out, vocabulary_index, inverse_transform and restrict.
+feature_names_ is an array of feature_string and n_features_out_ is its width.
+vocabulary_index returns a 1-based column or zero for an unknown name.
+Transform ignores unknown names, retains explicit numeric zeros and retains
+repeated CSR entries for categorical lists or colliding expanded names.
+CSR rows are sorted by column. Changing separator after fit changes how query
+categories are expanded; sort is consumed only when fitting. fit(empty_rows)
+learns an empty vocabulary; fit_transform and transform require a nonempty
+sample sequence. Empty mappings may produce a valid zero-column result.
+
+restrict accepts a logical mask of fitted width or a list of unique 1-based
+indices, retaining the requested column order and updating lookup. Negative,
+zero, duplicate and out-of-range indices are diagnosed. Source's malformed
+vocabulary behavior for repeated restrict indices is not reproduced.
+inverse_transform accepts a dense matrix or csr_matrix of fitted width and
+returns numeric feature_row items using expanded names; it does not recover
+the original categorical fields. Inputs must have positive dimensions and
+finite stored values. Dense inverse omits zeros. Sparse inverse includes a
+column when any of its original stored entries is nonzero, even if duplicate
+entries sum to zero, matching source. Duplicate values use NumPy 2.2.6
+contiguous pairwise reduction, as in SciPy sparse scalar lookup. Dense
+materialization uses sequential CSR addition; these two source operations can
+produce different answers on ill-conditioned duplicates. Output items are ordered by column.
+Nonfinite numeric values are accepted in forward DictVectorizer transforms,
+as in sklearn, and rejected on inverse input. Original arrays and learned
+models are independent under normal Fortran allocatable assignment.
+
+FeatureHasher is stateless and supports input_type='dict' (default), 'pair' or
+'string'. Dict/pair modes use items; string mode uses tokens and unit counts.
+String-valued items hash key+'='+category with value one. Category lists and
+None values are rejected by FeatureHasher. Numeric zero inputs are skipped;
+collisions are summed, retaining a stored zero after cancellation. Output CSR
+rows have sorted unique indices. Defaults are n_features=1048576 and
+alternate_sign=true. The sign is the sign of the signed MurmurHash3 result;
+columns are abs(hash) modulo n_features, including the INT32_MIN case. The
+positive native integer n_features range matches source's int32 column limit.
+fit only validates controls and transform does not require a fitted model.
+The native byte implementation matches sklearn's MurmurHash3 x86_32 at seed
+zero. Categorical keys represent UTF-8 text. Numeric item keys and string-mode
+tokens may also contain raw bytes corresponding to Python byte names. Native
+records do not infer Python repr(bytes_key) when combining a byte key with a
+string category. The numerical helper murmurhash3_32 additionally accepts a uint32 seed
+through int64, returns the signed result in int64 and is available only through
+sklearn_murmurhash, not the sklearn facade. Its modular arithmetic avoids
+signed integer overflow and is independent of host endianness.
+
+IEEE NaN/Inf numeric values follow the installed forward-transform behavior,
+including FeatureHasher's implementation despite its finite-value docstring.
+Quiet arithmetic preserves IEEE results with floating-point traps enabled.
+Native row sorting is stable. SciPy can use different equal-index sorting or
+reduction orders, so finite ill-conditioned collision sums are also checked
+against explicit forward-error bounds for diagnosis if a direct comparison
+differs. The retained suite requires direct numerical comparisons within its
+stated tolerance, with no accepted roundoff exceptions. Sparse inverse uses
+the measured source pairwise order directly.
+All hash values and CSR structure comparisons remain exact. CSR counts are
+limited by the existing native integer storage capacity. See
+example/structured_features.f90 for a minimal numeric/categorical example.

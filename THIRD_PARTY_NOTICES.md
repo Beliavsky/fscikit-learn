@@ -691,3 +691,35 @@ in Windows line endings. The files were sourced from SciFort's dependency
 cache; no SciFort optimizer adapter is copied. The numerical kernel is an
 internal implementation dependency of a core sklearn algorithm, rather than
 an additional public ML extension. No Python, SciPy or external BLAS binary is linked.
+
+
+### DictVectorizer, FeatureHasher and MurmurHash3
+
+`src/sklearn_feature_extraction.f90` adapts scikit-learn 1.6.1
+`feature_extraction/_dict_vectorizer.py`, `_hash.py` and `_hashing_fast.pyx`:
+numeric/categorical and iterable-string expansion, vocabulary ordering,
+unknown-name handling, restriction, inverse mapping, signed hash columns and
+sparse collision accumulation. Copyright The scikit-learn developers;
+BSD-3-Clause terms are retained in `LICENSES/scikit-learn-COPYING`.
+Native ordered records, hash-table storage and stable mergesort are original
+project contributions under MIT; adapted numerical reductions retain their
+upstream attribution below. No SciPy sparse
+implementation is copied or linked.
+
+`src/sklearn_murmurhash.f90` is an original Fortran implementation of Austin
+Appleby's public-domain MurmurHash3 x86_32 algorithm, as used by sklearn's
+`utils/murmurhash.pyx` wrapper. Attribution and the public-domain provenance are
+stated in that installed wrapper. The native implementation uses explicit
+little-endian byte assembly and bounded int64 products to implement uint32
+modular arithmetic. Signed output and UTF-8/raw-byte behavior are checked
+against the installed sklearn helper. No external hash library, C++ source or
+binary is distributed or linked by this increment. Original Fortran code
+retains MIT; sklearn-derived contracts retain their BSD notices.
+
+Sparse inverse duplicate reduction follows SciPy 1.15.3
+`sparse/_compressed.py::_get_intXint` and NumPy 2.2.6
+`numpy/_core/src/umath/loops_utils.h.src` contiguous binary64 pairwise summation.
+The native quiet-IEEE reduction is reused from this project's attributed
+KernelCenterer port. SciPy and NumPy BSD terms are retained in
+`LICENSES/scipy-COPYING` and `LICENSES/numpy-COPYING`. The NumPy upstream source
+SHA256 was reverified as ed85d5b99f0b457cb7a316bf8c4acb884034bbbb81a89c5cedb62be80bf7c4f8.

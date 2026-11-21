@@ -25,6 +25,7 @@ module sklearn
   use sklearn_datasets
   use sklearn_gaussian_process
   use sklearn_covariance
+  use sklearn_feature_extraction
   use sklearn_feature_extraction_text
   use sklearn_kernel_pca
   use sklearn_manifold
