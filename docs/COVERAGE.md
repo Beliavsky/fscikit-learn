@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 177 public estimator, transformer, and splitter types. Each is a
+There are 179 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Sixty-eight reference suites additionally check 171,742
+All types have native tests. Sixty-nine reference suites additionally check 174,772
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -15,7 +15,7 @@ tracked separately in [EXTENSIONS.md](EXTENSIONS.md) and excluded from the
 selective, clearly identified extensions while prioritizing core correctness.
 
 Global scope: dense real64 CPU arrays, integer classification labels, generally one target
-per sample; cross-decomposition and multi-task regression explicitly accept multiple response columns. Sparse matrices, pandas integration, Python estimator cloning,
+per sample; cross-decomposition, multi-task regression and independent multioutput wrappers explicitly accept multiple response columns. Sparse matrices, pandas integration, Python estimator cloning,
 metadata routing, parallel backends and binary model persistence are outside the
 initial translation. Fortran identifiers use snake_case rather than CamelCase.
 
@@ -23,6 +23,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 
 | Module (`sklearn_` prefix) | Public types and functions | Scope and numerical choices |
 | --- | --- | --- |
+| multioutput | `multi_output_regressor`, `multi_output_classifier` | Independent fitted base models per response column; supported native linear/SGD, NB, neighbors and tree families; ragged class probabilities; SGD/Gaussian NB streaming; native base weighting limits apply |
 | preprocessing | `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `knn_imputer`, `missing_indicator`, `spline_transformer`, `label_encoder`, `one_hot_encoder`, `label_binarizer`, `multi_label_binarizer`, `power_transformer`, `kbins_discretizer`, `quantile_transformer`; `normalize`, `binarize`, `polynomial_features` | Population variance; linear percentile interpolation; NaN imputation with mean/median/most-frequent/constant; numeric categories; empirical uniform/normal quantile transforms; dense polynomial terms through degree 12 with optional interactions; B-spline features and extrapolation |
 | linear_model | `linear_regression`, `lars`, `lasso_lars`, `lars_cv`, `lasso_lars_cv`, `lasso_lars_ic`, `ridge`, `ridge_classifier`, `ridge_classifier_cv`, `multi_task_elastic_net`, `multi_task_lasso`, `multi_task_elastic_net_cv`, `multi_task_lasso_cv`, `lasso`, `elastic_net`, `lasso_cv`, `elastic_net_cv`, `logistic_regression`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `sgd_regressor`, `sgd_classifier`, `sgd_one_class_svm`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `orthogonal_matching_pursuit_cv`, `huber_regressor`, `quantile_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; least-angle/Lasso homotopy paths with CV and AIC/BIC selection; coordinate descent with K-fold alpha/l1-ratio selection; weighted logistic Newton solver with raw-score prediction; perceptron; PA-I/II classification/regression with averaging; streaming stochastic-gradient regression/classification and one-class detection; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; weighted L1-regularized quantile regression; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb`, `categorical_nb` | Weighted/streaming Gaussian moments, empirical/fixed priors and variance smoothing; strictly positive scalar alpha; Bernoulli threshold; optional complement normalization |
@@ -244,7 +245,7 @@ histogram boosting, broader AdaBoost and bagging APIs,
 Barnes-Hut t-SNE,
 outlier detection beyond LOF/OneClassSVM/SGDOneClassSVM/IsolationForest/EllipticEnvelope,
 calibration with further base estimators and general metadata routing,
-multiclass/multioutput wrappers,
+multiclass wrappers and classifier/regressor chains,
 inspection/permutation importance, further feature-selection wrappers, image features,
 real dataset loaders and the full plotting/display API.
 
@@ -3590,3 +3591,41 @@ no dependency or public extension is added. Core type count stays 177.
 Inventory: 88 source modules, 89 native test programs, 68 reference suites
 and 171,742 core result groups, plus 28 separate NumPy RNG groups.
 Isolated invalid-input inventory is 1,902.
+
+
+### Independent multioutput wrappers (2026-11-21)
+
+Added core counterparts of MultiOutputRegressor and MultiOutputClassifier,
+with independent fitted copies per target, refit/deep-copy behavior, ragged
+per-output class probabilities, exact subset classification accuracy and
+uniform-average regression R2. Streaming supports native SGD regression,
+Gaussian NB and SGD classification; training weights follow each native
+base's actual capabilities. The supported base families, first-call class
+lists, source partial_fit metadata/shrink quirks and inherited limits are
+specified in API.md. Chains and a general estimator protocol remain outside
+this implementation. See example/multioutput.f90.
+
+The 3,030-group suite spans 255 fixtures across five seeds, six regression
+base configurations and eight classification base configurations. It checks
+single/multiple outputs, constant targets, nonconsecutive labels, weighted
+fits and scores, pretrained template preservation, streaming first batches
+with unseen classes, shrink/refit, averaged SGD, hinge prediction, ragged
+probabilities, fitted coefficients/counters and input preservation.
+
+Ordinary floating comparisons retain 3e-8 prediction/state/score and 3e-7
+probability tolerances. Exceptions have explicit certificates: source-stump
+and exhaustive SSE checks establish equal-gain CART splits at every native
+node and reconstruct predictions; Complement NB differing class selections
+must lie within 64 machine epsilons (scaled by source score magnitude) of
+the source maximum. Weighted constant-target source R2 roundoff is bounded
+and checked against source R2 on identically translated targets/predictions.
+No difficult fixtures are removed or ordinary tolerances widened.
+
+
+This batch passed both checked and release runs of all 90 native programs
+and 3,030 reference groups, the original 192-group integration comparison,
+all 1,934 isolated input diagnostics and the checked example. Checked and
+release reports match exactly, including certificate accounting. Inventory:
+179 core types, 89 modules, 90 native programs, 69 core reference suites and
+174,772 core groups, plus 28 separate NumPy RNG groups. Other reference
+suites retain their previously recorded results and were not all rerun here.

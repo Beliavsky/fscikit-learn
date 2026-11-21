@@ -3298,3 +3298,43 @@ Numerical sources stayed unchanged after checked/release validation.
 Other reference suites retain their previously recorded aggregate results;
 they were not all rerun for this batch. Original work remains MIT with
 retained sklearn BSD attribution and no added dependency or public extension.
+
+
+## Independent multioutput estimators ? 2026-11-21
+
+Added MultiOutputRegressor and MultiOutputClassifier counterparts, supporting
+independently fitted native base estimators, weighted fitting where the base
+supports it, streaming SGD/Gaussian NB, ragged class probabilities, refit and
+deep-copy behavior. Pretrained templates remain unchanged; first partial_fit
+clones configuration without retaining fitted statistics. Source 1.6.1 output
+shrink and partial-only classes_ metadata behavior are retained. API.md lists
+supported base families and inherited limits. No public extension or dependency
+was added; original work remains MIT with retained sklearn BSD attribution.
+
+Completed validation on the same Windows/fpm/GNU Fortran toolchain:
+
+- All 90 native test programs passed with bounds checks, backtraces and
+  invalid/zero/overflow floating-point traps, and under the release profile.
+- The new reference suite passed 3,030 groups across 255 fixtures in each
+  profile; archived checked/release reports match exactly. Its oracle counts
+  are 2,478 ordinary sklearn groups, 510 input/template identity groups,
+  29 source constant-R2 identity groups, nine CART tie certificate groups,
+  and four Complement NB tie certificate groups. There are 29 constant-R2,
+  five CART and two class-tie witnesses. Source stumps and exhaustive node
+  SSE scans certify tree choices; source scores certify near-tied labels.
+  Ordinary tolerances were not widened and difficult fixtures were retained.
+- The original 192-group integration comparison and all 1,934 isolated
+  invalid-input cases passed, including 32 new wrapper diagnostics.
+- The checked example ran and printed regression outputs [-3,5] and [5,1],
+  classification outputs [0,4] and [1,11], and class lists [0,1] and [-7,4,11].
+  Both actual prediction output markers were verified.
+
+Python syntax, Fortran formatting, unique registry/driver case correspondence,
+report/oracle/certificate accounting, source hashes, inventory counts, retained
+licenses and git diff checks passed. Production sources stayed unchanged
+through both profile runs. Other reference suites retain their previously
+recorded results; they were not all rerun for this batch.
+
+Current inventory: 179 core public types, 89 source modules, 90 native test
+programs and 69 core reference suites with 174,772 retained result groups,
+plus 28 separately counted NumPy RNG groups.

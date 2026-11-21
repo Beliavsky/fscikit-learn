@@ -9,6 +9,7 @@ python validation/compare_cluster_information.py
 python validation/compare_resampling.py
 python validation/compare_tsne.py
 python validation/compare_lle_variants.py
+python validation/compare_multioutput.py
 python validation/compare_weighted_classifiers.py
 python validation/compare_calibrated.py
 python validation/compare_self_training.py
@@ -3052,3 +3053,32 @@ Numerical sources stayed unchanged after checked/release validation.
 Other reference suites retain their previously recorded aggregate results;
 they were not all rerun for this batch. Original work remains MIT with
 retained sklearn BSD attribution and no added dependency or public extension.
+
+
+### Independent multioutput wrappers (2026-11-21)
+
+Added core counterparts of MultiOutputRegressor and MultiOutputClassifier,
+with independent fitted copies per target, refit/deep-copy behavior, ragged
+per-output class probabilities, exact subset classification accuracy and
+uniform-average regression R2. Streaming supports native SGD regression,
+Gaussian NB and SGD classification; training weights follow each native
+base's actual capabilities. The supported base families, first-call class
+lists, source partial_fit metadata/shrink quirks and inherited limits are
+specified in ../docs/API.md. Chains and a general estimator protocol remain outside
+this implementation. See example/multioutput.f90.
+
+The 3,030-group suite spans 255 fixtures across five seeds, six regression
+base configurations and eight classification base configurations. It checks
+single/multiple outputs, constant targets, nonconsecutive labels, weighted
+fits and scores, pretrained template preservation, streaming first batches
+with unseen classes, shrink/refit, averaged SGD, hinge prediction, ragged
+probabilities, fitted coefficients/counters and input preservation.
+
+Ordinary floating comparisons retain 3e-8 prediction/state/score and 3e-7
+probability tolerances. Exceptions have explicit certificates: source-stump
+and exhaustive SSE checks establish equal-gain CART splits at every native
+node and reconstruct predictions; Complement NB differing class selections
+must lie within 64 machine epsilons (scaled by source score magnitude) of
+the source maximum. Weighted constant-target source R2 roundoff is bounded
+and checked against source R2 on identically translated targets/predictions.
+No difficult fixtures are removed or ordinary tolerances widened.

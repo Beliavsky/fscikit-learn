@@ -425,3 +425,16 @@ LeVeque, Stanford technical report STAN-CS-79-773. The regression fixture is
 synthetic native-project validation data. Original contributions remain MIT;
 adapted portions retain BSD-3-Clause and the complete sklearn notice in
 `LICENSES/scikit-learn-COPYING`. No dependency is added.
+
+
+### Independent multioutput wrappers
+
+`src/sklearn_multioutput.f90` adapts independent-column fitting, cloning,
+streaming, class metadata, prediction and subset-score semantics from
+scikit-learn 1.6.1 `multioutput.py`, with regression scoring following the
+uniform-average R2 convention. Installed `multioutput.py` SHA-256:
+`164702b2de983ba8c5a8bbfd93842f9651f5b01dd7f4a4dd3541becf220a273e`.
+Fortran dispatch and ragged probability containers are original work.
+Original contributions remain MIT; adapted portions retain BSD-3-Clause
+attribution under `LICENSES/scikit-learn-COPYING`. No additional dependency
+or public extension is introduced.

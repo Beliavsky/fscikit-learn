@@ -8,6 +8,20 @@ program invalid_input_driver
   use sklearn_legacy_rng, only: legacy_random_state
   use, intrinsic :: ieee_arithmetic, only: ieee_value,ieee_quiet_nan,ieee_positive_inf
   implicit none
+  type(multi_output_regressor) :: mo_r
+  type(multi_output_classifier) :: mo_c
+  type(linear_regression) :: mo_lr
+  type(gaussian_nb) :: mo_nb
+  type(sgd_regressor) :: mo_sgdr
+  type(kneighbors_classifier) :: mo_knn
+  type(label_set) :: mo_classes(2)
+  type(multioutput_probability), allocatable :: mo_probs(:)
+  real(dp) :: mo_x(4,2)=reshape([-2._dp,-1._dp,1._dp,2._dp,1._dp,2._dp,3._dp,4._dp],[4,2])
+  real(dp) :: mo_y(4,2)=reshape([-2._dp,-1._dp,1._dp,2._dp,1._dp,2._dp,3._dp,4._dp],[4,2])
+  real(dp) :: mo_w(4)=1,mo_value
+  real(dp), allocatable :: mo_p(:,:)
+  integer :: mo_cy(4,2)=reshape([0,0,1,1,0,1,0,1],[4,2])
+  integer, allocatable :: mo_ip(:,:)
   type(gaussian_nb) :: wg_nb
   type(logistic_regression) :: wg_lr
   real(dp) :: wg_x(6,1)=reshape([-3._dp,-2._dp,-1._dp,1._dp,2._dp,3._dp],[6,1]),wg_w(6)=1
@@ -288,6 +302,124 @@ program invalid_input_driver
   mi_x(:,2)=[0._dp,0._dp,1._dp,1._dp,2._dp,2._dp]; mi_x(:,3)=1
   mi_y=mi_x(:,1); mi_labels=[-1,-1,-1,2,2,2]
   select case(trim(mode))
+  case('mo_r_unfitted')
+    mo_p=mo_r%predict(mo_x)
+
+  case('mo_r_empty')
+    call mo_r%fit(mo_x,mo_y(:,:0),mo_lr)
+
+  case('mo_r_length')
+    call mo_r%fit(mo_x,mo_y(:3,:),mo_lr)
+
+  case('mo_r_unsupported')
+    call mo_r%fit(mo_x,mo_y,1)
+
+  case('mo_r_first_base')
+    call mo_r%partial_fit(mo_x,mo_y)
+
+  case('mo_r_score_shape')
+    call mo_r%fit(mo_x,mo_y,mo_lr)
+    mo_value=mo_r%score(mo_x,mo_y(:,:1))
+
+  case('mo_r_features')
+    call mo_r%fit(mo_x,mo_y,mo_lr)
+    mo_p=mo_r%predict(mo_x(:,:1))
+
+  case('mo_r_weight_base')
+    call mo_r%fit(mo_x,mo_y,mo_lr,mo_w)
+
+  case('mo_r_partial_base')
+    call mo_r%partial_fit(mo_x,mo_y,mo_lr)
+
+  case('mo_r_partial_features')
+    call mo_r%partial_fit(mo_x,mo_y,mo_sgdr)
+    call mo_r%partial_fit(mo_x(:,:1),mo_y)
+
+  case('mo_r_add_targets')
+    call mo_r%partial_fit(mo_x,mo_y,mo_sgdr)
+    call mo_r%partial_fit(mo_x,reshape([mo_y,mo_y(:,1)],[4,3]))
+
+  case('mo_c_unfitted')
+    mo_ip=mo_c%predict(mo_x)
+
+  case('mo_c_empty')
+    call mo_c%fit(mo_x,mo_cy(:,:0),mo_nb)
+
+  case('mo_c_length')
+    call mo_c%fit(mo_x,mo_cy(:3,:),mo_nb)
+
+  case('mo_c_unsupported')
+    call mo_c%fit(mo_x,mo_cy,1)
+
+  case('mo_c_first_base')
+    call mo_c%partial_fit(mo_x,mo_cy)
+
+  case('mo_c_score_shape')
+    call mo_c%fit(mo_x,mo_cy,mo_nb)
+    mo_value=mo_c%score(mo_x,mo_cy(:,:1))
+
+  case('mo_c_features')
+    call mo_c%fit(mo_x,mo_cy,mo_nb)
+    mo_ip=mo_c%predict(mo_x(:,:1))
+
+  case('mo_c_weight_base')
+    call mo_c%fit(mo_x,mo_cy,mo_knn,mo_w)
+
+  case('mo_c_partial_base')
+    call mo_c%partial_fit(mo_x,mo_cy,mo_knn)
+
+  case('mo_c_partial_features')
+    mo_classes(1)%values=[0,1]; mo_classes(2)%values=[0,1]
+    call mo_c%partial_fit(mo_x,mo_cy,mo_nb,mo_classes)
+    call mo_c%partial_fit(mo_x(:,:1),mo_cy)
+
+  case('mo_c_add_targets')
+    mo_classes(1)%values=[0,1]; mo_classes(2)%values=[0,1]
+    call mo_c%partial_fit(mo_x,mo_cy,mo_nb,mo_classes)
+    call mo_c%partial_fit(mo_x,reshape([mo_cy,mo_cy(:,1)],[4,3]))
+
+  case('mo_r_target_nan')
+    mo_y(1,1)=ieee_value(0._dp,ieee_quiet_nan)
+    call mo_r%fit(mo_x,mo_y,mo_lr)
+
+  case('mo_c_proba_unfitted')
+    mo_probs=mo_c%predict_proba(mo_x)
+
+  case('mo_c_short_classes')
+    call mo_c%partial_fit(mo_x,mo_cy,mo_nb,mo_classes(:1))
+
+  case('mo_c_first_classes')
+    call mo_c%partial_fit(mo_x,mo_cy,mo_nb)
+
+  case('mo_r_score_w_length')
+    call mo_r%fit(mo_x,mo_y,mo_lr)
+    mo_value=mo_r%score(mo_x,mo_y,mo_w(:3))
+
+  case('mo_r_score_w_nan')
+    call mo_r%fit(mo_x,mo_y,mo_lr)
+    mo_w(1)=ieee_value(0._dp,ieee_quiet_nan)
+    mo_value=mo_r%score(mo_x,mo_y,mo_w)
+
+  case('mo_r_score_w_inf')
+    call mo_r%fit(mo_x,mo_y,mo_lr)
+    mo_w(1)=ieee_value(0._dp,ieee_positive_inf)
+    mo_value=mo_r%score(mo_x,mo_y,mo_w)
+
+  case('mo_r_score_w_negative')
+    call mo_r%fit(mo_x,mo_y,mo_lr)
+    mo_w(1)=-1
+    mo_value=mo_r%score(mo_x,mo_y,mo_w)
+
+  case('mo_r_score_w_zero')
+    call mo_r%fit(mo_x,mo_y,mo_lr)
+    mo_w=0
+    mo_value=mo_r%score(mo_x,mo_y,mo_w)
+
+  case('mo_r_score_w_mass')
+    call mo_r%fit(mo_x,mo_y,mo_lr)
+    mo_w=huge(1._dp)
+    mo_value=mo_r%score(mo_x,mo_y,mo_w)
+
   case('wg_first_classes')
     call wg_nb%partial_fit(wg_x,wg_y)
   case('wg_empty_classes')

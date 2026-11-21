@@ -2652,3 +2652,63 @@ Newton-CG line-search stall. Its recovery uses sklearn Newton-Cholesky only
 after independent source/native gradients establish the stall, and checks
 loss equality with the recovered source solution. Such checks are recorded
 separately from ordinary Newton-CG comparisons.
+
+
+## Independent multioutput estimators
+
+`multi_output_regressor%fit(x,y,estimator,sample_weight)` takes real64
+`y(n_samples,n_outputs)`; the classifier takes integer targets of the same
+shape. The required estimator is a native concrete base instance. Each column
+gets an independently fitted copy; the supplied instance and input arrays are
+preserved, including when the template was already fitted. Normal Fortran
+assignment makes independent copies of the fitted wrappers. Refit replaces
+the output list. `predict(x)` returns a dense matrix with one column per output.
+Fitted `estimators_(j)%estimator_` retains its dynamic base type; use SELECT TYPE
+to inspect its parameters. Both wrappers expose `n_outputs_` and `n_features_in_`.
+
+Regression accepts the `linear_regression` hierarchy (including ridge, elastic
+net and its other native descendants), `sgd_regressor`, `kneighbors_regressor`
+and `decision_tree_regressor`. Classification accepts `logistic_regression`,
+`gaussian_nb`, `sgd_classifier`, `kneighbors_classifier`,
+`decision_tree_classifier`, and the `multinomial_nb` hierarchy (including
+Bernoulli and Complement NB). Other bases are explicitly rejected. Each base
+keeps its existing capabilities, optimization choices and numerical limits.
+There is no arbitrary Python-style estimator protocol, sparse support, parallel
+backend, metadata routing or chain estimator in this module.
+
+Training weights are supported for SGD regression and logistic, Gaussian NB
+and SGD classification. Passing weights to another supported base is diagnosed;
+this wrapper does not add weights to an unweighted native implementation.
+`partial_fit(x,y,estimator,sample_weight)` supports SGD regression;
+classifier `partial_fit(x,y,estimator,classes,sample_weight)` supports Gaussian
+NB and SGD. The first call requires an estimator; it clones configuration and
+clears pretrained state. Later calls continue the stored models, so estimator
+is optional. Classifier classes is a `label_set(:)` whose `values` contain each
+output's full class set, required by the base on its first streaming call.
+The list must cover all outputs; later calls follow the base's class checks.
+Averaged SGD classification streaming inherits the base's requirement for
+`fit_intercept=.false.`. Feature counts must stay fixed. Matching sklearn 1.6.1,
+a later partial_fit can shrink the output list; increasing it is diagnosed.
+
+Classifier `classes_(j)%values` is populated by fit. The pinned source does not
+create top-level classes_ in partial_fit; this quirk is preserved. A subsequent
+streaming shrink after fit can leave that top-level list stale. Current labels
+are available directly in each fitted base or in `predict_proba(x)`, an array
+of `multioutput_probability` with per-output `classes(:)` and
+`values(n_query,n_classes)`. Different outputs may have different class counts;
+there is no padding. Base-defined quiet NaN probabilities remain quiet NaNs.
+A base without probabilities (e.g. hinge SGD) diagnoses predict_proba.
+Classification score is exact subset accuracy: every output in a row must
+match; like source, this score has no sample_weight argument.
+
+Regression score is the uniform mean of per-output R2, with optional query
+sample weights and force_finite constant-target behavior. A singleton returns
+quiet NaN. Effective constant targets are detected explicitly, preventing
+weighted-mean reduction roundoff from creating a spurious nonzero variance.
+This can differ from the pinned source's floating-point artifact; validation
+checks the source R2 translation-invariance identity and records that case.
+Underlying CART equal-gain split choices and Complement NB near-tied class
+scores can select different equally valid outcomes; the reference suite
+certifies these cases explicitly rather than widening ordinary tolerances.
+
+See `example/multioutput.f90` and `validation/compare_multioutput.py`.
