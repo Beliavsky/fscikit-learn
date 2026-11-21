@@ -4073,3 +4073,82 @@ selected C=10 and reported training accuracy 1.0. Checked and optimized builds
 used GNU Fortran 17 on Windows. Final source/diagnostic reports, source hashes,
 Python syntax, Fortran line lengths/whitespace and staged-file scope were
 verified. Production Fortran stayed fixed throughout the final gates.
+
+## Binary threshold wrappers and unified CART (2026-11-21)
+
+Added the FixedThresholdClassifier and TunedThresholdClassifierCV counterparts,
+with probability/margin orientation, equality-at-cutoff semantics, weighted
+built-in objectives and custom callbacks, independent fitting/scoring weights,
+stratified CV/holdout, explicit folds, prefit validation and refit modes.
+Learned fold curves and mean interpolation/selection are optionally retained.
+The public example uses training-fold tuning and a separate held-out slice.
+
+The first expanded sweep retained an unweighted tree discrepancy at seed 0,
+case 75: the former real64/native RNG backend chose a different tree. The
+existing sklearn-derived weighted kernel with unit weights matched the failing
+fold's source probabilities exactly. Omitted-weight CART now uses that kernel,
+and the unused old backend was removed. This also changes the underlying trees
+of unweighted ensembles. Source float32 geometry, feature permutation and NaN
+query routing now apply consistently. Native tests verify omitted/unit-weight
+identity and NaN routing; XOR remains supported.
+
+`compare_threshold.py` checks five seeds, seven base families and 455 fixtures:
+logistic regression, Gaussian NB, ridge classification, KNN, CART, Dummy and
+nested LogisticRegressionCV. It exercises probability/margin/auto responses,
+positive class reversal, grids of 2/11/31/100 or repeated explicit candidates,
+2/3/5-fold stratification, shuffled holdout, repeated/overlapping explicit folds,
+single-fold refit=false, prefit, independent/zero score weights, distinct simultaneous training/validation weights, callbacks,
+constant responses on explicit grids, infinite fixed cutoffs, copies/refits and
+optional curve storage. Normal floating comparisons use rtol=3e-7, atol=3e-8;
+labels and row indices are exact. Raw fold responses are replayed independently.
+
+The checked run passed 10,535 groups: 7,838 direct sklearn comparisons, 2,275
+input/metadata identities, 420 metric replay identities and two conditioned
+curve groups. Source warnings (87) and source hashes are retained in strict
+JSON. A single retained weighted CART fixture (seed 2026, case 73, prefit fold)
+places 25 responses at a cutoff of 0.8: sklearn emits 0.8 while native emits
+0.7999999999999999, despite identical training/query leaf partitions.
+
+Only affected fold/mean curve groups may use the source_conditioned_tree_boundary
+oracle. The certificate requires equal leaf membership for every crossing,
+100-digit Decimal sums of original binary64 training weights, both probabilities
+within a standard positive-summation/division forward-error bound, and tightly
+bounded response/grid differences. Crossing points must lie within those bounds
+of the cutoff. sklearn metrics replay the native response classification; other
+curve entries remain source values, and NumPy interpolation reconstructs the
+mean. Native curves independently match metric replay to 1e-12. Selected grid
+index, best score and final predictions retain ordinary source comparisons;
+a certificate cannot change the selected index or its score. Exact decimal
+moments, training rows, crossings and bounds are retained in reports. Ordinary
+tolerances were not widened and no fixture was dropped.
+
+The expanded existing tree suite passed 9,308 groups across 720 fixtures, an
+increase of 2,184 groups and 168 omitted-weight fixtures without changing the
+prior RNG recipes. It retains 9,156 direct groups, 140 pure-subtree identities
+and 12 conditioned groups across five existing tree certificates. The original
+192-group source suite and 510-group GradientBoostingClassifier suite passed.
+All 105 native programs passed with runtime checks and invalid/zero/overflow
+traps. A separate threshold driver passed 58 isolated diagnostic cases; the
+existing 2,447-case rejection suite also passed, for 2,505 total cases. Python validation can
+use an explicit executable to avoid concurrent fpm builds.
+
+Current inventory: 198 core types, 103 source modules, 105 native programs and
+84 core reference suites with 359,844 retained groups, plus separate RNG checks.
+Original contributions remain MIT with retained sklearn BSD attribution. No
+public algorithm beyond sklearn or external runtime dependency was introduced.
+
+Final checked/optimized gates passed all 105 native programs, both fpm examples,
+10,535 threshold groups and the 9,308-group expanded tree suite per profile.
+Threshold/tree fixture, oracle, warning, certificate and source-hash records
+match across profiles. Source hashes, strict JSON, 2,505 unique diagnostics,
+Python syntax and Fortran formatting were audited. The checked object for the
+late-added CART invariant assertions was initially stale; a focused fpm rebuild
+and rerun passed, and object timestamps now confirm both profiles include those
+assertions. Production Fortran stayed fixed through the final gates. Earlier
+source suites other than the stated regression gates were not all rerun.
+
+The public example matches an independent sklearn fit: threshold
+0.252489573748904, CV balanced accuracy 0.8793217576434813, and held-out accuracy
+0.933333 for both default and tuned prediction. These synthetic-fixture values
+are not a general performance guarantee. Validation used GNU Fortran 17 on
+Windows and installed sklearn 1.6.1.

@@ -1,6 +1,7 @@
 """GradientBoostingClassifier stages, probabilities, losses and terminal predictions."""
 from pathlib import Path
 import json
+import argparse
 import subprocess
 import numpy as np
 import sklearn
@@ -10,6 +11,8 @@ ROOT = Path(__file__).resolve().parents[1]
 RESULTS = ROOT / "validation" / "results"
 
 def main():
+    parser=argparse.ArgumentParser();parser.add_argument("--executable",type=Path)
+    args=parser.parse_args();exe=args.executable.resolve() if args.executable else None
     RESULTS.mkdir(exist_ok=True)
     checks = []
     for seed, n in ((7, 45), (42, 57), (2026, 69)):
@@ -24,8 +27,9 @@ def main():
         data, output = RESULTS/f"boost_{seed}.txt", RESULTS/f"boost_actual_{seed}.txt"
         with data.open("w") as stream:
             stream.write(f"{n} 1\n"); np.savetxt(stream, np.column_stack([x, binary, multi]), fmt="%.17g")
-        subprocess.run(["fpm", "run", "--flag", "-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow",
-                        "--target", "reference_gradient_boosting_driver", "--", str(data), str(output)],
+        subprocess.run(([str(exe),str(data),str(output)] if exe else
+                       ["fpm", "run", "--flag", "-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow",
+                        "--target", "reference_gradient_boosting_driver", "--", str(data), str(output)]),
                        cwd=ROOT, check=True)
         actual = {}
         for line in output.read_text().splitlines():

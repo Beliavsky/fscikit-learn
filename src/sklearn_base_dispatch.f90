@@ -20,7 +20,38 @@ module sklearn_base_dispatch
   private
   public :: train_classifier,train_regressor,labels,regression,probabilities
   public :: base_weighted,base_supported,base_proba,base_classes,seed_base,base_decision,decisions
+  public :: base_fitted
 contains
+  logical function base_fitted(model) result(ok)
+    class(*), intent(in) :: model
+    ok=.false.
+    select type(model)
+    class is(logistic_regression)
+      ok=allocated(model%classes_)
+    type is(gaussian_nb)
+      ok=allocated(model%classes_)
+    type is(sgd_classifier)
+      ok=allocated(model%classes_)
+    type is(kneighbors_classifier)
+      ok=allocated(model%classes_)
+    class is(decision_tree_classifier)
+      ok=allocated(model%classes_)
+    class is(multinomial_nb)
+      ok=allocated(model%classes_)
+    type is(perceptron)
+      ok=allocated(model%classes_)
+    type is(passive_aggressive_classifier)
+      ok=allocated(model%classes_)
+    class is(ridge_classifier)
+      ok=allocated(model%classes_)
+    type is(linear_svc)
+      ok=allocated(model%classes_)
+    type is(svc)
+      ok=allocated(model%classes_)
+    type is(dummy_classifier)
+      ok=allocated(model%classes_)
+    end select
+  end function
   subroutine train_classifier(model,x,y,weights)
     class(*), intent(inout) :: model
     real(dp), intent(in) :: x(:,:)

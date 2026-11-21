@@ -3179,7 +3179,7 @@ those values. Regression score rejects nonfinite predictions or targets;
 singleton R2 returns quiet NaN. Score weight sums must be nonzero when an
 average is required.
 
-Weighted decision trees and all standalone ExtraTrees use float32 feature
+Decision trees and standalone ExtraTrees use float32 feature
 geometry, sklearn's 1e-7 split grouping threshold and seeded legacy NumPy /
 xorshift feature selection. Training features must be finite and within
 float32 range. Queries may contain NaNs: each missing feature follows the
@@ -3190,9 +3190,10 @@ counts, alternate regression criteria, and multioutput single-tree fitting
 remain outside this subset. Native max_depth=0 retains its existing root-only
 meaning; sklearn requires a positive depth.
 
-DecisionTree fitting without weights retains the existing real64 geometry and
-native RNG/tie convention. Both CART paths now allow a zero-gain split, so a
-later split can learn XOR. Prefix recomputation can select a different optimal
+DecisionTree fitting without weights uses unit weights in the same source-based
+kernel. This replaces the former real64/native RNG path and also changes the
+underlying trees in existing unweighted ensembles. Zero-gain splits allow a
+later split to learn XOR. Prefix recomputation can select a different optimal
 split from sklearn's incremental C criterion at floating-point ties; an exact
 source tree topology is not guaranteed in those cases.
 
@@ -3610,3 +3611,67 @@ multiple l1 ratios, and sklearn metadata-routing APIs are not implemented.
 The CV subtype works through existing logistic-capable voting, bagging,
 stacking, multiclass, multioutput, calibration, self-training, and nested
 `cross_val_score` paths. See `example/logistic_cv.f90`.
+
+## Binary decision thresholds
+
+`fixed_threshold_classifier` and `tuned_threshold_classifier_cv` are exported
+by `sklearn_threshold` and the `sklearn` facade. Call `fit(x,y,base)` with a
+supported native binary classifier template. Templates and fitted bases are
+copied. Integer labels, finite dense real64 input/queries, `predict`, weighted accuracy
+`score`, and forwarding `predict_proba`/`decision_function` follow native
+classifier conventions. Forwarded responses retain the base's original class
+order and margin sign. These wrappers are not base templates for the existing
+voting/multiclass dispatcher.
+
+Both types have `response_method='auto'`, which prefers `predict_proba` and
+falls back to `decision_function`. An explicit method must be supported by the
+base. Assign the optional integer `pos_label` to select either fitted class;
+the associated probability column or oriented binary margin is thresholded.
+Fixed prediction reads the current `pos_label` and `threshold` controls.
+An unallocated real scalar `threshold` selects 0.5 for probabilities or zero
+for margins. Explicit finite or infinite cutoffs are supported; NaN is rejected.
+A response equal to the cutoff maps to the positive class (`>=`).
+
+Tuned controls are `cv=5`, `n_thresholds=100`, `refit=.true.`,
+`scoring='balanced_accuracy'`, `store_cv_results=.false.`, and
+`random_state=0`. Set `validation_fraction` in (0,1) for one stratified shuffled
+holdout, or assign explicit 1-based `splits(:)`; repeats, overlap and ordering
+are preserved. Otherwise nonshuffled stratified K-folds are used. Explicit
+splits take precedence over a validation fraction. Set `prefit=.true.` and
+`refit=.false.` to optimize a previously fitted base on the supplied validation
+data. With `refit=.false.` and a single ordinary split, the final base is fitted
+on that split's training rows. Multiple ordinary folds require refitting on all
+data. Fixed also accepts `prefit=.true.` to copy a fitted base without retraining.
+Prefit validation targets must match the two fitted classes for tuned fitting.
+
+Set `thresholds(:)` to a finite nondecreasing candidate grid (duplicates are
+allowed), or use `n_thresholds` to generate a linspace spanning each fold's
+responses. The global automatic grid spans all fold extrema. Fold score curves
+are linearly interpolated onto the common grid with constant extrapolation;
+their arithmetic mean selects the first maximum. Curves whose endpoints satisfy
+NumPy's default isclose test are rejected, including one-point grids. With an
+explicit nonconstant grid, constant base responses are allowed, as in source.
+
+Built-in objectives are `balanced_accuracy`, `accuracy`, `f1`, `precision`,
+`recall`, and `jaccard`. Binary precision/recall/F1/Jaccard default to positive
+label 1; assign `pos_label` for other labels. Accuracy/balanced accuracy default
+to the larger fitted label for response orientation. An optional `objective`
+procedure in tuned `fit` accepts `(integer y(:), integer predicted(:), optional
+real(dp) sample_weight(:))` and returns a finite real64 score to maximize.
+Assign `pos_label` when a custom objective needs another response orientation.
+
+Optional nonnegative `sample_weight` is sent to base fitting and, by default,
+threshold scoring. Optional `score_weight` independently overrides validation
+weights, allowing weighted scoring with an unweighted base. Positive total
+training/test mass is required where used. Base-specific fitting limits apply.
+The custom objective receives raw validation weights. The public `score` method
+always returns accuracy and accepts optional signed finite score weights with
+a nonzero total, independently of the tuning objective.
+
+Learned metadata includes sorted `classes_`, `n_features_in_`, `estimator_`,
+`positive_label_`, `response_method_used_`, `best_threshold_`, `best_score_`, and
+`cv_splits_`. The tuned positive label is fixed at fitting. With
+`store_cv_results=.true.`, `thresholds_` and `mean_test_score_` store the common
+curve, while `fold_thresholds_(fold,candidate)` and
+`fold_scores_(fold,candidate)` store fold curves. Refitting with storage disabled
+clears those optional arrays. See `example/threshold_tuning.f90`.

@@ -192,10 +192,8 @@ def fixtures():
                 elif case == 9:
                     w[:] = -1
                 elif case == 10:
-                    # ExtraTree's omitted-weight default still uses float32
-                    # geometry and the legacy NumPy/xorshift random protocol.
-                    if mode < 2:
-                        continue
+                    # Omitted weights now use the same float32/source RNG kernel
+                    # for both CART and standalone ExtraTrees.
                     weighted = 0
                     w[:] = 1
                 elif case == 11:
@@ -204,6 +202,9 @@ def fixtures():
                 q[1, 1] = np.nan
                 yield (seed, mode, case, x, q, y, w, depth, leaf, split,
                        nf, weighted, criterion, decrease)
+                if mode < 2 and case in [0,3,4,5,6,7]:
+                    yield (seed, mode, case+100, x, q, y, np.ones(n), depth, leaf, split,
+                           nf, 0, criterion, decrease)
 
 
 def run(exe, profile):

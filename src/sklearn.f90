@@ -13,6 +13,7 @@ module sklearn
   use sklearn_tree
   use sklearn_ensemble
   use sklearn_model_selection
+  use sklearn_threshold
   use sklearn_feature_selection
   use sklearn_dummy
   use sklearn_kernel_ridge

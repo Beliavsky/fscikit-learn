@@ -53,105 +53,6 @@ module sklearn_tree
   end type
 
 contains
-  subroutine build_tree(self,x,y,classes,criterion)
-    class(tree_storage), intent(inout) :: self
-    real(dp), intent(in) :: x(:,:),y(:)
-    integer, intent(in) :: classes(:)
-    character(*), intent(in) :: criterion
-    integer :: indices(size(y)),i,root
-    call check_xy(x,size(y)); call check_x(reshape(y,[size(y),1]))
-    call require(self%max_depth>=0.and.self%min_samples_split>=2.and.self%min_samples_leaf>=1, &
-      'invalid tree size controls')
-    call require(self%max_features>=0.and.self%max_features<=size(x,2),'invalid tree max_features')
-    call require(self%min_impurity_decrease>=0,'negative impurity decrease')
-    self%weighted_fit_=.false.; self%max_features_=self%max_features
-    if(self%max_features_==0) self%max_features_=size(x,2)
-    self%n_features_in_=size(x,2); self%node_count_=0
-    if(allocated(self%nodes_)) deallocate(self%nodes_)
-    allocate(self%nodes_(2*size(y))); self%feature_importances_=spread(0._dp,1,size(x,2))
-    indices=[(i,i=1,size(y))]; call seed_rng(self%random_state)
-    root=grow(indices,0)
-    if(sum(self%feature_importances_)>0) &
-      self%feature_importances_=self%feature_importances_/sum(self%feature_importances_)
-  contains
-    real(dp) function impurity(ids) result(v)
-      integer, intent(in) :: ids(:)
-      real(dp) :: probabilities(size(classes)),mean
-      integer :: c
-      if(size(classes)==0) then
-        mean=sum(y(ids))/size(ids); v=sum((y(ids)-mean)**2)/size(ids)
-      else
-        do c=1,size(classes)
-          probabilities(c)=real(count(nint(y(ids))==classes(c)),dp)/size(ids)
-        end do
-        if(criterion=='gini') then
-          v=1-sum(probabilities**2)
-        else
-          v=0
-          do c=1,size(classes)
-            if(probabilities(c)>0) v=v-probabilities(c)*log(probabilities(c))/log(2._dp)
-          end do
-        end if
-      end if
-    end function
-    recursive integer function grow(ids,depth) result(node)
-      integer, intent(in) :: ids(:),depth
-      integer, allocatable :: order(:),sorted(:),left(:),right(:),features(:)
-      real(dp) :: parent,best,gain,threshold,best_threshold,r,random_cut
-      integer :: n,p,j,k,feature,best_feature,best_cut,nf,a,b,tmp,c,left_node,right_node
-      n=size(ids); p=size(x,2); self%node_count_=self%node_count_+1; node=self%node_count_
-      self%nodes_(node)%n_samples=n; self%nodes_(node)%weighted_n_samples=n; self%nodes_(node)%depth=depth
-      parent=impurity(ids); self%nodes_(node)%impurity=parent
-      if(size(classes)>0) then
-        allocate(self%nodes_(node)%probability(size(classes)))
-        do c=1,size(classes)
-          self%nodes_(node)%probability(c)=real(count(nint(y(ids))==classes(c)),dp)/n
-        end do
-      else
-        self%nodes_(node)%value=sum(y(ids))/n
-      end if
-      if(depth>=self%max_depth.or.n<self%min_samples_split.or.n/2<self%min_samples_leaf) return
-      if(parent<=epsilon(1._dp)) return
-      features=[(j,j=1,p)]; nf=p
-      if(self%max_features>0) then
-        nf=self%max_features
-        do a=p,2,-1
-          call random_number(r); b=1+int(r*a)
-          tmp=features(a); features(a)=features(b); features(b)=tmp
-        end do
-      end if
-      best=0; best_feature=0; best_threshold=0; best_cut=0
-      do k=1,p
-        feature=features(k); order=argsort(x(ids,feature)); sorted=ids(order)
-        if(self%random_thresholds) then
-          call random_number(r)
-          random_cut=x(sorted(1),feature)+r*(x(sorted(n),feature)-x(sorted(1),feature))
-        end if
-        do j=self%min_samples_leaf,n-self%min_samples_leaf
-          if(x(sorted(j),feature)==x(sorted(j+1),feature)) cycle
-          threshold=x(sorted(j),feature)/2+x(sorted(j+1),feature)/2
-          if(self%random_thresholds) then
-            if(x(sorted(j),feature)>random_cut.or.x(sorted(j+1),feature)<=random_cut) cycle
-            threshold=random_cut
-          end if
-          gain=parent-(j*impurity(sorted(:j))+(n-j)*impurity(sorted(j+1:)))/n
-          if(gain>best+epsilon(1._dp).or.(best_feature==0.and.gain>=0)) then
-            best=gain; best_feature=feature; best_threshold=threshold; best_cut=j
-          end if
-        end do
-        ! Like sklearn, inspect additional features if sampled features cannot split.
-        if(k>=nf.and.best_feature>0) exit
-      end do
-      if(best_feature==0) return
-      if(best*n/size(y)<self%min_impurity_decrease) return
-      left=pack(ids,x(ids,best_feature)<=best_threshold)
-      right=pack(ids,x(ids,best_feature)>best_threshold)
-      self%nodes_(node)%feature=best_feature; self%nodes_(node)%threshold=best_threshold
-      self%feature_importances_(best_feature)=self%feature_importances_(best_feature)+n*best
-      left_node=grow(left,depth+1); right_node=grow(right,depth+1)
-      self%nodes_(node)%left=left_node; self%nodes_(node)%right=right_node
-    end function
-  end subroutine
   ! Weighted/randomized splitter follows sklearn 1.6.1 tree/_splitter.pyx and _criterion.pyx.
   subroutine build_weighted_tree(self,x,y,classes,criterion,w,max_features)
     class(tree_storage), intent(inout) :: self
@@ -368,7 +269,7 @@ contains
     if(present(sample_weight)) then
       call build_weighted_tree(self,x,real(y,dp),self%classes_,self%criterion,sample_weight)
     else
-      call build_tree(self,x,real(y,dp),self%classes_,self%criterion)
+      call build_weighted_tree(self,x,real(y,dp),self%classes_,self%criterion,spread(1._dp,1,size(y)))
     end if
   end subroutine
   subroutine regressor_fit(self,x,y,sample_weight)
@@ -378,7 +279,7 @@ contains
     if(present(sample_weight)) then
       call build_weighted_tree(self,x,y,[integer::],'squared_error',sample_weight)
     else
-      call build_tree(self,x,y,[integer::],'squared_error')
+      call build_weighted_tree(self,x,y,[integer::],'squared_error',spread(1._dp,1,size(y)))
     end if
   end subroutine
   subroutine extra_classifier_fit(self,x,y,sample_weight)

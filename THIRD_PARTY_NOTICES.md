@@ -577,3 +577,16 @@ Scikit-learn's BSD-3-Clause notice is retained in
 array/wrapper integration are original contributions under MIT. No new
 repository or runtime dependency was imported. Reference reports record
 SHA-256 hashes of the consulted installed source files.
+
+### Binary threshold classifiers and unweighted CART
+
+`src/sklearn_threshold.f90` adapts FixedThresholdClassifier and
+TunedThresholdClassifierCV behavior from scikit-learn 1.6.1
+`model_selection/_classification_threshold.py`, `metrics/_scorer.py`,
+`utils/_response.py`, and the stratified splitters in `model_selection/_split.py`.
+Their BSD-3-Clause notice is retained in `LICENSES/scikit-learn-COPYING`.
+The existing sklearn-derived CART kernel now also handles omitted weights;
+its prior retained attribution continues to apply. Reference reports record
+hashes of consulted installed source files. Original Fortran interfaces,
+callbacks and validation code remain MIT. No external repository or runtime
+dependency was imported.

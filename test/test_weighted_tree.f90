@@ -27,8 +27,14 @@ program test_weighted_tree
   x(:,1)=[0._dp,0._dp,1._dp,1._dp]; x(:,2)=[0._dp,1._dp,0._dp,1._dp]; y=[0,1,1,0]
   clf%max_depth=2; call clf%fit(x,y); labels=clf%predict(x)
   call require(all(labels==y),'unweighted CART can cross a zero-gain XOR split')
+  copy=clf
   w=1; call clf%fit(x,y,w); labels=clf%predict(x)
   call require(all(labels==y),'weighted CART can cross a zero-gain XOR split')
+  call require(copy%node_count_==clf%node_count_,'omitted and unit weights use the same CART geometry')
+  call require(all(copy%nodes_(:copy%node_count_)%feature==clf%nodes_(:clf%node_count_)%feature), &
+    'omitted and unit weights use the same CART feature order')
+  query=ieee_value(0._dp,ieee_quiet_nan)
+  call require(all(copy%predict(query)==clf%predict(query)),'unweighted CART source missing-value routing')
   call require(clf%nodes_(1)%weighted_n_samples==4,'weighted root mass metadata')
   copy=clf; w=0; call clf%fit(x,y,w); p=clf%predict_proba(x)
   call require(all(ieee_is_nan(p)),'zero-weight classifier retains source undefined probabilities')
