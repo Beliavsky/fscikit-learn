@@ -2668,16 +2668,16 @@ to inspect its parameters. Both wrappers expose `n_outputs_` and `n_features_in_
 
 Regression accepts the `linear_regression` hierarchy (including ridge, elastic
 net and its other native descendants), `sgd_regressor`, `kneighbors_regressor`
-and `decision_tree_regressor`. Classification accepts `logistic_regression`,
+and the `decision_tree_regressor` hierarchy (including ExtraTree). Classification accepts `logistic_regression`,
 `gaussian_nb`, `sgd_classifier`, `kneighbors_classifier`,
-`decision_tree_classifier`, and the `multinomial_nb` hierarchy (including
+the `decision_tree_classifier` hierarchy (including ExtraTree), and the `multinomial_nb` hierarchy (including
 Bernoulli and Complement NB). Other bases are explicitly rejected. Each base
 keeps its existing capabilities, optimization choices and numerical limits.
 There is no arbitrary Python-style estimator protocol, sparse support, parallel
 backend or metadata routing. Chain interfaces are described below.
 
-Training weights are supported for SGD regression and logistic, Gaussian NB
-and SGD classification. Passing weights to another supported base is diagnosed;
+Training weights are supported for SGD and tree regression, and logistic, Gaussian NB,
+SGD and tree classification. Passing weights to another supported base is diagnosed;
 this wrapper does not add weights to an unweighted native implementation.
 `partial_fit(x,y,estimator,sample_weight)` supports SGD regression;
 classifier `partial_fit(x,y,estimator,classes,sample_weight)` supports Gaussian
@@ -2722,7 +2722,7 @@ native regressor at each chain position. Real64 targets have shape
 features followed by the first j-1 chain targets. Supported bases are the
 same linear regression hierarchy, SGD, KNN and tree regressors as
 multi_output_regressor; weights require a base with native weighted fitting
-(currently SGD). Fitted templates and input arrays are preserved.
+(SGD and tree regressors). Fitted templates and input arrays are preserved.
 
 Default order follows target columns. Set allocatable `order(:)` to a
 one-based permutation, or set `random_order=.true.` with nonnegative
@@ -2785,7 +2785,7 @@ logistic regression, Gaussian NB, SGD classification, KNN, decision trees,
 and the multinomial/Bernoulli/Complement NB hierarchy. Each stage is fitted
 independently on original features plus earlier chain targets/features;
 the supplied template and input arrays are preserved. Weights are supported
-by logistic, Gaussian NB and SGD bases. This implements the numerical
+by logistic, Gaussian NB, SGD and tree bases (including ExtraTree). This implements the numerical
 behavior of sklearn's metadata-routed weighted full fits; it does not expose
 a general metadata-routing framework. Internal CV fits remain unweighted,
 as in source. Base parameters, numerical limits and available responses
@@ -2872,8 +2872,8 @@ RidgeClassifierCV), LinearSVC and SVC. OVR and OVO also support the native
 linear-regression hierarchy (including Ridge), SGD regression, KNN regression
 and decision-tree regression. Output-code bases must supply a decision
 function or probabilities. Training weights are available with logistic,
-Gaussian NB, SGD classification/regression, ridge classification and LinearSVC
-bases. Other bases reject weights; their existing native limits still apply.
+Gaussian NB, SGD classification/regression, ridge classification, LinearSVC
+and both tree families (including ExtraTree). Other bases reject weights; their existing native limits still apply.
 This is explicit native dispatch, without an arbitrary Python estimator,
 metadata-routing, sparse or precomputed-kernel protocol.
 
@@ -2958,7 +2958,7 @@ and its native descendants), SGD regression, KNN regression, decision trees,
 passive-aggressive regression, KernelRidge and DummyRegressor. Every base
 retains its existing native controls, numerical limitations and responses.
 Training weights are accepted by logistic, Gaussian NB, SGD classification,
-ridge classification, LinearSVC and SGD regression bases; all active bases
+ridge classification, LinearSVC, SGD regression and tree bases (including ExtraTree); all active bases
 must support them. Dropped bases are not fitted or capability checked.
 
 Classifier `voting='hard'` (default) combines encoded class predictions;
@@ -3153,3 +3153,52 @@ than ordinary public-API comparisons.
 See example/partial_dependence.f90 and
 validation/compare_partial_dependence.py. The helper axis/result containers
 are not additional estimator types.
+
+
+## Weighted CART and standalone ExtraTrees
+
+`extra_tree_classifier` and `extra_tree_regressor` are the scikit-learn
+ExtraTreeClassifier/ExtraTreeRegressor counterparts. They expose the inherited
+single-tree controls and methods: `fit`, `predict`, `apply`, `score`,
+`get_depth`, `get_n_leaves`, classifier `predict_proba`, and learned
+`nodes_`, `feature_importances_`, `n_features_in_` and `max_features_`.
+The classifier supports Gini, entropy and log-loss; regression supports squared
+error. With configured `max_features=0`, ExtraTree classification uses
+floor(sqrt(n_features)), while ExtraTree regression uses all features. Positive
+integer feature counts override these defaults. These single estimators are
+separate from the existing `extra_trees_classifier`/`extra_trees_regressor`
+ensembles.
+
+Both decision trees and ExtraTrees accept optional `sample_weight` in `fit`
+and `score`. Weights must be finite and have one entry per row. Zero fitting
+weights remove rows from node cardinalities, including min_samples_leaf tests;
+`weighted_n_samples` stores weight mass separately. Signed fitting weights
+follow sklearn's child-mass and impurity rules. Degenerate total masses can
+produce NaN/Inf responses and importances, as in sklearn; prediction preserves
+those values. Regression score rejects nonfinite predictions or targets;
+singleton R2 returns quiet NaN. Score weight sums must be nonzero when an
+average is required.
+
+Weighted decision trees and all standalone ExtraTrees use float32 feature
+geometry, sklearn's 1e-7 split grouping threshold and seeded legacy NumPy /
+xorshift feature selection. Training features must be finite and within
+float32 range. Queries may contain NaNs: each missing feature follows the
+larger active-row child, with ties going right, matching a source tree trained
+without missing values. Query infinities and float32 overflow are rejected.
+NaN training, sparse input, pruning, monotonic constraints, fractional feature
+counts, alternate regression criteria, and multioutput single-tree fitting
+remain outside this subset. Native max_depth=0 retains its existing root-only
+meaning; sklearn requires a positive depth.
+
+DecisionTree fitting without weights retains the existing real64 geometry and
+native RNG/tie convention. Both CART paths now allow a zero-gain split, so a
+later split can learn XOR. Prefix recomputation can select a different optimal
+split from sklearn's incremental C criterion at floating-point ties; an exact
+source tree topology is not guaranteed in those cases.
+
+Voting, independent multioutput estimators, regressor/classifier chains, and
+multiclass reductions accept ExtraTree bases through their decision-tree
+interfaces and forward training weights to both tree families. Tree streaming
+(`partial_fit`) remains unavailable. The new internal `sklearn_ieee_math`
+module handles quiet nonfinite arithmetic in weighted trees and composite
+reductions; it adds no public estimator or external runtime dependency.

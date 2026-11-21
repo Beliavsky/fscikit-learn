@@ -6,6 +6,22 @@ import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 CASES = {
+    'wt_weight_length': 'tree sample weight length mismatch',
+    'wt_weight_nan': 'tree sample weights must be finite',
+    'wt_weight_inf': 'tree sample weights must be finite',
+    'wt_train_range': 'tree training features exceed float32 range',
+    'wt_seed': 'weighted tree random_state must be nonnegative',
+    'wt_decrease_nan': 'tree impurity decrease must be finite',
+    'wt_decrease_inf': 'tree impurity decrease must be finite',
+    'wt_query_inf': 'tree queries contain infinity',
+    'wt_query_range': 'tree query features exceed float32 range',
+    'wt_score_length': 'tree score target length mismatch',
+    'wt_score_weight_length': 'tree score weight length mismatch',
+    'wt_score_weight_nan': 'tree score weights must be finite',
+    'wt_score_weight_zero': 'tree score weights must have a nonzero sum',
+    'wt_score_undefined': 'tree regression score predictions must be finite',
+    'wt_reg_score_targets': 'tree regression score targets must be finite',
+
     'pd_empty_rows': 'partial dependence features must be nonempty',
     'pd_empty_columns': 'partial dependence features must be nonempty',
     'pd_empty_features': 'partial dependence needs at least one target feature',

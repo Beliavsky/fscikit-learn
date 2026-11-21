@@ -3675,3 +3675,63 @@ result/axis helpers are containers, so core estimator/transformer/splitter
 count remains 186. Inventory: 93 source modules, 96 native programs, 75 core
 reference suites and 262,318 retained core groups, plus 28 separate NumPy RNG
 groups.
+
+
+## Weighted CART and standalone ExtraTrees (2026-11-21)
+
+Added `extra_tree_classifier` and `extra_tree_regressor`, bringing core type
+coverage to 188. Both standalone ExtraTree families use source float32 split
+geometry and the legacy NumPy/xorshift random feature/threshold protocol.
+DecisionTree fitting now accepts sample weights through the same weighted CART
+builder. Node cardinalities exclude zero weights; separate learned weight mass,
+weighted criteria, importance and scores follow source contracts. Finite signed
+weights and degenerate zero mass retain quiet source NaN/Inf responses. The
+older omitted-weight CART path preserves its existing real64/native RNG
+conventions and now accepts zero-gain splits needed for XOR.
+
+Voting, independent multioutput, classifier/regressor chains and multiclass
+reductions accept ExtraTree descendants and forward tree training weights.
+Nonfinite reductions use internal quiet-IEEE arithmetic; regression scoring
+rejects undefined predictions. IsolationForest's custom tree builder now fills
+the added node mass metadata without changing its splitting/scoring algorithm.
+No Bagging estimator is included in this batch. Weighted single trees establish
+its required foundation.
+
+The new weighted/ExtraTree source suite passed 7,124 groups over 552 fixtures:
+6,972 ordinary sklearn comparisons, 140 source pure-subtree identities, and
+12 groups backed by five source-conditioned tree certificates. Ten fixtures
+contain response-identical pure-node roundoff splits. The certificates replay
+source random feature/threshold draws, use sklearn stumps to verify admissible
+split costs and node responses, reconstruct query responses from those source
+leaves, and independently check impurity importance. No fixture was dropped
+and no ordinary tolerance was widened. Reports retain every group/oracle and
+installed source SHA-256 hashes. These checks document floating-point tie
+conventions rather than claiming universal bitwise topology parity.
+
+All 97 native test programs passed with bounds/runtime/FPE checks. A final
+focused checked/release weighted-tree test additionally verified nonuniform
+weighted accuracy and R2 by hand, and checked weight forwarding through
+composite estimators' learned root mass/probability. The checked public example
+matched sklearn ExtraTree predictions and root cardinality/mass exactly.
+
+Inventory: 94 source modules, 97 native programs, 76 core reference suites,
+269,442 retained core groups plus 28 separate NumPy RNG groups. Original work
+remains MIT; sklearn BSD source attribution is retained and expanded. No new
+runtime dependency, imported repository or public extension was added.
+
+
+Final batch gates: all 97 native programs also passed the full optimized
+release invocation. The final weighted-tree unit passed separately against
+both checked and release libraries after adding hand-computed weighted score
+checks. Both source-suite profiles retained the same 552 fixtures, 7,124 groups,
+oracle labels and source hashes. The existing checked reference suites passed:
+voting 16,965; multiclass 27,490; independent multioutput 3,030; classifier
+chains 8,665; regressor chains 3,211; IsolationForest 9,060; gradient boosting
+classification 510; original integration 192. All 2,217 isolated invalid-input
+cases passed, including 15 new weighted-tree cases. The invalid driver was
+compiled directly against the fully rebuilt checked modules/archive with
+`-fcheck=all -fbacktrace`, matching the diagnostic harness flags. Source suites
+used those rebuilt checked executables; the release weighted reference driver
+was compiled directly against the rebuilt release archive. Retained suites
+not listed here were not rerun. Python syntax, Fortran formatting, report
+accounting, retained license files and git whitespace checks passed.

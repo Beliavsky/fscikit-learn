@@ -3270,3 +3270,34 @@ source prediction trace. Source-trace weighted averages and individual
 responses independently verify the native mathematical curve. The report
 records each source error and labels these result groups separately as
 source_binary_shape_identity. Ordinary source tolerances remain fixed.
+
+
+### Weighted CART and standalone ExtraTree estimators
+
+Run `python validation/compare_weighted_trees.py` for the checked profile or
+add `--profile release`. `--exe PATH` uses an already built reference driver.
+The suite covers 552 seeded fixtures: weighted best/random splitting, default
+and subset feature counts, constant features, zero/negative/signed weights,
+bootstrap multiplicities, three classification criteria, impurity controls,
+leaf cardinality and NaN queries after finite training. It writes profile
+reports with every comparison group, installed-source hashes and split witnesses.
+
+Ordinary comparisons retain fixed tolerances (2e-10 relative, 2e-11 absolute;
+integer choices and labels are exact). Source incremental criterion updates
+and native recomputation can choose different partitions at floating-point
+ties. Five checked fixtures use source-conditioned certificates: Python
+replays the documented RandomState/xorshift feature and threshold draws,
+fits source stumps on each native node's rows, verifies every chosen split
+against all admissible visited candidates within an explicit accumulation
+bound, and reconstructs predictions from source leaf responses. Feature
+importance is independently reconstructed from verified node statistics.
+These groups are labeled `source_conditioned_tree_certificate`.
+
+Pure subtrees are collapsed only after proving all descendant responses equal
+exactly and impurity is within 1e-13 of zero; the remaining source/native
+structure, statistics and responses are compared. Those groups are labeled
+`source_pure_subtree_identity`. This handles response-identical splits caused
+by impurity roundoff without removing fixtures or widening ordinary comparison
+tolerances. The suite does not promise identical topology for every floating
+point dataset. Training NaNs and unsupported single-tree options remain out
+of scope as documented in the public coverage/API records.

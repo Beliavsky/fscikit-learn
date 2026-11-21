@@ -87,7 +87,8 @@ contains
       return
     class is(linear_regression)
     type is(kneighbors_regressor)
-    type is(decision_tree_regressor)
+    class is(decision_tree_regressor)
+      call require(.not.streaming,'multioutput regressor base has no native partial_fit'); return
     class default
       call require(.false.,'unsupported multioutput regressor base')
     end select
@@ -111,8 +112,8 @@ contains
       call model%fit(x,y)
     type is(kneighbors_regressor)
       call model%fit(x,y)
-    type is(decision_tree_regressor)
-      call model%fit(x,y)
+    class is(decision_tree_regressor)
+      call model%fit(x,y,weights)
     end select
   end subroutine
 
@@ -205,7 +206,7 @@ contains
         y(:,j)=model%predict(x)
       type is(kneighbors_regressor)
         y(:,j)=model%predict(x)
-      type is(decision_tree_regressor)
+      class is(decision_tree_regressor)
         y(:,j)=model%predict(x)
       end select
     end do
@@ -227,7 +228,9 @@ contains
     real(dp) :: mass,mean,numerator,denominator
     integer :: j
     call require(all(shape(y)==shape(predicted)),'multioutput score target shape mismatch')
-    call check_x(y); allocate(w(size(y,1))); w=1
+    call check_x(y)
+    call require(all(ieee_is_finite(predicted)),'multioutput regression score predictions must be finite')
+    allocate(w(size(y,1))); w=1
     if(present(sample_weight)) then
       call require(size(sample_weight)==size(w),'multioutput score weight length mismatch')
       call require(all(ieee_is_finite(sample_weight)),'multioutput score weights must be finite')
@@ -267,7 +270,8 @@ contains
     type is(logistic_regression)
       call require(.not.streaming,'multioutput classifier base has no native partial_fit'); return
     type is(kneighbors_classifier)
-    type is(decision_tree_classifier)
+    class is(decision_tree_classifier)
+      call require(.not.streaming,'multioutput classifier base has no native partial_fit'); return
     class is(multinomial_nb)
     class default
       call require(.false.,'unsupported multioutput classifier base')
@@ -300,8 +304,8 @@ contains
       call model%fit(x,y,weights)
     type is(kneighbors_classifier)
       call model%fit(x,y)
-    type is(decision_tree_classifier)
-      call model%fit(x,y)
+    class is(decision_tree_classifier)
+      call model%fit(x,y,weights)
     class is(multinomial_nb)
       call model%fit(x,y)
     end select
@@ -319,7 +323,7 @@ contains
       labels=model%classes_
     type is(kneighbors_classifier)
       labels=model%classes_
-    type is(decision_tree_classifier)
+    class is(decision_tree_classifier)
       labels=model%classes_
     class is(multinomial_nb)
       labels=model%classes_
@@ -413,7 +417,7 @@ contains
         y(:,j)=model%predict(x)
       type is(kneighbors_classifier)
         y(:,j)=model%predict(x)
-      type is(decision_tree_classifier)
+      class is(decision_tree_classifier)
         y(:,j)=model%predict(x)
       class is(multinomial_nb)
         y(:,j)=model%predict(x)
@@ -440,7 +444,7 @@ contains
         prob(j)%values=model%predict_proba(x)
       type is(kneighbors_classifier)
         prob(j)%values=model%predict_proba(x)
-      type is(decision_tree_classifier)
+      class is(decision_tree_classifier)
         prob(j)%values=model%predict_proba(x)
       class is(multinomial_nb)
         prob(j)%values=model%predict_proba(x)
@@ -468,7 +472,7 @@ contains
       y=model%predict(x)
     type is(kneighbors_regressor)
       y=model%predict(x)
-    type is(decision_tree_regressor)
+    class is(decision_tree_regressor)
       y=model%predict(x)
     class default
       call require(.false.,'unsupported regression chain base')
@@ -652,7 +656,7 @@ contains
       else
         values=model%predict_proba(x)
       end if
-    type is(decision_tree_classifier)
+    class is(decision_tree_classifier)
       if(method=='predict') then
         values(:,1)=real(model%predict(x),dp)
       else

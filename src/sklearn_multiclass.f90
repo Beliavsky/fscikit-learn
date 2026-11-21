@@ -1,6 +1,7 @@
 ! Multiclass reductions adapted from sklearn 1.6.1 multiclass.py (BSD-3-Clause).
 ! See THIRD_PARTY_NOTICES.md and LICENSES/scikit-learn-COPYING.
 module sklearn_multiclass
+  use sklearn_ieee_math, only: ieee_difference,ieee_product,ieee_quotient,ieee_total
   use sklearn_common, only: dp,require,check_x,check_xy,unique_labels,label_index
   use sklearn_linear_model, only: logistic_regression,perceptron,passive_aggressive_classifier,linear_regression
   use sklearn_ridge_classification, only: ridge_classifier
@@ -76,7 +77,7 @@ contains
     class is(linear_regression)
     type is(sgd_regressor)
     type is(kneighbors_regressor)
-    type is(decision_tree_regressor)
+    class is(decision_tree_regressor)
     class default
       value=.false.
     end select
@@ -106,7 +107,7 @@ contains
     type is(gaussian_nb)
     class is(multinomial_nb)
     type is(kneighbors_classifier)
-    type is(decision_tree_classifier)
+    class is(decision_tree_classifier)
     type is(sgd_classifier)
       value=model%loss=='log_loss'.or.model%loss=='modified_huber'
     class default
@@ -139,9 +140,8 @@ contains
     type is(kneighbors_classifier)
       call require(.not.streaming,'multiclass base has no native partial_fit')
       call require(.not.weighted,'multiclass base has no native weighted fit'); return
-    type is(decision_tree_classifier)
-      call require(.not.streaming,'multiclass base has no native partial_fit')
-      call require(.not.weighted,'multiclass base has no native weighted fit'); return
+    class is(decision_tree_classifier)
+      call require(.not.streaming,'multiclass base has no native partial_fit'); return
     class is(multinomial_nb)
       call require(.not.streaming,'multiclass base has no native partial_fit')
       call require(.not.weighted,'multiclass base has no native weighted fit'); return
@@ -151,9 +151,8 @@ contains
     type is(kneighbors_regressor)
       call require(.not.streaming,'multiclass base has no native partial_fit')
       call require(.not.weighted,'multiclass base has no native weighted fit'); return
-    type is(decision_tree_regressor)
-      call require(.not.streaming,'multiclass base has no native partial_fit')
-      call require(.not.weighted,'multiclass base has no native weighted fit'); return
+    class is(decision_tree_regressor)
+      call require(.not.streaming,'multiclass base has no native partial_fit'); return
     class default
       call require(.false.,'unsupported native multiclass base')
     end select
@@ -213,16 +212,16 @@ contains
       call model%fit(x,y)
     type is(kneighbors_classifier)
       call model%fit(x,y)
-    type is(decision_tree_classifier)
-      call model%fit(x,y)
+    class is(decision_tree_classifier)
+      call model%fit(x,y,weights)
     class is(multinomial_nb)
       call model%fit(x,y)
     class is(linear_regression)
       call model%fit(x,real(y,dp))
     type is(kneighbors_regressor)
       call model%fit(x,real(y,dp))
-    type is(decision_tree_regressor)
-      call model%fit(x,real(y,dp))
+    class is(decision_tree_regressor)
+      call model%fit(x,real(y,dp),weights)
     end select
   end subroutine
 
@@ -284,7 +283,7 @@ contains
       values=real(model%predict(x),dp)
     type is(kneighbors_classifier)
       values=real(model%predict(x),dp)
-    type is(decision_tree_classifier)
+    class is(decision_tree_classifier)
       values=real(model%predict(x),dp)
     class is(multinomial_nb)
       values=real(model%predict(x),dp)
@@ -292,7 +291,7 @@ contains
       values=model%predict(x)
     type is(kneighbors_regressor)
       values=model%predict(x)
-    type is(decision_tree_regressor)
+    class is(decision_tree_regressor)
       values=model%predict(x)
     class default
       call require(.false.,'unsupported native multiclass base')
@@ -338,7 +337,7 @@ contains
       matrix=model%predict_proba(x)
     type is(kneighbors_classifier)
       matrix=model%predict_proba(x)
-    type is(decision_tree_classifier)
+    class is(decision_tree_classifier)
       matrix=model%predict_proba(x)
     class is(multinomial_nb)
       matrix=model%predict_proba(x)
@@ -566,7 +565,7 @@ contains
     real(dp), intent(in) :: x(:,:)
     real(dp), allocatable :: values(:,:),raw(:,:)
     real(dp) :: total
-    integer :: i
+    integer :: i,j
     raw=ovr_responses(self,x,'proba')
     if(size(raw,2)==1) then
       allocate(values(size(x,1),2)); values(:,1)=1-raw(:,1); values(:,2)=raw(:,1)
@@ -575,14 +574,10 @@ contains
     end if
     if(.not.self%multilabel_) then
       do i=1,size(values,1)
-        total=sum(values(i,:))
-        if(ieee_is_nan(total)) then
-          values(i,:)=ieee_value(0._dp,ieee_quiet_nan)
-        else if(total==0) then
-          values(i,:)=ieee_value(0._dp,ieee_quiet_nan)
-        else
-          values(i,:)=values(i,:)/total
-        end if
+        total=ieee_total(values(i,:))
+        do j=1,size(values,2)
+          values(i,j)=ieee_quotient(values(i,j),total)
+        end do
       end do
     end if
   end function
@@ -745,14 +740,22 @@ contains
       do j=i+1,self%n_classes_
         k=k+1; pred=binary_response(self%estimators_(k),x,'predict')
         score=binary_response(self%estimators_(k),x,'binary')
-        confidence(:,i)=confidence(:,i)-score; confidence(:,j)=confidence(:,j)+score
         do row=1,size(x,1)
+          confidence(row,i)=ieee_difference(confidence(row,i),score(row))
+          confidence(row,j)=ieee_difference(confidence(row,j),-score(row))
+          if(ieee_is_nan(pred(row))) cycle
           if(pred(row)==0) votes(row,i)=votes(row,i)+1
           if(pred(row)==1) votes(row,j)=votes(row,j)+1
         end do
       end do
     end do
-    values=votes+confidence/(3*(abs(confidence)+1))
+    allocate(values(size(x,1),self%n_classes_))
+    do i=1,self%n_classes_
+      do row=1,size(x,1)
+        values(row,i)=ieee_difference(votes(row,i), &
+          -ieee_quotient(confidence(row,i),ieee_product(3._dp,ieee_difference(abs(confidence(row,i)),-1._dp))))
+      end do
+    end do
     if(self%n_classes_==2) values=values(:,2:2)
   end function
 

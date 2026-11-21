@@ -70,7 +70,7 @@ Reference paths by module:
 | optics | cluster/_optics.py: dense reachability graph, DBSCAN extraction, Xi steep regions, hierarchy labels and predecessor correction |
 | feature_agglomeration | cluster/_agglomerative.py FeatureAgglomeration fitting and _feature_agglomeration.py pooling/inverse contracts; existing native merge tree |
 | cluster | cluster/_birch.py (CF summaries, recursive insertion/splitting, leaf order and global/partial-fit contracts), cluster/_kmeans.py, _dbscan.py, _agglomerative.py, _mean_shift.py, _affinity_propagation.py, _spectral.py (including cluster_qr) |
-| tree | tree/_classes.py; CART splitting and recursion rewritten in Fortran |
+| tree | tree/_classes.py decision/standalone ExtraTree interfaces; tree/_tree.pyx weighted node growth/importance; tree/_splitter.pyx and _partitioner.pyx float32 split geometry, random thresholds and feature caches; tree/_criterion.pyx weighted Gini/entropy/squared error; utils/_random.pxd xorshift feature selection; native dense Fortran adaptation |
 | adaboost | ensemble/_weight_boosting.py BaseWeightBoosting and AdaBoostClassifier SAMME updates, score/probability normalization and stopping; native weighted Gini stumps follow tree split contracts |
 | ensemble | ensemble/_forest.py, _gb.py; GradientBoostingClassifier prior links, simultaneous gradients, Newton leaf updates, multiclass correction, train-score conventions and staged predictions; _loss/loss.py and link.py; tree/_criterion.pyx FriedmanMSE improvement scale |
 | model_selection | model_selection/_split.py, _validation.py; linear_model/_ridge.py |
@@ -554,3 +554,9 @@ Installed source SHA-256:
 Adapted portions retain their sklearn/SciPy BSD-3-Clause attribution and
 complete retained notices. Original contributions remain MIT. No runtime
 dependency or public extension is introduced.
+
+Weighted CART and standalone ExtraTrees were adapted against the installed
+scikit-learn 1.6.1 source files listed above. Their BSD-3-Clause attribution
+is retained in `LICENSES/scikit-learn-COPYING`; original Fortran contributions
+remain under MIT. The existing legacy NumPy RNG attribution also applies to
+tree seed initialization. No additional repository or runtime was imported.

@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 186 public estimator, transformer, and splitter types. Each is a
+There are 188 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Seventy-five reference suites additionally check 262,318
+All types have native tests. Seventy-six reference suites additionally check 269,442
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -42,7 +42,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | density | `kernel_density` | Exact Euclidean log densities with Gaussian/tophat/Epanechnikov/exponential/linear kernels; sample weights; fixed/Scott/Silverman bandwidth; Gaussian/tophat sampling |
 | outlier | `local_outlier_factor` | Training outlier scores and novelty detection, automatic/percentile threshold, Minkowski and other supported pairwise metrics |
 | semi_supervised | `label_propagation`, `label_spreading`, `self_training_classifier` | Dense RBF or directed k-neighbor graph, hard/soft clamping, transductive labels and inductive probabilities; threshold/k-best self-training with logistic, Gaussian NB or KNN bases |
-| tree | `decision_tree_classifier`, `decision_tree_regressor` | Exhaustive CART; Gini/entropy/log-loss classification, squared-error regression; depth/leaf/split/feature controls, normalized impurity importance, leaf indices |
+| tree | `decision_tree_classifier`, `decision_tree_regressor`, `extra_tree_classifier`, `extra_tree_regressor` | Weighted CART and standalone randomized trees; Gini/entropy/log-loss classification, squared-error regression; depth/leaf/split/feature controls, normalized impurity importance, leaf indices |
 | ensemble | `random_forest_classifier`, `random_forest_regressor`, `extra_trees_classifier`, `extra_trees_regressor`, `gradient_boosting_regressor`, `gradient_boosting_classifier`, `adaboost_classifier`, `adaboost_regressor`, `isolation_forest`, `voting_classifier`, `voting_regressor` | Heterogeneous hard/soft voting and averaged regression; bootstrap forests, randomized feature subsets, random-threshold Extra Trees, squared-error residual boosting; binary/multiclass classification boosting with Newton leaf updates; weighted Gini-stump SAMME; AdaBoost.R2 with depth-controlled CART; random isolation trees and path-length anomaly scores |
 | model_selection | `kfold`, `stratified_kfold`, `time_series_split`, `group_kfold`, `leave_one_out`, `leave_one_group_out`, `predefined_split`, `shuffle_split`, `stratified_shuffle_split`, `group_shuffle_split`, `repeated_kfold`, `repeated_stratified_kfold`, `leave_p_out`, `leave_p_groups_out`, `ridge_cv`; `train_test_split`, `shuffle_indices`, `cross_val_score` | Index-based splits; seeded random/group/stratified holdouts; repeated shuffled folds; exhaustive sample/group combinations; fraction/count size controls; optional stratification; time gap/window; CV for linear-regression family and logistic regression; ridge CV selects negative mean squared error |
 | feature_selection | `variance_threshold`, `select_k_best`, `select_percentile`, `select_fpr`, `select_fdr`, `select_fwe`, `generic_univariate_select`, `sequential_feature_selector`, `rfe`, `rfecv`; `f_classif`, `f_regression`, `chi2`, `r_regression`, `mutual_info_classif`, `mutual_info_regression` | Dense scores and masks; greedy forward/backward CV regression selection; coefficient-based recursive elimination and CV for regression/logistic classification; inverse transform fills dropped columns with zero; new statistical selectors include p-values and multiplicity control |
@@ -3821,3 +3821,52 @@ Core type count remains 186: response/axis result containers are excluded.
 Inventory: 93 source modules, 75 core reference suites and 262,318 retained
 core groups, plus 28 separately counted NumPy RNG groups. Original work stays
 MIT, with retained sklearn and SciPy source BSD notices and no new dependency.
+
+
+## Weighted CART and standalone ExtraTrees
+
+`extra_tree_classifier` and `extra_tree_regressor` are the scikit-learn
+ExtraTreeClassifier/ExtraTreeRegressor counterparts. They expose the inherited
+single-tree controls and methods: `fit`, `predict`, `apply`, `score`,
+`get_depth`, `get_n_leaves`, classifier `predict_proba`, and learned
+`nodes_`, `feature_importances_`, `n_features_in_` and `max_features_`.
+The classifier supports Gini, entropy and log-loss; regression supports squared
+error. With configured `max_features=0`, ExtraTree classification uses
+floor(sqrt(n_features)), while ExtraTree regression uses all features. Positive
+integer feature counts override these defaults. These single estimators are
+separate from the existing `extra_trees_classifier`/`extra_trees_regressor`
+ensembles.
+
+Both decision trees and ExtraTrees accept optional `sample_weight` in `fit`
+and `score`. Weights must be finite and have one entry per row. Zero fitting
+weights remove rows from node cardinalities, including min_samples_leaf tests;
+`weighted_n_samples` stores weight mass separately. Signed fitting weights
+follow sklearn's child-mass and impurity rules. Degenerate total masses can
+produce NaN/Inf responses and importances, as in sklearn; prediction preserves
+those values. Regression score rejects nonfinite predictions or targets;
+singleton R2 returns quiet NaN. Score weight sums must be nonzero when an
+average is required.
+
+Weighted decision trees and all standalone ExtraTrees use float32 feature
+geometry, sklearn's 1e-7 split grouping threshold and seeded legacy NumPy /
+xorshift feature selection. Training features must be finite and within
+float32 range. Queries may contain NaNs: each missing feature follows the
+larger active-row child, with ties going right, matching a source tree trained
+without missing values. Query infinities and float32 overflow are rejected.
+NaN training, sparse input, pruning, monotonic constraints, fractional feature
+counts, alternate regression criteria, and multioutput single-tree fitting
+remain outside this subset. Native max_depth=0 retains its existing root-only
+meaning; sklearn requires a positive depth.
+
+DecisionTree fitting without weights retains the existing real64 geometry and
+native RNG/tie convention. Both CART paths now allow a zero-gain split, so a
+later split can learn XOR. Prefix recomputation can select a different optimal
+split from sklearn's incremental C criterion at floating-point ties; an exact
+source tree topology is not guaranteed in those cases.
+
+Voting, independent multioutput estimators, regressor/classifier chains, and
+multiclass reductions accept ExtraTree bases through their decision-tree
+interfaces and forward training weights to both tree families. Tree streaming
+(`partial_fit`) remains unavailable. The new internal `sklearn_ieee_math`
+module handles quiet nonfinite arithmetic in weighted trees and composite
+reductions; it adds no public estimator or external runtime dependency.

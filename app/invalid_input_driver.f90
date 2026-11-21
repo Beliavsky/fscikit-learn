@@ -8,6 +8,11 @@ program invalid_input_driver
   use sklearn_legacy_rng, only: legacy_random_state
   use, intrinsic :: ieee_arithmetic, only: ieee_value,ieee_quiet_nan,ieee_positive_inf
   implicit none
+  type(extra_tree_classifier) :: wt_clf
+  type(extra_tree_regressor) :: wt_reg
+  real(dp) :: wt_x(4,1)=reshape([0._dp,1._dp,2._dp,3._dp],[4,1]),wt_w(4)=1,wt_score
+  integer :: wt_y(4)=[0,0,1,1]
+  real(dp), allocatable :: wt_pred(:)
   type(partial_dependence_result) :: pd_result
   integer :: pd_bad=0,pd_calls=0
   type(permutation_importance_result) :: pi_result
@@ -321,6 +326,57 @@ program invalid_input_driver
   mi_x(:,2)=[0._dp,0._dp,1._dp,1._dp,2._dp,2._dp]; mi_x(:,3)=1
   mi_y=mi_x(:,1); mi_labels=[-1,-1,-1,2,2,2]
   select case(trim(mode))
+  case('wt_weight_length')
+    call wt_clf%fit(wt_x,wt_y,wt_w(:3))
+  case('wt_weight_nan')
+    wt_w(1)=ieee_value(0._dp,ieee_quiet_nan)
+    call wt_clf%fit(wt_x,wt_y,wt_w)
+  case('wt_weight_inf')
+    wt_w(1)=ieee_value(0._dp,ieee_positive_inf)
+    call wt_reg%fit(wt_x,real(wt_y,dp),wt_w)
+  case('wt_train_range')
+    wt_x(1,1)=1.e40_dp
+    call wt_clf%fit(wt_x,wt_y)
+  case('wt_seed')
+    wt_clf%random_state=-1
+    call wt_clf%fit(wt_x,wt_y)
+  case('wt_decrease_nan')
+    wt_clf%min_impurity_decrease=ieee_value(0._dp,ieee_quiet_nan)
+    call wt_clf%fit(wt_x,wt_y)
+  case('wt_decrease_inf')
+    wt_reg%min_impurity_decrease=ieee_value(0._dp,ieee_positive_inf)
+    call wt_reg%fit(wt_x,real(wt_y,dp))
+  case('wt_query_inf')
+    call wt_reg%fit(wt_x,real(wt_y,dp))
+    wt_x(1,1)=ieee_value(0._dp,ieee_positive_inf)
+    wt_pred=wt_reg%predict(wt_x)
+  case('wt_query_range')
+    call wt_reg%fit(wt_x,real(wt_y,dp))
+    wt_x(1,1)=1.e40_dp
+    wt_pred=wt_reg%predict(wt_x)
+  case('wt_score_length')
+    call wt_clf%fit(wt_x,wt_y)
+    wt_score=wt_clf%score(wt_x,wt_y(:3))
+  case('wt_score_weight_length')
+    call wt_clf%fit(wt_x,wt_y)
+    wt_score=wt_clf%score(wt_x,wt_y,wt_w(:3))
+  case('wt_score_weight_nan')
+    call wt_clf%fit(wt_x,wt_y)
+    wt_w(1)=ieee_value(0._dp,ieee_quiet_nan)
+    wt_score=wt_clf%score(wt_x,wt_y,wt_w)
+  case('wt_score_weight_zero')
+    call wt_clf%fit(wt_x,wt_y)
+    wt_w=0
+    wt_score=wt_clf%score(wt_x,wt_y,wt_w)
+  case('wt_score_undefined')
+    wt_w=0
+    call wt_reg%fit(wt_x,real(wt_y,dp),wt_w)
+    wt_score=wt_reg%score(wt_x,real(wt_y,dp))
+  case('wt_reg_score_targets')
+    call wt_reg%fit(wt_x,real(wt_y,dp))
+    wt_w(1)=ieee_value(0._dp,ieee_quiet_nan)
+    wt_score=wt_reg%score(wt_x,wt_w)
+
   case('pd_empty_rows')
     pd_result=partial_dependence(mo_x(:0,:),[1],pd_predict)
   case('pd_empty_columns')

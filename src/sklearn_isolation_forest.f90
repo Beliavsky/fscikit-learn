@@ -249,7 +249,7 @@ contains
         idx=samples(a); mass=mass+w(idx); total=total+w(idx)*y(idx); squares=squares+w(idx)*y(idx)**2
       end do
       tree%node_count_=tree%node_count_+1; node=tree%node_count_
-      tree%nodes_(node)%n_samples=n; tree%nodes_(node)%depth=depth
+      tree%nodes_(node)%n_samples=n; tree%nodes_(node)%weighted_n_samples=mass; tree%nodes_(node)%depth=depth
       if(n==0) return ! Finite native convention for sklearn's empty weighted root.
       parent=inherited
       if(depth==0) parent=squares/mass-(total/mass)**2

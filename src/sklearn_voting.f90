@@ -1,6 +1,7 @@
 ! Voting ensembles adapted from sklearn 1.6.1 ensemble/_voting.py (BSD-3-Clause).
 ! See THIRD_PARTY_NOTICES.md and LICENSES/scikit-learn-COPYING.
 module sklearn_voting
+  use sklearn_ieee_math, only: ieee_mean
   use sklearn_common, only: dp,require,check_x,check_xy,unique_labels,label_index
   use sklearn_linear_model, only: linear_regression,elastic_net,logistic_regression,perceptron, &
     passive_aggressive_classifier,passive_aggressive_regressor
@@ -221,7 +222,7 @@ contains
         if(any(ieee_is_nan(tensor(:,i,k)))) then
           values(i,k)=ieee_value(0._dp,ieee_quiet_nan)
         else
-          values(i,k)=sum(tensor(:,i,k)*w)/sum(w)
+          values(i,k)=ieee_mean(tensor(:,i,k),w)
         end if
       end do
     end do
@@ -294,7 +295,7 @@ contains
     w=active_weights(self%weights,self%active_indices_,self%configured_count_,.true.)
     allocate(values(size(x,1)))
     do i=1,size(values)
-      values(i)=sum(response(i,:)*w)/sum(w)
+      values(i)=ieee_mean(response(i,:),w)
     end do
   end function
 
@@ -335,6 +336,7 @@ contains
     real(dp) :: numerator,denominator,center
     prediction=self%predict(x); call require(size(y)==size(prediction),'voting score target length mismatch')
     call require(all(ieee_is_finite(y)),'voting score targets must be finite')
+    call require(all(ieee_is_finite(prediction)),'voting regression score predictions must be finite')
     call training_weights(sample_weight,size(y))
     if(size(y)<2) then
       value=ieee_value(0._dp,ieee_quiet_nan); return
@@ -364,9 +366,8 @@ contains
     type is(kneighbors_classifier)
       call require(.not.present(weights),'voting base has no native weighted fit')
       call model%fit(x,y)
-    type is(decision_tree_classifier)
-      call require(.not.present(weights),'voting base has no native weighted fit')
-      call model%fit(x,y)
+    class is(decision_tree_classifier)
+      call model%fit(x,y,weights)
     class is(multinomial_nb)
       call require(.not.present(weights),'voting base has no native weighted fit')
       call model%fit(x,y)
@@ -408,9 +409,8 @@ contains
     type is(kneighbors_regressor)
       call require(.not.present(weights),'voting base has no native weighted fit')
       call model%fit(x,y)
-    type is(decision_tree_regressor)
-      call require(.not.present(weights),'voting base has no native weighted fit')
-      call model%fit(x,y)
+    class is(decision_tree_regressor)
+      call model%fit(x,y,weights)
     type is(passive_aggressive_regressor)
       call require(.not.present(weights),'voting base has no native weighted fit')
       call model%fit(x,y)
@@ -438,7 +438,7 @@ contains
       values=model%predict(x)
     type is(kneighbors_classifier)
       values=model%predict(x)
-    type is(decision_tree_classifier)
+    class is(decision_tree_classifier)
       values=model%predict(x)
     class is(multinomial_nb)
       values=model%predict(x)
@@ -472,7 +472,7 @@ contains
       values=model%predict(x)
     type is(kneighbors_regressor)
       values=model%predict(x)
-    type is(decision_tree_regressor)
+    class is(decision_tree_regressor)
       values=model%predict(x)
     type is(passive_aggressive_regressor)
       values=model%predict(x)
@@ -499,7 +499,7 @@ contains
       values=model%predict_proba(x)
     type is(kneighbors_classifier)
       values=model%predict_proba(x)
-    type is(decision_tree_classifier)
+    class is(decision_tree_classifier)
       values=model%predict_proba(x)
     class is(multinomial_nb)
       values=model%predict_proba(x)
