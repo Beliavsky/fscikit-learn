@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 174 public estimator, transformer, and splitter types. Each is a
+There are 175 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Sixty-two reference suites additionally check 125,802
+All types have native tests. Sixty-three reference suites additionally check 127,422
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -34,7 +34,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | kernel_approximation | `rbf_sampler`, `nystroem`, `additive_chi2_sampler`, `skewed_chi2_sampler`, `polynomial_count_sketch` | Random Fourier RBF maps; sampled-landmark inverse-square-root maps for RBF/linear/polynomial/cosine kernels; additive and skewed chi2 maps; seeded polynomial TensorSketch with arbitrary-length FFTs |
 | random_projection | `gaussian_random_projection`, `sparse_random_projection`; `johnson_lindenstrauss_min_dim` | Gaussian/three-point random matrices, dense storage, automatic JL dimension, cached or on-demand pseudoinverse |
 | kernel_pca | `kernel_pca` | Centered linear/RBF/polynomial/sigmoid/cosine/precomputed Gram matrices; dense Jacobi eigensolver; out-of-sample transform |
-| manifold | `isomap`; re-exports `spectral_embedding`, `mds`, `locally_linear_embedding` | Isomap graph paths; spectral embedding; metric/nonmetric SMACOF; dense standard LLE and LTSA with barycentric query transforms |
+| manifold | `isomap`, `tsne`; `trustworthiness`; re-exports `spectral_embedding`, `mds`, `locally_linear_embedding` | Isomap graph paths; dense exact t-SNE with adaptive gains and two-stage momentum; neighborhood rank trustworthiness; spectral embedding; metric/nonmetric SMACOF; dense standard LLE and LTSA with barycentric query transforms |
 | spectral | `spectral_embedding` | Dense symmetric eigensolver; RBF, symmetrized nearest-neighbor or precomputed affinity; degree normalization; connected-component count |
 | density | `kernel_density` | Exact Euclidean log densities with Gaussian/tophat/Epanechnikov/exponential/linear kernels; sample weights; fixed/Scott/Silverman bandwidth; Gaussian/tophat sampling |
 | outlier | `local_outlier_factor` | Training outlier scores and novelty detection, automatic/percentile threshold, Minkowski and other supported pairwise metrics |
@@ -238,7 +238,7 @@ distances; cosine similarity; linear, RBF, polynomial and sigmoid kernels.
 Not translated: sparse data paths, general estimator base/clone/parameter search
 framework, pipelines/column transformers, broader SVM/GLM/SGD options,
 histogram boosting, broader AdaBoost and bagging APIs,
-t-SNE and Hessian/modified LLE,
+Barnes-Hut t-SNE and Hessian/modified LLE,
 outlier detection beyond LOF/OneClassSVM/SGDOneClassSVM/IsolationForest/EllipticEnvelope,
 calibration, semi-supervised learning beyond label propagation/spreading,
 multiclass/multioutput wrappers,
@@ -3218,3 +3218,66 @@ Inventory: 174 public core types, 81 source modules, 83 native test programs,
 stream groups. Isolated invalid-input inventory is 1,694. Existing numerical
 splitter implementations are unchanged; the original integration comparison
 and group-splitter reference suite are rerun to check the index_split move.
+
+## Dense exact t-SNE and trustworthiness batch
+
+Added tsne and trustworthiness to sklearn_manifold and the sklearn facade,
+with sklearn_tsne and internal sklearn_tsne_core implementations. Dense exact
+t-SNE supports PCA, random and explicit float64 initialization; the local
+NumPy-compatible Gaussian stream; randomized-SVD loading sign conventions;
+source float32 probability search and single/mixed/double optimizer paths;
+Student degrees of freedom above three embedding dimensions; adaptive gains;
+two exaggeration/momentum phases; 50-step gradient/progress checkpoints;
+automatic/explicit learning rates and fitted embedding, KL, iteration,
+feature count and resolved rate attributes. The largest-finite-KL/iteration
+convention for a full max_iter=250 run is preserved. Stable scaled gradient
+norms prevent underflow-based premature stopping. Source precomputed squaring
+is reproduced on a copy, preserving caller input. Trustworthiness computes
+neighborhood rank penalties with native stable index tie choices.
+
+This is the exact dense algorithm, not Barnes-Hut. Quadratic memory/pair work,
+no out-of-sample transform, nonnegative default-integer seeds, float32 working
+ranges, native metric support and tie differences are explicit in API.md.
+No new dependency or public extension is added. Internal diagnostic helpers
+and trace outputs are not exported by the sklearn facade.
+
+The new reference suite checks 1,620 result groups over 95 fixtures and five
+seeds (0,7,42,2026,314159). It covers 1/2/4 dimensions, sample counts 7--31,
+Euclidean/Manhattan/cosine/precomputed input, explicit/random/PCA starts,
+normal and exaggerated probabilities, fixed/automatic rates, float32 and
+float64 gradients/short trajectories, full two-phase fits, checkpoint stops,
+max_iter=250 and unchanged inputs. Affinities, source objective/gradient at
+initial/final native positions, short optimizer steps, stable full trajectories
+and unique-neighborhood trustworthiness are compared directly to sklearn.
+All explicit-initialization paths additionally replay the public fit exactly
+and verify each native step against the source objective/gradient and NumPy
+update formulas, including gains, stopping and the pre-update reported KL.
+Small reduction errors can change near-zero gain signs or amplify over a
+nonconvex trajectory; such fields require recorded step certificates rather
+than broader coordinate tolerances. Tied embedded-neighborhood differences
+require the independent native stable-rank identity and valid rank bounds
+for both source and native scores, with unique original-space ranks.
+
+The initial checked prototype recorded 1,306 direct sklearn groups,
+195 replay-identity groups, 95 input-identity groups, 15 sklearn/stable-tie
+certificates and nine sklearn/trajectory certificates. Its 65 trajectories
+contained 18,300 source-checked steps and 73 cancellation-bounded gain choices;
+maximum scaled-gradient/update/position/objective differences were about
+1.1e-15/5.1e-16/1.8e-15/3.6e-14. Final checked/release reports retain their own
+profile-specific oracle/cancellation counts. No broad geometric alignment or
+relaxed final-coordinate assertion substitutes for step-level verification.
+
+Native tests independently check uniform joint probabilities, zero objective
+and gradient at uniform collapse, finite-difference gradients, fixed points,
+very-small-gradient stopping without norm underflow, deterministic refits,
+input preservation, both float32 initialization paths, source max_iter=250
+and checkpoint behavior, analytic trustworthiness and collapsed ties.
+Forty-six new diagnostic cases cover invalid controls, seeds, initialization,
+metric shape/negativity, probability/objective domains and working ranges.
+The nonlinear_embedding example demonstrates PCA-initialized exact t-SNE and
+trustworthiness. Upstream source hashes, research attribution and retained BSD
+notices are recorded in THIRD_PARTY_NOTICES.md; original work remains MIT.
+Inventory: 175 public core types, 83 source modules, 84 native test programs,
+63 reference suites and 127,422 result groups, plus 28 separate NumPy RNG
+stream groups. Isolated invalid-input inventory is 1,740. Existing numerical
+implementations are unchanged; manifold re-exports the new implementation.

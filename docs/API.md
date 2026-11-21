@@ -2198,3 +2198,94 @@ materialization cap is imposed.
 See `example/resampling.f90` and `validation/compare_resampling.py` for usage
 and exact source comparisons. These are core sklearn algorithms, with no new
 public extensions or dependencies.
+
+## Dense exact t-SNE and trustworthiness
+
+`tsne` and `trustworthiness` are exported by `sklearn_manifold`, the `sklearn`
+facade and their implementation module `sklearn_tsne`. `sklearn_tsne_core` is an
+internal backend for the source's private affinity/objective/optimizer helpers;
+its diagnostic trace interface is not part of the facade API.
+
+```fortran
+type(tsne) :: embedding_model
+real(dp), allocatable :: embedding(:,:)
+embedding_model%perplexity=8
+embedding_model%max_iter=400
+embedding_model%random_state=42
+embedding=embedding_model%fit_transform(x)
+! Or: call embedding_model%fit(x, init=initial_embedding)
+print *, embedding_model%kl_divergence_, trustworthiness(x,embedding,4)
+```
+
+Parameters: `n_components=2`, `perplexity=30`, `early_exaggeration=12`,
+`learning_rate=-1` (source `auto`), `max_iter=1000`,
+`n_iter_without_progress=300`, `min_grad_norm=1.e-7`, `random_state=0`,
+`init='pca'`, `metric='euclidean'`, `p=2` and `method='exact'`.
+This port implements the dense exact solver. Python defaults to `barnes_hut`;
+that method is rejected here. Exact t-SNE uses quadratic memory and quadratic
+pair interactions per iteration. It supports dimensions above three, with
+source degrees of freedom `max(n_components-1,1)` and source objective/gradient
+formulas. At least two samples, positive dimension and
+`0 < perplexity < n_samples` are required. Iterations must be at least 250,
+patience positive, exaggeration at least one, and gradient threshold
+nonnegative. Numeric controls must be finite; explicit learning rates must
+be positive. Perplexities rounding to zero in float32, distances outside the
+float32 working range, oversized native workspaces, zero Student normalization
+and initial coordinates beyond the objective working range have diagnostics.
+
+Both methods accept an optional real64 `init(:,:)` with exactly
+`(n_samples,n_components)` entries. Supplying it overrides the initialization
+string and follows the float64 optimization path. Otherwise `init='random'`
+uses a local scalar-seeded NumPy-compatible Gaussian stream and `init='pca'`
+uses the existing randomized SVD, source loading-based sign choice and PC1
+population-standard-deviation scaling to 1.e-4. PCA requires a feature matrix,
+a supported component count and nonzero PC1 scale. Random/PCA initialization
+and embedding/gradient/gain state follow source float32 rounding, while public
+arrays remain real64 storage. Automatic learning rates also preserve NumPy's
+mixed float32/float64 update behavior. Seed range is the nonnegative Fortran
+default-integer range; Python None/object RNG inputs are not implemented.
+
+Metrics use the package's dense pairwise distances, including Euclidean,
+Manhattan/cityblock, cosine, Chebyshev, Minkowski and squared Euclidean.
+`p` configures the native Minkowski exponent. Every non-Euclidean metric
+result is squared before constructing affinities, as in sklearn; selecting
+`sqeuclidean` therefore gives fourth-power Euclidean distances. `metric='precomputed'` accepts
+a square finite nonnegative distance matrix; it is squared internally,
+matching the source's non-Euclidean path. Inputs and explicit initial arrays
+are preserved, including precomputed input, which Python 1.6.1 can square in
+place. Euclidean feature distances are computed directly as squared
+differences; roundoff can differ from Python's Gram calculation.
+Sparse matrices, callable metrics, general metric-parameter dictionaries,
+parallel backends and Barnes-Hut/neighbor-graph approximation are unsupported.
+There is no out-of-sample transform, inverse transform or prediction method.
+
+Fitted attributes: `embedding_`, `kl_divergence_`, `learning_rate_`,
+`n_iter_`, `n_features_in_`. Auto rate is
+`max(n_samples/early_exaggeration/4,50)`. Fitting performs 250 early-exaggeration
+steps with momentum .5, followed by normal probabilities with momentum .8;
+gains and updates restart at the phase boundary. Stopping is checked every
+50 steps using gain-scaled gradient norm and progress, retaining source
+zero-based `n_iter_`. Early gradient stopping still enters the second phase.
+The reported KL is evaluated before the final update, as in sklearn. With
+`max_iter=250` and a full first phase, the source's empty second-phase call
+reports the largest finite real64 KL value and `n_iter_=250`; this observable
+convention is preserved. Select a longer run for a post-exaggeration KL.
+
+Nonconvex trajectories and discrete gain decisions can amplify last-bit
+reduction differences. Coordinate-by-coordinate parity is not guaranteed.
+The validator compares affinities, objectives, gradients and short steps
+directly, then certifies every step of explicit-initialization trajectories
+against the source objective and NumPy update formulas. Recorded cancellation
+bounds identify near-zero gain-sign ambiguities; replay identity links those
+trajectories to the public fitted embedding, stopping and reported KL.
+
+`trustworthiness(x,x_embedded,n_neighbors,metric,p)` returns the source rank
+penalty with default five neighbors and Euclidean original-space distances.
+It requires equal sample counts and `1 <= n_neighbors < n_samples/2`.
+Embedded distances are Euclidean; original input can be features or a square
+nonnegative precomputed distance matrix. Original/embedded distance ties use
+increasing sample index, consistent with the native neighbor routines.
+NumPy sorting and sklearn neighbor backends can resolve ties differently.
+The reference suite records both source and native results for tied embedding
+neighborhoods, checks the native stable-rank identity and certifies valid rank
+bounds where original-space ranks are unique. See `example/nonlinear_embedding.f90`.

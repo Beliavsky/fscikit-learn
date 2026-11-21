@@ -1,6 +1,7 @@
 ! Isomap with a dense neighbor graph and Floyd-Warshall shortest paths.
 module sklearn_manifold
   use sklearn_common
+  use sklearn_tsne, only: tsne,trustworthiness
   use sklearn_metrics, only: pairwise_distances
   use sklearn_kernel_pca, only: kernel_pca
   use sklearn_spectral, only: spectral_embedding
@@ -8,7 +9,7 @@ module sklearn_manifold
   use sklearn_locally_linear, only: locally_linear_embedding
   implicit none
   private
-  public :: isomap,spectral_embedding,mds,locally_linear_embedding
+  public :: isomap,spectral_embedding,mds,locally_linear_embedding,tsne,trustworthiness
   type :: isomap
     integer :: n_neighbors=5,n_components=2,n_connected_components_=0
     character(16) :: metric='minkowski'

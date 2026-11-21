@@ -1,11 +1,15 @@
 ! Validation helper: each selected case must terminate with an input diagnostic.
 program invalid_input_driver
   use sklearn
-  use, intrinsic :: iso_fortran_env, only: int64
+  use sklearn_tsne_core, only: tsne_joint_probabilities,tsne_exact_objective
+  use, intrinsic :: iso_fortran_env, only: int64,real32
   use sklearn_count_sketch_fft, only: count_sketch_fft_plan
   use sklearn_legacy_rng, only: legacy_random_state
   use, intrinsic :: ieee_arithmetic, only: ieee_value,ieee_quiet_nan,ieee_positive_inf
   implicit none
+  type(tsne) :: sne
+  real(dp) :: sne_d(4,4)=1,sne_position(4,2)=.01_dp,sne_error
+  real(dp), allocatable :: sne_p(:),sne_g(:,:)
   type(shuffle_split) :: rss
   type(stratified_shuffle_split) :: rst
   type(group_shuffle_split) :: rsg
@@ -209,6 +213,7 @@ program invalid_input_driver
   integer, allocatable :: optics_clusters(:,:)
   integer, allocatable :: labels(:)
   character(32) :: mode
+  sne%perplexity=2; sne%init="random"; sne%max_iter=250
   mt_y=1
   sp_projection%max_iter=3; sp_dictionary%max_iter=3
   angle_cv%cv=2; angle_sparse_cv%cv=2
@@ -249,6 +254,101 @@ program invalid_input_driver
   mi_x(:,2)=[0._dp,0._dp,1._dp,1._dp,2._dp,2._dp]; mi_x(:,3)=1
   mi_y=mi_x(:,1); mi_labels=[-1,-1,-1,2,2,2]
   select case(trim(mode))
+  case('tsne_objective_position')
+    sne_position=huge(1._dp)/2; call tsne_exact_objective(sne_position, &
+      spread(.1_dp,1,6),1,sne_error,sne_g)
+  case('tsne_student_zero')
+    sne_position(:,1)=[1._dp,2._dp,3._dp,4._dp]*1.e150_dp
+    call tsne_exact_objective(sne_position,spread(.1_dp,1,6),3,sne_error,sne_g)
+  case('tsne_samples')
+    call sne%fit(x(:1,:))
+  case('tsne_components')
+    sne%n_components=0; call sne%fit(x)
+  case('tsne_method')
+    sne%method="barnes_hut"; call sne%fit(x)
+  case('tsne_iterations')
+    sne%max_iter=249; call sne%fit(x)
+  case('tsne_patience')
+    sne%n_iter_without_progress=0; call sne%fit(x)
+  case('tsne_perplexity_negative')
+    sne%perplexity=-1; call sne%fit(x)
+  case('tsne_perplexity_zero')
+    sne%perplexity=0; call sne%fit(x)
+  case('tsne_perplexity_large')
+    sne%perplexity=4; call sne%fit(x)
+  case('tsne_perplexity_tiny')
+    sne%perplexity=tiny(1._dp); call sne%fit(x)
+  case('tsne_perplexity_nan')
+    sne%perplexity=ieee_value(0._dp,ieee_quiet_nan); call sne%fit(x)
+  case('tsne_early_nan')
+    sne%early_exaggeration=ieee_value(0._dp,ieee_quiet_nan); call sne%fit(x)
+  case('tsne_rate_nan')
+    sne%learning_rate=ieee_value(0._dp,ieee_quiet_nan); call sne%fit(x)
+  case('tsne_norm_nan')
+    sne%min_grad_norm=ieee_value(0._dp,ieee_quiet_nan); call sne%fit(x)
+  case('tsne_perplexity_inf')
+    sne%perplexity=ieee_value(0._dp,ieee_positive_inf); call sne%fit(x)
+  case('tsne_early_inf')
+    sne%early_exaggeration=ieee_value(0._dp,ieee_positive_inf); call sne%fit(x)
+  case('tsne_rate_inf')
+    sne%learning_rate=ieee_value(0._dp,ieee_positive_inf); call sne%fit(x)
+  case('tsne_norm_inf')
+    sne%min_grad_norm=ieee_value(0._dp,ieee_positive_inf); call sne%fit(x)
+  case('tsne_early_small')
+    sne%early_exaggeration=.5_dp; call sne%fit(x)
+  case('tsne_rate_zero')
+    sne%learning_rate=0; call sne%fit(x)
+  case('tsne_rate_negative')
+    sne%learning_rate=-2; call sne%fit(x)
+  case('tsne_norm_negative')
+    sne%min_grad_norm=-1; call sne%fit(x)
+  case('tsne_seed')
+    sne%random_state=-1; call sne%fit(x)
+  case('tsne_initialization')
+    sne%init="unknown"; call sne%fit(x)
+  case('tsne_pca_dimensions')
+    sne%init="pca"; sne%n_components=3; call sne%fit(x)
+  case('tsne_pca_zero')
+    sne%init="pca"; call sne%fit(x)
+  case('tsne_precomputed_shape')
+    sne%metric="precomputed"; call sne%fit(x)
+  case('tsne_precomputed_negative')
+    sne%metric="precomputed"; sne_d(1,2)=-1; call sne%fit(sne_d)
+  case('tsne_precomputed_pca')
+    sne%metric="precomputed"; sne%init="pca"; call sne%fit(sne_d)
+  case('tsne_init_shape')
+    call sne%fit(x,sne_position(:3,:))
+  case('tsne_init_nan')
+    sne_position(1,1)=ieee_value(0._dp,ieee_quiet_nan); call sne%fit(x,sne_position)
+  case('tsne_init_range')
+    sne_position=huge(1._dp)/2; call sne%fit(x,sne_position)
+  case('tsne_distances_range')
+    sne_d=sqrt(real(huge(1._real32),dp))*2; sne%metric="precomputed"; call sne%fit(sne_d)
+  case('tsne_joint_shape')
+    call tsne_joint_probabilities(sne_d(:,:3),2._dp,sne_p)
+  case('tsne_joint_negative')
+    sne_d(1,1)=-1; call tsne_joint_probabilities(sne_d,2._dp,sne_p)
+  case('tsne_joint_range')
+    sne_d=real(huge(1._real32),dp)*2; call tsne_joint_probabilities(sne_d,2._dp,sne_p)
+  case('tsne_objective_count')
+    call tsne_exact_objective(sne_position,[.5_dp],1,sne_error,sne_g)
+  case('tsne_objective_degrees')
+    call tsne_exact_objective(sne_position,spread(.1_dp,1,6),0,sne_error,sne_g)
+  case('tsne_objective_negative')
+    call tsne_exact_objective(sne_position,spread(-.1_dp,1,6),1,sne_error,sne_g)
+  case('tsne_objective_nan')
+    call tsne_exact_objective(sne_position, &
+      spread(ieee_value(0._dp,ieee_quiet_nan),1,6),1,sne_error,sne_g)
+  case('trust_samples')
+    sne_error=trustworthiness(x,x(:3,:),1)
+  case('trust_zero')
+    sne_error=trustworthiness(x,x,0)
+  case('trust_large')
+    sne_error=trustworthiness(x,x,2)
+  case('trust_shape')
+    sne_error=trustworthiness(x,x,1,"precomputed")
+  case('trust_negative')
+    sne_d(1,2)=-1; sne_error=trustworthiness(sne_d,x,1,"precomputed")
   case('rs_splits_zero')
     rss%n_splits=0; folds=rss%split(10)
   case('rs_seed_negative')

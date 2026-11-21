@@ -2813,3 +2813,84 @@ Fortran formatting, unique/complete diagnostic registration, exact oracle and
 inventory totals, upstream source hashes, retained licenses and git diff
 checks. Other reference suites retain previously recorded results in the
 aggregate inventory and were not all rerun for this batch.
+
+## Dense exact t-SNE and trustworthiness batch
+
+Added tsne and trustworthiness to sklearn_manifold and the sklearn facade,
+with sklearn_tsne and internal sklearn_tsne_core implementations. Dense exact
+t-SNE supports PCA, random and explicit float64 initialization; the local
+NumPy-compatible Gaussian stream; randomized-SVD loading sign conventions;
+source float32 probability search and single/mixed/double optimizer paths;
+Student degrees of freedom above three embedding dimensions; adaptive gains;
+two exaggeration/momentum phases; 50-step gradient/progress checkpoints;
+automatic/explicit learning rates and fitted embedding, KL, iteration,
+feature count and resolved rate attributes. The largest-finite-KL/iteration
+convention for a full max_iter=250 run is preserved. Stable scaled gradient
+norms prevent underflow-based premature stopping. Source precomputed squaring
+is reproduced on a copy, preserving caller input. Trustworthiness computes
+neighborhood rank penalties with native stable index tie choices.
+
+This is the exact dense algorithm, not Barnes-Hut. Quadratic memory/pair work,
+no out-of-sample transform, nonnegative default-integer seeds, float32 working
+ranges, native metric support and tie differences are explicit in API.md.
+No new dependency or public extension is added. Internal diagnostic helpers
+and trace outputs are not exported by the sklearn facade.
+
+The new reference suite checks 1,620 result groups over 95 fixtures and five
+seeds (0,7,42,2026,314159). It covers 1/2/4 dimensions, sample counts 7--31,
+Euclidean/Manhattan/cosine/precomputed input, explicit/random/PCA starts,
+normal and exaggerated probabilities, fixed/automatic rates, float32 and
+float64 gradients/short trajectories, full two-phase fits, checkpoint stops,
+max_iter=250 and unchanged inputs. Affinities, source objective/gradient at
+initial/final native positions, short optimizer steps, stable full trajectories
+and unique-neighborhood trustworthiness are compared directly to sklearn.
+All explicit-initialization paths additionally replay the public fit exactly
+and verify each native step against the source objective/gradient and NumPy
+update formulas, including gains, stopping and the pre-update reported KL.
+Small reduction errors can change near-zero gain signs or amplify over a
+nonconvex trajectory; such fields require recorded step certificates rather
+than broader coordinate tolerances. Tied embedded-neighborhood differences
+require the independent native stable-rank identity and valid rank bounds
+for both source and native scores, with unique original-space ranks.
+
+The initial checked prototype recorded 1,306 direct sklearn groups,
+195 replay-identity groups, 95 input-identity groups, 15 sklearn/stable-tie
+certificates and nine sklearn/trajectory certificates. Its 65 trajectories
+contained 18,300 source-checked steps and 73 cancellation-bounded gain choices;
+maximum scaled-gradient/update/position/objective differences were about
+1.1e-15/5.1e-16/1.8e-15/3.6e-14. Final checked/release reports retain their own
+profile-specific oracle/cancellation counts. No broad geometric alignment or
+relaxed final-coordinate assertion substitutes for step-level verification.
+
+Native tests independently check uniform joint probabilities, zero objective
+and gradient at uniform collapse, finite-difference gradients, fixed points,
+very-small-gradient stopping without norm underflow, deterministic refits,
+input preservation, both float32 initialization paths, source max_iter=250
+and checkpoint behavior, analytic trustworthiness and collapsed ties.
+Forty-six new diagnostic cases cover invalid controls, seeds, initialization,
+metric shape/negativity, probability/objective domains and working ranges.
+The nonlinear_embedding example demonstrates PCA-initialized exact t-SNE and
+trustworthiness. Upstream source hashes, research attribution and retained BSD
+notices are recorded in THIRD_PARTY_NOTICES.md; original work remains MIT.
+Inventory: 175 public core types, 83 source modules, 84 native test programs,
+63 reference suites and 127,422 result groups, plus 28 separate NumPy RNG
+stream groups. Isolated invalid-input inventory is 1,740. Existing numerical
+implementations are unchanged; manifold re-exports the new implementation.
+
+Completed validation: all 84 native test programs passed checked
+(-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow) and release builds.
+Both profiles passed all 1,620 result groups: 1,306 direct sklearn comparisons,
+195 replay identities, 95 input identities, 15 stable-tie certificates and
+nine trajectory-certified source comparisons. Each profile verified 18,300
+steps across 65 explicit-initialization paths, with 73 recorded near-zero
+cancellation gain choices. The original 192-group integration comparison and
+all 1,740 isolated invalid-input cases passed. The checked nonlinear_embedding
+example returned a 48-by-2 embedding, learning rate 50, KL
+0.13799521601073550, zero-based iteration 399 and four-neighbor
+trustworthiness 0.98820281124497988. Final audits passed Python syntax,
+Fortran line lengths/whitespace, unique and complete diagnostic registration,
+source/certificate oracle accounting, inventory totals, upstream source
+hashes, retained licenses and git diff checks. Numerical sources did not
+change after checked/release testing. Other reference suites retain their
+previously recorded results in the aggregate inventory and were not all
+rerun for this batch.

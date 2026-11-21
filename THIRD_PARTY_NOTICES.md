@@ -21,6 +21,7 @@ Reference paths by module:
 
 | Fortran module | scikit-learn reference |
 | --- | --- |
+| tsne / tsne_core | manifold/_t_sne.py exact TSNE and trustworthiness; manifold/_utils.pyx perplexity search; existing legacy RNG, randomized SVD and NumPy pairwise reduction backends |
 | resampling | model_selection/_split.py random/group/stratified holdouts, repeated folds and exhaustive combinations; utils/extmath.py _approximate_mode quotas and random tie breaking; existing NumPy legacy RNG backend |
 | cluster_information | metrics/cluster/_supervised.py normalized/adjusted MI averages and signed epsilon denominator, Fowlkes-Mallows, contingency smoothing/order, ordered pair orientation, entropy and homogeneity/completeness/weighted V-measure conventions; _expected_mutual_info_fast.pyx hypergeometric expected MI with log factorials. Native heap-sorted observed cells, int64 counts, cached intrinsic log-gamma and explicit validation; existing H/C/V metric wrappers delegate to this backend |
 | mutual_info | feature_selection/_mutual_info.py Kraskov continuous/continuous and Ross continuous/discrete nearest-neighbor MI, singleton removal, adaptive class-wise neighbor counts, scaling and seeded Gaussian jitter; neighbors/_base.py auto backend rule and metrics/_pairwise_distances_reduction/_argkmin.pyx.tp ordered Euclidean Gram terms; _univariate_selection.py r_regression moment and IEEE contracts; metrics/cluster/_supervised.py mutual_info_score contingency/log/epsilon rules. Native pair selection and integer harmonic digamma differences; source-compatible scalar-seeded legacy Gaussian stream |
@@ -206,7 +207,8 @@ The mutual-information implementation also adapts NumPy 2.2.6's real
 pairwise summation order from
 [`numpy/_core/src/umath/loops_utils.h.src`](https://github.com/numpy/numpy/blob/v2.2.6/numpy/_core/src/umath/loops_utils.h.src)
 in the private `numpy_sum` helper of `src/sklearn_mutual_info.f90` and
-`pairwise_sum` in `src/sklearn_cluster_information.f90`. The native
+`pairwise_sum` in `src/sklearn_cluster_information.f90` and `pair_sum` in
+`src/sklearn_tsne_core.f90`. The native
 adaptation uses real64 array sections, eight partial accumulators, a 128-value
 block cutoff and aligned recursive splits, with no compiled NumPy dependency.
 The complete NumPy BSD license/copyright is retained in `LICENSES/numpy-COPYING`.
@@ -269,3 +271,33 @@ checked int64 binomial recurrence; no itertools code was copied. The shared
 it and the new types. No upstream binary or new dependency is distributed.
 Original contributions retain MIT; adapted portions retain the full upstream
 BSD-3-Clause terms in `LICENSES/scikit-learn-COPYING`.
+
+## Dense exact t-SNE and trustworthiness (BSD)
+
+`src/sklearn_tsne.f90` and `src/sklearn_tsne_core.f90` adapt scikit-learn 1.6.1
+`manifold/_t_sne.py`: TSNE exact-distance handling, PCA/random initialization,
+Student objective/gradient, adaptive gains, two momentum/exaggeration phases,
+checkpoint stopping, fitted diagnostics and trustworthiness rank penalties.
+The conditional-probability binary search follows `manifold/_utils.pyx`,
+including float32 input/perplexity conversion, 100 steps, tolerances and mass
+fallback. Source SHA-256 hashes under the installed baseline:
+
+- `_t_sne.py`: `207fd179a53a2067990c3411ac0ad49dc70df67a942bd1e91b5b4003ead9e34a`
+- `_utils.pyx`: `1bae8cb04ebc6682f2d878103e9821d8fab6399876b87c9de3ca6259700dd1bc`
+
+Research attribution: Laurens van der Maaten and Geoffrey Hinton, "Visualizing
+Data using t-SNE," Journal of Machine Learning Research 9 (2008), 2579--2605;
+Laurens van der Maaten, "Learning a Parametric Embedding by Preserving Local
+Structure," AISTATS/PMLR 5 (2009), 384--391; Jarkko Venna and Samuel Kaski,
+"Neighborhood Preservation in Nonlinear Projection Methods: An Experimental
+Study," ICANN (2001), 485--491. The translation references the BSD sklearn
+implementation; no code from other t-SNE implementations was imported.
+
+`pair_sum` follows the NumPy pairwise summation reference recorded above.
+The existing NumPy-compatible legacy RNG and randomized-SVD backend are reused
+with their retained provenance. The optional internal optimizer trace only
+records native states for independent source-step validation; normal fitting
+does not allocate traces. New original contributions remain MIT, adapted
+portions retain BSD-3-Clause and the complete existing upstream notices in
+`LICENSES/scikit-learn-COPYING` and the applicable NumPy license files.
+No new dependency or Python/SciPy runtime is required by the Fortran package.

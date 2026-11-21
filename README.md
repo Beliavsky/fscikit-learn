@@ -1,7 +1,7 @@
 # fscikit-learn
 
 A native Fortran fpm package translating a practical dense-array subset of
-scikit-learn: **174 estimator, transformer and splitter types**, metrics,
+scikit-learn: **175 estimator, transformer and splitter types**, metrics,
 kernels, text features and synthetic dataset generators. This is not a complete
 or drop-in translation. Read [coverage and limits](docs/COVERAGE.md) before use.
 OpenAI Codex generated the code.
@@ -22,8 +22,10 @@ fpm run --example label_encoding
 fpm run --example nonlinear_feature_scoring
 fpm run --example clustering_agreement
 fpm run --example resampling
+fpm run --example nonlinear_embedding
 python validation/compare_cluster_information.py
 python validation/compare_resampling.py
+python validation/compare_tsne.py
 python validation/compare_mutual_info.py
 python validation/compare_label_binarization.py
 python validation/compare_polynomial_count_sketch.py
