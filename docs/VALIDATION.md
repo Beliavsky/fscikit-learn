@@ -4428,3 +4428,52 @@ hashes, complete unfiltered reports, and fresh objects for all 111 source
 modules and 110 native programs in both profiles. Largest boosting output
 absolute error was 3.56e-15 in either profile. Fortran formatting, Python
 compilation and staged Git whitespace checks passed.
+
+
+## Image patch algorithms (2026-11-21)
+
+Added PatchExtractor, extract_patches_2d and reconstruct_from_patches_2d in
+sklearn_image and the sklearn facade. Stateless dense real64 extraction covers
+grayscale and multichannel batches, default or explicit sizes, exhaustive
+width-first ordering, integer caps and fractional counts, and NumPy-compatible
+sampling with replacement. Each transform resets the configured integer seed;
+images within a batch share the stream. Rank-specific Fortran overloads retain
+a singleton channel dimension for color inputs. Native controls and other API
+limits are documented in API.md and COVERAGE.md.
+
+Reference validation uses the installed sklearn 1.6.1 image.py directly. There
+are 784 fixtures and 3,136 groups per profile: exact shapes, exact patch values,
+repeated calls, and reconstructed images. Four seeds include 2147483647; cases
+cover one-pixel images, full-image patches, three-channel data, zero fractional
+counts, integer limits above all possible positions, auto sizes, partial/empty
+reconstruction inputs and overflow/cancellation at 1e308. Reconstruction keeps
+source's denominator even when patch dimensions exceed half the image; it is
+not replaced with an identity-preserving overlap count. Quiet IEEE primitives
+preserve source infinities/NaNs with FPE traps enabled. Reconstruction comparisons
+use 2e-14 relative/absolute tolerance; all extraction comparisons are exact.
+
+Inventory after this increment is 206 core public types, 112 source modules,
+111 native test programs and 91 reference suites retaining 386,847 core groups.
+The separate 42 NumPy RNG groups remain excluded. The new 24 isolated rejection
+cases bring seven invalid-input registries to 2,718 retained cases. No additional
+runtime dependency or public extension algorithm was introduced. Original code
+is MIT, with sklearn's BSD attribution retained in THIRD_PARTY_NOTICES.md.
+
+
+Final gates passed all 111 native programs in both the checked runtime/FPE-trap
+and optimized fpm builds. Both profiles passed all 3,136 image result groups
+across the same 784 fixtures and all 24 isolated rejections. Extraction was
+exact and maximum measured reconstruction error was zero against sklearn in
+both profiles. Expected NumPy finite-check reduction warnings on large finite
+pixels are captured in the reports. The existing 192-group sklearn integration
+gate also passed against the updated checked executable; no rerun of all
+historical reference suites is claimed.
+
+The image_patches example passes both profiles and independently matches
+sklearn: 25 patches and maximum reconstruction error 1.1102230246251565e-16 on
+its small synthetic image. Final audits verified upstream source and native
+executable hashes, strict JSON, identical checked/release fixture groups, and
+fresh objects for all 112 source modules and 111 native test programs in each
+profile. Fortran formatting, Python compilation and staged Git whitespace
+checks passed. Production code and native tests remained fixed during these
+final gates. The broader translation goal remains active.

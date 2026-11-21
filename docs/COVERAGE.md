@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 205 public estimator, transformer, and splitter types. Each is a
+There are 206 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Ninety reference suites additionally check 383,711
+All types have native tests. Ninety-one reference suites additionally check 386,847
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -51,6 +51,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | ensemble | `hist_gradient_boosting_regressor`, `hist_gradient_boosting_classifier`, `stacking_classifier`, `stacking_regressor`, `bagging_classifier`, `bagging_regressor`, `random_forest_classifier`, `random_forest_regressor`, `extra_trees_classifier`, `extra_trees_regressor`, `gradient_boosting_regressor`, `gradient_boosting_classifier`, `adaboost_classifier`, `adaboost_regressor`, `isolation_forest`, `voting_classifier`, `voting_regressor` | Histogram Newton boosting with missing-value routing and five regression losses; heterogeneous hard/soft voting and averaged regression; bootstrap forests, randomized feature subsets, random-threshold Extra Trees, squared-error residual boosting; binary/multiclass classification boosting with Newton leaf updates; weighted Gini-stump SAMME; AdaBoost.R2 with depth-controlled CART; random isolation trees and path-length anomaly scores |
 | model_selection | `kfold`, `stratified_kfold`, `time_series_split`, `group_kfold`, `leave_one_out`, `leave_one_group_out`, `predefined_split`, `shuffle_split`, `stratified_shuffle_split`, `group_shuffle_split`, `repeated_kfold`, `repeated_stratified_kfold`, `leave_p_out`, `leave_p_groups_out`, `ridge_cv`; `train_test_split`, `shuffle_indices`, `cross_val_score` | Index-based splits; seeded random/group/stratified holdouts; repeated shuffled folds; exhaustive sample/group combinations; fraction/count size controls; optional stratification; time gap/window; CV for linear-regression family and logistic regression; ridge CV selects negative mean squared error |
 | feature_selection | `variance_threshold`, `select_k_best`, `select_percentile`, `select_fpr`, `select_fdr`, `select_fwe`, `generic_univariate_select`, `sequential_feature_selector`, `rfe`, `rfecv`; `f_classif`, `f_regression`, `chi2`, `r_regression`, `mutual_info_classif`, `mutual_info_regression` | Dense scores and masks; greedy forward/backward CV regression selection; coefficient-based recursive elimination and CV for regression/logistic classification; inverse transform fills dropped columns with zero; new statistical selectors include p-values and multiplicity control |
+| image | `patch_extractor`; `extract_patches_2d`, `reconstruct_from_patches_2d` | Exhaustive or seeded with-replacement image patches; grayscale and multichannel batches; source overlap averaging |
 | feature_extraction_text | `count_vectorizer`, `tfidf_transformer`, `tfidf_vectorizer` | Dense unigram counts; ASCII alphanumeric/underscore tokens of length 2-128; sorted vocabulary; min/max document frequency, binary counts and max features; smoothed/unsmoothed IDF, sublinear TF, l1/l2/no normalization |
 | dummy | `dummy_classifier`, `dummy_regressor` | Prior/most-frequent/stratified/uniform/constant classification; mean/median/quantile/constant regression |
 | kernel_ridge | `kernel_ridge` | Positive alpha; linear/RBF/polynomial/sigmoid kernels; no intercept |
@@ -248,12 +249,12 @@ distances; cosine similarity; linear, RBF, polynomial and sigmoid kernels.
 
 Not translated: sparse data paths, general estimator base/clone/parameter search
 framework, pipelines/column transformers, broader SVM/GLM/SGD options,
-histogram boosting, broader AdaBoost and bagging APIs,
+broader histogram boosting, AdaBoost and bagging APIs,
 Barnes-Hut t-SNE,
 outlier detection beyond LOF/OneClassSVM/SGDOneClassSVM/IsolationForest/EllipticEnvelope,
 calibration with further base estimators and general metadata routing,
 additional multiclass base estimators and sparse reductions,
-additional inspection utilities, further feature-selection wrappers, image features,
+additional inspection utilities, further feature-selection wrappers, image graph features,
 real dataset loaders and the full plotting/display API.
 
 SciFort is available at `../scifort` but not linked by this initial package.
@@ -4652,3 +4653,54 @@ source softplus cutoffs and stable negative tails, including zero-tolerance
 stopping on a one-class, heavily weighted fixture. Existing composite estimator
 dispatch (including voting, bagging, stacking and threshold wrappers) does not
 yet accept these two estimator types.
+
+
+## Image patch extraction and reconstruction
+
+`sklearn_image` and the `sklearn` facade provide `patch_extractor`,
+`extract_patches_2d` and `reconstruct_from_patches_2d`, corresponding to sklearn's
+image feature extraction algorithms. Inputs and outputs use real64 arrays.
+Axes follow Python: (height,width[,channels]) for one image,
+(images,height,width[,channels]) for a batch, and
+(patches,patch_height,patch_width[,channels]) for patches. The color overloads
+retain their channel axis even when its length is one; the grayscale overloads
+return arrays without that axis. This is a static-rank Fortran API distinction
+from Python's automatic singleton-channel squeeze.
+
+Set `patch_extractor%patch_size=[height,width]`; its default [0,0] selects
+[image_height/10,image_width/10] with integer division. Images smaller than ten
+in either direction require an explicit positive size. Set `max_patches` to a
+positive integer count, or `patch_fraction` to a real value strictly between
+zero and one. Both default to zero, meaning all patches, and cannot both be
+nonzero. A fraction is truncated toward zero and may produce an empty patch
+array. Integer limits are capped at the total number of spatial positions.
+Whenever a limit or fraction is specified, sampling is with replacement,
+even when that count equals all possible positions. Rows are drawn first,
+then columns, with the legacy NumPy RandomState stream. `random_state=0` is the
+native deterministic default. Each transform resets this integer seed and
+shares the stream across images in batch order. Mutable external RandomState
+objects and a process-global random stream are not exposed.
+
+`fit(x)` only validates controls and stores no fitted data. `transform(x)` and
+`fit_transform(x)` accept grayscale rank-three or color rank-four batches;
+transform does not require fit. All image dimensions must be nonempty and
+extraction inputs finite. Exhaustive enumeration advances width first, then
+height, then image. Outputs own their storage and do not modify inputs.
+Standalone `extract_patches_2d(image,patch_size,...)` takes a rank-two or
+rank-three image and the same optional max_patches, patch_fraction and
+random_state controls; it requires an explicit positive patch size.
+
+`reconstruct_from_patches_2d(patches,image_size)` returns a rank-two or rank-three
+image. It places patches width first, then height and sums their overlapping
+entries. Extra patches are ignored; missing patches leave zero contributions.
+The source denominator is retained exactly: at pixel (i,j), using 1-based
+indices, divide by min(i,patch_height,height-i+1) times
+min(j,patch_width,width-j+1). In particular, this denominator is independent of
+how many patches were supplied and can exceed the actual overlap count when
+patches span more than half an image. Such outputs intentionally follow sklearn
+and need not reconstruct the original image. Reconstruction accepts IEEE
+NaN/Inf patch values and quietly propagates arithmetic overflow, preserving
+source behavior even with runtime floating-point traps enabled. Image and patch
+dimensions must be positive, patches must fit, and channel counts must agree.
+Image graph builders, sparse pixel graphs and arbitrary-dimensional patch
+extraction are not provided by this increment.

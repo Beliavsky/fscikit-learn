@@ -653,3 +653,15 @@ training-loss stopping follow those contracts. Mergesort and histogram storage
 are native Fortran implementations. The existing NumPy-derived legacy RNG
 notices also cover its full uint32 seeding helper; no new runtime or external
 implementation is linked or distributed. Original contributions retain MIT.
+
+
+### Image patch extraction and reconstruction
+
+`src/sklearn_image.f90` adapts the enumeration, with-replacement sampling,
+overlap accumulation and reconstruction denominator in scikit-learn 1.6.1
+`feature_extraction/image.py` (`PatchExtractor`, `extract_patches_2d`,
+`reconstruct_from_patches_2d`, `_compute_n_patches`). Copyright The scikit-learn
+developers; BSD-3-Clause terms are retained in `LICENSES/scikit-learn-COPYING`.
+The existing NumPy-derived RandomState helper supplies sampling. Original
+Fortran storage, overloads and quiet IEEE arithmetic retain the project MIT
+license. No new external implementation or runtime dependency is linked.

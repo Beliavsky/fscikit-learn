@@ -3979,3 +3979,54 @@ source softplus cutoffs and stable negative tails, including zero-tolerance
 stopping on a one-class, heavily weighted fixture. Existing composite estimator
 dispatch (including voting, bagging, stacking and threshold wrappers) does not
 yet accept these two estimator types.
+
+
+## Image patch extraction and reconstruction
+
+`sklearn_image` and the `sklearn` facade provide `patch_extractor`,
+`extract_patches_2d` and `reconstruct_from_patches_2d`, corresponding to sklearn's
+image feature extraction algorithms. Inputs and outputs use real64 arrays.
+Axes follow Python: (height,width[,channels]) for one image,
+(images,height,width[,channels]) for a batch, and
+(patches,patch_height,patch_width[,channels]) for patches. The color overloads
+retain their channel axis even when its length is one; the grayscale overloads
+return arrays without that axis. This is a static-rank Fortran API distinction
+from Python's automatic singleton-channel squeeze.
+
+Set `patch_extractor%patch_size=[height,width]`; its default [0,0] selects
+[image_height/10,image_width/10] with integer division. Images smaller than ten
+in either direction require an explicit positive size. Set `max_patches` to a
+positive integer count, or `patch_fraction` to a real value strictly between
+zero and one. Both default to zero, meaning all patches, and cannot both be
+nonzero. A fraction is truncated toward zero and may produce an empty patch
+array. Integer limits are capped at the total number of spatial positions.
+Whenever a limit or fraction is specified, sampling is with replacement,
+even when that count equals all possible positions. Rows are drawn first,
+then columns, with the legacy NumPy RandomState stream. `random_state=0` is the
+native deterministic default. Each transform resets this integer seed and
+shares the stream across images in batch order. Mutable external RandomState
+objects and a process-global random stream are not exposed.
+
+`fit(x)` only validates controls and stores no fitted data. `transform(x)` and
+`fit_transform(x)` accept grayscale rank-three or color rank-four batches;
+transform does not require fit. All image dimensions must be nonempty and
+extraction inputs finite. Exhaustive enumeration advances width first, then
+height, then image. Outputs own their storage and do not modify inputs.
+Standalone `extract_patches_2d(image,patch_size,...)` takes a rank-two or
+rank-three image and the same optional max_patches, patch_fraction and
+random_state controls; it requires an explicit positive patch size.
+
+`reconstruct_from_patches_2d(patches,image_size)` returns a rank-two or rank-three
+image. It places patches width first, then height and sums their overlapping
+entries. Extra patches are ignored; missing patches leave zero contributions.
+The source denominator is retained exactly: at pixel (i,j), using 1-based
+indices, divide by min(i,patch_height,height-i+1) times
+min(j,patch_width,width-j+1). In particular, this denominator is independent of
+how many patches were supplied and can exceed the actual overlap count when
+patches span more than half an image. Such outputs intentionally follow sklearn
+and need not reconstruct the original image. Reconstruction accepts IEEE
+NaN/Inf patch values and quietly propagates arithmetic overflow, preserving
+source behavior even with runtime floating-point traps enabled. Image and patch
+dimensions must be positive, patches must fit, and channel counts must agree.
+Image graph builders, sparse pixel graphs and arbitrary-dimensional patch
+extraction are not provided by this increment.
