@@ -8,6 +8,9 @@ program invalid_input_driver
   use sklearn_legacy_rng, only: legacy_random_state
   use, intrinsic :: ieee_arithmetic, only: ieee_value,ieee_quiet_nan,ieee_positive_inf
   implicit none
+  type(target_encoder) :: te_case
+  real(dp) :: te_x(4,1)=reshape([0._dp,0._dp,1._dp,1._dp],[4,1]),te_y(4)=[0._dp,1._dp,0._dp,1._dp]
+  real(dp), allocatable :: te_z(:,:)
   type(stacking_classifier) :: st_c
   type(stacking_regressor) :: st_r
   type(stacking_estimator) :: st_bases(2)
@@ -338,6 +341,67 @@ program invalid_input_driver
   mi_x(:,2)=[0._dp,0._dp,1._dp,1._dp,2._dp,2._dp]; mi_x(:,3)=1
   mi_y=mi_x(:,1); mi_labels=[-1,-1,-1,2,2,2]
   select case(trim(mode))
+  case('te_multiclass_fractional')
+    te_case%target_type='multiclass'; call te_case%fit(te_x,te_y+.2_dp)
+  case('te_unfitted')
+    te_z=te_case%transform(te_x)
+  case('te_empty_rows')
+    call te_case%fit(te_x(:0,:),te_y(:0))
+  case('te_empty_features')
+    call te_case%fit(te_x(:,:0),te_y)
+  case('te_infinity')
+    te_x(1,1)=ieee_value(0._dp,ieee_positive_inf); call te_case%fit(te_x,te_y)
+  case('te_target_length')
+    call te_case%fit(te_x,te_y(:3))
+  case('te_target_nan')
+    te_y(1)=ieee_value(0._dp,ieee_quiet_nan); call te_case%fit(te_x,te_y)
+  case('te_target_range')
+    te_y(1)=huge(1._dp); call te_case%fit(te_x,te_y)
+  case('te_target_type')
+    te_case%target_type='invalid'; call te_case%fit(te_x,te_y)
+  case('te_smooth_nan')
+    te_case%smooth=ieee_value(0._dp,ieee_quiet_nan); call te_case%fit(te_x,te_y)
+  case('te_smooth_negative')
+    te_case%smooth=-1; call te_case%fit(te_x,te_y)
+  case('te_cv_one')
+    te_case%cv=1; call te_case%fit(te_x,te_y)
+  case('te_seed_negative')
+    te_case%random_state=-1; call te_case%fit(te_x,te_y)
+  case('te_multiclass_two')
+    te_case%target_type='multiclass'; call te_case%fit(te_x,te_y)
+  case('te_category_width')
+    allocate(te_case%categories(2)); call te_case%fit(te_x,te_y)
+  case('te_category_unallocated')
+    allocate(te_case%categories(1)); call te_case%fit(te_x,te_y)
+  case('te_category_empty')
+    allocate(te_case%categories(1)); te_case%categories(1)%values=[real(dp)::]
+    call te_case%fit(te_x,te_y)
+  case('te_category_inf')
+    allocate(te_case%categories(1)); te_case%categories(1)%values=[ieee_value(0._dp,ieee_positive_inf)]
+    call te_case%fit(te_x,te_y)
+  case('te_category_duplicate')
+    allocate(te_case%categories(1)); te_case%categories(1)%values=[0._dp,0._dp]
+    call te_case%fit(te_x,te_y)
+  case('te_category_nan_order')
+    allocate(te_case%categories(1))
+    te_case%categories(1)%values=[ieee_value(0._dp,ieee_quiet_nan),0._dp]; call te_case%fit(te_x,te_y)
+  case('te_category_sort')
+    allocate(te_case%categories(1)); te_case%categories(1)%values=[1._dp,0._dp]
+    call te_case%fit(te_x,te_y)
+  case('te_query_width')
+    call te_case%fit(te_x,te_y); te_z=te_case%transform(spread(te_y,2,2))
+  case('te_query_empty')
+    call te_case%fit(te_x,te_y); te_z=te_case%transform(te_x(:0,:))
+  case('te_query_inf')
+    call te_case%fit(te_x,te_y); te_x(1,1)=ieee_value(0._dp,ieee_positive_inf)
+    te_z=te_case%transform(te_x)
+  case('te_cv_large')
+    te_case%cv=5; te_z=te_case%fit_transform(te_x,te_y)
+  case('te_cv_class_counts')
+    te_case%cv=3; te_z=te_case%fit_transform(te_x,te_y)
+  case('te_cv_fractional_class')
+    te_case%target_type='binary'; te_case%cv=2
+    te_z=te_case%fit_transform(te_x,te_y+.2_dp)
   case('stk_prefit_splits')
     call wt_clf%fit(wt_x,wt_y)
     st_bases(1)%name='tree'

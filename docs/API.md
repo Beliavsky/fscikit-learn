@@ -3348,3 +3348,70 @@ then reach the final estimator's own checks. Infinities and invalid widths are
 diagnosed. Meta designs exceeding the native numerical working range are
 rejected. Sparse data, multilabel indicators, arbitrary estimator protocols,
 metadata routing and parallel fitting remain outside this subset.
+
+
+## Target encoding
+
+`target_encoder` is exported by `sklearn_preprocessing` and `sklearn`. Dense
+real64 numeric category matrices support NaN as a learned category; infinity
+is rejected. `fit(x,y)` learns full-data encodings and `transform(x)` applies
+them, using the full target mean for unseen categories. Integer and real64
+vector targets are accepted and must be finite. String/object features, sparse inputs, multiple
+targets and feature-name generation are outside this native interface.
+
+`target_type='auto'` selects continuous regression for fractional targets
+or floating targets outside the NumPy int64 label range,
+binary for one/two integral labels, and multiclass for more integral labels.
+Explicit `'continuous'`, `'binary'` and `'multiclass'` are available. Sorted
+numeric `classes_` define the encoded class order. Binary uses one encoded
+column per input feature, including source's explicitly forced binary mode
+with more than two classes (ordinal class indices). Multiclass produces
+feature-major class columns; explicit multiclass with two classes is diagnosed
+because the source implementation fails on that configuration. One-class
+multiclass follows source's all-zero LabelBinarizer result.
+
+`auto_smooth=true` (default) uses source empirical Bayes shrinkage from global
+variance and within-category sums of squared deviations. Constant targets and
+categories absent from a training fold fall back to its target mean. Set
+`auto_smooth=false` and `smooth>=0` for fixed smoothing; zero gives unsmoothed
+category means for observed categories. Fixed smoothing is evaluated as a
+convex mixture to avoid overflowing the product of smoothing and target mean.
+Finite target magnitude is bounded by `sqrt(huge(real64))/(4*n_samples)` so
+variance calculations cannot overflow under the checked floating-point profile.
+
+`fit_transform(x,y)` returns out-of-fold features and retains the full-data
+encodings for future `transform` calls. This distinction prevents training-row
+target leakage; it is intentional that `fit_transform(x,y)` differs from
+`fit(x,y); transform(x)`. Continuous targets use KFold and classification uses
+StratifiedKFold with source's first-appearance class ordering. Defaults are
+`cv=5`, `shuffle=true`, `random_state=0` (the native deterministic scalar seed,
+compared to Python's unspecified random state). Seeded shuffles match NumPy's
+legacy RandomState. With `shuffle=false`, the native seed is ignored (the
+reference recipe passes Python `random_state=None` for that configuration).
+Minority classes smaller than cv are allowed if at least
+one class has cv rows. Classification cross-fitting requires integral labels,
+matching the source splitter's target validation; fit alone permits continuous
+numeric labels in explicitly forced binary mode. `cv_splits_` retains sorted
+1-based training/test indices as a native inspection container.
+
+Automatic categories are sorted finite numeric values followed by NaN, when
+observed. To specify categories, allocate `categories(n_features)` and assign
+`categories(j)%values` (a `target_category` record). Each list must be nonempty,
+sorted, unique, with optional NaN last; unused specified categories are allowed.
+`categories_` and `encodings_` use the same ragged `values(:)` representation.
+`encodings_` is feature-major and then class-major for multiclass. The vector
+`target_mean_` has one element for continuous/binary targets and one per class
+for multiclass; `n_features_in_` and `n_features_out_` describe learned widths.
+Changing constructor controls after fitting does not alter transforms. Refit
+replaces learned state and clears earlier cross-fitting diagnostics.
+
+The native implementation preserves two sklearn 1.6.1 explicit-category edge
+behaviors: omitted training values contribute to the first category's learned
+statistics, while their transformed values still use the global mean;
+`fit_transform` overwrites all such unknown rows with the final fold's target
+mean, regardless of their held-out fold. These apply only when user-specified
+categories exclude observed training values. Full automatic categories avoid
+these source quirks. `target_category` and `cv_splits_` are data containers,
+not additional estimator algorithms or extensions beyond sklearn. Category discovery
+uses the existing dense insertion sort and lookup scans category lists; this
+implementation is intended for moderate sample sizes and category counts.

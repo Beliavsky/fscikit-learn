@@ -21,6 +21,7 @@ Reference paths by module:
 
 | Fortran module | scikit-learn reference |
 | --- | --- |
+| target_encoding | preprocessing/_target_encoder.py, preprocessing/_target_encoder_fast.pyx, preprocessing/_encoders.py numeric categories and empirical Bayes encodings; model_selection/_split.py cross-fitting; existing NumPy legacy RNG backend |
 | tsne / tsne_core | manifold/_t_sne.py exact TSNE and trustworthiness; manifold/_utils.pyx perplexity search; existing legacy RNG, randomized SVD and NumPy pairwise reduction backends |
 | resampling | model_selection/_split.py random/group/stratified holdouts, repeated folds and exhaustive combinations; utils/extmath.py _approximate_mode quotas and random tie breaking; existing NumPy legacy RNG backend |
 | cluster_information | metrics/cluster/_supervised.py normalized/adjusted MI averages and signed epsilon denominator, Fowlkes-Mallows, contingency smoothing/order, ordered pair orientation, entropy and homogeneity/completeness/weighted V-measure conventions; _expected_mutual_info_fast.pyx hypergeometric expected MI with log factorials. Native heap-sorted observed cells, int64 counts, cached intrinsic log-gamma and explicit validation; existing H/C/V metric wrappers delegate to this backend |

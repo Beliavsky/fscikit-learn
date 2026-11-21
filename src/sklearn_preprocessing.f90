@@ -1,4 +1,5 @@
 module sklearn_preprocessing
+  use sklearn_target_encoding, only: target_encoder,target_category
   use sklearn_label_binarization, only: label_binarizer,multi_label_binarizer,label_set
   use sklearn_spline, only: spline_transformer
   use sklearn_knn_impute, only: knn_imputer,missing_indicator
@@ -9,6 +10,7 @@ module sklearn_preprocessing
   use, intrinsic :: ieee_arithmetic, only: ieee_is_nan
   implicit none
   private
+  public :: target_encoder,target_category
   public :: label_binarizer,multi_label_binarizer,label_set
   public :: spline_transformer
   public :: knn_imputer,missing_indicator

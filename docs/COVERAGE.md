@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 192 public estimator, transformer, and splitter types. Each is a
+There are 193 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Seventy-eight reference suites additionally check 305,111
+All types have native tests. Seventy-nine reference suites additionally check 317,281
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -26,7 +26,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | multiclass | `one_vs_rest_classifier`, `one_vs_one_classifier`, `output_code_classifier` | Dense independent binary reductions; supported native classifier and regressor bases; constant heads; weighted fitting where the base supports it; Gaussian NB/SGD classification streaming for OVR/OVO; seeded legacy NumPy codebooks |
 | inspection | `permutation_importance`, `permutation_importance_multi`, `partial_dependence` | Dense callback-based permutation importance and brute partial dependence/ICE; seeded subsampling/shuffles; weighted averages; categorical and Cunnane percentile grids; numeric multiple-output responses |
 | multioutput | `multi_output_regressor`, `multi_output_classifier`, `regressor_chain`, `classifier_chain` | Independent fitted base models per response column; supported native linear/SGD, NB, neighbors and tree families; ragged class probabilities; SGD/Gaussian NB streaming; native base weighting limits apply |
-| preprocessing | `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `knn_imputer`, `missing_indicator`, `spline_transformer`, `label_encoder`, `one_hot_encoder`, `label_binarizer`, `multi_label_binarizer`, `power_transformer`, `kbins_discretizer`, `quantile_transformer`; `normalize`, `binarize`, `polynomial_features` | Population variance; linear percentile interpolation; NaN imputation with mean/median/most-frequent/constant; numeric categories; empirical uniform/normal quantile transforms; dense polynomial terms through degree 12 with optional interactions; B-spline features and extrapolation |
+| preprocessing | `target_encoder`, `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `knn_imputer`, `missing_indicator`, `spline_transformer`, `label_encoder`, `one_hot_encoder`, `label_binarizer`, `multi_label_binarizer`, `power_transformer`, `kbins_discretizer`, `quantile_transformer`; `normalize`, `binarize`, `polynomial_features` | Cross-fitted target means; population variance; linear percentile interpolation; NaN imputation with mean/median/most-frequent/constant; numeric categories; empirical uniform/normal quantile transforms; dense polynomial terms through degree 12 with optional interactions; B-spline features and extrapolation |
 | linear_model | `linear_regression`, `lars`, `lasso_lars`, `lars_cv`, `lasso_lars_cv`, `lasso_lars_ic`, `ridge`, `ridge_classifier`, `ridge_classifier_cv`, `multi_task_elastic_net`, `multi_task_lasso`, `multi_task_elastic_net_cv`, `multi_task_lasso_cv`, `lasso`, `elastic_net`, `lasso_cv`, `elastic_net_cv`, `logistic_regression`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `sgd_regressor`, `sgd_classifier`, `sgd_one_class_svm`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `orthogonal_matching_pursuit_cv`, `huber_regressor`, `quantile_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; least-angle/Lasso homotopy paths with CV and AIC/BIC selection; coordinate descent with K-fold alpha/l1-ratio selection; weighted logistic Newton solver with raw-score prediction; perceptron; PA-I/II classification/regression with averaging; streaming stochastic-gradient regression/classification and one-class detection; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; weighted L1-regularized quantile regression; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb`, `categorical_nb` | Weighted/streaming Gaussian moments, empirical/fixed priors and variance smoothing; strictly positive scalar alpha; Bernoulli threshold; optional complement normalization |
 | neighbors | `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with optional shrinkage and uniform priors; Euclidean kernel density |
@@ -4016,3 +4016,70 @@ then reach the final estimator's own checks. Infinities and invalid widths are
 diagnosed. Meta designs exceeding the native numerical working range are
 rejected. Sparse data, multilabel indicators, arbitrary estimator protocols,
 metadata routing and parallel fitting remain outside this subset.
+
+
+## Target encoding
+
+`target_encoder` is exported by `sklearn_preprocessing` and `sklearn`. Dense
+real64 numeric category matrices support NaN as a learned category; infinity
+is rejected. `fit(x,y)` learns full-data encodings and `transform(x)` applies
+them, using the full target mean for unseen categories. Integer and real64
+vector targets are accepted and must be finite. String/object features, sparse inputs, multiple
+targets and feature-name generation are outside this native interface.
+
+`target_type='auto'` selects continuous regression for fractional targets
+or floating targets outside the NumPy int64 label range,
+binary for one/two integral labels, and multiclass for more integral labels.
+Explicit `'continuous'`, `'binary'` and `'multiclass'` are available. Sorted
+numeric `classes_` define the encoded class order. Binary uses one encoded
+column per input feature, including source's explicitly forced binary mode
+with more than two classes (ordinal class indices). Multiclass produces
+feature-major class columns; explicit multiclass with two classes is diagnosed
+because the source implementation fails on that configuration. One-class
+multiclass follows source's all-zero LabelBinarizer result.
+
+`auto_smooth=true` (default) uses source empirical Bayes shrinkage from global
+variance and within-category sums of squared deviations. Constant targets and
+categories absent from a training fold fall back to its target mean. Set
+`auto_smooth=false` and `smooth>=0` for fixed smoothing; zero gives unsmoothed
+category means for observed categories. Fixed smoothing is evaluated as a
+convex mixture to avoid overflowing the product of smoothing and target mean.
+Finite target magnitude is bounded by `sqrt(huge(real64))/(4*n_samples)` so
+variance calculations cannot overflow under the checked floating-point profile.
+
+`fit_transform(x,y)` returns out-of-fold features and retains the full-data
+encodings for future `transform` calls. This distinction prevents training-row
+target leakage; it is intentional that `fit_transform(x,y)` differs from
+`fit(x,y); transform(x)`. Continuous targets use KFold and classification uses
+StratifiedKFold with source's first-appearance class ordering. Defaults are
+`cv=5`, `shuffle=true`, `random_state=0` (the native deterministic scalar seed,
+compared to Python's unspecified random state). Seeded shuffles match NumPy's
+legacy RandomState. With `shuffle=false`, the native seed is ignored (the
+reference recipe passes Python `random_state=None` for that configuration).
+Minority classes smaller than cv are allowed if at least
+one class has cv rows. Classification cross-fitting requires integral labels,
+matching the source splitter's target validation; fit alone permits continuous
+numeric labels in explicitly forced binary mode. `cv_splits_` retains sorted
+1-based training/test indices as a native inspection container.
+
+Automatic categories are sorted finite numeric values followed by NaN, when
+observed. To specify categories, allocate `categories(n_features)` and assign
+`categories(j)%values` (a `target_category` record). Each list must be nonempty,
+sorted, unique, with optional NaN last; unused specified categories are allowed.
+`categories_` and `encodings_` use the same ragged `values(:)` representation.
+`encodings_` is feature-major and then class-major for multiclass. The vector
+`target_mean_` has one element for continuous/binary targets and one per class
+for multiclass; `n_features_in_` and `n_features_out_` describe learned widths.
+Changing constructor controls after fitting does not alter transforms. Refit
+replaces learned state and clears earlier cross-fitting diagnostics.
+
+The native implementation preserves two sklearn 1.6.1 explicit-category edge
+behaviors: omitted training values contribute to the first category's learned
+statistics, while their transformed values still use the global mean;
+`fit_transform` overwrites all such unknown rows with the final fold's target
+mean, regardless of their held-out fold. These apply only when user-specified
+categories exclude observed training values. Full automatic categories avoid
+these source quirks. `target_category` and `cv_splits_` are data containers,
+not additional estimator algorithms or extensions beyond sklearn. Category discovery
+uses the existing dense insertion sort and lookup scans category lists; this
+implementation is intended for moderate sample sizes and category counts.

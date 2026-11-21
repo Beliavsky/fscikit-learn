@@ -3917,3 +3917,65 @@ The underlying cached-artifact cause was not established. Production sources
 were unchanged during these final gates. Python syntax, Fortran line lengths
 and whitespace, report parity, and git diff checks passed. MIT licensing and
 retained third-party BSD attribution are unchanged.
+
+
+## Numeric TargetEncoder
+
+Added sklearn.preprocessing.TargetEncoder as a native dense transformer with
+real/integer vector targets, automatic type inference, binary/multiclass target
+coding, fixed or empirical Bayes smoothing, NaN categories, unseen-category
+fallback, optional explicit numeric category lists, and seeded KFold or
+StratifiedKFold cross-fitting. Full-data learned encodings remain available
+after fit_transform, while its output uses held-out training folds. The new
+module depends only on existing common, resampling container and legacy RNG
+modules; SciFort is not required. Public target_category records hold ragged
+category/encoding vectors and do not add estimator or extension counts.
+
+Source inspection and local probes identified two explicit-category edge cases
+in sklearn 1.6.1: omitted training categories affect slot zero's statistics,
+and unknown cross-fit rows are overwritten with the last fold's target mean.
+Both are preserved and documented, with native unit assertions and source
+fixtures. Additional probes confirmed that large integral-looking float
+values outside int64 range infer continuous targets; explicit multiclass
+fractional labels and explicit two-class multiclass are rejected. Fixed
+smoothing uses a convex mixture rather than multiplying smooth by the target
+mean; a documented target working-range bound protects variance arithmetic.
+
+The reference harness compares each learned array, transform, cross-fit output,
+fold assignment, parameter snapshot and refit result independently. It retains
+source hashes and warnings with exact categorical/index checks and numerical
+tolerances of rtol 2e-12 and atol 2e-13. Five deterministic seed recipes include
+singleton/constant categories, rare classes, NaNs, unused/omitted categories,
+large smoothing, cv=n, forced target modes and one-row fit-only inputs.
+The checked native TargetEncoder program passed during development; final
+source and full-build gates are recorded below when complete.
+
+
+Checked source validation passed 12,170 result groups across 950 fixtures and
+five seeds. All group oracles are direct sklearn comparisons, with no widened
+numeric tolerances or alternative-solution certificates. The report retains
+135 source warnings: 120 rare-class warnings (the independently constructed
+splitter repeats the same warnings) and 15 NumPy int64 cast warnings for the
+large floating-target inference fixtures. All 100 native test programs also
+passed the final checked/runtime/FPE profile with the frozen implementation.
+Current inventory: 193 core estimator/transformer/splitter types, 101 source
+modules, 100 native test programs, and 79 retained core reference suites with
+317,281 groups, plus the separate 28-group NumPy RNG suite.
+
+
+The optimized source run passed the same 12,170 groups over 950 fixtures;
+checked and optimized report records, source warnings and source hashes are
+identical. All 100 native test programs passed in both checked and optimized
+builds. The public fpm example exited successfully and its cross-fitted
+training features, query encodings and unseen-category mean were independently
+compared to Python TargetEncoder with the same recipe and tolerances.
+
+
+Final diagnostic gate passed all 2,331 unique isolated invalid-input cases,
+including 27 new TargetEncoder cases. Python syntax, Fortran 132-column and
+whitespace checks, source hashes, checked/release report parity, facade exports,
+and MIT/retained BSD attribution were verified. Production code remained
+frozen throughout the final gates. Existing numerical implementations were
+unchanged; the 79-suite reference inventory includes retained earlier results,
+rather than a complete rerun of every older source suite. Only the new suite
+was run in both profiles for this batch, alongside all 100 native programs.

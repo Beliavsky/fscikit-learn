@@ -3379,3 +3379,29 @@ native algorithm's strict optimization settings. Final predictions, transforms
 and scores are also compared with the complete source stacking model whenever
 no certified member/optimizer alternative is involved. Reports retain all
 group-level oracles, split/optimizer witnesses and primary-source hashes.
+
+
+## TargetEncoder reference checks
+
+`python validation/compare_target_encoding.py` resolves the checked fpm
+reference driver; add `--profile release` for the optimized build or supply
+`--executable` for an existing matching binary. Reports and per-profile
+input/output files are written under ignored `validation/results`.
+
+The suite compares full-data statistics, cross-fitted training features,
+query encodings, refit results, parameter snapshots, feature widths, sorted
+categories/classes and exact fold assignments against installed sklearn.
+Seeds 0, 7, 42, 2026 and 314159 cover continuous, binary and multiclass targets,
+automatic and fixed smoothing (including zero and very large values), rare and
+single classes, NaNs, singleton/constant categories, explicit unused/omitted
+categories, and shuffled/unshuffled cross-fitting. Exact category and index
+checks are separate from numeric comparisons (rtol 2e-12, atol 2e-13).
+No alternative numerical optimizer certificates are used. The source hashes
+include `_target_encoder.py`, `_target_encoder_fast.pyx`, `_encoders.py` and
+`model_selection/_split.py`; source warnings remain in the report.
+
+The explicit omitted-category fixtures exercise sklearn 1.6.1's first-category
+fitting and final-fold unknown-mask behavior; the implementation matches those
+observable source results, as documented in API.md. Large integral-looking
+floating targets check NumPy int64-range inference, and forced binary fits
+check fractional numeric label handling separately from cross-fitting.
