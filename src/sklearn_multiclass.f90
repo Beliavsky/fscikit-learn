@@ -87,7 +87,7 @@ contains
     class(*), intent(in) :: model
     value=.true.
     select type(model)
-    type is(logistic_regression)
+    class is(logistic_regression)
     type is(sgd_classifier)
     type is(perceptron)
     type is(passive_aggressive_classifier)
@@ -103,7 +103,7 @@ contains
     class(*), intent(in) :: model
     value=.true.
     select type(model)
-    type is(logistic_regression)
+    class is(logistic_regression)
     type is(gaussian_nb)
     class is(multinomial_nb)
     type is(kneighbors_classifier)
@@ -125,7 +125,7 @@ contains
       return
     type is(sgd_regressor)
       call require(.not.streaming,'multiclass partial_fit requires a classifier base'); return
-    type is(logistic_regression)
+    class is(logistic_regression)
     class is(ridge_classifier)
     type is(linear_svc)
     type is(perceptron)
@@ -198,7 +198,7 @@ contains
       else
         call model%fit(x,real(y,dp),weights)
       end if
-    type is(logistic_regression)
+    class is(logistic_regression)
       call model%fit(x,y,weights)
     class is(ridge_classifier)
       call model%fit(x,y,weights)
@@ -263,7 +263,7 @@ contains
     real(dp), intent(in) :: x(:,:)
     real(dp), allocatable :: values(:)
     select type(model)
-    type is(logistic_regression)
+    class is(logistic_regression)
       values=model%predict(x)
     type is(gaussian_nb)
       values=real(model%predict(x),dp)
@@ -304,7 +304,7 @@ contains
     real(dp), allocatable :: values(:),matrix(:,:)
     call require(has_decision(model),'multiclass base lacks decision_function')
     select type(model)
-    type is(logistic_regression)
+    class is(logistic_regression)
       matrix=model%decision_function(x)
     type is(sgd_classifier)
       matrix=model%decision_function(x)
@@ -329,7 +329,7 @@ contains
     real(dp), allocatable :: values(:),matrix(:,:)
     call require(has_probability(model),'multiclass base lacks predict_proba')
     select type(model)
-    type is(logistic_regression)
+    class is(logistic_regression)
       matrix=model%predict_proba(x)
     type is(gaussian_nb)
       matrix=model%predict_proba(x)

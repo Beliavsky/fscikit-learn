@@ -3563,3 +3563,50 @@ and source warnings are retained in the reference reports; no ordinary numeric
 tolerance is widened for these endpoints. Which singular folds require a
 certificate may vary across optimization profiles because determinant signs
 near zero are roundoff-sensitive.
+
+## LogisticRegressionCV
+
+`type(logistic_regression_cv)` extends `logistic_regression` in
+`sklearn_linear_model` and is re-exported by `sklearn`. It implements dense L2
+binary and joint multinomial classification with a native full Newton solver.
+Set `cs(:)` to positive candidate inverse regularization strengths, or use
+`n_cs` (default 10) for a logarithmic grid from 1e-4 to 1e4. Candidate order and
+repetitions are preserved. `cv` defaults to five nonshuffled stratified folds;
+optional `splits(:)` supplies explicit 1-based `index_split` train/test indices.
+Explicit folds may overlap or contain repeated rows and need not partition data.
+
+`fit(x,y,sample_weight)` accepts nonnegative sample weights. Optional
+`class_weight(:)` follows sorted `classes_`; alternatively set
+`class_weight_balanced=.true.` for global unweighted inverse class frequencies.
+Supported `scoring` values are `accuracy`, `balanced_accuracy`, `neg_log_loss`,
+and binary `roc_auc`. Scoring uses raw sample weights, without class weights.
+`score(x,y,sample_weight)` uses the current scoring control; ordinary
+`logistic_regression%score` also accepts optional accuracy weights.
+
+`scores_(fold,C)` stores the shared joint classification scores.
+`coefs_paths_(model_class,fold,C,parameter)` stores feature coefficients followed
+by the intercept when fitted; binary has one model class (the positive label),
+and multinomial has one per sorted class. `path_classes_` identifies those rows.
+`cs_`, `c_`, `class_weight_`, `cv_splits_`, `best_c_indices_`, and
+`n_features_in_` expose fitted choices and metadata. `n_iter_path_(fold,C)` and
+`converged_path_` describe native optimizer work, which is not sklearn's
+newton-cg iteration count or tensor layout.
+
+With `refit=.true.`, the first best mean-score candidate is selected and a
+full-data fit starts from the mean selected fold parameters. With
+`refit=.false.`, each fold selects its own first best candidate and the final
+parameters and C are arithmetic means, without another fit. `refit_init_`
+records those mean parameters. Inherited `n_iter_` counts only the final fit
+(zero when refit is false). Zero iterations are supported; convergence flags
+report the resulting unconverged paths. NaN scores follow NumPy argmax's first
+NaN selection rule. Multinomial intercepts are centered to remove their common
+additive null direction.
+
+Training folds must retain every multinomial class. With an intercept and
+positive iteration cap, every global class needs positive effective training
+mass; a finite intercept optimum is required. Binary one-class training folds
+are supported without an intercept. L1/elastic-net penalties, OvR solver modes,
+multiple l1 ratios, and sklearn metadata-routing APIs are not implemented.
+The CV subtype works through existing logistic-capable voting, bagging,
+stacking, multiclass, multioutput, calibration, self-training, and nested
+`cross_val_score` paths. See `example/logistic_cv.f90`.

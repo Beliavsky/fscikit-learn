@@ -40,7 +40,7 @@ contains
     integer, intent(in) :: y(:)
     real(dp), intent(in), optional :: sample_weight(:)
     select type(model)
-    type is(logistic_regression)
+    class is(logistic_regression)
       call model%fit(x,y,sample_weight)
     type is(gaussian_nb)
       call model%fit(x,y,sample_weight)
@@ -55,7 +55,7 @@ contains
     class(*), intent(in) :: model
     integer, allocatable :: labels(:)
     select type(model)
-    type is(logistic_regression)
+    class is(logistic_regression)
       call require(allocated(model%classes_),'prefit calibration estimator is not fitted')
       labels=model%classes_
     type is(gaussian_nb)
@@ -76,7 +76,7 @@ contains
     integer, allocatable :: labels(:)
     labels=base_labels(model)
     select type(model)
-    type is(logistic_regression)
+    class is(logistic_regression)
       values=model%decision_function(x)
     type is(gaussian_nb)
       prob=model%predict_proba(x)
@@ -221,7 +221,7 @@ contains
     self%fitted_=.false.; call check_xy(x,size(y)); n=size(y)
     call require(self%method=='sigmoid'.or.self%method=='isotonic','unknown calibration method')
     select type(estimator)
-    type is(logistic_regression)
+    class is(logistic_regression)
     type is(gaussian_nb)
     type is(kneighbors_classifier)
     class default

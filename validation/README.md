@@ -3472,3 +3472,70 @@ needed for constant/one-row CV folds. Native tests independently cover inverse
 consistency, final standalone equivalence, refined-grid shape, exact ties,
 refitting/copying, zero-iteration conventions and restoration of IEEE halting
 modes and flags after failed/NaN-grid paths.
+
+## LogisticRegressionCV increment (2026-11-21)
+
+Added `logistic_regression_cv`, a dense L2 binary/multinomial counterpart with
+warm-started candidate paths, stratified or explicit folds, global class weights,
+weighted scoring, first-best selection, and refit/averaging modes. The native
+full Newton solver retains the original plain logistic fit behavior. Existing
+logistic-capable wrappers and nested cross-validation preserve the new dynamic
+type. The API documents supported scorers, tensor layout, finite-intercept
+training requirements and native iteration-count differences.
+
+`compare_logistic_cv.py` uses five seeds and 255 fixtures, retaining 7,560 groups
+per profile. It compares installed sklearn 1.6.1 newton-cg (tol 1e-12,
+max_iter 2000) against native full Newton (tol 1e-10, max_iter 1000), with zero
+iterations explicitly tested in both. Ordinary floating comparisons use
+rtol=3e-7, atol=3e-8; labels and fold indices are exact. Source multinomial
+intercepts and decisions are canonicalized by removing their common intercept
+shift, matching the native solver's existing centered representation. Slopes
+and all binary results are unchanged. The source shift is retained in reports.
+A seed-0 unsorted path exposed a common source shift of about 6.12e-6 at C=1e4;
+both source and native gradients were already small. No tolerance was widened.
+
+Independent checks verify raw weighted L2 stationarity for every converged
+fold/candidate and final refit (maximum gradient 1e-7), exact zero-iteration
+parameters, iteration bounds and selection consistency. Source C selections,
+paths, predictions, weighted/unweighted scores, final model parameters,
+class weights and refit initialization are compared independently. Fixtures
+include repeated/unsorted grids, automatic grids, globally balanced and explicit
+class weights, zero weights, overlap/repeated explicit indices, single folds,
+refit=false, binary one-class training without an intercept, and NaN ROC scores.
+
+`compare_logistic_cv_composites.py` adds five seeds through nested CV, voting,
+bagging, stacking, OVR, independent multioutput, sigmoid calibration, and
+self-training. It uses the same ordinary tolerances, exact predictions and
+label-state checks, and records hashes of the consulted source implementations.
+Reference reports and raw I/O are profile-specific under validation/results.
+The project remains MIT with adapted sklearn BSD-3-Clause attribution retained;
+no external runtime dependency or public extension is introduced.
+
+Checked gates passed all 104 native programs with `-fcheck=all -fbacktrace
+-ffpe-trap=invalid,zero,overflow`. The full isolated rejection run passed 2,447
+unique cases, including 43 LogisticRegressionCV controls and three optional
+plain-logistic score-weight cases. Its main program was linked without FPE
+traps so nonfinite-input diagnostics could be checked. Existing 192-group basic
+and 16,536-group weighted/streaming classifier source suites also passed.
+
+Current inventory: 196 core estimator/transformer/splitter types, 102 source
+modules, 104 native programs, and 83 core reference suites retaining 347,125
+result groups, plus the separately counted 28 RNG checks. Older source suites
+outside the two regression gates were not rerun for this batch. The new public
+example agrees with sklearn on C=10 and training accuracy 1.0 for its synthetic
+fixture; these values are not a general performance guarantee.
+
+Both profiles passed all 7,650 new groups: the core suite contains 6,795 sklearn
+comparisons, 255 iteration-bound checks, 245 stationarity checks, ten exact
+zero-iteration identities and 255 selection identities; the composite suite
+adds 90 sklearn comparisons. Core reports retain 124 source warnings, while
+composite reports have none. Checked/optimized fixture/check-oracle records,
+source hashes and warnings agree exactly, as do the recorded source intercept
+canonicalizations. All ordinary comparisons retained their original tolerances.
+
+Final optimized gates passed all 104 native programs and the public
+`fpm run --profile release --example logistic_cv` example. Both examples
+selected C=10 and reported training accuracy 1.0. Checked and optimized builds
+used GNU Fortran 17 on Windows. Final source/diagnostic reports, source hashes,
+Python syntax, Fortran line lengths/whitespace and staged-file scope were
+verified. Production Fortran stayed fixed throughout the final gates.

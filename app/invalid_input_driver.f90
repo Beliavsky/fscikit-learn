@@ -8,6 +8,12 @@ program invalid_input_driver
   use sklearn_legacy_rng, only: legacy_random_state
   use, intrinsic :: ieee_arithmetic, only: ieee_value,ieee_quiet_nan,ieee_positive_inf
   implicit none
+  type(logistic_regression_cv) :: lrcv_case
+  type(logistic_regression) :: lrcv_base
+  real(dp) :: lrcv_x(12,2)=reshape([0._dp,1._dp,2._dp,3._dp,4._dp,5._dp, &
+    6._dp,7._dp,8._dp,9._dp,10._dp,11._dp,0._dp,1._dp,2._dp,0._dp,1._dp,2._dp, &
+    0._dp,1._dp,2._dp,0._dp,1._dp,2._dp],[12,2]),lrcv_w(12)=1,lrcv_value
+  integer :: lrcv_y(12)=[-3,7,-3,7,-3,7,-3,7,-3,7,-3,7]
   type(graphical_lasso_cv) :: gcv_case
   real(dp) :: gcv_x(6,2)=reshape([0._dp,1._dp,2._dp,3._dp,4._dp,5._dp, &
     1._dp,0._dp,3._dp,2._dp,5._dp,4._dp],[6,2]),gcv_value
@@ -347,6 +353,110 @@ program invalid_input_driver
   mi_x(:,2)=[0._dp,0._dp,1._dp,1._dp,2._dp,2._dp]; mi_x(:,3)=1
   mi_y=mi_x(:,1); mi_labels=[-1,-1,-1,2,2,2]
   select case(trim(mode))
+  case('lrcv_empty')
+    call lrcv_case%fit(lrcv_x(:0,:),lrcv_y(:0))
+  case('lrcv_length')
+    call lrcv_case%fit(lrcv_x,lrcv_y(:11))
+  case('lrcv_one_class')
+    call lrcv_case%fit(lrcv_x,0*lrcv_y)
+  case('lrcv_tol_nan')
+    lrcv_case%tol=ieee_value(0._dp,ieee_quiet_nan); call lrcv_case%fit(lrcv_x,lrcv_y)
+  case('lrcv_tol_zero')
+    lrcv_case%tol=0; call lrcv_case%fit(lrcv_x,lrcv_y)
+  case('lrcv_iterations')
+    lrcv_case%max_iter=-1; call lrcv_case%fit(lrcv_x,lrcv_y)
+  case('lrcv_scoring')
+    lrcv_case%scoring='invalid'; call lrcv_case%fit(lrcv_x,lrcv_y)
+  case('lrcv_roc_multiclass')
+    lrcv_case%scoring='roc_auc'; lrcv_y(1)=19; call lrcv_case%fit(lrcv_x,lrcv_y)
+  case('lrcv_data_range')
+    lrcv_x(1,1)=huge(1._dp); call lrcv_case%fit(lrcv_x,lrcv_y)
+  case('lrcv_cs_empty')
+    lrcv_case%cs=[real(dp)::]; call lrcv_case%fit(lrcv_x,lrcv_y)
+  case('lrcv_cs_nan')
+    lrcv_case%cs=[ieee_value(0._dp,ieee_quiet_nan)]; call lrcv_case%fit(lrcv_x,lrcv_y)
+  case('lrcv_cs_inf')
+    lrcv_case%cs=[ieee_value(0._dp,ieee_positive_inf)]; call lrcv_case%fit(lrcv_x,lrcv_y)
+  case('lrcv_cs_zero')
+    lrcv_case%cs=[0._dp]; call lrcv_case%fit(lrcv_x,lrcv_y)
+  case('lrcv_cs_count')
+    lrcv_case%n_cs=0; call lrcv_case%fit(lrcv_x,lrcv_y)
+  case('lrcv_weight_length')
+    call lrcv_case%fit(lrcv_x,lrcv_y,lrcv_w(:11))
+  case('lrcv_weight_nan')
+    lrcv_w(1)=ieee_value(0._dp,ieee_quiet_nan); call lrcv_case%fit(lrcv_x,lrcv_y,lrcv_w)
+  case('lrcv_weight_negative')
+    lrcv_w(1)=-1; call lrcv_case%fit(lrcv_x,lrcv_y,lrcv_w)
+  case('lrcv_weight_range')
+    lrcv_w(1)=huge(1._dp); call lrcv_case%fit(lrcv_x,lrcv_y,lrcv_w)
+  case('lrcv_weight_zero')
+    call lrcv_case%fit(lrcv_x,lrcv_y,0*lrcv_w)
+  case('lrcv_cw_both')
+    lrcv_case%class_weight=[1._dp,1._dp]; lrcv_case%class_weight_balanced=.true.
+    call lrcv_case%fit(lrcv_x,lrcv_y)
+  case('lrcv_cw_length')
+    lrcv_case%class_weight=[1._dp]; call lrcv_case%fit(lrcv_x,lrcv_y)
+  case('lrcv_cw_nan')
+    lrcv_case%class_weight=[1._dp,ieee_value(0._dp,ieee_quiet_nan)]
+    call lrcv_case%fit(lrcv_x,lrcv_y)
+  case('lrcv_cw_negative')
+    lrcv_case%class_weight=[1._dp,-1._dp]; call lrcv_case%fit(lrcv_x,lrcv_y)
+  case('lrcv_cw_range')
+    lrcv_case%class_weight=[huge(1._dp),1._dp]; call lrcv_case%fit(lrcv_x,lrcv_y)
+  case('lrcv_cw_zero')
+    lrcv_case%class_weight=[0._dp,0._dp]; call lrcv_case%fit(lrcv_x,lrcv_y)
+  case('lrcv_cv_one')
+    lrcv_case%cv=1; call lrcv_case%fit(lrcv_x,lrcv_y)
+  case('lrcv_cv_large')
+    lrcv_case%cv=13; call lrcv_case%fit(lrcv_x,lrcv_y)
+  case('lrcv_cv_class_counts')
+    lrcv_case%cv=7; call lrcv_case%fit(lrcv_x,lrcv_y)
+  case('lrcv_splits_empty')
+    allocate(lrcv_case%splits(0)); call lrcv_case%fit(lrcv_x,lrcv_y)
+  case('lrcv_splits_unallocated')
+    allocate(lrcv_case%splits(1)); call lrcv_case%fit(lrcv_x,lrcv_y)
+  case('lrcv_splits_no_train')
+    allocate(lrcv_case%splits(1)); lrcv_case%splits(1)%train=[integer::]
+    lrcv_case%splits(1)%test=[1]; call lrcv_case%fit(lrcv_x,lrcv_y)
+  case('lrcv_splits_bounds')
+    allocate(lrcv_case%splits(1)); lrcv_case%splits(1)%train=[1,2]
+    lrcv_case%splits(1)%test=[13]; call lrcv_case%fit(lrcv_x,lrcv_y)
+  case('lrcv_fold_train_zero')
+    allocate(lrcv_case%splits(1)); lrcv_case%splits(1)%train=[1,2]
+    lrcv_case%splits(1)%test=[3,4]; lrcv_w(:2)=0; call lrcv_case%fit(lrcv_x,lrcv_y,lrcv_w)
+  case('lrcv_fold_test_zero')
+    allocate(lrcv_case%splits(1)); lrcv_case%splits(1)%train=[1,2]
+    lrcv_case%splits(1)%test=[3,4]; lrcv_w(3:4)=0; call lrcv_case%fit(lrcv_x,lrcv_y,lrcv_w)
+  case('lrcv_fold_class_missing')
+    lrcv_y(12)=19; allocate(lrcv_case%splits(1)); lrcv_case%splits(1)%train=[1,2]
+    lrcv_case%splits(1)%test=[3,4]; call lrcv_case%fit(lrcv_x,lrcv_y)
+  case('lrcv_intercept_class_mass')
+    allocate(lrcv_case%splits(1)); lrcv_case%splits(1)%train=[1,3,5]
+    lrcv_case%splits(1)%test=[2,4]; call lrcv_case%fit(lrcv_x,lrcv_y)
+  case('lrcv_unfitted_score')
+    lrcv_value=lrcv_case%score(lrcv_x,lrcv_y)
+  case('lrcv_score_length')
+    call lrcv_case%fit(lrcv_x,lrcv_y); lrcv_value=lrcv_case%score(lrcv_x,lrcv_y(:11))
+  case('lrcv_score_weight_length')
+    call lrcv_case%fit(lrcv_x,lrcv_y); lrcv_value=lrcv_case%score(lrcv_x,lrcv_y,lrcv_w(:11))
+  case('lrcv_score_weight_nan')
+    call lrcv_case%fit(lrcv_x,lrcv_y); lrcv_w(1)=ieee_value(0._dp,ieee_quiet_nan)
+    lrcv_value=lrcv_case%score(lrcv_x,lrcv_y,lrcv_w)
+  case('lrcv_score_weight_negative')
+    call lrcv_case%fit(lrcv_x,lrcv_y); lrcv_w(1)=-1
+    lrcv_value=lrcv_case%score(lrcv_x,lrcv_y,lrcv_w)
+  case('lrcv_score_weight_zero')
+    call lrcv_case%fit(lrcv_x,lrcv_y); lrcv_value=lrcv_case%score(lrcv_x,lrcv_y,0*lrcv_w)
+  case('lrcv_logloss_one_test_class')
+    call lrcv_case%fit(lrcv_x,lrcv_y); lrcv_case%scoring='neg_log_loss'
+    lrcv_value=lrcv_case%score(lrcv_x,0*lrcv_y)
+  case('lr_score_weight_length')
+    call lrcv_base%fit(lrcv_x,lrcv_y); lrcv_value=lrcv_base%score(lrcv_x,lrcv_y,lrcv_w(:11))
+  case('lr_score_weight_nan')
+    call lrcv_base%fit(lrcv_x,lrcv_y); lrcv_w(1)=ieee_value(0._dp,ieee_quiet_nan)
+    lrcv_value=lrcv_base%score(lrcv_x,lrcv_y,lrcv_w)
+  case('lr_score_weight_zero')
+    call lrcv_base%fit(lrcv_x,lrcv_y); lrcv_value=lrcv_base%score(lrcv_x,lrcv_y,0*lrcv_w)
   case('gcv_features')
     call gcv_case%fit(gcv_x(:,:1))
   case('gcv_empty_rows')

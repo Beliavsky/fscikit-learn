@@ -267,7 +267,7 @@ contains
       return
     type is(sgd_classifier)
       return
-    type is(logistic_regression)
+    class is(logistic_regression)
       call require(.not.streaming,'multioutput classifier base has no native partial_fit'); return
     type is(kneighbors_classifier)
     class is(decision_tree_classifier)
@@ -300,7 +300,7 @@ contains
       else
         call model%fit(x,y,weights)
       end if
-    type is(logistic_regression)
+    class is(logistic_regression)
       call model%fit(x,y,weights)
     type is(kneighbors_classifier)
       call model%fit(x,y)
@@ -319,7 +319,7 @@ contains
       labels=model%classes_
     type is(sgd_classifier)
       labels=model%classes_
-    type is(logistic_regression)
+    class is(logistic_regression)
       labels=model%classes_
     type is(kneighbors_classifier)
       labels=model%classes_
@@ -413,7 +413,7 @@ contains
         y(:,j)=model%predict(x)
       type is(sgd_classifier)
         y(:,j)=model%predict(x)
-      type is(logistic_regression)
+      class is(logistic_regression)
         y(:,j)=model%predict(x)
       type is(kneighbors_classifier)
         y(:,j)=model%predict(x)
@@ -440,7 +440,7 @@ contains
         prob(j)%values=model%predict_proba(x)
       type is(sgd_classifier)
         prob(j)%values=model%predict_proba(x)
-      type is(logistic_regression)
+      class is(logistic_regression)
         prob(j)%values=model%predict_proba(x)
       type is(kneighbors_classifier)
         prob(j)%values=model%predict_proba(x)
@@ -598,7 +598,7 @@ contains
       end select
     case('decision_function')
       select type(model)
-      type is(logistic_regression)
+      class is(logistic_regression)
         available=.true.
       type is(sgd_classifier)
         available=.true.
@@ -615,7 +615,7 @@ contains
     call require(chain_method_available(model,method),'classification chain base lacks requested response method')
     if(method=='decision_function') then
       select type(model)
-      type is(logistic_regression)
+      class is(logistic_regression)
         values=model%decision_function(x)
       type is(sgd_classifier)
         values=model%decision_function(x)
@@ -632,7 +632,7 @@ contains
     end if
     if(method=='predict') allocate(values(size(x,1),1))
     select type(model)
-    type is(logistic_regression)
+    class is(logistic_regression)
       if(method=='predict') then
         values(:,1)=real(model%predict(x),dp)
       else

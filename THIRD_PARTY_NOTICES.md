@@ -565,3 +565,15 @@ scikit-learn 1.6.1 source files listed above. Their BSD-3-Clause attribution
 is retained in `LICENSES/scikit-learn-COPYING`; original Fortran contributions
 remain under MIT. The existing legacy NumPy RNG attribution also applies to
 tree seed initialization. No additional repository or runtime was imported.
+
+### LogisticRegressionCV
+
+The dense L2 CV grid, global class balancing, stratified folds, warm-started
+paths, score selection and refit/averaging contracts adapt scikit-learn 1.6.1
+`linear_model/_logistic.py`, `model_selection/_split.py`,
+`utils/class_weight.py` and `metrics/_classification.py`/`_scorer.py`.
+Scikit-learn's BSD-3-Clause notice is retained in
+`LICENSES/scikit-learn-COPYING`. Native full Newton optimization and Fortran
+array/wrapper integration are original contributions under MIT. No new
+repository or runtime dependency was imported. Reference reports record
+SHA-256 hashes of the consulted installed source files.

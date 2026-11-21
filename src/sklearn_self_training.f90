@@ -32,7 +32,7 @@ contains
     real(dp), intent(in) :: x(:,:)
     integer, intent(in) :: y(:)
     select type(model)
-    type is(logistic_regression)
+    class is(logistic_regression)
       call model%fit(x,y)
     type is(gaussian_nb)
       call model%fit(x,y)
@@ -47,7 +47,7 @@ contains
     class(*), intent(in) :: model
     integer, allocatable :: labels(:)
     select type(model)
-    type is(logistic_regression)
+    class is(logistic_regression)
       labels=model%classes_
     type is(gaussian_nb)
       labels=model%classes_
@@ -61,7 +61,7 @@ contains
     real(dp), intent(in) :: x(:,:)
     real(dp), allocatable :: prob(:,:)
     select type(model)
-    type is(logistic_regression)
+    class is(logistic_regression)
       prob=model%predict_proba(x)
     type is(gaussian_nb)
       prob=model%predict_proba(x)
@@ -117,7 +117,7 @@ contains
     call require(self%max_iter>=-1,'self-training max_iter must be nonnegative or -1 for unlimited')
     call require(any(y/=-1),'self-training requires labeled samples')
     select type(estimator)
-    type is(logistic_regression)
+    class is(logistic_regression)
     type is(gaussian_nb)
     type is(kneighbors_classifier)
     class default
@@ -181,7 +181,7 @@ contains
     select type(model=>self%estimator_)
     type is(gaussian_nb)
       prob=model%predict_log_proba(x)
-    type is(logistic_regression)
+    class is(logistic_regression)
       prob=base_proba(self%estimator_,x)
       do j=1,size(prob,2)
         do i=1,size(prob,1)
@@ -203,7 +203,7 @@ contains
     integer :: labels(size(x,1))
     call check_query(self,x)
     select type(model=>self%estimator_)
-    type is(logistic_regression)
+    class is(logistic_regression)
       labels=model%predict(x)
     type is(gaussian_nb)
       labels=model%predict(x)
@@ -220,7 +220,7 @@ contains
     real(dp), allocatable :: values(:,:)
     call check_query(self,x)
     select type(model=>self%estimator_)
-    type is(logistic_regression)
+    class is(logistic_regression)
       values=model%decision_function(x)
     class default
       call require(.false.,'self-training estimator has no decision_function')

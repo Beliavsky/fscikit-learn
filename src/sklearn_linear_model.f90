@@ -1,4 +1,7 @@
 module sklearn_linear_model
+  use sklearn_resampling, only: index_split
+  use sklearn_composite_scores, only: score_weights
+  use sklearn_ieee_math, only: ieee_mean
   use sklearn_omp_cv, only: orthogonal_matching_pursuit_cv
   use sklearn_least_angle, only: lars,lasso_lars,lars_path,lars_path_result, &
     lars_cv,lasso_lars_cv,lasso_lars_ic
@@ -8,8 +11,8 @@ module sklearn_linear_model
   use sklearn_multitask, only: multi_task_elastic_net,multi_task_lasso,multi_task_elastic_net_cv,multi_task_lasso_cv
   use sklearn_ridge_classification, only: ridge_classifier,ridge_classifier_cv
   use sklearn_common
-  use sklearn_metrics, only: r2_score,accuracy_score
-  use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
+  use sklearn_metrics, only: r2_score,accuracy_score,roc_auc_score
+  use, intrinsic :: ieee_arithmetic, only: ieee_is_finite,ieee_is_nan
   implicit none
   private
   public :: orthogonal_matching_pursuit_cv
@@ -21,6 +24,7 @@ module sklearn_linear_model
   public :: ridge_classifier,ridge_classifier_cv
   public :: elastic_net_cv,lasso_cv
   public :: linear_regression, ridge, lasso, elastic_net, logistic_regression, perceptron
+  public :: logistic_regression_cv
   public :: bayesian_ridge, ard_regression, orthogonal_matching_pursuit
   public :: huber_regressor,ransac_regressor,tweedie_regressor,poisson_regressor,gamma_regressor
   public :: theil_sen_regressor
@@ -81,6 +85,20 @@ module sklearn_linear_model
     procedure :: predict_proba=>logistic_proba
     procedure :: predict=>logistic_predict
     procedure :: score=>logistic_score
+  end type
+  ! Dense L2 LogisticRegressionCV (sklearn 1.6.1 _logistic.py, BSD-3-Clause).
+  type, extends(logistic_regression) :: logistic_regression_cv
+    integer :: cv=5,n_cs=10,n_features_in_=0
+    logical :: refit=.true.,class_weight_balanced=.false.,all_cv_converged_=.false.
+    character(20) :: scoring='accuracy'
+    real(dp), allocatable :: cs(:),cs_(:),c_(:),class_weight(:),class_weight_(:),scores_(:,:)
+    real(dp), allocatable :: coefs_paths_(:,:,:,:),refit_init_(:,:)
+    integer, allocatable :: path_classes_(:),best_c_indices_(:),n_iter_path_(:,:)
+    logical, allocatable :: converged_path_(:,:)
+    type(index_split), allocatable :: splits(:),cv_splits_(:)
+  contains
+    procedure :: fit=>logistic_cv_fit
+    procedure :: score=>logistic_cv_score
   end type
   type :: perceptron
     logical :: fit_intercept=.true.
@@ -1100,13 +1118,28 @@ contains
     real(dp), intent(in) :: x(:,:)
     integer, intent(in) :: y(:)
     real(dp), intent(in), optional :: sample_weight(:)
+    call logistic_fit_core(self,x,y,sample_weight)
+  end subroutine
+  subroutine logistic_fit_core(self,x,y,sample_weight,initial_coef,initial_intercept,classes)
+    class(logistic_regression), intent(inout) :: self
+    real(dp), intent(in) :: x(:,:)
+    integer, intent(in) :: y(:)
+    real(dp), intent(in), optional :: sample_weight(:)
+    real(dp), intent(in), optional :: initial_coef(:,:),initial_intercept(:)
+    integer, intent(in), optional :: classes(:)
     real(dp) :: observation_weight(size(y)),mass,gradient_tol
     real(dp), allocatable :: design(:,:),w(:,:),prob(:,:),gradient(:,:),hess(:,:),step(:),trial(:,:),scaling(:)
     real(dp) :: objective,new_objective,rate,penalty,v,objective_slack
     integer :: n,p,k,q,it,i,j,a,b,ia,ib,target
-    call check_xy(x,size(y)); self%classes_=unique_labels(y); k=size(self%classes_)
+    call check_xy(x,size(y)); self%classes_=unique_labels(y)
+    if(present(classes)) self%classes_=classes
+    k=size(self%classes_)
     call require(k>=2,'logistic regression requires at least two classes')
-    call require(self%c>0.and.self%tol>0.and.self%max_iter>0,'invalid logistic controls')
+    if(present(initial_coef)) then
+      call require(self%c>0.and.self%tol>0.and.self%max_iter>=0,'invalid logistic controls')
+    else
+      call require(self%c>0.and.self%tol>0.and.self%max_iter>0,'invalid logistic controls')
+    end if
     n=size(x,1); p=size(x,2); q=p+merge(1,0,self%fit_intercept)
     ! Binary has one logit; multiclass uses one logit per class and softmax.
     if(k==2) k=1
@@ -1139,7 +1172,18 @@ contains
       call require(self%c>=1/huge(1._dp),'logistic C is below native working range')
       penalty=1/self%c
     end if
-    w=0; self%converged_=.false.
+    w=0
+    if(present(initial_coef)) then
+      call require(all(shape(initial_coef)==[k,p]),'logistic initial coefficient shape mismatch')
+      call require(all(ieee_is_finite(initial_coef)),'logistic initial coefficients must be finite')
+      w(:p,:)=transpose(initial_coef)
+    end if
+    if(present(initial_intercept).and.q>p) then
+      call require(size(initial_intercept)==k,'logistic initial intercept shape mismatch')
+      call require(all(ieee_is_finite(initial_intercept)),'logistic initial intercepts must be finite')
+      w(q,:)=initial_intercept
+    end if
+    self%converged_=.false.
     do it=1,self%max_iter
       call evaluate(w,objective,prob)
       gradient=0; hess=0
@@ -1258,12 +1302,262 @@ contains
       end do
     end if
   end function
-  real(dp) function logistic_score(self,x,y) result(s)
+  real(dp) function logistic_score(self,x,y,sample_weight) result(s)
     class(logistic_regression), intent(in) :: self
     real(dp), intent(in) :: x(:,:)
     integer, intent(in) :: y(:)
-    s=accuracy_score(y,self%predict(x))
+    real(dp), intent(in), optional :: sample_weight(:)
+    if(.not.present(sample_weight)) then
+      s=accuracy_score(y,self%predict(x)); return
+    end if
+    call require(size(y)==size(x,1),'logistic score target length mismatch')
+    call score_weights(sample_weight,size(y),'logistic')
+    s=ieee_mean(merge(1._dp,0._dp,y==self%predict(x)),sample_weight)
   end function
+  logical function logistic_cv_scoring_supported(scoring) result(supported)
+    character(*), intent(in) :: scoring
+    supported=any(scoring==[character(20)::'accuracy','balanced_accuracy','neg_log_loss','roc_auc'])
+  end function
+
+  real(dp) function logistic_cv_measure(model,x,y,scoring,sample_weight) result(value)
+    class(logistic_regression), intent(in) :: model
+    real(dp), intent(in) :: x(:,:)
+    integer, intent(in) :: y(:)
+    character(*), intent(in) :: scoring
+    real(dp), intent(in), optional :: sample_weight(:)
+    real(dp), allocatable :: weights(:),prob(:,:),decision(:,:),terms(:)
+    integer, allocatable :: predicted(:),classes(:)
+    real(dp) :: mass,total
+    integer :: i,j,nused
+    call check_xy(x,size(y)); call score_weights(sample_weight,size(y),'LogisticRegressionCV')
+    allocate(weights(size(y))); weights=1
+    if(present(sample_weight)) weights=sample_weight
+    call require(all(weights>=0),'LogisticRegressionCV score weights must be nonnegative')
+    select case(scoring)
+    case('accuracy')
+      value=ieee_mean(merge(1._dp,0._dp,y==model%predict(x)),sample_weight)
+    case('balanced_accuracy')
+      predicted=model%predict(x); classes=unique_labels(y); total=0; nused=0
+      ! Normalize weights before class sums to protect the scorer from overflow.
+      weights=weights/maxval(weights)
+      do j=1,size(classes)
+        mass=sum(pack(weights,y==classes(j))); if(mass==0) cycle
+        total=total+sum(pack(weights,y==classes(j).and.predicted==y))/mass; nused=nused+1
+      end do
+      value=total/nused
+    case('neg_log_loss')
+      prob=model%predict_proba(x); classes=unique_labels(y)
+      call require(size(classes)>=2,'LogisticRegressionCV log loss needs at least two test classes')
+      call require(size(classes)==size(prob,2),'LogisticRegressionCV log loss test classes do not match probabilities')
+      allocate(terms(size(y)))
+      do i=1,size(y)
+        j=label_index(classes,y(i))
+        terms(i)=log(max(epsilon(1._dp),min(1-epsilon(1._dp),prob(i,j))))
+      end do
+      value=ieee_mean(terms,sample_weight)
+    case('roc_auc')
+      call require(size(model%classes_)==2,'LogisticRegressionCV ROC AUC requires a binary model')
+      decision=model%decision_function(x); value=roc_auc_score(y,decision(:,1),sample_weight=sample_weight)
+    case default
+      call require(.false.,'unknown LogisticRegressionCV scoring mode')
+    end select
+  end function
+
+  real(dp) function logistic_cv_score(self,x,y,sample_weight) result(value)
+    class(logistic_regression_cv), intent(in) :: self
+    real(dp), intent(in) :: x(:,:)
+    integer, intent(in) :: y(:)
+    real(dp), intent(in), optional :: sample_weight(:)
+    call require(allocated(self%coef_),'LogisticRegressionCV is not fitted')
+    value=logistic_cv_measure(self,x,y,self%scoring,sample_weight)
+  end function
+
+  subroutine logistic_cv_folds(self,y)
+    class(logistic_regression_cv), intent(inout) :: self
+    integer, intent(in) :: y(:)
+    integer, allocatable :: labels(:),counts(:),assignment(:),members(:)
+    integer :: i,j,c,n,offset,position,width
+    n=size(y)
+    if(allocated(self%splits)) then
+      self%cv_splits_=self%splits
+      call require(size(self%cv_splits_)>0,'LogisticRegressionCV needs at least one split')
+    else
+      call require(self%cv>=2.and.self%cv<=n,'invalid LogisticRegressionCV cv count')
+      labels=[integer::]
+      do i=1,n
+        if(.not.any(labels==y(i))) labels=[labels,y(i)]
+      end do
+      counts=[(count(y==labels(i)),i=1,size(labels))]
+      call require(.not.all(counts<self%cv),'LogisticRegressionCV cv exceeds every class count')
+      if(allocated(self%cv_splits_)) deallocate(self%cv_splits_)
+      allocate(self%cv_splits_(self%cv),assignment(n)); offset=0
+      do c=1,size(labels)
+        members=pack([(i,i=1,n)],y==labels(c)); position=1
+        do j=1,self%cv
+          width=count(modulo(offset+[(i,i=0,counts(c)-1)],self%cv)==j-1)
+          assignment(members(position:position+width-1))=j; position=position+width
+        end do
+        offset=offset+counts(c)
+      end do
+      do j=1,self%cv
+        self%cv_splits_(j)%train=pack([(i,i=1,n)],assignment/=j)
+        self%cv_splits_(j)%test=pack([(i,i=1,n)],assignment==j)
+      end do
+    end if
+    do j=1,size(self%cv_splits_)
+      call require(allocated(self%cv_splits_(j)%train).and.allocated(self%cv_splits_(j)%test), &
+        'LogisticRegressionCV split indices are unallocated')
+      call require(size(self%cv_splits_(j)%train)>0.and.size(self%cv_splits_(j)%test)>0, &
+        'LogisticRegressionCV split indices must be nonempty')
+      call require(all(self%cv_splits_(j)%train>=1).and.all(self%cv_splits_(j)%train<=n).and. &
+        all(self%cv_splits_(j)%test>=1).and.all(self%cv_splits_(j)%test<=n), &
+        'LogisticRegressionCV split index is out of bounds')
+    end do
+  end subroutine
+
+  integer function logistic_cv_best(scores) result(index)
+    real(dp), intent(in) :: scores(:)
+    integer :: j
+    index=1
+    do j=1,size(scores)
+      ! NumPy argmax returns the first NaN; otherwise the first maximum wins.
+      if(ieee_is_nan(scores(j))) then
+        index=j; return
+      end if
+      if(scores(j)>scores(index)) index=j
+    end do
+  end function
+
+  subroutine logistic_cv_fit(self,x,y,sample_weight)
+    class(logistic_regression_cv), intent(inout) :: self
+    real(dp), intent(in) :: x(:,:)
+    integer, intent(in) :: y(:)
+    real(dp), intent(in), optional :: sample_weight(:)
+    type(logistic_regression) :: worker
+    real(dp), allocatable :: raw_weight(:),fit_weight(:),initial_coef(:,:),initial_bias(:),averaged(:,:),totals(:)
+    integer, allocatable :: train(:),test(:),present_classes(:)
+    real(dp) :: bound,mass,chosen_c
+    integer :: n,p,k,m,q,nfolds,f,j,c,i,best
+    call check_xy(x,size(y)); n=size(y); p=size(x,2)
+    self%classes_=unique_labels(y); k=size(self%classes_)
+    call require(k>=2,'LogisticRegressionCV requires at least two classes')
+    call require(ieee_is_finite(self%tol),'nonfinite LogisticRegressionCV tolerance')
+    call require(self%tol>0.and.self%max_iter>=0,'invalid LogisticRegressionCV solver controls')
+    call require(logistic_cv_scoring_supported(self%scoring),'unknown LogisticRegressionCV scoring mode')
+    if(self%scoring=='roc_auc') call require(k==2,'LogisticRegressionCV ROC AUC requires a binary model')
+    call require(maxval(abs(x))<=sqrt(huge(1._dp))/(16*real(n,dp)*real(p,dp)*real(k,dp)), &
+      'LogisticRegressionCV data exceeds safe Hessian range')
+    if(allocated(self%cs)) then
+      call require(size(self%cs)>0,'LogisticRegressionCV C grid must be nonempty')
+      call require(all(ieee_is_finite(self%cs)),'LogisticRegressionCV Cs must be finite')
+      call require(all(self%cs>0),'LogisticRegressionCV Cs must be positive')
+      self%cs_=self%cs
+    else
+      call require(self%n_cs>0,'LogisticRegressionCV n_cs must be positive')
+      if(allocated(self%cs_)) deallocate(self%cs_)
+      allocate(self%cs_(self%n_cs)); self%cs_=1.e-4_dp
+      if(self%n_cs>1) self%cs_=[(10._dp**(-4+8*real(j-1,dp)/real(self%n_cs-1,dp)),j=1,self%n_cs)]
+    end if
+    allocate(raw_weight(n),fit_weight(n)); raw_weight=1
+    if(present(sample_weight)) then
+      call require(size(sample_weight)==n,'LogisticRegressionCV sample weight length mismatch')
+      call require(all(ieee_is_finite(sample_weight)),'LogisticRegressionCV sample weights must be finite')
+      raw_weight=sample_weight
+    end if
+    call require(all(raw_weight>=0),'LogisticRegressionCV sample weights must be nonnegative')
+    bound=sqrt(huge(1._dp))/(16*real(n,dp))
+    call require(maxval(raw_weight)<=bound,'LogisticRegressionCV weights exceed working range')
+    call require(sum(raw_weight)>0,'LogisticRegressionCV sample weights require positive total')
+    call require(.not.(self%class_weight_balanced.and.allocated(self%class_weight)), &
+      'LogisticRegressionCV class weight modes are mutually exclusive')
+    if(allocated(self%class_weight_)) deallocate(self%class_weight_)
+    allocate(self%class_weight_(k)); self%class_weight_=1
+    if(allocated(self%class_weight)) then
+      call require(size(self%class_weight)==k,'LogisticRegressionCV class weight length mismatch')
+      call require(all(ieee_is_finite(self%class_weight)),'LogisticRegressionCV class weights must be finite')
+      call require(all(self%class_weight>=0),'LogisticRegressionCV class weights must be nonnegative')
+      self%class_weight_=self%class_weight
+    else if(self%class_weight_balanced) then
+      do c=1,k
+        self%class_weight_(c)=real(n,dp)/(real(k,dp)*count(y==self%classes_(c)))
+      end do
+    end if
+    do i=1,n
+      c=label_index(self%classes_,y(i)); fit_weight(i)=0
+      if(raw_weight(i)==0.or.self%class_weight_(c)==0) cycle
+      call require(log(raw_weight(i))+log(self%class_weight_(c))<=log(bound), &
+        'LogisticRegressionCV combined weights exceed working range')
+      fit_weight(i)=raw_weight(i)*self%class_weight_(c)
+    end do
+    call require(sum(fit_weight)>0,'LogisticRegressionCV effective weights require positive total')
+    call logistic_cv_folds(self,y); nfolds=size(self%cv_splits_)
+    m=k; if(k==2) m=1
+    q=p+merge(1,0,self%fit_intercept); self%n_features_in_=p
+    self%path_classes_=self%classes_; if(k==2) self%path_classes_=self%classes_(2:)
+    if(allocated(self%coefs_paths_)) deallocate(self%coefs_paths_,self%n_iter_path_,self%converged_path_)
+    if(allocated(self%scores_)) deallocate(self%scores_)
+    allocate(self%coefs_paths_(m,nfolds,size(self%cs_),q),self%scores_(nfolds,size(self%cs_)), &
+      self%n_iter_path_(nfolds,size(self%cs_)),self%converged_path_(nfolds,size(self%cs_)))
+    allocate(initial_coef(m,p),initial_bias(m)); worker%fit_intercept=self%fit_intercept
+    worker%tol=self%tol; worker%max_iter=self%max_iter
+    do f=1,nfolds
+      train=self%cv_splits_(f)%train; test=self%cv_splits_(f)%test
+      call require(sum(fit_weight(train))>0,'LogisticRegressionCV training weights require positive total')
+      call require(sum(raw_weight(test))>0,'LogisticRegressionCV test weights require positive total')
+      present_classes=unique_labels(y(train))
+      if(k>2) call require(size(present_classes)==k,'LogisticRegressionCV multiclass training fold lacks a class')
+      if(self%fit_intercept.and.self%max_iter>0) then
+        do c=1,k
+          mass=sum(pack(fit_weight(train),y(train)==self%classes_(c)))
+          call require(mass>0,'LogisticRegressionCV intercept fit needs positive class mass in every training fold')
+        end do
+      end if
+      initial_coef=0; initial_bias=0
+      do j=1,size(self%cs_)
+        worker%c=self%cs_(j)
+        call logistic_fit_core(worker,x(train,:),y(train),fit_weight(train),initial_coef,initial_bias,self%classes_)
+        self%coefs_paths_(:,f,j,:p)=worker%coef_
+        if(q>p) self%coefs_paths_(:,f,j,q)=worker%intercept_
+        self%n_iter_path_(f,j)=worker%n_iter_; self%converged_path_(f,j)=worker%converged_
+        self%scores_(f,j)=logistic_cv_measure(worker,x(test,:),y(test),self%scoring,raw_weight(test))
+        initial_coef=worker%coef_; initial_bias=worker%intercept_
+      end do
+    end do
+    self%all_cv_converged_=all(self%converged_path_)
+    allocate(averaged(m,q)); averaged=0
+    if(allocated(self%best_c_indices_)) deallocate(self%best_c_indices_)
+    allocate(self%best_c_indices_(nfolds))
+    if(self%refit) then
+      totals=sum(self%scores_,dim=1); best=logistic_cv_best(totals)
+      self%best_c_indices_=best; chosen_c=self%cs_(best)
+      do f=1,nfolds
+        averaged=averaged+self%coefs_paths_(:,f,best,:)/nfolds
+      end do
+    else
+      chosen_c=0
+      do f=1,nfolds
+        best=logistic_cv_best(self%scores_(f,:)); self%best_c_indices_(f)=best
+        chosen_c=chosen_c+self%cs_(best)/nfolds
+        averaged=averaged+self%coefs_paths_(:,f,best,:)/nfolds
+      end do
+    end if
+    self%c_=spread(chosen_c,1,m); self%c=chosen_c; self%refit_init_=averaged
+    if(self%refit) then
+      initial_coef=averaged(:,:p); initial_bias=0; if(q>p) initial_bias=averaged(:,q)
+      worker%c=chosen_c
+      call logistic_fit_core(worker,x,y,fit_weight,initial_coef,initial_bias,self%classes_)
+      self%coef_=worker%coef_; self%intercept_=worker%intercept_
+      self%n_iter_=worker%n_iter_; self%converged_=worker%converged_
+    else
+      self%coef_=averaged(:,:p); self%intercept_=spread(0._dp,1,m)
+      if(q>p) self%intercept_=averaged(:,q)
+      self%n_iter_=0; self%converged_=.true.
+      do f=1,nfolds
+        self%converged_=self%converged_.and.self%converged_path_(f,self%best_c_indices_(f))
+      end do
+    end if
+  end subroutine
+
   subroutine perceptron_fit(self,x,y)
     class(perceptron), intent(inout) :: self
     real(dp), intent(in) :: x(:,:)

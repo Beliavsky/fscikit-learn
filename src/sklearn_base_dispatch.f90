@@ -27,7 +27,7 @@ contains
     integer, intent(in) :: y(:)
     real(dp), intent(in), optional :: weights(:)
     select type(model)
-    type is(logistic_regression)
+    class is(logistic_regression)
       call model%fit(x,y,weights)
     type is(gaussian_nb)
       call model%fit(x,y,weights)
@@ -109,7 +109,7 @@ contains
     real(dp), intent(in) :: x(:,:)
     integer, allocatable :: values(:)
     select type(model)
-    type is(logistic_regression)
+    class is(logistic_regression)
       values=model%predict(x)
     type is(gaussian_nb)
       values=model%predict(x)
@@ -169,7 +169,7 @@ contains
     real(dp), intent(in) :: x(:,:)
     real(dp), allocatable :: values(:,:)
     select type(model)
-    type is(logistic_regression)
+    class is(logistic_regression)
       values=model%predict_proba(x)
     type is(gaussian_nb)
       values=model%predict_proba(x)
@@ -195,7 +195,7 @@ contains
     ok=.true.
     if(classifier) then
       select type(model)
-      type is(logistic_regression)
+      class is(logistic_regression)
       type is(gaussian_nb)
       type is(sgd_classifier)
       type is(kneighbors_classifier)
@@ -227,7 +227,7 @@ contains
     class(*), intent(in) :: model
     ok=.true.
     select type(model)
-    type is(logistic_regression)
+    class is(logistic_regression)
     type is(gaussian_nb)
     type is(sgd_classifier)
     type is(sgd_regressor)
@@ -245,7 +245,7 @@ contains
     class(*), intent(in) :: model
     ok=.true.
     select type(model)
-    type is(logistic_regression)
+    class is(logistic_regression)
     type is(gaussian_nb)
     type is(sgd_classifier)
       ok=model%loss=='log_loss'.or.model%loss=='modified_huber'
@@ -261,7 +261,7 @@ contains
     class(*), intent(in) :: model
     integer, allocatable :: values(:)
     select type(model)
-    type is(logistic_regression)
+    class is(logistic_regression)
       values=model%classes_
     type is(gaussian_nb)
       values=model%classes_
@@ -293,7 +293,7 @@ contains
     class(*), intent(in) :: model
     ok=.true.
     select type(model)
-    type is(logistic_regression)
+    class is(logistic_regression)
     type is(sgd_classifier)
     type is(perceptron)
     type is(passive_aggressive_classifier)
@@ -309,7 +309,7 @@ contains
     real(dp), intent(in) :: x(:,:)
     real(dp), allocatable :: value(:,:)
     select type(model)
-    type is(logistic_regression)
+    class is(logistic_regression)
       value=model%decision_function(x)
     type is(sgd_classifier)
       value=model%decision_function(x)

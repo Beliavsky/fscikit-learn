@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 195 public estimator, transformer, and splitter types. Each is a
+There are 196 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Eighty-one reference suites additionally check 339,475
+All types have native tests. Eighty-three reference suites additionally check 347,125
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -27,7 +27,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | inspection | `permutation_importance`, `permutation_importance_multi`, `partial_dependence` | Dense callback-based permutation importance and brute partial dependence/ICE; seeded subsampling/shuffles; weighted averages; categorical and Cunnane percentile grids; numeric multiple-output responses |
 | multioutput | `multi_output_regressor`, `multi_output_classifier`, `regressor_chain`, `classifier_chain` | Independent fitted base models per response column; supported native linear/SGD, NB, neighbors and tree families; ragged class probabilities; SGD/Gaussian NB streaming; native base weighting limits apply |
 | preprocessing | `ordinal_encoder`, `target_encoder`, `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `knn_imputer`, `missing_indicator`, `spline_transformer`, `label_encoder`, `one_hot_encoder`, `label_binarizer`, `multi_label_binarizer`, `power_transformer`, `kbins_discretizer`, `quantile_transformer`; `normalize`, `binarize`, `polynomial_features` | Ordinal category codes and infrequent grouping; cross-fitted target means; population variance; linear percentile interpolation; NaN imputation with mean/median/most-frequent/constant; numeric categories; empirical uniform/normal quantile transforms; dense polynomial terms through degree 12 with optional interactions; B-spline features and extrapolation |
-| linear_model | `linear_regression`, `lars`, `lasso_lars`, `lars_cv`, `lasso_lars_cv`, `lasso_lars_ic`, `ridge`, `ridge_classifier`, `ridge_classifier_cv`, `multi_task_elastic_net`, `multi_task_lasso`, `multi_task_elastic_net_cv`, `multi_task_lasso_cv`, `lasso`, `elastic_net`, `lasso_cv`, `elastic_net_cv`, `logistic_regression`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `sgd_regressor`, `sgd_classifier`, `sgd_one_class_svm`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `orthogonal_matching_pursuit_cv`, `huber_regressor`, `quantile_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; least-angle/Lasso homotopy paths with CV and AIC/BIC selection; coordinate descent with K-fold alpha/l1-ratio selection; weighted logistic Newton solver with raw-score prediction; perceptron; PA-I/II classification/regression with averaging; streaming stochastic-gradient regression/classification and one-class detection; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; weighted L1-regularized quantile regression; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
+| linear_model | `linear_regression`, `lars`, `lasso_lars`, `lars_cv`, `lasso_lars_cv`, `lasso_lars_ic`, `ridge`, `ridge_classifier`, `ridge_classifier_cv`, `multi_task_elastic_net`, `multi_task_lasso`, `multi_task_elastic_net_cv`, `multi_task_lasso_cv`, `lasso`, `elastic_net`, `lasso_cv`, `elastic_net_cv`, `logistic_regression`, `logistic_regression_cv`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `sgd_regressor`, `sgd_classifier`, `sgd_one_class_svm`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `orthogonal_matching_pursuit_cv`, `huber_regressor`, `quantile_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; least-angle/Lasso homotopy paths with CV and AIC/BIC selection; coordinate descent with K-fold alpha/l1-ratio selection; weighted logistic Newton solver with raw-score prediction; perceptron; PA-I/II classification/regression with averaging; streaming stochastic-gradient regression/classification and one-class detection; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; weighted L1-regularized quantile regression; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb`, `categorical_nb` | Weighted/streaming Gaussian moments, empirical/fixed priors and variance smoothing; strictly positive scalar alpha; Bernoulli threshold; optional complement normalization |
 | neighbors | `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with optional shrinkage and uniform priors; Euclidean kernel density |
 | cluster | `kmeans`, `bisecting_kmeans`, `mini_batch_kmeans`, `spectral_coclustering`, `spectral_biclustering`, `hdbscan`, `dbscan`, `agglomerative_clustering`, `feature_agglomeration`, `mean_shift`, `affinity_propagation`, `spectral_clustering`, `optics`, `birch`; `estimate_bandwidth`, `cluster_optics_dbscan`, `cluster_optics_xi` | Lloyd/k-means++; paired row/column spectral partitions and checkerboard biclustering; weighted streaming mini-batch centroids; bisecting centroid hierarchy with Lloyd/Elkan splits; density expansion; single/complete/average/Ward merge trees and feature pooling; flat-kernel mode seeking; damped exemplar messages; normalized-Laplacian clustering with k-means or pivoted QR assignment; OPTICS reachability ordering, Xi hierarchy and DBSCAN extraction; BIRCH streaming CF tree and optional Ward clustering |
@@ -4231,3 +4231,50 @@ and source warnings are retained in the reference reports; no ordinary numeric
 tolerance is widened for these endpoints. Which singular folds require a
 certificate may vary across optimization profiles because determinant signs
 near zero are roundoff-sensitive.
+
+## LogisticRegressionCV
+
+`type(logistic_regression_cv)` extends `logistic_regression` in
+`sklearn_linear_model` and is re-exported by `sklearn`. It implements dense L2
+binary and joint multinomial classification with a native full Newton solver.
+Set `cs(:)` to positive candidate inverse regularization strengths, or use
+`n_cs` (default 10) for a logarithmic grid from 1e-4 to 1e4. Candidate order and
+repetitions are preserved. `cv` defaults to five nonshuffled stratified folds;
+optional `splits(:)` supplies explicit 1-based `index_split` train/test indices.
+Explicit folds may overlap or contain repeated rows and need not partition data.
+
+`fit(x,y,sample_weight)` accepts nonnegative sample weights. Optional
+`class_weight(:)` follows sorted `classes_`; alternatively set
+`class_weight_balanced=.true.` for global unweighted inverse class frequencies.
+Supported `scoring` values are `accuracy`, `balanced_accuracy`, `neg_log_loss`,
+and binary `roc_auc`. Scoring uses raw sample weights, without class weights.
+`score(x,y,sample_weight)` uses the current scoring control; ordinary
+`logistic_regression%score` also accepts optional accuracy weights.
+
+`scores_(fold,C)` stores the shared joint classification scores.
+`coefs_paths_(model_class,fold,C,parameter)` stores feature coefficients followed
+by the intercept when fitted; binary has one model class (the positive label),
+and multinomial has one per sorted class. `path_classes_` identifies those rows.
+`cs_`, `c_`, `class_weight_`, `cv_splits_`, `best_c_indices_`, and
+`n_features_in_` expose fitted choices and metadata. `n_iter_path_(fold,C)` and
+`converged_path_` describe native optimizer work, which is not sklearn's
+newton-cg iteration count or tensor layout.
+
+With `refit=.true.`, the first best mean-score candidate is selected and a
+full-data fit starts from the mean selected fold parameters. With
+`refit=.false.`, each fold selects its own first best candidate and the final
+parameters and C are arithmetic means, without another fit. `refit_init_`
+records those mean parameters. Inherited `n_iter_` counts only the final fit
+(zero when refit is false). Zero iterations are supported; convergence flags
+report the resulting unconverged paths. NaN scores follow NumPy argmax's first
+NaN selection rule. Multinomial intercepts are centered to remove their common
+additive null direction.
+
+Training folds must retain every multinomial class. With an intercept and
+positive iteration cap, every global class needs positive effective training
+mass; a finite intercept optimum is required. Binary one-class training folds
+are supported without an intercept. L1/elastic-net penalties, OvR solver modes,
+multiple l1 ratios, and sklearn metadata-routing APIs are not implemented.
+The CV subtype works through existing logistic-capable voting, bagging,
+stacking, multiclass, multioutput, calibration, self-training, and nested
+`cross_val_score` paths. See `example/logistic_cv.f90`.

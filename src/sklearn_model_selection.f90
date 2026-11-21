@@ -305,17 +305,17 @@ contains
     end do
   end function
   function cross_val_logistic(estimator,x,y,cv) result(scores)
-    type(logistic_regression), intent(in) :: estimator
+    class(logistic_regression), intent(in) :: estimator
     real(dp), intent(in) :: x(:,:)
     integer, intent(in) :: y(:)
     integer, intent(in), optional :: cv
     real(dp), allocatable :: scores(:)
-    type(logistic_regression) :: model
+    class(logistic_regression), allocatable :: model
     type(stratified_kfold) :: splitter
     type(index_split), allocatable :: folds(:)
     integer :: i
     call check_xy(x,size(y)); if(present(cv)) splitter%n_splits=cv
-    folds=splitter%split(y); allocate(scores(size(folds))); model=estimator
+    folds=splitter%split(y); allocate(scores(size(folds))); allocate(model,source=estimator)
     do i=1,size(folds)
       call model%fit(x(folds(i)%train,:),y(folds(i)%train))
       scores(i)=model%score(x(folds(i)%test,:),y(folds(i)%test))
