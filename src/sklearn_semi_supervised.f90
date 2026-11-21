@@ -1,10 +1,12 @@
 ! Graph label diffusion, following sklearn/semi_supervised/_label_propagation.py.
 module sklearn_semi_supervised
+  use sklearn_self_training, only: self_training_classifier
   use sklearn_common
   use sklearn_metrics, only: rbf_kernel,pairwise_distances,accuracy_score
   implicit none
   private
   public :: label_propagation,label_spreading
+  public :: self_training_classifier
   type :: label_diffusion
     character(16) :: kernel='rbf'
     real(dp) :: gamma=20,tol=1.e-3_dp

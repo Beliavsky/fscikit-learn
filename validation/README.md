@@ -9,6 +9,7 @@ python validation/compare_cluster_information.py
 python validation/compare_resampling.py
 python validation/compare_tsne.py
 python validation/compare_lle_variants.py
+python validation/compare_self_training.py
 python validation/compare_ranking.py
 python validation/compare_mutual_info.py
 python validation/compare_label_binarization.py
@@ -2894,3 +2895,43 @@ hashes, retained licenses and git diff checks. Numerical sources did not
 change after checked/release testing. Other reference suites retain their
 previously recorded results in the aggregate inventory and were not all
 rerun for this batch.
+
+
+## Self-training classifier validation
+
+`python validation/compare_self_training.py` compares threshold/k-best
+self-training with Gaussian NB, uniform/distance-weighted KNN and logistic
+bases against sklearn 1.6.1. It accepts --executable for an already-built
+driver and --profile release for an optimized fpm driver. There are 495
+fixtures over five seeds, one to four classes, zero/unlimited/capped iterations,
+fully labeled data and inductive probability/decision outputs. Floating
+outputs use atol=rtol=2.e-7; class/iteration arrays and input preservation are
+exact. Multiclass logits are centered per row to remove their common gauge.
+
+The native stable tied-cutoff rule can differ from source argpartition.
+Every native iteration is independently checked using a source base fit:
+original labels, new class assignments, threshold membership, k-best counts,
+confidence ordering and valid stopping/refit behavior. Gaussian NB/KNN
+probability saturation allows only 32 double precision epsilons at a cutoff;
+logistic confidence ordering is exact. A history that differs from the
+ordinary source estimator requires a certified tied cutoff. The final source
+base is refitted on the certified transduction before query comparison.
+Both profiles recorded 30 such fixtures, with 221 result groups. These are
+separate from the 3,694 direct sklearn groups and 990 input identities.
+See docs/API.md, docs/COVERAGE.md and example/self_training.f90 for scope.
+
+Completed validation: all 87 native test programs passed checked
+(-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow) and release builds.
+Each profile passed all 4,905 groups across 495 fixtures, with the same
+3,694 direct sklearn groups, 990 input identities and 221 source-certified
+tied-cutoff groups. The original 192-group integration comparison and all
+1,837 isolated invalid-input cases passed. The checked example ran two
+iterations, returned all_labeled and predicted query classes [0,1].
+The first orchestration invocation used a mistyped example target; fpm
+returned success without executing it. The corrected target was run directly
+and its output explicitly verified. This required no numerical source change.
+Final audits passed Python syntax, Fortran formatting, exact diagnostic
+registration, result/oracle accounting, inventory totals, upstream source
+hashes, retained licenses and git diff checks. Numerical sources did not
+change after checked/release testing. Existing reference suites retain their
+previously recorded aggregate results; they were not all rerun for this batch.

@@ -3033,3 +3033,67 @@ hashes, retained licenses and git diff checks. Numerical sources did not
 change after checked/release testing. Other reference suites retain their
 previously recorded results in the aggregate inventory and were not all
 rerun for this batch.
+
+
+## Self-training classifier batch
+
+Added self_training_classifier, exported by sklearn_semi_supervised and the
+sklearn facade. The sklearn 1.6.1 loop supports native logistic_regression,
+gaussian_nb and kneighbors_classifier bases, copied without mutating the
+input estimator. It implements threshold and k_best selection, strict
+threshold comparison, original-label preservation, per-sample iteration
+history, transduction, zero/finite/unlimited iteration controls, source
+stopping-rule precedence and mandatory final refitting. Inductive class
+predictions, probabilities, accuracy and available base log-probabilities
+and decision functions use the final fitted estimator. One-class fits are
+supported where the base supports them. Other estimator types, sparse data,
+metadata/sample-weight routing and verbose output are outside this port.
+
+Confidence ties use stable input order; source argpartition leaves the tied
+cutoff choice unspecified. Rounding of saturated base probabilities can also
+change tied selections. The reference suite checks all native iterations
+against source base fits: correct labels, exact threshold choices, k-best
+counts and confidence ordering. Tied cutoff comparisons allow only 32 double
+precision epsilons for Gaussian NB/KNN arithmetic; logistic ordering is exact.
+Histories that differ from ordinary sklearn require an independently verified
+tied cutoff. Final source-base fits on the certified transduction validate
+query predictions and probabilities. Direct source histories remain required
+for ordinary cases. Multiclass logistic decisions are centered per row to
+remove their unidentifiable common intercept; probabilities are compared
+directly. The stable tie policy itself has an analytic native test.
+
+The suite has 4,905 groups across 495 fixtures and five seeds
+(0,7,42,2026,314159), with one through four classes and all three supported
+bases: 3,694 direct sklearn groups, 990 input identities and 221 groups from
+30 tied-cutoff cases certified using source fits. Gaussian NB and KNN include
+single-class cases; logistic requires at least two initial classes. Uniform
+and distance-weighted KNN, both selection rules, zero/unlimited/capped fits,
+no-change stopping, fully labeled inputs and query decision/probability
+outputs are covered. Native tests additionally verify analytic transduction,
+strict threshold equality, all stopping-rule precedence, state replacement,
+deep copies, unchanged fitted/unfitted input estimators and mandatory final
+refits. Nineteen new isolated diagnostics cover invalid controls, input
+sizes/data, missing initial labels, unsupported bases, unfitted prediction,
+feature mismatches and unavailable delegated methods.
+
+Source provenance and retained BSD attribution are in THIRD_PARTY_NOTICES.md;
+original contributions remain MIT. No extension or dependency is added.
+Inventory: 176 core types, 87 source modules, 87 native test programs,
+66 reference suites and 141,446 result groups, plus 28 separate NumPy RNG
+stream groups. Isolated invalid-input inventory is 1,837.
+
+Completed validation: all 87 native test programs passed checked
+(-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow) and release builds.
+Each profile passed all 4,905 groups across 495 fixtures, with the same
+3,694 direct sklearn groups, 990 input identities and 221 source-certified
+tied-cutoff groups. The original 192-group integration comparison and all
+1,837 isolated invalid-input cases passed. The checked example ran two
+iterations, returned all_labeled and predicted query classes [0,1].
+The first orchestration invocation used a mistyped example target; fpm
+returned success without executing it. The corrected target was run directly
+and its output explicitly verified. This required no numerical source change.
+Final audits passed Python syntax, Fortran formatting, exact diagnostic
+registration, result/oracle accounting, inventory totals, upstream source
+hashes, retained licenses and git diff checks. Numerical sources did not
+change after checked/release testing. Existing reference suites retain their
+previously recorded aggregate results; they were not all rerun for this batch.

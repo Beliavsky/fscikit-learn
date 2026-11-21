@@ -351,3 +351,21 @@ runtime or new dependency is required. Original contributions remain MIT;
 adapted portions retain the existing complete sklearn/NumPy BSD notices in
 LICENSES/. The source's partial-AUC and probability-calibration references
 remain attributed to the sklearn implementation.
+
+## Self-training classification (BSD)
+
+`src/sklearn_self_training.f90` adapts scikit-learn 1.6.1
+`semi_supervised/_self_training.py`: labeled/unlabeled masks, iterative
+base fitting, strict confidence thresholds, k-best selection, transduction
+and labeling-iteration histories, stopping-rule precedence, final refitting
+and delegated prediction. Installed source SHA-256:
+`12bdc9c504e27e18c20210736123ecdf07361eb8df48f32e1a639fe50b5de96a`.
+The stable merge sort gives native tied-cutoff ordering; NumPy's partition
+implementation is not copied. Existing logistic, Gaussian NB and KNN
+implementations retain their existing provenance. The source research
+reference is D. Yarowsky, "Unsupervised word sense disambiguation rivaling
+supervised methods," ACL (1995).
+
+Original contributions remain MIT. Adapted sklearn portions retain the
+complete BSD-3-Clause notice in `LICENSES/scikit-learn-COPYING`.
+No dependency is added.

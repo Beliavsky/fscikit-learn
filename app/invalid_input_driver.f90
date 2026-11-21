@@ -8,6 +8,12 @@ program invalid_input_driver
   use sklearn_legacy_rng, only: legacy_random_state
   use, intrinsic :: ieee_arithmetic, only: ieee_value,ieee_quiet_nan,ieee_positive_inf
   implicit none
+  type(self_training_classifier) :: st_case
+  type(gaussian_nb) :: st_nb
+  type(kneighbors_classifier) :: st_knn
+  real(dp) :: st_x(4,1)=reshape([-2._dp,-1._dp,1._dp,2._dp],[4,1])
+  real(dp), allocatable :: st_prob(:,:)
+  integer :: st_y(4)=[0,0,1,-1]
   integer :: rk_y(4)=[0,0,1,1]
   real(dp) :: rk_s(4)=[.1_dp,.4_dp,.35_dp,.8_dp],rk_p(4)=[.1_dp,.4_dp,.35_dp,.8_dp],rk_w(4)=1,rk_value
   real(dp), allocatable :: rk_a(:),rk_b(:),rk_c(:)
@@ -270,6 +276,61 @@ program invalid_input_driver
   mi_x(:,2)=[0._dp,0._dp,1._dp,1._dp,2._dp,2._dp]; mi_x(:,3)=1
   mi_y=mi_x(:,1); mi_labels=[-1,-1,-1,2,2,2]
   select case(trim(mode))
+  case('st_threshold_nan')
+    st_case%threshold=ieee_value(0._dp,ieee_quiet_nan)
+    call st_case%fit(st_x,st_y,st_nb)
+  case('st_threshold_inf')
+    st_case%threshold=ieee_value(0._dp,ieee_positive_inf)
+    call st_case%fit(st_x,st_y,st_nb)
+  case('st_threshold_negative')
+    st_case%threshold=-.1_dp
+    call st_case%fit(st_x,st_y,st_nb)
+  case('st_threshold_one')
+    st_case%threshold=1
+    call st_case%fit(st_x,st_y,st_nb)
+  case('st_criterion')
+    st_case%criterion='invalid'
+    call st_case%fit(st_x,st_y,st_nb)
+  case('st_k_zero')
+    st_case%k_best=0
+    call st_case%fit(st_x,st_y,st_nb)
+  case('st_k_negative')
+    st_case%k_best=-1
+    call st_case%fit(st_x,st_y,st_nb)
+  case('st_max_negative')
+    st_case%max_iter=-2
+    call st_case%fit(st_x,st_y,st_nb)
+  case('st_unlabeled')
+    st_y=-1
+    call st_case%fit(st_x,st_y,st_nb)
+  case('st_nan')
+    st_x(1,1)=ieee_value(0._dp,ieee_quiet_nan)
+    call st_case%fit(st_x,st_y,st_nb)
+  case('st_length')
+    call st_case%fit(st_x,st_y(:3),st_nb)
+  case('st_empty')
+    call st_case%fit(st_x(:0,:),st_y(:0),st_nb)
+  case('st_unsupported')
+    call st_case%fit(st_x,st_y,1)
+  case('st_unfit_proba')
+    st_prob=st_case%predict_proba(st_x)
+  case('st_unfit_decision')
+    st_prob=st_case%decision_function(st_x)
+  case('st_features')
+    call st_case%fit(st_x,st_y,st_nb)
+    st_prob=st_case%predict_proba(spread(st_x(:,1),2,2))
+  case('st_query_nan')
+    call st_case%fit(st_x,st_y,st_nb)
+    st_x(1,1)=ieee_value(0._dp,ieee_quiet_nan)
+    st_prob=st_case%predict_proba(st_x)
+  case('st_no_decision')
+    call st_case%fit(st_x,st_y,st_nb)
+    st_prob=st_case%decision_function(st_x)
+  case('st_no_log_proba')
+    st_knn%n_neighbors=1
+    call st_case%fit(st_x,st_y,st_knn)
+    st_prob=st_case%predict_log_proba(st_x)
+
   case('rk_roc_length')
     call roc_curve(rk_y(:3),rk_s,rk_a,rk_b,rk_c)
   case('rk_roc_empty')

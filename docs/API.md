@@ -2437,3 +2437,60 @@ observed positive fraction and mean predicted probability in increasing bin
 order. Calibration has no sample_weight argument in sklearn 1.6.1. Calibrated
 estimators, multilabel/multiclass score matrices and plot displays are outside
 this batch. See example/ranking_curves.f90 and validation/compare_ranking.py.
+
+## Self-training classification
+
+`self_training_classifier` is available from `sklearn_semi_supervised` and
+`sklearn`. Pass a configured `logistic_regression`, `gaussian_nb` or
+`kneighbors_classifier` as the required fourth fit argument:
+
+```fortran
+type(self_training_classifier) :: model
+type(kneighbors_classifier) :: estimator
+estimator%n_neighbors=3
+model%criterion='threshold'
+model%threshold=.75_dp
+model%max_iter=10
+call model%fit(x,y,estimator)
+prob=model%predict_proba(query)
+labels=model%predict(query)
+```
+
+Dense real64 feature matrices have samples in rows; integer label -1 marks
+unlabeled samples. All other integer labels, including other negative labels,
+are ordinary classes. The estimator is copied and fitted internally; the input
+estimator and arrays are preserved. Its native fitting and probability
+semantics apply, including logistic's requirement for two initial classes and
+KNN's minimum initial training size. Gaussian NB and KNN also support one
+initial class. Other base-estimator types, sparse inputs, metadata routing,
+sample-weight routing and verbose output are not implemented.
+
+`criterion='threshold'` selects probabilities strictly greater than threshold
+(default .75; finite and in [0,1)). `criterion='k_best'` labels up to k_best
+samples per iteration (default 10, positive). Equal confidence selects earlier
+input rows first using a stable O(N log N) merge sort. sklearn's argpartition
+does not specify this tied-cutoff choice; native/source histories may differ
+there, including probabilities saturated near one within rounding error.
+The reference suite certifies every such step against source-estimator
+probabilities and separately records these cases.
+
+`max_iter` defaults to 10; zero performs only the final supervised fit, and
+-1 represents Python None (unlimited). Iteration stops after all samples
+are labeled, no new samples are selected, or the iteration limit. As in
+sklearn, max_iter takes precedence over no_change and all_labeled takes
+precedence over both. Every successful fit performs a final base-estimator
+refit using all currently labeled samples. Initially labeled rows have
+`labeled_iter_=0`; newly labeled rows record their 1-based iteration and
+remaining unlabeled rows retain -1. `transduction_`, `classes_`, `n_iter_`,
+`n_features_in_`, `termination_condition_` and polymorphic `estimator_` expose
+the fitted result. Refit replaces prior state.
+
+`predict`, `predict_proba` and accuracy `score` delegate to the fitted classifier.
+`decision_function` is available for the logistic base and returns a matrix
+with one column for binary classification. `predict_log_proba` is supported
+for logistic and Gaussian NB; KNN has no source counterpart and is rejected.
+Unsupported delegated methods produce explicit diagnostics. A multiclass
+logistic decision matrix has the usual unidentifiable common intercept;
+reference comparisons center logits per row while comparing probabilities
+directly. See `example/self_training.f90` and
+`validation/compare_self_training.py`.

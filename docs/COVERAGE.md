@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 175 public estimator, transformer, and splitter types. Each is a
+There are 176 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Sixty-five reference suites additionally check 136,541
+All types have native tests. Sixty-six reference suites additionally check 141,446
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -38,7 +38,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 | spectral | `spectral_embedding` | Dense symmetric eigensolver; RBF, symmetrized nearest-neighbor or precomputed affinity; degree normalization; connected-component count |
 | density | `kernel_density` | Exact Euclidean log densities with Gaussian/tophat/Epanechnikov/exponential/linear kernels; sample weights; fixed/Scott/Silverman bandwidth; Gaussian/tophat sampling |
 | outlier | `local_outlier_factor` | Training outlier scores and novelty detection, automatic/percentile threshold, Minkowski and other supported pairwise metrics |
-| semi_supervised | `label_propagation`, `label_spreading` | Dense RBF or directed k-neighbor graph, hard/soft clamping, transductive labels and inductive probabilities |
+| semi_supervised | `label_propagation`, `label_spreading`, `self_training_classifier` | Dense RBF or directed k-neighbor graph, hard/soft clamping, transductive labels and inductive probabilities; threshold/k-best self-training with logistic, Gaussian NB or KNN bases |
 | tree | `decision_tree_classifier`, `decision_tree_regressor` | Exhaustive CART; Gini/entropy/log-loss classification, squared-error regression; depth/leaf/split/feature controls, normalized impurity importance, leaf indices |
 | ensemble | `random_forest_classifier`, `random_forest_regressor`, `extra_trees_classifier`, `extra_trees_regressor`, `gradient_boosting_regressor`, `gradient_boosting_classifier`, `adaboost_classifier`, `adaboost_regressor`, `isolation_forest` | Bootstrap forests, randomized feature subsets, random-threshold Extra Trees, squared-error residual boosting; binary/multiclass classification boosting with Newton leaf updates; weighted Gini-stump SAMME; AdaBoost.R2 with depth-controlled CART; random isolation trees and path-length anomaly scores |
 | model_selection | `kfold`, `stratified_kfold`, `time_series_split`, `group_kfold`, `leave_one_out`, `leave_one_group_out`, `predefined_split`, `shuffle_split`, `stratified_shuffle_split`, `group_shuffle_split`, `repeated_kfold`, `repeated_stratified_kfold`, `leave_p_out`, `leave_p_groups_out`, `ridge_cv`; `train_test_split`, `shuffle_indices`, `cross_val_score` | Index-based splits; seeded random/group/stratified holdouts; repeated shuffled folds; exhaustive sample/group combinations; fraction/count size controls; optional stratification; time gap/window; CV for linear-regression family and logistic regression; ridge CV selects negative mean squared error |
@@ -3391,3 +3391,51 @@ is added; the existing native positive-label AUC convenience is documented.
 Inventory: 175 core types, 86 source modules, 86 native test programs,
 65 reference suites and 136,541 result groups, plus 28 separate NumPy RNG
 stream groups. Isolated invalid-input inventory is 1,818.
+
+
+## Self-training classifier batch
+
+Added self_training_classifier, exported by sklearn_semi_supervised and the
+sklearn facade. The sklearn 1.6.1 loop supports native logistic_regression,
+gaussian_nb and kneighbors_classifier bases, copied without mutating the
+input estimator. It implements threshold and k_best selection, strict
+threshold comparison, original-label preservation, per-sample iteration
+history, transduction, zero/finite/unlimited iteration controls, source
+stopping-rule precedence and mandatory final refitting. Inductive class
+predictions, probabilities, accuracy and available base log-probabilities
+and decision functions use the final fitted estimator. One-class fits are
+supported where the base supports them. Other estimator types, sparse data,
+metadata/sample-weight routing and verbose output are outside this port.
+
+Confidence ties use stable input order; source argpartition leaves the tied
+cutoff choice unspecified. Rounding of saturated base probabilities can also
+change tied selections. The reference suite checks all native iterations
+against source base fits: correct labels, exact threshold choices, k-best
+counts and confidence ordering. Tied cutoff comparisons allow only 32 double
+precision epsilons for Gaussian NB/KNN arithmetic; logistic ordering is exact.
+Histories that differ from ordinary sklearn require an independently verified
+tied cutoff. Final source-base fits on the certified transduction validate
+query predictions and probabilities. Direct source histories remain required
+for ordinary cases. Multiclass logistic decisions are centered per row to
+remove their unidentifiable common intercept; probabilities are compared
+directly. The stable tie policy itself has an analytic native test.
+
+The suite has 4,905 groups across 495 fixtures and five seeds
+(0,7,42,2026,314159), with one through four classes and all three supported
+bases: 3,694 direct sklearn groups, 990 input identities and 221 groups from
+30 tied-cutoff cases certified using source fits. Gaussian NB and KNN include
+single-class cases; logistic requires at least two initial classes. Uniform
+and distance-weighted KNN, both selection rules, zero/unlimited/capped fits,
+no-change stopping, fully labeled inputs and query decision/probability
+outputs are covered. Native tests additionally verify analytic transduction,
+strict threshold equality, all stopping-rule precedence, state replacement,
+deep copies, unchanged fitted/unfitted input estimators and mandatory final
+refits. Nineteen new isolated diagnostics cover invalid controls, input
+sizes/data, missing initial labels, unsupported bases, unfitted prediction,
+feature mismatches and unavailable delegated methods.
+
+Source provenance and retained BSD attribution are in THIRD_PARTY_NOTICES.md;
+original contributions remain MIT. No extension or dependency is added.
+Inventory: 176 core types, 87 source modules, 87 native test programs,
+66 reference suites and 141,446 result groups, plus 28 separate NumPy RNG
+stream groups. Isolated invalid-input inventory is 1,837.

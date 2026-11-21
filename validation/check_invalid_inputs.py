@@ -6,6 +6,26 @@ import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 CASES = {
+    "st_threshold_nan": "self-training threshold must be finite",
+    "st_threshold_inf": "self-training threshold must be finite",
+    "st_threshold_negative": "self-training threshold must lie in [0,1)",
+    "st_threshold_one": "self-training threshold must lie in [0,1)",
+    "st_criterion": "unknown self-training criterion",
+    "st_k_zero": "self-training k_best must be positive",
+    "st_k_negative": "self-training k_best must be positive",
+    "st_max_negative": "self-training max_iter must be nonnegative or -1 for unlimited",
+    "st_unlabeled": "self-training requires labeled samples",
+    "st_nan": "X contains NaN or infinity",
+    "st_length": "X and y sample counts differ",
+    "st_empty": "X must be nonempty",
+    "st_unsupported": "unsupported self-training estimator",
+    "st_unfit_proba": "self-training classifier is not fitted",
+    "st_unfit_decision": "self-training classifier is not fitted",
+    "st_features": "self-training feature count mismatch",
+    "st_query_nan": "X contains NaN or infinity",
+    "st_no_decision": "self-training estimator has no decision_function",
+    "st_no_log_proba": "self-training estimator has no predict_log_proba",
+
     "rk_roc_length": "ranking sample count mismatch or empty input",
     "rk_roc_empty": "ranking sample count mismatch or empty input",
     "rk_pr_length": "ranking sample count mismatch or empty input",
