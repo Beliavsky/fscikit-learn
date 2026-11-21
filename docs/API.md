@@ -2674,7 +2674,7 @@ and `decision_tree_regressor`. Classification accepts `logistic_regression`,
 Bernoulli and Complement NB). Other bases are explicitly rejected. Each base
 keeps its existing capabilities, optimization choices and numerical limits.
 There is no arbitrary Python-style estimator protocol, sparse support, parallel
-backend or metadata routing. Classifier chains remain outside this module.
+backend or metadata routing. Chain interfaces are described below.
 
 Training weights are supported for SGD regression and logistic, Gaussian NB
 and SGD classification. Passing weights to another supported base is diagnosed;
@@ -2775,3 +2775,81 @@ from the consistently checked conditioned-stage groups; their presence can
 differ by optimization profile. The full checked/release native test runs
 were completed before adding these reference-driver witnesses; numerical
 production sources were unchanged afterward.
+
+
+## ClassifierChain
+
+`classifier_chain%fit(x,y,estimator,sample_weight,splits)` accepts dense real64
+features and integer `y(n_samples,n_outputs)`. The native base families are
+logistic regression, Gaussian NB, SGD classification, KNN, decision trees,
+and the multinomial/Bernoulli/Complement NB hierarchy. Each stage is fitted
+independently on original features plus earlier chain targets/features;
+the supplied template and input arrays are preserved. Weights are supported
+by logistic, Gaussian NB and SGD bases. This implements the numerical
+behavior of sklearn's metadata-routed weighted full fits; it does not expose
+a general metadata-routing framework. Internal CV fits remain unweighted,
+as in source. Base parameters, numerical limits and available responses
+remain those of the corresponding native estimator.
+
+Set one-based allocatable `order(:)` or `random_order=.true.` and a nonnegative
+`random_state` (default zero). Fitted `order_` gives chain positions;
+`predict`, `predict_proba` and `decision_function` restore original target
+column order. `classes_(j)%values` and `estimators_(j)%estimator_` are in
+CHAIN order, matching source. Both feature/output counts are exposed.
+Refit replaces all fitted metadata/models. Fortran assignment deep-copies
+fitted chains.
+
+`chain_method` selects the feature response: predict (default),
+predict_proba, predict_log_proba or decision_function. Alternatively allocate
+`character(20) :: chain_methods(:)` with ordered preferences; when allocated
+this list takes precedence over chain_method. Fitted `chain_method_` records
+the first available method. All supported bases predict labels. Probabilities
+are available except for unsupported SGD losses; KNN lacks log probabilities.
+Decision scores require logistic or SGD classification. Native stable NB log
+probabilities are used directly; other available log responses follow source
+log(predict_proba), including quiet negative infinity for zero probabilities.
+
+Default `cv=0` fits with observed preceding target values. Integer `cv>=2`
+uses unshuffled StratifiedKFold independently at each chain position, with
+classes encoded by first appearance, matching source. A minority class may
+have fewer rows than the fold count when another class has enough rows;
+Python warning messages are not emitted. For probability CV, globally absent
+fold classes are padded with zero probability (or the minimum finite real64
+log probability), then source's second global class column is selected.
+Incomplete decision-function class sets are diagnosed. Full fits always use
+all training rows and their already constructed chain features.
+
+Alternatively pass one-based `index_split(:)` with cv=0; test rows must
+partition the training set once. Training repeats and overlap are used as
+supplied, matching source iterable splits. Used indices must be allocated,
+nonempty and within bounds. Unused single-output CV folds are not evaluated.
+A chain has no partial_fit interface.
+
+Query features always use the fitted response choice. Positive-class
+probabilities/log probabilities select each binary model's highest sorted
+class label. `predict_proba(x)` returns that positive-class value per original
+target column; `decision_function(x)` returns one binary score per column.
+Predict-label chains can handle multiclass and constant-class outputs, but
+query probability responses require exactly two classes and query decisions
+must be scalar. These checks mirror source's response-shape restrictions.
+Probability/log/decision feature methods can therefore fit a multiclass
+chain yet fail at query time. Existing base input checks also apply to chain
+features: for example, a log-probability feature can violate nonnegative
+input requirements of count-based NB, or introduce infinity into a later
+stage. Unsupported responses and these invalid paths are explicitly diagnosed.
+
+`score(x,y,sample_weight)` uses exact subset accuracy and accepts finite
+signed query weights with nonzero total, within the native working range.
+For multiple outputs, each of y and predicted labels must have at most two
+distinct integer values over the whole matrix, matching source's multilabel
+indicator detection (values need not be 0 and 1). Single-output scoring
+accepts multiclass labels. Training weights still follow each base's own
+validation rules.
+
+See `example/classifier_chains.f90` and
+`validation/compare_classifier_chains.py`. The reference suite checks full
+chain outputs and also source fits on native CV-feature matrices. It records
+equal-gain CART alternatives using exhaustive Gini scans/source stumps, and
+Complement NB label alternatives only when source log scores tie within a
+scaled 64-machine-epsilon bound. These certified alternatives can propagate
+through earlier predicted-label features; ordinary tolerances are unchanged.

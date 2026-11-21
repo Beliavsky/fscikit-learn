@@ -9,6 +9,7 @@ python validation/compare_cluster_information.py
 python validation/compare_resampling.py
 python validation/compare_tsne.py
 python validation/compare_lle_variants.py
+python validation/compare_classifier_chains.py
 python validation/compare_chains.py
 python validation/compare_multioutput.py
 python validation/compare_weighted_classifiers.py
@@ -3135,3 +3136,37 @@ from the consistently checked conditioned-stage groups; their presence can
 differ by optimization profile. The full checked/release native test runs
 were completed before adding these reference-driver witnesses; numerical
 production sources were unchanged afterward.
+
+
+### ClassifierChain (2026-11-21)
+
+Added ordered and seeded-random classifier chains with native label,
+probability, log-probability and decision-score feature responses, ordered
+method preferences, observed-target or out-of-fold training features,
+weighted full fits and restored target-column query outputs. Integer CV
+uses source-compatible first-appearance StratifiedKFold, including minority
+classes smaller than the fold count. Probability CV pads absent fold
+classes before selecting the second global class column. Explicit iterable
+folds preserve repeated/overlapping training rows and require test partitions.
+Single-output chains ignore unused CV specifications. ../docs/API.md describes
+base-family capabilities, binary query-response restrictions and scoring.
+
+The 8,665-group reference suite uses 785 fixtures over five seeds and eight
+base families. It covers all four response methods and capability fallback,
+log-loss/hinge/modified-Huber SGD, averaging, weighted fits and signed query
+weights, rare and constant classes, multiclass label chains, shared nonzero
+indicator labels, single outputs/queries, refits and input/template copies.
+Source CV plans are supplied independently to the reference driver's feature
+witnesses. Fitted means/variances, priors, log-feature probabilities,
+coefficients, counters, KNN stored arrays and class/order metadata are
+checked against source fits on those actual feature matrices.
+
+Tree witnesses check every full and CV-fold node using source stumps and
+exhaustive Gini scans, including genuinely distinct equal-optimum candidates,
+and reconstruct all native CV and sequential query paths. Complement NB
+alternatives require source log-score gaps within a scaled 64-epsilon bound;
+this also checks any near-tied labels propagated into later chain features.
+Ordinary probabilities/decisions/linear state and CV feature comparisons
+retain 3e-7 tolerances, NB moments/log parameters use 3e-8, and score/tree
+identity checks use 3e-12. These exceptions are explicitly reported by oracle
+and witness rather than widening tolerances or removing difficult inputs.

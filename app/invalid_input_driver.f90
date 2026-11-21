@@ -8,6 +8,10 @@ program invalid_input_driver
   use sklearn_legacy_rng, only: legacy_random_state
   use, intrinsic :: ieee_arithmetic, only: ieee_value,ieee_quiet_nan,ieee_positive_inf
   implicit none
+  type(multinomial_nb) :: cch_mnb
+  type(complement_nb) :: cch_cnb
+  type(classifier_chain) :: cch_case
+  type(index_split) :: cch_folds(2)
   type(regressor_chain) :: rc_case
   type(index_split) :: rc_folds(2)
   type(multi_output_regressor) :: mo_r
@@ -304,6 +308,189 @@ program invalid_input_driver
   mi_x(:,2)=[0._dp,0._dp,1._dp,1._dp,2._dp,2._dp]; mi_x(:,3)=1
   mi_y=mi_x(:,1); mi_labels=[-1,-1,-1,2,2,2]
   select case(trim(mode))
+  case('cch_cv_one_class_proba')
+    cch_case%cv=2; cch_case%chain_method='predict_proba'
+    call cch_case%fit(mo_x,0*mo_cy,mo_nb)
+  case('cch_cv_decision_classes')
+    mo_cy(:,1)=[0,1,2,0]; mo_cy(:,2)=mo_cy(:,1)
+    cch_case%chain_method='decision_function'
+    cch_folds(1)%train=[1,2]; cch_folds(1)%test=[3,4]
+    cch_folds(2)%train=[3,4]; cch_folds(2)%test=[1,2]
+    call cch_case%fit(mo_x,mo_cy,wg_lr,splits=cch_folds)
+  case('cch_hinge_proba')
+    sgdc%loss='hinge'
+    call cch_case%fit(mo_x,mo_cy,sgdc)
+    mo_p=cch_case%predict_proba(mo_x)
+  case('cch_multinomial_log_query')
+    cch_case%chain_method='predict_log_proba'
+    call cch_case%fit(abs(mo_x),mo_cy,cch_mnb)
+    mo_ip=cch_case%predict(abs(mo_x))
+  case('cch_complement_log_query')
+    cch_case%chain_method='predict_log_proba'
+    call cch_case%fit(abs(mo_x),mo_cy,cch_cnb)
+    mo_ip=cch_case%predict(abs(mo_x))
+  case('cch_unfitted')
+    mo_ip=cch_case%predict(mo_x)
+  case('cch_proba_unfitted')
+    mo_p=cch_case%predict_proba(mo_x)
+  case('cch_decision_unfitted')
+    mo_p=cch_case%decision_function(mo_x)
+  case('cch_empty_targets')
+    call cch_case%fit(mo_x,mo_cy(:,:0),mo_nb)
+  case('cch_length')
+    call cch_case%fit(mo_x,mo_cy(:3,:),mo_nb)
+  case('cch_unsupported')
+    call cch_case%fit(mo_x,mo_cy,1)
+  case('cch_weight_base')
+    call cch_case%fit(mo_x,mo_cy,mo_knn,mo_w)
+  case('cch_cv_one')
+    cch_case%cv=1
+    call cch_case%fit(mo_x,mo_cy,mo_nb)
+  case('cch_cv_negative')
+    cch_case%cv=-2
+    call cch_case%fit(mo_x,mo_cy,mo_nb)
+  case('cch_cv_large')
+    cch_case%cv=5
+    call cch_case%fit(mo_x,mo_cy,mo_nb)
+  case('cch_cv_small_classes')
+    cch_case%cv=3
+    call cch_case%fit(mo_x,mo_cy,mo_nb)
+  case('cch_seed')
+    cch_case%random_state=-1
+    call cch_case%fit(mo_x,mo_cy,mo_nb)
+  case('cch_order_length')
+    cch_case%order=[1]
+    call cch_case%fit(mo_x,mo_cy,mo_nb)
+  case('cch_order_zero')
+    cch_case%order=[0,1]
+    call cch_case%fit(mo_x,mo_cy,mo_nb)
+  case('cch_order_high')
+    cch_case%order=[1,3]
+    call cch_case%fit(mo_x,mo_cy,mo_nb)
+  case('cch_order_duplicate')
+    cch_case%order=[1,1]
+    call cch_case%fit(mo_x,mo_cy,mo_nb)
+  case('cch_order_conflict')
+    cch_case%order=[1,2]; cch_case%random_order=.true.
+    call cch_case%fit(mo_x,mo_cy,mo_nb)
+  case('cch_method_unknown')
+    cch_case%chain_method='unsupported'
+    call cch_case%fit(mo_x,mo_cy,mo_nb)
+  case('cch_method_decision')
+    cch_case%chain_method='decision_function'
+    call cch_case%fit(mo_x,mo_cy,mo_nb)
+  case('cch_method_empty')
+    cch_case%chain_method=''
+    call cch_case%fit(mo_x,mo_cy,mo_nb)
+  case('cch_preferences_empty')
+    allocate(cch_case%chain_methods(0))
+    call cch_case%fit(mo_x,mo_cy,mo_nb)
+  case('cch_preferences_none')
+    cch_case%chain_methods=[character(20) :: 'decision_function','not_available']
+    call cch_case%fit(mo_x,mo_cy,mo_nb)
+  case('cch_nan')
+    mo_x(1,1)=ieee_value(0._dp,ieee_quiet_nan)
+    call cch_case%fit(mo_x,mo_cy,mo_nb)
+  case('cch_features')
+    call cch_case%fit(mo_x,mo_cy,mo_nb)
+    mo_ip=cch_case%predict(mo_x(:,:1))
+  case('cch_score_shape')
+    call cch_case%fit(mo_x,mo_cy,mo_nb)
+    mo_value=cch_case%score(mo_x,mo_cy(:,:1))
+  case('cch_proba_one_class')
+    call cch_case%fit(mo_x,0*mo_cy,mo_nb)
+    mo_p=cch_case%predict_proba(mo_x)
+  case('cch_proba_multiclass')
+    mo_cy(:,1)=[0,1,2,0]; mo_cy(:,2)=[0,1,2,0]
+    call cch_case%fit(mo_x,mo_cy,mo_nb)
+    mo_p=cch_case%predict_proba(mo_x)
+  case('cch_score_multiclass')
+    mo_cy(:,1)=[0,1,2,0]; mo_cy(:,2)=[0,1,2,0]
+    call cch_case%fit(mo_x,mo_cy,mo_nb)
+    mo_value=cch_case%score(mo_x,mo_cy)
+  case('cch_decision_multiclass')
+    mo_cy(:,1)=[0,1,2,0]; mo_cy(:,2)=[0,1,2,0]
+    call cch_case%fit(mo_x,mo_cy,wg_lr)
+    mo_p=cch_case%decision_function(mo_x)
+  case('cch_decision_missing')
+    call cch_case%fit(mo_x,mo_cy,mo_nb)
+    mo_p=cch_case%decision_function(mo_x)
+  case('cch_knn_log')
+    cch_case%chain_method='predict_log_proba'
+    call cch_case%fit(mo_x,mo_cy,mo_knn)
+  case('cch_score_w_length')
+    call cch_case%fit(mo_x,mo_cy,mo_nb)
+    mo_value=cch_case%score(mo_x,mo_cy,mo_w(:3))
+  case('cch_score_w_nan')
+    call cch_case%fit(mo_x,mo_cy,mo_nb)
+    mo_w(1)=ieee_value(0._dp,ieee_quiet_nan)
+    mo_value=cch_case%score(mo_x,mo_cy,mo_w)
+  case('cch_score_w_inf')
+    call cch_case%fit(mo_x,mo_cy,mo_nb)
+    mo_w(1)=ieee_value(0._dp,ieee_positive_inf)
+    mo_value=cch_case%score(mo_x,mo_cy,mo_w)
+  case('cch_score_w_mass')
+    call cch_case%fit(mo_x,mo_cy,mo_nb)
+    mo_w=huge(1._dp)
+    mo_value=cch_case%score(mo_x,mo_cy,mo_w)
+  case('cch_score_w_zero')
+    call cch_case%fit(mo_x,mo_cy,mo_nb)
+    mo_w=0
+    mo_value=cch_case%score(mo_x,mo_cy,mo_w)
+  case('cch_splits_empty')
+    cch_folds(1)%train=[3,4]; cch_folds(1)%test=[1,2]
+    cch_folds(2)%train=[1,2]; cch_folds(2)%test=[3,4]
+    call cch_case%fit(mo_x,mo_cy,mo_nb,splits=cch_folds(:0))
+  case('cch_splits_missing')
+    cch_folds(1)%train=[3,4]; cch_folds(1)%test=[1,2]
+    cch_folds(2)%train=[1,2]; cch_folds(2)%test=[3,4]
+    deallocate(cch_folds(1)%train)
+    call cch_case%fit(mo_x,mo_cy,mo_nb,splits=cch_folds)
+  case('cch_train_empty')
+    cch_folds(1)%train=[3,4]; cch_folds(1)%test=[1,2]
+    cch_folds(2)%train=[1,2]; cch_folds(2)%test=[3,4]
+    cch_folds(1)%train=[integer ::]
+    call cch_case%fit(mo_x,mo_cy,mo_nb,splits=cch_folds)
+  case('cch_test_empty')
+    cch_folds(1)%train=[3,4]; cch_folds(1)%test=[1,2]
+    cch_folds(2)%train=[1,2]; cch_folds(2)%test=[3,4]
+    cch_folds(1)%test=[integer ::]
+    call cch_case%fit(mo_x,mo_cy,mo_nb,splits=cch_folds)
+  case('cch_train_zero')
+    cch_folds(1)%train=[3,4]; cch_folds(1)%test=[1,2]
+    cch_folds(2)%train=[1,2]; cch_folds(2)%test=[3,4]
+    cch_folds(1)%train=[0,4]
+    call cch_case%fit(mo_x,mo_cy,mo_nb,splits=cch_folds)
+  case('cch_train_high')
+    cch_folds(1)%train=[3,4]; cch_folds(1)%test=[1,2]
+    cch_folds(2)%train=[1,2]; cch_folds(2)%test=[3,4]
+    cch_folds(1)%train=[3,5]
+    call cch_case%fit(mo_x,mo_cy,mo_nb,splits=cch_folds)
+  case('cch_test_zero')
+    cch_folds(1)%train=[3,4]; cch_folds(1)%test=[1,2]
+    cch_folds(2)%train=[1,2]; cch_folds(2)%test=[3,4]
+    cch_folds(1)%test=[0,2]
+    call cch_case%fit(mo_x,mo_cy,mo_nb,splits=cch_folds)
+  case('cch_test_high')
+    cch_folds(1)%train=[3,4]; cch_folds(1)%test=[1,2]
+    cch_folds(2)%train=[1,2]; cch_folds(2)%test=[3,4]
+    cch_folds(1)%test=[1,5]
+    call cch_case%fit(mo_x,mo_cy,mo_nb,splits=cch_folds)
+  case('cch_test_duplicate')
+    cch_folds(1)%train=[3,4]; cch_folds(1)%test=[1,2]
+    cch_folds(2)%train=[1,2]; cch_folds(2)%test=[3,4]
+    cch_folds(1)%test=[1,1]
+    call cch_case%fit(mo_x,mo_cy,mo_nb,splits=cch_folds)
+  case('cch_test_missing')
+    cch_folds(1)%train=[3,4]; cch_folds(1)%test=[1,2]
+    cch_folds(2)%train=[1,2]; cch_folds(2)%test=[3,4]
+    cch_folds(1)%test=[1]
+    call cch_case%fit(mo_x,mo_cy,mo_nb,splits=cch_folds)
+  case('cch_cv_and_splits')
+    cch_folds(1)%train=[3,4]; cch_folds(1)%test=[1,2]
+    cch_folds(2)%train=[1,2]; cch_folds(2)%test=[3,4]
+    cch_case%cv=2
+    call cch_case%fit(mo_x,mo_cy,mo_nb,splits=cch_folds)
   case('rch_unfitted')
     mo_p=rc_case%predict(mo_x)
   case('rch_empty_targets')

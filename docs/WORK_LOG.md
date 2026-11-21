@@ -3398,3 +3398,60 @@ licenses and git diff checks.
 Inventory: 180 core public types, 89 source modules, 91 native test programs,
 70 core reference suites and 177,983 retained core result groups, plus
 28 separately counted NumPy RNG groups.
+
+
+## ClassifierChain ? 2026-11-21
+
+Added the core ClassifierChain counterpart with observed-label and
+cross-validated chain features; explicit/seeded random ordering; labels,
+probabilities, log probabilities and decision scores; response preference
+lists; weighted full fitting; class/order metadata; refits/deep copies;
+and restored target-column predictions/probabilities/scores. Its eight
+native base families retain their own fitting and response capabilities.
+Integer CV follows source first-appearance stratification, including small
+minority classes and absent-fold-class probability padding. Explicit CV
+plans preserve training repeats/overlap. Single-output chains ignore unused
+CV specifications. Source-compatible scoring supports shared nonzero binary
+indicator labels and finite signed query weights. API.md records the
+interface, response-shape restrictions and base working-range limits.
+
+Completed gates on the existing Windows/fpm/GNU Fortran toolchain:
+
+- All 92 native test programs passed in checked and release profiles.
+- Both profiles passed 8,665 classifier-chain groups over 785 fixtures and
+  five seeds. They cover all supported response choices and fallback,
+  log-loss/hinge/modified-Huber SGD, averaging, weighted fitting and signed
+  scoring weights, rare/constant/multiclass outputs, nonzero indicator
+  labels, single outputs/queries, custom folds, refits and preserved inputs.
+- Checked oracles: 3,307 ordinary sklearn groups, 2,265 input/storage identity
+  groups, 1,725 conditioned source fit groups, 934 conditioned source CV
+  groups, 350 source CART certificate groups, 56 propagated CART alternative
+  groups and 28 propagated Complement NB tie groups. Release has 3,305
+  ordinary groups and 30 Complement tie groups; other counts are identical.
+  Check signatures match across profiles. There are 53 tree witness records
+  in each report, plus 26 checked/28 release Complement witness records.
+  Every selected CART split is independently optimal under exhaustive Gini
+  scans and agrees in cost with a source stump. Distinct equal-gain choices
+  are explicitly witnessed. Complement alternatives require source log-score
+  gaps within a scaled 64-epsilon bound; the reports retain 39/41 such row
+  witnesses. These small profile differences are certified, not suppressed.
+  Ordinary tolerances were not widened and difficult fixtures were retained.
+- Both profiles passed the existing 3,211-group regressor-chain suite and
+  3,030-group multioutput suite. The original 192-group integration comparison
+  and all 2,015 isolated input diagnostics passed, including 52 new cases.
+- The checked classifier_chains example ran with order [2,1] and emitted
+  prediction rows [0,0] and [1,0], with positive probabilities approximately
+  [.0483867193,.5] and [.8566033011,.5]. Actual output markers were verified.
+
+Reference-driver state witnesses were strengthened after the checked
+native run; numerical production sources stayed unchanged through both
+full native profiles and final reference comparisons. The other retained
+reference suites were not all rerun for this batch. Python syntax, Fortran
+formatting, unique diagnostic registry/driver correspondence, report/oracle
+and certificate accounting, source hashes, retained licenses and git diff
+checks passed.
+
+Original work remains MIT with retained sklearn BSD attribution. There is
+no new runtime dependency or public extension. Inventory: 181 core public
+types, 89 source modules, 92 native test programs, 71 core reference suites
+and 186,648 retained core result groups, plus 28 separate NumPy RNG groups.

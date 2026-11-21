@@ -457,3 +457,23 @@ Installed source SHA-256:
 Adapted portions retain sklearn BSD-3-Clause attribution and the complete
 notice in `LICENSES/scikit-learn-COPYING`. Original contributions remain
 MIT. No runtime dependency or public extension is introduced.
+
+
+### ClassifierChain response and CV semantics
+
+`src/sklearn_multioutput.f90` additionally adapts ClassifierChain fitting,
+response-method selection, positive-class response compression, class
+metadata and ordered prediction from sklearn 1.6.1 `multioutput.py` and
+`utils/_response.py`. Its unshuffled stratification follows first-appearance
+class encoding and allocation in `model_selection/_split.py`, including
+minority classes smaller than the fold count. Existing estimator code and
+NumPy-compatible random ordering retain their prior notices.
+Installed source SHA-256:
+
+- `multioutput.py`: `164702b2de983ba8c5a8bbfd93842f9651f5b01dd7f4a4dd3541becf220a273e`
+- `utils/_response.py`: `ba600bd75b63c3c0e787965b082ba36147524db824c6d809a270b20a92d6a2a6`
+- `model_selection/_split.py`: `1dc467b09b1b4903c15db0329ee5431e66a7d67c8e44f61ebe70885f33e5ff1b`
+
+Adapted portions retain BSD-3-Clause and the complete scikit-learn notice in
+`LICENSES/scikit-learn-COPYING`; original contributions remain MIT. No
+additional runtime dependency or public extension is introduced.
