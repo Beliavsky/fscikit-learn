@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 179 public estimator, transformer, and splitter types. Each is a
+There are 180 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Sixty-nine reference suites additionally check 174,772
+All types have native tests. Seventy reference suites additionally check 177,983
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -23,7 +23,7 @@ initial translation. Fortran identifiers use snake_case rather than CamelCase.
 
 | Module (`sklearn_` prefix) | Public types and functions | Scope and numerical choices |
 | --- | --- | --- |
-| multioutput | `multi_output_regressor`, `multi_output_classifier` | Independent fitted base models per response column; supported native linear/SGD, NB, neighbors and tree families; ragged class probabilities; SGD/Gaussian NB streaming; native base weighting limits apply |
+| multioutput | `multi_output_regressor`, `multi_output_classifier`, `regressor_chain` | Independent fitted base models per response column; supported native linear/SGD, NB, neighbors and tree families; ragged class probabilities; SGD/Gaussian NB streaming; native base weighting limits apply |
 | preprocessing | `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `knn_imputer`, `missing_indicator`, `spline_transformer`, `label_encoder`, `one_hot_encoder`, `label_binarizer`, `multi_label_binarizer`, `power_transformer`, `kbins_discretizer`, `quantile_transformer`; `normalize`, `binarize`, `polynomial_features` | Population variance; linear percentile interpolation; NaN imputation with mean/median/most-frequent/constant; numeric categories; empirical uniform/normal quantile transforms; dense polynomial terms through degree 12 with optional interactions; B-spline features and extrapolation |
 | linear_model | `linear_regression`, `lars`, `lasso_lars`, `lars_cv`, `lasso_lars_cv`, `lasso_lars_ic`, `ridge`, `ridge_classifier`, `ridge_classifier_cv`, `multi_task_elastic_net`, `multi_task_lasso`, `multi_task_elastic_net_cv`, `multi_task_lasso_cv`, `lasso`, `elastic_net`, `lasso_cv`, `elastic_net_cv`, `logistic_regression`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `sgd_regressor`, `sgd_classifier`, `sgd_one_class_svm`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `orthogonal_matching_pursuit_cv`, `huber_regressor`, `quantile_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; least-angle/Lasso homotopy paths with CV and AIC/BIC selection; coordinate descent with K-fold alpha/l1-ratio selection; weighted logistic Newton solver with raw-score prediction; perceptron; PA-I/II classification/regression with averaging; streaming stochastic-gradient regression/classification and one-class detection; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; weighted L1-regularized quantile regression; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb`, `categorical_nb` | Weighted/streaming Gaussian moments, empirical/fixed priors and variance smoothing; strictly positive scalar alpha; Bernoulli threshold; optional complement normalization |
@@ -245,7 +245,7 @@ histogram boosting, broader AdaBoost and bagging APIs,
 Barnes-Hut t-SNE,
 outlier detection beyond LOF/OneClassSVM/SGDOneClassSVM/IsolationForest/EllipticEnvelope,
 calibration with further base estimators and general metadata routing,
-multiclass wrappers and classifier/regressor chains,
+multiclass wrappers and classifier chains,
 inspection/permutation importance, further feature-selection wrappers, image features,
 real dataset loaders and the full plotting/display API.
 
@@ -3629,3 +3629,65 @@ release reports match exactly, including certificate accounting. Inventory:
 179 core types, 89 modules, 90 native programs, 69 core reference suites and
 174,772 core groups, plus 28 separate NumPy RNG groups. Other reference
 suites retain their previously recorded results and were not all rerun here.
+
+
+### RegressorChain and source lazy SGD scaling (2026-11-21)
+
+RegressorChain joins the independent multioutput wrappers. Native fitting
+supports observed preceding targets or cross-validated predictions, explicit
+one-based ordering, seeded NumPy-compatible random ordering, integer KFold
+and explicit index partitions. Query outputs are restored to original target
+order. Native base families and training-weight limits are inherited from
+multi_output_regressor. Full fits receive weights; source-style internal
+cross_val_predict fits are unweighted when metadata routing is disabled.
+Single-output chains do not evaluate unused CV folds. Explicit iterable
+training indices preserve source behavior, including repeats or overlap.
+See API.md for configuration, metadata and scoring contracts.
+
+The new reference suite covers 430 fixtures over five seeds and six native
+base families. It checks ordering, teacher-forced versus out-of-fold training,
+weighted fits/scores, singleton queries, fitted coefficients and counters,
+refits and preserved pretrained templates/inputs. Tree validation certifies
+every full and CV-fold tree against source stumps and exhaustive SSE scans,
+then reconstructs both training features and sequential query predictions.
+One duplicated-training-row fixture selects a different equal-gain split;
+its two prediction/score groups carry a separate source tie certificate.
+Ordinary prediction/state/score tolerance remains 3e-8; no difficult fixture
+was removed or tolerance widened.
+
+A weighted cross-validated SGD chain exposed roundoff accumulation in the
+former eager L2 updates. The shared SGD implementation now uses source
+WeightVector64 lazy scaling, ordered dot products, scale reset below 1e-9
+and final materialization. The saved synthetic fixture
+validation/fixtures/regressor_chain_lazy_l2.json is checked against generated
+inputs so later fixture edits cannot silently drop it. On that input, the
+former code's maximum scaled component error was 4.3424e-8, failing the
+original 3e-8 tolerance; lazy scaling reduced it to 7.9580e-9. Existing dense
+averaging behavior is retained. This remains original MIT work with retained
+sklearn BSD attribution; no dependency or public extension is added.
+
+
+For SGD chains the suite independently reconstructs native out-of-fold
+feature matrices, checks every generated column against source fold fits
+and predictions, and compares full fitted coefficients/counters to source
+fits on those identical matrices. Full-chain query predictions and scores
+still compare against the ordinary sklearn chain. All comparisons retain
+3e-8 tolerance. This separates amplification of tiny feature-rounding
+changes from a fitting or routing error: the saved fixture's release
+coefficient discrepancy against the unconditioned source chain was about
+4.0191e-8, while identical-design source fits reproduced native stages
+exactly in the diagnostic probe. Rounding witnesses are recorded separately
+from the consistently checked conditioned-stage groups; their presence can
+differ by optimization profile. The full checked/release native test runs
+were completed before adding these reference-driver witnesses; numerical
+production sources were unchanged afterward.
+
+
+This batch passed all 91 native programs in both profiles, the new
+3,211-group chain suite, the affected 3,030-group multioutput suite,
+216-group SGD regression suite and 306-group SGD classification suite.
+The original 192-group integration comparison, all 1,963 input diagnostics
+and the checked example passed. Inventory: 180 core types, 89 modules,
+91 native programs, 70 reference suites and 177,983 core groups, plus
+28 separate NumPy RNG groups. Other suites retain their recorded results
+and were not all rerun in this batch.

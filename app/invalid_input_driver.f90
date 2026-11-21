@@ -8,6 +8,8 @@ program invalid_input_driver
   use sklearn_legacy_rng, only: legacy_random_state
   use, intrinsic :: ieee_arithmetic, only: ieee_value,ieee_quiet_nan,ieee_positive_inf
   implicit none
+  type(regressor_chain) :: rc_case
+  type(index_split) :: rc_folds(2)
   type(multi_output_regressor) :: mo_r
   type(multi_output_classifier) :: mo_c
   type(linear_regression) :: mo_lr
@@ -302,6 +304,109 @@ program invalid_input_driver
   mi_x(:,2)=[0._dp,0._dp,1._dp,1._dp,2._dp,2._dp]; mi_x(:,3)=1
   mi_y=mi_x(:,1); mi_labels=[-1,-1,-1,2,2,2]
   select case(trim(mode))
+  case('rch_unfitted')
+    mo_p=rc_case%predict(mo_x)
+  case('rch_empty_targets')
+    call rc_case%fit(mo_x,mo_y(:,:0),mo_lr)
+  case('rch_length')
+    call rc_case%fit(mo_x,mo_y(:3,:),mo_lr)
+  case('rch_unsupported')
+    call rc_case%fit(mo_x,mo_y,1)
+  case('rch_weight_base')
+    call rc_case%fit(mo_x,mo_y,mo_lr,mo_w)
+  case('rch_cv_one')
+    rc_case%cv=1
+    call rc_case%fit(mo_x,mo_y,mo_lr)
+  case('rch_cv_negative')
+    rc_case%cv=-2
+    call rc_case%fit(mo_x,mo_y,mo_lr)
+  case('rch_cv_large')
+    rc_case%cv=5
+    call rc_case%fit(mo_x,mo_y,mo_lr)
+  case('rch_seed')
+    rc_case%random_state=-1
+    call rc_case%fit(mo_x,mo_y,mo_lr)
+  case('rch_order_length')
+    rc_case%order=[1]
+    call rc_case%fit(mo_x,mo_y,mo_lr)
+  case('rch_order_zero')
+    rc_case%order=[0,1]
+    call rc_case%fit(mo_x,mo_y,mo_lr)
+  case('rch_order_high')
+    rc_case%order=[1,3]
+    call rc_case%fit(mo_x,mo_y,mo_lr)
+  case('rch_order_duplicate')
+    rc_case%order=[1,1]
+    call rc_case%fit(mo_x,mo_y,mo_lr)
+  case('rch_order_conflict')
+    rc_case%order=[1,2]; rc_case%random_order=.true.
+    call rc_case%fit(mo_x,mo_y,mo_lr)
+  case('rch_nan')
+    mo_x(1,1)=ieee_value(0._dp,ieee_quiet_nan)
+    call rc_case%fit(mo_x,mo_y,mo_lr)
+  case('rch_target_nan')
+    mo_y(1,1)=ieee_value(0._dp,ieee_quiet_nan)
+    call rc_case%fit(mo_x,mo_y,mo_lr)
+  case('rch_features')
+    call rc_case%fit(mo_x,mo_y,mo_lr)
+    mo_p=rc_case%predict(mo_x(:,:1))
+  case('rch_score_shape')
+    call rc_case%fit(mo_x,mo_y,mo_lr)
+    mo_value=rc_case%score(mo_x,mo_y(:,:1))
+  case('rch_splits_empty')
+    rc_folds(1)%train=[3,4]; rc_folds(1)%test=[1,2]
+    rc_folds(2)%train=[1,2]; rc_folds(2)%test=[3,4]
+    call rc_case%fit(mo_x,mo_y,mo_lr,splits=rc_folds(:0))
+  case('rch_splits_missing')
+    rc_folds(1)%train=[3,4]; rc_folds(1)%test=[1,2]
+    rc_folds(2)%train=[1,2]; rc_folds(2)%test=[3,4]
+    deallocate(rc_folds(1)%train)
+    call rc_case%fit(mo_x,mo_y,mo_lr,splits=rc_folds)
+  case('rch_train_empty')
+    rc_folds(1)%train=[3,4]; rc_folds(1)%test=[1,2]
+    rc_folds(2)%train=[1,2]; rc_folds(2)%test=[3,4]
+    rc_folds(1)%train=[integer ::]
+    call rc_case%fit(mo_x,mo_y,mo_lr,splits=rc_folds)
+  case('rch_test_empty')
+    rc_folds(1)%train=[3,4]; rc_folds(1)%test=[1,2]
+    rc_folds(2)%train=[1,2]; rc_folds(2)%test=[3,4]
+    rc_folds(1)%test=[integer ::]
+    call rc_case%fit(mo_x,mo_y,mo_lr,splits=rc_folds)
+  case('rch_train_zero')
+    rc_folds(1)%train=[3,4]; rc_folds(1)%test=[1,2]
+    rc_folds(2)%train=[1,2]; rc_folds(2)%test=[3,4]
+    rc_folds(1)%train=[0,4]
+    call rc_case%fit(mo_x,mo_y,mo_lr,splits=rc_folds)
+  case('rch_train_high')
+    rc_folds(1)%train=[3,4]; rc_folds(1)%test=[1,2]
+    rc_folds(2)%train=[1,2]; rc_folds(2)%test=[3,4]
+    rc_folds(1)%train=[3,5]
+    call rc_case%fit(mo_x,mo_y,mo_lr,splits=rc_folds)
+  case('rch_test_zero')
+    rc_folds(1)%train=[3,4]; rc_folds(1)%test=[1,2]
+    rc_folds(2)%train=[1,2]; rc_folds(2)%test=[3,4]
+    rc_folds(1)%test=[0,2]
+    call rc_case%fit(mo_x,mo_y,mo_lr,splits=rc_folds)
+  case('rch_test_high')
+    rc_folds(1)%train=[3,4]; rc_folds(1)%test=[1,2]
+    rc_folds(2)%train=[1,2]; rc_folds(2)%test=[3,4]
+    rc_folds(1)%test=[1,5]
+    call rc_case%fit(mo_x,mo_y,mo_lr,splits=rc_folds)
+  case('rch_test_duplicate')
+    rc_folds(1)%train=[3,4]; rc_folds(1)%test=[1,2]
+    rc_folds(2)%train=[1,2]; rc_folds(2)%test=[3,4]
+    rc_folds(1)%test=[1,1]
+    call rc_case%fit(mo_x,mo_y,mo_lr,splits=rc_folds)
+  case('rch_test_missing')
+    rc_folds(1)%train=[3,4]; rc_folds(1)%test=[1,2]
+    rc_folds(2)%train=[1,2]; rc_folds(2)%test=[3,4]
+    rc_folds(1)%test=[1]
+    call rc_case%fit(mo_x,mo_y,mo_lr,splits=rc_folds)
+  case('rch_cv_and_splits')
+    rc_folds(1)%train=[3,4]; rc_folds(1)%test=[1,2]
+    rc_folds(2)%train=[1,2]; rc_folds(2)%test=[3,4]
+    rc_case%cv=2
+    call rc_case%fit(mo_x,mo_y,mo_lr,splits=rc_folds)
   case('mo_r_unfitted')
     mo_p=mo_r%predict(mo_x)
 

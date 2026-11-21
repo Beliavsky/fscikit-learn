@@ -438,3 +438,22 @@ Fortran dispatch and ragged probability containers are original work.
 Original contributions remain MIT; adapted portions retain BSD-3-Clause
 attribution under `LICENSES/scikit-learn-COPYING`. No additional dependency
 or public extension is introduced.
+
+
+### RegressorChain and lazy SGD weight scaling
+
+`src/sklearn_multioutput.f90` additionally adapts RegressorChain ordering,
+observed-target and cross_val_predict feature construction, fitting and
+prediction from the same sklearn 1.6.1 `multioutput.py` identified above.
+Its random ordering uses the previously attributed NumPy-compatible legacy
+RNG. `src/sklearn_sgd.f90` now follows WeightVector64's lazy L2 scale,
+ordered inner product, scale reset and materialization from
+`utils/_weight_vector.pyx.tp` and `_sgd_fast.pyx.tp`.
+Installed source SHA-256:
+
+- `linear_model/_sgd_fast.pyx.tp`: `dcaf04170f5454a410a486704ad8bb32cd7ba00ca878ee8c857a4cb7a29c90a8`
+- `utils/_weight_vector.pyx.tp`: `f57b27c21d8d5b7ab08536d6c3677093a6deab21181ffff099e17f3850a1f6c6`
+
+Adapted portions retain sklearn BSD-3-Clause attribution and the complete
+notice in `LICENSES/scikit-learn-COPYING`. Original contributions remain
+MIT. No runtime dependency or public extension is introduced.

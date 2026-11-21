@@ -3227,3 +3227,63 @@ recorded results; they were not all rerun for this batch.
 Current inventory: 179 core public types, 89 source modules, 90 native test
 programs and 69 core reference suites with 174,772 retained result groups,
 plus 28 separately counted NumPy RNG groups.
+
+
+## RegressorChain and lazy SGD scaling ? 2026-11-21
+
+Added the core RegressorChain counterpart, supporting explicit and seeded
+random order, observed-target or out-of-fold chain features, integer KFold
+and explicit index partitions, native weighted fitting, restored target
+order, fitted state inspection and uniform-average R2. Existing native base
+capabilities are preserved. Explicit training-index repeats/overlap and
+unused single-output CV behavior match the pinned source; full fits receive
+weights while source-style internal CV fits are unweighted. API.md specifies
+the Fortran interface and supported base families. Classifier chains remain
+unimplemented. Original work remains MIT with retained sklearn BSD notices;
+there is no new runtime dependency or public extension.
+
+The shared SGD core now uses source WeightVector64 lazy L2 scaling,
+ordered inner products, a 1e-9 scale-reset threshold and final
+materialization. A saved synthetic weighted-chain fixture proves the
+previous eager implementation fails the original 3e-8 coefficient tolerance
+(maximum scaled component error 4.3424e-8), while lazy scaling passes in the
+checked probe (7.9580e-9). Under release optimization, tiny out-of-fold
+prediction differences are amplified in one downstream coefficient vector
+(4.0191e-8 against the unconditioned source chain). Source fits on identical
+native feature matrices reproduce those native stages exactly in the
+release diagnostic. The suite therefore validates each native CV feature
+column against source fold fits, then checks full coefficients/counters
+against source fits on those same matrices. Full-chain predictions and
+scores still compare against the ordinary sklearn chain. All numerical
+comparisons keep their original 3e-8 tolerances.
+
+Completed checks on the existing Windows/fpm/GNU Fortran toolchain:
+
+- All 91 native test programs passed in checked and release builds.
+- RegressorChain passed 3,211 groups over 430 fixtures in each profile:
+  1,963 ordinary sklearn groups, 310 source-conditioned SGD groups,
+  860 input/template identity groups, 75 source CART certificates, two
+  CART tie-certificate groups and one saved-fixture identity group.
+  Tree certificates validate all full/fold nodes against source stumps
+  and exhaustive SSE scans and reconstruct training/query features.
+  One duplicated-training-row fixture has a certified alternate equal-gain
+  split. Check signatures and CART witnesses match between profiles;
+  only release records the single SGD rounding witness described above.
+- Both profiles passed the affected 3,030-group multioutput suite,
+  216-group SGD regression suite and 306-group SGD classification suite.
+  Their archived checked/release reports match exactly.
+- The original 192-group integration comparison and all 1,963 isolated
+  invalid-input cases passed, including 29 new chain diagnostics.
+- The checked regressor_chains example ran and emitted the actual order,
+  prediction and R2 markers; it used reversed order with three CV folds.
+
+Full native runs preceded the final reference-driver witness addition;
+numerical production sources stayed unchanged afterward. Other reference
+suites retain their previously recorded results; they were not all rerun.
+Final audits verify syntax, formatting, diagnostic registration/branches,
+report/oracle accounting, source hashes, fixture preservation, retained
+licenses and git diff checks.
+
+Inventory: 180 core public types, 89 source modules, 91 native test programs,
+70 core reference suites and 177,983 retained core result groups, plus
+28 separately counted NumPy RNG groups.

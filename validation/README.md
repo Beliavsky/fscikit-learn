@@ -9,6 +9,7 @@ python validation/compare_cluster_information.py
 python validation/compare_resampling.py
 python validation/compare_tsne.py
 python validation/compare_lle_variants.py
+python validation/compare_chains.py
 python validation/compare_multioutput.py
 python validation/compare_weighted_classifiers.py
 python validation/compare_calibrated.py
@@ -3082,3 +3083,55 @@ must lie within 64 machine epsilons (scaled by source score magnitude) of
 the source maximum. Weighted constant-target source R2 roundoff is bounded
 and checked against source R2 on identically translated targets/predictions.
 No difficult fixtures are removed or ordinary tolerances widened.
+
+
+### RegressorChain and source lazy SGD scaling (2026-11-21)
+
+RegressorChain joins the independent multioutput wrappers. Native fitting
+supports observed preceding targets or cross-validated predictions, explicit
+one-based ordering, seeded NumPy-compatible random ordering, integer KFold
+and explicit index partitions. Query outputs are restored to original target
+order. Native base families and training-weight limits are inherited from
+multi_output_regressor. Full fits receive weights; source-style internal
+cross_val_predict fits are unweighted when metadata routing is disabled.
+Single-output chains do not evaluate unused CV folds. Explicit iterable
+training indices preserve source behavior, including repeats or overlap.
+See ../docs/API.md for configuration, metadata and scoring contracts.
+
+The new reference suite covers 430 fixtures over five seeds and six native
+base families. It checks ordering, teacher-forced versus out-of-fold training,
+weighted fits/scores, singleton queries, fitted coefficients and counters,
+refits and preserved pretrained templates/inputs. Tree validation certifies
+every full and CV-fold tree against source stumps and exhaustive SSE scans,
+then reconstructs both training features and sequential query predictions.
+One duplicated-training-row fixture selects a different equal-gain split;
+its two prediction/score groups carry a separate source tie certificate.
+Ordinary prediction/state/score tolerance remains 3e-8; no difficult fixture
+was removed or tolerance widened.
+
+A weighted cross-validated SGD chain exposed roundoff accumulation in the
+former eager L2 updates. The shared SGD implementation now uses source
+WeightVector64 lazy scaling, ordered dot products, scale reset below 1e-9
+and final materialization. The saved synthetic fixture
+validation/fixtures/regressor_chain_lazy_l2.json is checked against generated
+inputs so later fixture edits cannot silently drop it. On that input, the
+former code's maximum scaled component error was 4.3424e-8, failing the
+original 3e-8 tolerance; lazy scaling reduced it to 7.9580e-9. Existing dense
+averaging behavior is retained. This remains original MIT work with retained
+sklearn BSD attribution; no dependency or public extension is added.
+
+
+For SGD chains the suite independently reconstructs native out-of-fold
+feature matrices, checks every generated column against source fold fits
+and predictions, and compares full fitted coefficients/counters to source
+fits on those identical matrices. Full-chain query predictions and scores
+still compare against the ordinary sklearn chain. All comparisons retain
+3e-8 tolerance. This separates amplification of tiny feature-rounding
+changes from a fitting or routing error: the saved fixture's release
+coefficient discrepancy against the unconditioned source chain was about
+4.0191e-8, while identical-design source fits reproduced native stages
+exactly in the diagnostic probe. Rounding witnesses are recorded separately
+from the consistently checked conditioned-stage groups; their presence can
+differ by optimization profile. The full checked/release native test runs
+were completed before adding these reference-driver witnesses; numerical
+production sources were unchanged afterward.

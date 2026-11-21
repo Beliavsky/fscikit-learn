@@ -2674,7 +2674,7 @@ and `decision_tree_regressor`. Classification accepts `logistic_regression`,
 Bernoulli and Complement NB). Other bases are explicitly rejected. Each base
 keeps its existing capabilities, optimization choices and numerical limits.
 There is no arbitrary Python-style estimator protocol, sparse support, parallel
-backend, metadata routing or chain estimator in this module.
+backend or metadata routing. Classifier chains remain outside this module.
 
 Training weights are supported for SGD regression and logistic, Gaussian NB
 and SGD classification. Passing weights to another supported base is diagnosed;
@@ -2712,3 +2712,66 @@ scores can select different equally valid outcomes; the reference suite
 certifies these cases explicitly rather than widening ordinary tolerances.
 
 See `example/multioutput.f90` and `validation/compare_multioutput.py`.
+
+
+## RegressorChain
+
+`regressor_chain%fit(x,y,estimator,sample_weight,splits)` fits one independent
+native regressor at each chain position. Real64 targets have shape
+`(n_samples,n_outputs)`. The fitted model at position j sees the original
+features followed by the first j-1 chain targets. Supported bases are the
+same linear regression hierarchy, SGD, KNN and tree regressors as
+multi_output_regressor; weights require a base with native weighted fitting
+(currently SGD). Fitted templates and input arrays are preserved.
+
+Default order follows target columns. Set allocatable `order(:)` to a
+one-based permutation, or set `random_order=.true.` with nonnegative
+`random_state` (default zero) for a permutation matching NumPy RandomState.
+These two configuration choices are mutually exclusive. Fitted `order_`
+records chain positions; `predict(x)` always restores original target-column
+order. Each `estimators_(j)%estimator_` keeps its native dynamic type and
+augmented feature count. Refitting replaces models and fitted order; Fortran
+assignment deep-copies fitted chains.
+
+Default `cv=0` trains each stage on the observed preceding targets. With
+integer `cv>=2`, preceding targets are replaced by out-of-fold predictions
+from unshuffled KFold. Alternatively pass `type(index_split) :: splits(:)`
+with `cv=0`; one-based test indices must partition every row exactly once.
+Training indices are used as supplied, including repeated rows or overlap
+with test indices, matching source iterable-split behavior. Bounds, missing
+indices and empty used folds are diagnosed. An unused CV specification on a
+single-output chain is not evaluated, matching source; integer cv must still
+be zero or at least two. There is no partial_fit or general metadata routing.
+
+Full stage fits receive sample_weight. Matching sklearn 1.6.1 with metadata
+routing disabled, the separate cross_val_predict fits do not receive those
+weights. Each full stage uses all training rows and its already constructed
+chain features. Query prediction always chains earlier predictions, even
+when fitting used observed targets. `score(x,y,sample_weight)` shares the
+multioutput uniform-average R2 implementation, including quiet NaN for a
+singleton and force_finite constant-target handling.
+
+The shared SGD core now follows source WeightVector64 lazy L2 scaling,
+explicit ordered inner products, the 1e-9 scale-reset threshold and final
+materialization. This corrects accumulated decay roundoff exposed by a
+weighted cross-validated chain with very large downstream coefficients.
+Averaging keeps the existing dense mean update; other base capabilities and
+limits remain as documented for those native estimators.
+
+See `example/regressor_chains.f90` and `validation/compare_chains.py`.
+
+
+For SGD chains the suite independently reconstructs native out-of-fold
+feature matrices, checks every generated column against source fold fits
+and predictions, and compares full fitted coefficients/counters to source
+fits on those identical matrices. Full-chain query predictions and scores
+still compare against the ordinary sklearn chain. All comparisons retain
+3e-8 tolerance. This separates amplification of tiny feature-rounding
+changes from a fitting or routing error: the saved fixture's release
+coefficient discrepancy against the unconditioned source chain was about
+4.0191e-8, while identical-design source fits reproduced native stages
+exactly in the diagnostic probe. Rounding witnesses are recorded separately
+from the consistently checked conditioned-stage groups; their presence can
+differ by optimization profile. The full checked/release native test runs
+were completed before adding these reference-driver witnesses; numerical
+production sources were unchanged afterward.

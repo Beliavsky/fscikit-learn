@@ -1,5 +1,6 @@
 ! SGDRegressor: sklearn 1.6.1 _stochastic_gradient.py and _sgd_fast.pyx.tp.
-! BSD attribution: LICENSES/scikit-learn-COPYING; native dense updates.
+! Lazy weight scaling also follows sklearn utils/_weight_vector.pyx.tp.
+! BSD attribution: LICENSES/scikit-learn-COPYING; THIRD_PARTY_NOTICES.md.
 module sklearn_sgd
   use sklearn_common, only: dp,require,check_x,check_xy,seed_rng,unique_labels,label_index,sigmoid
   use sklearn_metrics, only: r2_score,accuracy_score
@@ -136,8 +137,9 @@ contains
     logical, intent(in) :: stopping
     real(dp), intent(in), optional :: sample_weight(:)
     real(dp) :: weights(size(y)),sumloss,best_loss,value,gradient,eta,update,count,coin
-    integer :: order(size(y)),n,i,j,it,pick,tmp,stale
-    n=size(y); weights=1
+    real(dp) :: work(size(self%standard_coef)),wscale,inner
+    integer :: order(size(y)),n,i,j,it,pick,tmp,stale,feature
+    n=size(y); weights=1; work=self%standard_coef; wscale=1
     if(present(sample_weight)) then
       call require(size(sample_weight)==n,'SGD sample weight count mismatch')
       call require(all(ieee_is_finite(sample_weight)),'nonfinite SGD sample weights')
@@ -154,20 +156,29 @@ contains
       sumloss=0
       do j=1,n
         i=order(j)
-        call sgd_loss(self,dot_product(self%standard_coef,x(i,:))+self%standard_intercept,y(i),value,gradient)
+        inner=0
+        do feature=1,size(work)
+          inner=inner+work(feature)*x(i,feature)
+        end do
+        call sgd_loss(self,inner*wscale+self%standard_intercept,y(i),value,gradient)
         sumloss=sumloss+value; eta=self%eta0
         if(self%learning_rate=='invscaling') eta=eta/self%t_**self%power_t
         gradient=max(-1.e12_dp,min(1.e12_dp,gradient)); update=-eta*gradient*weights(i)
-        if(self%penalty=='l2') self%standard_coef=self%standard_coef*max(0._dp,1-eta*self%alpha)
-        self%standard_coef=self%standard_coef+update*x(i,:)
+        ! Match source WeightVector64 lazy L2 scaling and reset threshold.
+        if(self%penalty=='l2') wscale=wscale*max(0._dp,1-eta*self%alpha)
+        if(wscale<1.e-9_dp) then
+          work=work*wscale; wscale=1
+        end if
+        if(update/=0) work=work+x(i,:)*(update/wscale)
         if(self%fit_intercept) self%standard_intercept=self%standard_intercept+update
         if(self%average>0.and.self%t_>=self%average) then
           count=self%t_-self%average+1
-          self%average_coef=self%average_coef+(self%standard_coef-self%average_coef)/count
+          self%average_coef=self%average_coef+(work*wscale-self%average_coef)/count
           self%average_intercept=self%average_intercept+(self%standard_intercept-self%average_intercept)/count
         end if
         self%t_=self%t_+1
       end do
+      self%standard_coef=work*wscale
       call require(all(ieee_is_finite(self%standard_coef)).and.ieee_is_finite(self%standard_intercept), &
         'SGD fit overflow; scale the inputs')
       if(stopping.and.self%tol>=0) then

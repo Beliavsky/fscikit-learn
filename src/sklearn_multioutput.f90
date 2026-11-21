@@ -7,10 +7,13 @@ module sklearn_multioutput
   use sklearn_sgd, only: sgd_regressor,sgd_classifier
   use sklearn_neighbors, only: kneighbors_regressor,kneighbors_classifier
   use sklearn_tree, only: decision_tree_regressor,decision_tree_classifier
+  use sklearn_model_selection, only: kfold,index_split
+  use sklearn_legacy_rng, only: legacy_random_state
   use sklearn_label_binarization, only: label_set
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite,ieee_value,ieee_quiet_nan
   implicit none
   private
+  public :: regressor_chain
   public :: multi_output_regressor,multi_output_classifier,multioutput_probability,label_set
   type :: estimator_slot
     class(*), allocatable :: estimator_
@@ -18,6 +21,17 @@ module sklearn_multioutput
   type :: multioutput_probability
     integer, allocatable :: classes(:)
     real(dp), allocatable :: values(:,:)
+  end type
+  type :: regressor_chain
+    integer, allocatable :: order(:),order_(:)
+    integer :: cv=0,random_state=0,n_features_in_=0,n_outputs_=0
+    logical :: random_order=.false.
+    type(estimator_slot), allocatable :: estimators_(:)
+    logical, private :: fitted_=.false.
+  contains
+    procedure :: fit=>chain_fit
+    procedure :: predict=>chain_predict
+    procedure :: score=>chain_score
   end type
   type :: multi_output_regressor
     type(estimator_slot), allocatable :: estimators_(:)
@@ -185,10 +199,17 @@ contains
     class(multi_output_regressor), intent(in) :: self
     real(dp), intent(in) :: x(:,:),y(:,:)
     real(dp), intent(in), optional :: sample_weight(:)
-    real(dp), allocatable :: predicted(:,:),w(:)
+    real(dp), allocatable :: predicted(:,:)
+    predicted=self%predict(x)
+    value=multioutput_r2(y,predicted,sample_weight)
+  end function
+
+  real(dp) function multioutput_r2(y,predicted,sample_weight) result(value)
+    real(dp), intent(in) :: y(:,:),predicted(:,:)
+    real(dp), intent(in), optional :: sample_weight(:)
+    real(dp), allocatable :: w(:)
     real(dp) :: mass,mean,numerator,denominator
     integer :: j
-    predicted=self%predict(x)
     call require(all(shape(y)==shape(predicted)),'multioutput score target shape mismatch')
     call check_x(y); allocate(w(size(y,1))); w=1
     if(present(sample_weight)) then
@@ -420,4 +441,124 @@ contains
     call require(all(shape(y)==shape(predicted)),'multioutput score target shape mismatch')
     value=real(count(all(y==predicted,dim=2)),dp)/size(y,1)
   end function
+  function regression_response(model,x) result(y)
+    class(*), intent(in) :: model
+    real(dp), intent(in) :: x(:,:)
+    real(dp), allocatable :: y(:)
+    select type(model)
+    class is(linear_regression)
+      y=model%predict(x)
+    type is(sgd_regressor)
+      y=model%predict(x)
+    type is(kneighbors_regressor)
+      y=model%predict(x)
+    type is(decision_tree_regressor)
+      y=model%predict(x)
+    class default
+      call require(.false.,'unsupported regression chain base')
+    end select
+  end function
+
+  subroutine chain_fit(self,x,y,estimator,sample_weight,splits)
+    class(regressor_chain), intent(inout) :: self
+    real(dp), intent(in) :: x(:,:),y(:,:)
+    class(*), intent(in) :: estimator
+    real(dp), intent(in), optional :: sample_weight(:)
+    type(index_split), intent(in), optional :: splits(:)
+    type(index_split), allocatable :: folds(:)
+    type(kfold) :: splitter
+    type(legacy_random_state) :: rng
+    class(*), allocatable :: fold_model
+    real(dp), allocatable :: augmented(:,:)
+    integer, allocatable :: seen(:)
+    integer :: n,p,t,j,k,i,pick,tmp,width
+    logical :: cross_validated
+    self%fitted_=.false.
+    call targets(x,size(y,1),size(y,2)); call check_x(y)
+    call reg_supported(estimator,present(sample_weight),.false.)
+    n=size(x,1); p=size(x,2); t=size(y,2)
+    call require(self%random_state>=0,'regression chain random_state must be nonnegative')
+    call require(self%cv==0.or.self%cv>=2,'regression chain cv must be zero or at least two')
+    call require(.not.(present(splits).and.self%cv/=0),'regression chain choose cv or explicit splits')
+    call require(.not.(allocated(self%order).and.self%random_order),'regression chain choose explicit or random order')
+    if(allocated(self%order_)) deallocate(self%order_)
+    self%order_=[(j,j=1,t)]
+    if(allocated(self%order)) then
+      call require(size(self%order)==t,'regression chain order length mismatch')
+      call require(all(self%order>=1).and.all(self%order<=t),'regression chain order index out of range')
+      do j=1,t
+        call require(count(self%order==j)==1,'regression chain order must be a permutation')
+      end do
+      self%order_=self%order
+    else if(self%random_order) then
+      call rng%seed(self%random_state)
+      do j=t,2,-1
+        pick=rng%integer_index(j); tmp=self%order_(j)
+        self%order_(j)=self%order_(pick); self%order_(pick)=tmp
+      end do
+    end if
+    cross_validated=self%cv/=0.or.present(splits)
+    if(present(splits).and.t>1) then
+      call require(size(splits)>0,'regression chain splits must not be empty')
+      folds=splits
+    else if(self%cv/=0.and.t>1) then
+      splitter%n_splits=self%cv; folds=splitter%split(n)
+    end if
+    if(cross_validated.and.t>1) then
+      allocate(seen(n)); seen=0
+      do k=1,size(folds)
+        call require(allocated(folds(k)%train).and.allocated(folds(k)%test),'regression chain split indices missing')
+        call require(size(folds(k)%train)>0.and.size(folds(k)%test)>0,'regression chain split must be nonempty')
+        call require(all(folds(k)%train>=1).and.all(folds(k)%train<=n),'regression chain train index out of range')
+        call require(all(folds(k)%test>=1).and.all(folds(k)%test<=n),'regression chain test index out of range')
+        do i=1,size(folds(k)%test)
+          j=folds(k)%test(i)
+          seen(j)=seen(j)+1
+        end do
+      end do
+      call require(all(seen==1),'regression chain test folds must partition all rows')
+    end if
+    if(allocated(self%estimators_)) deallocate(self%estimators_)
+    allocate(self%estimators_(t),augmented(n,p+t)); augmented=0; augmented(:,:p)=x
+    if(.not.cross_validated) augmented(:,p+1:)=y(:,self%order_)
+    do j=1,t
+      width=p+j-1
+      allocate(self%estimators_(j)%estimator_,source=estimator)
+      call reg_train(self%estimators_(j)%estimator_,augmented(:,:width),y(:,self%order_(j)),sample_weight,.false.)
+      if(cross_validated.and.j<t) then
+        do k=1,size(folds)
+          allocate(fold_model,source=estimator)
+          ! Source cross_val_predict does not receive the full-fit sample weights.
+          call reg_train(fold_model,augmented(folds(k)%train,:width),y(folds(k)%train,self%order_(j)),streaming=.false.)
+          augmented(folds(k)%test,p+j)=regression_response(fold_model,augmented(folds(k)%test,:width))
+          deallocate(fold_model)
+        end do
+      end if
+    end do
+    self%n_features_in_=p; self%n_outputs_=t; self%fitted_=.true.
+  end subroutine
+
+  function chain_predict(self,x) result(y)
+    class(regressor_chain), intent(in) :: self
+    real(dp), intent(in) :: x(:,:)
+    real(dp), allocatable :: y(:,:),augmented(:,:)
+    integer :: p,j
+    call require(self%fitted_,'regression chain is not fitted')
+    call check_x(x); call require(size(x,2)==self%n_features_in_,'regression chain feature count mismatch')
+    p=self%n_features_in_; allocate(augmented(size(x,1),p+self%n_outputs_))
+    augmented=0; augmented(:,:p)=x; allocate(y(size(x,1),self%n_outputs_))
+    do j=1,self%n_outputs_
+      augmented(:,p+j)=regression_response(self%estimators_(j)%estimator_,augmented(:,:p+j-1))
+      y(:,self%order_(j))=augmented(:,p+j)
+    end do
+  end function
+
+  real(dp) function chain_score(self,x,y,sample_weight) result(value)
+    class(regressor_chain), intent(in) :: self
+    real(dp), intent(in) :: x(:,:),y(:,:)
+    real(dp), intent(in), optional :: sample_weight(:)
+    real(dp), allocatable :: prediction(:,:)
+    prediction=self%predict(x); value=multioutput_r2(y,prediction,sample_weight)
+  end function
+
 end module
