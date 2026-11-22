@@ -4,22 +4,27 @@ module sklearn_validation
   use sklearn_common, only: dp,require,check_x,check_xy,unique_labels,label_index,argsort
   use sklearn_model_selection, only: kfold,index_split
   use sklearn_search, only: search_scorer
+  use sklearn_parameter_space, only: parameter_value,parameter_set
+  use sklearn_legacy_rng, only: legacy_random_state
+  use sklearn_ieee_math, only: ieee_mean
   use sklearn_search_adapters, only: search_classifier,fit_search_native,search_regression,search_labels, &
-    search_probabilities,search_decisions,search_classes,native_search_score
+    search_probabilities,search_decisions,search_classes,native_search_score,set_search_params
   use sklearn_feature_composition, only: fit_model
   use sklearn_pipeline, only: pipeline
   use sklearn_linear_model, only: logistic_regression
   use sklearn_naive_bayes, only: gaussian_nb,multinomial_nb
   use sklearn_tree, only: decision_tree_classifier
   use sklearn_ensemble, only: random_forest_classifier,gradient_boosting_classifier
-  use sklearn_sgd, only: sgd_classifier
+  use sklearn_sgd, only: sgd_classifier,sgd_regressor
   use sklearn_dummy, only: dummy_classifier
   use, intrinsic :: iso_fortran_env, only: int64
-  use, intrinsic :: ieee_arithmetic, only: ieee_is_finite,ieee_value,ieee_negative_inf
+  use, intrinsic :: ieee_arithmetic, only: ieee_is_finite,ieee_is_nan,ieee_value,ieee_negative_inf
   implicit none
   private
   public :: cross_validate,cross_val_predict,cross_val_predict_class,cross_val_score
   public :: cross_validation_options,cross_validation_result,cv_estimator,search_scorer
+  public :: learning_curve,validation_curve,permutation_test_score
+  public :: learning_curve_options,learning_curve_result,validation_curve_result,permutation_score_result
   abstract interface
     subroutine cv_fit_function(model,x,yr,yi,sample_weight)
       import dp
@@ -69,6 +74,54 @@ module sklearn_validation
     type(index_split), allocatable :: indices(:)
     integer :: n_splits=0,n_features_in=0
   end type
+  abstract interface
+    subroutine curve_partial_function(model,x,yr,yi,classes,sample_weight)
+      import dp
+      class(*), intent(inout) :: model
+      real(dp), intent(in) :: x(:,:)
+      real(dp), optional, intent(in) :: yr(:),sample_weight(:)
+      integer, optional, intent(in) :: yi(:),classes(:)
+    end subroutine
+    subroutine curve_initialize_function(model)
+      class(*), intent(inout) :: model
+    end subroutine
+    subroutine curve_parameter_function(model,parameters)
+      import parameter_set
+      class(*), intent(inout) :: model
+      type(parameter_set), intent(in) :: parameters
+    end subroutine
+  end interface
+  type, extends(cross_validation_options) :: learning_curve_options
+    real(dp), allocatable :: train_sizes(:)
+    integer, allocatable :: train_counts(:)
+    logical :: shuffle=.false.,exploit_incremental_learning=.false.,return_times=.false.
+    integer :: random_state=0
+    procedure(curve_partial_function), pointer, nopass :: partial_fit_func=>null()
+    procedure(curve_initialize_function), pointer, nopass :: incremental_init_func=>null()
+  end type
+  type :: learning_curve_result
+    integer, allocatable :: train_sizes(:),actual_train_sizes(:,:)
+    type(index_split), allocatable :: folds(:)
+    real(dp), allocatable :: train_score(:,:),test_score(:,:),fit_time(:,:),score_time(:,:)
+  end type
+  type :: validation_curve_result
+    type(parameter_value), allocatable :: param_range(:)
+    type(index_split), allocatable :: folds(:)
+    real(dp), allocatable :: train_score(:,:),test_score(:,:)
+  end type
+  type :: permutation_score_result
+    real(dp) :: score=0,pvalue=1
+    real(dp), allocatable :: permutation_scores(:)
+  end type
+  interface learning_curve
+    module procedure learning_real,learning_integer,learning_unsupervised
+  end interface
+  interface validation_curve
+    module procedure curve_real,curve_integer,curve_unsupervised
+  end interface
+  interface permutation_test_score
+    module procedure permutation_real,permutation_integer
+  end interface
   interface cross_validate
     module procedure validate_real,validate_integer,validate_unsupervised
   end interface
@@ -193,6 +246,14 @@ contains
     real(dp), optional, intent(in) :: yr(:),weights(:)
     integer, optional, intent(in) :: yi(:),original_integer(:)
     allocate(model,source=estimator)
+    call fit_existing(model,x,settings,yr,yi,weights,original_integer)
+  end subroutine
+  subroutine fit_existing(model,x,settings,yr,yi,weights,original_integer)
+    class(*), intent(inout) :: model
+    real(dp), intent(in) :: x(:,:)
+    type(cross_validation_options), intent(in) :: settings
+    real(dp), optional, intent(in) :: yr(:),weights(:)
+    integer, optional, intent(in) :: yi(:),original_integer(:)
     if(associated(settings%fit_func)) then
       call settings%fit_func(model,x,yr,yi,weights)
     else if(.not.present(yr).and..not.present(yi)) then
@@ -538,5 +599,372 @@ contains
     values=cross_val_predict(estimator,x,y,settings,sample_weight)
     call require(size(values,2)==1,'cross_val_predict_class requires one response column')
     predictions=labels_from_real(values(:,1))
+  end function
+  function absolute_train_sizes(settings,nmax) result(counts)
+    type(learning_curve_options), intent(in) :: settings
+    integer, intent(in) :: nmax
+    integer, allocatable :: counts(:)
+    real(dp), allocatable :: fractions(:)
+    call require(.not.(allocated(settings%train_sizes).and.allocated(settings%train_counts)), &
+      'learning_curve choose fractional sizes or absolute counts')
+    if(allocated(settings%train_counts)) then
+      call require(size(settings%train_counts)>0,'learning_curve training counts must be nonempty')
+      call require(all(settings%train_counts>=1).and.all(settings%train_counts<=nmax), &
+        'learning_curve training counts out of range')
+      counts=unique_labels(settings%train_counts)
+    else
+      fractions=[.1_dp,.325_dp,.55_dp,.775_dp,1._dp]
+      if(allocated(settings%train_sizes)) fractions=settings%train_sizes
+      call require(size(fractions)>0,'learning_curve training fractions must be nonempty')
+      call require(all(ieee_is_finite(fractions)),'learning_curve training fractions must be finite')
+      call require(all(fractions>0).and.all(fractions<=1),'learning_curve training fractions must be in (0,1]')
+      counts=unique_labels(max(1,min(nmax,int(fractions*nmax))))
+    end if
+  end function
+  subroutine permute_indices(indices,rng)
+    integer, intent(inout) :: indices(:)
+    type(legacy_random_state), intent(inout) :: rng
+    integer :: i,j,temporary
+    do i=size(indices),2,-1
+      j=rng%integer_index(i);temporary=indices(i);indices(i)=indices(j);indices(j)=temporary
+    end do
+  end subroutine
+  logical function incremental_supported(estimator) result(supported)
+    class(*), intent(in) :: estimator
+    supported=.true.
+    select type(estimator)
+    type is(sgd_regressor)
+    type is(sgd_classifier)
+    type is(gaussian_nb)
+    class default;supported=.false.
+    end select
+  end function
+  subroutine initialize_incremental(model,settings)
+    class(*), intent(inout) :: model
+    type(learning_curve_options), intent(in) :: settings
+    type(sgd_regressor) :: reg
+    type(sgd_classifier) :: classifier
+    type(gaussian_nb) :: bayes
+    select type(model)
+    type is(sgd_regressor)
+      reg%loss=model%loss;reg%penalty=model%penalty;reg%learning_rate=model%learning_rate
+      reg%alpha=model%alpha;reg%eta0=model%eta0;reg%power_t=model%power_t;reg%epsilon=model%epsilon;reg%tol=model%tol
+      reg%max_iter=model%max_iter;reg%n_iter_no_change=model%n_iter_no_change;reg%average=model%average
+      reg%random_state=model%random_state;reg%fit_intercept=model%fit_intercept;reg%shuffle=model%shuffle
+      model=reg
+    type is(sgd_classifier)
+      classifier%loss=model%loss;classifier%penalty=model%penalty;classifier%learning_rate=model%learning_rate
+      classifier%alpha=model%alpha;classifier%eta0=model%eta0;classifier%power_t=model%power_t;classifier%tol=model%tol
+      classifier%max_iter=model%max_iter;classifier%n_iter_no_change=model%n_iter_no_change
+      classifier%average=model%average;classifier%random_state=model%random_state
+      classifier%fit_intercept=model%fit_intercept;classifier%shuffle=model%shuffle
+      classifier%class_weight_balanced=model%class_weight_balanced;model=classifier
+    type is(gaussian_nb)
+      bayes%var_smoothing=model%var_smoothing
+      if(allocated(model%priors)) bayes%priors=model%priors
+      model=bayes
+    end select
+    if(associated(settings%incremental_init_func)) call settings%incremental_init_func(model)
+  end subroutine
+  subroutine partial_fit_curve(model,x,settings,yr,yi,classes,weights)
+    class(*), intent(inout) :: model
+    real(dp), intent(in) :: x(:,:)
+    type(learning_curve_options), intent(in) :: settings
+    real(dp), optional, intent(in) :: yr(:),weights(:)
+    integer, optional, intent(in) :: yi(:),classes(:)
+    if(associated(settings%partial_fit_func)) then
+      call settings%partial_fit_func(model,x,yr,yi,classes,weights)
+    else
+      select type(model)
+      type is(sgd_regressor)
+        call require(present(yr),'incremental regression requires real targets');call model%partial_fit(x,yr,weights)
+      type is(sgd_classifier)
+        call require(present(yi),'incremental classification requires integer targets')
+        call model%partial_fit(x,yi,classes,weights)
+      type is(gaussian_nb)
+        call require(present(yi),'incremental classification requires integer targets')
+        call model%partial_fit(x,yi,classes,weights)
+      class default
+        call require(.false.,'learning_curve estimator has no native partial_fit')
+      end select
+    end if
+  end subroutine
+  function learning_core(estimator,x,options,sample_weight,real_y,integer_y) result(results)
+    class(*), intent(in) :: estimator
+    real(dp), intent(in) :: x(:,:)
+    type(learning_curve_options), optional, intent(in) :: options
+    real(dp), optional, intent(in) :: sample_weight(:),real_y(:)
+    integer, optional, intent(in) :: integer_y(:)
+    type(learning_curve_result) :: results
+    type(learning_curve_options) :: settings
+    type(cross_validation_options) :: base
+    type(index_split), allocatable :: folds(:)
+    type(search_scorer), allocatable :: scorers(:)
+    type(legacy_random_state) :: rng
+    class(*), allocatable :: model
+    real(dp), allocatable :: yr(:),train_y(:),test_y(:),weights(:),partial_y(:)
+    integer, allocatable :: yi(:),train_labels(:),test_labels(:),original_integer(:),partial_labels(:),classes(:),ids(:)
+    integer :: i,j,ns,nf,nt,first,last,previous
+    integer(int64) :: start
+    real(dp) :: fit_time,score_time
+    logical :: classifier
+    if(present(options)) settings=options
+    call require(settings%random_state>=0,'learning_curve random_state must be nonnegative')
+    call require_single_scorer(settings%cross_validation_options)
+    if(settings%exploit_incremental_learning) call require(associated(settings%partial_fit_func).or. &
+      incremental_supported(estimator),'learning_curve estimator has no native partial_fit')
+    call prepare(estimator,x,settings%cross_validation_options,base,classifier,folds,real_y,integer_y)
+    call check_weights(sample_weight,size(x,1));call normalize_targets(classifier,real_y,integer_y,yr,yi)
+    scorers=configure_scorers(base,present(real_y).or.present(integer_y))
+    results%train_sizes=absolute_train_sizes(settings,size(folds(1)%train));ns=size(results%train_sizes);nf=size(folds)
+    if(settings%shuffle) then
+      call rng%seed(settings%random_state)
+      do i=1,nf
+        call permute_indices(folds(i)%train,rng)
+      end do
+    end if
+    results%folds=folds;allocate(results%train_score(ns,nf),results%test_score(ns,nf),results%actual_train_sizes(ns,nf))
+    if(settings%return_times) allocate(results%fit_time(ns,nf),results%score_time(ns,nf))
+    if(classifier) classes=unique_labels(yi)
+    do i=1,nf
+      if(settings%exploit_incremental_learning) then
+        if(allocated(model)) deallocate(model)
+        allocate(model,source=estimator);call initialize_incremental(model,settings)
+      end if
+      previous=0
+      do j=1,ns
+        nt=min(results%train_sizes(j),size(folds(i)%train));ids=folds(i)%train(:nt)
+        results%actual_train_sizes(j,i)=nt
+        if(allocated(yr)) then
+          train_y=yr(ids);test_y=yr(folds(i)%test)
+          if(present(integer_y)) original_integer=integer_y(ids)
+        end if
+        if(allocated(yi)) then
+          train_labels=yi(ids);test_labels=yi(folds(i)%test)
+        end if
+        if(settings%exploit_incremental_learning) then
+          first=min(previous,size(folds(i)%train))+1;last=nt
+          if(allocated(yr)) partial_y=yr(folds(i)%train(first:last))
+          if(allocated(yi)) partial_labels=yi(folds(i)%train(first:last))
+          call system_clock(start)
+          ! Pinned sklearn 1.6.1 forwards fit parameters unsliced on this path.
+          call partial_fit_curve(model,x(folds(i)%train(first:last),:),settings,partial_y,partial_labels, &
+            classes,sample_weight)
+        else
+          if(present(sample_weight)) weights=sample_weight(ids)
+          call system_clock(start)
+          call fit_fold(estimator,model,x(ids,:),base,train_y,train_labels,weights,original_integer)
+        end if
+        fit_time=clock_elapsed(start);call system_clock(start)
+        results%test_score(j,i)=evaluate(scorers(1),model,x(folds(i)%test,:),test_y,test_labels)
+        score_time=clock_elapsed(start)
+        results%train_score(j,i)=evaluate(scorers(1),model,x(ids,:),train_y,train_labels)
+        if(settings%exploit_incremental_learning) score_time=clock_elapsed(start)
+        if(settings%return_times) then
+          results%fit_time(j,i)=fit_time;results%score_time(j,i)=score_time
+        end if
+        previous=results%train_sizes(j)
+      end do
+    end do
+  end function
+  function learning_real(estimator,x,y,options,sample_weight) result(results)
+    class(*), intent(in) :: estimator
+    real(dp), intent(in) :: x(:,:),y(:)
+    type(learning_curve_options), optional, intent(in) :: options
+    real(dp), optional, intent(in) :: sample_weight(:)
+    type(learning_curve_result) :: results
+    results=learning_core(estimator,x,options,sample_weight,real_y=y)
+  end function
+  function learning_integer(estimator,x,y,options,sample_weight) result(results)
+    class(*), intent(in) :: estimator
+    real(dp), intent(in) :: x(:,:)
+    integer, intent(in) :: y(:)
+    type(learning_curve_options), optional, intent(in) :: options
+    real(dp), optional, intent(in) :: sample_weight(:)
+    type(learning_curve_result) :: results
+    results=learning_core(estimator,x,options,sample_weight,integer_y=y)
+  end function
+  function learning_unsupervised(estimator,x,options,sample_weight) result(results)
+    class(*), intent(in) :: estimator
+    real(dp), intent(in) :: x(:,:)
+    type(learning_curve_options), optional, intent(in) :: options
+    real(dp), optional, intent(in) :: sample_weight(:)
+    type(learning_curve_result) :: results
+    results=learning_core(estimator,x,options,sample_weight)
+  end function
+  function curve_core(estimator,x,param_name,param_range,options,sample_weight,set_params_func,real_y,integer_y) &
+      result(results)
+    class(*), intent(in) :: estimator
+    real(dp), intent(in) :: x(:,:)
+    character(*), intent(in) :: param_name
+    type(parameter_value), intent(in) :: param_range(:)
+    type(cross_validation_options), optional, intent(in) :: options
+    real(dp), optional, intent(in) :: sample_weight(:),real_y(:)
+    integer, optional, intent(in) :: integer_y(:)
+    procedure(curve_parameter_function), optional :: set_params_func
+    type(validation_curve_result) :: results
+    type(cross_validation_options) :: settings
+    type(index_split), allocatable :: folds(:)
+    type(search_scorer), allocatable :: scorers(:)
+    type(parameter_set) :: parameters
+    class(*), allocatable :: model
+    real(dp), allocatable :: yr(:),train_y(:),test_y(:),weights(:)
+    integer, allocatable :: yi(:),train_labels(:),test_labels(:),original_integer(:)
+    integer :: i,j
+    logical :: classifier
+    call require(size(param_range)>0,'validation_curve param_range must be nonempty')
+    call require_single_scorer(options)
+    call prepare(estimator,x,options,settings,classifier,folds,real_y,integer_y)
+    call check_weights(sample_weight,size(x,1));call normalize_targets(classifier,real_y,integer_y,yr,yi)
+    scorers=configure_scorers(settings,present(real_y).or.present(integer_y))
+    results%folds=folds;results%param_range=param_range
+    allocate(results%train_score(size(param_range),size(folds)),results%test_score(size(param_range),size(folds)))
+    allocate(parameters%items(1));parameters%items(1)%name=param_name
+    do i=1,size(folds)
+      if(allocated(yr)) then
+        train_y=yr(folds(i)%train);test_y=yr(folds(i)%test)
+        if(present(integer_y)) original_integer=integer_y(folds(i)%train)
+      end if
+      if(allocated(yi)) then
+        train_labels=yi(folds(i)%train);test_labels=yi(folds(i)%test)
+      end if
+      if(present(sample_weight)) weights=sample_weight(folds(i)%train)
+      do j=1,size(param_range)
+        if(allocated(model)) deallocate(model)
+        allocate(model,source=estimator);parameters%items(1)%value=param_range(j)
+        if(present(set_params_func)) then
+          call set_params_func(model,parameters)
+        else
+          call set_search_params(model,parameters)
+        end if
+        call fit_existing(model,x(folds(i)%train,:),settings,train_y,train_labels,weights,original_integer)
+        results%test_score(j,i)=evaluate(scorers(1),model,x(folds(i)%test,:),test_y,test_labels)
+        results%train_score(j,i)=evaluate(scorers(1),model,x(folds(i)%train,:),train_y,train_labels)
+      end do
+    end do
+  end function
+  function curve_real(estimator,x,y,param_name,param_range,options,sample_weight,set_params_func) result(results)
+    class(*), intent(in) :: estimator
+    real(dp), intent(in) :: x(:,:),y(:)
+    character(*), intent(in) :: param_name
+    type(parameter_value), intent(in) :: param_range(:)
+    type(cross_validation_options), optional, intent(in) :: options
+    real(dp), optional, intent(in) :: sample_weight(:)
+    procedure(curve_parameter_function), optional :: set_params_func
+    type(validation_curve_result) :: results
+    results=curve_core(estimator,x,param_name,param_range,options,sample_weight,set_params_func,real_y=y)
+  end function
+  function curve_integer(estimator,x,y,param_name,param_range,options,sample_weight,set_params_func) result(results)
+    class(*), intent(in) :: estimator
+    real(dp), intent(in) :: x(:,:)
+    integer, intent(in) :: y(:)
+    character(*), intent(in) :: param_name
+    type(parameter_value), intent(in) :: param_range(:)
+    type(cross_validation_options), optional, intent(in) :: options
+    real(dp), optional, intent(in) :: sample_weight(:)
+    procedure(curve_parameter_function), optional :: set_params_func
+    type(validation_curve_result) :: results
+    results=curve_core(estimator,x,param_name,param_range,options,sample_weight,set_params_func,integer_y=y)
+  end function
+  function curve_unsupervised(estimator,x,param_name,param_range,options,sample_weight,set_params_func) result(results)
+    class(*), intent(in) :: estimator
+    real(dp), intent(in) :: x(:,:)
+    character(*), intent(in) :: param_name
+    type(parameter_value), intent(in) :: param_range(:)
+    type(cross_validation_options), optional, intent(in) :: options
+    real(dp), optional, intent(in) :: sample_weight(:)
+    procedure(curve_parameter_function), optional :: set_params_func
+    type(validation_curve_result) :: results
+    results=curve_core(estimator,x,param_name,param_range,options,sample_weight,set_params_func)
+  end function
+  real(dp) function permutation_average(estimator,x,options,sample_weight,real_y,integer_y) result(score)
+    class(*), intent(in) :: estimator
+    real(dp), intent(in) :: x(:,:)
+    type(cross_validation_options), optional, intent(in) :: options
+    real(dp), optional, intent(in) :: sample_weight(:),real_y(:)
+    integer, optional, intent(in) :: integer_y(:)
+    type(cross_validation_options) :: settings
+    type(index_split), allocatable :: folds(:)
+    type(search_scorer), allocatable :: scorers(:)
+    class(*), allocatable :: model
+    real(dp), allocatable :: yr(:),train_y(:),test_y(:),weights(:),scores(:)
+    integer, allocatable :: yi(:),train_labels(:),test_labels(:),original_integer(:)
+    integer :: i
+    logical :: classifier
+    call prepare(estimator,x,options,settings,classifier,folds,real_y,integer_y)
+    call check_weights(sample_weight,size(x,1));call normalize_targets(classifier,real_y,integer_y,yr,yi)
+    scorers=configure_scorers(settings,.true.);allocate(scores(size(folds)));allocate(model,source=estimator)
+    do i=1,size(folds)
+      if(allocated(yr)) then
+        train_y=yr(folds(i)%train);test_y=yr(folds(i)%test)
+        if(present(integer_y)) original_integer=integer_y(folds(i)%train)
+      end if
+      if(allocated(yi)) then
+        train_labels=yi(folds(i)%train);test_labels=yi(folds(i)%test)
+      end if
+      if(present(sample_weight)) weights=sample_weight(folds(i)%train)
+      call fit_existing(model,x(folds(i)%train,:),settings,train_y,train_labels,weights,original_integer)
+      scores(i)=evaluate(scorers(1),model,x(folds(i)%test,:),test_y,test_labels)
+    end do
+    score=ieee_mean(scores)
+  end function
+  function permutation_core(estimator,x,options,n_permutations,random_state,groups,sample_weight,real_y,integer_y) &
+      result(results)
+    class(*), intent(in) :: estimator
+    real(dp), intent(in) :: x(:,:)
+    type(cross_validation_options), optional, intent(in) :: options
+    integer, optional, intent(in) :: n_permutations,random_state,groups(:),integer_y(:)
+    real(dp), optional, intent(in) :: sample_weight(:),real_y(:)
+    type(permutation_score_result) :: results
+    type(legacy_random_state) :: rng
+    integer, allocatable :: ids(:),levels(:),members(:),shuffled(:),permuted_yi(:)
+    real(dp), allocatable :: permuted_yr(:)
+    integer :: nperm,seed,i,j,exceed
+    nperm=100;seed=0
+    if(present(n_permutations)) nperm=n_permutations
+    if(present(random_state)) seed=random_state
+    call require(nperm>0,'permutation_test_score n_permutations must be positive')
+    call require_single_scorer(options);call rng%seed(seed)
+    if(present(groups)) then
+      call require(size(groups)==size(x,1),'permutation_test_score group count mismatch');levels=unique_labels(groups)
+    end if
+    results%score=permutation_average(estimator,x,options,sample_weight,real_y,integer_y)
+    allocate(results%permutation_scores(nperm));exceed=0
+    do i=1,nperm
+      ids=[(j,j=1,size(x,1))]
+      if(present(groups)) then
+        do j=1,size(levels)
+          members=pack(ids,groups==levels(j));shuffled=members;call permute_indices(shuffled,rng);ids(members)=shuffled
+        end do
+      else
+        call permute_indices(ids,rng)
+      end if
+      if(present(real_y)) permuted_yr=real_y(ids)
+      if(present(integer_y)) permuted_yi=integer_y(ids)
+      results%permutation_scores(i)=permutation_average(estimator,x,options,sample_weight,permuted_yr,permuted_yi)
+      if(.not.ieee_is_nan(results%score).and..not.ieee_is_nan(results%permutation_scores(i))) then
+        if(results%permutation_scores(i)>=results%score) exceed=exceed+1
+      end if
+    end do
+    results%pvalue=(real(exceed,dp)+1)/(real(nperm,dp)+1)
+  end function
+  function permutation_real(estimator,x,y,options,n_permutations,random_state,groups,sample_weight) result(results)
+    class(*), intent(in) :: estimator
+    real(dp), intent(in) :: x(:,:),y(:)
+    type(cross_validation_options), optional, intent(in) :: options
+    integer, optional, intent(in) :: n_permutations,random_state,groups(:)
+    real(dp), optional, intent(in) :: sample_weight(:)
+    type(permutation_score_result) :: results
+    results=permutation_core(estimator,x,options,n_permutations,random_state,groups,sample_weight,real_y=y)
+  end function
+  function permutation_integer(estimator,x,y,options,n_permutations,random_state,groups,sample_weight) result(results)
+    class(*), intent(in) :: estimator
+    real(dp), intent(in) :: x(:,:)
+    integer, intent(in) :: y(:)
+    type(cross_validation_options), optional, intent(in) :: options
+    integer, optional, intent(in) :: n_permutations,random_state,groups(:)
+    real(dp), optional, intent(in) :: sample_weight(:)
+    type(permutation_score_result) :: results
+    results=permutation_core(estimator,x,options,n_permutations,random_state,groups,sample_weight,integer_y=y)
   end function
 end module

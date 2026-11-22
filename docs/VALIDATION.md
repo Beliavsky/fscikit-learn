@@ -5195,3 +5195,101 @@ validation/results/general_cv_final_audit.json, cross_validate_*.json,
 cross_val_predict_*.json, validation_invalid_*.json and native/integration logs.
 Existing unrelated reference suites were retained rather than all rerun for
 this increment. The broad sklearn translation remains ongoing.
+
+
+## Learning curves and permutation significance tests
+
+`sklearn_validation` and the `sklearn` facade now expose `learning_curve`,
+`validation_curve` and `permutation_test_score`, adapted from sklearn 1.6.1
+`model_selection/_validation.py` and `_split.py`. These functions add no estimator
+classes: the inventory remains 217 core types and 125 source modules, with 126
+native test programs. There are now 106 core reference suites retaining 429,685
+result groups, plus the separate 42-group legacy NumPy RNG suite. The new
+34-case rejection registry brings 16 registries to 3,124 cases.
+
+Learning curves accept real or integer targets, or no targets with a scoring
+callback. `learning_curve_options` extends `cross_validation_options`; supply
+fractional `train_sizes` in (0,1] or integer `train_counts`, never both. Defaults
+are five evenly spaced fractions from 0.1 to 1. Sizes are sorted and deduplicated
+against the first fold's training length. Later shorter folds clip their prefixes;
+`actual_train_sizes` records the resulting counts. Seeded optional training-index
+shuffles use the existing NumPy-compatible legacy RNG. Results contain folds,
+sizes, and train/test score matrices indexed by size then fold. Optional timing
+matrices report individual fits, with test scoring time for batch fits and both
+train/test scoring time for incremental fits, matching the pinned source.
+
+Batch fits start afresh for each size/fold. Incremental learning is available for
+SGDRegressor, SGDClassifier and GaussianNB through
+`exploit_incremental_learning`; fitted prototype state is cleared, each fold gets
+one model, and successive chunks update it with partial_fit. Classifiers receive
+the full target class set. Custom models can supply `partial_fit_func` and
+`incremental_init_func`; the latter must clear any custom fitted state. Pinned
+sklearn 1.6.1 forwards fit parameters unsliced on its incremental path, so full
+vector sample weights normally fail the child learner's chunk-length check here
+as well. Empty chunks on uneven folds also retain the source learner's rejection.
+
+Validation curves take a parameter name and typed `parameter_value` array made
+with `param(...)`. Parameter order and duplicates are retained; each value/fold
+gets a fresh fit. Native nested Pipeline parameters and an optional
+`set_params_func(model, parameter_set)` callback use the existing search adapters.
+The result stores the parameter range, folds, and train/test score matrices.
+
+Permutation tests return the observed mean CV score, all permuted scores, and
+`pvalue=(1+count(permuted_score >= observed_score))/(1+n_permutations)`. A positive
+permutation count is required (default 100); the seed defaults to zero. Optional
+integer groups constrain target shuffling within each group. Default classifier
+folds are recomputed for each permuted target; explicit folds remain fixed.
+One cloned model is reused across folds within each observed/permuted run,
+matching the pinned source, including custom fit callbacks. Fit weights retain
+their original row association and are sliced per fold. NaN comparisons do not
+count as exceedances.
+
+Scope remains serial dense finite X, vector targets, scalar scoring and
+`error_score='raise'`, with the existing child estimator restrictions. Sparse
+inputs, metadata routing, parallel execution, recoverable errors and multioutput
+targets are not provided. Native callbacks receive normalized targets; ordinary
+Pipeline fits retain original integer regression targets. Procedure pointer
+lifetimes remain the caller's responsibility. No extension algorithms or new
+dependencies were introduced. Original contributions remain MIT, with retained
+sklearn BSD attribution.
+
+The direct source suites retain 2,733 learning-curve groups over 360 fixtures,
+1,584 validation-curve groups over 264 fixtures and 960 permutation groups over
+240 fixtures. Learning fixtures include 21 matching source rejections for
+one-class prefixes or empty incremental chunks. Comparisons cover complete
+score arrays, prefix sizes, fold indices, fit traces, callback counts, parameter
+order, incremental resets, seeded shuffles, groups, nonfinite scores and exact
+p-values. Timing checks compare shapes and nonnegative values, not wall times.
+See `example/model_learning_curves.f90` for a complete public API example.
+
+
+Reproduce the new source and rejection suites after building one profile at a time:
+
+```
+python validation/compare_learning_curve.py --profile checked
+python validation/compare_validation_curve.py --profile checked
+python validation/compare_permutation_test_score.py --profile checked
+python validation/check_curve_invalid_inputs.py --profile checked
+```
+
+Use `--profile release` for optimized binaries or pass `--executable` to use an
+already built executable without invoking fpm. Python dependencies are validation
+only; the Fortran package has no new runtime dependency.
+
+
+Final verification passed all 126 native test programs in both checked and
+optimized fpm builds. Each canonical profile passed all three new source suites
+(2,733 / 1,584 / 960 groups), 34 new rejection checks, the existing 3,888-group
+cross_validate and 666-group out-of-fold suites, and 50 existing CV rejection
+checks. The checked integration suite passed all 192 comparisons. Both public
+example binaries matched independent sklearn results: sizes [7,15,30], final
+mean test R2 0.9992057722522532 and permutation p-value 0.05.
+
+The final audit verified identical checked/release check lists, strict JSON,
+canonical executable/validator/entry and installed source hashes, and 258 compiled
+content digests in each profile (255 core/test/vendor files plus the two new
+drivers and example). Evidence is retained in validation/results/curves_final_audit.json,
+learning_curve_*.json, validation_curve_*.json, permutation_test_score_*.json,
+curve_invalid_*.json and curves_*_tests.log / curves_*_gates.log. Historical unrelated
+reference suites were retained rather than all rerun. The broader sklearn
+translation remains ongoing.

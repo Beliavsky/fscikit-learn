@@ -832,3 +832,12 @@ Reference APIs:
 https://scikit-learn.org/1.6/modules/generated/sklearn.model_selection.cross_validate.html
 https://scikit-learn.org/1.6/modules/generated/sklearn.model_selection.cross_val_predict.html
 https://scikit-learn.org/1.6/modules/generated/sklearn.model_selection.cross_val_score.html
+
+Learning curves, validation curves and permutation-test significance in
+`src/sklearn_validation.f90` additionally adapt sklearn 1.6.1
+`model_selection/_validation.py` and `_split.py`: prefix sizing, clone/update
+order, incremental fit parameters, fold scheduling, grouped target permutations,
+legacy RNG consumption and corrected empirical p-values. These portions retain
+the sklearn BSD-3-Clause notice above and in LICENSES/scikit-learn-COPYING.
+Typed result/options containers, native adapters and tests are original MIT
+contributions. No external repository was imported for this increment.
