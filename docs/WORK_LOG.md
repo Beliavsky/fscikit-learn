@@ -6606,3 +6606,74 @@ seven terminal logs are retained in ignored `validation/results`. These checks
 are the affected suites rerun for this increment; the cumulative inventory
 above is not a complete rerun claim. Unrelated reference suites and the
 separate 42-group legacy RNG reference suite were not rerun.
+
+
+## Custom discriminant class priors and thin QDA (2026-11-22)
+
+Added `%priors` input for LDA/QDA, preserved caller weights, fitted normalization
+status and zero-prior handling. LDA follows source's 1.e-5 renormalization
+threshold; QDA retains unnormalized supplied weights. All LDA solvers weight
+covariance and geometry by fitted priors, including optional SVD covariance.
+Explicit-prior LSQR accepts numerical singularity through least squares.
+Automatic decision scores select the first positive-prior reference class.
+Negative infinite log priors exclude zero-weight classes safely under traps.
+
+The new reference cases exposed and fixed a prior QDA mismatch for classes with
+fewer samples than features. Source regularizes the thin retained SVD subspace,
+rather than adding variance in every ambient direction. Native QDA now uses that
+thin spectrum and an orthogonal completion of its retained null direction.
+Positive regularization is required on this wide path; empirical/fixed LDA
+solver defaults remain unchanged.
+
+`validation/compare_discriminant_priors.py` retains 13,594 groups over 841
+fixtures and 841 normalization/input-preservation certificates. Three seeds
+cover all three LDA solvers, fixed/automatic shrinkage and QDA; uniform, skewed,
+nonunit, near-unit, zero, one-positive, tiny and large priors; tall, wide and
+single-feature data; both fit entry points and automatic/explicit components.
+The QDA extra case accepts finite prior weights whose sum overflows, without
+summing them. There are 210 zero-prior posterior/prediction certificates and
+27 one-positive-prior SVD undefined-energy certificates.
+
+Forty-eight thin-QDA certificates verify the source regularized spectrum,
+projector idempotence/rank and inclusion of the centered training span. The
+retained null direction is arbitrary: source query/training scoring uses the
+same independently certified native direction. No fixture is removed.
+Seventeen rejection cases cover malformed/negative/nonfinite/zero prior vectors,
+LDA sum overflow, sample/class limits, singular eigen fitting, empty SVD rank
+and unregularized wide QDA.
+
+Inventory: 217 core public types, 129 core modules, 145 native test programs,
+122 core reference suites and 559,933 cumulative retained groups. The separate
+42-group legacy RNG reference suite remains excluded. Thirty-two invalid-input
+registries retain 3,417 cases. Cumulative counts are not a complete rerun claim;
+final verification below lists the checks actually rerun.
+
+Run `python validation/compare_discriminant_priors.py --profile checked`, or use
+`--profile release` / `--executable`. Original Fortran prior interfaces, safe
+logarithms, reference selection and null completion remain MIT, with existing
+sklearn BSD notices retained. No estimator type, extension algorithm or external
+Fortran dependency is added. Sparse inputs and custom covariance objects remain
+outside this interface.
+
+
+Final verification: all 145 native test programs passed in checked mode
+(`-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow`) and release mode.
+Each profile passed 44,972 reference groups: 13,594 new prior groups, all
+6,650 automatic-shrinkage groups, 13,452 eigen groups, 11,084 SVD groups and
+192 integration groups. All 17 new and 60 retained rejection checks passed.
+The existing high-precision and spectral/roundoff certificates still passed,
+as did the 20,000-feature covariance-free SVD case.
+
+The final audit matched validator, upstream-source and executable hashes and
+verified 284 compiled source-content digests per profile (129 core modules,
+145 tests, four vendor sources, five affected drivers and the new example).
+It confirmed all 841 prior-normalization/input-preservation certificates,
+210 zero-prior certificates, 27 one-positive-prior SVD undefined-ratio cases
+and 48 thin-QDA spectrum/projector/training-span certificates per profile.
+No fixture was removed. Checked and release case inventories matched.
+
+Both explicit fpm example runs passed; fitted LDA priors, zero-class posterior
+and retained QDA prior weights matched sklearn. Reports, the final audit and
+seven terminal logs are retained in ignored `validation/results`. The cumulative
+inventory above is not a complete rerun claim; unrelated reference suites and
+the separate 42-group legacy RNG reference suite were not rerun.

@@ -1012,3 +1012,14 @@ The existing native Ledoit-Wolf estimator and retained sklearn BSD notice in
 LICENSES/scikit-learn-COPYING apply. Fortran mode/diagnostic interfaces, centered
 margin evaluation and numerical certificates are original MIT contributions.
 No additional source package or external Fortran runtime is imported.
+
+
+`src/sklearn_discriminant_analysis.f90` adds class-prior handling from
+scikit-learn 1.6.1 `discriminant_analysis.py` LDA/QDA `fit`: LDA prior
+renormalization, QDA retained prior weights, weighted covariance/geometry and
+log-prior intercepts. Its wide-QDA path follows the source's thin singular-value
+regularization and projected quadratic scoring. Existing sklearn BSD notice
+and LICENSES/scikit-learn-COPYING remain retained. Native input/diagnostic
+interfaces, safe zero-prior logarithms, positive-reference margins and orthogonal
+null completion are original MIT contributions. No external source dependency
+is imported.

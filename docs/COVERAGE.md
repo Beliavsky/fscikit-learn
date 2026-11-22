@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 217 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and twenty-one reference suites additionally check 546,339
+All types have native tests. One hundred and twenty-two reference suites additionally check 559,933
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -61,7 +61,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | feature_extraction_text | `count_vectorizer`, `tfidf_transformer`, `tfidf_vectorizer` | Dense unigram counts; ASCII alphanumeric/underscore tokens of length 2-128; sorted vocabulary; min/max document frequency, binary counts and max features; smoothed/unsmoothed IDF, sublinear TF, l1/l2/no normalization |
 | dummy | `dummy_classifier`, `dummy_regressor` | Prior/most-frequent/stratified/uniform/constant classification; mean/median/quantile/constant regression |
 | kernel_ridge | `kernel_ridge` | Positive alpha; linear/RBF/polynomial/sigmoid kernels; no intercept |
-| discriminant_analysis | `linear_discriminant_analysis`, `quadratic_discriminant_analysis` | LDA offers the native default LSQR covariance solver with scalar shrinkage and rank-aware SVD classification/projection plus generalized-eigen projections and classwise automatic shrinkage; QDA scalar regularization; covariance-based solvers reject singular covariance |
+| discriminant_analysis | `linear_discriminant_analysis`, `quadratic_discriminant_analysis` | LDA offers LSQR, SVD and generalized-eigen classification/projection with fixed/automatic shrinkage and custom priors; QDA full/thin regularization and custom priors; solver-specific rank contracts are documented below |
 | svm | `svc`, `nu_svc`, `linear_svc`, `linear_svr`; re-exports `svr`, `nu_svr`, `one_class_svm` | Primal L2 squared-loss linear classification/regression; OVO SVC/NuSVC; epsilon/nu support-vector regression and one-class detection; native pairwise dual optimization and weighted capacities |
 | mixture | `gaussian_mixture`, `bayesian_gaussian_mixture` | EM Gaussian mixtures and variational Bayesian mixtures with finite Dirichlet or truncated stick-breaking weights; full/tied/diag/spherical covariances; responsibilities and likelihood scores; GaussianMixture BIC/AIC |
 | neural_network | `mlp_classifier`, `mlp_regressor`, `bernoulli_rbm` | Arbitrary dense hidden layer sizes, relu/tanh/logistic/identity, full-batch Adam, softmax classification or squared-error regression, L2 regularization |
@@ -6277,3 +6277,51 @@ certificates. Fortran interfaces and centered evaluation remain MIT, with the
 existing sklearn BSD notice retained. No public estimator type, extension
 algorithm or external Fortran dependency is added. Custom priors remain outside
 this increment.
+
+
+## Custom discriminant class priors and thin QDA (2026-11-22)
+
+Added `%priors` input for LDA/QDA, preserved caller weights, fitted normalization
+status and zero-prior handling. LDA follows source's 1.e-5 renormalization
+threshold; QDA retains unnormalized supplied weights. All LDA solvers weight
+covariance and geometry by fitted priors, including optional SVD covariance.
+Explicit-prior LSQR accepts numerical singularity through least squares.
+Automatic decision scores select the first positive-prior reference class.
+Negative infinite log priors exclude zero-weight classes safely under traps.
+
+The new reference cases exposed and fixed a prior QDA mismatch for classes with
+fewer samples than features. Source regularizes the thin retained SVD subspace,
+rather than adding variance in every ambient direction. Native QDA now uses that
+thin spectrum and an orthogonal completion of its retained null direction.
+Positive regularization is required on this wide path; empirical/fixed LDA
+solver defaults remain unchanged.
+
+`validation/compare_discriminant_priors.py` retains 13,594 groups over 841
+fixtures and 841 normalization/input-preservation certificates. Three seeds
+cover all three LDA solvers, fixed/automatic shrinkage and QDA; uniform, skewed,
+nonunit, near-unit, zero, one-positive, tiny and large priors; tall, wide and
+single-feature data; both fit entry points and automatic/explicit components.
+The QDA extra case accepts finite prior weights whose sum overflows, without
+summing them. There are 210 zero-prior posterior/prediction certificates and
+27 one-positive-prior SVD undefined-energy certificates.
+
+Forty-eight thin-QDA certificates verify the source regularized spectrum,
+projector idempotence/rank and inclusion of the centered training span. The
+retained null direction is arbitrary: source query/training scoring uses the
+same independently certified native direction. No fixture is removed.
+Seventeen rejection cases cover malformed/negative/nonfinite/zero prior vectors,
+LDA sum overflow, sample/class limits, singular eigen fitting, empty SVD rank
+and unregularized wide QDA.
+
+Inventory: 217 core public types, 129 core modules, 145 native test programs,
+122 core reference suites and 559,933 cumulative retained groups. The separate
+42-group legacy RNG reference suite remains excluded. Thirty-two invalid-input
+registries retain 3,417 cases. Cumulative counts are not a complete rerun claim;
+final verification below lists the checks actually rerun.
+
+Run `python validation/compare_discriminant_priors.py --profile checked`, or use
+`--profile release` / `--executable`. Original Fortran prior interfaces, safe
+logarithms, reference selection and null completion remain MIT, with existing
+sklearn BSD notices retained. No estimator type, extension algorithm or external
+Fortran dependency is added. Sparse inputs and custom covariance objects remain
+outside this interface.

@@ -5558,7 +5558,7 @@ Jacobi eigensolver and adds no new dependency or public estimator type.
 remains `'lsqr'` for compatibility; select `'svd'` for sklearn's default solver
 algorithm. Native zero components denotes automatic `min(features, classes-1)`
 selection (sklearn `None`). Positive requests cannot exceed that limit.
-SVD fitting uses empirical class priors, within-class standardization and two
+SVD fitting uses empirical class priors by default, within-class standardization and two
 thin SVDs, with absolute within-rank and relative between-rank thresholds.
 It supports wide and rank-deficient data and individual singleton classes,
 provided there are at least two classes, more samples than classes and at least
@@ -5586,8 +5586,8 @@ ratios, matching source. An empty within-class rank receives an explicit native
 diagnostic; sklearn 1.6.1 instead fails indexing an empty singular-value array.
 LSQR transform is unsupported as in sklearn. Queries must be finite, nonempty
 and match training feature count. See `example/discriminant_projection.f90`.
-Custom priors and sparse inputs remain outside this interface; the eigen solver
-is documented below.
+Sparse inputs remain outside this interface; the eigen solver and custom priors
+are documented below.
 
 
 ## Eigen linear discriminant analysis
@@ -5599,8 +5599,9 @@ covariance and total covariance with the same scalar shrinkage, then solves
 `(total - within) v = lambda within v` through Cholesky whitening and the native
 symmetric eigensolver. The within covariance must be positive definite; positive
 shrinkage can regularize rank-deficient data when its average variance is
-positive. Two or more classes, more samples than classes and empirical priors
-remain the native contract. Singleton classes are supported.
+positive. Two or more classes and more samples than classes remain the native contract.
+Empirical priors are the default; custom priors are documented below. Singleton
+classes are supported.
 
 `%scalings_` stores a full feature-by-feature basis normalized in the within
 covariance metric, sorted by decreasing eigenvalue. Native `%eigenvalues_`
@@ -5624,8 +5625,8 @@ of axes at a component cutoff. Reference certificates check those subspaces,
 covariance normalization and the generalized eigen-equation. Coincident class
 means with zero between energy preserve source's NaN variance ratios; eigen
 transform width is retained even in that case. See
-`example/shrunk_discriminant_projection.f90`. Custom priors and custom covariance-estimator objects remain outside this
-interface. Automatic shrinkage is documented below.
+`example/shrunk_discriminant_projection.f90`. Custom covariance-estimator objects remain outside this interface. Automatic
+shrinkage and custom priors are documented below.
 
 
 ## Automatic LDA covariance shrinkage
@@ -5652,7 +5653,7 @@ singular-covariance contract remains unchanged. Eigen still requires a positive
 definite within covariance. Automatic within/total estimates can produce an
 indefinite between matrix; negative generalized eigenvalues are retained.
 
-Automatic-mode decision columns use the first class as a zero reference and
+Automatic-mode decision columns use the first positive-prior class as a zero reference and
 evaluate equivalent centered affine margins. This avoids subtracting huge common
 terms when a nearly constant feature has a large mean relative to its variance.
 Stored class-row coefficients and intercepts remain available. Ordinary reference
@@ -5662,5 +5663,43 @@ when source double precision loses the small quantities. Uncentered eigen query
 coordinates still use the fitted axes; unresolved source eigenspaces are checked
 in the covariance metric. For isotropic standardized covariance, the shrinkage
 coefficient is numerically indeterminate while the fitted covariance is unchanged.
-See `example/automatic_discriminant_shrinkage.f90`. Custom priors and covariance
-estimator objects remain outside this native interface.
+See `example/automatic_discriminant_shrinkage.f90`. Custom covariance-estimator objects remain outside this native interface;
+custom priors are documented below.
+
+
+## Custom class priors for LDA and QDA
+
+Allocate `%priors(:)` in sorted `%classes_` order before fitting either
+`linear_discriminant_analysis` or `quadratic_discriminant_analysis`. Leaving it
+unallocated preserves empirical class frequencies. Input weights must be finite,
+nonnegative, match the fitted class count and contain at least one positive
+entry. The input vector is preserved; `%priors_` stores fitted values.
+
+LDA renormalizes when `abs(sum(priors)-1)>1.e-5`, matching sklearn, and sets
+`%priors_normalized_`. No warning is printed; the fitted flag records the event.
+Vectors already within that tolerance remain unchanged. LDA rejects a sum
+outside the finite working range before arithmetic overflow. QDA retains supplied
+weights without normalization, including finite weights whose sum would overflow;
+posterior normalization happens during prediction, as in sklearn. Deallocate
+`%priors` and refit to restore empirical behavior.
+
+LDA priors weight each class covariance, SVD's center and between-class geometry,
+and all class intercepts. Explicit-prior LSQR uses numerical least squares for
+singular covariance; the default empirical/fixed LSQR contract is unchanged.
+SVD stored covariance also follows supplied class weights. Zero-prior classes
+remain in class metadata with exactly zero posterior and never win prediction.
+Their log priors use explicit negative infinity without floating-point traps.
+Automatic scores use the first positive-prior class as their zero reference;
+`%reference_class_` gives that one-based index, or zero for other score conventions.
+A unit-sum one-positive-prior SVD fit has zero transform width and undefined (NaN)
+variance ratios, matching source.
+
+QDA fitting for a class with fewer samples than features now retains
+`min(class_samples,features)` thin-SVD directions, as sklearn does. Positive
+`%reg_param` regularizes those retained singular values; covariance, precision
+and logdet describe that subspace. Zero-singular directions are completed
+orthogonally. They are nonunique and can affect wide-QDA query posteriors; source
+comparisons certify the training span, projector and source spectrum and evaluate
+the source classifier with the same valid retained null direction. Wide QDA with
+zero regularization remains rejected. See `example/prior_weighted_discriminants.f90`.
+Custom covariance-estimator objects and sparse inputs remain outside this API.

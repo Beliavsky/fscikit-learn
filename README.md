@@ -215,3 +215,6 @@ LDA also supports the generalized eigen solver with scalar shrinkage; see
 
 LDA supports automatic standardized Ledoit-Wolf shrinkage; see
 [the example](example/automatic_discriminant_shrinkage.f90).
+
+LDA and QDA accept custom class priors, including zero-weight classes; see
+[the example](example/prior_weighted_discriminants.f90).

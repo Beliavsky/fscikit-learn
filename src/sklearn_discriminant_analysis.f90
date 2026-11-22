@@ -8,6 +8,8 @@ module sklearn_discriminant_analysis
   public :: linear_discriminant_analysis,quadratic_discriminant_analysis
   type :: quadratic_discriminant_analysis
     real(dp) :: reg_param=0
+    real(dp), allocatable :: priors(:)
+    logical :: priors_normalized_=.false.
     integer, allocatable :: classes_(:)
     real(dp), allocatable :: means_(:,:),priors_(:),covariance_(:,:,:),precision_(:,:,:),logdet_(:)
   contains
@@ -20,7 +22,7 @@ module sklearn_discriminant_analysis
   type, extends(quadratic_discriminant_analysis) :: linear_discriminant_analysis
     character(8) :: solver='lsqr',shrinkage_mode='fixed'
     logical :: store_covariance=.false.
-    integer :: n_components=0,n_components_=0,within_rank_=0,between_rank_=0
+    integer :: n_components=0,n_components_=0,within_rank_=0,between_rank_=0,reference_class_=0
     real(dp) :: tol=1.e-4_dp,total_shrinkage_=-1
     real(dp), allocatable :: class_shrinkage_(:)
     real(dp), allocatable :: scalings_(:,:),xbar_(:),explained_variance_ratio_(:),eigenvalues_(:)
@@ -39,12 +41,20 @@ contains
     integer, intent(in) :: y(:)
     logical, optional, intent(in) :: allow_singletons,store_covariance
     logical :: singleton,store
-    real(dp) :: delta(size(x,2))
+    real(dp) :: delta(size(x,2)),largest,total_prior,scaled_sum
     integer :: c,i,j,n,p,k,nc
     singleton=.false.;if(present(allow_singletons)) singleton=allow_singletons
     store=.true.;if(present(store_covariance)) store=store_covariance
     call check_xy(x,size(y)); self%classes_=unique_labels(y); k=size(self%classes_)
     n=size(y); p=size(x,2); call require(k>=2,'discriminant analysis requires at least two classes')
+    self%priors_normalized_=.false.
+    if(allocated(self%priors)) then
+      call require(size(self%priors)==k,'discriminant priors must match class count')
+      call require(all(ieee_is_finite(self%priors)),'discriminant priors must be finite')
+      call require(all(self%priors>=0),'discriminant priors must be nonnegative')
+      largest=maxval(self%priors)
+      call require(largest>0,'discriminant priors need positive total weight')
+    end if
     if(allocated(self%means_)) deallocate(self%means_)
     if(allocated(self%priors_)) deallocate(self%priors_)
     if(allocated(self%covariance_)) deallocate(self%covariance_)
@@ -73,7 +83,27 @@ contains
       end do
       if(nc>1) self%covariance_(:,:,c)=self%covariance_(:,:,c)/(nc-1)
     end do
+    if(allocated(self%priors)) then
+      self%priors_=self%priors
+      select type(self)
+      class is(linear_discriminant_analysis)
+        scaled_sum=sum(self%priors/largest)
+        call require(largest<=huge(1._dp)/scaled_sum,'LDA prior sum exceeds numeric range')
+        total_prior=sum(self%priors)
+        if(abs(total_prior-1)>1.e-5_dp) then
+          self%priors_=self%priors_/total_prior;self%priors_normalized_=.true.
+        end if
+      end select
+    end if
   end subroutine
+  elemental real(dp) function prior_log(prior) result(value)
+    real(dp), intent(in) :: prior
+    if(prior==0) then
+      value=ieee_value(0._dp,ieee_negative_inf)
+    else
+      value=log(prior)
+    end if
+  end function
   subroutine invert_covariance(cov,precision,logdet)
     real(dp), intent(in) :: cov(:,:)
     real(dp), intent(out) :: precision(:,:),logdet
@@ -87,15 +117,54 @@ contains
     class(quadratic_discriminant_analysis), intent(inout) :: self
     real(dp), intent(in) :: x(:,:)
     integer, intent(in) :: y(:)
-    integer :: c,j
+    real(dp), allocatable :: group(:,:),s(:),u(:,:),v(:,:),scaling(:)
+    integer :: c,j,i,row,nc,p
     call require(self%reg_param>=0.and.self%reg_param<=1,'invalid QDA regularization')
     call class_statistics(self,x,y)
+    p=size(x,2)
     do c=1,size(self%classes_)
+      nc=count(y==self%classes_(c))
+      if(nc<p) then
+        call require(self%reg_param>0,'QDA thin covariance requires positive reg_param')
+        allocate(group(nc,p));row=0
+        do i=1,size(y)
+          if(y(i)/=self%classes_(c)) cycle
+          row=row+1;group(row,:)=x(i,:)-self%means_(c,:)
+        end do
+        call lda_thin_svd(group,s,u,v);call qda_complete_basis(v)
+        scaling=(1-self%reg_param)*s*s/(nc-1)+self%reg_param
+        call require(all(scaling>0),'QDA thin covariance requires positive regularized singular values')
+        self%covariance_(:,:,c)=matmul(v*spread(scaling,1,p),transpose(v))
+        self%precision_(:,:,c)=matmul(v/spread(scaling,1,p),transpose(v))
+        self%logdet_(c)=sum(log(scaling));deallocate(group)
+        cycle
+      end if
       self%covariance_(:,:,c)=(1-self%reg_param)*self%covariance_(:,:,c)
       do j=1,size(x,2)
         self%covariance_(j,j,c)=self%covariance_(j,j,c)+self%reg_param
       end do
       call invert_covariance(self%covariance_(:,:,c),self%precision_(:,:,c),self%logdet_(c))
+    end do
+  end subroutine
+  subroutine qda_complete_basis(v)
+    real(dp), intent(inout) :: v(:,:)
+    real(dp) :: candidate(size(v,1)),best(size(v,1)),norm,largest
+    integer :: j,i,pass
+    do j=1,size(v,2)
+      if(sum(v(:,j)*v(:,j))>.5_dp) cycle
+      largest=0
+      do i=1,size(v,1)
+        candidate=0;candidate(i)=1
+        do pass=1,2
+          candidate=candidate-matmul(v(:,:j-1),matmul(transpose(v(:,:j-1)),candidate))
+        end do
+        norm=sum(candidate*candidate)
+        if(norm>largest) then
+          largest=norm;best=candidate
+        end if
+      end do
+      call require(largest>epsilon(1._dp),'QDA could not complete thin null basis')
+      v(:,j)=best/sqrt(largest)
     end do
   end subroutine
   subroutine lda_fit(self,x,y)
@@ -117,15 +186,18 @@ contains
     if(allocated(self%scalings_)) deallocate(self%scalings_)
     if(allocated(self%xbar_)) deallocate(self%xbar_)
     if(allocated(self%explained_variance_ratio_)) deallocate(self%explained_variance_ratio_)
-    self%n_components_=0;self%within_rank_=0;self%between_rank_=0
+    self%n_components_=0;self%within_rank_=0;self%between_rank_=0;self%reference_class_=0
     if(self%solver=='svd') then
       call require(self%shrinkage_mode=='fixed','LDA SVD solver does not support automatic shrinkage')
       call require(self%shrinkage==0,'LDA SVD solver does not support shrinkage')
       call lda_svd_fit(self,x,y)
       return
     end if
-    call class_statistics(self,x,y,self%solver=='eigen'.or.self%shrinkage_mode=='auto')
+    call class_statistics(self,x,y,self%solver=='eigen'.or.self%shrinkage_mode=='auto'.or.allocated(self%priors))
     p=size(x,2);allocate(pooled(p,p));pooled=0
+    if(self%shrinkage_mode=='auto') self%reference_class_=findloc(self%priors_>0,.true.,dim=1)
+    if(allocated(self%priors).and.self%solver=='lsqr') &
+      call require(size(x,1)>size(self%classes_),'LDA custom priors need more samples than classes')
     if(self%shrinkage_mode=='auto'.and.self%solver=='lsqr') &
       call require(size(x,1)>size(self%classes_),'LDA auto needs more samples than classes')
     if(self%solver=='eigen') call require(size(x,1)>size(self%classes_),'LDA eigen needs more samples than classes')
@@ -145,7 +217,11 @@ contains
       ! sklearn lsqr covariance is population covariance, weighted by class prior.
       do c=1,size(self%classes_)
         nc=count(y==self%classes_(c))
-        pooled=pooled+self%covariance_(:,:,c)*(nc-1)/size(y)
+        if(allocated(self%priors)) then
+          pooled=pooled+self%priors_(c)*(self%covariance_(:,:,c)*(nc-1)/nc)
+        else
+          pooled=pooled+self%covariance_(:,:,c)*(nc-1)/size(y)
+        end if
       end do
       trace=0
       do j=1,p
@@ -162,14 +238,14 @@ contains
     end if
     do c=1,size(self%classes_)
       self%covariance_(:,:,c)=pooled
-      if(self%shrinkage_mode=='auto') then
+      if(self%shrinkage_mode=='auto'.or.allocated(self%priors)) then
         call lda_pseudo_covariance(pooled,self%precision_(:,:,c),self%logdet_(c))
       else
         call invert_covariance(pooled,self%precision_(:,:,c),self%logdet_(c))
       end if
     end do
     self%coef_=matmul(self%means_,self%precision_(:,:,1))
-    self%intercept_=log(self%priors_)-0.5_dp*sum(self%coef_*self%means_,dim=2)
+    self%intercept_=prior_log(self%priors_)-0.5_dp*sum(self%coef_*self%means_,dim=2)
   end subroutine
   function lda_auto_covariance(x,amount) result(covariance)
     real(dp), intent(in) :: x(:,:)
@@ -265,7 +341,7 @@ contains
     end if
     self%explained_variance_ratio_=ratio(:components);self%n_components_=components
     self%coef_=matmul(matmul(self%means_,self%scalings_),transpose(self%scalings_))
-    self%intercept_=log(self%priors_)-.5_dp*sum(self%means_*self%coef_,dim=2)
+    self%intercept_=prior_log(self%priors_)-.5_dp*sum(self%means_*self%coef_,dim=2)
     precision=matmul(self%scalings_,transpose(self%scalings_));logdet=0
     do j=1,p
       logdet=logdet+2*log(l(j,j))
@@ -290,7 +366,7 @@ contains
     real(dp), intent(in) :: x(:,:)
     integer, intent(in) :: y(:)
     real(dp), allocatable :: centered(:,:),std(:),s(:),u(:,:),v(:,:),within(:,:),between(:,:),coef(:,:)
-    real(dp) :: total
+    real(dp) :: total,weight
     integer :: n,p,k,c,i,j,row,r,max_components
     call class_statistics(self,x,y,.true.,self%store_covariance)
     n=size(x,1);p=size(x,2);k=size(self%classes_)
@@ -326,18 +402,25 @@ contains
     r=count(s>self%tol*s(1));self%between_rank_=r
     self%scalings_=matmul(within,v(:,:r));self%n_components_=min(max_components,r)
     coef=matmul(self%means_-spread(self%xbar_,1,k),self%scalings_)
-    self%intercept_=log(self%priors_)-.5_dp*sum(coef*coef,dim=2)
+    self%intercept_=prior_log(self%priors_)-.5_dp*sum(coef*coef,dim=2)
     self%coef_=matmul(coef,transpose(self%scalings_))
     self%intercept_=self%intercept_-matmul(self%coef_,self%xbar_)
     ! Preserve the inherited covariance storage only when explicitly requested.
     if(.not.self%store_covariance) return
     self%covariance_(:,:,1)=0
     do c=1,k
+      weight=1._dp/n
+      if(allocated(self%priors)) weight=self%priors_(c)/count(y==self%classes_(c))
       do i=1,n
         if(y(i)/=self%classes_(c)) cycle
         do j=1,p
-          self%covariance_(:,j,1)=self%covariance_(:,j,1)+ &
-            (x(i,:)-self%means_(c,:))*(x(i,j)-self%means_(c,j))/n
+          if(allocated(self%priors)) then
+            self%covariance_(:,j,1)=self%covariance_(:,j,1)+ &
+              (x(i,:)-self%means_(c,:))*(x(i,j)-self%means_(c,j))*weight
+          else
+            self%covariance_(:,j,1)=self%covariance_(:,j,1)+ &
+              (x(i,:)-self%means_(c,:))*(x(i,j)-self%means_(c,j))/n
+          end if
         end do
       end do
     end do
@@ -380,7 +463,7 @@ contains
     do i=1,size(x,1)
       do c=1,size(self%classes_)
         delta=x(i,:)-self%means_(c,:)
-        z(i,c)=log(self%priors_(c))-0.5_dp*(self%logdet_(c)+ &
+        z(i,c)=prior_log(self%priors_(c))-0.5_dp*(self%logdet_(c)+ &
           dot_product(delta,matmul(self%precision_(:,:,c),delta)))
       end do
     end do
@@ -389,18 +472,20 @@ contains
     class(linear_discriminant_analysis), intent(in) :: self
     real(dp), intent(in) :: x(:,:)
     real(dp), allocatable :: z(:,:),difference(:),weight(:)
-    integer :: c
+    integer :: c,base
     call require(allocated(self%coef_),'LDA is not fitted')
     call check_xy(transpose(x),size(self%coef_,2))
     if(self%shrinkage_mode=='auto') then
-      ! Evaluate the same affine classifier in a centered, first-class gauge.
+      ! Evaluate the same affine classifier using a positive-prior reference.
       ! Forming enormous common intercepts loses small, informative differences.
-      allocate(z(size(x,1),size(self%classes_)));z=0
-      do c=2,size(self%classes_)
-        difference=self%means_(c,:)-self%means_(1,:)
+      allocate(z(size(x,1),size(self%classes_)));z=ieee_value(0._dp,ieee_negative_inf)
+      base=self%reference_class_;z(:,base)=0
+      do c=1,size(self%classes_)
+        if(c==base.or.self%priors_(c)==0) cycle
+        difference=self%means_(c,:)-self%means_(base,:)
         weight=matmul(difference,self%precision_(:,:,1))
-        z(:,c)=matmul(x-spread(self%means_(1,:),1,size(x,1))-.5_dp*spread(difference,1,size(x,1)),weight)+ &
-          log(self%priors_(c))-log(self%priors_(1))
+        z(:,c)=matmul(x-spread(self%means_(base,:),1,size(x,1))-.5_dp*spread(difference,1,size(x,1)),weight)+ &
+          prior_log(self%priors_(c))-prior_log(self%priors_(base))
       end do
     else
       z=matmul(x,transpose(self%coef_))+spread(self%intercept_,1,size(x,1))
