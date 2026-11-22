@@ -55,46 +55,58 @@ contains
       q(j:,:)=q(j:,:)-tau(j)*spread(vectors(j:,j),2,r)*spread(product,1,m-j+1)
     end do
   end function
-  subroutine randomized_svd(x,k,rng,s,u,vt,n_iter)
+  subroutine randomized_svd(x,k,rng,s,u,vt,n_iter,n_oversamples,power_iteration_normalizer,flip_sign)
     real(dp), intent(in) :: x(:,:)
     integer, intent(in) :: k
-    integer, optional, intent(in) :: n_iter
+    integer, optional, intent(in) :: n_iter,n_oversamples
+    character(*), optional, intent(in) :: power_iteration_normalizer
+    logical, optional, intent(in) :: flip_sign
     type(legacy_random_state), intent(inout) :: rng
     real(dp), allocatable, intent(out) :: s(:),u(:,:),vt(:,:)
     real(dp), allocatable :: a(:,:),q(:,:),b(:,:),left(:,:),right(:,:),values(:),work_u(:,:),work_v(:,:)
-    integer :: i,j,iterations,m,p,r,keep,index
+    integer :: i,j,iterations,m,p,r,keep,index,extra
+    character(8) :: normalizer
+    logical :: orient
     logical :: transposed
-    call check_x(x); call require(k>=1.and.k<=huge(k)-10,'invalid randomized SVD component count')
+    call check_x(x);extra=10;if(present(n_oversamples)) extra=n_oversamples
+    call require(extra>=0,'randomized SVD oversampling must be nonnegative')
+    call require(k>=1.and.k<=huge(k)-extra,'invalid randomized SVD component count')
+    if(present(n_iter)) call require(n_iter>=0,'randomized SVD iteration count must be nonnegative')
+    normalizer='auto';if(present(power_iteration_normalizer)) normalizer=power_iteration_normalizer
+    call require(any(normalizer==[character(8)::'auto','none','LU','QR']),'unsupported randomized SVD normalizer')
+    orient=.true.;if(present(flip_sign)) orient=flip_sign
     transposed=size(x,1)<size(x,2)
     if(transposed) then
       a=transpose(x)
     else
       a=x
     end if
-    m=size(a,1); p=size(a,2); allocate(q(p,k+10))
+    m=size(a,1); p=size(a,2); allocate(q(p,k+extra))
     do i=1,p
-      do j=1,k+10
+      do j=1,k+extra
         q(i,j)=rng%normal()
       end do
     end do
     iterations=4
     if(k<.1_dp*min(size(x,1),size(x,2))) iterations=7
-    if(present(n_iter)) then
-      call require(n_iter>=0,'randomized SVD iteration count must be nonnegative');iterations=n_iter
+    if(present(n_iter)) iterations=n_iter
+    if(normalizer=='auto') then
+      normalizer='LU';if(iterations<=2) normalizer='none'
     end if
     do i=1,iterations
-      if(iterations<=2) then
-        q=matmul(a,q);q=matmul(transpose(a),q)
-      else
-        q=lu_basis(matmul(a,q));q=lu_basis(matmul(transpose(a),q))
-      end if
+      select case(normalizer)
+      case('none');q=matmul(a,q);q=matmul(transpose(a),q)
+      case('LU');q=lu_basis(matmul(a,q));q=lu_basis(matmul(transpose(a),q))
+      case('QR');q=qr_basis(matmul(a,q));q=qr_basis(matmul(transpose(a),q))
+      end select
     end do
     q=qr_basis(matmul(a,q)); b=matmul(transpose(q),a); r=size(b,1)
     ! SVD of B.T keeps the Jacobi system at the sampled range dimension.
     allocate(values(r),work_u(p,r),work_v(r,r))
     call dense_svd(transpose(b),values,work_u,work_v)
-    left=matmul(q,work_v); right=work_u; keep=min(k,r)
+    left=matmul(q,work_v); right=work_u; keep=min(k,r,p)
     do j=1,keep
+      if(.not.orient) cycle
       if(transposed) then
         index=maxloc(abs(right(:,j)),dim=1)
         if(right(index,j)>=0) cycle

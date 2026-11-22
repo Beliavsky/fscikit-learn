@@ -5433,3 +5433,49 @@ residuals; training projections are compared before whitening in those certified
 null directions. Existing `fit_transform` remains fit followed by transform; it
 does not reproduce LAPACK U-based null-whitening coordinates. Gaussian moments and selected dimensions remain independently
 checked. See `example/probabilistic_pca.f90`.
+
+
+## PCA solver selection
+
+`pca%svd_solver` accepts `'full'` (the preserved native default), `'randomized'`,
+`'covariance_eigh'` and `'auto'`. `%fit_svd_solver_` records the resolved backend.
+Full SVD remains the native Jacobi implementation. Covariance eigendecomposition
+forms the uncentered Gram matrix, subtracts n times the mean outer product
+and divides by n-1 before the symmetric Jacobi solve, clips negative roundoff eigenvalues and derives singular values.
+It avoids explicitly centering a data copy. Its full feature spectrum, including
+wide-matrix zero eigenvalues, is used for the source-specific residual-noise mean.
+As in sklearn, forming covariance squares the conditioning sensitivity.
+
+Randomized fitting uses `%iterated_power=-1` for automatic 4/7 powers or a
+nonnegative explicit count, `%n_oversamples=10` (positive),
+`%power_iteration_normalizer='auto'|'none'|'LU'|'QR'` and `%random_state=0`.
+Automatic normalization is none for up to two powers, LU otherwise. The local
+legacy NumPy-compatible RNG is seeded once per fit; it leaves the intrinsic RNG
+unchanged. Automatic transposition, QR range extraction and projected SVD reuse
+the existing core. PCA requests unflipped factors and resolves signs from the
+right vectors, as in sklearn. Missing zero-singular vectors are completed
+orthogonally in this PCA caller without changing older consumers' null handling.
+
+`fit_transform` for randomized fitting returns the projected left singular
+coordinates (`U*S`, or `U*sqrt(n-1)` when whitening). A later `transform(x)` uses
+the fitted right directions and can differ at low power counts, matching sklearn.
+Full/covariance backends retain the native fit-then-transform behavior, including
+the documented nonunique null-whitening coordinates. Zero-covariance randomized
+whitened training coordinates retain an orthogonal left basis even though later
+transforms are zero. Singular directions do not have unique coordinates.
+
+Automatic routing follows sklearn 1.6.1: covariance_eigh for at most 1,000
+features and n_samples >= 10*n_features; otherwise full for a maximum shape
+at most 500 or MLE selection; otherwise randomized for a positive integer count
+below .8*min(shape); full for the remaining cases. The first covariance condition
+also takes precedence for MLE and variance-fraction modes. Randomized fitting
+requires count mode; fraction, MLE and explicit zero modes use full/covariance
+backends or automatic routing. Legacy count zero still means all components.
+Refits reset the fitted solver and all existing dimension diagnostics.
+
+The internal randomized SVD helper now accepts optional oversampling (including
+zero), normalization and sign controls. Its existing 4/7-power, ten-oversample,
+LU-normalized, sign-flipped defaults are preserved. Requested ranks larger than
+the matrix's smaller dimension are truncated to that dimension, including the
+new unnormalized path. See `example/pca_solver_selection.f90`. ARPACK, sparse
+inputs and alternate numerical dtypes remain outside this implementation.

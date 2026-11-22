@@ -5614,3 +5614,74 @@ reference drivers and the new example. All new certificates are validated by
 the audit. Only the suites listed here were rerun; 490,895 retained core groups
 is the cumulative reference inventory. Test, gate, example-build and audit logs
 are retained beside the ignored reports.
+
+
+## PCA full, randomized, covariance and automatic solvers
+
+Added sklearn's randomized, covariance_eigh and automatic solver paths to the
+existing full-SVD PCA, retaining the native full default. Randomized controls
+cover automatic/explicit powers, oversampling, auto/none/LU/QR normalization and
+scalar seeds. Fitted solver diagnostics and source-specific randomized left
+training coordinates are exposed. Covariance PCA forms the uncentered Gram
+correction, uses the existing symmetric eigensolver and clips negative roundoff
+values; residual noise uses the full feature spectrum. Automatic routing follows
+the pinned source's tall/shape/rank rules. MLE, fraction and zero modes are
+supported by full/covariance paths, with unsupported randomized modes diagnosed.
+Orthogonal null completion is restricted to the new PCA caller; older core
+consumers preserve their previous defaults and handling.
+
+`validation/compare_pca_solvers.py` retains 11,578 groups over 686 PCA and 380
+shared-core fixtures. PCA coverage includes tall/wide and large routing cases,
+all four solver settings, three seeds, integer/all/fraction/MLE/zero selection,
+whitening, low-power projected training coordinates, covariance/noise statistics,
+inverses and zero covariance. Direct core checks cover all normalizers, zero/
+positive oversampling, auto/explicit powers, both sign settings, requests above
+matrix dimension, orthogonality and exact normal/uniform RNG continuity.
+Fifty-six null-basis certificates check source null-space membership and native
+orthogonality while retaining nonzero-coordinate comparisons. Eight undefined
+ratio certificates preserve the existing native zero convention for source NaNs.
+Thirteen isolated rejections cover new PCA/core controls and integer-capacity
+limits. No fixture is dropped for a solver or basis difference.
+
+The inventory remains 217 core estimator/transformer/splitter types and 129 core
+modules, with 139 native test programs. There are 116 core reference suites with
+502,473 retained groups, plus the separate 42-group legacy RNG suite. Thirteen
+new rejections bring 26 registries to 3,307 cases. These are cumulative counts;
+the final verification record below lists the suites actually rerun.
+
+Run `python validation/compare_pca_solvers.py --profile checked`, or use
+`--profile release` / `--executable` for completed binaries. See
+`example/pca_solver_selection.f90`. Existing PCA dimension/probability behavior
+and consumers of the randomized SVD core are regression-checked. Original
+interfaces/null-completion storage remain MIT with existing sklearn and NumPy
+notices retained. No dependency, public estimator type or extension algorithm is
+added. ARPACK, sparse inputs and alternate dtypes remain outside this increment.
+
+
+Final verification passed in checked and release profiles: all 139 native test
+programs; 11,578 new PCA/core groups, 5,270 prior PCA probability/dimension groups,
+6,564 factor-options groups, 204 regression/factor/projection groups, 744 dictionary
+learning groups, 6,500 MiniBatchNMF groups, 1,620 t-SNE groups, 264 IncrementalPCA
+groups and 192 integration groups (32,936 reference groups per profile). All 49
+affected rejections passed: 13 new, 19 prior PCA, 15 factor-options and two legacy
+factor cases. The new example matched sklearn's randomized automatic choice,
+explained variances and 520-by-three training shape in both profiles.
+
+The new reports retain 56 null-basis and eight undefined-ratio certificates per
+profile. Prior PCA reports retain their 16 basis/eight ratio certificates and
+22 singular-domain records. Factor reports retain twelve bounded fit-stop
+certificates in each profile, plus one trivial-varimax diagnostic certificate
+in checked mode and four in release mode. Existing t-SNE trajectory/tie records
+remain in the copied profile reports. All new fixtures remain checked; the
+separate legacy RNG reference suite was not rerun, while the direct core fixtures
+verify post-call normal/uniform stream continuity independently.
+
+The ignored `validation/results/pca_solvers_final_audit.json` validates strict
+JSON reports, executable/validator and installed sklearn source hashes, matching
+checked/release check inventories and 282 compiled-content digests per profile:
+129 core modules, four vendor modules, 139 native test programs, nine affected
+reference drivers and the new example. It validates all new certificates and
+retained PCA/factor evidence; t-SNE inventories match by seed/case/name with
+numeric details kept per profile. Only the suites listed above were rerun;
+502,473 retained core groups is the cumulative inventory. Test, gate, example-
+build and audit logs are retained beside the ignored reports.

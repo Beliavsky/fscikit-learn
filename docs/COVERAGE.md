@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 217 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and fifteen reference suites additionally check 490,895
+All types have native tests. One hundred and sixteen reference suites additionally check 502,473
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -39,7 +39,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb`, `categorical_nb` | Weighted/streaming Gaussian moments, empirical/fixed priors and variance smoothing; strictly positive scalar alpha; Bernoulli threshold; optional complement normalization |
 | neighbors | `neighborhood_components_analysis`, `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Supervised NCA metric learning; brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with optional shrinkage and uniform priors; Euclidean kernel density |
 | cluster | `kmeans`, `bisecting_kmeans`, `mini_batch_kmeans`, `spectral_coclustering`, `spectral_biclustering`, `hdbscan`, `dbscan`, `agglomerative_clustering`, `feature_agglomeration`, `mean_shift`, `affinity_propagation`, `spectral_clustering`, `optics`, `birch`; `estimate_bandwidth`, `cluster_optics_dbscan`, `cluster_optics_xi` | Lloyd/k-means++; paired row/column spectral partitions and checkerboard biclustering; weighted streaming mini-batch centroids; bisecting centroid hierarchy with Lloyd/Elkan splits; density expansion; single/complete/average/Ward merge trees and feature pooling; flat-kernel mode seeking; damped exemplar messages; normalized-Laplacian clustering with k-means or pivoted QR assignment; OPTICS reachability ordering, Xi hierarchy and DBSCAN extraction; BIRCH streaming CF tree and optional Ward clustering |
-| decomposition | `pca`, `incremental_pca`, `truncated_svd`, `nmf`, `mini_batch_nmf`, `sparse_pca`, `mini_batch_sparse_pca`, `dictionary_learning`, `mini_batch_dictionary_learning`, `sparse_coder`, `latent_dirichlet_allocation`; `sparse_encode`; re-exports `kernel_pca`, `factor_analysis`, `fast_ica` | Direct Jacobi SVD; PCA whitening/inversion, variance/Minka dimension selection and probabilistic scores; streaming stacked-SVD IncrementalPCA; exact dense SVD; NMF multiplicative updates; sparse dictionary factorization and SparsePCA; five sparse coding methods; nonlinear kernel PCA; full/randomized-SVD factor analysis with orthogonal rotations; parallel/deflation ICA |
+| decomposition | `pca`, `incremental_pca`, `truncated_svd`, `nmf`, `mini_batch_nmf`, `sparse_pca`, `mini_batch_sparse_pca`, `dictionary_learning`, `mini_batch_dictionary_learning`, `sparse_coder`, `latent_dirichlet_allocation`; `sparse_encode`; re-exports `kernel_pca`, `factor_analysis`, `fast_ica` | Full/randomized/covariance PCA with automatic routing; PCA whitening/inversion, variance/Minka dimension selection and probabilistic scores; streaming stacked-SVD IncrementalPCA; exact dense SVD; NMF multiplicative updates; sparse dictionary factorization and SparsePCA; five sparse coding methods; nonlinear kernel PCA; full/randomized-SVD factor analysis with orthogonal rotations; parallel/deflation ICA |
 | cross_decomposition | `pls_regression`, `pls_canonical`, `cca`, `pls_svd` | Paired-matrix latent components: NIPALS regression/canonical deflation, CCA pseudoinverse mode, canonical direct SVD and PLSSVD cross-covariance projection; multiple response columns |
 | isotonic | `isotonic_regression`; `isotonic_fit`, `check_increasing` | Weighted pool-adjacent-violators, automatic Spearman direction, bounds, repeated-input aggregation and piecewise linear interpolation |
 | kernel_approximation | `rbf_sampler`, `nystroem`, `additive_chi2_sampler`, `skewed_chi2_sampler`, `polynomial_count_sketch` | Random Fourier RBF maps; sampled-landmark inverse-square-root maps for RBF/linear/polynomial/cosine kernels; additive and skewed chi2 maps; seeded polynomial TensorSketch with arbitrary-length FFTs |
@@ -6027,3 +6027,49 @@ residuals; training projections are compared before whitening in those certified
 null directions. Existing `fit_transform` remains fit followed by transform; it
 does not reproduce LAPACK U-based null-whitening coordinates. Gaussian moments and selected dimensions remain independently
 checked. See `example/probabilistic_pca.f90`.
+
+
+## PCA solver selection
+
+`pca%svd_solver` accepts `'full'` (the preserved native default), `'randomized'`,
+`'covariance_eigh'` and `'auto'`. `%fit_svd_solver_` records the resolved backend.
+Full SVD remains the native Jacobi implementation. Covariance eigendecomposition
+forms the uncentered Gram matrix, subtracts n times the mean outer product
+and divides by n-1 before the symmetric Jacobi solve, clips negative roundoff eigenvalues and derives singular values.
+It avoids explicitly centering a data copy. Its full feature spectrum, including
+wide-matrix zero eigenvalues, is used for the source-specific residual-noise mean.
+As in sklearn, forming covariance squares the conditioning sensitivity.
+
+Randomized fitting uses `%iterated_power=-1` for automatic 4/7 powers or a
+nonnegative explicit count, `%n_oversamples=10` (positive),
+`%power_iteration_normalizer='auto'|'none'|'LU'|'QR'` and `%random_state=0`.
+Automatic normalization is none for up to two powers, LU otherwise. The local
+legacy NumPy-compatible RNG is seeded once per fit; it leaves the intrinsic RNG
+unchanged. Automatic transposition, QR range extraction and projected SVD reuse
+the existing core. PCA requests unflipped factors and resolves signs from the
+right vectors, as in sklearn. Missing zero-singular vectors are completed
+orthogonally in this PCA caller without changing older consumers' null handling.
+
+`fit_transform` for randomized fitting returns the projected left singular
+coordinates (`U*S`, or `U*sqrt(n-1)` when whitening). A later `transform(x)` uses
+the fitted right directions and can differ at low power counts, matching sklearn.
+Full/covariance backends retain the native fit-then-transform behavior, including
+the documented nonunique null-whitening coordinates. Zero-covariance randomized
+whitened training coordinates retain an orthogonal left basis even though later
+transforms are zero. Singular directions do not have unique coordinates.
+
+Automatic routing follows sklearn 1.6.1: covariance_eigh for at most 1,000
+features and n_samples >= 10*n_features; otherwise full for a maximum shape
+at most 500 or MLE selection; otherwise randomized for a positive integer count
+below .8*min(shape); full for the remaining cases. The first covariance condition
+also takes precedence for MLE and variance-fraction modes. Randomized fitting
+requires count mode; fraction, MLE and explicit zero modes use full/covariance
+backends or automatic routing. Legacy count zero still means all components.
+Refits reset the fitted solver and all existing dimension diagnostics.
+
+The internal randomized SVD helper now accepts optional oversampling (including
+zero), normalization and sign controls. Its existing 4/7-power, ten-oversample,
+LU-normalized, sign-flipped defaults are preserved. Requested ranks larger than
+the matrix's smaller dimension are truncated to that dimension, including the
+new unnormalized path. See `example/pca_solver_selection.f90`. ARPACK, sparse
+inputs and alternate numerical dtypes remain outside this implementation.

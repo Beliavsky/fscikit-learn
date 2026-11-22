@@ -950,3 +950,13 @@ LICENSES/scikit-learn-COPYING and BSD notices apply. Typed dimension-mode
 selection, fitted diagnostic storage, Cholesky scoring interfaces and validation
 certificates are original MIT contributions. No additional source package,
 third-party runtime or dependency is imported.
+
+
+`src/sklearn_decomposition.f90` adds solver routing, uncentered-Gram covariance
+PCA and randomized training-coordinate contracts from scikit-learn 1.6.1
+`decomposition/_pca.py`. `src/sklearn_randomized_svd_core.f90` extends its existing
+adaptation of `utils/extmath.py` with oversampling, power normalizers, sign control
+and output rank truncation. Existing sklearn BSD and NumPy RNG notices apply;
+LICENSES/scikit-learn-COPYING remains the upstream license. Native orthogonal
+null completion, Fortran controls and diagnostic storage are original MIT
+contributions. No additional source package, runtime or dependency is imported.

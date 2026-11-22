@@ -6,6 +6,9 @@ module sklearn_decomposition
   use sklearn_incremental_pca, only: incremental_pca
   use sklearn_fast_ica, only: fast_ica
   use sklearn_common
+  use sklearn_legacy_rng, only: legacy_random_state
+  use sklearn_randomized_svd_core, only: randomized_svd
+  use, intrinsic :: iso_fortran_env, only: int64
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite,ieee_value,ieee_negative_inf
   use sklearn_kernel_pca, only: kernel_pca
   use sklearn_factor_analysis, only: factor_analysis
@@ -19,7 +22,9 @@ module sklearn_decomposition
   public :: fast_ica,pca, truncated_svd, nmf, kernel_pca, factor_analysis
   type :: pca
     integer :: n_components=0,n_samples_=0,n_components_=0
-    character(16) :: dimension_mode='count'
+    character(16) :: dimension_mode='count',svd_solver='full',fit_svd_solver_='full'
+    character(8) :: power_iteration_normalizer='auto'
+    integer :: iterated_power=-1,n_oversamples=10,random_state=0
     real(dp) :: variance_fraction=.95_dp
     real(dp), allocatable :: mle_log_likelihood_(:)
     logical :: whiten=.false.
@@ -71,26 +76,80 @@ contains
   subroutine pca_fit(self,x)
     class(pca), intent(inout) :: self
     real(dp), intent(in) :: x(:,:)
-    real(dp) :: centered(size(x,1),size(x,2)),u(size(x,1),size(x,2))
-    real(dp) :: values(size(x,2)),vectors(size(x,2),size(x,2)),singular(size(x,2)),total
-    integer :: k,n,p,j,r
-    real(dp) :: cumulative
-    call check_x(x); n=size(x,1); p=size(x,2); self%n_samples_=n
+    call pca_fit_core(self,x)
+  end subroutine
+  subroutine pca_fit_core(self,x,fit_transformed)
+    class(pca), intent(inout) :: self
+    real(dp), intent(in) :: x(:,:)
+    real(dp), allocatable, optional, intent(out) :: fit_transformed(:,:)
+    real(dp), allocatable :: centered(:,:),u(:,:),values(:),vectors(:,:),singular(:),gram(:,:),rs(:),vt(:,:)
+    type(legacy_random_state) :: rng
+    real(dp) :: total,cumulative
+    integer :: k,n,p,j,r,spectrum_size,index
+    call check_x(x);n=size(x,1);p=size(x,2);self%n_samples_=n;r=min(n,p)
     call require(n>1,'PCA requires at least two samples')
     call require(any(self%dimension_mode==[character(16)::'count','variance','mle','zero']),'unsupported PCA dimension_mode')
-    k=self%n_components; if(k==0) k=min(n,p)
+    call require(any(self%svd_solver==[character(16)::'full','randomized','covariance_eigh','auto']),'unsupported PCA svd_solver')
+    call require(self%iterated_power>=-1,'PCA iterated_power must be >= -1 (automatic)')
+    call require(self%n_oversamples>0,'PCA n_oversamples must be positive')
+    call require(self%random_state>=0,'PCA random_state must be nonnegative')
+    call require(any(self%power_iteration_normalizer==[character(8)::'auto','none','LU','QR']), &
+      'unsupported PCA power_iteration_normalizer')
+    k=self%n_components;if(k==0) k=r
     if(self%dimension_mode=='count') then
-      call require(k>0.and.k<=min(n,p),'invalid PCA n_components')
+      call require(k>0.and.k<=r,'invalid PCA n_components')
     else if(self%dimension_mode=='variance') then
       call require(ieee_is_finite(self%variance_fraction),'PCA variance_fraction must be finite')
       call require(self%variance_fraction>0.and.self%variance_fraction<1,'PCA variance_fraction must be in (0,1)')
     else if(self%dimension_mode=='mle') then
       call require(n>=p,'PCA MLE requires samples >= features')
+    else
+      k=0
     end if
+    self%fit_svd_solver_=self%svd_solver
+    if(self%svd_solver=='auto') then
+      if(p<=1000.and.int(n,int64)>=10_int64*p) then
+        self%fit_svd_solver_='covariance_eigh'
+      else if(max(n,p)<=500.or.self%dimension_mode=='mle') then
+        self%fit_svd_solver_='full'
+      else if(self%dimension_mode=='count'.and.k>=1.and.k<.8_dp*r) then
+        self%fit_svd_solver_='randomized'
+      else
+        self%fit_svd_solver_='full'
+      end if
+    end if
+    if(self%fit_svd_solver_=='randomized') call require(self%dimension_mode=='count', &
+      'PCA randomized solver requires a positive integer component count')
     if(allocated(self%mle_log_likelihood_)) deallocate(self%mle_log_likelihood_)
-    self%mean_=sum(x,dim=1)/n; centered=x-spread(self%mean_,1,n)
-    call dense_svd(centered,values,u,vectors)
-    singular=values;values=values**2/(n-1);total=sum(values);r=min(n,p)
+    self%mean_=sum(x,dim=1)/n;allocate(values(p),singular(p),vectors(p,p));values=0;singular=0;vectors=0
+    spectrum_size=r
+    select case(self%fit_svd_solver_)
+    case('full')
+      centered=x-spread(self%mean_,1,n);allocate(u(n,p))
+      call dense_svd(centered,singular,u,vectors);values=singular**2/(n-1);total=sum(values)
+    case('covariance_eigh')
+      gram=(matmul(transpose(x),x)-n*spread(self%mean_,2,p)*spread(self%mean_,1,p))/(n-1)
+      call oriented_eigen(gram,values,vectors);singular=sqrt(values*real(n-1,dp));total=sum(values);spectrum_size=p
+    case('randomized')
+      call require(k<=huge(k)-self%n_oversamples,'PCA randomized sample dimension exceeds integer capacity')
+      centered=x-spread(self%mean_,1,n);call rng%seed(self%random_state)
+      if(self%iterated_power==-1) then
+        call randomized_svd(centered,k,rng,rs,u,vt,n_oversamples=self%n_oversamples, &
+          power_iteration_normalizer=self%power_iteration_normalizer,flip_sign=.false.)
+      else
+        call randomized_svd(centered,k,rng,rs,u,vt,n_iter=self%iterated_power,n_oversamples=self%n_oversamples, &
+          power_iteration_normalizer=self%power_iteration_normalizer,flip_sign=.false.)
+      end if
+      ! The thin native SVD omits zero-singular left vectors. Complete only
+      ! this PCA caller's null bases, leaving previous core consumers unchanged.
+      call pca_complete_columns(u);gram=transpose(vt);call pca_complete_columns(gram);vt=transpose(gram)
+      do j=1,k
+        index=maxloc(abs(vt(j,:)),dim=1)
+        if(vt(j,index)>=0) cycle
+        vt(j,:)=-vt(j,:);u(:,j)=-u(:,j)
+      end do
+      vectors(:,:k)=transpose(vt);singular(:k)=rs;values(:k)=rs**2/(n-1);total=sum(centered**2)/(n-1)
+    end select
     select case(self%dimension_mode)
     case('variance')
       k=1
@@ -112,11 +171,50 @@ contains
     case('zero');k=0
     end select
     self%n_components_=k;self%singular_values_=singular(:k)
-    self%components_=transpose(vectors(:,:k)); self%explained_variance_=values(:k)
+    self%components_=transpose(vectors(:,:k));self%explained_variance_=values(:k)
     self%explained_variance_ratio_=values(:k)*0
     if(total>0) self%explained_variance_ratio_=values(:k)/total
     self%noise_variance_=0
-    if(k<min(n,p)) self%noise_variance_=sum(values(k+1:min(n,p)))/(min(n,p)-k)
+    if(k<r) then
+      if(self%fit_svd_solver_=='randomized') then
+        self%noise_variance_=(total-sum(values(:k)))/(r-k)
+      else
+        self%noise_variance_=sum(values(k+1:spectrum_size))/(spectrum_size-k)
+      end if
+    end if
+    if(present(fit_transformed)) then
+      if(self%fit_svd_solver_=='randomized') then
+        if(self%whiten) then
+          fit_transformed=u*sqrt(real(n-1,dp))
+        else
+          fit_transformed=u*spread(singular(:k),1,n)
+        end if
+      else
+        fit_transformed=self%transform(x)
+      end if
+    end if
+  end subroutine
+  subroutine pca_complete_columns(a)
+    real(dp), intent(inout) :: a(:,:)
+    real(dp), allocatable :: candidate(:),best(:)
+    real(dp) :: norm,best_norm
+    integer :: i,j,pass
+    do j=1,size(a,2)
+      if(sum(a(:,j)**2)>0) cycle
+      best_norm=-1
+      do i=1,size(a,1)
+        allocate(candidate(size(a,1)));candidate=0;candidate(i)=1
+        do pass=1,2
+          candidate=candidate-matmul(a(:,:j-1),matmul(transpose(a(:,:j-1)),candidate))
+        end do
+        norm=sum(candidate*candidate)
+        if(norm>best_norm) then
+          best=candidate;best_norm=norm
+        end if
+        deallocate(candidate)
+      end do
+      call require(best_norm>epsilon(1._dp),'PCA null basis completion failed');a(:,j)=best/sqrt(best_norm)
+    end do
   end subroutine
   real(dp) function pca_rank_likelihood(spectrum,rank,n) result(value)
     ! sklearn 1.6.1 _pca.py _assess_dimension (Minka NIPS 2000).
@@ -228,7 +326,7 @@ contains
     class(pca), intent(inout) :: self
     real(dp), intent(in) :: x(:,:)
     real(dp), allocatable :: z(:,:)
-    call self%fit(x); z=self%transform(x)
+    call pca_fit_core(self,x,z)
   end function
   subroutine svd_fit(self,x)
     class(truncated_svd), intent(inout) :: self

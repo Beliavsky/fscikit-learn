@@ -197,3 +197,6 @@ Factor analysis supports randomized SVD and varimax/quartimax rotation; see
 
 PCA supports variance-fraction and Minka dimension selection, covariance,
 precision and Gaussian likelihoods; see [the example](example/probabilistic_pca.f90).
+
+PCA offers full, randomized, covariance and automatic solver selection; see
+[the example](example/pca_solver_selection.f90).
