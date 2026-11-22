@@ -5855,3 +5855,62 @@ Gaussian/Categorical NB, pipeline/meta-estimator sparse inputs, CSC/COO storage,
 vector Bernoulli smoothing, unthresholded Bernoulli `binarize=None`, signed
 sample weights and weighted score remain outside this interface. Fitted
 statistics still require O(n_classes*n_features) storage, even for sparse data.
+
+## Coordinate-descent NMF
+
+`nmf` now accepts `solver='cd'` for dense nonnegative real64 matrices and the
+Frobenius loss. For example:
+
+```fortran
+type(nmf) :: model
+real(dp), allocatable :: weights(:,:),query_weights(:,:)
+model%solver='cd'
+model%init='nndsvda'
+model%n_components=3
+model%alpha_w=.02_dp
+model%alpha_h=-1._dp ! same as alpha_w
+model%l1_ratio=.5_dp
+model%shuffle=.true.
+model%random_state=42
+weights=model%fit_transform(x)
+query_weights=model%transform(x_query)
+```
+
+The CD initializer is `auto`, `random`, `nndsvd`, `nndsvda`, `nndsvdar` or
+`custom`. `auto` chooses NNDSVDa when the requested count is no larger than the
+smaller matrix dimension, otherwise random. NNDSVD variants require that rank
+bound. Custom initialization uses `fit(x,w0,h0)` or
+`fit_transform(x,w0,h0)` with nonnegative, finite, nonzero matrices of shapes
+`(n_samples,k)` and `(k,n_features)`; the supplied arrays are preserved.
+`n_components=0` selects `n_features`, or infers `k` from custom H.
+NNDSVD retains the shared initializer's explicit zero-norm/null-direction
+handling for degenerate matrices.
+
+`alpha_w>=0`, `alpha_h>=0` (or `-1` for same), and `l1_ratio` in `[0,1]`
+control L1/L2 penalties. W penalties are scaled by `n_features`; H penalties
+by `n_samples`. `shuffle` permutes coordinates on each W/H sweep using a local
+scalar-seeded NumPy-compatible legacy RandomState. Initialization and solving
+start separate streams from the same seed, following sklearn's integer-seed
+contract. `tol=0` is accepted by CD.
+
+Fitted state includes `components_`, `reconstruction_err_`, `n_iter_`,
+`n_components_`, `n_features_in_` and `converged_`. The native diagnostics
+`cd_initial_violation_` and `cd_violation_` record the first and last sweep's
+sum of absolute projected gradients. CD stops when the initial violation is
+zero or the last/initial ratio is at most `tol`. An exhausted `max_iter` may
+leave `converged_` false. `transform` starts W at zero, holds fitted H fixed,
+and preserves fitted state. All-zero H is rejected by transform, as in sklearn.
+`inverse_transform` multiplies codes by fitted H.
+At the floating-point stationarity limit, reduction rounding can change the
+exact-zero stopping decision and iteration count relative to sklearn; reference
+validation retains those cases and certifies both projected gradients.
+
+Native defaults remain `solver='mu'`, `n_components=2`, `max_iter=1000` and
+`tol=1e-6`; these differ from sklearn 1.6.1 defaults. Existing MU arithmetic and
+runtime-RNG initialization are retained. Initialization options, regularization
+and shuffling in this addition require explicit `solver='cd'`; MU requires
+`init='auto'` with no supplied factors. There is no sparse CD input, beta-loss
+selection, free `non_negative_factorization` function, verbose output or Python
+warning protocol. CD data, factors and regularization are bounded conservatively
+within the real64 working range; unsupported extremes receive diagnostics.
+See `example/coordinate_descent_nmf.f90` for an exact rank-one custom fit.

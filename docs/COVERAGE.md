@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 217 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and twenty-seven reference suites additionally check 817,095
+All types have native tests. One hundred and twenty-eight reference suites additionally check 837,309
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -6651,3 +6651,33 @@ listed above were rerun; cumulative counts do not imply a full rerun. The separa
 42-group legacy RNG reference suite remains excluded and was not rerun.
 MIT licensing and sklearn BSD attribution remain; no estimator type, external
 Fortran dependency or public algorithm extension is added.
+
+## Coordinate-descent NMF (2026-11-22)
+
+`nmf` adds dense Frobenius-loss coordinate descent with `solver='cd'`:
+alternating projected coordinate sweeps, zero-Hessian handling, dimension-scaled
+L1/L2 penalties, scalar-seeded coordinate shuffling and projected-gradient
+stopping. Initialization supports auto, random, custom and the three NNDSVD
+variants through the existing MiniBatchNMF initializer. Fixed-H transform starts
+W at zero and preserves fitted state; reconstruction, fitted dimensions,
+iteration count and native stopping diagnostics are exposed.
+
+Existing native defaults and multiplicative-update arithmetic are retained;
+users select CD explicitly. Dense real64 inputs and conservative numerical
+working-range bounds apply. Sparse CD, general beta losses, the free
+factorization function, verbose output and Python warning behavior are outside
+this addition. No new estimator type or public extension is counted. See
+[the API contract](API.md#coordinate-descent-nmf) and
+[the example](../example/coordinate_descent_nmf.f90).
+
+The new suite retains 2,022 fixtures and 20,214 reference groups, with 34 isolated
+native rejection cases. The cumulative inventory is 217 public core types,
+129 core modules, 150 native test programs and 128 core reference suites.
+Thirty-seven invalid-input registries retain 3,551 cases. The separate 42-group
+legacy RNG suite remains excluded from core reference counts.
+
+Both checked and release builds passed all 150 native tests, 26,906 affected
+reference groups (including 6,500 MiniBatchNMF and 192 integration regressions)
+and all 34 new rejections per profile. The example matched sklearn in both
+profiles. The final audit verified complete field inventories and 287 relevant
+compiled-content digests per profile; see [the validation record](VALIDATION.md).

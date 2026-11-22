@@ -6907,3 +6907,38 @@ listed above were rerun; cumulative counts do not imply a full rerun. The separa
 42-group legacy RNG reference suite remains excluded and was not rerun.
 MIT licensing and sklearn BSD attribution remain; no estimator type, external
 Fortran dependency or public algorithm extension is added.
+
+## Coordinate-descent NMF (2026-11-22)
+
+All 150 native test programs passed in both checked mode
+(`-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow`) and release mode.
+Each profile passed 26,906 affected reference groups: 20,214 new CD NMF groups
+from 2,022 retained fixtures, 6,500 existing MiniBatchNMF groups and 192 integration
+groups. All 34 new isolated rejection cases passed per profile. The native
+rank-one example ran explicitly through fpm in both profiles and matched sklearn:
+two iterations, zero reconstruction error and component `[1,2,3]`.
+
+The new suite compares public sklearn 1.6.1 fit/transform results and replays the
+actual upstream compiled coordinate kernel to certify first/last projected
+violations. It independently checks nonnegativity, reconstruction and the
+regularized objective. Six zero-data cases retain source-matching all-zero-H
+transform rejections. Sixteen stopping certificates per profile bound rounding
+differences in exact-zero decisions or already stationary initialization using
+both the arithmetic scale and independently computed projected gradients. No
+fixture or factor/objective comparison was dropped.
+
+The final audit matched cross-profile field inventories, executable/validator/
+upstream hashes and all 287 relevant compiled-content digests per profile
+(129 core modules, four vendor modules, 150 native tests, three reference drivers
+and the example). It verified that existing non-NMF decomposition, legacy MU
+arithmetic and MiniBatchNMF procedure bodies are unchanged. Reports, native logs,
+example checks and orchestration/audit scripts are archived in ignored
+`validation/results`, including `nmf_cd_final_audit.json`.
+
+Cumulative inventory: 217 public core types, 129 core modules, 150 native test
+programs, 128 core reference suites and 837,309 retained groups. Thirty-seven
+invalid-input registries retain 3,551 cases. Only the affected suites listed
+above were rerun; these totals do not imply a full reference rerun. The separate
+42-group legacy RNG suite remains excluded and was not rerun. MIT licensing and
+retained sklearn/NumPy BSD attribution continue; no extension algorithm or
+runtime dependency is added.

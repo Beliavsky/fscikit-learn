@@ -6416,3 +6416,42 @@ listed above were rerun; cumulative counts do not imply a full rerun. The separa
 42-group legacy RNG reference suite remains excluded and was not rerun.
 MIT licensing and sklearn BSD attribution remain; no estimator type, external
 Fortran dependency or public algorithm extension is added.
+
+## Coordinate-descent NMF
+
+After building the checked or release reference executable, run:
+
+```text
+python validation/compare_nmf_cd.py --executable build/gfortran_81A15A8739108A9E/app/reference_nmf_cd_driver.exe --profile checked --report validation/results/nmf_cd_checked.json
+python validation/compare_nmf_cd.py --executable build/gfortran_C983BD113DCA31CD/app/reference_nmf_cd_driver.exe --profile release --report validation/results/nmf_cd_release.json
+```
+
+The validator retains 2,022 fixtures: six initialization choices, tall/wide
+matrices, ranks one/two, fixed and converged iterations, seeded shuffling,
+dimension-scaled L1/L2 penalties, auto/overcomplete component counts, zero data,
+zero columns and zero-Hessian coordinates. It compares the public sklearn NMF
+fit/transform results and replays sklearn's actual compiled coordinate kernel
+to check projected-gradient diagnostics. Nonnegativity, reconstruction and the
+regularized objective are checked independently. All-zero fitted H receives the
+same transform rejection as sklearn. Thirty-four isolated native rejections
+cover unsupported controls, shapes, nonfinite/negative inputs and numerical
+range limits.
+
+Reduction-order rounding can change an exact-zero stopping decision at zero
+tolerance, or when initialization is already stationary to machine precision.
+Those cases retain all factor/objective comparisons and receive explicit
+certificates bounding both sweep residuals and independently computed projected
+gradients using the magnitude of the gradient arithmetic. Other iteration
+differences fail. Reports retain executable, validator and upstream-source
+SHA256 hashes and reject nonfinite JSON values. Existing MiniBatchNMF and
+integration suites check the shared initializer and decomposition regressions.
+
+Final verification passed all 150 native tests in checked and release builds,
+20,214 CD groups, 6,500 MiniBatchNMF groups, 192 integration groups and all 34
+rejections per profile. Both explicit fpm example runs matched sklearn. Sixteen
+roundoff stopping certificates per profile were retained. The final audit
+verified all field inventories, report hashes and 287 compiled-content digests
+per profile. Logs, reports and audit scripts are archived in ignored
+`validation/results`, including `nmf_cd_final_audit.json`. Cumulative counts are
+128 core reference suites and 837,309 groups; the separate 42-group legacy RNG
+suite remains excluded and was not rerun.

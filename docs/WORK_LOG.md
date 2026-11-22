@@ -7018,3 +7018,39 @@ listed above were rerun; cumulative counts do not imply a full rerun. The separa
 42-group legacy RNG reference suite remains excluded and was not rerun.
 MIT licensing and sklearn BSD attribution remain; no estimator type, external
 Fortran dependency or public algorithm extension is added.
+
+## Coordinate-descent NMF (2026-11-22)
+
+Extended the existing `nmf` type with an explicit dense `solver='cd'` path from
+sklearn 1.6.1. It implements alternating coordinate updates, dimension-scaled
+L1/L2 penalties, zero-Hessian skips, seeded shuffling, projected-gradient stopping
+and fixed-H transform. Reused the existing MiniBatchNMF initialization backend
+through a small internal adapter for random, auto, custom and NNDSVD variants.
+Added fitted dimensions and first/last violation diagnostics. Existing MU
+arithmetic/defaults and other decomposition procedure bodies are unchanged.
+
+Added a native test, custom rank-one example, stdin reference driver and validator.
+The new reference suite retains 2,022 fixtures and 20,214 groups, checking public
+sklearn fits and transforms, actual upstream Cython coordinate sweeps, objective
+values, nonnegativity and reconstruction. Thirty-four isolated rejections cover
+controls, initialization domains, query state and conservative real64 limits.
+Stationary initialization and exact-zero stopping differences caused by reduction
+rounding receive explicit arithmetic-scale and projected-gradient certificates;
+the corresponding fixtures and all factor/objective comparisons are retained.
+
+The added feature is an existing sklearn algorithm, with no new core type,
+extension algorithm or runtime dependency. Documentation describes dense
+Frobenius-only scope and native defaults differing from sklearn. MIT licensing
+and retained sklearn/NumPy BSD attribution continue.
+
+Final verification passed all 150 native tests in checked and release builds,
+26,906 affected reference groups and 34 rejections per profile. Both explicit
+fpm example runs matched sklearn (two iterations and zero reconstruction error).
+The final audit verified 287 compiled-content digests per profile and complete
+cross-profile fixture inventories. Reports and logs are archived in ignored
+`validation/results/nmf_cd_final_audit.json` and companion files.
+
+Inventory: 217 core public types, 129 core modules, 150 native tests, 128 core
+reference suites and 837,309 retained groups; 37 invalid-input registries retain
+3,551 cases. Only the affected references above were rerun. The separate 42-group
+legacy RNG suite remains excluded and was not rerun.

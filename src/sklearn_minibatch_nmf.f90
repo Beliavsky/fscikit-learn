@@ -8,7 +8,7 @@ module sklearn_minibatch_nmf
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite,ieee_is_nan,ieee_value,ieee_quiet_nan,ieee_positive_inf
   implicit none
   private
-  public :: mini_batch_nmf
+  public :: mini_batch_nmf,nmf_initialize_factors
   real(dp), parameter :: eps32=1.1920928955078125e-7_dp
   type :: mini_batch_nmf
     integer :: n_components=0,n_components_=0,batch_size=1024,batch_size_=0,max_iter=200,random_state=0
@@ -407,4 +407,15 @@ contains
     call require(size(codes,2)==self%n_components_,'MiniBatchNMF inverse component count mismatch')
     x=matmul(codes,self%components_)
   end function
+  ! Shared internal initialization adapter; not re-exported through sklearn.
+  subroutine nmf_initialize_factors(x,k,method,seed,w,h,w0,h0)
+    real(dp), intent(in) :: x(:,:)
+    integer, intent(in) :: k,seed
+    character(*), intent(in) :: method
+    real(dp), allocatable, intent(out) :: w(:,:),h(:,:)
+    real(dp), optional, intent(in) :: w0(:,:),h0(:,:)
+    type(mini_batch_nmf) :: initializer
+    initializer%n_components_=k;initializer%init=method;initializer%random_state=seed
+    call initialize(initializer,x,w0,h0,w,h)
+  end subroutine
 end module

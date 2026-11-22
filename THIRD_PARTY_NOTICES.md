@@ -22,6 +22,7 @@ Reference paths by module:
 
 | Fortran module | scikit-learn reference |
 | --- | --- |
+| decomposition (coordinate-descent NMF) | decomposition/_nmf.py NMF initialization, regularization scaling, alternating coordinate sweeps, projected-gradient stopping and fixed-component transform; decomposition/_cdnmf_fast.pyx projected coordinate update order and zero-Hessian handling. Reuses the attributed MiniBatchNMF NNDSVD initializer and NumPy-compatible legacy RNG. Native finite working-range diagnostics |
 | graphical_lasso_cv (covariance) | covariance/_graph_lasso.py refined CV grids and warm-start paths; covariance/_empirical_covariance.py likelihood and alpha-zero baseline; linear_model/_cd_fast.pyx zero-diagonal CD skip; model_selection/_split.py KFold; shared native Jacobi and IEEE environment helpers |
 | ordinal_encoding | preprocessing/_encoders.py numeric OrdinalEncoder, category grouping and inverse index conventions; utils/_encode.py counting contracts; shared native numeric category container from target_encoding |
 | target_encoding | preprocessing/_target_encoder.py, preprocessing/_target_encoder_fast.pyx, preprocessing/_encoders.py numeric categories and empirical Bayes encodings; model_selection/_split.py cross-fitting; existing NumPy legacy RNG backend |
@@ -1067,3 +1068,16 @@ Native CSR overloads, sparse event accumulation, quiet IEEE integration,
 structure/range contracts and validation identities are original MIT
 contributions. Existing native CSR/IEEE helpers are reused; no external source
 package or Fortran dependency is imported.
+
+Coordinate-descent NMF adapts sklearn 1.6.1 `decomposition/_nmf.py` and
+`decomposition/_cdnmf_fast.pyx`, retaining the scikit-learn BSD notices above and
+in `LICENSES/scikit-learn-COPYING`. Local reference SHA256 values:
+
+- `_nmf.py`: `6f0ed846e1531f773eb82de20dfa4f07e57f53fa472f3f8c576e8ee3d7007369`
+- `_cdnmf_fast.pyx`: `bb378d434b38e28c07c04f0cc9afbf5d996a3ceedbd5f56322dbda36fbd9b4fc`
+
+The adapter reuses the existing attributed MiniBatchNMF NNDSVD initializer and
+NumPy-compatible legacy RNG; no upstream source package is imported. Native
+Fortran interfaces, working-range diagnostics and independent reconstruction
+and objective validation are original MIT contributions. No additional runtime
+dependency or public algorithm extension is introduced.

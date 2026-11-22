@@ -17,6 +17,7 @@ See the [scope policy](docs/SCOPE.md) for admission and attribution rules.
 fpm build
 fpm test
 fpm run --example histogram_boosting
+fpm run --example coordinate_descent_nmf
 fpm run --example image_patches
 fpm run --example neighborhood_components
 fpm run --example gaussian_process_classification
@@ -235,3 +236,8 @@ Complement NB also support feature-wise smoothing. See
 Multinomial, Bernoulli and Complement Naive Bayes accept CSR input, including
 weighted streaming and mixed dense/CSR updates. See
 [the sparse document example](example/sparse_document_nb.f90).
+
+NMF supports dense coordinate descent with L1/L2 regularization, seeded shuffling
+and random/custom/NNDSVD initialization. Select `solver='cd'`; see
+[the example](example/coordinate_descent_nmf.f90) and
+[the API contract](docs/API.md#coordinate-descent-nmf).
