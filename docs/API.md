@@ -5748,3 +5748,40 @@ roundoff use label certificates in validation.
 See `example/streaming_document_nb.f90`. Sparse estimator inputs, vector/zero
 alpha, raw Bernoulli `binarize=None`, signed weights and weighted `score` remain
 outside this increment. Count/smoothing intermediates must fit real64 range.
+
+
+## Prior-aware NearestCentroid
+
+`nearest_centroid` accepts `%prior_mode='uniform'` (default) or `'empirical'`.
+An allocated `%priors(:)` overrides the mode and supplies finite nonnegative
+weights in sorted `%classes_` order. `%class_prior_` stores fitted priors:
+weights are normalized unless their sum is close to one using the source
+1e-8 absolute / 1e-5 relative tolerance. All-zero custom weights retain source
+NaNs after normalization. Input prior weights are preserved. `%n_features_in_`
+records the fitted width; fitting again resets fitted statistics.
+
+With approximately uniform fitted priors, `predict` uses raw Euclidean/Manhattan
+distance to the means/medians. Otherwise it maximizes minus squared distance
+after dividing nonzero within-class feature scales, plus twice log class prior.
+Zero scales leave that feature unscaled. Zero priors have negative-infinite
+scores. This source routing means uniform-prior predictions can differ from
+the largest probability, since probabilities always use standardized scores.
+
+For Euclidean models, `decision_function(x)` returns (n_samples,1) binary score
+differences or (n_samples,n_classes) multiclass scores. `predict_log_proba` and
+`predict_proba` return class-ordered matrices from the source score softmax.
+These methods diagnose unsupported Manhattan use, matching source availability;
+Manhattan `predict` still supports all prior modes. `score` remains unweighted
+accuracy. See `example/prior_weighted_centroids.f90`.
+
+Pooled scales and deviations use unshrunk centroids, including source NaN/Inf
+statistics for zero variance and singleton classes. Singleton uniform predictions
+remain available when centroids are finite, but standardized methods reject
+undefined scales as in source. Shrinkage can turn zero times infinite deviations
+into NaN centroids; subsequent prediction then rejects them. All-global-constant
+features are rejected. Sparse arrays and Python warning objects are not part of
+this interface. Data, prior sums and standardized-distance intermediates must
+fit the native real64 working range, checked before arithmetic. Fit values
+are bounded by sqrt(huge(real64))/(16*sqrt(n_samples*n_features)); query and
+standardized values use sqrt(huge(real64))/(16*n_features). Each supplied prior
+must be at most huge(real64)/n_classes before summing.

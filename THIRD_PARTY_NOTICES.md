@@ -1040,3 +1040,12 @@ zero-mass behavior and latest-batch category metadata follow scikit-learn 1.6.1
 and LICENSES/scikit-learn-COPYING remain retained. Native safe zero logarithms,
 explicit undefined-value handling, range contracts and validation identities
 are original MIT contributions. No external source package is imported.
+
+
+NearestCentroid priors, standardized discriminants, softmax probabilities and
+uniform-distance prediction routing follow scikit-learn 1.6.1
+`neighbors/_nearest_centroid.py` and DiscriminantAnalysisPredictionMixin in
+`discriminant_analysis.py`. Existing sklearn BSD notices and
+LICENSES/scikit-learn-COPYING remain retained. Native explicit undefined-value
+handling, range checks, interfaces and validation certificates are original
+MIT contributions. No external source package is imported.

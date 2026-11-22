@@ -1,5 +1,7 @@
 """Dense sklearn reference checks for neighbor, graph and outlier estimators."""
 from pathlib import Path
+import argparse
+import hashlib
 import json
 import os
 import subprocess
@@ -16,6 +18,7 @@ from sklearn.manifold import Isomap
 from sklearn.semi_supervised import LabelPropagation, LabelSpreading
 from sklearn.metrics.pairwise import rbf_kernel
 
+from compare_function_transformer import resolve
 ROOT = Path(__file__).resolve().parents[1]
 RESULTS = ROOT / "validation" / "results"
 
@@ -81,6 +84,11 @@ def reference(x, target, labels):
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--profile', choices=['checked','release'], default='checked')
+    parser.add_argument('--executable', type=Path)
+    args = parser.parse_args()
+    exe = args.executable.resolve() if args.executable else resolve(args.profile, 'reference_graph_driver')
     RESULTS.mkdir(exist_ok=True)
     report = {"sklearn_version": sklearn.__version__, "checks": []}
     for seed, classes in ((7, 2), (42, 3), (2026, 4)):
@@ -92,8 +100,7 @@ def main():
         with data.open("w") as f:
             f.write(f"{len(x)} {x.shape[1]}\n")
             np.savetxt(f, np.column_stack([x, target, labels]), fmt="%.17g")
-        subprocess.run(["fpm", "run", "--target", "reference_graph_driver", "--", str(data), str(output)],
-                       cwd=ROOT, check=True)
+        subprocess.run([str(exe),str(data),str(output)],cwd=ROOT,check=True)
         actual = {}
         for line in output.read_text().splitlines():
             name, *values = line.split()
@@ -106,7 +113,9 @@ def main():
                                        err_msg=f"seed={seed} {name}")
             report["checks"].append({"seed": seed, "api": name, "passed": True})
             print(f"PASS seed={seed} {name}")
-    (RESULTS/"graph_report.json").write_text(json.dumps(report, indent=2)+"\n")
+    sha = lambda path: hashlib.sha256(path.read_bytes()).hexdigest()
+    report.update(profile=args.profile,native_sha256=sha(exe),validator_sha256=sha(Path(__file__)))
+    (RESULTS/f"graph_report_{args.profile}.json").write_text(json.dumps(report, indent=2, allow_nan=False)+"\n")
     print(f"{len(report['checks'])} graph/neighbor reference comparisons passed against sklearn {sklearn.__version__}")
 
 

@@ -224,3 +224,6 @@ Multinomial, Bernoulli and Complement Naive Bayes support weighted streaming; se
 
 CategoricalNB supports zero smoothing and `force_alpha`; see
 [the example](example/unsmoothed_categories.f90).
+
+NearestCentroid supports empirical/custom priors and Euclidean probabilities; see
+[the example](example/prior_weighted_centroids.f90).

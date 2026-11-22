@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 217 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and twenty-four reference suites additionally check 635,543
+All types have native tests. One hundred and twenty-five reference suites additionally check 657,629
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -37,7 +37,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | preprocessing | `kernel_centerer`, `ordinal_encoder`, `target_encoder`, `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `iterative_imputer`, `knn_imputer`, `missing_indicator`, `spline_transformer`, `label_encoder`, `one_hot_encoder`, `label_binarizer`, `multi_label_binarizer`, `power_transformer`, `kbins_discretizer`, `quantile_transformer`; `normalize`, `binarize`, `polynomial_features` | Ordinal category codes and infrequent grouping; cross-fitted target means; population variance; linear percentile interpolation; NaN imputation with mean/median/most-frequent/constant; numeric categories; empirical uniform/normal quantile transforms; dense polynomial terms through degree 12 with optional interactions; B-spline features and extrapolation |
 | linear_model | `linear_regression`, `lars`, `lasso_lars`, `lars_cv`, `lasso_lars_cv`, `lasso_lars_ic`, `ridge`, `ridge_classifier`, `ridge_classifier_cv`, `multi_task_elastic_net`, `multi_task_lasso`, `multi_task_elastic_net_cv`, `multi_task_lasso_cv`, `lasso`, `elastic_net`, `lasso_cv`, `elastic_net_cv`, `logistic_regression`, `logistic_regression_cv`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `sgd_regressor`, `sgd_classifier`, `sgd_one_class_svm`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `orthogonal_matching_pursuit_cv`, `huber_regressor`, `quantile_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; least-angle/Lasso homotopy paths with CV and AIC/BIC selection; coordinate descent with K-fold alpha/l1-ratio selection; weighted logistic Newton solver with raw-score prediction; perceptron; PA-I/II classification/regression with averaging; streaming stochastic-gradient regression/classification and one-class detection; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; weighted L1-regularized quantile regression; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb`, `categorical_nb` | Weighted/streaming Gaussian moments, empirical/fixed priors and variance smoothing; weighted/streaming discrete event counts and fixed/empirical priors; scalar alpha (nonnegative for CategoricalNB, positive for the other discrete models); Bernoulli threshold; optional complement normalization |
-| neighbors | `neighborhood_components_analysis`, `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Supervised NCA metric learning; brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with optional shrinkage and uniform priors; Euclidean kernel density |
+| neighbors | `neighborhood_components_analysis`, `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Supervised NCA metric learning; brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with shrinkage, uniform/empirical/custom priors and Euclidean discriminant probabilities; Euclidean kernel density |
 | cluster | `kmeans`, `bisecting_kmeans`, `mini_batch_kmeans`, `spectral_coclustering`, `spectral_biclustering`, `hdbscan`, `dbscan`, `agglomerative_clustering`, `feature_agglomeration`, `mean_shift`, `affinity_propagation`, `spectral_clustering`, `optics`, `birch`; `estimate_bandwidth`, `cluster_optics_dbscan`, `cluster_optics_xi` | Lloyd/k-means++; paired row/column spectral partitions and checkerboard biclustering; weighted streaming mini-batch centroids; bisecting centroid hierarchy with Lloyd/Elkan splits; density expansion; single/complete/average/Ward merge trees and feature pooling; flat-kernel mode seeking; damped exemplar messages; normalized-Laplacian clustering with k-means or pivoted QR assignment; OPTICS reachability ordering, Xi hierarchy and DBSCAN extraction; BIRCH streaming CF tree and optional Ward clustering |
 | decomposition | `pca`, `incremental_pca`, `truncated_svd`, `nmf`, `mini_batch_nmf`, `sparse_pca`, `mini_batch_sparse_pca`, `dictionary_learning`, `mini_batch_dictionary_learning`, `sparse_coder`, `latent_dirichlet_allocation`; `sparse_encode`; re-exports `kernel_pca`, `factor_analysis`, `fast_ica` | Full/randomized/covariance PCA with automatic routing; PCA whitening/inversion, variance/Minka dimension selection and probabilistic scores; streaming stacked-SVD IncrementalPCA; exact dense and randomized dense/CSR TruncatedSVD; NMF multiplicative updates; sparse dictionary factorization and SparsePCA; five sparse coding methods; nonlinear kernel PCA; full/randomized-SVD factor analysis with orthogonal rotations; parallel/deflation ICA |
 | cross_decomposition | `pls_regression`, `pls_canonical`, `cca`, `pls_svd` | Paired-matrix latent components: NIPALS regression/canonical deflation, CCA pseudoinverse mode, canonical direct SVD and PLSSVD cross-covariance projection; multiple response columns |
@@ -226,10 +226,11 @@ distances; cosine similarity; linear, RBF, polynomial and sigmoid kernels.
   `allow_outliers` is enabled with a numeric `outlier_label`. If that label is
   not a fitted class, its probability row is zero. Radius regression returns
   NaN for an empty neighborhood, matching sklearn (without its warning).
-- Nearest centroid supports uniform priors only, Euclidean means or Manhattan
-  medians and scalar shrinkage. It requires more samples than classes and has
-  no discriminant probability API or empirical/custom priors. Zero within-class
-  scale uses zero deviation rather than producing NaN in that attribute.
+- Nearest centroid supports Euclidean means or Manhattan medians, scalar
+  shrinkage and uniform/empirical/custom priors. Euclidean decisions and
+  probabilities follow sklearn 1.6.1 standardized discriminants. Zero-scale
+  diagnostics retain source NaN/Inf; undefined standardized queries are rejected.
+  See the prior-aware NearestCentroid section below.
 - LOF uses `contamination=-1` for sklearn's `'auto'`, otherwise a fraction in
   `(0,0.5]`. `fit_predict` requires `novelty=false`; query scoring/prediction
   requires `novelty=true`. Training scores exclude each point itself; novelty
@@ -6433,3 +6434,58 @@ listed above were rerun; these cumulative counts do not imply a full rerun.
 The separate 42-group legacy RNG reference suite remains excluded and was not
 rerun. MIT licensing and sklearn BSD attribution remain; no external package,
 estimator type or public algorithm extension is added.
+
+
+## NearestCentroid class priors and discriminants
+
+NearestCentroid now supports empirical and explicit class priors, their source
+normalization tolerance, zero-prior classes and all-zero prior normalization.
+It exposes n_features_in_ and class_prior_, Euclidean decision_function and
+log/probability methods, and prior-aware Manhattan prediction. Uniform-prior
+prediction retains raw-distance routing, which may differ from standardized
+probability argmax. Optional priors override uniform/empirical mode. Existing
+mean/median and shrunken-centroid fitting remains available.
+
+Zero pooled scales and singleton classes now retain source NaN/Inf diagnostics;
+queries reject undefined standardized scales or nonfinite shrunken centroids.
+Uniform singleton prediction remains defined. All-global-constant inputs are
+rejected, matching sklearn. Explicit safe divisions and range checks avoid
+floating-point traps. Source warning objects, sparse inputs and weighted score
+remain outside this native interface. See docs/API.md and
+`example/prior_weighted_centroids.f90`.
+
+`compare_centroid_priors.py` uses installed sklearn 1.6.1 across seeded binary/
+multiclass fits, tall/wide arrays, anisotropic/constant/classwise-constant data,
+singleton classes, both metrics, shrinkage and seven prior configurations.
+It compares all fitted statistics, query/training labels, accuracy, decisions,
+probabilities and their identities. Source NaN/Inf fields are retained, source
+method errors are certified against native errors, and roundoff label ties
+require source-score bounds. No fixture is discarded for undefined behavior.
+
+Final verification: all 147 native test programs passed with checked flags
+`-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow` and in release mode.
+Each profile passed 22,398 affected reference groups: 22,086 new NearestCentroid
+groups, all 120 original graph/neighbor groups and 192 integration groups.
+All 30 new rejection cases passed in each profile. The new suite retains 2,520
+fixtures, 3,798 nonfinite diagnostic fields, 1,458 source/native method-error
+certificates and 756 probability identities. Fourteen bounded label-rounding
+certificates were needed per profile. Their scale includes point/centroid
+magnitudes to account for cancellation in source Euclidean norm identities;
+direct numerical-output tolerances remain unchanged. No fixture was dropped.
+
+The final audit independently reconstructed the required fitted-statistic,
+available-method and expected-error inventory for every fixture. It matched
+cross-profile inventories, executable/validator/source hashes and all 284
+compiled source-content digests per profile. The example passed explicitly
+through fpm in both profiles and its output also matched installed sklearn.
+Reports, terminal logs and orchestration/audit scripts are archived in ignored
+`validation/results`, including `centroid_priors_final_audit.json`.
+
+Cumulative inventory: 217 public core types, 129 core modules, 147 native test
+programs, 125 core reference suites and 657,629 retained groups. Thirty-four
+invalid-input registries retain 3,475 cases. Only the affected reference suites
+listed here were rerun; the cumulative inventory is not a full-rerun claim.
+The separate 42-group legacy RNG reference suite remains excluded and was not
+rerun. All non-centroid neighbor procedure bodies were verified unchanged.
+MIT licensing and sklearn BSD attribution remain; no estimator type, external
+Fortran dependency or public extension algorithm is added.

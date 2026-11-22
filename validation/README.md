@@ -6202,3 +6202,58 @@ listed above were rerun; these cumulative counts do not imply a full rerun.
 The separate 42-group legacy RNG reference suite remains excluded and was not
 rerun. MIT licensing and sklearn BSD attribution remain; no external package,
 estimator type or public algorithm extension is added.
+
+
+## NearestCentroid class priors and discriminants
+
+NearestCentroid now supports empirical and explicit class priors, their source
+normalization tolerance, zero-prior classes and all-zero prior normalization.
+It exposes n_features_in_ and class_prior_, Euclidean decision_function and
+log/probability methods, and prior-aware Manhattan prediction. Uniform-prior
+prediction retains raw-distance routing, which may differ from standardized
+probability argmax. Optional priors override uniform/empirical mode. Existing
+mean/median and shrunken-centroid fitting remains available.
+
+Zero pooled scales and singleton classes now retain source NaN/Inf diagnostics;
+queries reject undefined standardized scales or nonfinite shrunken centroids.
+Uniform singleton prediction remains defined. All-global-constant inputs are
+rejected, matching sklearn. Explicit safe divisions and range checks avoid
+floating-point traps. Source warning objects, sparse inputs and weighted score
+remain outside this native interface. See docs/API.md and
+`example/prior_weighted_centroids.f90`.
+
+`compare_centroid_priors.py` uses installed sklearn 1.6.1 across seeded binary/
+multiclass fits, tall/wide arrays, anisotropic/constant/classwise-constant data,
+singleton classes, both metrics, shrinkage and seven prior configurations.
+It compares all fitted statistics, query/training labels, accuracy, decisions,
+probabilities and their identities. Source NaN/Inf fields are retained, source
+method errors are certified against native errors, and roundoff label ties
+require source-score bounds. No fixture is discarded for undefined behavior.
+
+Final verification: all 147 native test programs passed with checked flags
+`-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow` and in release mode.
+Each profile passed 22,398 affected reference groups: 22,086 new NearestCentroid
+groups, all 120 original graph/neighbor groups and 192 integration groups.
+All 30 new rejection cases passed in each profile. The new suite retains 2,520
+fixtures, 3,798 nonfinite diagnostic fields, 1,458 source/native method-error
+certificates and 756 probability identities. Fourteen bounded label-rounding
+certificates were needed per profile. Their scale includes point/centroid
+magnitudes to account for cancellation in source Euclidean norm identities;
+direct numerical-output tolerances remain unchanged. No fixture was dropped.
+
+The final audit independently reconstructed the required fitted-statistic,
+available-method and expected-error inventory for every fixture. It matched
+cross-profile inventories, executable/validator/source hashes and all 284
+compiled source-content digests per profile. The example passed explicitly
+through fpm in both profiles and its output also matched installed sklearn.
+Reports, terminal logs and orchestration/audit scripts are archived in ignored
+`validation/results`, including `centroid_priors_final_audit.json`.
+
+Cumulative inventory: 217 public core types, 129 core modules, 147 native test
+programs, 125 core reference suites and 657,629 retained groups. Thirty-four
+invalid-input registries retain 3,475 cases. Only the affected reference suites
+listed here were rerun; the cumulative inventory is not a full-rerun claim.
+The separate 42-group legacy RNG reference suite remains excluded and was not
+rerun. All non-centroid neighbor procedure bodies were verified unchanged.
+MIT licensing and sklearn BSD attribution remain; no estimator type, external
+Fortran dependency or public extension algorithm is added.
