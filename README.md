@@ -188,3 +188,6 @@ Learning/validation curves and permutation significance tests are available thro
 
 Gaussian process classification supports independent one-vs-one pair fits and
 confidence-based voting; see [the example](example/gaussian_process_ovo.f90).
+
+Gaussian process regression supports seeded prior/posterior sampling, including
+independent multiple targets; see [the example](example/gaussian_process_sampling.f90).

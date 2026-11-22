@@ -5989,3 +5989,71 @@ restart checks per profile. Only the affected reference suites and checked
 integration suite listed here were rerun; 472,611 groups is the cumulative core
 coverage inventory. Test, gate, example-build and audit logs are retained beside
 the ignored reports.
+
+
+## Gaussian process sampling
+
+Added `sample_y` and `sample_y_multi` to the existing GP regressor, covering
+unfitted priors and fitted posteriors, scalar/multiple targets, normalized
+responses, heteroscedastic alpha, fitted kernel snapshots, zero requested draws,
+singular/repeated-query and zero covariance. Each call owns a legacy scalar-seeded
+RNG (default zero), consumes target/sample/query-major normals and leaves the
+intrinsic RNG and fitted model unchanged. The covariance uses a scaled native
+Jacobi SVD; tiny/huge scalar covariance fixtures reach 1e-240 and 1e240 without
+squaring those values directly.
+
+The native SVD basis can differ in sign or orientation from NumPy LAPACK, so
+seeded sample paths are reproducible natively but need not match sklearn paths.
+`validation/compare_gp_sampling.py` checks the intended Gaussian law and exact
+normal-stream scheduling without assuming a basis: whitening produces draw Gram
+matrices matching the source-seeded standard normals, and nullspace projections
+stay within numerical covariance-error bounds. This works for full rank, repeated
+singular values and rank-deficient kernels. Independent 20,000-draw fixtures check
+means, full covariance and cross-target independence against analytic sklearn
+moments with eight-standard-error bounds; sklearn's own draws are checked against
+the same bounds. Scalar native paths are compared directly with NumPy draws.
+
+The suite retains 6,450 groups over 588 fixtures, including 108 moment fixtures:
+13 ordinary kernel configurations, three seeds, one/three targets, six prior/
+posterior/normalization/snapshot/noise configurations, zero/one/seven draws and
+additional tiny/huge scalar priors. Twelve singleton-query prior fixtures record
+sklearn 1.6.1's sample_y shape failures and validate the intended draws directly
+with NumPy multivariate_normal; no fixture is silently omitted. Eight isolated
+rejections cover invalid sample counts, seeds, target count, query values/features,
+output capacity and nonfinite predictive moments.
+
+The inventory remains 217 core estimator/transformer/splitter types and 129 core
+modules, with 136 native test programs. There are 113 core reference suites with
+479,061 retained groups, plus the separate 42-group legacy RNG suite. Eight new
+rejection cases bring 23 registries to 3,260 cases. These are cumulative counts;
+final verification below lists the suites actually rerun for this increment.
+
+Run `python validation/compare_gp_sampling.py --profile checked`, or use
+`--profile release` / `--executable` for completed binaries. See
+`example/gaussian_process_sampling.f90`. Original contributions remain MIT;
+existing sklearn/NumPy notices apply. No dependency, public type or extension
+algorithm is added. Sparse/object inputs and RandomState objects remain outside
+the native interface.
+
+
+Final verification passed in checked and release profiles: all 136 native test
+programs; 6,450 sampling, 15,600 OVO GPC, 8,844 advanced GPC, 8,070 advanced GPR,
+9,132 kernel and 312 legacy GPC groups (48,408 affected reference groups per
+profile); and 104 affected invalid-input cases (8 sampling, 6 OVO, 13 advanced
+GPC, 28 advanced GPR, 27 kernel and 22 legacy GP). The checked integration suite
+passed 192 groups. The sampling example matched sklearn's posterior mean and
+source-seeded whitened draw Gram matrix in both profiles. The three existing
+constant-kernel roundoff tie certificates per profile remain explicit in the
+earlier kernel suite.
+
+The ignored `validation/results/gp_sampling_final_audit.json` verifies strict
+JSON reports, executable/validator and installed sklearn source hashes, identical
+checked/release check inventories and 271 compiled-content digests per profile:
+129 core modules, four vendor modules, 136 native test programs, the new driver
+and the new example. It verifies all 588 sampling fixtures, including 108 moment
+fixtures, ranks zero/one/four/five and twelve recorded source singleton-prior
+shape failures. The largest development seeded Gaussian Gram discrepancy was
+below 1.7e-12. Native SVD trajectories remain distinct from a promise of NumPy
+LAPACK trajectory identity. Only the affected suites and checked integration
+suite listed here were rerun; 479,061 groups is the cumulative core inventory.
+Test, gate, example-build and audit logs are retained beside the ignored reports.

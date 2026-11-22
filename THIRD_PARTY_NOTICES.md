@@ -918,3 +918,13 @@ confidence voting correction. The existing BSD-3-Clause attribution in
 LICENSES/scikit-learn-COPYING applies. Native padded subset maps, state layout,
 validation drivers and interfaces are original MIT contributions. No additional
 third-party source package or dependency is imported.
+
+
+`src/sklearn_gaussian_process.f90` adds the `sample_y` contract from scikit-learn
+1.6.1 `gaussian_process/_gpr.py`: prior/posterior moments, independent target
+sampling and target-major RNG scheduling. The covariance-factor sampling rule
+follows NumPy 2.2.6 RandomState's multivariate-normal SVD contract. Existing
+LICENSES/scikit-learn-COPYING, LICENSES/numpy-COPYING and NumPy RNG notices apply.
+The native scaled Jacobi factorization, explicit-rank Fortran interfaces and
+validation certificates are original MIT contributions. No additional source
+package, dependency or runtime library is imported.

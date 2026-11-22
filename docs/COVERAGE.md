@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 217 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and twelve reference suites additionally check 472,611
+All types have native tests. One hundred and thirteen reference suites additionally check 479,061
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -5907,3 +5907,39 @@ This is a documented Fortran interface adaptation of the same core algorithm.
 Refitting resets all subset maps and caches, including transitions between OVO,
 OVR and binary fits. The fitted decomposition is retained if `multi_class` is
 edited after fit; call `fit` to change it. See `example/gaussian_process_ovo.f90`.
+
+
+## Gaussian process prior and posterior sampling
+
+`draws=model%sample_y(x,n_samples=1,random_state=0)` returns a matrix with shape
+`(n_query,n_samples)` for a single target. Use `sample_y_multi` for shape
+`(n_query,n_targets,n_samples)` with one or more targets. Unfitted models sample
+the prior and use the configured `n_targets` (zero means one automatic target).
+Fitted models sample the posterior using the fitted kernels, target count and
+normalization scales, even if the configured kernel is subsequently changed.
+Zero requested draws return a zero-length final axis. Negative draw counts or
+seeds, nonfinite predictive moments and outputs exceeding default-integer array
+capacity are rejected. The single-target method rejects multiple targets.
+
+Sampling uses the existing scalar-seeded NumPy RandomState-compatible generator,
+with seed zero by default independently of the fit-time `random_state`. Each
+call owns its RNG state and leaves Fortran's intrinsic RNG and the fitted model
+unchanged. The draw order is target-major, then sample-major, then query-major;
+all query normals are consumed even for rank-deficient or zero covariance.
+Different targets are sampled independently, matching sklearn's multioutput GP.
+
+The covariance factor uses the existing native Jacobi SVD, with matrix scaling
+before decomposition to avoid overflow/underflow when covariance entries are
+squared. Zero covariance is handled directly; singular covariances do not need
+jitter. Nonnegative singular values follow NumPy's default SVD sampling rule.
+Native singular-vector signs and bases can differ from NumPy's LAPACK backend,
+so individual seeded trajectories are not promised to match sklearn. Native
+calls with the same inputs and seed are reproducible. The sampled Gaussian law,
+normal-stream structure, cross-target independence and predictive moments are
+validated independently of basis orientation; scalar paths also match directly.
+
+sklearn 1.6.1 has a singleton-query prior shape bug: `predict` squeezes the mean,
+then `sample_y` fails for both one and multiple targets. The Fortran methods
+retain the explicit shapes above. Those source failures are recorded and the
+intended scalar draws are compared with NumPy's direct multivariate-normal call.
+See `example/gaussian_process_sampling.f90`.

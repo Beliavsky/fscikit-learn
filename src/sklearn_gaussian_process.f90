@@ -2,7 +2,7 @@
 ! Native storage and optimizer controls are original MIT contributions.
 module sklearn_gaussian_process
   use sklearn_gp_classification, only: gaussian_process_classifier
-  use sklearn_common, only: dp,require,check_x,check_xy,solve_lower,solve_upper
+  use sklearn_common, only: dp,require,check_x,check_xy,solve_lower,solve_upper,dense_svd
   use sklearn_gp_kernels, only: gp_kernel,rbf_covariance,constant_covariance,white_covariance,operator(*),operator(+)
   use sklearn_legacy_rng, only: legacy_random_state
   use lbfgsb_module, only: setulb
@@ -35,6 +35,8 @@ module sklearn_gaussian_process
     procedure :: predict_std_multi=>gp_predict_std_multi
     procedure :: predict_cov=>gp_predict_cov
     procedure :: predict_cov_multi=>gp_predict_cov_multi
+    procedure :: sample_y=>gp_sample_y
+    procedure :: sample_y_multi=>gp_sample_y_multi
     procedure :: log_marginal_likelihood=>gp_likelihood
     procedure, private :: score_vector=>gp_score_vector,score_matrix=>gp_score_matrix
     generic :: score=>score_vector,score_matrix
@@ -403,6 +405,50 @@ contains
     real(dp), allocatable :: all_std(:,:)
     call require(output_count(self)==1,'GP multiple targets require predict_std_multi')
     all_std=self%predict_std_multi(x);std=all_std(:,1)
+  end function
+  function gp_sample_y_multi(self,x,n_samples,random_state) result(samples)
+    ! sklearn 1.6.1 _gpr.py sample_y and NumPy RandomState SVD-normal sampling.
+    ! Native Jacobi right-singular vectors choose a reproducible native basis.
+    class(gaussian_process_regressor), intent(in) :: self
+    real(dp), intent(in) :: x(:,:)
+    integer, optional, intent(in) :: n_samples,random_state
+    real(dp), allocatable :: samples(:,:,:),mean(:,:),cov(:,:,:),singular(:),u(:,:),v(:,:),z(:)
+    type(legacy_random_state) :: rng
+    real(dp) :: scale
+    integer :: draws,seed,n,q,i,j,k
+    draws=1;if(present(n_samples)) draws=n_samples
+    seed=0;if(present(random_state)) seed=random_state
+    call require(draws>=0,'GP sample count must be nonnegative')
+    call require(seed>=0,'GP sampling random_state must be nonnegative')
+    call check_x(x);n=size(x,1);q=output_count(self)
+    call require(int(n,int64)*q<=int(huge(1),int64)/max(1,draws),'GP sample output exceeds integer capacity')
+    mean=self%predict_multi(x);cov=self%predict_cov_multi(x)
+    call require(all(ieee_is_finite(mean)).and.all(ieee_is_finite(cov)),'GP sampling moments must be finite')
+    allocate(samples(n,q,draws),singular(n),u(n,n),v(n,n),z(n));call rng%seed(seed)
+    do k=1,q
+      scale=maxval(abs(cov(:,:,k)))
+      if(scale==0) then
+        v=0
+      else
+        ! Scaling avoids overflow/underflow from squaring covariance entries in Jacobi SVD.
+        call dense_svd(cov(:,:,k)/scale,singular,u,v)
+        v=v*spread(sqrt(singular)*sqrt(scale),1,n)
+      end if
+      do j=1,draws
+        do i=1,n
+          z(i)=rng%normal()
+        end do
+        samples(:,k,j)=mean(:,k)+matmul(v,z)
+      end do
+    end do
+  end function
+  function gp_sample_y(self,x,n_samples,random_state) result(samples)
+    class(gaussian_process_regressor), intent(in) :: self
+    real(dp), intent(in) :: x(:,:)
+    integer, optional, intent(in) :: n_samples,random_state
+    real(dp), allocatable :: samples(:,:),all_samples(:,:,:)
+    call require(output_count(self)==1,'GP multiple targets require sample_y_multi')
+    all_samples=self%sample_y_multi(x,n_samples,random_state);samples=all_samples(:,1,:)
   end function
   real(dp) function gp_likelihood(self,theta,gradient,clone_kernel) result(value)
     class(gaussian_process_regressor), intent(inout) :: self
