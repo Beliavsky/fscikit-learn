@@ -5624,5 +5624,43 @@ of axes at a component cutoff. Reference certificates check those subspaces,
 covariance normalization and the generalized eigen-equation. Coincident class
 means with zero between energy preserve source's NaN variance ratios; eigen
 transform width is retained even in that case. See
-`example/shrunk_discriminant_projection.f90`. Custom priors, automatic shrinkage
-and custom covariance-estimator objects remain outside this increment.
+`example/shrunk_discriminant_projection.f90`. Custom priors and custom covariance-estimator objects remain outside this
+interface. Automatic shrinkage is documented below.
+
+
+## Automatic LDA covariance shrinkage
+
+Set `%shrinkage_mode='auto'` for sklearn `shrinkage='auto'` with the LSQR or
+eigen solver. The native default `'fixed'` preserves existing scalar shrinkage.
+Automatic mode overrides the scalar `%shrinkage` value, which remains validated
+as a finite number in [0,1]. SVD rejects automatic shrinkage.
+
+Each class is standardized independently using corrected two-pass variance and
+sklearn's mean-dependent constant-feature bound. The existing native Ledoit-Wolf
+estimator fits standardized data, then its covariance is rescaled to feature
+units and combined with empirical class priors. Eigen fitting separately applies
+this procedure to the whole training set for its total covariance. Applying a
+single Ledoit-Wolf estimate to the pooled within covariance is not equivalent.
+`%class_shrinkage_` records ordered class coefficients; `%total_shrinkage_`
+records the eigen total coefficient, or -1 when it is not fitted. Fixed and SVD
+refits clear these diagnostics. No external runtime dependency is added.
+
+Automatic LSQR uses a numerical pseudoinverse and accepts rank-deficient or zero
+within covariance, matching source least squares. Its inherited logdet is
+negative infinity when the solve drops a direction. The existing fixed LSQR
+singular-covariance contract remains unchanged. Eigen still requires a positive
+definite within covariance. Automatic within/total estimates can produce an
+indefinite between matrix; negative generalized eigenvalues are retained.
+
+Automatic-mode decision columns use the first class as a zero reference and
+evaluate equivalent centered affine margins. This avoids subtracting huge common
+terms when a nearly constant feature has a large mean relative to its variance.
+Stored class-row coefficients and intercepts remain available. Ordinary reference
+fixtures compare source margins and probabilities directly. Ill-scaled fixtures
+retain 80-digit classifier certificates and scale-aware eigenvalue/basis checks
+when source double precision loses the small quantities. Uncentered eigen query
+coordinates still use the fitted axes; unresolved source eigenspaces are checked
+in the covariance metric. For isotropic standardized covariance, the shrinkage
+coefficient is numerically indeterminate while the fitted covariance is unchanged.
+See `example/automatic_discriminant_shrinkage.f90`. Custom priors and covariance
+estimator objects remain outside this native interface.

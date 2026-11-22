@@ -1001,3 +1001,14 @@ LICENSES/scikit-learn-COPYING are retained. Native Fortran bindings, Cholesky
 whitening, eigen diagnostics, refit-state clearing and numerical certificates
 are original MIT contributions. No external source package or dependency is
 imported.
+
+
+`src/sklearn_discriminant_analysis.f90` adds scikit-learn 1.6.1
+`discriminant_analysis.py` `_cov` / `_class_cov` automatic shrinkage semantics:
+classwise standardization, Ledoit-Wolf estimation and covariance rescaling.
+Corrected variance and constant-feature bounds follow `utils/extmath.py`
+`_incremental_mean_and_var` and `preprocessing/_data.py` `_is_constant_feature`.
+The existing native Ledoit-Wolf estimator and retained sklearn BSD notice in
+LICENSES/scikit-learn-COPYING apply. Fortran mode/diagnostic interfaces, centered
+margin evaluation and numerical certificates are original MIT contributions.
+No additional source package or external Fortran runtime is imported.

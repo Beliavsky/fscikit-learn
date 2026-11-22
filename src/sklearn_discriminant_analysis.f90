@@ -1,5 +1,6 @@
 module sklearn_discriminant_analysis
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite,ieee_value,ieee_quiet_nan,ieee_positive_inf,ieee_negative_inf
+  use sklearn_covariance, only: ledoit_wolf
   use sklearn_common
   use sklearn_metrics, only: accuracy_score
   implicit none
@@ -17,10 +18,11 @@ module sklearn_discriminant_analysis
     procedure :: score=>discriminant_score
   end type
   type, extends(quadratic_discriminant_analysis) :: linear_discriminant_analysis
-    character(8) :: solver='lsqr'
+    character(8) :: solver='lsqr',shrinkage_mode='fixed'
     logical :: store_covariance=.false.
     integer :: n_components=0,n_components_=0,within_rank_=0,between_rank_=0
-    real(dp) :: tol=1.e-4_dp
+    real(dp) :: tol=1.e-4_dp,total_shrinkage_=-1
+    real(dp), allocatable :: class_shrinkage_(:)
     real(dp), allocatable :: scalings_(:,:),xbar_(:),explained_variance_ratio_(:),eigenvalues_(:)
     real(dp) :: shrinkage=0
     real(dp), allocatable :: coef_(:,:),intercept_(:)
@@ -100,50 +102,106 @@ contains
     class(linear_discriminant_analysis), intent(inout) :: self
     real(dp), intent(in) :: x(:,:)
     integer, intent(in) :: y(:)
-    real(dp), allocatable :: pooled(:,:)
+    real(dp), allocatable :: pooled(:,:),group(:,:),estimate(:,:)
     real(dp) :: trace
-    integer :: c,j,p,nc
+    integer :: c,j,p,nc,i,row
     call require(any(self%solver==[character(8)::'lsqr','svd','eigen']),'unknown LDA solver')
     call require(ieee_is_finite(self%tol).and.ieee_is_finite(self%shrinkage),'LDA controls must be finite')
     call require(self%tol>=0,'LDA tol must be nonnegative')
     call require(self%shrinkage>=0.and.self%shrinkage<=1,'invalid LDA shrinkage')
+    call require(any(self%shrinkage_mode==[character(8)::'fixed','auto']),'unknown LDA shrinkage_mode')
     call require(self%n_components>=0,'LDA n_components must be nonnegative')
+    if(allocated(self%class_shrinkage_)) deallocate(self%class_shrinkage_)
+    self%total_shrinkage_=-1
     if(allocated(self%eigenvalues_)) deallocate(self%eigenvalues_)
     if(allocated(self%scalings_)) deallocate(self%scalings_)
     if(allocated(self%xbar_)) deallocate(self%xbar_)
     if(allocated(self%explained_variance_ratio_)) deallocate(self%explained_variance_ratio_)
     self%n_components_=0;self%within_rank_=0;self%between_rank_=0
     if(self%solver=='svd') then
+      call require(self%shrinkage_mode=='fixed','LDA SVD solver does not support automatic shrinkage')
       call require(self%shrinkage==0,'LDA SVD solver does not support shrinkage')
       call lda_svd_fit(self,x,y)
       return
     end if
-    call class_statistics(self,x,y,self%solver=='eigen');p=size(x,2);allocate(pooled(p,p));pooled=0
+    call class_statistics(self,x,y,self%solver=='eigen'.or.self%shrinkage_mode=='auto')
+    p=size(x,2);allocate(pooled(p,p));pooled=0
+    if(self%shrinkage_mode=='auto'.and.self%solver=='lsqr') &
+      call require(size(x,1)>size(self%classes_),'LDA auto needs more samples than classes')
     if(self%solver=='eigen') call require(size(x,1)>size(self%classes_),'LDA eigen needs more samples than classes')
     call require(self%n_components<=min(p,size(self%classes_)-1),'LDA n_components exceeds class/feature limit')
-    ! sklearn lsqr covariance is population covariance, weighted by class prior.
-    do c=1,size(self%classes_)
-      nc=count(y==self%classes_(c))
-      pooled=pooled+self%covariance_(:,:,c)*(nc-1)/size(y)
-    end do
-    trace=0
-    do j=1,p
-      trace=trace+pooled(j,j)/p
-    end do
-    pooled=(1-self%shrinkage)*pooled
-    do j=1,p
-      pooled(j,j)=pooled(j,j)+self%shrinkage*trace
-    end do
+    if(self%shrinkage_mode=='auto') then
+      allocate(self%class_shrinkage_(size(self%classes_)))
+      do c=1,size(self%classes_)
+        nc=count(y==self%classes_(c));allocate(group(nc,p));row=0
+        do i=1,size(y)
+          if(y(i)/=self%classes_(c)) cycle
+          row=row+1;group(row,:)=x(i,:)
+        end do
+        estimate=lda_auto_covariance(group,self%class_shrinkage_(c))
+        pooled=pooled+self%priors_(c)*estimate;deallocate(group)
+      end do
+    else
+      ! sklearn lsqr covariance is population covariance, weighted by class prior.
+      do c=1,size(self%classes_)
+        nc=count(y==self%classes_(c))
+        pooled=pooled+self%covariance_(:,:,c)*(nc-1)/size(y)
+      end do
+      trace=0
+      do j=1,p
+        trace=trace+pooled(j,j)/p
+      end do
+      pooled=(1-self%shrinkage)*pooled
+      do j=1,p
+        pooled(j,j)=pooled(j,j)+self%shrinkage*trace
+      end do
+    end if
     if(self%solver=='eigen') then
       call lda_eigen_fit(self,x,pooled)
       return
     end if
     do c=1,size(self%classes_)
       self%covariance_(:,:,c)=pooled
-      call invert_covariance(pooled,self%precision_(:,:,c),self%logdet_(c))
+      if(self%shrinkage_mode=='auto') then
+        call lda_pseudo_covariance(pooled,self%precision_(:,:,c),self%logdet_(c))
+      else
+        call invert_covariance(pooled,self%precision_(:,:,c),self%logdet_(c))
+      end if
     end do
     self%coef_=matmul(self%means_,self%precision_(:,:,1))
     self%intercept_=log(self%priors_)-0.5_dp*sum(self%coef_*self%means_,dim=2)
+  end subroutine
+  function lda_auto_covariance(x,amount) result(covariance)
+    real(dp), intent(in) :: x(:,:)
+    real(dp), intent(out) :: amount
+    real(dp), allocatable :: covariance(:,:),centered(:,:),mean(:),variance(:),scale(:),bound(:)
+    type(ledoit_wolf) :: estimate
+    integer :: n,p
+    n=size(x,1);p=size(x,2);mean=sum(x,dim=1)/n;centered=x-spread(mean,1,n)
+    ! Corrected two-pass variance and StandardScaler's mean-dependent constant bound.
+    variance=max(0._dp,(sum(centered*centered,dim=1)-sum(centered,dim=1)**2/n)/n)
+    scale=sqrt(variance);bound=n*epsilon(1._dp)*variance+(n*mean*epsilon(1._dp))**2
+    where(variance<=bound) scale=1
+    centered=centered/spread(scale,1,n)
+    call estimate%fit(centered);amount=estimate%shrinkage_
+    covariance=estimate%covariance_*spread(scale,2,p)*spread(scale,1,p)
+  end function
+  subroutine lda_pseudo_covariance(covariance,precision,logdet)
+    real(dp), intent(in) :: covariance(:,:)
+    real(dp), intent(out) :: precision(:,:),logdet
+    real(dp) :: s(size(covariance,1)),u(size(covariance,1),size(covariance,1))
+    real(dp) :: v(size(covariance,1),size(covariance,1)),inverse(size(covariance,1)),cutoff
+    integer :: j
+    call dense_svd(covariance,s,u,v);cutoff=epsilon(1._dp)*maxval(s);inverse=0
+    do j=1,size(s)
+      if(s(j)>cutoff.and.sum(u(:,j)*u(:,j))>.5_dp) inverse(j)=1/s(j)
+    end do
+    precision=matmul(v*spread(inverse,1,size(s)),transpose(u))
+    if(all(inverse>0)) then
+      logdet=sum(log(s))
+    else
+      logdet=ieee_value(0._dp,ieee_negative_inf)
+    end if
   end subroutine
   subroutine lda_eigen_fit(self,x,within)
     class(linear_discriminant_analysis), intent(inout) :: self
@@ -154,16 +212,20 @@ contains
     integer :: n,p,i,j,c,components,index
     n=size(x,1);p=size(x,2);components=min(p,size(self%classes_)-1)
     if(self%n_components>0) components=self%n_components
-    centered=x-spread(sum(x,dim=1)/n,1,n)
-    total=matmul(transpose(centered),centered)/n
-    trace=0
-    do j=1,p
-      trace=trace+total(j,j)/p
-    end do
-    total=(1-self%shrinkage)*total
-    do j=1,p
-      total(j,j)=total(j,j)+self%shrinkage*trace
-    end do
+    if(self%shrinkage_mode=='auto') then
+      total=lda_auto_covariance(x,self%total_shrinkage_)
+    else
+      centered=x-spread(sum(x,dim=1)/n,1,n)
+      total=matmul(transpose(centered),centered)/n
+      trace=0
+      do j=1,p
+        trace=trace+total(j,j)/p
+      end do
+      total=(1-self%shrinkage)*total
+      do j=1,p
+        total(j,j)=total(j,j)+self%shrinkage*trace
+      end do
+    end if
     between=total-within;l=cholesky_factor(within);upper=transpose(l)
     allocate(identity(p,p),inverse_l(p,p));identity=0
     do j=1,p
@@ -326,10 +388,23 @@ contains
   function lda_decision(self,x) result(z)
     class(linear_discriminant_analysis), intent(in) :: self
     real(dp), intent(in) :: x(:,:)
-    real(dp), allocatable :: z(:,:)
+    real(dp), allocatable :: z(:,:),difference(:),weight(:)
+    integer :: c
     call require(allocated(self%coef_),'LDA is not fitted')
     call check_xy(transpose(x),size(self%coef_,2))
-    z=matmul(x,transpose(self%coef_))+spread(self%intercept_,1,size(x,1))
+    if(self%shrinkage_mode=='auto') then
+      ! Evaluate the same affine classifier in a centered, first-class gauge.
+      ! Forming enormous common intercepts loses small, informative differences.
+      allocate(z(size(x,1),size(self%classes_)));z=0
+      do c=2,size(self%classes_)
+        difference=self%means_(c,:)-self%means_(1,:)
+        weight=matmul(difference,self%precision_(:,:,1))
+        z(:,c)=matmul(x-spread(self%means_(1,:),1,size(x,1))-.5_dp*spread(difference,1,size(x,1)),weight)+ &
+          log(self%priors_(c))-log(self%priors_(1))
+      end do
+    else
+      z=matmul(x,transpose(self%coef_))+spread(self%intercept_,1,size(x,1))
+    end if
   end function
   function discriminant_proba(self,x) result(prob)
     class(quadratic_discriminant_analysis), intent(in) :: self

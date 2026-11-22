@@ -212,3 +212,6 @@ for wide or rank-deficient data; see [the example](example/discriminant_projecti
 
 LDA also supports the generalized eigen solver with scalar shrinkage; see
 [the regularized projection example](example/shrunk_discriminant_projection.f90).
+
+LDA supports automatic standardized Ledoit-Wolf shrinkage; see
+[the example](example/automatic_discriminant_shrinkage.f90).

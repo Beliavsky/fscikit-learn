@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 217 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and twenty reference suites additionally check 539,689
+All types have native tests. One hundred and twenty-one reference suites additionally check 546,339
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -61,7 +61,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | feature_extraction_text | `count_vectorizer`, `tfidf_transformer`, `tfidf_vectorizer` | Dense unigram counts; ASCII alphanumeric/underscore tokens of length 2-128; sorted vocabulary; min/max document frequency, binary counts and max features; smoothed/unsmoothed IDF, sublinear TF, l1/l2/no normalization |
 | dummy | `dummy_classifier`, `dummy_regressor` | Prior/most-frequent/stratified/uniform/constant classification; mean/median/quantile/constant regression |
 | kernel_ridge | `kernel_ridge` | Positive alpha; linear/RBF/polynomial/sigmoid kernels; no intercept |
-| discriminant_analysis | `linear_discriminant_analysis`, `quadratic_discriminant_analysis` | LDA offers the native default LSQR covariance solver with scalar shrinkage and rank-aware SVD classification/projection plus generalized-eigen projections with scalar shrinkage; QDA scalar regularization; covariance-based solvers reject singular covariance |
+| discriminant_analysis | `linear_discriminant_analysis`, `quadratic_discriminant_analysis` | LDA offers the native default LSQR covariance solver with scalar shrinkage and rank-aware SVD classification/projection plus generalized-eigen projections and classwise automatic shrinkage; QDA scalar regularization; covariance-based solvers reject singular covariance |
 | svm | `svc`, `nu_svc`, `linear_svc`, `linear_svr`; re-exports `svr`, `nu_svr`, `one_class_svm` | Primal L2 squared-loss linear classification/regression; OVO SVC/NuSVC; epsilon/nu support-vector regression and one-class detection; native pairwise dual optimization and weighted capacities |
 | mixture | `gaussian_mixture`, `bayesian_gaussian_mixture` | EM Gaussian mixtures and variational Bayesian mixtures with finite Dirichlet or truncated stick-breaking weights; full/tied/diag/spherical covariances; responsibilities and likelihood scores; GaussianMixture BIC/AIC |
 | neural_network | `mlp_classifier`, `mlp_regressor`, `bernoulli_rbm` | Arbitrary dense hidden layer sizes, relu/tanh/logistic/identity, full-batch Adam, softmax classification or squared-error regression, L2 regularization |
@@ -6230,3 +6230,50 @@ Run `python validation/compare_discriminant_eigen.py --profile checked`, or use
 remain MIT with existing sklearn BSD notices retained. No public estimator type,
 extension algorithm or dependency is added. Custom priors and automatic
 shrinkage remain outside this increment.
+
+
+## Automatic discriminant covariance shrinkage (2026-11-22)
+
+Added sklearn LDA's classwise standardized Ledoit-Wolf shrinkage for LSQR/eigen,
+with independent total covariance estimation for eigen. The existing native
+Ledoit-Wolf estimator is reused; corrected two-pass variance and source's
+mean-dependent constant-feature test provide standardization. Ordered class and
+eigen-total shrinkage diagnostics are stored and cleared on fixed-mode refitting.
+Automatic LSQR uses numerical least squares for singular covariance; eigen
+retains its positive-definite requirement. Fixed solver defaults remain unchanged.
+
+Automatic decision scores evaluate centered affine margins relative to the first
+class. This preserves the classifier while avoiding cancellation of large common
+intercepts. The stored coefficient/intercept rows keep their native interfaces.
+
+`validation/compare_discriminant_auto.py` retains 6,650 groups across 357 fixtures
+and 357 covariance/pseudoinverse certificates. Three seeds cover binary and
+multiclass labels, tall/wide/single-feature input, singleton classes, unequal
+feature units, constant and near-constant features, both solvers and component
+caps. Per-class and total estimates compare with separately standardized source
+Ledoit-Wolf fits. Six numerical-rank-deficient LSQR cases include zero covariance
+and rank-one fits; 134 cases retain negative source generalized eigenvalues.
+
+All fixtures remain. Six extreme near-constant cases use 80-digit classifier
+certificates, source cancellation bounds and scaled covariance comparisons.
+Six spectral certificates bound small-root uncertainty relative to the whitened
+matrix norm, check basis error in covariance units and verify projection identities
+against the retained source-certified axes. Seven repeated-basis certificates
+and one undefined-ratio certificate are retained. Six classwise isotropy
+certificates explain differing shrinkage coefficients with equivalent covariance;
+the coefficient has no identifiable effect at an isotropic covariance.
+Twenty rejection cases cover modes/controls, unsupported SVD automatic shrinkage,
+class/sample counts, singular eigen fitting, finite/shape and fitted contracts.
+
+Inventory: 217 core public types, 129 core modules, 144 native test programs,
+121 core reference suites and 546,339 cumulative retained groups. The separate
+42-group legacy RNG reference suite remains excluded. Thirty-one invalid-input
+registries retain 3,400 cases. These are cumulative counts, not a complete rerun
+claim; final verification below identifies the suites actually rerun.
+
+Run `python validation/compare_discriminant_auto.py --profile checked`, or use
+`--profile release` / `--executable`. The validator needs mpmath for its 80-digit
+certificates. Fortran interfaces and centered evaluation remain MIT, with the
+existing sklearn BSD notice retained. No public estimator type, extension
+algorithm or external Fortran dependency is added. Custom priors remain outside
+this increment.

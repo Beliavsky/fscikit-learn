@@ -6422,3 +6422,76 @@ and illustrative training accuracy matched installed sklearn. Reports, the
 audit and seven terminal logs are retained in ignored `validation/results`.
 The cumulative inventory above is not a full rerun claim. Unrelated reference
 suites and the separate 42-group legacy RNG reference suite were not rerun.
+
+
+## Automatic discriminant covariance shrinkage (2026-11-22)
+
+Added sklearn LDA's classwise standardized Ledoit-Wolf shrinkage for LSQR/eigen,
+with independent total covariance estimation for eigen. The existing native
+Ledoit-Wolf estimator is reused; corrected two-pass variance and source's
+mean-dependent constant-feature test provide standardization. Ordered class and
+eigen-total shrinkage diagnostics are stored and cleared on fixed-mode refitting.
+Automatic LSQR uses numerical least squares for singular covariance; eigen
+retains its positive-definite requirement. Fixed solver defaults remain unchanged.
+
+Automatic decision scores evaluate centered affine margins relative to the first
+class. This preserves the classifier while avoiding cancellation of large common
+intercepts. The stored coefficient/intercept rows keep their native interfaces.
+
+`validation/compare_discriminant_auto.py` retains 6,650 groups across 357 fixtures
+and 357 covariance/pseudoinverse certificates. Three seeds cover binary and
+multiclass labels, tall/wide/single-feature input, singleton classes, unequal
+feature units, constant and near-constant features, both solvers and component
+caps. Per-class and total estimates compare with separately standardized source
+Ledoit-Wolf fits. Six numerical-rank-deficient LSQR cases include zero covariance
+and rank-one fits; 134 cases retain negative source generalized eigenvalues.
+
+All fixtures remain. Six extreme near-constant cases use 80-digit classifier
+certificates, source cancellation bounds and scaled covariance comparisons.
+Six spectral certificates bound small-root uncertainty relative to the whitened
+matrix norm, check basis error in covariance units and verify projection identities
+against the retained source-certified axes. Seven repeated-basis certificates
+and one undefined-ratio certificate are retained. Six classwise isotropy
+certificates explain differing shrinkage coefficients with equivalent covariance;
+the coefficient has no identifiable effect at an isotropic covariance.
+Twenty rejection cases cover modes/controls, unsupported SVD automatic shrinkage,
+class/sample counts, singular eigen fitting, finite/shape and fitted contracts.
+
+Inventory: 217 core public types, 129 core modules, 144 native test programs,
+121 core reference suites and 546,339 cumulative retained groups. The separate
+42-group legacy RNG reference suite remains excluded. Thirty-one invalid-input
+registries retain 3,400 cases. These are cumulative counts, not a complete rerun
+claim; final verification below identifies the suites actually rerun.
+
+Run `python validation/compare_discriminant_auto.py --profile checked`, or use
+`--profile release` / `--executable`. The validator needs mpmath for its 80-digit
+certificates. Fortran interfaces and centered evaluation remain MIT, with the
+existing sklearn BSD notice retained. No public estimator type, extension
+algorithm or external Fortran dependency is added. Custom priors remain outside
+this increment.
+
+
+Final verification: all 144 native test programs passed in checked mode
+(`-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow`) and release mode.
+Each profile passed 31,378 reference groups: 6,650 automatic-shrinkage groups,
+13,452 retained eigen groups, 11,084 retained SVD groups and all 192 integration
+groups, including fixed LSQR LDA and QDA. All 20 new, 20 eigen and 20 SVD
+rejection checks passed per profile. The 20,000-feature SVD case still passed
+without allocating feature covariance.
+
+The final audit matched executable, validator and upstream-source hashes and
+checked 282 compiled source-content digests per profile (129 core modules,
+144 native tests, four vendor sources, four affected drivers and the example).
+It retained all 357 new covariance certificates, seven basis certificates,
+six 80-digit classifier certificates, six spectral roundoff certificates,
+six isotropic-coefficient certificates, six numerical-rank-deficient LSQR cases,
+134 cases with negative source generalized eigenvalues and one undefined-ratio
+case, plus the retained eigen/SVD certificates. No fixture or query row was
+removed. Both profiles retained identical case inventories and certificate counts.
+
+Both explicit fpm example runs passed; shape, class/total shrinkage and
+illustrative training accuracy matched sklearn. Reports, the final audit and
+seven terminal logs are retained in ignored `validation/results`. These checks
+are the affected suites rerun for this increment; the cumulative inventory
+above is not a complete rerun claim. Unrelated reference suites and the
+separate 42-group legacy RNG reference suite were not rerun.
