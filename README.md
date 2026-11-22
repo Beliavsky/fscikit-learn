@@ -19,6 +19,7 @@ fpm test
 fpm run --example histogram_boosting
 fpm run --example image_patches
 fpm run --example neighborhood_components
+fpm run --example gaussian_process_classification
 fpm run --example gaussian_process_regression
 fpm run --example gaussian_process_kernels
 fpm run --example classification_sample_generators

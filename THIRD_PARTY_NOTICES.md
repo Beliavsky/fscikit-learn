@@ -897,3 +897,15 @@ vendored L-BFGS-B 3.0 solver is reused unchanged under its retained notices.
 Native multi-rank interfaces, diagnostic storage and optimizer controls are
 original MIT contributions. No additional third-party code or runtime dependency
 is imported for this increment.
+
+`src/sklearn_gp_classification.f90` further adapts sklearn 1.6.1
+`gaussian_process/_gpc.py`: GPML Algorithm 5.1 likelihood derivatives, binary
+posterior-mode caching, bounded optimizer/restart scheduling (including the
+pinned classifier's exponentiated restart-theta rule), cloned/mutated evaluation
+and independent OVR head kernels. `multiclass.py` supplies the head ordering and
+mean likelihood contract. NumPy 2.2.6 pairwise reduction semantics reuse the
+existing translated helper under LICENSES/numpy-COPYING; the standard runtime
+log1p function is called through ISO_C_BINDING. Existing sklearn BSD and vendor
+L-BFGS-B notices remain applicable. Typed per-head storage, cache diagnostics and
+native interfaces are original MIT contributions. No additional source package
+or third-party runtime dependency is imported.

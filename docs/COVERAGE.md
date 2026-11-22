@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 217 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and ten reference suites additionally check 448,167
+All types have native tests. One hundred and eleven reference suites additionally check 457,011
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -65,7 +65,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | svm | `svc`, `nu_svc`, `linear_svc`, `linear_svr`; re-exports `svr`, `nu_svr`, `one_class_svm` | Primal L2 squared-loss linear classification/regression; OVO SVC/NuSVC; epsilon/nu support-vector regression and one-class detection; native pairwise dual optimization and weighted capacities |
 | mixture | `gaussian_mixture`, `bayesian_gaussian_mixture` | EM Gaussian mixtures and variational Bayesian mixtures with finite Dirichlet or truncated stick-breaking weights; full/tied/diag/spherical covariances; responsibilities and likelihood scores; GaussianMixture BIC/AIC |
 | neural_network | `mlp_classifier`, `mlp_regressor`, `bernoulli_rbm` | Arbitrary dense hidden layer sizes, relu/tanh/logistic/identity, full-batch Adam, softmax classification or squared-error regression, L2 regularization |
-| gaussian_process | `gaussian_process_regressor`, `gaussian_process_classifier` | Configurable covariance expressions or legacy RBF controls; anisotropy, Matern/RQ/periodic/dot/constant/white kernels and sums/products/powers; scalar/vector-alpha Cholesky regression, independent multiple targets, likelihood gradients and opt-in bounded kernel fitting; fixed-kernel Laplace binary/OVR classification |
+| gaussian_process | `gaussian_process_regressor`, `gaussian_process_classifier` | Configurable covariance expressions or legacy RBF controls; anisotropy, Matern/RQ/periodic/dot/constant/white kernels and sums/products/powers; scalar/vector-alpha Cholesky regression, independent multiple targets, likelihood gradients and opt-in bounded kernel fitting; Laplace binary/OVR classification with optional independent kernel fitting, binary likelihood gradients and warm starts |
 | covariance | `empirical_covariance`, `shrunk_covariance`, `ledoit_wolf`, `oas`, `graphical_lasso`, `graphical_lasso_cv`, `min_cov_det`, `elliptic_envelope`; `fast_mcd` | Population covariance, pseudoinverse precision, squared Mahalanobis distance, likelihood, Frobenius/spectral covariance error; L1-penalized sparse precision via block coordinate descent and refined cross-validation; FastMCD robust covariance and elliptic outlier detection |
 | calibration | `calibrated_classifier_cv`; `calibration_curve` | Sigmoid/isotonic CV ensembles, out-of-fold calibration and prefit calibration with logistic, Gaussian NB or KNN bases; uniform/quantile reliability bins |
 | datasets | `make_classification`, `make_hastie_10_2`, `make_blobs`, `make_regression`, `make_moons`, `make_circles`, `make_friedman1/2/3`, `make_sparse_uncorrelated`, `make_s_curve`, `make_swiss_roll`, `make_gaussian_quantiles` | Native synthetic generators; new regression/manifold/quantile generators match seeded legacy NumPy draws; no bundled real-world datasets |
@@ -5785,3 +5785,85 @@ metadata routing and general GP classifier kernel optimization remain outside
 this increment. No new dependency or public extension algorithm is introduced.
 Original contributions remain MIT with the existing sklearn, NumPy and optimizer
 notices retained.
+
+
+## GP classifier likelihood gradients, kernel fitting and warm starts
+
+`gaussian_process_classifier` now evaluates binary Laplace marginal-likelihood
+gradients and optionally learns kernel parameters using bounded L-BFGS-B with
+seeded restarts. Multiclass one-vs-rest heads are optimized independently and
+retain separate fitted `%kernels_(:)` in sorted class order; binary fits have
+one kernel. Prediction uses each head's own covariance and diagonal. Original
+scalar RBF controls remain supported and fixed. Native optimizer='none' remains
+the default; set `%optimizer='fmin_l_bfgs_b'` for free parameters of an explicit
+kernel expression. No classifier algorithm outside sklearn is added.
+
+Controls `%n_restarts_optimizer`, `%random_state`, `%max_iter`, `%max_fun`, `%tol`
+and `%ftol` follow the GP regressor's native interface, using the existing
+L-BFGS-B 3.0 implementation with ten correction vectors, gtol=1e-5,
+ftol=2.220446049250313e-9 and default 15,000 iteration/evaluation limits. Each
+head receives the same scalar RNG seed, matching sklearn's independently cloned
+binary estimators. There is a pinned-source distinction: sklearn 1.6.1 GPC
+exponentiates its uniform draw in log bounds before passing it as optimizer
+theta. This differs from GPR, which passes the log-uniform draw directly. Native
+GPC deliberately preserves that exponentiation and subsequent bound clipping;
+it does not silently substitute the GPR convention. Raw initial points are
+retained in `%optimization_initial_points_` and compared directly with sklearn.
+
+`%warm_start` reuses the last posterior mode while evaluating candidate kernels.
+It defaults false. A new fit resets caches, as sklearn's outer classifier
+recreates its binary estimators. Fit performs the source's likelihood evaluation
+and separate predictive posterior-mode calculation. Fitted mode-control snapshots
+preserve the settings used at fit even if parent controls are edited later.
+`%posterior_mode_` retains fitted prediction state; `%mode_cache_` tracks the
+separate likelihood-evaluation cache, including updates on cloned evaluations.
+`%fit_initial_cache_` records the cache entering the final predictive mode solve.
+
+`value=model%log_marginal_likelihood()` remains callable from an intent(in) model
+and returns the cached fit value. With a theta vector, optional allocated output
+`gradient` returns the binary derivative, and optional `clone_kernel` defaults
+true. Cloned evaluation preserves fitted kernel/prediction factors while updating
+the mode cache, as in the source. False updates fitted kernel parameters without
+rebuilding prediction factors. Multiclass evaluation accepts either one shared
+theta or class-major concatenated head parameters and returns mean likelihood;
+multiclass gradients raise a diagnostic, matching sklearn. Requesting a cached
+gradient without theta is rejected via `eval_gradient=.true.`.
+
+The likelihood derivative implements GPML Algorithm 5.1, including the third
+logistic derivative and posterior-mode correction. Posterior iteration follows
+Algorithm 3.1 and retains the pre-update pi/W/L and previous likelihood at the
+source stopping point. NumPy-compatible pairwise sums, source multiplication
+grouping and a standard C-runtime log1p call reduce numerical differences without
+adding a package dependency. General Matern gradients retain the existing analytic
+Bessel implementation; independent central differences additionally validate them.
+
+Diagnostics distinguish posterior convergence from optimizer convergence and
+retain per-head iteration/evaluation totals, per-run points/objectives, per-run
+termination messages and convergence flags, and the selected run's status.
+`%optimization_eval_cache_` retains the input cache associated with each returned
+run objective, including a solver-restored accepted point after line-search stops.
+Warm objectives depend on cache history and truncated Newton convergence, so
+validation replays sklearn's mode solve from the same recorded input state for
+endpoint and final-prediction transitions. Independent full sklearn fits still
+check learned likelihoods and probabilities, every restart result and initial
+point. No fixture is removed for a path difference. Explicit likelihood evaluations leave the cached fit likelihood unchanged.
+
+The inventory remains 217 core estimator/transformer/splitter types and 129 core
+source modules, with 134 native test programs. A new suite brings 111 core
+reference suites to 457,011 retained groups, plus the separate 42-group legacy
+RNG suite. Thirteen new rejection cases bring 21 registries to 3,246 cases.
+The new suite retains 8,844 groups over 324 fixtures: two/three classes, nine
+kernel configurations, three seeds and six cold/warm/optimized/truncated-mode
+configurations. It includes 96 independent optimization comparisons, 288 restart
+endpoint checks, analytic/central gradients, posterior state, shared/packed theta,
+clone/mutation semantics, refits and exact labels. Development learned-probability
+differences were below 5e-6 and selected likelihood differences below 8e-7;
+conditional posterior and cache transitions agreed to near machine precision.
+
+Run `python validation/compare_gpc_advanced.py --profile checked`; use
+`--profile release` or `--executable` for completed binaries. See
+`example/gaussian_process_classification.f90` for learned multiclass kernels.
+One-vs-one GPC, multiclass likelihood gradients, object/sparse kernels and metadata
+routing remain outside this increment. Original native interfaces and diagnostic
+storage remain MIT, with sklearn, NumPy and the existing optimizer notices
+retained. No external repository or dependency is imported.

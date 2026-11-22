@@ -5823,3 +5823,104 @@ gpr_advanced_invalid_*.json, gpr_advanced_example_*.json, the affected GP report
 and gpr_advanced_*_tests.log / gpr_advanced_*_gates.log. Other historical reference
 suites were retained rather than all rerun for this increment. The broader
 sklearn translation remains ongoing.
+
+
+## GP classifier likelihood gradients, kernel fitting and warm starts
+
+`gaussian_process_classifier` now evaluates binary Laplace marginal-likelihood
+gradients and optionally learns kernel parameters using bounded L-BFGS-B with
+seeded restarts. Multiclass one-vs-rest heads are optimized independently and
+retain separate fitted `%kernels_(:)` in sorted class order; binary fits have
+one kernel. Prediction uses each head's own covariance and diagonal. Original
+scalar RBF controls remain supported and fixed. Native optimizer='none' remains
+the default; set `%optimizer='fmin_l_bfgs_b'` for free parameters of an explicit
+kernel expression. No classifier algorithm outside sklearn is added.
+
+Controls `%n_restarts_optimizer`, `%random_state`, `%max_iter`, `%max_fun`, `%tol`
+and `%ftol` follow the GP regressor's native interface, using the existing
+L-BFGS-B 3.0 implementation with ten correction vectors, gtol=1e-5,
+ftol=2.220446049250313e-9 and default 15,000 iteration/evaluation limits. Each
+head receives the same scalar RNG seed, matching sklearn's independently cloned
+binary estimators. There is a pinned-source distinction: sklearn 1.6.1 GPC
+exponentiates its uniform draw in log bounds before passing it as optimizer
+theta. This differs from GPR, which passes the log-uniform draw directly. Native
+GPC deliberately preserves that exponentiation and subsequent bound clipping;
+it does not silently substitute the GPR convention. Raw initial points are
+retained in `%optimization_initial_points_` and compared directly with sklearn.
+
+`%warm_start` reuses the last posterior mode while evaluating candidate kernels.
+It defaults false. A new fit resets caches, as sklearn's outer classifier
+recreates its binary estimators. Fit performs the source's likelihood evaluation
+and separate predictive posterior-mode calculation. Fitted mode-control snapshots
+preserve the settings used at fit even if parent controls are edited later.
+`%posterior_mode_` retains fitted prediction state; `%mode_cache_` tracks the
+separate likelihood-evaluation cache, including updates on cloned evaluations.
+`%fit_initial_cache_` records the cache entering the final predictive mode solve.
+
+`value=model%log_marginal_likelihood()` remains callable from an intent(in) model
+and returns the cached fit value. With a theta vector, optional allocated output
+`gradient` returns the binary derivative, and optional `clone_kernel` defaults
+true. Cloned evaluation preserves fitted kernel/prediction factors while updating
+the mode cache, as in the source. False updates fitted kernel parameters without
+rebuilding prediction factors. Multiclass evaluation accepts either one shared
+theta or class-major concatenated head parameters and returns mean likelihood;
+multiclass gradients raise a diagnostic, matching sklearn. Requesting a cached
+gradient without theta is rejected via `eval_gradient=.true.`.
+
+The likelihood derivative implements GPML Algorithm 5.1, including the third
+logistic derivative and posterior-mode correction. Posterior iteration follows
+Algorithm 3.1 and retains the pre-update pi/W/L and previous likelihood at the
+source stopping point. NumPy-compatible pairwise sums, source multiplication
+grouping and a standard C-runtime log1p call reduce numerical differences without
+adding a package dependency. General Matern gradients retain the existing analytic
+Bessel implementation; independent central differences additionally validate them.
+
+Diagnostics distinguish posterior convergence from optimizer convergence and
+retain per-head iteration/evaluation totals, per-run points/objectives, per-run
+termination messages and convergence flags, and the selected run's status.
+`%optimization_eval_cache_` retains the input cache associated with each returned
+run objective, including a solver-restored accepted point after line-search stops.
+Warm objectives depend on cache history and truncated Newton convergence, so
+validation replays sklearn's mode solve from the same recorded input state for
+endpoint and final-prediction transitions. Independent full sklearn fits still
+check learned likelihoods and probabilities, every restart result and initial
+point. No fixture is removed for a path difference. Explicit likelihood evaluations leave the cached fit likelihood unchanged.
+
+The inventory remains 217 core estimator/transformer/splitter types and 129 core
+source modules, with 134 native test programs. A new suite brings 111 core
+reference suites to 457,011 retained groups, plus the separate 42-group legacy
+RNG suite. Thirteen new rejection cases bring 21 registries to 3,246 cases.
+The new suite retains 8,844 groups over 324 fixtures: two/three classes, nine
+kernel configurations, three seeds and six cold/warm/optimized/truncated-mode
+configurations. It includes 96 independent optimization comparisons, 288 restart
+endpoint checks, analytic/central gradients, posterior state, shared/packed theta,
+clone/mutation semantics, refits and exact labels. Development learned-probability
+differences were below 5e-6 and selected likelihood differences below 8e-7;
+conditional posterior and cache transitions agreed to near machine precision.
+
+Run `python validation/compare_gpc_advanced.py --profile checked`; use
+`--profile release` or `--executable` for completed binaries. See
+`example/gaussian_process_classification.f90` for learned multiclass kernels.
+One-vs-one GPC, multiclass likelihood gradients, object/sparse kernels and metadata
+routing remain outside this increment. Original native interfaces and diagnostic
+storage remain MIT, with sklearn, NumPy and the existing optimizer notices
+retained. No external repository or dependency is imported.
+
+
+Final verification for this increment passed in checked and release profiles:
+all 134 native test programs; 8,844 new GPC groups over 324 fixtures, including
+96 independent optimization comparisons and 288 restart checks; the existing
+8,070 advanced GPR, 9,132 kernel and 312 GPC groups; and 90 affected invalid-input
+cases (13 new, 28 GPR, 27 kernel and 22 legacy GP cases). The checked integration
+suite also passed all 192 groups. The three constant-kernel floating-point tie
+certificates per profile remain explicit; every other classification fixture
+retains exact-label comparison. The updated multiclass example matched sklearn
+in both profiles after explicitly rebuilding its stale checked executable.
+
+The final ignored `validation/results/gpc_advanced_final_audit.json` validates
+269 compiled-content digests per profile (129 core modules, four vendor modules,
+134 native test programs, the new driver and the updated example), executable
+and validator hashes, installed sklearn source hashes, strict JSON reports and
+identical checked/release check inventories. The 457,011 retained core
+reference groups are the cumulative inventory; only the affected suites
+listed above and the checked integration suite were rerun for this increment.
