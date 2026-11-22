@@ -11,7 +11,8 @@ contains
     type(legacy_random_state), intent(inout) :: rng
     integer, intent(in) :: population,count
     logical, intent(in) :: replace
-    integer :: ids(count),pool(population),i,j,tmp
+    integer :: ids(count),i,j,tmp
+    integer, allocatable :: pool(:)
     real(dp) :: ratio
     if(replace) then
       do i=1,count

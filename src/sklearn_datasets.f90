@@ -1,11 +1,13 @@
 module sklearn_datasets
   use sklearn_common
+  use sklearn_classification_datasets, only: make_classification,make_hastie_10_2,classification_dataset_options
   use sklearn_sample_generators, only: make_friedman1,make_friedman2,make_friedman3,make_sparse_uncorrelated, &
     make_s_curve,make_swiss_roll,make_gaussian_quantiles
   use sklearn_model_selection, only: shuffle_indices
   implicit none
   private
   public :: make_blobs,make_regression,make_moons,make_circles
+  public :: make_classification,make_hastie_10_2,classification_dataset_options
   public :: make_friedman1,make_friedman2,make_friedman3,make_sparse_uncorrelated
   public :: make_s_curve,make_swiss_roll,make_gaussian_quantiles
 contains

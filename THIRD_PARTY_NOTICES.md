@@ -851,3 +851,14 @@ BSD-3-Clause source. The sklearn notice and LICENSES/scikit-learn-COPYING remain
 applicable. Native interfaces, checks and tests are original MIT contributions.
 These generators reuse the existing separately attributed NumPy-compatible RNG;
 no additional external code or dependency was imported.
+
+`src/sklearn_classification_datasets.f90`, re-exported by `sklearn_datasets`,
+adapts sklearn 1.6.1 `datasets/_samples_generator.py` make_classification,
+_generate_hypercube and make_hastie_10_2: weighted cluster allocation, binary
+vertices, random covariance and feature blocks, flip masks, affine transforms,
+seeded permutations and the Hastie radial boundary. Existing
+`sklearn_bagging_sampling` follows `utils/_random.pyx` sample_without_replacement;
+its pool allocation is now deferred to the permutation branch. Upstream
+BSD-3-Clause terms and LICENSES/scikit-learn-COPYING remain applicable. Typed
+options, native interfaces and diagnostics are original MIT contributions.
+The existing separately attributed legacy NumPy RNG is reused unchanged.

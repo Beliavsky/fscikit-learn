@@ -4921,3 +4921,84 @@ Run `python validation/compare_sample_generators.py --profile checked`, or use
 `example/synthetic_sample_generators.f90`. Python is used only for validation.
 Original native contributions remain MIT; sklearn-derived portions retain the
 existing upstream BSD notice and the existing RNG notices remain applicable.
+
+
+## Clustered classification and Hastie benchmark generators
+
+`make_classification` and `make_hastie_10_2` are now exported by
+`sklearn_datasets` and the facade. They adapt sklearn 1.6.1
+`datasets/_samples_generator.py` in `sklearn_classification_datasets`. The
+`classification_dataset_options` type stores generation parameters; it is not
+counted as an estimator. The inventory remains 217 core estimator/transformer/
+splitter types, with 127 source modules and 128 native test programs. There are
+108 core reference suites retaining 430,965 groups, plus the separate 42-group
+legacy RNG suite. Thirty-three new isolated rejection cases bring 18 registries
+to 3,178 cases. No extension algorithm or new dependency is introduced.
+
+```
+type(classification_dataset_options) :: options
+options%n_informative=4
+options%n_redundant=2
+options%n_repeated=1
+options%n_classes=3
+options%weights=[.2_dp,.3_dp]
+options%random_state=42
+call make_classification(120,9,x,labels,options)
+call make_hastie_10_2(120,x,labels,random_state=42)
+```
+
+Both routines allocate real X matrices and integer label vectors. Native sample
+and feature counts are required, following the existing dataset API; an omitted
+seed deterministically uses zero rather than Python's global random state.
+`make_classification` accepts optional options with Python's remaining defaults:
+2 informative, 2 redundant, 0 repeated features; 2 classes and 2 clusters per
+class; flip_y=0.01; class_sep=1; hypercube=true; shift=0; scale=1; shuffle=true.
+
+The generator covers distinct binary hypercube vertices, scaled random polytopes,
+per-cluster random covariance, redundant linear combinations, repeated columns,
+uninformative Gaussian columns, weighted cluster allocation, randomly replaced
+labels, affine transforms, sample shuffling and independent feature shuffling.
+Informative dimensions above 30 follow the source's leading random bits plus
+30-bit distinct vertices. Empty clusters still consume their covariance draws.
+Full and partial class weights retain source truncation and cyclic remainder
+allocation. Weights are not normalized: totals below one receive the remaining
+samples, and overallocated clusters are clipped to the requested row count, as
+in the source. A missing last class weight is inferred from one minus the sum.
+
+Options `feature_shift(:)` and `feature_scale(:)` represent Python vector
+transforms and override the corresponding scalar fields. `random_shift` and
+`random_scale` represent Python shift=None and scale=None. Random flags cannot
+be combined with explicit vectors. Scalars and vectors must be finite; scalar
+scale must be positive, while vector scales may include zero and negative
+entries, matching the source array parameter path. Native weights must be finite
+and nonnegative, including an inferred last class; negative-weight slice behavior
+accepted incidentally by Python is outside the native scope. Cluster products and
+weighted cluster sizes must fit native default integers. Noise fractions must be
+in [0,1], class separation positive, feature blocks must fit, and the requested
+vertices must be representable by the informative dimensions.
+
+Hastie 10.2 generates ten standard Gaussian features with labels +1 where squared
+radius exceeds 9.34, and -1 otherwise. Labels are native integers rather than
+Python's float array, with identical class values. Both generators use independent
+local legacy RandomState-compatible RNG streams and leave caller options intact.
+
+The shared bagging sampling helper now allocates its population pool only for
+its permutation branch. Tracking and reservoir selection retain their previous
+random draws without a needless population-sized allocation; this makes sampling
+small vertex sets from a 2**30 population practical. Native tracking membership
+uses a linear search, so very large tracked subsets can still be expensive.
+
+The new source suite retains 608 result groups over 304 fixtures: 256 clustered
+classification fixtures (32 configurations, eight seeds including the largest
+native positive default integer) and 48 Hastie fixtures, including 12,000-row
+benchmark draws. Complete features and labels are compared against sklearn.
+Cases cover each sampling branch, empty and overallocated clusters, inferred/
+zero/unnormalized weights, all feature blocks, one class, all/no label flips,
+high informative dimensions, random polytopes and scalar/vector/random affine
+transforms. There are also 33 isolated invalid-input checks.
+
+Run `python validation/compare_classification_datasets.py --profile checked`;
+use `--profile release` or `--executable` for an existing canonical driver.
+See `example/classification_sample_generators.f90` for public usage. Original
+native contributions remain MIT with retained sklearn BSD and existing RNG
+notices. No external repository was imported.
