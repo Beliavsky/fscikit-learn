@@ -185,3 +185,6 @@ and its attribution requirements are reviewed in [UPSTREAM_REUSE.md](docs/UPSTRE
 Learning/validation curves and permutation significance tests are available through
 `sklearn_validation` and the facade; see [API details](docs/API.md) and
 [the example](example/model_learning_curves.f90).
+
+Gaussian process classification supports independent one-vs-one pair fits and
+confidence-based voting; see [the example](example/gaussian_process_ovo.f90).

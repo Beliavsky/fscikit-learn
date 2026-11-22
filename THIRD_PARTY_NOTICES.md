@@ -909,3 +909,12 @@ log1p function is called through ISO_C_BINDING. Existing sklearn BSD and vendor
 L-BFGS-B notices remain applicable. Typed per-head storage, cache diagnostics and
 native interfaces are original MIT contributions. No additional source package
 or third-party runtime dependency is imported.
+
+
+The one-vs-one path in `src/sklearn_gp_classification.f90` adapts scikit-learn
+1.6.1 `gaussian_process/_gpc.py` and `multiclass.py`: lexicographic class pairs,
+row subset selection, independent binary fits, mean likelihood and the bounded
+confidence voting correction. The existing BSD-3-Clause attribution in
+LICENSES/scikit-learn-COPYING applies. Native padded subset maps, state layout,
+validation drivers and interfaces are original MIT contributions. No additional
+third-party source package or dependency is imported.

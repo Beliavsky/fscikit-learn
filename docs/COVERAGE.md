@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 217 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and eleven reference suites additionally check 457,011
+All types have native tests. One hundred and twelve reference suites additionally check 472,611
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -5867,3 +5867,43 @@ One-vs-one GPC, multiclass likelihood gradients, object/sparse kernels and metad
 routing remain outside this increment. Original native interfaces and diagnostic
 storage remain MIT, with sklearn, NumPy and the existing optimizer notices
 retained. No external repository or dependency is imported.
+
+
+## Gaussian process one-vs-one classification
+
+Set `model%multi_class='one_vs_one'` before fitting a
+`gaussian_process_classifier`. The default remains `'one_vs_rest'`. For more
+than two classes, heads follow lexicographic pairs of sorted classes: (1,2),
+(1,3), ..., (c-1,c). Each head trains only on its two classes, preserving input
+row order. All existing covariance expressions, optimizer controls, seeded
+restarts and warm-start likelihood evaluations apply independently to each pair.
+Binary fits retain the same prediction and probability behavior in both modes.
+
+`predict` combines pair predictions with sklearn's bounded confidence correction:
+each head votes by the sign of its latent mean, while its positive-class
+probability is subtracted from the first class's confidence and added to the
+second's. The correction `confidence/(3*(abs(confidence)+1))` breaks vote ties
+without overturning a one-vote lead; exact final ties select the first class.
+For multiclass one-vs-one fits, `predict_proba` raises a diagnostic, as in sklearn.
+
+`%class_pairs_(2,heads)` contains one-based sorted class indices (zero for OVR
+and binary fits). `%n_training_samples_(head)` gives each head's row count;
+`%training_indices_(:count,head)` maps those rows to the original training array.
+Head-specific pi, square-root weights, posterior modes, alpha and cache columns
+use their leading `count` rows. Cholesky factors use the leading count-by-count
+block. Trailing rows/blocks are zero padding, including optimizer cache storage.
+The global `%x_train_` retains the original training array. OVR and binary fits
+continue to use all rows, with their previous state shapes and behavior.
+
+The cached likelihood is the mean over binary heads. Explicit evaluation accepts
+one shared theta or a pair-major concatenation of every fitted head's theta.
+Clone/mutation and cache semantics match the existing GPC interface. Multiclass
+gradients remain unsupported. sklearn 1.6.1's outer packed-theta check mistakenly
+uses the number of classes rather than the number of pairs; for four or more
+classes it cannot evaluate a full packed OVO kernel. The native interface accepts
+the full pair count and is validated against the independent binary estimators.
+This is a documented Fortran interface adaptation of the same core algorithm.
+
+Refitting resets all subset maps and caches, including transitions between OVO,
+OVR and binary fits. The fitted decomposition is retained if `multi_class` is
+edited after fit; call `fit` to change it. See `example/gaussian_process_ovo.f90`.

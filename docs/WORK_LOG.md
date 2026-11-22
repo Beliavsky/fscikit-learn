@@ -5924,3 +5924,68 @@ and validator hashes, installed sklearn source hashes, strict JSON reports and
 identical checked/release check inventories. The 457,011 retained core
 reference groups are the cumulative inventory; only the affected suites
 listed above and the checked integration suite were rerun for this increment.
+
+
+## Gaussian process one-vs-one classification
+
+Added sklearn's `GaussianProcessClassifier(multi_class="one_vs_one")` path to the
+existing native classifier. Each sorted class pair trains on its own row subset
+and retains its own fitted kernel, mode state and optimizer diagnostics. Binary
+behavior is unchanged. Prediction uses pair votes plus sklearn's bounded
+positive-probability confidence correction and first-class final tie behavior.
+Multiclass one-vs-one probability requests are rejected, as in sklearn. Refit
+transitions between OVO, OVR and binary models reset subset maps and caches.
+
+`validation/compare_gpc_ovo.py` retains 15,600 groups over 324 fixtures: two,
+three and four classes, imbalanced class sizes, shuffled training rows, nine
+kernel configurations, three seeds, fixed/learned and cold/warm fits, and
+truncated posterior solves. One seed also shuffles labels to exercise voting
+cycles and confidence tie breaking. Eleven queries select a different class
+with confidence correction than with first-best raw votes; native labels match
+sklearn exactly. The suite includes 144 independent sklearn optimization
+comparisons, 720 independently replayed restart objectives, input row maps,
+per-pair posterior factors, shared/packed likelihoods, clone/mutation behavior
+and six isolated invalid-input cases. No classification fixture is excluded.
+The prior 8,844-group GPC suite also passed during development.
+
+sklearn 1.6.1 checks packed theta against class count even in OVO mode; this fails
+for complete packed kernels when there are four or more classes. The native API
+accepts pair count instead. Packed evaluations are checked against each source
+binary estimator directly; shared evaluations use the full source outer model.
+Stateful warm optimizer endpoints and final mode transitions reuse the previously
+documented independent sklearn cache replay at recorded native input states.
+Full independent learned-model likelihoods and labels are checked as well.
+
+The inventory remains 217 core estimator/transformer/splitter types and 129 core
+source modules, with 135 native test programs. There are now 112 core reference
+suites with 472,611 retained groups, plus the separate 42-group legacy RNG suite.
+Six new rejection cases bring 22 registries to 3,252 cases. These are cumulative
+coverage counts, not a claim that every historical suite was rerun in this batch.
+
+Run `python validation/compare_gpc_ovo.py --profile checked`; use `--profile
+release` or `--executable` for completed binaries. See
+`example/gaussian_process_ovo.f90`. The existing sklearn BSD notices are retained;
+native interfaces, storage and tests remain MIT. No new dependency, public type
+or extension algorithm is added. Sparse inputs, parallel head fitting and
+multiclass likelihood gradients remain outside this implementation.
+
+
+Final verification passed in checked and release profiles: all 135 native test
+programs; 15,600 OVO GPC, 8,844 prior advanced GPC, 8,070 advanced GPR, 9,132
+kernel and 312 legacy GPC groups (41,958 affected reference groups per profile);
+and 96 affected invalid-input cases (6 OVO, 13 advanced GPC, 28 advanced GPR,
+27 kernel and 22 legacy GP). The checked integration suite passed 192 groups.
+The new example matched sklearn labels, pair training sizes and mean likelihood
+in both profiles. All new OVO label comparisons are exact, including all eleven
+confidence tie-breaking queries. The three existing constant-kernel roundoff
+tie certificates per profile in the earlier kernel suite remain explicit.
+
+The ignored `validation/results/gpc_ovo_final_audit.json` verifies strict JSON
+reports, executable/validator and installed sklearn source hashes, identical
+checked/release check inventories and 270 compiled-content digests per profile:
+129 core modules, four vendor modules, 135 native test programs, the new driver
+and the new example. It also verifies 144 optimization comparisons and 720
+restart checks per profile. Only the affected reference suites and checked
+integration suite listed here were rerun; 472,611 groups is the cumulative core
+coverage inventory. Test, gate, example-build and audit logs are retained beside
+the ignored reports.

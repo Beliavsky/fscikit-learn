@@ -31,12 +31,13 @@ module sklearn_gp_classification
     real(dp) :: amplitude=1,length_scale=1,log_marginal_likelihood_=0
     type(gp_kernel) :: kernel
     type(gp_kernel), allocatable :: kernels_(:)
-    character(24) :: optimizer='none'
+    character(24) :: optimizer='none',multi_class='one_vs_rest'
     integer :: n_restarts_optimizer=0,random_state=0,max_iter=15000,max_fun=15000
     real(dp) :: tol=1.e-5_dp,ftol=2.220446049250313e-9_dp
     logical :: warm_start=.false.
     integer :: max_iter_predict=100,n_features_in_=0,n_classes_=0,n_optimization_runs_=0
     integer, allocatable :: classes_(:),n_iter_(:),n_optimizer_iter_(:),n_function_evaluations_(:)
+    integer, allocatable :: training_indices_(:,:),n_training_samples_(:),class_pairs_(:,:)
     logical, allocatable :: converged_(:),optimizer_converged_(:)
     character(60), allocatable :: optimization_messages_(:)
     character(60), allocatable :: optimization_run_messages_(:,:)
@@ -47,7 +48,7 @@ module sklearn_gp_classification
     real(dp), allocatable :: optimization_eval_cache_(:,:,:)
     real(dp), allocatable :: optimization_initial_points_(:,:,:)
     real(dp), allocatable, private :: targets_(:,:)
-    logical, private :: fitted_warm_start_=.false.
+    logical, private :: fitted_warm_start_=.false.,fitted_one_vs_one_=.false.
     integer, private :: fitted_mode_limit_=100
   contains
     procedure :: fit=>gpc_fit
@@ -100,6 +101,7 @@ contains
   subroutine validate_controls(self)
     class(gaussian_process_classifier), intent(in) :: self
     call require(self%max_iter_predict>0,'GPC max_iter_predict must be positive')
+    call require(any(self%multi_class==[character(24)::'one_vs_rest','one_vs_one']),'GPC unsupported multi_class mode')
     call require(any(self%optimizer==[character(24)::'none','fmin_l_bfgs_b']),'GPC unsupported optimizer')
     call require(self%random_state>=0,'GPC random_state must be nonnegative')
     call require(self%n_restarts_optimizer>=0,'GPC optimizer restart count must be nonnegative')
@@ -190,16 +192,17 @@ contains
     real(dp), intent(out) :: evaluation_cache(:)
     integer, parameter :: m=10
     type(gp_kernel) :: candidate
-    real(dp), allocatable :: wa(:),g(:),derivative(:)
+    real(dp), allocatable :: wa(:),g(:),derivative(:),train_x(:,:)
     real(dp), allocatable :: last_cache(:),accepted_cache(:),last_point(:),accepted_point(:)
     integer, allocatable :: iwa(:),nbd(:)
     real(dp) :: f,dsave(29)
     real(dp) :: last_value,accepted_value
-    integer :: n,i,isave(44)
+    integer :: n,i,isave(44),ntrain
     logical :: lsave(4)
     logical :: has_evaluation,has_accepted
     character(60) :: task,csave
-    n=size(point)
+    n=size(point);ntrain=self%n_training_samples_(channel)
+    train_x=self%x_train_(self%training_indices_(:ntrain,channel),:)
     call require(int(n,int64)*(2*m+5)+11*m*m+8*m<=huge(n),'GPC optimizer workspace exceeds integer capacity')
     allocate(wa((2*m+5)*n+11*m*m+8*m),iwa(3*n),nbd(n),g(n));nbd=0
     do i=1,n
@@ -214,10 +217,10 @@ contains
       call setulb(n,m,point,bounds(:,1),bounds(:,2),nbd,f,g,self%ftol/epsilon(1._dp),self%tol, &
         wa,iwa,task,-1,csave,lsave,isave,dsave)
       if(task(:2)=='FG') then
-        last_cache=self%mode_cache_(:,channel);last_point=point
+        last_cache=self%mode_cache_(:ntrain,channel);last_point=point
         candidate=initial%with_theta(point)
-        f=-laplace_value(candidate,self%x_train_,self%targets_(:,channel),self%max_iter_predict, &
-          self%warm_start,self%mode_cache_(:,channel),derivative);g=-derivative;evaluations=evaluations+1
+        f=-laplace_value(candidate,train_x,self%targets_(:ntrain,channel),self%max_iter_predict, &
+          self%warm_start,self%mode_cache_(:ntrain,channel),derivative);g=-derivative;evaluations=evaluations+1
         last_value=f;has_evaluation=.true.
       else if(task(:5)=='NEW_X') then
         accepted_cache=last_cache;accepted_point=point;accepted_value=f;has_accepted=.true.
@@ -250,12 +253,13 @@ contains
     type(gp_kernel), intent(in) :: initial
     type(legacy_random_state) :: rng
     real(dp), allocatable :: bounds(:,:),point(:)
-    integer :: run,i,best,iterations,evaluations
+    integer :: run,i,best,iterations,evaluations,ntrain
     character(60) :: message
+    ntrain=self%n_training_samples_(channel)
     if(self%n_optimization_runs_==0) then
       self%kernels_(channel)=initial
-      self%log_marginal_likelihoods_(channel)=laplace_value(initial,self%x_train_,self%targets_(:,channel), &
-        self%max_iter_predict,self%warm_start,self%mode_cache_(:,channel));return
+      self%log_marginal_likelihoods_(channel)=laplace_value(initial,self%x_train_(self%training_indices_(:ntrain,channel),:), &
+        self%targets_(:ntrain,channel),self%max_iter_predict,self%warm_start,self%mode_cache_(:ntrain,channel));return
     end if
     bounds=initial%bounds();call rng%seed(self%random_state);best=1
     if(self%n_restarts_optimizer>0) call require(all(ieee_is_finite(bounds)),'GPC optimizer restarts require finite bounds')
@@ -270,7 +274,7 @@ contains
       end if
       self%optimization_initial_points_(run,:,channel)=point
       call optimize_one(self,channel,initial,point,bounds,self%optimization_values_(run,channel), &
-        iterations,evaluations,message,self%optimization_eval_cache_(:,run,channel))
+        iterations,evaluations,message,self%optimization_eval_cache_(:ntrain,run,channel))
       self%optimization_points_(run,:,channel)=point
       self%optimization_run_messages_(run,channel)=message
       self%optimization_run_converged_(run,channel)=message(:4)=='CONV'
@@ -290,10 +294,15 @@ contains
     integer, intent(in) :: y(:)
     type(gp_kernel) :: initial
     type(laplace_state) :: state
-    integer :: n,c,channels,k,d
+    integer :: n,c,channels,k,d,i,j,r,ntrain,idx
     call check_xy(x,size(y));initial=configured_kernel(self);call validate_controls(self)
     self%classes_=unique_labels(y);c=size(self%classes_);call require(c>=2,'GPC requires at least two classes')
     n=size(y);channels=c;if(c==2) channels=1
+    self%fitted_one_vs_one_=self%multi_class=='one_vs_one'.and.c>2
+    if(self%fitted_one_vs_one_) then
+      call require(int(c,int64)*(c-1)/2<=huge(channels),'GPC pair count exceeds integer capacity')
+      channels=int(int(c,int64)*(c-1)/2)
+    end if
     self%x_train_=x;self%n_features_in_=size(x,2);self%n_classes_=c;d=initial%n_dims();self%n_optimization_runs_=0
     self%fitted_warm_start_=self%warm_start;self%fitted_mode_limit_=self%max_iter_predict
     if(self%optimizer/='none'.and.d>0) self%n_optimization_runs_=self%n_restarts_optimizer+1
@@ -302,7 +311,8 @@ contains
         self%log_marginal_likelihoods_,self%kernels_,self%mode_cache_,self%targets_,self%optimization_values_, &
         self%optimization_points_,self%n_optimizer_iter_,self%n_function_evaluations_,self%optimizer_converged_, &
         self%optimization_messages_,self%optimization_run_messages_,self%optimization_run_converged_,self%fit_initial_cache_, &
-        self%optimization_eval_cache_,self%optimization_initial_points_)
+        self%optimization_eval_cache_,self%optimization_initial_points_, &
+        self%training_indices_,self%n_training_samples_,self%class_pairs_)
     end if
     allocate(self%pi_(n,channels),self%posterior_mode_(n,channels),self%w_sqrt_(n,channels),self%mode_cache_(n,channels))
     allocate(self%targets_(n,channels),self%kernels_(channels),self%l_(n,n,channels),self%alpha_(n,channels))
@@ -315,20 +325,45 @@ contains
       self%optimization_run_converged_(self%n_optimization_runs_,channels))
     allocate(self%optimization_eval_cache_(n,self%n_optimization_runs_,channels))
     allocate(self%optimization_initial_points_(self%n_optimization_runs_,d,channels))
-    self%mode_cache_=0;self%n_optimizer_iter_=0;self%n_function_evaluations_=0
+    allocate(self%training_indices_(n,channels),self%n_training_samples_(channels),self%class_pairs_(2,channels))
+    self%training_indices_=0;self%class_pairs_=0;self%n_training_samples_=n
+    if(self%fitted_one_vs_one_) then
+      k=0
+      do i=1,c
+        do j=i+1,c
+          k=k+1;self%class_pairs_(:,k)=[i,j];r=0
+          do idx=1,n
+            if(y(idx)/=self%classes_(i).and.y(idx)/=self%classes_(j)) cycle
+            r=r+1;self%training_indices_(r,k)=idx
+          end do
+          self%n_training_samples_(k)=r
+        end do
+      end do
+    else
+      do k=1,channels
+        self%training_indices_(:,k)=[(i,i=1,n)]
+      end do
+    end if
+    self%pi_=0;self%posterior_mode_=0;self%w_sqrt_=0;self%l_=0;self%alpha_=0;self%targets_=0
+    self%mode_cache_=0;self%fit_initial_cache_=0;self%optimization_eval_cache_=0
+    self%n_optimizer_iter_=0;self%n_function_evaluations_=0
     self%optimizer_converged_=.true.;self%optimization_messages_='not requested'
     do k=1,channels
-      if(c==2) then
+      ntrain=self%n_training_samples_(k)
+      if(self%fitted_one_vs_one_) then
+        self%targets_(:ntrain,k)=merge(1._dp,0._dp, &
+          y(self%training_indices_(:ntrain,k))==self%classes_(self%class_pairs_(2,k)))
+      else if(c==2) then
         self%targets_(:,k)=merge(1._dp,0._dp,y==self%classes_(2))
       else
         self%targets_(:,k)=merge(1._dp,0._dp,y==self%classes_(k))
       end if
       call optimize_channel(self,k,initial)
       self%fit_initial_cache_(:,k)=self%mode_cache_(:,k)
-      state=posterior_mode(self%kernels_(k)%matrix(x),self%targets_(:,k),self%max_iter_predict, &
-        self%warm_start,self%mode_cache_(:,k))
-      self%posterior_mode_(:,k)=state%f;self%pi_(:,k)=state%pi;self%w_sqrt_(:,k)=state%root
-      self%l_(:,:,k)=state%l;self%alpha_(:,k)=self%targets_(:,k)-state%pi
+      state=posterior_mode(self%kernels_(k)%matrix(x(self%training_indices_(:ntrain,k),:)), &
+        self%targets_(:ntrain,k),self%max_iter_predict,self%warm_start,self%mode_cache_(:ntrain,k))
+      self%posterior_mode_(:ntrain,k)=state%f;self%pi_(:ntrain,k)=state%pi;self%w_sqrt_(:ntrain,k)=state%root
+      self%l_(:ntrain,:ntrain,k)=state%l;self%alpha_(:ntrain,k)=self%targets_(:ntrain,k)-state%pi
       self%n_iter_(k)=state%iterations;self%converged_(k)=state%converged
     end do
     self%log_marginal_likelihood_=sum(self%log_marginal_likelihoods_)/channels
@@ -344,25 +379,40 @@ contains
     real(dp), intent(in) :: x(:,:)
     integer, intent(in) :: channel
     real(dp), allocatable :: k(:,:)
-    call check_query(self,x);k=self%kernels_(channel)%matrix(self%x_train_,x)
+    call check_query(self,x)
+    k=self%kernels_(channel)%matrix(self%x_train_(self%training_indices_(:self%n_training_samples_(channel),channel),:),x)
+  end function
+  function head_probability(self,x,channel,mean_out) result(positive)
+    class(gaussian_process_classifier), intent(in) :: self
+    real(dp), intent(in) :: x(:,:)
+    integer, intent(in) :: channel
+    real(dp), allocatable, optional, intent(out) :: mean_out(:)
+    real(dp), allocatable :: positive(:),cross(:,:),mean(:),v(:),diagonal(:)
+    real(dp) :: variance,value
+    integer :: i,n
+    n=self%n_training_samples_(channel);cross=gpc_cross(self,x,channel)
+    diagonal=self%kernels_(channel)%diag(x);mean=matmul(transpose(cross),self%alpha_(:n,channel))
+    if(present(mean_out)) mean_out=mean
+    allocate(positive(size(x,1)))
+    do i=1,size(x,1)
+      v=solve_lower(self%l_(:n,:n,channel),self%w_sqrt_(:n,channel)*cross(:,i))
+      variance=max(0._dp,diagonal(i)-dot_product(v,v))
+      ! Algebraic simplification avoids division by predictive variance near zero.
+      value=.5_dp*sum(coefs*erf(lambdas*mean(i)/sqrt(1+2*variance*lambdas**2)))+.5_dp*sum(coefs)
+      positive(i)=max(0._dp,min(1._dp,value))
+    end do
   end function
   function gpc_proba(self,x) result(probability)
     class(gaussian_process_classifier), intent(in) :: self
     real(dp), intent(in) :: x(:,:)
-    real(dp), allocatable :: probability(:,:),cross(:,:),mean(:),v(:),positive(:,:),diagonal(:)
-    real(dp) :: variance,value
+    real(dp), allocatable :: probability(:,:),positive(:,:)
+    real(dp) :: value
     integer :: i,k
-    call check_query(self,x);allocate(positive(size(x,1),size(self%pi_,2)))
+    call check_query(self,x)
+    call require(.not.self%fitted_one_vs_one_,'GPC one_vs_one does not support probability estimates')
+    allocate(positive(size(x,1),size(self%pi_,2)))
     do k=1,size(self%pi_,2)
-      cross=self%kernels_(k)%matrix(self%x_train_,x);diagonal=self%kernels_(k)%diag(x)
-      mean=matmul(transpose(cross),self%alpha_(:,k))
-      do i=1,size(x,1)
-        v=solve_lower(self%l_(:,:,k),self%w_sqrt_(:,k)*cross(:,i))
-        variance=max(0._dp,diagonal(i)-dot_product(v,v))
-        ! Algebraic simplification avoids division by predictive variance near zero.
-        value=.5_dp*sum(coefs*erf(lambdas*mean(i)/sqrt(1+2*variance*lambdas**2)))+.5_dp*sum(coefs)
-        positive(i,k)=max(0._dp,min(1._dp,value))
-      end do
+      positive(:,k)=head_probability(self,x,k)
     end do
     if(self%n_classes_==2) then
       allocate(probability(size(x,1),2)); probability(:,2)=positive(:,1); probability(:,1)=1-positive(:,1)
@@ -383,10 +433,24 @@ contains
     class(gaussian_process_classifier), intent(in) :: self
     real(dp), intent(in) :: x(:,:)
     integer, allocatable :: y(:)
-    real(dp), allocatable :: cross(:,:),mean(:),probability(:,:)
+    real(dp), allocatable :: cross(:,:),mean(:),probability(:,:),positive(:),votes(:,:),confidence(:,:)
+    integer :: k,i,j
     if(self%n_classes_==2) then
       cross=gpc_cross(self,x,1); mean=matmul(transpose(cross),self%alpha_(:,1))
       y=self%classes_(merge(2,1,mean>0))
+    else if(self%fitted_one_vs_one_) then
+      call check_query(self,x)
+      allocate(votes(size(x,1),self%n_classes_),confidence(size(x,1),self%n_classes_))
+      votes=0;confidence=0
+      do k=1,size(self%kernels_)
+        i=self%class_pairs_(1,k);j=self%class_pairs_(2,k)
+        positive=head_probability(self,x,k,mean)
+        confidence(:,i)=confidence(:,i)-positive;confidence(:,j)=confidence(:,j)+positive
+        votes(:,i)=votes(:,i)+merge(0._dp,1._dp,mean>0)
+        votes(:,j)=votes(:,j)+merge(1._dp,0._dp,mean>0)
+      end do
+      votes=votes+confidence/(3*(abs(confidence)+1))
+      y=self%classes_(maxloc(votes,dim=2))
     else
       probability=self%predict_proba(x)
       ! sklearn OneVsRestClassifier assigns exact probability ties to the last class.
@@ -415,7 +479,7 @@ contains
     type(gp_kernel) :: candidate
     real(dp), allocatable :: part(:),values(:)
     logical :: clone,shared
-    integer :: channels,d,k
+    integer :: channels,d,k,ntrain
     call require(allocated(self%pi_),'GPC is not fitted');channels=size(self%kernels_);d=self%kernels_(1)%n_dims()
     if(channels>1) call require(.not.present(gradient),'GPC multiclass likelihood gradients are not supported')
     call require(size(theta)==d.or.size(theta)==d*channels,'GPC theta must match one kernel or all class kernels')
@@ -429,8 +493,9 @@ contains
       end if
       candidate=self%kernels_(k)%with_theta(part)
       if(.not.clone) self%kernels_(k)=candidate
-      values(k)=laplace_value(candidate,self%x_train_,self%targets_(:,k),self%fitted_mode_limit_, &
-        self%fitted_warm_start_,self%mode_cache_(:,k),gradient)
+      ntrain=self%n_training_samples_(k)
+      values(k)=laplace_value(candidate,self%x_train_(self%training_indices_(:ntrain,k),:), &
+        self%targets_(:ntrain,k),self%fitted_mode_limit_,self%fitted_warm_start_,self%mode_cache_(:ntrain,k),gradient)
     end do
     value=sum(values)/channels
   end function
