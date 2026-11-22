@@ -815,3 +815,20 @@ it does not copy/link a SciPy ranking implementation into the Fortran library.
 Reference APIs:
 https://scikit-learn.org/1.6/modules/generated/sklearn.model_selection.GridSearchCV.html
 https://scikit-learn.org/1.6/modules/generated/sklearn.model_selection.RandomizedSearchCV.html
+
+
+### General cross-validation and out-of-fold prediction
+
+`src/sklearn_validation.f90` adapts scikit-learn 1.6.1
+`model_selection/_validation.py` and `_split.py` contracts for fold fitting,
+scoring, result artifacts, class encoding, partition checks, response alignment
+and inverse prediction ordering. Copyright The scikit-learn developers;
+BSD-3-Clause terms remain in `LICENSES/scikit-learn-COPYING`. Typed options,
+result/model slots and callback adapters are original MIT contributions.
+Existing native estimator/search/composition implementations retain their earlier
+notices. No external repository, dependency or public extension algorithm is
+imported by this increment.
+Reference APIs:
+https://scikit-learn.org/1.6/modules/generated/sklearn.model_selection.cross_validate.html
+https://scikit-learn.org/1.6/modules/generated/sklearn.model_selection.cross_val_predict.html
+https://scikit-learn.org/1.6/modules/generated/sklearn.model_selection.cross_val_score.html

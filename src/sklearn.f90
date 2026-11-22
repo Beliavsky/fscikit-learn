@@ -17,6 +17,8 @@ module sklearn
   use sklearn_ensemble
   use sklearn_model_selection
   use sklearn_search
+  use sklearn_validation, only: cross_validate,cross_val_predict,cross_val_predict_class, &
+    cross_validation_options,cross_validation_result,cv_estimator
   use sklearn_threshold
   use sklearn_feature_selection
   use sklearn_dummy

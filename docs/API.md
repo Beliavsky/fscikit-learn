@@ -4701,3 +4701,92 @@ to known native model types. Callbacks can inspect best_estimator_ directly.
 The sole supported error_score policy is 'raise', which is the native default.
 No parallelism, fit-error recovery, arbitrary Python reflection, sparse arrays,
 unsupervised fitting or matrix targets are implemented here.
+
+
+## General cross-validation
+
+Import cross_validate, cross_val_predict, cross_val_predict_class and option/
+result helpers from sklearn_validation or sklearn. The general cross_val_score
+is exported only by sklearn_validation; the facade retains its older typed
+linear/logistic helper. When using both modules, rename the general function:
+
+```
+use sklearn_validation, only: cv_score=>cross_val_score
+```
+
+```
+results = cross_validate(estimator,x,y[,options,sample_weight])
+results = cross_validate(estimator,x[,options,sample_weight]) ! no target
+scores = cv_score(estimator,x,y[,options,sample_weight])
+scores = cv_score(estimator,x[,options,sample_weight])
+predictions = cross_val_predict(estimator,x,y[,options,sample_weight])
+labels = cross_val_predict_class(estimator,x,y_integer[,options,sample_weight])
+```
+
+x is a finite real(dp) matrix. Supervised y is a real or integer vector. Options
+are a cross_validation_options value; default cv=5, task='auto', scoring='auto',
+method='predict', error_score='raise'. Task auto recognizes supported native
+classifier prototypes and Pipeline tails; explicit 'classification'/'regression'
+support custom native adapters. Integral, in-range real class labels are accepted.
+An integer regression target fits real-valued bases; its integer representation
+is preserved through default native Pipeline fits so supervised selectors retain
+their native scoring dispatch. Custom fit callbacks receive real regression or
+integer classification targets, according to task.
+
+options%cv_splits(:) overrides cv with index_split values containing allocated,
+nonempty 1-based train/test indices in range. Otherwise classification uses
+unshuffled StratifiedKFold with first-appearance class encoding; regression and
+no-target cases use KFold. cross_validate allows repeated tests and arbitrary
+valid folds. cross_val_predict additionally requires every sample exactly once
+in held-out indices; missing/repeated entries are errors. Predictions restore
+the original sample order even when folds/test indices are nonmonotone.
+
+Scoring names and search_scorer records reuse the parameter-search adapters.
+Set options%scoring to a supported single metric, associate scorer_func with a
+scalar callback, or allocate scorers(:) for named multiple metrics. Names/scoring
+fields have length 64. Scalar callbacks have signature function(model,x,yr,yi),
+with class(*) intent(in) model, real(dp) x(:,:), optional real(dp) yr(:), optional
+integer yi(:), returning real(dp). At most one target is present. No-target
+scoring requires explicit callbacks. Do not set both scorer_func and scorers.
+The general scalar wrapper rejects multiple-scorer arrays and suppresses train
+scoring/returned models/indices, regardless of the corresponding option flags.
+
+cross_validation_result contains test_score(fold,metric), metric_names(:),
+fit_time(:), score_time(:), n_splits and n_features_in. Set return_train_score to
+allocate train_score(fold,metric), return_estimator to allocate estimators(:), and
+return_indices to allocate indices(:). Each cv_estimator slot has an allocated
+class(*) model containing that fold's fitted copy. No final full-data refit is
+performed; caller templates remain untouched. Fit weights are sliced by training
+indices, including duplicates; scoring is unweighted with disabled metadata
+routing. Pipeline weights reach the final estimator. Existing native child
+weighting/solver restrictions apply. Times are native wall-clock measurements
+and exclude train scoring from score_time, following sklearn's ordering.
+
+cross_val_predict returns an allocated real(dp) matrix: n-by-1 for scalar
+regression/class predictions and binary decisions, or n-by-nclass for ordinary
+class response matrices. method accepts 'predict', 'predict_proba',
+'predict_log_proba' and 'decision_function'; the latter three require a classifier.
+Global sorted integer labels are encoded to 0..k-1 before response-method fits,
+as sklearn does. Missing fold classes get zero probability columns or
+-huge(1._dp) log/margin columns. Missing-class decision outputs must represent
+more than two fold classes and have compatible column widths. Built-in NB and
+boosting log methods preserve stable log values. Other supported log APIs use
+quiet log(probability), including -infinity for zero; KNN has no such API.
+The typed class adapter requires method='predict', classifier task and one
+integral finite response column, returning an allocated integer vector.
+
+Associate fit_func with subroutine(model,x,yr,yi,sample_weight), using class(*)
+intent(inout) model and the optional target/weight vectors above. It must reset
+fitted state as a fresh clone would. No-target default fits use supported native
+composition transformers; weights there require an explicit fitter. Associate
+response_func with function(model,x,method) returning an allocated real(dp)
+matrix for custom prediction adapters. For classifier response alignment,
+classes_func may provide an allocated integer vector of that fitted model's
+encoded class indices. Otherwise native class metadata are used. Encoded classes
+must be unique and in global range. Procedure targets must outlive their use.
+
+This API supports serial dense/vector tasks, explicit fail-fast diagnostics,
+known native default adapters and custom native callbacks. It has no general
+Python cloning/reflection, sparse or precomputed pairwise slicing, metadata
+routing, parallelism, fit-error replacement, matrix/multilabel targets or
+no-target OOF prediction. The broader sklearn translation remains ongoing.

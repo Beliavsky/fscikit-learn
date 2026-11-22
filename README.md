@@ -19,6 +19,7 @@ fpm test
 fpm run --example histogram_boosting
 fpm run --example image_patches
 fpm run --example neighborhood_components
+fpm run --example out_of_fold_predictions
 fpm run --example parameter_search
 fpm run --example model_based_selection
 fpm run --example sequential_pipeline

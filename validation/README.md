@@ -4607,3 +4607,100 @@ Evidence is retained under validation/results/search_final_audit.json,
 search_*.json, parameter_space_*.json and the native/integration logs. Existing
 unrelated reference suites were retained rather than all rerun for this
 increment. The broader sklearn translation remains ongoing.
+
+
+## General cross-validation and out-of-fold responses
+
+This increment adds cross_validate and cross_val_predict, plus general scalar
+cross_val_score and a typed class-label prediction adapter, in sklearn_validation.
+The facade exports cross_validate, cross_val_predict and cross_val_predict_class;
+it retains the older typed cross_val_score from sklearn_model_selection. Import
+the broader scalar helper directly from sklearn_validation (rename it on import
+when also importing the facade). No new estimator types are counted: the core
+inventory remains 217 estimator/transformer/splitter types, with 125 source
+modules and 124 native test programs. Two new reference suites bring 103 core
+suites to 424,408 retained result groups. The separate 42-group legacy NumPy RNG
+suite remains excluded. Fifty new rejection cases bring 15 registries to 3,090.
+
+Cross-validation supports native estimator dispatch, real/integer vector targets,
+unshuffled KFold or first-appearance-encoded StratifiedKFold, explicit 1-based
+folds, sliced fit weights, scalar/multiple scoring, train scores, returned fitted
+models/indices, measured fit/score times and custom fit/score callbacks. No final
+full-data fit occurs. The scalar helper disables train scoring and returned
+artifacts, as sklearn cross_val_score does. No-target fitting supports the
+existing composition transformer adapters with explicit scoring callbacks;
+other native no-target fits can use a fitter callback.
+
+Out-of-fold predictions require the held-out indices to partition all samples
+exactly once, while ordinary cross_validate permits repeated/nonpartition tests.
+The output always restores original sample order. Supported classifier response
+methods are predict, predict_proba, predict_log_proba and decision_function.
+Response methods encode global labels before fitting each fold and place missing
+class columns in global sorted-label order, using zero probabilities and minimum
+finite real64 log/margin placeholders. Incompatible missing-class decision shapes
+are rejected. Stable native NB/boosting log probabilities are retained rather
+than reconstructed from underflowed probabilities. Known estimators without a
+log-probability API, including KNN, raise a native diagnostic. Scalar/binary
+responses are stored as n-by-1 matrices; the class-label adapter returns integers.
+
+Integer regression targets retain their original representation in native
+Pipeline fitting, including supervised selector dispatch. Native fit/scoring
+callbacks receive normalized real regression or integer class targets; encoded
+class targets are visible to OOF response fit callbacks. Custom response and
+class-metadata hooks support native wrappers. Returned models are independent
+value copies; procedure pointer lifetimes remain the caller's responsibility.
+
+The supported scope remains serial dense finite X, vector targets and existing
+native child fit/weight/solver restrictions. Only error_score='raise' is supported
+because child diagnostics terminate execution. Sparse/precomputed pairwise slicing,
+metadata routing, parallel jobs, recoverable fit/scoring errors, multioutput/
+multilabel targets, and no-target cross_val_predict are not implemented here.
+No-target default scoring requires a callback. Native callback response matrices
+must be allocated and correctly sized. None of these additions is a public
+extension algorithm; original contributions remain MIT with sklearn BSD notices.
+No external repository or dependency is imported.
+
+The cross_validate source suite retains 3,888 groups across 288 fixtures:
+three seeds, twelve model/scorer families and eight configurations. It compares
+complete test/train scores, scalar wrapper scores, callback counts, returned
+model predictions/probabilities/classes, explicit indices and timing shapes.
+Families include Ridge, ElasticNet, logistic regression, Gaussian NB, KNN,
+scaling/selection pipelines, no-target scaling and nonfinite scalar scores.
+Custom CV includes repeated test rows and one-row R2 folds. The OOF suite retains
+666 groups across 222 fixtures covering all supported response capabilities,
+nonmonotone partitions, missing classes, weighted fitting, encoded fit targets,
+custom response callbacks and original row order. Unsupported capability cases
+are retained in the isolated rejection registry. All numerical/label comparisons
+use direct sklearn 1.6.1 oracles; no roundoff certificate is needed for these
+suites.
+
+Reproduce with one fpm build at a time:
+
+```
+python validation/compare_cross_validate.py --profile checked
+python validation/compare_cross_val_predict.py --profile checked
+python validation/check_validation_invalid_inputs.py --profile checked
+```
+
+Use --profile release for optimized runs or --executable for completed canonical
+binaries. See docs/API.md and example/out_of_fold_predictions.f90 for usage.
+Final verification of the frozen implementation is recorded below.
+
+
+Final verification of the frozen implementation passed all 124 native test
+programs in checked and optimized fpm builds. Each canonical profile passed
+3,888 cross_validate groups across 288 fixtures, 666 cross_val_predict groups
+across 222 fixtures, and all 50 isolated rejection checks. The checked
+integration gate passed all 192 comparisons. No roundoff certificate was used
+for either new reference suite.
+
+Both canonical public example binaries reported four folds, 40 out-of-fold
+predictions and R2 0.9915055, matching the independent sklearn value
+0.9915054641718475. The final audit verified complete strict reports, identical
+profile check configurations, canonical executable/validator/entry and installed
+source hashes, and all 256 compiled content digests per profile (253 core/test/
+vendor files plus the two new drivers and example). Evidence is retained under
+validation/results/general_cv_final_audit.json, cross_validate_*.json,
+cross_val_predict_*.json, validation_invalid_*.json and native/integration logs.
+Existing unrelated reference suites were retained rather than all rerun for
+this increment. The broad sklearn translation remains ongoing.
