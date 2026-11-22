@@ -6405,3 +6405,69 @@ fixture; this is not a general reconstruction guarantee. Reports, the final
 audit and seven terminal logs are retained in ignored `validation/results`.
 The cumulative inventory above is not a full rerun count. Other reference
 suites and the separate 42-group legacy RNG reference suite were not rerun.
+
+
+## SVD linear discriminant analysis (2026-11-22)
+
+Added sklearn's within/between thin-SVD discriminant solver, projection methods,
+component selection, rank tolerance and optional covariance storage. The existing
+native LSQR default remains; SVD is selected explicitly. Empirical priors and
+all retained discriminant axes drive classification, independently of the
+requested transform width. Rank-deficient/wide matrices, constant or duplicated
+features and singleton classes are supported when within-class rank is nonzero.
+The default SVD path allocates no feature-by-feature covariance matrix.
+
+`validation/compare_discriminant_svd.py` retains 11,084 groups over 652 fixtures
+and 652 independent within-covariance whitening / between-scatter diagonalization
+certificates. Three seeds cover binary and multiclass labels, tall/wide and
+single-feature inputs, singleton classes, unequal feature scales, duplicated or
+rank-one features, two tolerances, automatic/explicit component counts,
+fit/fit_transform, optional covariance, probabilities, predictions, scores,
+coefficients and training/query projections. Signs are aligned only for
+nonunique SVD axes; binary class-row coefficients/scores are compared in the
+source's margin convention. Three coincident-mean cases explicitly preserve
+source's undefined (NaN) variance ratios and zero transform rank.
+
+A 12 by 20,000 fixture validates the thin-SVD path with covariance absent in
+both implementations; one dense feature covariance would occupy 3.2 GB.
+Twenty isolated rejection cases cover controls, shrinkage, dimensions, finite
+inputs, fit state, class/sample counts, empty retained rank and stale diagnostics
+after LSQR refitting. Two recorded source empty-rank IndexErrors explain the
+native diagnostic for zero within variance or an excessively high threshold.
+
+Inventory: 217 core public types, 129 core modules, 142 native test programs,
+119 core reference suites and 526,237 cumulative retained groups. The separate
+42-group legacy RNG reference suite remains excluded. There are 29 invalid-input
+registries with 3,360 cases. Cumulative counts are not a complete rerun claim;
+final verification below identifies the checks run for this increment.
+
+Run `python validation/compare_discriminant_svd.py --profile checked`, or use
+`--profile release` / `--executable`. Native interfaces and thin-SVD adaptations
+remain MIT with existing sklearn BSD notices retained. No new source dependency,
+public estimator type or extension algorithm is added. Custom priors and eigen
+solver support remain outside this implementation.
+
+
+Final verification: all 142 native test programs passed in checked mode
+(`-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow`) and release mode.
+Each profile passed 11,276 reference groups: 11,084 new SVD discriminant groups
+and all 192 integration groups, including the retained LSQR LDA and QDA cases.
+All 20 new rejection cases passed in each profile. Multiclass coefficients,
+intercepts and decision scores were compared directly; only binary outputs
+were converted to sklearn's single-margin convention. Axis sign alignment
+applied only to discriminant scalings and projected coordinates.
+
+The final audit matched validator, upstream-source and executable hashes,
+retained all 652 whitening/diagonalization certificates, three undefined-ratio
+certificates and two source empty-rank errors per profile, and checked 278
+compiled source-content digests per profile (129 core modules, 142 tests,
+four vendor sources, two affected drivers and the example). The 12 by 20,000
+wide case passed in both profiles with covariance storage absent; a single
+dense feature covariance would require 3,200,000,000 bytes.
+
+Both explicit fpm example runs passed, and their coordinates' dimensions,
+variance ratios and illustrative training accuracy matched sklearn. Reports,
+the final audit and seven terminal logs are retained in ignored
+`validation/results`. The cumulative inventory above is not a complete rerun
+claim; unrelated reference suites and the separate 42-group legacy RNG
+reference suite were not rerun.

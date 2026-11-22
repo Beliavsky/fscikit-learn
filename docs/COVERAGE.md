@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 217 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and eighteen reference suites additionally check 515,153
+All types have native tests. One hundred and nineteen reference suites additionally check 526,237
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -61,7 +61,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | feature_extraction_text | `count_vectorizer`, `tfidf_transformer`, `tfidf_vectorizer` | Dense unigram counts; ASCII alphanumeric/underscore tokens of length 2-128; sorted vocabulary; min/max document frequency, binary counts and max features; smoothed/unsmoothed IDF, sublinear TF, l1/l2/no normalization |
 | dummy | `dummy_classifier`, `dummy_regressor` | Prior/most-frequent/stratified/uniform/constant classification; mean/median/quantile/constant regression |
 | kernel_ridge | `kernel_ridge` | Positive alpha; linear/RBF/polynomial/sigmoid kernels; no intercept |
-| discriminant_analysis | `linear_discriminant_analysis`, `quadratic_discriminant_analysis` | LDA follows sklearn `solver='lsqr'` covariance convention with scalar shrinkage; QDA scalar regularization; singular covariance is rejected |
+| discriminant_analysis | `linear_discriminant_analysis`, `quadratic_discriminant_analysis` | LDA offers the native default LSQR covariance solver with scalar shrinkage and rank-aware SVD classification/projection; QDA scalar regularization; covariance-based solvers reject singular covariance |
 | svm | `svc`, `nu_svc`, `linear_svc`, `linear_svr`; re-exports `svr`, `nu_svr`, `one_class_svm` | Primal L2 squared-loss linear classification/regression; OVO SVC/NuSVC; epsilon/nu support-vector regression and one-class detection; native pairwise dual optimization and weighted capacities |
 | mixture | `gaussian_mixture`, `bayesian_gaussian_mixture` | EM Gaussian mixtures and variational Bayesian mixtures with finite Dirichlet or truncated stick-breaking weights; full/tied/diag/spherical covariances; responsibilities and likelihood scores; GaussianMixture BIC/AIC |
 | neural_network | `mlp_classifier`, `mlp_regressor`, `bernoulli_rbm` | Arbitrary dense hidden layer sizes, relu/tanh/logistic/identity, full-batch Adam, softmax classification or squared-error regression, L2 regularization |
@@ -6149,3 +6149,44 @@ Run `python validation/compare_kernel_preimage.py --profile checked`, or select
 and Cholesky adaptation remain MIT, with the existing sklearn BSD notice
 retained. No additional source package, dependency or extension algorithm is
 imported. Dense inverse outputs and the existing eigensolver remain the scope.
+
+
+## SVD linear discriminant analysis (2026-11-22)
+
+Added sklearn's within/between thin-SVD discriminant solver, projection methods,
+component selection, rank tolerance and optional covariance storage. The existing
+native LSQR default remains; SVD is selected explicitly. Empirical priors and
+all retained discriminant axes drive classification, independently of the
+requested transform width. Rank-deficient/wide matrices, constant or duplicated
+features and singleton classes are supported when within-class rank is nonzero.
+The default SVD path allocates no feature-by-feature covariance matrix.
+
+`validation/compare_discriminant_svd.py` retains 11,084 groups over 652 fixtures
+and 652 independent within-covariance whitening / between-scatter diagonalization
+certificates. Three seeds cover binary and multiclass labels, tall/wide and
+single-feature inputs, singleton classes, unequal feature scales, duplicated or
+rank-one features, two tolerances, automatic/explicit component counts,
+fit/fit_transform, optional covariance, probabilities, predictions, scores,
+coefficients and training/query projections. Signs are aligned only for
+nonunique SVD axes; binary class-row coefficients/scores are compared in the
+source's margin convention. Three coincident-mean cases explicitly preserve
+source's undefined (NaN) variance ratios and zero transform rank.
+
+A 12 by 20,000 fixture validates the thin-SVD path with covariance absent in
+both implementations; one dense feature covariance would occupy 3.2 GB.
+Twenty isolated rejection cases cover controls, shrinkage, dimensions, finite
+inputs, fit state, class/sample counts, empty retained rank and stale diagnostics
+after LSQR refitting. Two recorded source empty-rank IndexErrors explain the
+native diagnostic for zero within variance or an excessively high threshold.
+
+Inventory: 217 core public types, 129 core modules, 142 native test programs,
+119 core reference suites and 526,237 cumulative retained groups. The separate
+42-group legacy RNG reference suite remains excluded. There are 29 invalid-input
+registries with 3,360 cases. Cumulative counts are not a complete rerun claim;
+final verification below identifies the checks run for this increment.
+
+Run `python validation/compare_discriminant_svd.py --profile checked`, or use
+`--profile release` / `--executable`. Native interfaces and thin-SVD adaptations
+remain MIT with existing sklearn BSD notices retained. No new source dependency,
+public estimator type or extension algorithm is added. Custom priors and eigen
+solver support remain outside this implementation.

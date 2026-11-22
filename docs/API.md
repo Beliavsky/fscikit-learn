@@ -5549,3 +5549,41 @@ reenabling the option requires a new fit. Explicit zero-eigenvalue components
 remain usable; removing all components leaves no valid inverse feature space.
 See `example/kernel_preimage.f90`. This increment retains the existing dense
 Jacobi eigensolver and adds no new dependency or public estimator type.
+
+
+## SVD linear discriminant analysis
+
+`linear_discriminant_analysis` adds `%solver='svd'`, `%tol=1.e-4_dp`,
+`%n_components=0` and `%store_covariance=.false.`. The native default solver
+remains `'lsqr'` for compatibility; select `'svd'` for sklearn's default solver
+algorithm. Native zero components denotes automatic `min(features, classes-1)`
+selection (sklearn `None`). Positive requests cannot exceed that limit.
+SVD fitting uses empirical class priors, within-class standardization and two
+thin SVDs, with absolute within-rank and relative between-rank thresholds.
+It supports wide and rank-deficient data and individual singleton classes,
+provided there are at least two classes, more samples than classes and at least
+one retained within-class direction. Native zero shrinkage denotes unregularized
+fitting; nonzero shrinkage is rejected with SVD.
+
+`fit_transform(x,y)` and `transform(x)` return centered discriminant coordinates.
+`%scalings_` stores all retained discriminant axes, `%xbar_` the prior-weighted
+center and `%explained_variance_ratio_` the between-class singular energy ratios.
+`%within_rank_`, `%between_rank_` and `%n_components_` expose actual fitted ranks
+and transform width. Component selection caps transform width; classification
+still uses all retained discriminant axes, matching sklearn. Axis signs are
+nonunique; reference comparisons align signs while checking predictions directly.
+
+By default SVD never allocates a feature-by-feature covariance or precision
+matrix. `%store_covariance=.true.` stores the population pooled covariance in
+each inherited `%covariance_(:,:,class)` slice. SVD does not fit the inherited
+QDA precision/logdet diagnostics. Switching back to LSQR clears SVD-specific
+arrays and restores existing covariance-based fitting. Binary `%coef_`,
+`%intercept_` and decision scores retain two native class rows; subtract the
+first class from the second to obtain sklearn's single binary margin.
+
+Coincident class means yield zero transform columns and NaN explained variance
+ratios, matching source. An empty within-class rank receives an explicit native
+diagnostic; sklearn 1.6.1 instead fails indexing an empty singular-value array.
+LSQR transform is unsupported as in sklearn. Queries must be finite, nonempty
+and match training feature count. See `example/discriminant_projection.f90`.
+Custom priors, the eigen solver and sparse inputs remain outside this increment.

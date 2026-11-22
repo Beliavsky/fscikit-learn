@@ -980,3 +980,13 @@ definite solve, stored training coordinates and kernel reconstruction. Existing
 sklearn BSD attribution and LICENSES/scikit-learn-COPYING remain retained.
 Native Fortran bindings, input contracts, Cholesky calls and refit-state clearing
 are original MIT contributions. No new external code or dependency is imported.
+
+
+`src/sklearn_discriminant_analysis.f90` adapts scikit-learn 1.6.1
+`discriminant_analysis.py` `LinearDiscriminantAnalysis._solve_svd` and
+`transform`: within-class standardization, absolute/relative rank thresholds,
+weighted between-class SVD, discriminant coefficients and projection.
+The existing sklearn BSD notice and LICENSES/scikit-learn-COPYING are retained.
+Native Fortran interfaces, thin-SVD calls, rank diagnostics, optional covariance
+storage and refit clearing are original MIT contributions. No new external
+source package or dependency is imported.

@@ -206,3 +206,6 @@ matrix; see [the latent semantic example](example/sparse_latent_semantics.f90).
 
 KernelPCA can learn an approximate inverse using kernel ridge regression; see
 [the reconstruction example](example/kernel_preimage.f90).
+
+LinearDiscriminantAnalysis offers SVD classification and discriminant projection
+for wide or rank-deficient data; see [the example](example/discriminant_projection.f90).
