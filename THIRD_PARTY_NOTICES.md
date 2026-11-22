@@ -795,3 +795,23 @@ previously documented native/source tie traversal difference; sklearn remains
 the feature-selection oracle on these certified importances. No external
 repository, dependency or extension algorithm is imported in this increment.
 Reference API: https://scikit-learn.org/1.6/modules/generated/sklearn.feature_selection.SelectFromModel.html
+
+
+### General parameter grids and searches
+
+`src/sklearn_parameter_space.f90` and `src/sklearn_search.f90` adapt scikit-learn
+1.6.1 `model_selection/_search.py`, `_validation.py`, `_split.py` and
+`utils/_random.pyx` contracts for Cartesian grids, parameter sampling, default
+folds, split/aggregate/rank tables, cloning/refitting and delegation. Copyright
+The scikit-learn developers; BSD-3-Clause terms remain in
+`LICENSES/scikit-learn-COPYING`. The existing NumPy legacy RNG retains its earlier
+notices. Typed parameter/callback storage, mixed-radix indexing and estimator
+adapters (`src/sklearn_search_adapters.f90`) are original MIT contributions.
+No external repository/dependency or public extension algorithm is imported.
+
+The validation-only rank certificate calls SciPy's public rankdata API on
+native mean scores and bounds source/native ordering changes due to roundoff;
+it does not copy/link a SciPy ranking implementation into the Fortran library.
+Reference APIs:
+https://scikit-learn.org/1.6/modules/generated/sklearn.model_selection.GridSearchCV.html
+https://scikit-learn.org/1.6/modules/generated/sklearn.model_selection.RandomizedSearchCV.html

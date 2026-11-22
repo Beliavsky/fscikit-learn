@@ -4601,3 +4601,103 @@ trained SGD base discards its fitted state, matching sklearn clone semantics.
 Pipeline supports the selector as a supervised intermediate or final transformer;
 its current weight forwarding applies to the final estimator. Parallel column
 and feature graphs do not route supervised targets to this selector.
+
+
+## General parameter search
+
+Import grid_search_cv/randomized_search_cv and parameter helpers from sklearn_search
+or sklearn. The existing sklearn_model_selection module remains independent of
+these meta-estimators to avoid dependency cycles. Each search stores an allocated
+class(*) estimator; configure param_grid(:), with each grid containing axes(:).
+An axis has an allocatable name and values(:) of parameter_value, made by param
+(real(dp)), param(integer), param(logical), or param(character). Axes are sorted
+by name; products use rightmost-fastest order, and arrays of grids concatenate.
+A grid with no axes represents one empty parameter dictionary. Axes require
+nonempty values and unique names. Grid length()/at(i) and enumerate(), plus
+enumerate_grids(grids), expose the same 1-based candidate order.
+
+For randomized_search_cv configure n_iter (default 10) and random_state (default
+0, nonnegative native integer). Finite spaces sample without replacement, capped
+at the total grid length. To represent a distribution, leave an axis's values
+unallocated and associate rvs with a function(legacy_random_state) returning a
+parameter_value. If any distribution is present, sampling uses replacement and
+chooses each supplied grid uniformly, matching ParameterSampler. A distribution
+callback may use the legacy RNG's uniform/normal/integer_index methods and must
+outlive the search. Grids cannot be exhaustively enumerated with distributions.
+Direct helper sample_parameters(grids,n_iter,random_state) uses the same policy.
+Large spaces are sampled by mixed-radix indexing without exhaustive expansion.
+
+Call fit(x,y[,sample_weight]) with real or integer vector y. task='auto' recognizes
+supported classifier models (including Pipeline tails); a regressor accepts
+integer targets, and a classifier accepts integral in-range real labels.
+Regression targets are converted to real before fitting; a Pipeline transformer
+whose native scoring choice depends on integer target representation therefore
+receives real targets through this search API. Use a custom fitting callback
+for a different native target-typing convention.
+task='regression'/'classification' is available for custom adapters. cv defaults
+to 5 and produces unshuffled KFold/StratifiedKFold; the latter encodes classes by
+first appearance, as sklearn. Supply cv_splits(:) of index_split for arbitrary
+folds, including precomputed group/time splits. Indices are 1-based, nonempty and
+in range; duplicates and train/test overlap are accepted. Fit weights are sliced
+for each training fold and used for the final refit; CV scoring is unweighted,
+as with disabled source metadata routing. Dense finite X and vector y only.
+
+The default scoring='auto' uses estimator scoring. Built-in classifier names:
+accuracy, balanced_accuracy, f1_macro, f1_weighted, neg_log_loss and binary roc_auc.
+Regression names: r2, neg_mean_squared_error, neg_root_mean_squared_error and
+neg_mean_absolute_error. Regression GLM auto scores retain the native D2 score.
+The default neg_log_loss scorer infers test labels and requires the probability
+class count to match, as sklearn; a custom scorer can provide explicit label
+semantics. Associate scorer_func with a scalar function(model,x,yr,yi) instead
+of a name, or allocate scorers(:) for named multiple metrics. search_scorer has
+64-character name/scoring fields and an optional func with that same signature.
+Only one target optional is present, according to the task. Do not configure
+both scorer_func and scorers. Procedures must outlive the fitted search.
+
+refit=true is the default. Single-metric refit chooses the first minimum-rank
+candidate; multiple metrics require refit_metric to name the selection metric.
+refit=false omits best_estimator_; single-metric searches still store best
+metadata, while multi-metric searches have best_index_=0. Associate refit_func
+with integer function(search_cv_results) to choose a 1-based candidate, with
+refit=true. Callable refitting omits the best_score_ value/availability flag.
+best_score_available_ distinguishes absent scores from valid NaN results.
+For a multi-metric callable refit, score delegation additionally needs an
+explicit refit_metric; the source callable-refit multi-metric score method has
+no named selection metric. Refit models and parameter sets are independent
+native value copies; scalar callback pointers retain their procedure targets.
+
+cv_results_ stores params(:), metric_names(:), split_test_score(candidate,fold,
+metric), mean_test_score(candidate,metric), std_test_score and rank_test_score.
+return_train_score=true adds analogous train arrays. Ranks use exact minimum
+rank ties; NaNs rank below finite scores, and all-NaN columns have rank 1.
+Native timing arrays fit_time/score_time are candidate-by-fold, with mean/std
+vectors. n_splits_, n_features_in_, folds_, best_index_, best_params_, best_score_,
+classes_ and refit_time_ provide bookkeeping. n_features_in_ records input width
+even without refitting. best_index_ is 1-based; zero means unavailable. Standard
+deviations use population normalization. Fold means are unweighted across folds.
+
+After refit, predict(x) returns real regression values; predict_class(x) returns
+integer labels. predict_proba and decision_function delegate supported native
+capabilities, with binary margins stored as n-by-1 matrices. score(x,y) uses the
+fitted selected scorer. A later fit clears previous best models and train-score
+arrays. Access the fitted child directly through best_estimator_.
+
+Built-in setters cover common scalar controls of Ridge/OLS/ElasticNet and
+logistic models, SGD, Gaussian/discrete NB, neighbors, CART/ExtraTree, forests,
+gradient boosting, SVC/LinearSVC, scaling, PCA and simple/model-based selectors.
+Nested names such as model__alpha address Pipeline steps; selector estimator__
+paths and transformed-target regressor__ paths are supported. A Pipeline step
+can be set to the text 'passthrough'. Unimplemented parameter paths are errors;
+there is no silent acceptance. Native child option restrictions still apply.
+
+For other parameter structures, associate set_params_func with subroutine
+(model,parameter_set). For a custom estimator fitter, associate fit_func with
+subroutine(model,x,yr,yi,sample_weight). Model arguments are class(*), x is a
+real matrix, and targets/weights are optional vectors with the same typing as
+the scoring callback. A fitter must reset training state on each call, as a
+cloned estimator would. These hooks also support custom native regression
+models with task='regression'; default prediction adapters remain restricted
+to known native model types. Callbacks can inspect best_estimator_ directly.
+The sole supported error_score policy is 'raise', which is the native default.
+No parallelism, fit-error recovery, arbitrary Python reflection, sparse arrays,
+unsupervised fitting or matrix targets are implemented here.

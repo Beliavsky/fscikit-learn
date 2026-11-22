@@ -4509,3 +4509,101 @@ validation/results/model_selector_final_audit.json, model_selector_*.json,
 and the native/integration logs. Existing unrelated reference-suite reports
 were retained rather than all rerun for this increment. The broad sklearn
 translation remains ongoing.
+
+
+## General parameter search (GridSearchCV and RandomizedSearchCV)
+
+This increment adds grid_search_cv and randomized_search_cv through sklearn_search
+and the sklearn facade. To avoid a cycle through the existing model-selection
+and estimator-dispatch modules, sklearn_model_selection does not re-export these
+new types. There are now 217 core public estimator/transformer/splitter types,
+124 core source modules and 122 native test programs. Parameter storage/grid/
+result/scorer helpers are excluded from estimator counts. Two new reference
+suites bring 101 retained core suites to 419,854 result groups. The separate
+42-group legacy RNG suite remains excluded. The new 61-case registry brings
+14 rejection registries to 3,040 cases.
+
+Typed scalar parameter spaces support real, integer, logical and text values;
+axes sort by name and rightmost values vary fastest. Lists of grids preserve
+candidate order, including empty dictionaries. Finite random sampling matches
+sklearn's permutation, tracking-selection and reservoir branches without
+replacement. If any axis has an rvs callback, grid choices and sorted axes are
+sampled with replacement. Large finite spaces are indexed lazily: the test
+samples a million-point grid without creating a million candidate objects.
+Integer sizes and seeds use native default-integer limits; random_state defaults
+to deterministic zero. None/array/estimator-valued parameters require an explicit
+native representation/setter callback rather than Python object reflection.
+
+Searches clone native models for each candidate/fold, slice fit weights, use
+unshuffled KFold or first-appearance-encoded StratifiedKFold, accept explicit
+1-based folds, and retain complete split/mean/std/rank tables and measured
+fit/score times. Scoring can be a built-in name, a scalar callback, or named
+multiple scorers. Refit can use the best metric, be disabled, or use a result
+callback; ties choose the first minimum-rank candidate. Optional train scores
+and refitted prediction/probability/decision/score delegation are available.
+Nested Pipeline, SelectFromModel estimator and transformed-target regressor
+parameter paths are supported. Existing native child fit/weighting/solver
+restrictions still apply; Pipeline weights go to its final estimator.
+
+The supported scope is serial, dense finite X and vector regression/class labels.
+Original project adapters remain MIT and sklearn BSD notices are retained. No
+external repository/dependency or extension algorithm is imported. The native
+error_score default is 'raise' and only that policy is supported: existing
+child estimators use terminating require diagnostics, so failed fits cannot yet
+be recovered as numeric replacement scores. Parallel jobs, general metadata
+routing, sparse data, unsupervised/matrix targets and arbitrary Python clone/
+parameter reflection remain outside this increment. Timing measurements use
+native wall-clock resolution and are not expected to match Python timings.
+
+The parameter-space suite passes 1,976 candidate checks across 112 fixtures:
+four seeds, heterogeneous values, empty/list grids, distribution callbacks,
+sampling ratio boundaries, oversubscribed sampling and lazy large-grid indexing.
+The search suite retains 4,068 groups across 270 fixtures over three seeds,
+ten model/scorer families and nine control configurations. It checks full
+candidate/fold results, ranks, refit metadata and score availability, candidate
+parameters, split indices, callback fit/set counts, timing shape/nonnegativity
+and refitted predictions/responses. Families include Ridge, ElasticNet, binary/
+multiclass logistic regression, Gaussian NB, KNN, scaling pipelines, nested
+model-based selection, nonfinite scalar scorers and custom fit/set callbacks.
+
+All numerical score tables retain direct sklearn comparisons. Ranking is also
+checked exactly with scipy.stats.rankdata applied to the emitted native means.
+Twenty-eight metric/fixture records in the development checked run needed
+roundoff certificates: any changed pair ordering must lie within
+128*n_splits*machine_epsilon times the source score scale, including the source/
+native score differences. Those records retain the changed pairs and bound.
+If such an ordering changes the selected candidate, the source refit/prediction
+oracle uses that certified selection. NaN/infinity ranking and one-row R2
+folds remain covered. No rank check is dropped and score tolerances are not
+relaxed to conceal a changed ordering.
+
+Reproduce after building one fpm profile at a time:
+
+```
+python validation/compare_parameter_space.py --profile checked
+python validation/compare_search.py --profile checked
+python validation/check_search_invalid_inputs.py --profile checked
+```
+
+Use --profile release for optimized gates or --executable with a completed
+canonical binary. See docs/API.md and example/parameter_search.f90 for usage.
+Final verification of the frozen implementation is recorded below.
+
+
+Final verification of the frozen implementation passed all 122 native programs
+in checked and optimized fpm builds. Each canonical profile passed 1,976
+parameter-space checks across 112 fixtures, 4,068 search checks across 270
+fixtures, and all 61 isolated rejection checks. Twenty-eight metric/fixture
+roundoff certificates passed in each profile. The checked integration gate
+passed all 192 comparisons.
+
+Both canonical public example binaries selected alpha 0.01 from three candidates
+and printed mean CV score -1.104558e-6, matching the independent sklearn value
+-1.1045576422766414e-6. The final audit verified complete strict reports, identical
+profile check configurations, canonical executable/validator/certificate and
+installed sklearn/SciPy source hashes, plus all 254 compiled content digests
+per profile (250 core/test/vendor files plus the three new drivers and example).
+Evidence is retained under validation/results/search_final_audit.json,
+search_*.json, parameter_space_*.json and the native/integration logs. Existing
+unrelated reference suites were retained rather than all rerun for this
+increment. The broader sklearn translation remains ongoing.
