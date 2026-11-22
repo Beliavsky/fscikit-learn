@@ -862,3 +862,26 @@ its pool allocation is now deferred to the permutation branch. Upstream
 BSD-3-Clause terms and LICENSES/scikit-learn-COPYING remain applicable. Typed
 options, native interfaces and diagnostics are original MIT contributions.
 The existing separately attributed legacy NumPy RNG is reused unchanged.
+
+## Gaussian-process kernel expressions and SciFort Bessel support
+
+`src/sklearn_gp_kernels.f90` adapts sklearn 1.6.1 gaussian_process/kernels.py:
+RBF, Matern, RationalQuadratic, ExpSineSquared, DotProduct, ConstantKernel,
+WhiteKernel, Sum, Product and Exponentiation covariance/diagonal/log-gradient
+contracts and hyperparameter ordering. GP integration adapts _gpr.py and _gpc.py
+fixed-kernel training, prior/posterior uncertainty and fitted kernel cloning.
+The existing sklearn BSD-3-Clause terms and LICENSES/scikit-learn-COPYING apply.
+Flat typed expressions, native interfaces and diagnostics are original MIT work.
+
+`src/sklearn_bessel_k.f90` adapts the MIT SciFort helper
+`c:/fortran/scifort/src/special/bessel_k.f90`, inspected 2026-11-22, SHA256
+b03ec89063b912c46e2d0899d79f10eb0375b81cc978ffb2808fc82798d0a53d.
+Copyright (c) 2026 SciFort contributors. Its MIT header is retained and the full
+license is retained in LICENSES/scifort-MIT.txt. Changes rename the module, use
+this package's real64 kind and intrinsic IEEE value helpers, and keep only
+log_besselk public for internal kernel support. SciFort's defining-integral,
+log-scaling, Gauss-Legendre quadrature and large-argument asymptotic routines
+supply the general Matern calculation. No SciFort runtime library is linked.
+The general Matern log-length derivative uses the standard K-order recurrence;
+independent sklearn central differences and SciPy Bessel values validate it.
+This numerical support is excluded from the public extension inventory.

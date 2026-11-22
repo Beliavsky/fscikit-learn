@@ -3,6 +3,7 @@
 module sklearn_gp_classification
   use sklearn_common, only: dp,require,check_x,check_xy,unique_labels,sigmoid,cholesky_factor,solve_lower,solve_upper
   use sklearn_metrics, only: accuracy_score
+  use sklearn_gp_kernels, only: gp_kernel,rbf_covariance_kernel=>rbf_covariance,constant_covariance,operator(*)
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
   implicit none
   private
@@ -11,12 +12,13 @@ module sklearn_gp_classification
   real(dp), parameter :: coefs(5)=[-1854.8214151_dp,3516.89893646_dp,221.29346712_dp,128.12323805_dp,-2010.49422654_dp]
   type :: gaussian_process_classifier
     real(dp) :: amplitude=1,length_scale=1,log_marginal_likelihood_=0
+    type(gp_kernel) :: kernel
+    type(gp_kernel), private :: kernel_
     integer :: max_iter_predict=100,n_features_in_=0,n_classes_=0
     integer, allocatable :: classes_(:),n_iter_(:)
     logical, allocatable :: converged_(:)
     real(dp), allocatable :: x_train_(:,:),posterior_mode_(:,:),pi_(:,:),w_sqrt_(:,:),l_(:,:,:),alpha_(:,:)
     real(dp), allocatable :: log_marginal_likelihoods_(:)
-    real(dp), private :: fitted_amplitude=1,fitted_length=1
   contains
     procedure :: fit=>gpc_fit
     procedure :: predict_proba=>gpc_proba
@@ -25,18 +27,6 @@ module sklearn_gp_classification
     procedure :: log_marginal_likelihood=>gpc_likelihood
   end type
 contains
-  function rbf_covariance(x,y,amplitude,length) result(k)
-    real(dp), intent(in) :: x(:,:),y(:,:),amplitude,length
-    real(dp), allocatable :: k(:,:)
-    integer :: i,j
-    allocate(k(size(x,1),size(y,1)))
-    do j=1,size(y,1)
-      do i=1,size(x,1)
-        k(i,j)=amplitude*exp(-.5_dp*sum(((x(i,:)-y(j,:))/length)**2))
-      end do
-    end do
-  end function
-
   subroutine gpc_fit(self,x,y)
     class(gaussian_process_classifier), intent(inout) :: self
     real(dp), intent(in) :: x(:,:)
@@ -45,18 +35,24 @@ contains
     real(dp) :: previous,current
     integer :: n,c,channels,j,k,iteration
     call check_xy(x,size(y))
-    call require(ieee_is_finite(self%amplitude),'nonfinite GPC amplitude')
-    call require(self%amplitude>0,'GPC amplitude must be positive')
-    call require(ieee_is_finite(self%length_scale),'nonfinite GPC length scale')
-    call require(self%length_scale>0,'GPC length scale must be positive')
+    if(.not.self%kernel%is_set()) then
+      call require(ieee_is_finite(self%amplitude),'nonfinite GPC amplitude')
+      call require(self%amplitude>0,'GPC amplitude must be positive')
+      call require(ieee_is_finite(self%length_scale),'nonfinite GPC length scale')
+      call require(self%length_scale>0,'GPC length scale must be positive')
+    end if
     call require(self%max_iter_predict>0,'GPC max_iter_predict must be positive')
     self%classes_=unique_labels(y); c=size(self%classes_)
     call require(c>=2,'GPC requires at least two classes')
     n=size(y); channels=c
     if(c==2) channels=1
     self%x_train_=x; self%n_features_in_=size(x,2); self%n_classes_=c
-    self%fitted_amplitude=self%amplitude; self%fitted_length=self%length_scale
-    gram=rbf_covariance(x,x,self%amplitude,self%length_scale)
+    if(self%kernel%is_set()) then
+      self%kernel_=self%kernel
+    else
+      self%kernel_=constant_covariance(self%amplitude)*rbf_covariance_kernel(self%length_scale)
+    end if
+    gram=self%kernel_%matrix(x)
     if(allocated(self%pi_)) then
       deallocate(self%pi_,self%posterior_mode_,self%w_sqrt_,self%l_,self%alpha_, &
         self%n_iter_,self%converged_,self%log_marginal_likelihoods_)
@@ -109,21 +105,22 @@ contains
     call require(allocated(self%pi_),'GPC is not fitted')
     call check_x(x)
     call require(size(x,2)==self%n_features_in_,'GPC feature count mismatch')
-    k=rbf_covariance(self%x_train_,x,self%fitted_amplitude,self%fitted_length)
+    k=self%kernel_%matrix(self%x_train_,x)
   end function
 
   function gpc_proba(self,x) result(probability)
     class(gaussian_process_classifier), intent(in) :: self
     real(dp), intent(in) :: x(:,:)
-    real(dp), allocatable :: probability(:,:),cross(:,:),mean(:),v(:),positive(:,:)
+    real(dp), allocatable :: probability(:,:),cross(:,:),mean(:),v(:),positive(:,:),diagonal(:)
     real(dp) :: variance,value
     integer :: i,k
     cross=gpc_cross(self,x); allocate(positive(size(x,1),size(self%pi_,2)))
+    diagonal=self%kernel_%diag(x)
     do k=1,size(self%pi_,2)
       mean=matmul(transpose(cross),self%alpha_(:,k))
       do i=1,size(x,1)
         v=solve_lower(self%l_(:,:,k),self%w_sqrt_(:,k)*cross(:,i))
-        variance=max(0._dp,self%fitted_amplitude-dot_product(v,v))
+        variance=max(0._dp,diagonal(i)-dot_product(v,v))
         ! Algebraic simplification avoids division by predictive variance near zero.
         value=.5_dp*sum(coefs*erf(lambdas*mean(i)/sqrt(1+2*variance*lambdas**2)))+.5_dp*sum(coefs)
         positive(i,k)=max(0._dp,min(1._dp,value))

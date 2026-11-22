@@ -30,6 +30,7 @@ module sklearn
   use sklearn_neural_network
   use sklearn_datasets
   use sklearn_gaussian_process
+  use sklearn_gp_kernels
   use sklearn_covariance
   use sklearn_feature_extraction
   use sklearn_feature_extraction_text

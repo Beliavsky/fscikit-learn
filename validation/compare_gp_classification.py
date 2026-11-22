@@ -1,5 +1,7 @@
 """Fixed-kernel binary and one-vs-rest Laplace GPC reference comparisons."""
 from pathlib import Path
+import argparse
+import hashlib
 import json
 import subprocess
 import numpy as np
@@ -10,6 +12,12 @@ ROOT = Path(__file__).resolve().parents[1]
 RESULTS = ROOT / "validation/results"
 
 def main():
+    parser=argparse.ArgumentParser()
+    parser.add_argument('--profile',choices=['checked','release'],default='checked')
+    parser.add_argument('--executable',type=Path)
+    args=parser.parse_args()
+    from compare_function_transformer import resolve
+    executable=args.executable.resolve() if args.executable else resolve(args.profile,'reference_gp_classification_driver')
     RESULTS.mkdir(exist_ok=True)
     checks = []
     for seed, n, p in ((7, 30, 2), (42, 36, 3), (2026, 24, 4)):
@@ -23,9 +31,7 @@ def main():
         with data.open("w") as stream:
             stream.write(f"{n} {p}\n")
             np.savetxt(stream, np.column_stack([x, binary, multi]), fmt="%.17g")
-        subprocess.run(["fpm", "run", "--flag", "-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow",
-                        "--target", "reference_gp_classification_driver", "--", str(data), str(output)],
-                       cwd=ROOT, check=True)
+        subprocess.run([str(executable),str(data),str(output)],cwd=ROOT,check=True)
         actual, expected = {}, {}
         for line in output.read_text().splitlines():
             name, *values = line.split(); actual[name] = np.array(values, dtype=float)
@@ -59,7 +65,12 @@ def main():
             assert actual[name].shape == want.shape, (seed, name, actual[name].shape, want.shape)
             np.testing.assert_allclose(actual[name], want, atol=3e-8, rtol=3e-8, err_msg=f"{seed} {name}")
             checks.append(dict(seed=seed, name=name, passed=True))
-    (RESULTS/"gp_classification.json").write_text(json.dumps(dict(sklearn=sklearn.__version__, checks=checks), indent=2)+"\n")
+    report=dict(sklearn=sklearn.__version__,profile=args.profile,checks=checks,
+                native_sha256=hashlib.sha256(executable.read_bytes()).hexdigest(),
+                validator_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest())
+    (RESULTS/f'gp_classification_{args.profile}.json').write_text(json.dumps(report,indent=2,allow_nan=False)+'\n')
+    if args.profile=='checked':
+        (RESULTS/'gp_classification.json').write_text(json.dumps(report,indent=2,allow_nan=False)+'\n')
     print(f"{len(checks)} Gaussian process classification result groups passed")
 
 if __name__ == "__main__":

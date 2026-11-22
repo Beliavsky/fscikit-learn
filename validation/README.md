@@ -4987,3 +4987,126 @@ classification_datasets_final_audit.json, classification_datasets_*.json,
 classification_datasets_invalid_*.json, classification_datasets_example_*.json,
 bagging_*.json, sample_generators_*.json and classification_datasets_*_tests.log /
 classification_datasets_*_gates.log. The broader sklearn translation remains ongoing.
+
+
+## Gaussian-process covariance kernels and fitted kernel snapshots
+
+`sklearn_gp_kernels`, also exported by `sklearn`, provides RBF, Matern,
+RationalQuadratic, ExpSineSquared, DotProduct, ConstantKernel and WhiteKernel
+counterparts through a value-type `gp_kernel`. Constructors are
+`rbf_covariance(length_scale,fixed)`, `matern_covariance(length_scale,nu,fixed)`,
+`rational_quadratic_covariance(length_scale,alpha,fixed_length,fixed_alpha)`,
+`periodic_covariance(length_scale,periodicity,fixed_length,fixed_periodicity)`,
+`dot_product_covariance(sigma_0,fixed)`, `constant_covariance(constant_value,fixed)`
+and `white_covariance(noise_level,fixed)`. Parameters have sklearn's defaults.
+RBF and Matern accept scalar or per-feature length scales. Matern supports all
+positive finite nu values and positive infinity, with closed forms for 0.5, 1.5,
+2.5 and infinity and a log-scaled Bessel K evaluation otherwise.
+
+Kernel expressions support sum, product and integer/real powers, including
+nonnegative real64 constants on either side of + or *. Flat internal expression
+storage gives independent value copies without recursive allocation ownership.
+The public methods are `%matrix(x[,y])`, `%diag(x)`, `%gradient(x)`, `%theta()`,
+`%with_theta(theta)`, `%n_dims()` and `%is_set()`. Gradients are with respect to
+log hyperparameters, in source order: left before right in compositions, alpha
+before length scale for RQ, length scale before periodicity for periodic kernels.
+Fixed flags omit whole parameter groups from theta and gradient width, including
+all coordinates of a fixed anisotropic length scale. Power exponents and Matern
+nu are not included in theta, matching sklearn. `%with_theta` returns a copy.
+
+White noise contributes only on the diagonal of auto covariance. A supplied Y
+always produces zero white cross covariance, even for identical arrays. Kernel
+diagonals use a direct O(samples * expression_nodes) path. Gradients accept only
+auto covariance, represented by their x-only signature. Length scales, RQ alpha
+and periodicity must be finite and positive; constants, white noise and dot-product
+sigma_0 finite and nonnegative. Zero active scalar values use negative-infinite
+log theta, as in the source. Invalid real powers raise a diagnostic; gradients
+at zero bases use zero for nonnegative powers. Inputs remain nonempty finite
+dense real64 matrices. Hyperparameter bounds and optimizer integration,
+PairwiseKernel/CompoundKernel adapters and sparse/object inputs are not provided.
+
+Both `gaussian_process_regressor` and `gaussian_process_classifier` accept an
+optional `%kernel` expression. This replaces their legacy amplitude/length-scale
+RBF configuration (and GPR white-noise field). When no expression is set, existing
+scalar controls retain their meaning. Fit clones the configured kernel into an
+internal snapshot, so later input-kernel or scalar edits do not alter an existing
+fit; a subsequent fit uses the changed configuration. This also fixes the older
+GPR behavior of consulting live scalar kernel controls during prediction.
+GPR now supports unfitted prior predictions: zero means, kernel covariance and
+kernel standard deviations. Posterior covariance is returned without diagonal
+clipping, matching sklearn; standard deviations clip negative roundoff variances.
+The existing scalar alpha, vector-target regression, binary/OVR classification,
+normalization and fixed-parameter training scope remains. Automatic hyperparameter
+optimization, GPR multiple targets, vector alpha and posterior sampling remain
+outside this increment. Set `optimizer=None` for the Python reference equivalent.
+
+General Matern values use an adapted MIT SciFort Bessel helper from
+`c:/fortran/scifort/src/special/bessel_k.f90`, source SHA256
+`b03ec89063b912c46e2d0899d79f10eb0375b81cc978ffb2808fc82798d0a53d`.
+Its copyright header is retained and the full license is in LICENSES/scifort-MIT.txt.
+Only the implementation support module is imported; SciFort is not linked and
+its additional Bessel APIs are not exported by the facade. General Matern length
+gradients use an analytic Bessel-ratio identity. The pinned source approximates
+these with a 1e-10 forward difference; comparisons therefore also use independent
+1e-5 central differences of sklearn kernel values. This numerical choice adds no
+extension algorithm. All kernel algorithms have sklearn counterparts; original
+native interfaces remain MIT with retained sklearn BSD notices.
+
+The inventory remains 217 core estimator/transformer/splitter types, with 129
+source modules and 130 native test programs. Kernel expression/evaluation storage
+is counted separately from that estimator inventory. There are 109 core reference
+suites retaining 440,097 groups, plus the separate 42-group legacy RNG suite.
+Twenty-seven new rejection cases bring 19 isolated registries to 3,205 cases.
+
+The new suite retains 9,132 groups over 876 fixtures: 300 standalone kernel,
+288 GPR and 288 GPC fixtures. It compares auto/cross matrices, diagonals, theta,
+fixed groups, gradients, cloning, shifted parameters, prior/posterior predictions,
+uncertainty, Cholesky/dual state, binary/multiclass probabilities and likelihoods,
+fitted snapshots and refits. There are also 45 independent general-Matern central
+gradient groups and 48 SciPy log-Bessel support points within the stated group
+count. Duplicate rows, zero scalar kernels, anisotropy and nested expressions are
+retained. The development central-gradient maximum error was 3.82e-10; source
+forward-difference gradients differed by up to 1.22e-4 due to their small step.
+The source comparison uses 3e-4 tolerance for those noisy gradients and stricter
+central-difference checks, rather than claiming bitwise equivalence.
+
+Run `python validation/compare_gp_kernels.py --profile checked`; use
+`--profile release` or `--executable` for completed binaries. The existing
+`compare_gp_classification.py` now accepts the same profile/executable arguments,
+so regression gates never need concurrent fpm invocations. See
+`example/gaussian_process_kernels.f90` for a complete public example.
+
+
+The GP kernel suite additionally retains three constant-kernel multiclass tie
+certificates per profile. Each has three equally populated classes and a constant
+Gram/cross matrix: the OVR heads are permutation-equivalent, so exact normalized
+probabilities are 1/3 for every class. Source and native probabilities must both
+satisfy this symmetry within 64*epsilon*sum(abs(Laplace_erf_coefficients)), and
+reported labels must belong to the analytically tied class set. Observed source
+and native labels, class counts and errors are retained in the reports. Optimized
+reductions select a different tied class in these fixtures; all other label
+comparisons remain exact. These three certificate groups are included in the
+9,132-group total; no fixture is dropped or relabeled.
+
+
+Final verification passed all 130 native test programs in checked and optimized
+fpm builds. Both canonical profiles passed all 9,132 new kernel/GP result groups
+over 876 fixtures, 27 new rejection checks, 312 existing GP classification groups
+and 22 existing GP diagnostic checks. The checked integration gate passed 192
+comparisons. Three retained constant-kernel multiclass fixtures per profile have
+analytic tie certificates; optimized labels differ from the source while both
+probability arrays satisfy the exact 1/3 symmetry to within 6e-14. Every other
+label comparison is exact. Both public examples matched independent sklearn
+means, standard deviations and class probabilities at their printed precision.
+
+The final audit verified strict reports, identical profile check lists, the
+three explicit certificates, canonical executable/validator and installed source
+hashes, the retained SciFort license/import provenance, and 265 compiled content
+digests per profile (263 core/test/vendor files plus the new driver and example).
+Evidence is retained under validation/results as gp_kernels_final_audit.json,
+gp_kernels_{checked,release}.json, gp_kernels_invalid_*.json,
+gp_classification_{checked,release}.json, gp_legacy_invalid_*.json,
+gp_kernel_example_*.json, gp_kernels_*_tests.log, gp_kernels_*_gates.log and
+gp_kernels_checked_reference_final.log. Other historical reference suites were
+retained rather than all rerun for this increment. The broader sklearn
+translation remains ongoing.
