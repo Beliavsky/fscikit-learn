@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 217 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and twenty-two reference suites additionally check 559,933
+All types have native tests. One hundred and twenty-three reference suites additionally check 582,083
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -36,7 +36,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | multioutput | `multi_output_regressor`, `multi_output_classifier`, `regressor_chain`, `classifier_chain` | Independent fitted base models per response column; supported native linear/SGD, NB, neighbors and tree families; ragged class probabilities; SGD/Gaussian NB streaming; native base weighting limits apply |
 | preprocessing | `kernel_centerer`, `ordinal_encoder`, `target_encoder`, `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `iterative_imputer`, `knn_imputer`, `missing_indicator`, `spline_transformer`, `label_encoder`, `one_hot_encoder`, `label_binarizer`, `multi_label_binarizer`, `power_transformer`, `kbins_discretizer`, `quantile_transformer`; `normalize`, `binarize`, `polynomial_features` | Ordinal category codes and infrequent grouping; cross-fitted target means; population variance; linear percentile interpolation; NaN imputation with mean/median/most-frequent/constant; numeric categories; empirical uniform/normal quantile transforms; dense polynomial terms through degree 12 with optional interactions; B-spline features and extrapolation |
 | linear_model | `linear_regression`, `lars`, `lasso_lars`, `lars_cv`, `lasso_lars_cv`, `lasso_lars_ic`, `ridge`, `ridge_classifier`, `ridge_classifier_cv`, `multi_task_elastic_net`, `multi_task_lasso`, `multi_task_elastic_net_cv`, `multi_task_lasso_cv`, `lasso`, `elastic_net`, `lasso_cv`, `elastic_net_cv`, `logistic_regression`, `logistic_regression_cv`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `sgd_regressor`, `sgd_classifier`, `sgd_one_class_svm`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `orthogonal_matching_pursuit_cv`, `huber_regressor`, `quantile_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; least-angle/Lasso homotopy paths with CV and AIC/BIC selection; coordinate descent with K-fold alpha/l1-ratio selection; weighted logistic Newton solver with raw-score prediction; perceptron; PA-I/II classification/regression with averaging; streaming stochastic-gradient regression/classification and one-class detection; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; weighted L1-regularized quantile regression; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
-| naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb`, `categorical_nb` | Weighted/streaming Gaussian moments, empirical/fixed priors and variance smoothing; strictly positive scalar alpha; Bernoulli threshold; optional complement normalization |
+| naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb`, `categorical_nb` | Weighted/streaming Gaussian moments, empirical/fixed priors and variance smoothing; weighted/streaming discrete event counts and fixed/empirical priors; strictly positive scalar alpha; Bernoulli threshold; optional complement normalization |
 | neighbors | `neighborhood_components_analysis`, `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Supervised NCA metric learning; brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with optional shrinkage and uniform priors; Euclidean kernel density |
 | cluster | `kmeans`, `bisecting_kmeans`, `mini_batch_kmeans`, `spectral_coclustering`, `spectral_biclustering`, `hdbscan`, `dbscan`, `agglomerative_clustering`, `feature_agglomeration`, `mean_shift`, `affinity_propagation`, `spectral_clustering`, `optics`, `birch`; `estimate_bandwidth`, `cluster_optics_dbscan`, `cluster_optics_xi` | Lloyd/k-means++; paired row/column spectral partitions and checkerboard biclustering; weighted streaming mini-batch centroids; bisecting centroid hierarchy with Lloyd/Elkan splits; density expansion; single/complete/average/Ward merge trees and feature pooling; flat-kernel mode seeking; damped exemplar messages; normalized-Laplacian clustering with k-means or pivoted QR assignment; OPTICS reachability ordering, Xi hierarchy and DBSCAN extraction; BIRCH streaming CF tree and optional Ward clustering |
 | decomposition | `pca`, `incremental_pca`, `truncated_svd`, `nmf`, `mini_batch_nmf`, `sparse_pca`, `mini_batch_sparse_pca`, `dictionary_learning`, `mini_batch_dictionary_learning`, `sparse_coder`, `latent_dirichlet_allocation`; `sparse_encode`; re-exports `kernel_pca`, `factor_analysis`, `fast_ica` | Full/randomized/covariance PCA with automatic routing; PCA whitening/inversion, variance/Minka dimension selection and probabilistic scores; streaming stacked-SVD IncrementalPCA; exact dense and randomized dense/CSR TruncatedSVD; NMF multiplicative updates; sparse dictionary factorization and SparsePCA; five sparse coding methods; nonlinear kernel PCA; full/randomized-SVD factor analysis with orthogonal rotations; parallel/deflation ICA |
@@ -6325,3 +6325,45 @@ logarithms, reference selection and null completion remain MIT, with existing
 sklearn BSD notices retained. No estimator type, extension algorithm or external
 Fortran dependency is added. Sparse inputs and custom covariance objects remain
 outside this interface.
+
+
+## Weighted discrete NB streaming (2026-11-22)
+
+Added weighted batch and partial fitting for MultinomialNB, BernoulliNB and
+ComplementNB, persistent raw feature/class counts, fitted feature width and
+Complement total-feature counts. First-call declared classes, missing classes,
+class-set/width continuity, fit resets and independent copied state follow the
+source streaming contracts. Optional class priors override empirical/uniform
+prior selection without renormalization. Source-positive scalar alpha remains
+the native scope. Bernoulli thresholds now reject source-invalid negative values.
+
+`validation/compare_discrete_stream.py` retains 22,150 groups across 824 fixtures
+and 1,796 fitted snapshots. Three seeds cover all three estimators, one/two/three
+observed classes, tall/wide/single-feature arrays, weighted/unweighted fitting,
+multiple thresholds, both Complement normalizations, missing declared classes,
+zero/fractional weights, empirical/uniform/fixed priors and nonunit/zero prior
+entries. There are 1,796 independent weighted count-conservation certificates
+and 324 final streaming/batch equivalence cases. All query and training labels
+and scores are checked at every snapshot.
+
+The suite retains 909 field-level NaN certificates for zero-mass empirical
+priors, one-feature normalized Complement weights and saturated Bernoulli
+likelihoods; no fixture is discarded.
+Complement label ties use the existing classifier-chain rounding certificate,
+with training accuracy checked against the certified training predictions.
+Finite score/probability fields still compare directly with installed sklearn
+1.6.1. Twenty-five rejection cases cover first/changed class contracts, labels,
+feature widths, finite/nonnegative data and weights, priors, thresholds, alpha,
+query contracts and weighted-product overflow.
+
+Inventory: 217 public core types, 129 core modules, 146 native test programs,
+123 core reference suites and 582,083 cumulative retained groups. The separate
+42-group legacy RNG reference suite remains excluded. Thirty-three invalid-input
+registries retain 3,442 cases. These are cumulative counts, not a full rerun
+claim; final verification below identifies the suites rerun for this increment.
+
+Run `python validation/compare_discrete_stream.py --profile checked`, or use
+`--profile release` / `--executable`. Native state/weight interfaces remain MIT,
+with existing sklearn BSD notices retained. No estimator type, public extension
+algorithm or external Fortran dependency is added. Sparse inputs, vector/zero
+alpha and signed weights remain outside this native interface.

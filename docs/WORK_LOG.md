@@ -6677,3 +6677,65 @@ and retained QDA prior weights matched sklearn. Reports, the final audit and
 seven terminal logs are retained in ignored `validation/results`. The cumulative
 inventory above is not a complete rerun claim; unrelated reference suites and
 the separate 42-group legacy RNG reference suite were not rerun.
+
+
+## Weighted discrete NB streaming (2026-11-22)
+
+Added weighted batch and partial fitting for MultinomialNB, BernoulliNB and
+ComplementNB, persistent raw feature/class counts, fitted feature width and
+Complement total-feature counts. First-call declared classes, missing classes,
+class-set/width continuity, fit resets and independent copied state follow the
+source streaming contracts. Optional class priors override empirical/uniform
+prior selection without renormalization. Source-positive scalar alpha remains
+the native scope. Bernoulli thresholds now reject source-invalid negative values.
+
+`validation/compare_discrete_stream.py` retains 22,150 groups across 824 fixtures
+and 1,796 fitted snapshots. Three seeds cover all three estimators, one/two/three
+observed classes, tall/wide/single-feature arrays, weighted/unweighted fitting,
+multiple thresholds, both Complement normalizations, missing declared classes,
+zero/fractional weights, empirical/uniform/fixed priors and nonunit/zero prior
+entries. There are 1,796 independent weighted count-conservation certificates
+and 324 final streaming/batch equivalence cases. All query and training labels
+and scores are checked at every snapshot.
+
+The suite retains 909 field-level NaN certificates for zero-mass empirical
+priors, one-feature normalized Complement weights and saturated Bernoulli
+likelihoods; no fixture is discarded.
+Complement label ties use the existing classifier-chain rounding certificate,
+with training accuracy checked against the certified training predictions.
+Finite score/probability fields still compare directly with installed sklearn
+1.6.1. Twenty-five rejection cases cover first/changed class contracts, labels,
+feature widths, finite/nonnegative data and weights, priors, thresholds, alpha,
+query contracts and weighted-product overflow.
+
+Inventory: 217 public core types, 129 core modules, 146 native test programs,
+123 core reference suites and 582,083 cumulative retained groups. The separate
+42-group legacy RNG reference suite remains excluded. Thirty-three invalid-input
+registries retain 3,442 cases. These are cumulative counts, not a full rerun
+claim; final verification below identifies the suites rerun for this increment.
+
+Run `python validation/compare_discrete_stream.py --profile checked`, or use
+`--profile release` / `--executable`. Native state/weight interfaces remain MIT,
+with existing sklearn BSD notices retained. No estimator type, public extension
+algorithm or external Fortran dependency is added. Sparse inputs, vector/zero
+alpha and signed weights remain outside this native interface.
+
+Final verification: all 146 native test programs passed with
+`-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow` and with
+`--profile release`. Each profile passed 75,033 affected reference groups:
+22,150 new discrete-stream groups, 16,536 weighted-classifier groups, 27,490
+multiclass groups, 8,665 classifier-chain groups and 192 integration groups.
+All 25 new rejection cases passed in both profiles. The new suite retained
+824 fixtures and 1,796 snapshots, with 1,796 count-conservation certificates,
+909 undefined-field certificates, 324 streaming/batch equivalence cases and
+three tied-label certificates per profile. Saturated Bernoulli fixtures retain
+source NaNs safely under the checked floating-point traps; no fixture was removed.
+
+The final audit matched all 285 compiled source-content digests per profile,
+validator/source/executable hashes and cross-profile check inventories.
+`fpm run --example --target streaming_document_nb` passed explicitly in both
+profiles, and example output also matched sklearn. Reports, terminal logs and
+`discrete_stream_final_audit.json` are retained in ignored `validation/results`.
+Only the affected reference suites listed here were rerun; the cumulative
+582,083-group inventory is not a full-rerun claim. The separate 42-group legacy
+RNG reference suite remains excluded and was not rerun.

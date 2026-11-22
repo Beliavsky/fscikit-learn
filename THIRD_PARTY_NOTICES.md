@@ -1023,3 +1023,12 @@ and LICENSES/scikit-learn-COPYING remain retained. Native input/diagnostic
 interfaces, safe zero-prior logarithms, positive-reference margins and orthogonal
 null completion are original MIT contributions. No external source dependency
 is imported.
+
+
+`src/sklearn_naive_bayes.f90` extends discrete NB following scikit-learn 1.6.1
+`naive_bayes.py` `_BaseDiscreteNB.partial_fit`, class-prior updates and
+MultinomialNB/BernoulliNB/ComplementNB count and smoothed-feature updates.
+Existing sklearn BSD attribution and LICENSES/scikit-learn-COPYING are retained.
+Native Fortran streaming/weight interfaces, fitted diagnostics, safe absent-class
+and undefined-value handling and input contracts are original MIT contributions.
+No external source package or runtime dependency is imported.

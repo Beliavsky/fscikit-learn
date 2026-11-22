@@ -218,3 +218,6 @@ LDA supports automatic standardized Ledoit-Wolf shrinkage; see
 
 LDA and QDA accept custom class priors, including zero-weight classes; see
 [the example](example/prior_weighted_discriminants.f90).
+
+Multinomial, Bernoulli and Complement Naive Bayes support weighted streaming; see
+[the example](example/streaming_document_nb.f90).

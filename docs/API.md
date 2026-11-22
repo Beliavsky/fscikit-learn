@@ -5703,3 +5703,41 @@ comparisons certify the training span, projector and source spectrum and evaluat
 the source classifier with the same valid retained null direction. Wide QDA with
 zero regularization remains rejected. See `example/prior_weighted_discriminants.f90`.
 Custom covariance-estimator objects and sparse inputs remain outside this API.
+
+
+## Weighted discrete Naive Bayes streaming
+
+`multinomial_nb`, `bernoulli_nb` and `complement_nb` now accept optional
+`sample_weight(:)` in `fit`, and expose
+`partial_fit(x,y,classes,sample_weight)`. The first partial call requires the
+complete class set; later calls may omit it or repeat the same set in any order.
+Classes are stored sorted. Unknown labels, changed class sets and changed feature
+width are rejected. `fit` resets all accumulated state and infers classes from y.
+Derived-type assignment copies streaming state independently.
+
+`%feature_count_` stores raw weighted class-by-feature event counts,
+`%class_count_` weighted class masses and `%n_features_in_` the fitted width.
+Bernoulli counts use the strict `%binarize_threshold` comparison; original input
+must be finite and the threshold finite/nonnegative, matching source validation.
+Complement adds `%feature_all_`, the feature totals across classes. Probabilities
+and priors are recomputed from accumulated counts after each update, without
+reapplying smoothing to old counts. Inputs remain dense real64; positive scalar
+alpha and the existing thresholded Bernoulli interface are retained.
+
+An allocated `%class_prior(:)` supplies ordered nonnegative finite prior weights;
+it overrides `%fit_prior` and is used without renormalizing, matching sklearn.
+Otherwise empirical priors use weighted class counts, or `%fit_prior=.false.`
+selects uniform priors. Complement ignores class priors in multiclass joint
+scores, as in source, but retains the fitted log-prior diagnostics.
+
+Nonnegative finite sample weights may all be zero. Empirical zero-total-mass
+priors remain NaN; unobserved classes with positive total mass have negative
+infinite empirical log priors. A normalized one-feature Complement model has
+undefined feature weights/probabilities (NaN), matching source. These values
+are created explicitly without floating-point traps; NaN argmax behavior follows
+source. Bernoulli likelihoods that round to unit feature probability retain source NaNs
+without evaluating log(0) or opposing infinities. Source-score ties within
+roundoff use label certificates in validation.
+See `example/streaming_document_nb.f90`. Sparse estimator inputs, vector/zero
+alpha, raw Bernoulli `binarize=None`, signed weights and weighted `score` remain
+outside this increment. Count/smoothing intermediates must fit real64 range.

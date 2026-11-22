@@ -26,10 +26,13 @@ module sklearn_naive_bayes
   type :: multinomial_nb
     real(dp) :: alpha=1
     logical :: fit_prior=.true.
+    integer :: n_features_in_=0
+    real(dp), allocatable :: class_prior(:),feature_count_(:,:)
     integer, allocatable :: classes_(:)
     real(dp), allocatable :: feature_log_prob_(:,:),class_log_prior_(:),class_count_(:)
   contains
     procedure :: fit=>multinomial_fit
+    procedure :: partial_fit=>discrete_partial_fit
     procedure :: joint_log_likelihood=>multinomial_joint
     procedure :: predict_log_proba=>discrete_log_proba
     procedure :: predict_proba=>discrete_proba
@@ -44,6 +47,7 @@ module sklearn_naive_bayes
   end type
   type, extends(multinomial_nb) :: complement_nb
     logical :: norm=.false.
+    real(dp), allocatable :: feature_all_(:)
   contains
     procedure :: fit=>complement_fit
     procedure :: joint_log_likelihood=>complement_joint
@@ -255,51 +259,157 @@ contains
     integer, intent(in) :: y(:)
     v=accuracy_score(y,self%predict(x))
   end function
-  subroutine discrete_counts(self,x,y,counts)
-    class(multinomial_nb), intent(inout) :: self
+  subroutine discrete_controls(self,x)
+    class(multinomial_nb), intent(in) :: self
     real(dp), intent(in) :: x(:,:)
-    integer, intent(in) :: y(:)
-    real(dp), allocatable, intent(out) :: counts(:,:)
-    integer :: i,c,k
-    call check_xy(x,size(y)); call require(all(x>=0),'discrete NB requires nonnegative data')
+    call check_x(x)
+    call require(ieee_is_finite(self%alpha),'NB alpha must be finite')
     call require(self%alpha>0,'NB alpha must be strictly positive')
-    self%classes_=unique_labels(y); k=size(self%classes_)
-    allocate(counts(k,size(x,2))); counts=0
-    self%class_count_=spread(0._dp,1,k)
-    do i=1,size(y)
-      c=label_index(self%classes_,y(i)); counts(c,:)=counts(c,:)+x(i,:)
-      self%class_count_(c)=self%class_count_(c)+1
-    end do
-    self%class_log_prior_=log(self%class_count_/size(y))
-    if(.not.self%fit_prior) self%class_log_prior_=-log(real(k,dp))
+    select type(self)
+    class is(bernoulli_nb)
+      call require(ieee_is_finite(self%binarize_threshold),'Bernoulli NB threshold must be finite')
+      call require(self%binarize_threshold>=0,'Bernoulli NB threshold must be nonnegative')
+    class default
+      call require(all(x>=0),'discrete NB requires nonnegative data')
+    end select
   end subroutine
-  subroutine multinomial_fit(self,x,y)
+  elemental real(dp) function discrete_log(value) result(logged)
+    real(dp), intent(in) :: value
+    if(value==0) then
+      logged=ieee_value(0._dp,ieee_negative_inf)
+    else
+      logged=log(value)
+    end if
+  end function
+  subroutine discrete_update(self)
+    class(multinomial_nb), intent(inout) :: self
+    real(dp), allocatable :: counts(:,:)
+    real(dp) :: total,denominator
+    integer :: c,k,p
+    k=size(self%classes_);p=self%n_features_in_
+    call require(all(self%feature_count_<=huge(1._dp)-self%alpha),'NB smoothed count exceeds numeric range')
+    select type(self)
+    class is(bernoulli_nb)
+      call require(self%alpha<=huge(1._dp)/2,'NB smoothed count exceeds numeric range')
+      call require(all(self%class_count_<=huge(1._dp)-2*self%alpha),'NB smoothed count exceeds numeric range')
+      self%feature_log_prob_=log(self%feature_count_+self%alpha)- &
+        spread(log(self%class_count_+2*self%alpha),2,p)
+    class is(complement_nb)
+      call require(maxval(self%feature_count_)<=huge(1._dp)/k,'NB feature total exceeds numeric range')
+      self%feature_all_=sum(self%feature_count_,dim=1)
+      counts=spread(self%feature_all_,1,k)-self%feature_count_
+      call require(all(counts<=huge(1._dp)-self%alpha),'NB smoothed count exceeds numeric range')
+      counts=counts+self%alpha
+      call require(maxval(counts)<=huge(1._dp)/p,'NB smoothed total exceeds numeric range')
+      self%feature_log_prob_=-log(counts/spread(sum(counts,dim=2),2,p))
+      if(self%norm) then
+        do c=1,k
+          denominator=sum(self%feature_log_prob_(c,:))
+          if(denominator==0) then
+            self%feature_log_prob_(c,:)=ieee_value(0._dp,ieee_quiet_nan)
+          else
+            self%feature_log_prob_(c,:)=self%feature_log_prob_(c,:)/denominator
+          end if
+        end do
+      end if
+    class default
+      counts=self%feature_count_+self%alpha
+      call require(maxval(counts)<=huge(1._dp)/p,'NB smoothed total exceeds numeric range')
+      self%feature_log_prob_=log(counts)-spread(log(sum(counts,dim=2)),2,p)
+    end select
+    if(allocated(self%class_prior)) then
+      call require(size(self%class_prior)==k,'NB class_prior must match class count')
+      call require(all(ieee_is_finite(self%class_prior)),'NB class_prior must be finite')
+      call require(all(self%class_prior>=0),'NB class_prior must be nonnegative')
+      call require(any(self%class_prior>0),'NB class_prior needs positive weight')
+      self%class_log_prior_=discrete_log(self%class_prior)
+    else if(.not.self%fit_prior) then
+      self%class_log_prior_=spread(-log(real(k,dp)),1,k)
+    else
+      call require(maxval(self%class_count_)<=huge(1._dp)/k,'NB class total exceeds numeric range')
+      total=sum(self%class_count_)
+      if(total==0) then
+        self%class_log_prior_=spread(ieee_value(0._dp,ieee_quiet_nan),1,k)
+      else
+        self%class_log_prior_=discrete_log(self%class_count_)-log(total)
+      end if
+    end if
+  end subroutine
+  subroutine discrete_partial_fit(self,x,y,classes,sample_weight)
     class(multinomial_nb), intent(inout) :: self
     real(dp), intent(in) :: x(:,:)
     integer, intent(in) :: y(:)
-    real(dp), allocatable :: counts(:,:)
-    call discrete_counts(self,x,y,counts); counts=counts+self%alpha
-    self%feature_log_prob_=log(counts/spread(sum(counts,dim=2),2,size(x,2)))
+    integer, optional, intent(in) :: classes(:)
+    real(dp), optional, intent(in) :: sample_weight(:)
+    integer, allocatable :: labels(:)
+    real(dp), allocatable :: data(:,:),weights(:),contribution(:)
+    integer :: i,c,k,p
+    call check_xy(x,size(y));call discrete_controls(self,x);p=size(x,2)
+    if(.not.allocated(self%classes_)) then
+      call require(present(classes),'NB first partial_fit requires classes')
+      self%classes_=unique_labels(classes);k=size(self%classes_);self%n_features_in_=p
+      allocate(self%feature_count_(k,p),self%class_count_(k));self%feature_count_=0;self%class_count_=0
+    else
+      if(present(classes)) then
+        labels=unique_labels(classes)
+        call require(size(labels)==size(self%classes_),'NB classes changed between partial_fit calls')
+        call require(all(labels==self%classes_),'NB classes changed between partial_fit calls')
+      end if
+      call require(p==self%n_features_in_,'NB feature count changed between partial_fit calls')
+    end if
+    weights=spread(1._dp,1,size(y))
+    if(present(sample_weight)) then
+      call require(size(sample_weight)==size(y),'NB sample weight length mismatch')
+      call require(all(ieee_is_finite(sample_weight)),'NB sample weights must be finite')
+      call require(all(sample_weight>=0),'NB sample weights must be nonnegative')
+      weights=sample_weight
+    end if
+    data=x
+    select type(self)
+    class is(bernoulli_nb)
+      data=merge(1._dp,0._dp,x>self%binarize_threshold)
+    end select
+    do i=1,size(y)
+      c=label_index(self%classes_,y(i));call require(c>0,'NB label is absent from declared classes')
+      if(weights(i)>1) call require(all(data(i,:)<=huge(1._dp)/weights(i)),'NB weighted count exceeds numeric range')
+      contribution=weights(i)*data(i,:)
+      call require(all(self%feature_count_(c,:)<=huge(1._dp)-contribution),'NB accumulated count exceeds numeric range')
+      call require(self%class_count_(c)<=huge(1._dp)-weights(i),'NB accumulated class count exceeds numeric range')
+      self%feature_count_(c,:)=self%feature_count_(c,:)+contribution
+      self%class_count_(c)=self%class_count_(c)+weights(i)
+    end do
+    call discrete_update(self)
   end subroutine
-  subroutine bernoulli_fit(self,x,y)
+  subroutine multinomial_fit(self,x,y,sample_weight)
+    class(multinomial_nb), intent(inout) :: self
+    real(dp), intent(in) :: x(:,:)
+    integer, intent(in) :: y(:)
+    real(dp), optional, intent(in) :: sample_weight(:)
+    if(allocated(self%classes_)) deallocate(self%classes_)
+    if(allocated(self%feature_count_)) deallocate(self%feature_count_)
+    if(allocated(self%class_count_)) deallocate(self%class_count_)
+    if(allocated(self%feature_log_prob_)) deallocate(self%feature_log_prob_)
+    if(allocated(self%class_log_prior_)) deallocate(self%class_log_prior_)
+    select type(self)
+    class is(complement_nb)
+      if(allocated(self%feature_all_)) deallocate(self%feature_all_)
+    end select
+    self%n_features_in_=0
+    call self%partial_fit(x,y,unique_labels(y),sample_weight)
+  end subroutine
+  subroutine bernoulli_fit(self,x,y,sample_weight)
     class(bernoulli_nb), intent(inout) :: self
     real(dp), intent(in) :: x(:,:)
     integer, intent(in) :: y(:)
-    real(dp), allocatable :: counts(:,:)
-    call discrete_counts(self,merge(1._dp,0._dp,x>self%binarize_threshold),y,counts)
-    self%feature_log_prob_=log((counts+self%alpha)/ &
-      spread(self%class_count_+2*self%alpha,2,size(x,2)))
+    real(dp), optional, intent(in) :: sample_weight(:)
+    call multinomial_fit(self,x,y,sample_weight)
   end subroutine
-  subroutine complement_fit(self,x,y)
+  subroutine complement_fit(self,x,y,sample_weight)
     class(complement_nb), intent(inout) :: self
     real(dp), intent(in) :: x(:,:)
     integer, intent(in) :: y(:)
-    real(dp), allocatable :: counts(:,:)
-    call discrete_counts(self,x,y,counts)
-    counts=spread(sum(counts,dim=1),1,size(counts,1))-counts+self%alpha
-    self%feature_log_prob_=-log(counts/spread(sum(counts,dim=2),2,size(x,2)))
-    if(self%norm) self%feature_log_prob_=self%feature_log_prob_/ &
-      spread(sum(self%feature_log_prob_,dim=2),2,size(x,2))
+    real(dp), optional, intent(in) :: sample_weight(:)
+    call multinomial_fit(self,x,y,sample_weight)
   end subroutine
   function multinomial_joint(self,x) result(joint)
     class(multinomial_nb), intent(in) :: self
@@ -314,12 +424,28 @@ contains
     class(bernoulli_nb), intent(in) :: self
     real(dp), intent(in) :: x(:,:)
     real(dp), allocatable :: joint(:,:),negative(:,:),binary(:,:)
+    integer :: c
     call require(allocated(self%feature_log_prob_),'NB is not fitted')
     call check_xy(transpose(x),size(self%feature_log_prob_,2))
     binary=merge(1._dp,0._dp,x>self%binarize_threshold)
-    negative=log(1-exp(self%feature_log_prob_))
-    joint=matmul(binary,transpose(self%feature_log_prob_-negative))+ &
-      spread(sum(negative,dim=2)+self%class_log_prior_,1,size(x,1))
+    negative=1-exp(self%feature_log_prob_)
+    if(all(negative>0)) then
+      negative=log(negative)
+      joint=matmul(binary,transpose(self%feature_log_prob_-negative))+ &
+        spread(sum(negative,dim=2)+self%class_log_prior_,1,size(x,1))
+    else
+      allocate(joint(size(x,1),size(self%classes_)))
+      do c=1,size(self%classes_)
+        if(any(negative(c,:)<=0)) then
+          ! Source's log(0) and opposing infinite terms make this class NaN.
+          joint(:,c)=ieee_value(0._dp,ieee_quiet_nan)
+        else
+          negative(c,:)=log(negative(c,:))
+          joint(:,c)=matmul(binary,self%feature_log_prob_(c,:)-negative(c,:))+ &
+            sum(negative(c,:))+self%class_log_prior_(c)
+        end if
+      end do
+    end if
   end function
   function complement_joint(self,x) result(joint)
     class(complement_nb), intent(in) :: self
@@ -328,7 +454,11 @@ contains
     call require(allocated(self%feature_log_prob_),'NB is not fitted')
     call check_xy(transpose(x),size(self%feature_log_prob_,2))
     call require(all(x>=0),'complement NB requires nonnegative data')
-    joint=matmul(x,transpose(self%feature_log_prob_))
+    if(any(ieee_is_nan(self%feature_log_prob_))) then
+      allocate(joint(size(x,1),size(self%classes_)));joint=ieee_value(0._dp,ieee_quiet_nan)
+    else
+      joint=matmul(x,transpose(self%feature_log_prob_))
+    end if
     if(size(self%classes_)==1) joint=joint+spread(self%class_log_prior_,1,size(x,1))
   end function
   function discrete_log_proba(self,x) result(logp)
@@ -338,7 +468,13 @@ contains
     integer :: i
     logp=self%joint_log_likelihood(x)
     do i=1,size(x,1)
-      logp(i,:)=logp(i,:)-logsumexp(logp(i,:))
+      if(any(ieee_is_nan(logp(i,:)))) then
+        logp(i,:)=ieee_value(0._dp,ieee_quiet_nan)
+      else if(all(logp(i,:)==ieee_value(0._dp,ieee_negative_inf))) then
+        logp(i,:)=ieee_value(0._dp,ieee_quiet_nan)
+      else
+        logp(i,:)=logp(i,:)-logsumexp(logp(i,:))
+      end if
     end do
   end function
   function discrete_proba(self,x) result(p)
@@ -350,11 +486,18 @@ contains
   function discrete_predict(self,x) result(y)
     class(multinomial_nb), intent(in) :: self
     real(dp), intent(in) :: x(:,:)
-    integer :: y(size(x,1)),i
+    integer :: y(size(x,1)),i,c,index
     real(dp), allocatable :: p(:,:)
     p=self%joint_log_likelihood(x)
     do i=1,size(y)
-      y(i)=self%classes_(maxloc(p(i,:),dim=1))
+      index=0
+      do c=1,size(self%classes_)
+        if(ieee_is_nan(p(i,c))) then
+          index=c;exit
+        end if
+      end do
+      if(index==0) index=maxloc(p(i,:),dim=1)
+      y(i)=self%classes_(index)
     end do
   end function
   real(dp) function discrete_score(self,x,y) result(v)
