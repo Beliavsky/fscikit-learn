@@ -4836,3 +4836,103 @@ test sources stayed fixed through these final gates. Native logs are retained
 as validation/results/target_wrappers_native_checked.log and
 validation/results/target_wrappers_native_release.log. The broader translation
 goal remains active.
+
+
+## Dense column and parallel feature composition (2026-11-21)
+
+Added sklearn ColumnTransformer and FeatureUnion counterparts with 17 existing
+native child transformer types and recursive composition of both new graph
+types. Selection supports ordered/repeated 1-based positions, logical masks,
+explicit feature names and fit-time callbacks. Column transforms clone models,
+retain empty selections without fitting, exclude all explicitly selected columns
+from remainder, and append a dropped/passthrough/transformed remainder. Fitted
+union lists follow sklearn's update convention. Both support branch weighting,
+feature names and empty results; ColumnTransformer additionally exposes output
+indices, custom name formatting and named query reordering/missing-drop columns.
+Native tests cover independent graph copies, prototype cloning, changed-row
+single branches and current-weight transforms. Production/native sources were
+frozen before the final checked/release fpm gates.
+
+Core inventory is now 213 public estimator/transformer/splitter types in 119
+source modules, plus the existing four vendor optimizer modules. There are 117
+native test programs and 97 retained core reference suites. The new suites
+contain 2,160 groups / 360 ColumnTransformer fixtures and 1,200 groups / 240
+FeatureUnion fixtures, covering all 17 supported existing child types, both
+nested graph types, callback expansion, selector variants, remainder modes,
+fit versus fit_transform, prefit prototypes and generated/explicit feature
+names. Total retained core groups are 401,366; the separate 42 legacy RNG
+groups remain excluded. The new isolated registry contains 43 cases, bringing
+the eleven registries to 2,874 cases. Counts describe API subsets, not full
+sklearn class ports or a percentage of sklearn's functionality.
+
+The reference engine uses installed sklearn 1.6.1, NumPy 2.2.6 and pandas for
+named-column reference semantics. Numeric comparisons use 3e-9 relative/absolute
+tolerance, except inherited PowerTransformer fits at 3e-6. Metadata, output
+shapes, names, selector call counts and native/source output slices are exact.
+No fixtures are filtered. Reports retain source hashes, canonical native binary
+hashes, warning counts, numeric differences and full per-fixture checks.
+Numeric category names include subnormal and maximum finite values, exponent
+layout boundaries, negative zero, full-precision random values and ordinary
+decimals. KNNImputer naming preserves sklearn 1.6.1's all-missing-column omission
+even when the numeric output retains the columns. Active zero-width blocks
+still participate in concatenation row checks; a single active branch may
+change row count, as in source.
+
+These are dense, serial, unsupervised composition APIs. Existing child limits
+continue to apply. No generic external estimator objects, supervised y routing,
+sparse stacking, pandas output containers, metadata routing or general
+sequential Pipeline is added. Python slicing/scalar column selection is
+represented with explicit native position vectors. Explicit name vectors
+provide named matrix indexing without importing a Python container library.
+The API and example document native storage/indexing conventions. Original
+contributions remain MIT, with sklearn BSD attribution retained. No new
+dependency or public extension algorithm is added.
+
+Reproduce the new gates with one fpm build at a time:
+
+```
+python validation/compare_column_transformer.py --profile checked
+python validation/compare_feature_union.py --profile checked
+python validation/check_composition_invalid_inputs.py --profile checked
+```
+
+Use --profile release for optimized gates, or --executable to inspect completed
+canonical executables without another fpm invocation. Example:
+`fpm run --example feature_composition`.
+
+
+The first optimized rejection gate exposed an unsafe assignment from an
+unallocated allocatable selector-function result. The native selector interface
+now uses a subroutine with an allocatable integer intent(out) argument; its
+allocation is validated before copying or indexing. Focused checked and
+optimized builds both passed all 43 rejection cases, and the optimized normal
+selector probe passed 360 groups across 60 fixtures. Complete native/reference
+gates were restarted after this correction. The final results below refer to
+the corrected subroutine interface, not the initial function-result build.
+
+
+Final gates after the selector correction passed all 117 native test programs
+in both runtime/FPE-checked and optimized fpm profiles. Both canonical fpm
+reference drivers passed all 3,360 groups across the same 600 unfiltered
+fixtures, and each profile passed all 43 isolated rejection cases, including
+the previously failing unallocated-selector case. No roundoff exception or
+conditional certificate was needed for these new comparisons; the existing
+PowerTransformer numerical tolerance remains explicit.
+
+The updated checked reference executable also passed the existing 192-group
+sklearn integration gate. The feature_composition example passed both profiles
+and matched an independent sklearn calculation: processed shape (6,4), first
+output name numeric__x0, and union shape (6,7). No rerun of every historical
+reference suite is claimed.
+
+Final audits verified strict JSON, unique identifiers, full fixture counts,
+identical checked/release configurations, validator/installed-source hashes and
+canonical executable hashes. Current objects were verified for all 119 core
+modules, 117 native test programs, four vendored optimizer modules, and the
+new helper/driver/example sources in each profile. Python compilation,
+Fortran line lengths and Git whitespace checks passed. Production/native
+sources remained fixed through these final reruns. Corrected native logs are
+retained as validation/results/composition_native_checked.log and
+validation/results/composition_native_release.log; the original selector
+failure log is retained separately for diagnosis. The broader translation
+goal remains active.

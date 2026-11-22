@@ -4284,3 +4284,114 @@ with NumPy's rtol=1e-5, atol=1e-8. Its inverse flags are separate from an embedd
 FunctionTransformer's flags. Original-target constant R2 can change from 1 to
 0 after a one-ulp prediction difference; it is not smoothed or clamped beyond
 sklearn's force_finite rule. See example/transformed_targets.f90.
+
+
+## ColumnTransformer and FeatureUnion
+
+`column_transformer` is exported by `sklearn_compose`; `feature_union` by
+`sklearn_pipeline`. Both are available through `sklearn`. They combine dense
+rank-two real(dp) matrices using the existing native transformer implementations.
+The storage helper `transformer_branch` holds an allocatable name, an action
+('transform', 'drop' or 'passthrough'), an allocatable class(*) model and a
+real(dp) weight (default one). Actions drop/passthrough ignore an allocated model.
+Model allocation is explicit, for example:
+
+```fortran
+allocate(columns%transformers(1))
+columns%transformers(1)%name='numeric'
+columns%transformers(1)%columns=[1,3]
+allocate(columns%transformers(1)%model,source=scaler)
+z=columns%fit_transform(x)
+```
+
+Supported exact child types are function_transformer; standard_scaler,
+minmax_scaler, maxabs_scaler, robust_scaler; simple_imputer, knn_imputer,
+missing_indicator; one_hot_encoder, ordinal_encoder; power_transformer,
+quantile_transformer, kbins_discretizer, spline_transformer; pca, truncated_svd;
+and variance_threshold. ColumnTransformer and FeatureUnion can recursively
+contain either composition type. The underlying model's numerical controls
+and restrictions still apply. MissingIndicator logical output is promoted to
+real(dp) before weighting/concatenation, as with a numeric sklearn composition.
+No supervised y dispatch, sample-weight routing, arbitrary external estimator
+objects, sparse outputs, joblib parallel execution or Python parameter-search
+framework is provided by this increment.
+
+ColumnTransformer uses transformers(:) as prototypes and transformers_(:) as
+fitted branches. Exactly one selector is required on every prototype branch:
+columns(:) contains 1-based integer positions (duplicates/order preserved),
+mask(:) is a logical vector of input width, column_names(:) is a feature_string
+vector, or selector is a procedure pointer. The callback is a subroutine accepting X,
+the input feature_string vector and an allocatable integer intent(out) position
+vector; it is evaluated only on fit. Allocation is checked after the callback,
+so an unallocated selection is diagnosed safely in optimized builds. Generated
+x0, x1, ... names are supplied to the callback when explicit names are absent. A zero-length selector is valid and
+its transformer is not fitted. Selections may overlap. Negative/zero native
+indices are diagnosed; Python negative indices, scalar rank-one selection,
+and Python slices are represented using explicit native position vectors.
+
+remainder is another transformer_branch, with default action='drop'. Set its
+action to 'passthrough', or to 'transform' and allocate its model. Its selected
+columns are the sorted complement of all explicit selections, including dropped
+branches. If nonempty, remainder is appended after the explicit fitted branches;
+its fitted name is 'remainder'. Its weight is applied like other branches.
+Fit clones child prototypes. FunctionTransformer cloning drops learned metadata
+and preserves callback pointers/controls. Empty/drop branches are skipped and retain prototype
+storage. Native intrinsic allocatable assignment makes independent model copies;
+procedure targets and module/captured callback state remain the caller's responsibility.
+
+fit(X,feature_names) and fit_transform(X,feature_names) optionally record explicit
+feature_string names. ColumnTransformer fit uses fit_transform internally, like
+sklearn. transform(X,feature_names) can then map reordered named query columns,
+accept extra columns and omit fitted columns used only by dropped/empty branches.
+Active names must be present and unique in the query. Without names on both fit
+and query, positional queries require the fitted feature width. These explicit
+arrays implement named-column semantics; they are not a pandas container API.
+Global finite-value validation is delegated to children, allowing passthrough
+and imputation branches to retain the appropriate NaN behavior.
+
+n_features_in_, n_features_out_, feature_names_in_ and sparse_output_ expose
+fitted metadata; sparse_output_ is always false in this dense implementation.
+named_transformer_index(name) returns the 1-based transformers_ position or
+zero. output_indices(name) returns the corresponding 1-based output positions;
+empty/drop branches and an absent remainder return an empty vector. Branch
+output_start_/output_stop_ are inclusive native bounds, with stop<start for an
+empty slice. ColumnTransformer weights are read from prototype branch controls
+on every transform, allowing weight changes without refitting.
+
+Native FeatureUnion transform/name calls require a fitted graph, including
+stateless-only unions. FeatureUnion uses transformer_list(:), with no column selectors: every branch
+receives the complete input. Fitting updates the models in transformer_list,
+matching sklearn's fitted-list convention, while Fortran value semantics do not
+mutate an independently allocated caller variable. Passthrough becomes a fitted
+one-to-one FunctionTransformer. fit invokes child fit; fit_transform invokes child
+fit_transform when available (or fit then transform). A fit-only union has
+n_features_out_=-1 because no output was evaluated; fit_transform records its
+actual width and output slices. These width/slice fields are native bookkeeping.
+The native API additionally accepts an empty transformer_list, returning an empty
+matrix; sklearn 1.6.1 rejects an empty list during fit. An all-dropped union is
+accepted by both. Native unprefixed names for an empty/all-dropped union return
+an empty vector; sklearn 1.6.1 raises a NumPy empty-concatenate error on its
+unprefixed all-dropped naming path. These are explicit native empty-container
+adapters, not additional algorithms.
+transform uses the current branch weights. A passthrough-only union need not
+enforce fitted input width because its FunctionTransformer has validate=false.
+
+Both compositions concatenate active results in branch order. If no branches
+are active, they return shape (input_rows,0). Active zero-width blocks
+participate in row consistency checks. A single branch may change the row count,
+matching sklearn; multiple branches must have equal result row counts. The
+compositions do not force the input row count onto a valid child result.
+
+get_feature_names_out(input_features) uses explicit/stored/generated input names
+and delegates child naming. verbose_feature_names_out defaults true, prefixing
+branch names with '__'. False returns unprefixed names and diagnoses duplicates.
+ColumnTransformer additionally accepts a name_formatter procedure pointer:
+character(*) transformer_name and feature_name inputs, returning allocatable
+character(:). This represents sklearn's callable formatter; Python format-string
+parsing is not provided. Custom formatter output follows sklearn's callable
+path without an additional uniqueness constraint. Numeric one-hot names use
+shortest round-trip decimal strings with Python float decimal/exponent layout.
+KNNImputer names reproduce sklearn 1.6.1's omission of all-missing columns even
+when keep_empty_features retains their numeric output, so source names can have
+a different length from numeric output. A child's missing name API is diagnosed.
+See example/feature_composition.f90 for numeric/categorical branches and nesting.

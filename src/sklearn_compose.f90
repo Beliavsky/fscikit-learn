@@ -1,6 +1,7 @@
 ! TransformedTargetRegressor: sklearn 1.6.1 compose/_target.py (BSD-3-Clause).
 ! See THIRD_PARTY_NOTICES.md. Native clone/storage adapters are original MIT code.
 module sklearn_compose
+  use sklearn_feature_composition, only: column_transformer,transformer_branch,column_selector,feature_name_formatter
   use sklearn_common, only: dp,require,check_x,check_xy
   use sklearn_function_transformer, only: function_transformer,matrix_function,matrices_close
   use sklearn_preprocessing, only: standard_scaler,minmax_scaler,maxabs_scaler,robust_scaler
@@ -17,6 +18,7 @@ module sklearn_compose
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
   implicit none
   private
+  public :: column_transformer,transformer_branch,column_selector,feature_name_formatter
   public :: transformed_target_regressor,target_regressor_slot,target_regressor_bundle
   type :: target_regressor_slot
     class(*), allocatable :: model_

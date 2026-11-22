@@ -741,3 +741,20 @@ retain their earlier attribution. No additional dependency is introduced.
 Reference API documentation:
 https://scikit-learn.org/1.6/modules/generated/sklearn.preprocessing.FunctionTransformer.html
 https://scikit-learn.org/1.6/modules/generated/sklearn.compose.TransformedTargetRegressor.html
+
+### ColumnTransformer and FeatureUnion
+
+`src/sklearn_feature_composition.f90` adapts dense orchestration contracts from
+scikit-learn 1.6.1 `compose/_column_transformer.py` and `pipeline.py`: branch
+validation, cloned column transforms, fitted union lists, dropped/empty branches,
+remainder selection, array column indexing, weighted concatenation,
+feature names and output slices. Copyright The scikit-learn developers;
+BSD-3-Clause terms remain in `LICENSES/scikit-learn-COPYING`. Native polymorphic
+storage, recursive dispatch, explicit named matrix selection and shortest
+round-trip numeric name formatting are original MIT contributions. Existing
+child model implementations retain their earlier notices. No additional
+source dependency or external Fortran repository is imported by this increment.
+
+Reference APIs:
+https://scikit-learn.org/1.6/modules/generated/sklearn.compose.ColumnTransformer.html
+https://scikit-learn.org/1.6/modules/generated/sklearn.pipeline.FeatureUnion.html

@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 211 public estimator, transformer, and splitter types. Each is a
+There are 213 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Ninety-five reference suites additionally check 398,006
+All types have native tests. Ninety-seven reference suites additionally check 401,366
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -25,6 +25,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 
 | Module (`sklearn_` prefix) | Public types and functions | Scope and numerical choices |
 | --- | --- | --- |
+| feature_composition / pipeline | `column_transformer`, `feature_union` | Dense parallel transformer graphs, 17 existing child types, recursive composition, positional/mask/name/callback column selection, remainder transforms, branch weights, feature names and output indices |
 | function_transformer / compose | `function_transformer`, `transformed_target_regressor` | Dense matrix callbacks, feature names and inverse diagnostics; cloned target transforms, supported native bases, weighted linear fits and independent multiple targets; joint multi-target trees excluded |
 | neighbor_graph / sparse | `kneighbors_transformer`, `radius_neighbors_transformer`; `csr_matrix` storage helper | Brute dense-feature and dense/CSR precomputed distances; connectivity/distance CSR outputs with explicit zeros |
 | threshold | `fixed_threshold_classifier`, `tuned_threshold_classifier_cv` | Binary probability/margin cutoffs; weighted fold score curves, interpolation and first-best threshold selection; holdout, custom folds and prefit validation |
@@ -250,7 +251,7 @@ distances; cosine similarity; linear, RBF, polynomial and sigmoid kernels.
 ## Remaining major scikit-learn areas
 
 Not translated: sparse data paths, general estimator base/clone/parameter search
-framework, pipelines/column transformers, broader SVM/GLM/SGD options,
+framework, general sequential pipelines, broader SVM/GLM/SGD options,
 broader histogram boosting, AdaBoost and bagging APIs,
 Barnes-Hut t-SNE,
 outlier detection beyond LOF/OneClassSVM/SGDOneClassSVM/IsolationForest/EllipticEnvelope,
@@ -4937,3 +4938,74 @@ Use --profile release for the optimized gate. --executable accepts a completed
 native executable, avoiding another fpm invocation. Do not run simultaneous fpm
 builds in this checkout. The transformed_targets example shows log/exp target
 regression and a standalone callable transform through the sklearn facade.
+
+
+## Dense column and parallel feature composition (2026-11-21)
+
+Added sklearn ColumnTransformer and FeatureUnion counterparts with 17 existing
+native child transformer types and recursive composition of both new graph
+types. Selection supports ordered/repeated 1-based positions, logical masks,
+explicit feature names and fit-time callbacks. Column transforms clone models,
+retain empty selections without fitting, exclude all explicitly selected columns
+from remainder, and append a dropped/passthrough/transformed remainder. Fitted
+union lists follow sklearn's update convention. Both support branch weighting,
+feature names and empty results; ColumnTransformer additionally exposes output
+indices, custom name formatting and named query reordering/missing-drop columns.
+Native tests cover independent graph copies, prototype cloning, changed-row
+single branches and current-weight transforms. Production/native sources were
+frozen before the final checked/release fpm gates.
+
+Core inventory is now 213 public estimator/transformer/splitter types in 119
+source modules, plus the existing four vendor optimizer modules. There are 117
+native test programs and 97 retained core reference suites. The new suites
+contain 2,160 groups / 360 ColumnTransformer fixtures and 1,200 groups / 240
+FeatureUnion fixtures, covering all 17 supported existing child types, both
+nested graph types, callback expansion, selector variants, remainder modes,
+fit versus fit_transform, prefit prototypes and generated/explicit feature
+names. Total retained core groups are 401,366; the separate 42 legacy RNG
+groups remain excluded. The new isolated registry contains 43 cases, bringing
+the eleven registries to 2,874 cases. Counts describe API subsets, not full
+sklearn class ports or a percentage of sklearn's functionality.
+
+The reference engine uses installed sklearn 1.6.1, NumPy 2.2.6 and pandas for
+named-column reference semantics. Numeric comparisons use 3e-9 relative/absolute
+tolerance, except inherited PowerTransformer fits at 3e-6. Metadata, output
+shapes, names, selector call counts and native/source output slices are exact.
+No fixtures are filtered. Reports retain source hashes, canonical native binary
+hashes, warning counts, numeric differences and full per-fixture checks.
+Numeric category names include subnormal and maximum finite values, exponent
+layout boundaries, negative zero, full-precision random values and ordinary
+decimals. KNNImputer naming preserves sklearn 1.6.1's all-missing-column omission
+even when the numeric output retains the columns. Active zero-width blocks
+still participate in concatenation row checks; a single active branch may
+change row count, as in source.
+
+These are dense, serial, unsupervised composition APIs. Existing child limits
+continue to apply. No generic external estimator objects, supervised y routing,
+sparse stacking, pandas output containers, metadata routing or general
+sequential Pipeline is added. Python slicing/scalar column selection is
+represented with explicit native position vectors. Explicit name vectors
+provide named matrix indexing without importing a Python container library.
+The API and example document native storage/indexing conventions. Original
+contributions remain MIT, with sklearn BSD attribution retained. No new
+dependency or public extension algorithm is added.
+
+Reproduce the new gates with one fpm build at a time:
+
+```
+python validation/compare_column_transformer.py --profile checked
+python validation/compare_feature_union.py --profile checked
+python validation/check_composition_invalid_inputs.py --profile checked
+```
+
+Use --profile release for optimized gates, or --executable to inspect completed
+canonical executables without another fpm invocation. Example:
+`fpm run --example feature_composition`.
+
+
+Native empty-container adaptations: FeatureUnion accepts an empty branch list
+and returns zero output columns, while sklearn 1.6.1 rejects an empty list on
+fit. Both support all-dropped lists. The native API returns an empty name vector
+for unprefixed empty/all-dropped unions; the source unprefixed all-dropped
+naming path raises a NumPy empty-concatenate error. These differences are
+identified native container conventions, not public extension algorithms.
