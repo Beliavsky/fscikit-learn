@@ -5946,3 +5946,88 @@ below 1.7e-12. Native SVD trajectories remain distinct from a promise of NumPy
 LAPACK trajectory identity. Only the affected suites and checked integration
 suite listed here were rerun; 479,061 groups is the cumulative core inventory.
 Test, gate, example-build and audit logs are retained beside the ignored reports.
+
+
+## FactorAnalysis rotations and randomized SVD
+
+Added varimax/quartimax orthogonal loading rotation and randomized-SVD fitting to
+the existing FactorAnalysis estimator. Native defaults retain full SVD and no
+rotation. Explicit `iterated_power` (default 3) and scalar seed (default 0) reuse
+the native randomized SVD core, including no normalization for powers 0--2 and
+pivoted LU for higher powers. Existing consumers retain their previous automatic
+4/7-power path. The fit seeds a local RNG once and advances it across iterations.
+Full SVD is the existing native Jacobi algorithm, not a new LAPACK dependency.
+
+Rotation follows sklearn's post-fit orthomax iteration: varimax's column-energy
+penalty or quartimax's unpenalized fourth moment, orthogonal polar updates,
+relative 1e-6 stopping and at most 100 steps. Native zero singular columns are
+completed orthogonally. Fitted noise, covariance, precision and likelihood history
+are preserved; factor coordinates change. Native matrix/iteration/convergence
+rotation diagnostics reset on refit, including zero-factor no-ops. Nonfinite
+tolerances/noise initialization now raise explicit diagnostics before arithmetic.
+
+`validation/compare_factor_options.py` retains 6,564 groups over 396 fixtures:
+three seeds, seven tall/wide/full/zero/singleton dimension configurations, full
+SVD and randomized powers 0/1/2/3/7, all three rotation choices, normal/custom
+noise initialization, converged/capped fits and additional all-zero loadings.
+There are 228 independent rotation comparisons, with source-helper SVD calls
+instrumented to check diagnostic iteration counts. Checks include fitted
+loadings and factors aligned only for signed permutations, raw loadings,
+noise, means, history, covariance, precision, scores, orthogonality, covariance
+preservation, criterion improvement and an independent rotation replay from the
+native unrotated state. All fixtures remain in the suite. Fifteen isolated
+rejections cover solver/rotation/iteration/seed controls, nonfinite inputs,
+noise shape/range, component count and fitted/query contracts.
+
+Explicit certificates retain capped tol=0 convergence-flag differences only
+when both final likelihood improvements lie within 128*eps times the larger of
+n*p and the final source likelihood magnitudes, with the same iteration count.
+One-feature/one-factor varimax has identically zero criterion; a source power-
+rounding residual can stop its helper in two steps while the native exact-zero
+gradient reaches 100. Those diagnostic differences retain an analytic certificate
+and strict factor/covariance/orthogonality checks. Development retained twelve
+fit-stop and one trivial-rotation certificates; final profile reports record the
+actual certificates. No model comparison is silently omitted or relaxed.
+
+The inventory remains 217 core estimator/transformer/splitter types and 129 core
+modules, with 137 native test programs. There are 114 core reference suites and
+485,625 retained groups, plus the separate 42-group legacy RNG suite. Fifteen
+new rejection cases bring 24 registries to 3,275 cases. These are cumulative
+counts; the final verification record lists the suites actually rerun.
+
+Run `python validation/compare_factor_options.py --profile checked`, or use
+`--profile release` / `--executable` for completed binaries. See
+`example/factor_analysis_rotation.f90`. Original interfaces and diagnostic
+storage remain MIT with existing sklearn and NumPy notices retained. No source
+package, dependency or extension algorithm is added. Dense real64 arrays,
+scalar integer seeds, the existing min(samples,features) component limit and
+zero-singular-value likelihood floor remain the documented native scope.
+
+
+Final verification passed in checked and release profiles: all 137 native test
+programs; 6,564 new FactorAnalysis groups, 204 existing regression/factor/
+projection groups, 744 dictionary-learning groups, 6,500 MiniBatchNMF groups and
+1,620 t-SNE groups (15,632 affected reference groups per profile); and 17 affected
+invalid-input cases (15 new and two legacy FactorAnalysis cases). The checked
+integration suite passed 192 groups. The rotation example matched sklearn's
+latent shape, fitted iteration count and mean likelihood in both profiles.
+The separate legacy RNG reference suite was not rerun; dictionary validation
+retained all 744 algorithm groups using completed canonical binaries.
+
+Both profiles retained twelve bounded fit-stop certificates. One trivial
+one-feature varimax iteration certificate was retained in checked mode and four
+in release mode; these are the same identically zero criterion geometry, with
+all loading, model, criterion and orthogonality comparisons retained. All 228
+independent rotation comparisons passed in each profile. Existing t-SNE
+trajectory/tie certificates remain in the copied profile reports.
+
+The ignored `validation/results/factor_options_final_audit.json` validates strict
+JSON reports, executable/validator and installed sklearn source hashes, matching
+checked/release fixture inventories, every retained new certificate and 276
+compiled-content digests per profile: 129 core modules, four vendor modules,
+137 native test programs, five affected reference drivers and the new example.
+The copied t-SNE inventories match by seed/case/name; their numeric error and
+trajectory details are retained separately per profile. Only the affected suites
+and checked integration suite listed here were rerun; 485,625 groups is the
+cumulative core reference inventory. Test, gate, example-build and audit logs
+are retained beside the ignored reports.

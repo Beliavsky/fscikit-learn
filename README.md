@@ -191,3 +191,6 @@ confidence-based voting; see [the example](example/gaussian_process_ovo.f90).
 
 Gaussian process regression supports seeded prior/posterior sampling, including
 independent multiple targets; see [the example](example/gaussian_process_sampling.f90).
+
+Factor analysis supports randomized SVD and varimax/quartimax rotation; see
+[the example](example/factor_analysis_rotation.f90).

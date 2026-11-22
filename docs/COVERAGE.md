@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 217 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and thirteen reference suites additionally check 479,061
+All types have native tests. One hundred and fourteen reference suites additionally check 485,625
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -39,7 +39,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb`, `categorical_nb` | Weighted/streaming Gaussian moments, empirical/fixed priors and variance smoothing; strictly positive scalar alpha; Bernoulli threshold; optional complement normalization |
 | neighbors | `neighborhood_components_analysis`, `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Supervised NCA metric learning; brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with optional shrinkage and uniform priors; Euclidean kernel density |
 | cluster | `kmeans`, `bisecting_kmeans`, `mini_batch_kmeans`, `spectral_coclustering`, `spectral_biclustering`, `hdbscan`, `dbscan`, `agglomerative_clustering`, `feature_agglomeration`, `mean_shift`, `affinity_propagation`, `spectral_clustering`, `optics`, `birch`; `estimate_bandwidth`, `cluster_optics_dbscan`, `cluster_optics_xi` | Lloyd/k-means++; paired row/column spectral partitions and checkerboard biclustering; weighted streaming mini-batch centroids; bisecting centroid hierarchy with Lloyd/Elkan splits; density expansion; single/complete/average/Ward merge trees and feature pooling; flat-kernel mode seeking; damped exemplar messages; normalized-Laplacian clustering with k-means or pivoted QR assignment; OPTICS reachability ordering, Xi hierarchy and DBSCAN extraction; BIRCH streaming CF tree and optional Ward clustering |
-| decomposition | `pca`, `incremental_pca`, `truncated_svd`, `nmf`, `mini_batch_nmf`, `sparse_pca`, `mini_batch_sparse_pca`, `dictionary_learning`, `mini_batch_dictionary_learning`, `sparse_coder`, `latent_dirichlet_allocation`; `sparse_encode`; re-exports `kernel_pca`, `factor_analysis`, `fast_ica` | Direct Jacobi SVD; PCA whitening and inversion; streaming stacked-SVD IncrementalPCA; exact dense SVD; NMF multiplicative updates; sparse dictionary factorization and SparsePCA; five sparse coding methods; nonlinear kernel PCA; unrotated full-SVD factor analysis; parallel/deflation ICA |
+| decomposition | `pca`, `incremental_pca`, `truncated_svd`, `nmf`, `mini_batch_nmf`, `sparse_pca`, `mini_batch_sparse_pca`, `dictionary_learning`, `mini_batch_dictionary_learning`, `sparse_coder`, `latent_dirichlet_allocation`; `sparse_encode`; re-exports `kernel_pca`, `factor_analysis`, `fast_ica` | Direct Jacobi SVD; PCA whitening and inversion; streaming stacked-SVD IncrementalPCA; exact dense SVD; NMF multiplicative updates; sparse dictionary factorization and SparsePCA; five sparse coding methods; nonlinear kernel PCA; full/randomized-SVD factor analysis with orthogonal rotations; parallel/deflation ICA |
 | cross_decomposition | `pls_regression`, `pls_canonical`, `cca`, `pls_svd` | Paired-matrix latent components: NIPALS regression/canonical deflation, CCA pseudoinverse mode, canonical direct SVD and PLSSVD cross-covariance projection; multiple response columns |
 | isotonic | `isotonic_regression`; `isotonic_fit`, `check_increasing` | Weighted pool-adjacent-violators, automatic Spearman direction, bounds, repeated-input aggregation and piecewise linear interpolation |
 | kernel_approximation | `rbf_sampler`, `nystroem`, `additive_chi2_sampler`, `skewed_chi2_sampler`, `polynomial_count_sketch` | Random Fourier RBF maps; sampled-landmark inverse-square-root maps for RBF/linear/polynomial/cosine kernels; additive and skewed chi2 maps; seeded polynomial TensorSketch with arbitrary-length FFTs |
@@ -166,8 +166,8 @@ distances; cosine similarity; linear, RBF, polynomial and sigmoid kernels.
 - OMP supports a sparsity count or residual tolerance, with a direct SVD solve
   on the active dictionary. There is no precomputed Gram input, multi-target
   output or coefficient path. A separate OMP CV estimator is documented below.
-- FactorAnalysis supports the unrotated full-SVD algorithm (`svd_method='lapack'`
-  in sklearn), not randomized SVD or varimax/quartimax rotation. Requested
+- FactorAnalysis supports full and randomized SVD and varimax/quartimax
+  orthogonal rotations. Native full SVD remains the default. Requested
   components cannot exceed `min(n_samples,n_features)`. Exact zero singular
   values are floored only in the training likelihood to avoid log-zero traps;
   singular-model likelihood history can therefore differ from Python's infinities.
@@ -5943,3 +5943,43 @@ then `sample_y` fails for both one and multiple targets. The Fortran methods
 retain the explicit shapes above. Those source failures are recorded and the
 intended scalar draws are compared with NumPy's direct multivariate-normal call.
 See `example/gaussian_process_sampling.f90`.
+
+
+## FactorAnalysis randomized fitting and orthogonal rotation
+
+`factor_analysis` adds `%rotation='none'|'varimax'|'quartimax'` and
+`%svd_method='lapack'|'randomized'`. Native defaults remain `'none'` and `'lapack'`
+to preserve existing behavior; `'lapack'` selects the native full Jacobi SVD,
+without a LAPACK dependency. Set `%iterated_power` (default 3) and `%random_state`
+(default 0) for seeded randomized fitting. Power counts zero through two use
+unnormalized power steps; higher counts use pivoted-LU normalization, matching
+sklearn's automatic rule. Ten oversamples, automatic wide-matrix transposition,
+Householder range QR and SVD sign selection reuse the existing native core.
+The RNG is seeded once per fit and advances across fitting iterations. Zero
+factors produce the same diagonal noise model in either solver mode.
+
+Rotation is applied after fitting, preserving noise variance, fitted covariance,
+precision, likelihood history and iteration count up to roundoff. Latent
+coordinates and loading interpretation change. Varimax subtracts the normalized
+column-energy term; quartimax omits it. The orthogonal polar-factor iteration
+uses sklearn's fixed 100-step limit and relative 1e-6 criterion. Native SVD's
+missing left null-space columns are completed orthogonally before forming a
+polar factor, so rank-deficient or zero loadings retain an orthogonal rotation.
+
+`%rotation_matrix_` has shape `(factors,factors)` with
+`components_ = matmul(transpose(rotation_matrix_), unrotated_components)`. `%n_rotation_iter_` and `%rotation_converged_` describe the separate
+rotation solve. With no rotation or zero factors they are zero/true and the
+matrix is identity (empty for zero factors). All-zero nonempty loadings can
+reach the 100-step limit with an unchanged model. Refit resets these diagnostics.
+Controls/noise initialization must be finite and valid. The existing component
+limit `0 <= n_components <= min(n_samples,n_features)` and `-1` full-feature
+selection remain; exactly zero singular values retain the likelihood floor.
+
+SVD signs and rotation axis permutations are not unique. Reference checks align
+signed factor permutations and compare covariance, precision and scores directly.
+At tol=0 capped fits, last-step improvements within an explicit floating-point
+bound can give different convergence flags; those fixtures retain certificates.
+One-feature, one-factor varimax has identically zero criterion, and cubic rounding
+can make the source helper stop in two steps rather than reach its limit. This
+iteration-only difference is recorded while factors and orthogonality remain
+strictly checked. See `example/factor_analysis_rotation.f90`.

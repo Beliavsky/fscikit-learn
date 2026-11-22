@@ -55,9 +55,10 @@ contains
       q(j:,:)=q(j:,:)-tau(j)*spread(vectors(j:,j),2,r)*spread(product,1,m-j+1)
     end do
   end function
-  subroutine randomized_svd(x,k,rng,s,u,vt)
+  subroutine randomized_svd(x,k,rng,s,u,vt,n_iter)
     real(dp), intent(in) :: x(:,:)
     integer, intent(in) :: k
+    integer, optional, intent(in) :: n_iter
     type(legacy_random_state), intent(inout) :: rng
     real(dp), allocatable, intent(out) :: s(:),u(:,:),vt(:,:)
     real(dp), allocatable :: a(:,:),q(:,:),b(:,:),left(:,:),right(:,:),values(:),work_u(:,:),work_v(:,:)
@@ -78,8 +79,15 @@ contains
     end do
     iterations=4
     if(k<.1_dp*min(size(x,1),size(x,2))) iterations=7
+    if(present(n_iter)) then
+      call require(n_iter>=0,'randomized SVD iteration count must be nonnegative');iterations=n_iter
+    end if
     do i=1,iterations
-      q=lu_basis(matmul(a,q)); q=lu_basis(matmul(transpose(a),q))
+      if(iterations<=2) then
+        q=matmul(a,q);q=matmul(transpose(a),q)
+      else
+        q=lu_basis(matmul(a,q));q=lu_basis(matmul(transpose(a),q))
+      end if
     end do
     q=qr_basis(matmul(a,q)); b=matmul(transpose(q),a); r=size(b,1)
     ! SVD of B.T keeps the Jacobi system at the sampled range dimension.

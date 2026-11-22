@@ -5349,3 +5349,43 @@ then `sample_y` fails for both one and multiple targets. The Fortran methods
 retain the explicit shapes above. Those source failures are recorded and the
 intended scalar draws are compared with NumPy's direct multivariate-normal call.
 See `example/gaussian_process_sampling.f90`.
+
+
+## FactorAnalysis randomized fitting and orthogonal rotation
+
+`factor_analysis` adds `%rotation='none'|'varimax'|'quartimax'` and
+`%svd_method='lapack'|'randomized'`. Native defaults remain `'none'` and `'lapack'`
+to preserve existing behavior; `'lapack'` selects the native full Jacobi SVD,
+without a LAPACK dependency. Set `%iterated_power` (default 3) and `%random_state`
+(default 0) for seeded randomized fitting. Power counts zero through two use
+unnormalized power steps; higher counts use pivoted-LU normalization, matching
+sklearn's automatic rule. Ten oversamples, automatic wide-matrix transposition,
+Householder range QR and SVD sign selection reuse the existing native core.
+The RNG is seeded once per fit and advances across fitting iterations. Zero
+factors produce the same diagonal noise model in either solver mode.
+
+Rotation is applied after fitting, preserving noise variance, fitted covariance,
+precision, likelihood history and iteration count up to roundoff. Latent
+coordinates and loading interpretation change. Varimax subtracts the normalized
+column-energy term; quartimax omits it. The orthogonal polar-factor iteration
+uses sklearn's fixed 100-step limit and relative 1e-6 criterion. Native SVD's
+missing left null-space columns are completed orthogonally before forming a
+polar factor, so rank-deficient or zero loadings retain an orthogonal rotation.
+
+`%rotation_matrix_` has shape `(factors,factors)` with
+`components_ = matmul(transpose(rotation_matrix_), unrotated_components)`. `%n_rotation_iter_` and `%rotation_converged_` describe the separate
+rotation solve. With no rotation or zero factors they are zero/true and the
+matrix is identity (empty for zero factors). All-zero nonempty loadings can
+reach the 100-step limit with an unchanged model. Refit resets these diagnostics.
+Controls/noise initialization must be finite and valid. The existing component
+limit `0 <= n_components <= min(n_samples,n_features)` and `-1` full-feature
+selection remain; exactly zero singular values retain the likelihood floor.
+
+SVD signs and rotation axis permutations are not unique. Reference checks align
+signed factor permutations and compare covariance, precision and scores directly.
+At tol=0 capped fits, last-step improvements within an explicit floating-point
+bound can give different convergence flags; those fixtures retain certificates.
+One-feature, one-factor varimax has identically zero criterion, and cubic rounding
+can make the source helper stop in two steps rather than reach its limit. This
+iteration-only difference is recorded while factors and orthogonality remain
+strictly checked. See `example/factor_analysis_rotation.f90`.

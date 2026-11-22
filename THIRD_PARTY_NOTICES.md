@@ -928,3 +928,14 @@ LICENSES/scikit-learn-COPYING, LICENSES/numpy-COPYING and NumPy RNG notices appl
 The native scaled Jacobi factorization, explicit-rank Fortran interfaces and
 validation certificates are original MIT contributions. No additional source
 package, dependency or runtime library is imported.
+
+
+`src/sklearn_factor_analysis.f90` extends the existing adaptation of scikit-learn
+1.6.1 `decomposition/_factor_analysis.py` with randomized-SVD fitting and the
+`_ortho_rotation` varimax/quartimax iteration. `src/sklearn_randomized_svd_core.f90`
+adds explicit power counts and the automatic no-normalizer/LU rule from
+`utils/extmath.py`, preserving its previous default path. Existing sklearn BSD
+notices and LICENSES/scikit-learn-COPYING apply. Native null-space completion,
+diagnostic storage and Fortran interfaces are original MIT contributions. The
+existing NumPy-compatible RNG is reused under its retained notices. No additional
+source package, runtime or dependency is imported.
