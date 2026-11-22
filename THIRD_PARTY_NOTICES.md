@@ -841,3 +841,13 @@ legacy RNG consumption and corrected empirical p-values. These portions retain
 the sklearn BSD-3-Clause notice above and in LICENSES/scikit-learn-COPYING.
 Typed result/options containers, native adapters and tests are original MIT
 contributions. No external repository was imported for this increment.
+
+`src/sklearn_sample_generators.f90`, re-exported by `sklearn_datasets`, adapts
+sklearn 1.6.1 `datasets/_samples_generator.py`: make_friedman1/2/3,
+make_sparse_uncorrelated, make_s_curve, make_swiss_roll (including hole sampling),
+and make_gaussian_quantiles. Feature/target formulas, discrete sample ordering,
+Gaussian draw orientation, radial quantile labels and seeded shuffles follow that
+BSD-3-Clause source. The sklearn notice and LICENSES/scikit-learn-COPYING remain
+applicable. Native interfaces, checks and tests are original MIT contributions.
+These generators reuse the existing separately attributed NumPy-compatible RNG;
+no additional external code or dependency was imported.

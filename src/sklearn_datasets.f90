@@ -1,9 +1,13 @@
 module sklearn_datasets
   use sklearn_common
+  use sklearn_sample_generators, only: make_friedman1,make_friedman2,make_friedman3,make_sparse_uncorrelated, &
+    make_s_curve,make_swiss_roll,make_gaussian_quantiles
   use sklearn_model_selection, only: shuffle_indices
   implicit none
   private
   public :: make_blobs,make_regression,make_moons,make_circles
+  public :: make_friedman1,make_friedman2,make_friedman3,make_sparse_uncorrelated
+  public :: make_s_curve,make_swiss_roll,make_gaussian_quantiles
 contains
   subroutine make_blobs(n_samples,n_features,n_centers,x,y,random_state,cluster_std,centers)
     integer, intent(in) :: n_samples,n_features,n_centers

@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 217 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and six reference suites additionally check 429,685
+All types have native tests. One hundred and seven reference suites additionally check 430,357
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -52,7 +52,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | semi_supervised | `label_propagation`, `label_spreading`, `self_training_classifier` | Dense RBF or directed k-neighbor graph, hard/soft clamping, transductive labels and inductive probabilities; threshold/k-best self-training with logistic, Gaussian NB or KNN bases |
 | tree | `decision_tree_classifier`, `decision_tree_regressor`, `extra_tree_classifier`, `extra_tree_regressor` | Weighted CART and standalone randomized trees; Gini/entropy/log-loss classification, squared-error regression; depth/leaf/split/feature controls, normalized impurity importance, leaf indices |
 | ensemble | `hist_gradient_boosting_regressor`, `hist_gradient_boosting_classifier`, `stacking_classifier`, `stacking_regressor`, `bagging_classifier`, `bagging_regressor`, `random_forest_classifier`, `random_forest_regressor`, `extra_trees_classifier`, `extra_trees_regressor`, `gradient_boosting_regressor`, `gradient_boosting_classifier`, `adaboost_classifier`, `adaboost_regressor`, `isolation_forest`, `voting_classifier`, `voting_regressor` | Histogram Newton boosting with missing-value routing and five regression losses; heterogeneous hard/soft voting and averaged regression; bootstrap forests, randomized feature subsets, random-threshold Extra Trees, squared-error residual boosting; binary/multiclass classification boosting with Newton leaf updates; weighted Gini-stump SAMME; AdaBoost.R2 with depth-controlled CART; random isolation trees and path-length anomaly scores |
-| validation | `cross_validate`, general `cross_val_score`, `cross_val_predict`, typed `cross_val_predict_class` adapter | Dense vector targets, multiple/scalar scorers, fit weights, returned fold models/indices, no-target transformer callbacks, partitioned out-of-fold responses, class encoding and missing-class columns |
+| validation | `cross_validate`, general `cross_val_score`, `cross_val_predict`, typed `cross_val_predict_class` adapter; `learning_curve`, `validation_curve`, `permutation_test_score` | Dense vector targets, multiple/scalar scorers, fit weights, returned fold models/indices, no-target transformer callbacks, partitioned out-of-fold responses, class encoding and missing-class columns |
 | search | `grid_search_cv`, `randomized_search_cv`; typed parameter grids and samplers | Serial dense candidate/fold evaluation, default or explicit folds, single/multiple scorers, callbacks, weighted fits, ranking and refitting; native scalar parameter adapters and nested Pipeline paths |
 | model_selection | `kfold`, `stratified_kfold`, `time_series_split`, `group_kfold`, `leave_one_out`, `leave_one_group_out`, `predefined_split`, `shuffle_split`, `stratified_shuffle_split`, `group_shuffle_split`, `repeated_kfold`, `repeated_stratified_kfold`, `leave_p_out`, `leave_p_groups_out`, `ridge_cv`; `train_test_split`, `shuffle_indices`, `cross_val_score` | Index-based splits; seeded random/group/stratified holdouts; repeated shuffled folds; exhaustive sample/group combinations; fraction/count size controls; optional stratification; time gap/window; CV for linear-regression family and logistic regression; ridge CV selects negative mean squared error |
 | feature_selection | `select_from_model`, `variance_threshold`, `select_k_best`, `select_percentile`, `select_fpr`, `select_fdr`, `select_fwe`, `generic_univariate_select`, `sequential_feature_selector`, `rfe`, `rfecv`; `f_classif`, `f_regression`, `chi2`, `r_regression`, `mutual_info_classif`, `mutual_info_regression` | Model coefficient/tree-importance thresholds and stable caps; dense scores and masks; greedy forward/backward CV regression selection; coefficient-based recursive elimination and CV for regression/logistic classification; inverse transform fills dropped columns with zero; new statistical selectors include p-values and multiplicity control |
@@ -68,7 +68,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | gaussian_process | `gaussian_process_regressor`, `gaussian_process_classifier` | Fixed isotropic RBF amplitude/length scale plus white noise and diagonal alpha; Cholesky posterior, standard deviation/covariance, log marginal likelihood; optional target normalization; fixed-RBF Laplace binary/OVR classification |
 | covariance | `empirical_covariance`, `shrunk_covariance`, `ledoit_wolf`, `oas`, `graphical_lasso`, `graphical_lasso_cv`, `min_cov_det`, `elliptic_envelope`; `fast_mcd` | Population covariance, pseudoinverse precision, squared Mahalanobis distance, likelihood, Frobenius/spectral covariance error; L1-penalized sparse precision via block coordinate descent and refined cross-validation; FastMCD robust covariance and elliptic outlier detection |
 | calibration | `calibrated_classifier_cv`; `calibration_curve` | Sigmoid/isotonic CV ensembles, out-of-fold calibration and prefit calibration with logistic, Gaussian NB or KNN bases; uniform/quantile reliability bins |
-| datasets | `make_blobs`, `make_regression`, `make_moons`, `make_circles` | Native synthetic generators; optional deterministic seed; no bundled real-world datasets |
+| datasets | `make_blobs`, `make_regression`, `make_moons`, `make_circles`, `make_friedman1/2/3`, `make_sparse_uncorrelated`, `make_s_curve`, `make_swiss_roll`, `make_gaussian_quantiles` | Native synthetic generators; new regression/manifold/quantile generators match seeded legacy NumPy draws; no bundled real-world datasets |
 
 ## Metrics and kernels
 
@@ -5450,3 +5450,68 @@ score arrays, prefix sizes, fold indices, fit traces, callback counts, parameter
 order, incremental resets, seeded shuffles, groups, nonfinite scores and exact
 p-values. Timing checks compare shapes and nonnegative values, not wall times.
 See `example/model_learning_curves.f90` for a complete public API example.
+
+
+## Seeded regression, manifold and quantile sample generators
+
+Seven additional sklearn 1.6.1 datasets are available from `sklearn_datasets`
+and the `sklearn` facade. Implementation is in `sklearn_sample_generators`,
+adapted from `datasets/_samples_generator.py` with retained BSD-3-Clause
+attribution. There are now 126 core source modules and 127 native test programs;
+the estimator/transformer/splitter inventory remains 217. The new reference suite
+brings 107 core suites to 430,357 retained result groups. The separate 42-group
+NumPy RNG suite remains excluded. Twenty-one rejection cases bring 17 isolated
+registries to 3,145 cases. No public extension or dependency was added.
+
+All outputs are allocated by the subroutine: X has shape (samples,features),
+regression/latent targets are real vectors and classification labels are integer
+vectors starting at zero. Samples must be positive. The interfaces are:
+
+```
+call make_friedman1(n_samples,n_features,x,y,noise,random_state)
+call make_friedman2(n_samples,x,y,noise,random_state)
+call make_friedman3(n_samples,x,y,noise,random_state)
+call make_sparse_uncorrelated(n_samples,n_features,x,y,random_state)
+call make_s_curve(n_samples,x,t,noise,random_state)
+call make_swiss_roll(n_samples,x,t,noise,random_state,hole)
+call make_gaussian_quantiles(n_samples,n_features,x,labels,n_classes,mean,cov,shuffle,random_state)
+```
+
+Trailing parameters are optional. Noise defaults to zero and must be finite and
+nonnegative; an omitted seed deterministically selects zero. These seven routines
+use independent local NumPy-compatible legacy RandomState streams and do not
+change the Fortran global RNG. Required sample/feature sizes follow the existing
+native dataset API rather than Python's optional size defaults. The four earlier
+native dataset routines retain their existing RNG behavior.
+
+Friedman1 requires at least five features; only the first five enter its nonlinear
+response. Friedman2 and Friedman3 share the four-feature ranges of the electrical
+circuit benchmark, using square-root and arctangent responses respectively.
+Sparse uncorrelated regression returns a dense Gaussian design, four informative
+linear terms and unit Gaussian response noise. At least four features are required;
+the pinned Python implementation fails by indexing for smaller positive counts,
+while native code provides an explicit diagnostic.
+
+S-curve and Swiss roll return noisy three-dimensional coordinates plus the clean
+latent coordinate t. Swiss roll supports the source `hole` option, default false,
+including its discrete corner draws and parameter order. Even a single sample
+returns a length-one native t vector, whereas Python squeezes t to a scalar.
+Gaussian quantiles support a finite mean vector (default zero), scalar isotropic
+covariance (default one, including zero), class count (default three), and optional
+sample shuffling (default true). Samples must be at least the class count. Radial
+sorting precedes label allocation; any remainder belongs to the last class.
+
+Draw order follows the source, including row-major feature draws, cached Gaussian
+values, manifold noise generated in (3,samples) order, Gaussian quantile draws
+before sorting, and legacy Fisher-Yates shuffling. Source comparisons check full
+feature and target arrays, not only moments. The suite retains 672 groups over
+336 fixtures: seven generators, four seeds and twelve configurations, including
+one-row outputs, odd lengths, high feature counts, zero/nonzero noise, hole/no-hole,
+zero covariance, shifted means, singleton classes and uneven class allocation.
+It also runs 21 isolated invalid-input cases.
+
+Run `python validation/compare_sample_generators.py --profile checked`, or use
+`--profile release` / `--executable` for an existing binary. The public example is
+`example/synthetic_sample_generators.f90`. Python is used only for validation.
+Original native contributions remain MIT; sklearn-derived portions retain the
+existing upstream BSD notice and the existing RNG notices remain applicable.

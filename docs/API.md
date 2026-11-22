@@ -4856,3 +4856,68 @@ score arrays, prefix sizes, fold indices, fit traces, callback counts, parameter
 order, incremental resets, seeded shuffles, groups, nonfinite scores and exact
 p-values. Timing checks compare shapes and nonnegative values, not wall times.
 See `example/model_learning_curves.f90` for a complete public API example.
+
+
+## Seeded regression, manifold and quantile sample generators
+
+Seven additional sklearn 1.6.1 datasets are available from `sklearn_datasets`
+and the `sklearn` facade. Implementation is in `sklearn_sample_generators`,
+adapted from `datasets/_samples_generator.py` with retained BSD-3-Clause
+attribution. There are now 126 core source modules and 127 native test programs;
+the estimator/transformer/splitter inventory remains 217. The new reference suite
+brings 107 core suites to 430,357 retained result groups. The separate 42-group
+NumPy RNG suite remains excluded. Twenty-one rejection cases bring 17 isolated
+registries to 3,145 cases. No public extension or dependency was added.
+
+All outputs are allocated by the subroutine: X has shape (samples,features),
+regression/latent targets are real vectors and classification labels are integer
+vectors starting at zero. Samples must be positive. The interfaces are:
+
+```
+call make_friedman1(n_samples,n_features,x,y,noise,random_state)
+call make_friedman2(n_samples,x,y,noise,random_state)
+call make_friedman3(n_samples,x,y,noise,random_state)
+call make_sparse_uncorrelated(n_samples,n_features,x,y,random_state)
+call make_s_curve(n_samples,x,t,noise,random_state)
+call make_swiss_roll(n_samples,x,t,noise,random_state,hole)
+call make_gaussian_quantiles(n_samples,n_features,x,labels,n_classes,mean,cov,shuffle,random_state)
+```
+
+Trailing parameters are optional. Noise defaults to zero and must be finite and
+nonnegative; an omitted seed deterministically selects zero. These seven routines
+use independent local NumPy-compatible legacy RandomState streams and do not
+change the Fortran global RNG. Required sample/feature sizes follow the existing
+native dataset API rather than Python's optional size defaults. The four earlier
+native dataset routines retain their existing RNG behavior.
+
+Friedman1 requires at least five features; only the first five enter its nonlinear
+response. Friedman2 and Friedman3 share the four-feature ranges of the electrical
+circuit benchmark, using square-root and arctangent responses respectively.
+Sparse uncorrelated regression returns a dense Gaussian design, four informative
+linear terms and unit Gaussian response noise. At least four features are required;
+the pinned Python implementation fails by indexing for smaller positive counts,
+while native code provides an explicit diagnostic.
+
+S-curve and Swiss roll return noisy three-dimensional coordinates plus the clean
+latent coordinate t. Swiss roll supports the source `hole` option, default false,
+including its discrete corner draws and parameter order. Even a single sample
+returns a length-one native t vector, whereas Python squeezes t to a scalar.
+Gaussian quantiles support a finite mean vector (default zero), scalar isotropic
+covariance (default one, including zero), class count (default three), and optional
+sample shuffling (default true). Samples must be at least the class count. Radial
+sorting precedes label allocation; any remainder belongs to the last class.
+
+Draw order follows the source, including row-major feature draws, cached Gaussian
+values, manifold noise generated in (3,samples) order, Gaussian quantile draws
+before sorting, and legacy Fisher-Yates shuffling. Source comparisons check full
+feature and target arrays, not only moments. The suite retains 672 groups over
+336 fixtures: seven generators, four seeds and twelve configurations, including
+one-row outputs, odd lengths, high feature counts, zero/nonzero noise, hole/no-hole,
+zero covariance, shifted means, singleton classes and uneven class allocation.
+It also runs 21 isolated invalid-input cases.
+
+Run `python validation/compare_sample_generators.py --profile checked`, or use
+`--profile release` / `--executable` for an existing binary. The public example is
+`example/synthetic_sample_generators.f90`. Python is used only for validation.
+Original native contributions remain MIT; sklearn-derived portions retain the
+existing upstream BSD notice and the existing RNG notices remain applicable.
