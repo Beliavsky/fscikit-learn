@@ -3,6 +3,8 @@
 module sklearn_naive_bayes
   use sklearn_categorical_nb, only: categorical_nb,categorical_table
   use sklearn_common
+  use sklearn_sparse, only: csr_matrix
+  use sklearn_ieee_math, only: ieee_difference
   use sklearn_metrics, only: accuracy_score
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite,ieee_is_nan,ieee_value,ieee_quiet_nan,ieee_negative_inf,ieee_positive_inf
   implicit none
@@ -32,26 +34,33 @@ module sklearn_naive_bayes
     integer, allocatable :: classes_(:)
     real(dp), allocatable :: feature_log_prob_(:,:),class_log_prior_(:),class_count_(:)
   contains
-    procedure :: fit=>multinomial_fit
-    procedure :: partial_fit=>discrete_partial_fit
-    procedure :: joint_log_likelihood=>multinomial_joint
-    procedure :: predict_log_proba=>discrete_log_proba
-    procedure :: predict_proba=>discrete_proba
-    procedure :: predict=>discrete_predict
-    procedure :: score=>discrete_score
+    procedure, private :: fit_dense=>multinomial_fit,fit_sparse=>discrete_fit_sparse
+    generic :: fit=>fit_dense,fit_sparse
+    procedure, private :: partial_fit_dense=>discrete_partial_fit,partial_fit_sparse=>discrete_partial_fit_sparse
+    generic :: partial_fit=>partial_fit_dense,partial_fit_sparse
+    procedure, private :: joint_dense=>multinomial_joint,joint_sparse=>multinomial_joint_sparse
+    generic :: joint_log_likelihood=>joint_dense,joint_sparse
+    procedure, private :: log_proba_dense=>discrete_log_proba,log_proba_sparse=>discrete_log_proba_sparse
+    generic :: predict_log_proba=>log_proba_dense,log_proba_sparse
+    procedure, private :: proba_dense=>discrete_proba,proba_sparse=>discrete_proba_sparse
+    generic :: predict_proba=>proba_dense,proba_sparse
+    procedure, private :: predict_dense=>discrete_predict,predict_sparse=>discrete_predict_sparse
+    generic :: predict=>predict_dense,predict_sparse
+    procedure, private :: score_dense=>discrete_score,score_sparse=>discrete_score_sparse
+    generic :: score=>score_dense,score_sparse
   end type
   type, extends(multinomial_nb) :: bernoulli_nb
     real(dp) :: binarize_threshold=0
   contains
-    procedure :: fit=>bernoulli_fit
-    procedure :: joint_log_likelihood=>bernoulli_joint
+    procedure, private :: fit_dense=>bernoulli_fit
+    procedure, private :: joint_dense=>bernoulli_joint,joint_sparse=>bernoulli_joint_sparse
   end type
   type, extends(multinomial_nb) :: complement_nb
     logical :: norm=.false.
     real(dp), allocatable :: feature_all_(:)
   contains
-    procedure :: fit=>complement_fit
-    procedure :: joint_log_likelihood=>complement_joint
+    procedure, private :: fit_dense=>complement_fit
+    procedure, private :: joint_dense=>complement_joint,joint_sparse=>complement_joint_sparse
   end type
 contains
   subroutine gaussian_fit(self,x,y,sample_weight)
@@ -563,23 +572,8 @@ contains
     class(multinomial_nb), intent(in) :: self
     real(dp), intent(in) :: x(:,:)
     real(dp), allocatable :: logp(:,:)
-    integer :: i
     logp=self%joint_log_likelihood(x)
-    do i=1,size(x,1)
-      if(any(ieee_is_nan(logp(i,:)))) then
-        logp(i,:)=ieee_value(0._dp,ieee_quiet_nan)
-      else if(any(logp(i,:)==ieee_value(0._dp,ieee_positive_inf))) then
-        where(logp(i,:)==ieee_value(0._dp,ieee_positive_inf))
-          logp(i,:)=ieee_value(0._dp,ieee_quiet_nan)
-        elsewhere
-          logp(i,:)=ieee_value(0._dp,ieee_negative_inf)
-        end where
-      else if(all(logp(i,:)==ieee_value(0._dp,ieee_negative_inf))) then
-        logp(i,:)=ieee_value(0._dp,ieee_quiet_nan)
-      else
-        logp(i,:)=logp(i,:)-logsumexp(logp(i,:))
-      end if
-    end do
+    call discrete_normalize(logp)
   end function
   function discrete_proba(self,x) result(p)
     class(multinomial_nb), intent(in) :: self
@@ -609,5 +603,204 @@ contains
     real(dp), intent(in) :: x(:,:)
     integer, intent(in) :: y(:)
     v=accuracy_score(y,self%predict(x))
+  end function
+  subroutine discrete_normalize(logp)
+    real(dp), intent(inout) :: logp(:,:)
+    integer :: i
+    do i=1,size(logp,1)
+      if(any(ieee_is_nan(logp(i,:)))) then
+        logp(i,:)=ieee_value(0._dp,ieee_quiet_nan)
+      else if(any(logp(i,:)==ieee_value(0._dp,ieee_positive_inf))) then
+        where(logp(i,:)==ieee_value(0._dp,ieee_positive_inf))
+          logp(i,:)=ieee_value(0._dp,ieee_quiet_nan)
+        elsewhere
+          logp(i,:)=ieee_value(0._dp,ieee_negative_inf)
+        end where
+      else if(all(logp(i,:)==ieee_value(0._dp,ieee_negative_inf))) then
+        logp(i,:)=ieee_value(0._dp,ieee_quiet_nan)
+      else
+        logp(i,:)=logp(i,:)-logsumexp(logp(i,:))
+      end if
+    end do
+  end subroutine
+  subroutine discrete_sparse_check(self,x)
+    class(multinomial_nb), intent(in) :: self
+    type(csr_matrix), intent(in) :: x
+    call x%validate()
+    call require(x%n_rows>0.and.x%n_cols>0,'NB sparse X must be nonempty')
+    call require(all(ieee_is_finite(x%data)),'NB sparse X contains NaN or infinity')
+    select type(self)
+    class is(bernoulli_nb)
+      call require(ieee_is_finite(self%binarize_threshold),'Bernoulli NB threshold must be finite')
+      call require(self%binarize_threshold>=0,'Bernoulli NB threshold must be nonnegative')
+    class default
+      call require(all(x%data>=0),'sparse discrete NB requires nonnegative data')
+    end select
+  end subroutine
+  function discrete_sparse_data(self,x) result(data)
+    class(multinomial_nb), intent(in) :: self
+    type(csr_matrix), intent(in) :: x
+    type(csr_matrix) :: data
+    integer :: i,j,n,position
+    select type(self)
+    class is(bernoulli_nb)
+      ! Source binarizes stored entries before eliminating zeros; duplicates stay.
+      n=count(x%data>self%binarize_threshold)
+      data%n_rows=x%n_rows;data%n_cols=x%n_cols
+      allocate(data%indptr(x%n_rows+1),data%indices(n),data%data(n));position=1;data%indptr(1)=1
+      do i=1,x%n_rows
+        do j=x%indptr(i),x%indptr(i+1)-1
+          if(x%data(j)<=self%binarize_threshold) cycle
+          data%indices(position)=x%indices(j);data%data(position)=1;position=position+1
+        end do
+        data%indptr(i+1)=position
+      end do
+    class default
+      data=x
+    end select
+  end function
+  subroutine discrete_partial_fit_sparse(self,x,y,classes,sample_weight)
+    class(multinomial_nb), intent(inout) :: self
+    type(csr_matrix), intent(in) :: x
+    integer, intent(in) :: y(:)
+    integer, intent(in), optional :: classes(:)
+    real(dp), intent(in), optional :: sample_weight(:)
+    type(csr_matrix) :: data
+    integer, allocatable :: labels(:)
+    real(dp), allocatable :: weights(:),alpha(:)
+    real(dp) :: contribution
+    integer :: i,c,k,p,j,column
+    call discrete_sparse_check(self,x)
+    call require(x%n_rows==size(y),'NB sparse X and y sample counts differ')
+    p=x%n_cols;alpha=discrete_alpha(self,p)
+    if(.not.allocated(self%classes_)) then
+      call require(present(classes),'NB first partial_fit requires classes')
+      self%classes_=unique_labels(classes);k=size(self%classes_);self%n_features_in_=p
+      allocate(self%feature_count_(k,p),self%class_count_(k));self%feature_count_=0;self%class_count_=0
+    else
+      if(present(classes)) then
+        labels=unique_labels(classes)
+        call require(size(labels)==size(self%classes_),'NB classes changed between partial_fit calls')
+        call require(all(labels==self%classes_),'NB classes changed between partial_fit calls')
+      end if
+      call require(p==self%n_features_in_,'NB feature count changed between partial_fit calls')
+    end if
+    weights=spread(1._dp,1,size(y))
+    if(present(sample_weight)) then
+      call require(size(sample_weight)==size(y),'NB sample weight length mismatch')
+      call require(all(ieee_is_finite(sample_weight)),'NB sample weights must be finite')
+      call require(all(sample_weight>=0),'NB sample weights must be nonnegative')
+      weights=sample_weight
+    end if
+    data=discrete_sparse_data(self,x)
+    do i=1,size(y)
+      c=label_index(self%classes_,y(i));call require(c>0,'NB label is absent from declared classes')
+      call require(self%class_count_(c)<=huge(1._dp)-weights(i),'NB accumulated class count exceeds numeric range')
+      self%class_count_(c)=self%class_count_(c)+weights(i)
+      do j=data%indptr(i),data%indptr(i+1)-1
+        column=data%indices(j)
+        if(weights(i)>1) call require(data%data(j)<=huge(1._dp)/weights(i),'NB weighted count exceeds numeric range')
+        contribution=weights(i)*data%data(j)
+        call require(self%feature_count_(c,column)<=huge(1._dp)-contribution,'NB accumulated count exceeds numeric range')
+        self%feature_count_(c,column)=self%feature_count_(c,column)+contribution
+      end do
+    end do
+    call discrete_update(self)
+  end subroutine
+  subroutine discrete_fit_sparse(self,x,y,sample_weight)
+    class(multinomial_nb), intent(inout) :: self
+    type(csr_matrix), intent(in) :: x
+    integer, intent(in) :: y(:)
+    real(dp), intent(in), optional :: sample_weight(:)
+    if(allocated(self%classes_)) deallocate(self%classes_)
+    if(allocated(self%feature_count_)) deallocate(self%feature_count_)
+    if(allocated(self%class_count_)) deallocate(self%class_count_)
+    if(allocated(self%feature_log_prob_)) deallocate(self%feature_log_prob_)
+    if(allocated(self%class_log_prior_)) deallocate(self%class_log_prior_)
+    select type(self)
+    class is(complement_nb)
+      if(allocated(self%feature_all_)) deallocate(self%feature_all_)
+    end select
+    self%n_features_in_=0
+    call self%partial_fit(x,y,unique_labels(y),sample_weight)
+  end subroutine
+  subroutine discrete_sparse_query(self,x)
+    class(multinomial_nb), intent(in) :: self
+    type(csr_matrix), intent(in) :: x
+    call require(allocated(self%feature_log_prob_),'NB is not fitted')
+    call discrete_sparse_check(self,x)
+    call require(x%n_cols==self%n_features_in_,'NB sparse query feature count mismatch')
+  end subroutine
+  function multinomial_joint_sparse(self,x) result(joint)
+    class(multinomial_nb), intent(in) :: self
+    type(csr_matrix), intent(in) :: x
+    real(dp), allocatable :: joint(:,:)
+    call discrete_sparse_query(self,x)
+    joint=discrete_add(x%matmul(transpose(self%feature_log_prob_)),spread(self%class_log_prior_,1,x%n_rows))
+  end function
+  function complement_joint_sparse(self,x) result(joint)
+    class(complement_nb), intent(in) :: self
+    type(csr_matrix), intent(in) :: x
+    real(dp), allocatable :: joint(:,:)
+    call discrete_sparse_query(self,x)
+    joint=x%matmul(transpose(self%feature_log_prob_))
+    if(size(self%classes_)==1) joint=discrete_add(joint,spread(self%class_log_prior_,1,x%n_rows))
+  end function
+  function bernoulli_joint_sparse(self,x) result(joint)
+    class(bernoulli_nb), intent(in) :: self
+    type(csr_matrix), intent(in) :: x
+    type(csr_matrix) :: data
+    real(dp), allocatable :: joint(:,:),negative(:),weights(:,:),base(:)
+    integer :: c,j,k,p
+    call discrete_sparse_query(self,x);data=discrete_sparse_data(self,x)
+    k=size(self%classes_);p=self%n_features_in_
+    allocate(weights(k,p),negative(p));weights=ieee_value(0._dp,ieee_quiet_nan)
+    base=spread(ieee_value(0._dp,ieee_quiet_nan),1,k)
+    do c=1,k
+      if(any(ieee_is_nan(self%feature_log_prob_(c,:)))) cycle
+      negative=1-exp(self%feature_log_prob_(c,:))
+      if(any(negative<0)) cycle
+      negative=discrete_log(negative)
+      do j=1,p
+        weights(c,j)=ieee_difference(self%feature_log_prob_(c,j),negative(j))
+      end do
+      base(c)=discrete_add(sum(negative),self%class_log_prior_(c))
+    end do
+    joint=discrete_add(data%matmul(transpose(weights)),spread(base,1,x%n_rows))
+  end function
+  function discrete_log_proba_sparse(self,x) result(logp)
+    class(multinomial_nb), intent(in) :: self
+    type(csr_matrix), intent(in) :: x
+    real(dp), allocatable :: logp(:,:)
+    logp=self%joint_log_likelihood(x);call discrete_normalize(logp)
+  end function
+  function discrete_proba_sparse(self,x) result(probability)
+    class(multinomial_nb), intent(in) :: self
+    type(csr_matrix), intent(in) :: x
+    real(dp), allocatable :: probability(:,:)
+    probability=exp(self%predict_log_proba(x))
+  end function
+  function discrete_predict_sparse(self,x) result(y)
+    class(multinomial_nb), intent(in) :: self
+    type(csr_matrix), intent(in) :: x
+    integer :: y(x%n_rows),i,c,index
+    real(dp), allocatable :: joint(:,:)
+    joint=self%joint_log_likelihood(x)
+    do i=1,size(y)
+      index=0
+      do c=1,size(self%classes_)
+        if(ieee_is_nan(joint(i,c))) then
+          index=c;exit
+        end if
+      end do
+      if(index==0) index=maxloc(joint(i,:),dim=1)
+      y(i)=self%classes_(index)
+    end do
+  end function
+  real(dp) function discrete_score_sparse(self,x,y) result(score)
+    class(multinomial_nb), intent(in) :: self
+    type(csr_matrix), intent(in) :: x
+    integer, intent(in) :: y(:)
+    score=accuracy_score(y,self%predict(x))
   end function
 end module

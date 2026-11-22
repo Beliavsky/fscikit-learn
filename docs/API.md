@@ -5746,8 +5746,9 @@ are created explicitly without floating-point traps; NaN argmax behavior follows
 source. Bernoulli likelihoods that round to unit feature probability retain source NaNs
 without evaluating log(0) or opposing infinities. Source-score ties within
 roundoff use label certificates in validation.
-See `example/streaming_document_nb.f90`. Sparse estimator inputs, raw Bernoulli
-`binarize=None`, signed weights and weighted `score` remain outside this API. Count/smoothing intermediates must fit real64 range.
+See `example/streaming_document_nb.f90`. Direct CSR support is described below.
+Raw Bernoulli `binarize=None`, signed weights and weighted `score` remain outside
+this API. Count/smoothing intermediates must fit real64 range.
 
 
 ## Prior-aware NearestCentroid
@@ -5815,7 +5816,42 @@ without invalid/zero floating-point traps. Source first-NaN argmax is retained.
 Complement counts now follow source addition-before-subtraction order, including
 positive smoothing lost at large totals. Python warning objects are not emitted.
 
-See `example/feature_smoothed_nb.f90`. Sparse estimator data, vector Bernoulli
-alpha, unthresholded Bernoulli `binarize=None`, signed weights and weighted score
-remain outside this interface. Count/smoothing/query intermediates must fit the
+See `example/feature_smoothed_nb.f90`. Direct CSR support is described below.
+Vector Bernoulli alpha, unthresholded Bernoulli `binarize=None`, signed weights
+and weighted score remain outside this interface. Count/smoothing/query intermediates must fit the
 native real64 working range; existing explicit count range checks are retained.
+
+
+## CSR discrete Naive Bayes
+
+`multinomial_nb`, `bernoulli_nb` and `complement_nb` overload `fit`, `partial_fit`,
+`joint_log_likelihood`, `predict_log_proba`, `predict_proba`, `predict` and `score`
+for `type(csr_matrix)`, alongside their existing dense interfaces. Import CSR
+storage from `sklearn_sparse` or the `sklearn` facade. Its pointer and column
+arrays are 1-based. Optional sample weights, first-call class declarations,
+fixed/uniform/empirical priors, smoothing controls and fitted diagnostics use
+the same contracts as dense input. Dense and CSR updates can be interleaved in
+one fitted model. A new `fit` resets state regardless of representation.
+
+Training traverses stored entries and keeps dense (n_classes,n_features) fitted
+statistics. Sparse prediction uses CSR multiplication and returns dense
+(n_samples,n_classes) scores/probabilities. Sample matrices are never converted
+to dense in the estimator. Inputs are validated and preserved. Empty rows and
+zero-stored-entry matrices with positive dimensions are supported. CSR indices
+may be unsorted and duplicate columns are retained. Matrix structure and finite
+data are checked; Multinomial/Complement stored values must be nonnegative.
+
+Sparse source likelihoods differ from dense likelihoods when weights include
+NaN/Inf: omitted entries contribute nothing, while stored zeros participate in
+IEEE multiplication. Bernoulli thresholds stored entries independently and
+eliminates resulting zeros before counting or prediction; duplicate entries are
+not first summed. Signed finite Bernoulli entries below the nonnegative threshold
+are therefore removed. These rules match installed sklearn 1.6.1, including
+representation-dependent zero-smoothing predictions. The shared source
+normalization and first-NaN argmax rules remain unchanged.
+
+Use `example/sparse_document_nb.f90` for a 10,000-feature weighted document fit.
+Gaussian/Categorical NB, pipeline/meta-estimator sparse inputs, CSC/COO storage,
+vector Bernoulli smoothing, unthresholded Bernoulli `binarize=None`, signed
+sample weights and weighted score remain outside this interface. Fitted
+statistics still require O(n_classes*n_features) storage, even for sparse data.

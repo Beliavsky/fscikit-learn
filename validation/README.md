@@ -6331,3 +6331,88 @@ listed above were rerun; the cumulative inventory is not a full-rerun claim.
 The separate 42-group legacy RNG reference suite remains excluded and was not
 rerun. MIT licensing and sklearn BSD attribution remain; no estimator type,
 external Fortran dependency or public algorithm extension is added.
+
+
+## CSR discrete Naive Bayes
+
+`multinomial_nb`, `bernoulli_nb` and `complement_nb` overload `fit`, `partial_fit`,
+`joint_log_likelihood`, `predict_log_proba`, `predict_proba`, `predict` and `score`
+for `type(csr_matrix)`, alongside their existing dense interfaces. Import CSR
+storage from `sklearn_sparse` or the `sklearn` facade. Its pointer and column
+arrays are 1-based. Optional sample weights, first-call class declarations,
+fixed/uniform/empirical priors, smoothing controls and fitted diagnostics use
+the same contracts as dense input. Dense and CSR updates can be interleaved in
+one fitted model. A new `fit` resets state regardless of representation.
+
+Training traverses stored entries and keeps dense (n_classes,n_features) fitted
+statistics. Sparse prediction uses CSR multiplication and returns dense
+(n_samples,n_classes) scores/probabilities. Sample matrices are never converted
+to dense in the estimator. Inputs are validated and preserved. Empty rows and
+zero-stored-entry matrices with positive dimensions are supported. CSR indices
+may be unsorted and duplicate columns are retained. Matrix structure and finite
+data are checked; Multinomial/Complement stored values must be nonnegative.
+
+Sparse source likelihoods differ from dense likelihoods when weights include
+NaN/Inf: omitted entries contribute nothing, while stored zeros participate in
+IEEE multiplication. Bernoulli thresholds stored entries independently and
+eliminates resulting zeros before counting or prediction; duplicate entries are
+not first summed. Signed finite Bernoulli entries below the nonnegative threshold
+are therefore removed. These rules match installed sklearn 1.6.1, including
+representation-dependent zero-smoothing predictions. The shared source
+normalization and first-NaN argmax rules remain unchanged.
+
+Use `example/sparse_document_nb.f90` for a 10,000-feature weighted document fit.
+Gaussian/Categorical NB, pipeline/meta-estimator sparse inputs, CSC/COO storage,
+vector Bernoulli smoothing, unthresholded Bernoulli `binarize=None`, signed
+sample weights and weighted score remain outside this interface. Fitted
+statistics still require O(n_classes*n_features) storage, even for sparse data.
+
+`validation/compare_nb_sparse.py` checks canonical and noncanonical CSR input,
+explicit/implicit zeros, duplicates, empty rows and all-zero sample matrices.
+Seeded one/two/three-class fits span single-feature, tall and wide inputs;
+positive/zero/vector/floored smoothing, weights, missing declared classes,
+fixed-zero priors, both Complement normalizations and dense/CSR mixed updates
+are covered. Signed Bernoulli duplicate cases verify threshold-before-sum
+behavior. Every snapshot checks fitted state, sparse and dense query outputs,
+training labels and accuracy. Independent event-count conservation and pure-CSR
+streaming/single-update identities supplement source comparisons. Thirty-one
+new rejection cases cover CSR structure, data and estimator contracts. A native
+10,000-by-10,000 training case contains two stored values; production NB was
+also inspected to verify it contains no CSR-to-dense conversion.
+
+Final verification: all 149 native test programs passed with checked flags
+`-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow` and in release mode.
+Each profile passed 234,499 affected reference groups: 99,824 new CSR NB groups,
+59,642 smoothing groups, 22,150 discrete-stream groups, 16,536 weighted-classifier
+groups, 27,490 multiclass groups, 8,665 classifier-chain groups and 192 integration
+groups. All 31 new CSR, 11 smoothing and 25 streaming rejection cases passed per
+profile. Release primary NB checks used separate stdin/report paths and ran
+alongside the checked meta-estimator checks; shared-file release meta-estimator
+checks started only after the checked run completed.
+
+The CSR suite retains 2,594 fixtures and 6,050 snapshots, with 6,050 independent
+event-count certificates, 35,696 fields containing source NaN/Inf, 864 pure-CSR
+streaming/single-update equivalence cases and 82 bounded label-rounding
+certificates per profile. Both sparse and dense query representations are
+checked after every fit/update. No nonfinite or noncanonical fixture was dropped.
+The final audit independently reconstructed every snapshot's required fields,
+matched cross-profile inventories and executable/validator/source hashes, and
+verified all 290 compiled source-content digests per profile. It also confirmed
+that production NB contains no CSR-to-dense conversion. Existing Gaussian,
+count-update and dense likelihood procedure bodies were verified unchanged;
+the dense log-probability normalizer was shared without changing its arithmetic.
+
+The example passed explicitly through fpm in both profiles and its output
+matched installed sklearn. Reports, terminal logs and orchestration/audit scripts
+are archived in ignored `validation/results`, including
+`nb_sparse_final_audit.json`. Release primary and legacy phase logs are retained
+separately. Native large-shape coverage uses a 10,000-by-10,000 sample matrix
+with two stored values and dense class-by-feature fitted statistics.
+
+Cumulative inventory: 217 public core types, 129 core modules, 149 native test
+programs, 127 core reference suites and 817,095 retained groups. Thirty-six
+invalid-input registries retain 3,517 cases. Only the affected reference suites
+listed above were rerun; cumulative counts do not imply a full rerun. The separate
+42-group legacy RNG reference suite remains excluded and was not rerun.
+MIT licensing and sklearn BSD attribution remain; no estimator type, external
+Fortran dependency or public algorithm extension is added.

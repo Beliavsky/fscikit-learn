@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 217 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and twenty-six reference suites additionally check 717,271
+All types have native tests. One hundred and twenty-seven reference suites additionally check 817,095
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -18,7 +18,9 @@ Global scope: dense real64 CPU arrays, integer classification labels, generally 
 per sample; cross-decomposition, multi-task regression and independent multioutput wrappers explicitly accept multiple response columns. General sparse estimator inputs, pandas integration, Python estimator cloning,
 metadata routing, parallel backends and binary model persistence are outside the
 initial translation. The neighbor graph transformers provide CSR graph outputs and
-accept CSR precomputed distances; randomized TruncatedSVD also accepts CSR matrices. Other estimator inputs remain dense.
+accept CSR precomputed distances. Randomized TruncatedSVD and direct Multinomial/
+Bernoulli/Complement Naive Bayes also accept CSR matrices. Other estimator and
+meta-estimator inputs remain dense.
 Fortran identifiers use snake_case rather than CamelCase.
 
 ## Implemented domains
@@ -36,7 +38,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | multioutput | `multi_output_regressor`, `multi_output_classifier`, `regressor_chain`, `classifier_chain` | Independent fitted base models per response column; supported native linear/SGD, NB, neighbors and tree families; ragged class probabilities; SGD/Gaussian NB streaming; native base weighting limits apply |
 | preprocessing | `kernel_centerer`, `ordinal_encoder`, `target_encoder`, `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `iterative_imputer`, `knn_imputer`, `missing_indicator`, `spline_transformer`, `label_encoder`, `one_hot_encoder`, `label_binarizer`, `multi_label_binarizer`, `power_transformer`, `kbins_discretizer`, `quantile_transformer`; `normalize`, `binarize`, `polynomial_features` | Ordinal category codes and infrequent grouping; cross-fitted target means; population variance; linear percentile interpolation; NaN imputation with mean/median/most-frequent/constant; numeric categories; empirical uniform/normal quantile transforms; dense polynomial terms through degree 12 with optional interactions; B-spline features and extrapolation |
 | linear_model | `linear_regression`, `lars`, `lasso_lars`, `lars_cv`, `lasso_lars_cv`, `lasso_lars_ic`, `ridge`, `ridge_classifier`, `ridge_classifier_cv`, `multi_task_elastic_net`, `multi_task_lasso`, `multi_task_elastic_net_cv`, `multi_task_lasso_cv`, `lasso`, `elastic_net`, `lasso_cv`, `elastic_net_cv`, `logistic_regression`, `logistic_regression_cv`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `sgd_regressor`, `sgd_classifier`, `sgd_one_class_svm`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `orthogonal_matching_pursuit_cv`, `huber_regressor`, `quantile_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; least-angle/Lasso homotopy paths with CV and AIC/BIC selection; coordinate descent with K-fold alpha/l1-ratio selection; weighted logistic Newton solver with raw-score prediction; perceptron; PA-I/II classification/regression with averaging; streaming stochastic-gradient regression/classification and one-class detection; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; weighted L1-regularized quantile regression; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
-| naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb`, `categorical_nb` | Weighted/streaming Gaussian moments, empirical/fixed priors and variance smoothing; weighted/streaming discrete event counts and fixed/empirical priors; nonnegative scalar alpha and force_alpha flooring, plus feature-wise Multinomial/Complement smoothing; Bernoulli threshold; optional complement normalization |
+| naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb`, `categorical_nb` | Weighted/streaming Gaussian moments, empirical/fixed priors and variance smoothing; dense/CSR weighted and streaming discrete event counts and fixed/empirical priors; nonnegative scalar alpha and force_alpha flooring, plus feature-wise Multinomial/Complement smoothing; Bernoulli threshold; optional complement normalization |
 | neighbors | `neighborhood_components_analysis`, `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Supervised NCA metric learning; brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with shrinkage, uniform/empirical/custom priors and Euclidean discriminant probabilities; Euclidean kernel density |
 | cluster | `kmeans`, `bisecting_kmeans`, `mini_batch_kmeans`, `spectral_coclustering`, `spectral_biclustering`, `hdbscan`, `dbscan`, `agglomerative_clustering`, `feature_agglomeration`, `mean_shift`, `affinity_propagation`, `spectral_clustering`, `optics`, `birch`; `estimate_bandwidth`, `cluster_optics_dbscan`, `cluster_optics_xi` | Lloyd/k-means++; paired row/column spectral partitions and checkerboard biclustering; weighted streaming mini-batch centroids; bisecting centroid hierarchy with Lloyd/Elkan splits; density expansion; single/complete/average/Ward merge trees and feature pooling; flat-kernel mode seeking; damped exemplar messages; normalized-Laplacian clustering with k-means or pivoted QR assignment; OPTICS reachability ordering, Xi hierarchy and DBSCAN extraction; BIRCH streaming CF tree and optional Ward clustering |
 | decomposition | `pca`, `incremental_pca`, `truncated_svd`, `nmf`, `mini_batch_nmf`, `sparse_pca`, `mini_batch_sparse_pca`, `dictionary_learning`, `mini_batch_dictionary_learning`, `sparse_coder`, `latent_dirichlet_allocation`; `sparse_encode`; re-exports `kernel_pca`, `factor_analysis`, `fast_ica` | Full/randomized/covariance PCA with automatic routing; PCA whitening/inversion, variance/Minka dimension selection and probabilistic scores; streaming stacked-SVD IncrementalPCA; exact dense and randomized dense/CSR TruncatedSVD; NMF multiplicative updates; sparse dictionary factorization and SparsePCA; five sparse coding methods; nonlinear kernel PCA; full/randomized-SVD factor analysis with orthogonal rotations; parallel/deflation ICA |
@@ -6520,9 +6522,9 @@ without invalid/zero floating-point traps. Source first-NaN argmax is retained.
 Complement counts now follow source addition-before-subtraction order, including
 positive smoothing lost at large totals. Python warning objects are not emitted.
 
-See `example/feature_smoothed_nb.f90`. Sparse estimator data, vector Bernoulli
-alpha, unthresholded Bernoulli `binarize=None`, signed weights and weighted score
-remain outside this interface. Count/smoothing/query intermediates must fit the
+See `example/feature_smoothed_nb.f90`. Direct CSR support is described below.
+Vector Bernoulli alpha, unthresholded Bernoulli `binarize=None`, signed weights
+and weighted score remain outside this interface. Count/smoothing/query intermediates must fit the
 native real64 working range; existing explicit count range checks are retained.
 
 `validation/compare_nb_smoothing.py` retains seeded batch/streaming comparisons
@@ -6564,3 +6566,88 @@ listed above were rerun; the cumulative inventory is not a full-rerun claim.
 The separate 42-group legacy RNG reference suite remains excluded and was not
 rerun. MIT licensing and sklearn BSD attribution remain; no estimator type,
 external Fortran dependency or public algorithm extension is added.
+
+
+## CSR discrete Naive Bayes
+
+`multinomial_nb`, `bernoulli_nb` and `complement_nb` overload `fit`, `partial_fit`,
+`joint_log_likelihood`, `predict_log_proba`, `predict_proba`, `predict` and `score`
+for `type(csr_matrix)`, alongside their existing dense interfaces. Import CSR
+storage from `sklearn_sparse` or the `sklearn` facade. Its pointer and column
+arrays are 1-based. Optional sample weights, first-call class declarations,
+fixed/uniform/empirical priors, smoothing controls and fitted diagnostics use
+the same contracts as dense input. Dense and CSR updates can be interleaved in
+one fitted model. A new `fit` resets state regardless of representation.
+
+Training traverses stored entries and keeps dense (n_classes,n_features) fitted
+statistics. Sparse prediction uses CSR multiplication and returns dense
+(n_samples,n_classes) scores/probabilities. Sample matrices are never converted
+to dense in the estimator. Inputs are validated and preserved. Empty rows and
+zero-stored-entry matrices with positive dimensions are supported. CSR indices
+may be unsorted and duplicate columns are retained. Matrix structure and finite
+data are checked; Multinomial/Complement stored values must be nonnegative.
+
+Sparse source likelihoods differ from dense likelihoods when weights include
+NaN/Inf: omitted entries contribute nothing, while stored zeros participate in
+IEEE multiplication. Bernoulli thresholds stored entries independently and
+eliminates resulting zeros before counting or prediction; duplicate entries are
+not first summed. Signed finite Bernoulli entries below the nonnegative threshold
+are therefore removed. These rules match installed sklearn 1.6.1, including
+representation-dependent zero-smoothing predictions. The shared source
+normalization and first-NaN argmax rules remain unchanged.
+
+Use `example/sparse_document_nb.f90` for a 10,000-feature weighted document fit.
+Gaussian/Categorical NB, pipeline/meta-estimator sparse inputs, CSC/COO storage,
+vector Bernoulli smoothing, unthresholded Bernoulli `binarize=None`, signed
+sample weights and weighted score remain outside this interface. Fitted
+statistics still require O(n_classes*n_features) storage, even for sparse data.
+
+`validation/compare_nb_sparse.py` checks canonical and noncanonical CSR input,
+explicit/implicit zeros, duplicates, empty rows and all-zero sample matrices.
+Seeded one/two/three-class fits span single-feature, tall and wide inputs;
+positive/zero/vector/floored smoothing, weights, missing declared classes,
+fixed-zero priors, both Complement normalizations and dense/CSR mixed updates
+are covered. Signed Bernoulli duplicate cases verify threshold-before-sum
+behavior. Every snapshot checks fitted state, sparse and dense query outputs,
+training labels and accuracy. Independent event-count conservation and pure-CSR
+streaming/single-update identities supplement source comparisons. Thirty-one
+new rejection cases cover CSR structure, data and estimator contracts. A native
+10,000-by-10,000 training case contains two stored values; production NB was
+also inspected to verify it contains no CSR-to-dense conversion.
+
+Final verification: all 149 native test programs passed with checked flags
+`-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow` and in release mode.
+Each profile passed 234,499 affected reference groups: 99,824 new CSR NB groups,
+59,642 smoothing groups, 22,150 discrete-stream groups, 16,536 weighted-classifier
+groups, 27,490 multiclass groups, 8,665 classifier-chain groups and 192 integration
+groups. All 31 new CSR, 11 smoothing and 25 streaming rejection cases passed per
+profile. Release primary NB checks used separate stdin/report paths and ran
+alongside the checked meta-estimator checks; shared-file release meta-estimator
+checks started only after the checked run completed.
+
+The CSR suite retains 2,594 fixtures and 6,050 snapshots, with 6,050 independent
+event-count certificates, 35,696 fields containing source NaN/Inf, 864 pure-CSR
+streaming/single-update equivalence cases and 82 bounded label-rounding
+certificates per profile. Both sparse and dense query representations are
+checked after every fit/update. No nonfinite or noncanonical fixture was dropped.
+The final audit independently reconstructed every snapshot's required fields,
+matched cross-profile inventories and executable/validator/source hashes, and
+verified all 290 compiled source-content digests per profile. It also confirmed
+that production NB contains no CSR-to-dense conversion. Existing Gaussian,
+count-update and dense likelihood procedure bodies were verified unchanged;
+the dense log-probability normalizer was shared without changing its arithmetic.
+
+The example passed explicitly through fpm in both profiles and its output
+matched installed sklearn. Reports, terminal logs and orchestration/audit scripts
+are archived in ignored `validation/results`, including
+`nb_sparse_final_audit.json`. Release primary and legacy phase logs are retained
+separately. Native large-shape coverage uses a 10,000-by-10,000 sample matrix
+with two stored values and dense class-by-feature fitted statistics.
+
+Cumulative inventory: 217 public core types, 129 core modules, 149 native test
+programs, 127 core reference suites and 817,095 retained groups. Thirty-six
+invalid-input registries retain 3,517 cases. Only the affected reference suites
+listed above were rerun; cumulative counts do not imply a full rerun. The separate
+42-group legacy RNG reference suite remains excluded and was not rerun.
+MIT licensing and sklearn BSD attribution remain; no estimator type, external
+Fortran dependency or public algorithm extension is added.

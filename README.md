@@ -231,3 +231,7 @@ NearestCentroid supports empirical/custom priors and Euclidean probabilities; se
 Discrete Naive Bayes supports zero smoothing and `force_alpha`; Multinomial and
 Complement NB also support feature-wise smoothing. See
 [the example](example/feature_smoothed_nb.f90).
+
+Multinomial, Bernoulli and Complement Naive Bayes accept CSR input, including
+weighted streaming and mixed dense/CSR updates. See
+[the sparse document example](example/sparse_document_nb.f90).

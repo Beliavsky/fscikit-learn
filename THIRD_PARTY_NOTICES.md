@@ -1058,3 +1058,12 @@ BSD notices and LICENSES/scikit-learn-COPYING remain retained. Native safe
 IEEE likelihood evaluation, explicit undefined-value handling, range contracts,
 interfaces and independent validation identities are original MIT contributions.
 No external source package is imported.
+
+
+Discrete NB CSR fitting, sparse likelihoods and Bernoulli per-entry thresholding
+follow sklearn 1.6.1 `naive_bayes.py` and `preprocessing/_data.py` binarize.
+Existing sklearn BSD notices and LICENSES/scikit-learn-COPYING remain retained.
+Native CSR overloads, sparse event accumulation, quiet IEEE integration,
+structure/range contracts and validation identities are original MIT
+contributions. Existing native CSR/IEEE helpers are reused; no external source
+package or Fortran dependency is imported.
