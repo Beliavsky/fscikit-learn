@@ -209,3 +209,6 @@ KernelPCA can learn an approximate inverse using kernel ridge regression; see
 
 LinearDiscriminantAnalysis offers SVD classification and discriminant projection
 for wide or rank-deficient data; see [the example](example/discriminant_projection.f90).
+
+LDA also supports the generalized eigen solver with scalar shrinkage; see
+[the regularized projection example](example/shrunk_discriminant_projection.f90).

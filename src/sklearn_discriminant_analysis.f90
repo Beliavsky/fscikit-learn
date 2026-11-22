@@ -1,5 +1,5 @@
 module sklearn_discriminant_analysis
-  use, intrinsic :: ieee_arithmetic, only: ieee_is_finite,ieee_value,ieee_quiet_nan
+  use, intrinsic :: ieee_arithmetic, only: ieee_is_finite,ieee_value,ieee_quiet_nan,ieee_positive_inf,ieee_negative_inf
   use sklearn_common
   use sklearn_metrics, only: accuracy_score
   implicit none
@@ -21,7 +21,7 @@ module sklearn_discriminant_analysis
     logical :: store_covariance=.false.
     integer :: n_components=0,n_components_=0,within_rank_=0,between_rank_=0
     real(dp) :: tol=1.e-4_dp
-    real(dp), allocatable :: scalings_(:,:),xbar_(:),explained_variance_ratio_(:)
+    real(dp), allocatable :: scalings_(:,:),xbar_(:),explained_variance_ratio_(:),eigenvalues_(:)
     real(dp) :: shrinkage=0
     real(dp), allocatable :: coef_(:,:),intercept_(:)
   contains
@@ -103,11 +103,12 @@ contains
     real(dp), allocatable :: pooled(:,:)
     real(dp) :: trace
     integer :: c,j,p,nc
-    call require(any(self%solver==[character(8)::'lsqr','svd']),'unknown LDA solver')
+    call require(any(self%solver==[character(8)::'lsqr','svd','eigen']),'unknown LDA solver')
     call require(ieee_is_finite(self%tol).and.ieee_is_finite(self%shrinkage),'LDA controls must be finite')
     call require(self%tol>=0,'LDA tol must be nonnegative')
     call require(self%shrinkage>=0.and.self%shrinkage<=1,'invalid LDA shrinkage')
     call require(self%n_components>=0,'LDA n_components must be nonnegative')
+    if(allocated(self%eigenvalues_)) deallocate(self%eigenvalues_)
     if(allocated(self%scalings_)) deallocate(self%scalings_)
     if(allocated(self%xbar_)) deallocate(self%xbar_)
     if(allocated(self%explained_variance_ratio_)) deallocate(self%explained_variance_ratio_)
@@ -117,7 +118,8 @@ contains
       call lda_svd_fit(self,x,y)
       return
     end if
-    call class_statistics(self,x,y); p=size(x,2);allocate(pooled(p,p));pooled=0
+    call class_statistics(self,x,y,self%solver=='eigen');p=size(x,2);allocate(pooled(p,p));pooled=0
+    if(self%solver=='eigen') call require(size(x,1)>size(self%classes_),'LDA eigen needs more samples than classes')
     call require(self%n_components<=min(p,size(self%classes_)-1),'LDA n_components exceeds class/feature limit')
     ! sklearn lsqr covariance is population covariance, weighted by class prior.
     do c=1,size(self%classes_)
@@ -132,12 +134,83 @@ contains
     do j=1,p
       pooled(j,j)=pooled(j,j)+self%shrinkage*trace
     end do
+    if(self%solver=='eigen') then
+      call lda_eigen_fit(self,x,pooled)
+      return
+    end if
     do c=1,size(self%classes_)
       self%covariance_(:,:,c)=pooled
       call invert_covariance(pooled,self%precision_(:,:,c),self%logdet_(c))
     end do
     self%coef_=matmul(self%means_,self%precision_(:,:,1))
     self%intercept_=log(self%priors_)-0.5_dp*sum(self%coef_*self%means_,dim=2)
+  end subroutine
+  subroutine lda_eigen_fit(self,x,within)
+    class(linear_discriminant_analysis), intent(inout) :: self
+    real(dp), intent(in) :: x(:,:),within(:,:)
+    real(dp), allocatable :: centered(:,:),total(:,:),between(:,:),l(:,:),upper(:,:),inverse_l(:,:)
+    real(dp), allocatable :: whitened(:,:),vectors(:,:),identity(:,:),ratio(:),precision(:,:)
+    real(dp) :: trace,energy,logdet
+    integer :: n,p,i,j,c,components,index
+    n=size(x,1);p=size(x,2);components=min(p,size(self%classes_)-1)
+    if(self%n_components>0) components=self%n_components
+    centered=x-spread(sum(x,dim=1)/n,1,n)
+    total=matmul(transpose(centered),centered)/n
+    trace=0
+    do j=1,p
+      trace=trace+total(j,j)/p
+    end do
+    total=(1-self%shrinkage)*total
+    do j=1,p
+      total(j,j)=total(j,j)+self%shrinkage*trace
+    end do
+    between=total-within;l=cholesky_factor(within);upper=transpose(l)
+    allocate(identity(p,p),inverse_l(p,p));identity=0
+    do j=1,p
+      identity(j,j)=1;inverse_l(:,j)=solve_lower(l,identity(:,j))
+    end do
+    whitened=matmul(inverse_l,matmul(between,transpose(inverse_l)))
+    ! Roundoff can make the two triangles differ; the source eigh reads the lower.
+    do j=1,p
+      do i=j+1,p
+        whitened(j,i)=whitened(i,j)
+      end do
+    end do
+    allocate(self%eigenvalues_(p),vectors(p,p),self%scalings_(p,p))
+    call symmetric_eigen(whitened,self%eigenvalues_,vectors)
+    do j=1,p
+      self%scalings_(:,j)=solve_upper(upper,vectors(:,j))
+    end do
+    energy=sum(self%eigenvalues_);allocate(ratio(p))
+    if(energy/=0) then
+      ratio=self%eigenvalues_/energy
+      ratio=ratio(argsort(-ratio))
+    else
+      ! NumPy sorts NaNs before +Inf and -Inf after reversing ascending order.
+      index=0
+      do i=1,p
+        if(self%eigenvalues_(i)/=0) cycle
+        index=index+1;ratio(index)=ieee_value(0._dp,ieee_quiet_nan)
+      end do
+      do i=1,p
+        if(self%eigenvalues_(i)<=0) cycle
+        index=index+1;ratio(index)=ieee_value(0._dp,ieee_positive_inf)
+      end do
+      do i=1,p
+        if(self%eigenvalues_(i)>=0) cycle
+        index=index+1;ratio(index)=ieee_value(0._dp,ieee_negative_inf)
+      end do
+    end if
+    self%explained_variance_ratio_=ratio(:components);self%n_components_=components
+    self%coef_=matmul(matmul(self%means_,self%scalings_),transpose(self%scalings_))
+    self%intercept_=log(self%priors_)-.5_dp*sum(self%means_*self%coef_,dim=2)
+    precision=matmul(self%scalings_,transpose(self%scalings_));logdet=0
+    do j=1,p
+      logdet=logdet+2*log(l(j,j))
+    end do
+    do c=1,size(self%classes_)
+      self%covariance_(:,:,c)=within;self%precision_(:,:,c)=precision;self%logdet_(c)=logdet
+    end do
   end subroutine
   subroutine lda_thin_svd(a,s,u,v)
     real(dp), intent(in) :: a(:,:)
@@ -214,10 +287,18 @@ contains
     class(linear_discriminant_analysis), intent(in) :: self
     real(dp), intent(in) :: x(:,:)
     real(dp), allocatable :: z(:,:)
-    call require(self%solver=='svd','LDA transform requires SVD solver')
-    call require(allocated(self%scalings_),'LDA SVD is not fitted')
+    call require(any(self%solver==[character(8)::'svd','eigen']),'LDA transform requires SVD solver or eigen solver')
+    if(self%solver=='svd') then
+      call require(allocated(self%scalings_),'LDA SVD is not fitted')
+    else
+      call require(allocated(self%scalings_),'LDA eigen model is not fitted')
+    end if
     call check_xy(transpose(x),size(self%scalings_,1))
-    z=matmul(x-spread(self%xbar_,1,size(x,1)),self%scalings_(:,:self%n_components_))
+    if(self%solver=='svd') then
+      z=matmul(x-spread(self%xbar_,1,size(x,1)),self%scalings_(:,:self%n_components_))
+    else
+      z=matmul(x,self%scalings_(:,:self%n_components_))
+    end if
   end function
   function lda_fit_transform(self,x,y) result(z)
     class(linear_discriminant_analysis), intent(inout) :: self

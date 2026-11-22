@@ -6471,3 +6471,65 @@ the final audit and seven terminal logs are retained in ignored
 `validation/results`. The cumulative inventory above is not a complete rerun
 claim; unrelated reference suites and the separate 42-group legacy RNG
 reference suite were not rerun.
+
+
+## Eigen discriminant projection with shrinkage (2026-11-22)
+
+Added sklearn LDA's generalized eigen solver with scalar covariance shrinkage,
+uncentered discriminant projection and full-basis classification. Cholesky
+whitening reduces the covariance pair to the existing symmetric eigensolver.
+The native default remains LSQR; SVD keeps its thin, covariance-free path.
+Eigen fitting retains the within covariance regardless of store_covariance,
+with normalized scalings and native generalized-eigenvalue diagnostics.
+
+`validation/compare_discriminant_eigen.py` retains 13,452 groups across 708
+fixtures with 708 independent covariance-normalization / generalized-eigen
+residual certificates. Three seeds cover binary/multiclass labels, tall/wide and
+single-feature input, singleton classes, zero-variance features, shrinkage
+0/.15/.7/1, automatic/explicit components, both fit entry points and covariance
+storage flags. Coefficients, scores, probabilities and predictions compare
+directly with installed sklearn 1.6.1 (binary native class rows use source's
+single-margin convention). Transform caps do not reduce the classification basis.
+
+There are 225 source eigenspace certificates for repeated eigenvalues, including
+165 crossing the component cutoff. Alignment uses only rotations within source
+eigenvalue clusters, with separate metric normalization and eigen-equation
+checks; no fixture is discarded. Six zero-between-energy cases retain NaN
+variance ratios and full requested eigen transform width. Twenty rejection
+cases cover controls, sample/classes, non-positive-definite within covariance,
+finite/shape contracts and fitted/refit state. Two singular covariance failures
+are confirmed with source's generalized eigensolver as well as native Cholesky.
+
+Inventory: 217 public core types, 129 core modules, 143 native test programs,
+120 core reference suites and 539,689 cumulative retained groups. The separate
+42-group legacy RNG reference suite remains excluded. Thirty invalid-input
+registries retain 3,380 cases. These are cumulative counts, not a full rerun
+claim; final verification below states the suites rerun for this change.
+
+Run `python validation/compare_discriminant_eigen.py --profile checked`, or use
+`--profile release` / `--executable`. Native interfaces and Cholesky/eigen calls
+remain MIT with existing sklearn BSD notices retained. No public estimator type,
+extension algorithm or dependency is added. Custom priors and automatic
+shrinkage remain outside this increment.
+
+
+Final verification: all 143 native test programs passed in checked mode
+(`-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow`) and release mode.
+Each profile passed 24,728 reference groups: 13,452 new eigen groups, all
+11,084 retained SVD discriminant groups and 192 integration groups, including
+LSQR LDA and QDA. All 20 new and 20 retained SVD rejection cases passed per
+profile. The retained 12 by 20,000 SVD fixture still allocated no covariance.
+
+The final audit matched validator, upstream-source and executable hashes and
+verified 280 compiled source-content digests per profile (129 core modules,
+143 tests, four vendor sources, three affected drivers and the new example).
+It retained 708 eigen residual/normalization certificates, 225 source basis
+certificates (165 crossing the component cutoff), six undefined-ratio cases
+and two source singular failures per profile, plus all 652 SVD rank certificates,
+three SVD undefined-ratio cases and two source empty-rank errors.
+
+Both explicit fpm example runs passed; dimensions, explained variance ratios
+and illustrative training accuracy matched installed sklearn. Reports, the
+audit and seven terminal logs are retained in ignored `validation/results`.
+The cumulative inventory above is not a full rerun claim. Unrelated reference
+suites and the separate 42-group legacy RNG reference suite were not rerun.

@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 217 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and nineteen reference suites additionally check 526,237
+All types have native tests. One hundred and twenty reference suites additionally check 539,689
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -61,7 +61,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | feature_extraction_text | `count_vectorizer`, `tfidf_transformer`, `tfidf_vectorizer` | Dense unigram counts; ASCII alphanumeric/underscore tokens of length 2-128; sorted vocabulary; min/max document frequency, binary counts and max features; smoothed/unsmoothed IDF, sublinear TF, l1/l2/no normalization |
 | dummy | `dummy_classifier`, `dummy_regressor` | Prior/most-frequent/stratified/uniform/constant classification; mean/median/quantile/constant regression |
 | kernel_ridge | `kernel_ridge` | Positive alpha; linear/RBF/polynomial/sigmoid kernels; no intercept |
-| discriminant_analysis | `linear_discriminant_analysis`, `quadratic_discriminant_analysis` | LDA offers the native default LSQR covariance solver with scalar shrinkage and rank-aware SVD classification/projection; QDA scalar regularization; covariance-based solvers reject singular covariance |
+| discriminant_analysis | `linear_discriminant_analysis`, `quadratic_discriminant_analysis` | LDA offers the native default LSQR covariance solver with scalar shrinkage and rank-aware SVD classification/projection plus generalized-eigen projections with scalar shrinkage; QDA scalar regularization; covariance-based solvers reject singular covariance |
 | svm | `svc`, `nu_svc`, `linear_svc`, `linear_svr`; re-exports `svr`, `nu_svr`, `one_class_svm` | Primal L2 squared-loss linear classification/regression; OVO SVC/NuSVC; epsilon/nu support-vector regression and one-class detection; native pairwise dual optimization and weighted capacities |
 | mixture | `gaussian_mixture`, `bayesian_gaussian_mixture` | EM Gaussian mixtures and variational Bayesian mixtures with finite Dirichlet or truncated stick-breaking weights; full/tied/diag/spherical covariances; responsibilities and likelihood scores; GaussianMixture BIC/AIC |
 | neural_network | `mlp_classifier`, `mlp_regressor`, `bernoulli_rbm` | Arbitrary dense hidden layer sizes, relu/tanh/logistic/identity, full-batch Adam, softmax classification or squared-error regression, L2 regularization |
@@ -6190,3 +6190,43 @@ Run `python validation/compare_discriminant_svd.py --profile checked`, or use
 remain MIT with existing sklearn BSD notices retained. No new source dependency,
 public estimator type or extension algorithm is added. Custom priors and eigen
 solver support remain outside this implementation.
+
+
+## Eigen discriminant projection with shrinkage (2026-11-22)
+
+Added sklearn LDA's generalized eigen solver with scalar covariance shrinkage,
+uncentered discriminant projection and full-basis classification. Cholesky
+whitening reduces the covariance pair to the existing symmetric eigensolver.
+The native default remains LSQR; SVD keeps its thin, covariance-free path.
+Eigen fitting retains the within covariance regardless of store_covariance,
+with normalized scalings and native generalized-eigenvalue diagnostics.
+
+`validation/compare_discriminant_eigen.py` retains 13,452 groups across 708
+fixtures with 708 independent covariance-normalization / generalized-eigen
+residual certificates. Three seeds cover binary/multiclass labels, tall/wide and
+single-feature input, singleton classes, zero-variance features, shrinkage
+0/.15/.7/1, automatic/explicit components, both fit entry points and covariance
+storage flags. Coefficients, scores, probabilities and predictions compare
+directly with installed sklearn 1.6.1 (binary native class rows use source's
+single-margin convention). Transform caps do not reduce the classification basis.
+
+There are 225 source eigenspace certificates for repeated eigenvalues, including
+165 crossing the component cutoff. Alignment uses only rotations within source
+eigenvalue clusters, with separate metric normalization and eigen-equation
+checks; no fixture is discarded. Six zero-between-energy cases retain NaN
+variance ratios and full requested eigen transform width. Twenty rejection
+cases cover controls, sample/classes, non-positive-definite within covariance,
+finite/shape contracts and fitted/refit state. Two singular covariance failures
+are confirmed with source's generalized eigensolver as well as native Cholesky.
+
+Inventory: 217 public core types, 129 core modules, 143 native test programs,
+120 core reference suites and 539,689 cumulative retained groups. The separate
+42-group legacy RNG reference suite remains excluded. Thirty invalid-input
+registries retain 3,380 cases. These are cumulative counts, not a full rerun
+claim; final verification below states the suites rerun for this change.
+
+Run `python validation/compare_discriminant_eigen.py --profile checked`, or use
+`--profile release` / `--executable`. Native interfaces and Cholesky/eigen calls
+remain MIT with existing sklearn BSD notices retained. No public estimator type,
+extension algorithm or dependency is added. Custom priors and automatic
+shrinkage remain outside this increment.

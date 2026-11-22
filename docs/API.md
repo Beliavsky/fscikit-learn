@@ -5586,4 +5586,43 @@ ratios, matching source. An empty within-class rank receives an explicit native
 diagnostic; sklearn 1.6.1 instead fails indexing an empty singular-value array.
 LSQR transform is unsupported as in sklearn. Queries must be finite, nonempty
 and match training feature count. See `example/discriminant_projection.f90`.
-Custom priors, the eigen solver and sparse inputs remain outside this increment.
+Custom priors and sparse inputs remain outside this interface; the eigen solver
+is documented below.
+
+
+## Eigen linear discriminant analysis
+
+`linear_discriminant_analysis%solver='eigen'` enables sklearn's generalized
+within/between covariance eigenproblem, including scalar `%shrinkage` in [0,1].
+The native default remains `'lsqr'`. Eigen fitting uses population within-class
+covariance and total covariance with the same scalar shrinkage, then solves
+`(total - within) v = lambda within v` through Cholesky whitening and the native
+symmetric eigensolver. The within covariance must be positive definite; positive
+shrinkage can regularize rank-deficient data when its average variance is
+positive. Two or more classes, more samples than classes and empirical priors
+remain the native contract. Singleton classes are supported.
+
+`%scalings_` stores a full feature-by-feature basis normalized in the within
+covariance metric, sorted by decreasing eigenvalue. Native `%eigenvalues_`
+exposes those generalized eigenvalues. `%explained_variance_ratio_` follows
+sklearn's sorted normalization over all eigenvalues. `%n_components=0` means
+automatic `min(features,classes-1)`; positive requests obey that bound.
+`%n_components_` is the resulting transform width. Classification uses the
+full basis, independently of that cap. The SVD-specific `%within_rank_` and
+`%between_rank_` diagnostics do not describe eigen fitting. `%tol` is validated
+but does not truncate the eigen basis, as in sklearn.
+
+`transform` and `fit_transform` return `X @ scalings_(:, :n_components_)` without
+centering, matching the eigen solver's source convention. This differs from
+SVD's centered projection. Eigen fitting always retains within covariance
+regardless of `%store_covariance`, as does source; inherited covariance slices
+repeat it, precision slices store its inverse and logdet entries its log
+determinant. Refitting with another solver clears `%eigenvalues_`.
+
+Repeated eigenvalues allow rotations of their eigenspaces, including the choice
+of axes at a component cutoff. Reference certificates check those subspaces,
+covariance normalization and the generalized eigen-equation. Coincident class
+means with zero between energy preserve source's NaN variance ratios; eigen
+transform width is retained even in that case. See
+`example/shrunk_discriminant_projection.f90`. Custom priors, automatic shrinkage
+and custom covariance-estimator objects remain outside this increment.

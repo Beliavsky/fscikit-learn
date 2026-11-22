@@ -990,3 +990,14 @@ The existing sklearn BSD notice and LICENSES/scikit-learn-COPYING are retained.
 Native Fortran interfaces, thin-SVD calls, rank diagnostics, optional covariance
 storage and refit clearing are original MIT contributions. No new external
 source package or dependency is imported.
+
+
+`src/sklearn_discriminant_analysis.f90` adds the generalized eigen formulation
+from scikit-learn 1.6.1 `discriminant_analysis.py`
+`LinearDiscriminantAnalysis._solve_eigen`: within/total covariance shrinkage,
+generalized eigenvector normalization, full-basis classifier coefficients and
+uncentered projection. Existing sklearn BSD notices and
+LICENSES/scikit-learn-COPYING are retained. Native Fortran bindings, Cholesky
+whitening, eigen diagnostics, refit-state clearing and numerical certificates
+are original MIT contributions. No external source package or dependency is
+imported.
