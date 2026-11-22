@@ -11,7 +11,7 @@ module sklearn_pipeline
   use sklearn_preprocessing, only: standard_scaler,minmax_scaler,maxabs_scaler,robust_scaler,power_transformer, &
     quantile_transformer,kbins_discretizer,ordinal_encoder
   use sklearn_decomposition, only: pca,truncated_svd
-  use sklearn_feature_selection, only: select_k_best,variance_threshold,generic_univariate_select
+  use sklearn_feature_selection, only: select_k_best,variance_threshold,generic_univariate_select,select_from_model
   use sklearn_target_encoding, only: target_encoder
   use sklearn_base_dispatch, only: base_supported,train_classifier,train_regressor,regression,labels,probabilities, &
     decisions,base_classes,base_proba,base_decision
@@ -82,6 +82,8 @@ contains
           end associate
         end if
       end if
+    type is(select_from_model)
+      ok=.true.
     type is(select_k_best)
       ok=.true.
     class is(generic_univariate_select)
@@ -203,6 +205,15 @@ contains
           call model%fit(x,yr)
         end if
       end if
+    type is(select_from_model)
+      if(present(yi)) then
+        call model%fit(x,yi,feature_names=names)
+      else if(present(yr)) then
+        call model%fit(x,yr,feature_names=names)
+      else
+        call model%fit(x,feature_names=names)
+      end if
+      if(do_transform) z=model%transform(x)
     type is(select_k_best)
       call require(present(yr).or.present(yi),'Pipeline supervised transformer requires a vector target')
       if(present(yi)) then
@@ -233,6 +244,8 @@ contains
     real(dp), intent(in) :: x(:,:)
     real(dp), allocatable :: z(:,:)
     select type(model)
+    type is(select_from_model)
+      z=model%transform(x)
     type is(select_k_best)
       z=model%transform(x)
     class is(generic_univariate_select)
@@ -620,6 +633,7 @@ contains
     type is(pca)
     type is(truncated_svd)
     type is(variance_threshold)
+    type is(select_from_model)
     type is(select_k_best)
     class is(generic_univariate_select)
     class is(dense_transformer)
@@ -670,6 +684,8 @@ contains
       z=model%inverse_transform(x)
     type is(variance_threshold)
       z=model%inverse_transform(x)
+    type is(select_from_model)
+      z=model%inverse_transform(x)
     type is(select_k_best)
       z=model%inverse_transform(x)
     class is(generic_univariate_select)
@@ -703,6 +719,8 @@ contains
       names=input;return
     end if
     select type(model=>step%model)
+    type is(select_from_model)
+      names=model%get_feature_names_out(input)
     type is(select_k_best)
       names=pack(input,model%get_support())
     class is(generic_univariate_select)

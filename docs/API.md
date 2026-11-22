@@ -4519,3 +4519,85 @@ an all-passthrough native pipeline can generate x0, x1, ... names from recorded
 width; Python can return None on that empty-transform naming path.
 See example/sequential_pipeline.f90 for an imputation/scaling pipeline inside a
 column transformer followed by regression.
+
+
+## SelectFromModel
+
+Import select_from_model from sklearn_feature_selection, sklearn, or the
+implementation module sklearn_model_selection_features. Configure a native
+base with allocate(selector%estimator,source=base), or pass base as the optional
+estimator argument to fit/fit_transform. The selector stores independent copies;
+its fitted child is estimator_. Caller objects are not mutated. With prefit=true,
+fit copies a supported fitted model; get_support and transform can also use the
+configured prefit estimator directly before fit. Native feature names require
+fit. Fitted n_features_in_ records the dense input width.
+
+Signatures (optional arguments shown in brackets):
+
+```
+call selector%fit(x, y_real_or_integer [,estimator,sample_weight,feature_names])
+call selector%fit(x, y_matrix [,estimator,feature_names])
+call selector%fit(x [,estimator,feature_names])  ! prefit=true only
+z = selector%fit_transform(...)               ! same argument sets
+call selector%partial_fit(x,y_real [,sample_weight,feature_names])
+call selector%partial_fit(x,y_integer [,classes,sample_weight,feature_names])
+z = selector%transform(x)
+original_width = selector%inverse_transform(z)
+mask = selector%get_support()
+indices = selector%get_support_indices()      ! 1-based
+scores = selector%feature_importances()
+threshold = selector%threshold_value()
+names = selector%get_feature_names_out([input_features])
+```
+
+During fit/fit_transform, target representation does not choose the estimator
+role: a regression child accepts integer targets and a classifier accepts integral,
+in-range real targets. Matrix targets require a native multi-task estimator.
+fit without targets requires prefit=true; targets/weights are ignored for a
+prefit child. Fitting imports optional feature_string names. Explicit names
+passed to get_feature_names_out must match fitted metadata; otherwise names
+are generated as x0, x1, ... . inverse_transform fills removed columns with zero.
+Zero selected columns are allowed for transform; inverse_transform requires
+nonempty finite input and the selected width.
+
+threshold='auto' selects 1e-5 for Lasso/LassoCV, L1 ElasticNet/multi-task variants
+and prefit L1 SGD flags; otherwise it uses the mean importance. Supported text
+controls include 'mean', 'median', '1.25*mean' and '0.75 * median'. To supply a
+numeric threshold set threshold='value' and numeric_threshold=<real>, including
+positive/negative infinity. This two-field spelling replaces Python's union
+of string/float/None. threshold_value() computes the current threshold, including
+on a direct prefit model; it replaces Python's threshold_ property. NaN numeric
+thresholds, nonfinite scales/importances and invalid expressions are rejected.
+
+norm_order is real storage for a nonzero integer or positive/negative infinity.
+Vectors use absolute values; matrices use column norms over response/class
+rows. max_features=-1 means no cap, otherwise it is an integer in [0,p]. Caps
+are computed into max_features_ on fit/first partial_fit and applied before the
+threshold with stable descending order (earlier columns win exact ties). The
+support is recomputed when requested from current fitted importances and controls.
+
+importance_getter is 'auto', 'coef_', 'feature_importances_' or 'callback'. The
+native coefficient adapters cover linear_regression descendants, logistic
+regression descendants, ridge classifiers, perceptron/PA classification, SGD
+and multi-task linear models. Tree adapters cover CART/ExtraTree descendants,
+random forests/ExtraTrees descendants and gradient boosting. Native fit/weight
+restrictions of these children apply. Custom importance callbacks can also
+extract from other supported native base-dispatch models. Arbitrary Python
+attribute paths are represented through a callback rather than reflection.
+
+For importance_getter='callback', associate importance_func with a subroutine
+(model,values,matrix): class(*) intent(in) model, allocatable real(dp)
+intent(out) values(:,:), logical intent(out) matrix. A vector is represented
+by one row and matrix=false; matrix=true applies norm_order down the rows.
+Associate max_features_func with an integer function(x) returning a valid cap;
+this is evaluated once per fit or first partial_fit. A callable cap requires
+fit even for a prefit estimator. Procedures must outlive the selector.
+
+partial_fit supports the existing SGD regression/classification bases and
+prefit copying. Its typed entries use real targets for SGD regression and
+integer labels for SGD classification. On the first SGD classification call pass the complete classes
+array; later calls retain model state and cap. First cloning from an already
+trained SGD base discards its fitted state, matching sklearn clone semantics.
+Pipeline supports the selector as a supervised intermediate or final transformer;
+its current weight forwarding applies to the final estimator. Parallel column
+and feature graphs do not route supervised targets to this selector.

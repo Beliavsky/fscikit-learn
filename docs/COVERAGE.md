@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 214 public estimator, transformer, and splitter types. Each is a
+There are 215 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Ninety-eight reference suites additionally check 409,922
+All types have native tests. Ninety-nine reference suites additionally check 413,810
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -53,7 +53,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | tree | `decision_tree_classifier`, `decision_tree_regressor`, `extra_tree_classifier`, `extra_tree_regressor` | Weighted CART and standalone randomized trees; Gini/entropy/log-loss classification, squared-error regression; depth/leaf/split/feature controls, normalized impurity importance, leaf indices |
 | ensemble | `hist_gradient_boosting_regressor`, `hist_gradient_boosting_classifier`, `stacking_classifier`, `stacking_regressor`, `bagging_classifier`, `bagging_regressor`, `random_forest_classifier`, `random_forest_regressor`, `extra_trees_classifier`, `extra_trees_regressor`, `gradient_boosting_regressor`, `gradient_boosting_classifier`, `adaboost_classifier`, `adaboost_regressor`, `isolation_forest`, `voting_classifier`, `voting_regressor` | Histogram Newton boosting with missing-value routing and five regression losses; heterogeneous hard/soft voting and averaged regression; bootstrap forests, randomized feature subsets, random-threshold Extra Trees, squared-error residual boosting; binary/multiclass classification boosting with Newton leaf updates; weighted Gini-stump SAMME; AdaBoost.R2 with depth-controlled CART; random isolation trees and path-length anomaly scores |
 | model_selection | `kfold`, `stratified_kfold`, `time_series_split`, `group_kfold`, `leave_one_out`, `leave_one_group_out`, `predefined_split`, `shuffle_split`, `stratified_shuffle_split`, `group_shuffle_split`, `repeated_kfold`, `repeated_stratified_kfold`, `leave_p_out`, `leave_p_groups_out`, `ridge_cv`; `train_test_split`, `shuffle_indices`, `cross_val_score` | Index-based splits; seeded random/group/stratified holdouts; repeated shuffled folds; exhaustive sample/group combinations; fraction/count size controls; optional stratification; time gap/window; CV for linear-regression family and logistic regression; ridge CV selects negative mean squared error |
-| feature_selection | `variance_threshold`, `select_k_best`, `select_percentile`, `select_fpr`, `select_fdr`, `select_fwe`, `generic_univariate_select`, `sequential_feature_selector`, `rfe`, `rfecv`; `f_classif`, `f_regression`, `chi2`, `r_regression`, `mutual_info_classif`, `mutual_info_regression` | Dense scores and masks; greedy forward/backward CV regression selection; coefficient-based recursive elimination and CV for regression/logistic classification; inverse transform fills dropped columns with zero; new statistical selectors include p-values and multiplicity control |
+| feature_selection | `select_from_model`, `variance_threshold`, `select_k_best`, `select_percentile`, `select_fpr`, `select_fdr`, `select_fwe`, `generic_univariate_select`, `sequential_feature_selector`, `rfe`, `rfecv`; `f_classif`, `f_regression`, `chi2`, `r_regression`, `mutual_info_classif`, `mutual_info_regression` | Model coefficient/tree-importance thresholds and stable caps; dense scores and masks; greedy forward/backward CV regression selection; coefficient-based recursive elimination and CV for regression/logistic classification; inverse transform fills dropped columns with zero; new statistical selectors include p-values and multiplicity control |
 | image | `patch_extractor`; `extract_patches_2d`, `reconstruct_from_patches_2d` | Exhaustive or seeded with-replacement image patches; grayscale and multichannel batches; source overlap averaging |
 | feature_extraction | `dict_vectorizer`, `feature_hasher` | Named numeric/categorical mappings; string lists; learned or hashed columns; real64 CSR and dense outputs |
 | feature_extraction_text | `count_vectorizer`, `tfidf_transformer`, `tfidf_vectorizer` | Dense unigram counts; ASCII alphanumeric/underscore tokens of length 2-128; sorted vocabulary; min/max document frequency, binary counts and max features; smoothed/unsmoothed IDF, sublinear TF, l1/l2/no normalization |
@@ -5106,3 +5106,84 @@ than their cached objects; their content digests matched. Retained evidence
 is in validation/results/pipeline_final_audit.json and the Pipeline reports
 and native/integration logs. Older unrelated reference suites were retained,
 not all rerun for this increment. The broad sklearn translation remains ongoing.
+
+
+## Model-based feature selection (SelectFromModel)
+
+This increment adds select_from_model, bringing the inventory to 215 core
+public types, 121 core source modules and 120 native test programs. Ninety-nine
+retained core reference suites total 413,810 result groups; the separate
+42-group NumPy legacy RNG suite remains outside that count. The new registry
+adds 47 isolated rejection checks, bringing 13 registries to 2,979 cases.
+These are implemented API subsets rather than complete sklearn class ports.
+
+The dense selector clones supported coefficient/tree-importance estimators,
+accepts prefit models, aggregates matrix coefficients with nonzero integral or
+infinite norms, interprets mean/median/scaled/numeric thresholds, applies stable
+descending feature caps, and provides zero-filling inverse transforms, feature
+names and support indices. Native callbacks provide custom importances and
+feature caps. SGD partial_fit retains successive fitted state while first
+cloning only estimator parameters. Sequential Pipeline dispatch supports this
+supervised transformer, including integer regression targets, names and inverse
+transforms. The existing native estimator fit/weighting restrictions still apply.
+
+The new source suite retains 432 fixtures and 3,888 result groups over three
+seeds, twelve estimator/importance families and twelve control configurations.
+It checks support, importance norms, thresholds, fitted metadata, names, callback
+counts and full fit/query/inverse matrices, including empty selection, exact
+ties, positive/negative infinite thresholds and direct prefit transforms.
+Families cover explicit vector/matrix prefit coefficients, weighted Ridge,
+Lasso, binary/multiclass logistic regression, regression/classification CART,
+MultiTaskLasso, three-batch regression/classification SGD, and vector/matrix
+importance callbacks. The existing SGD solver supports L2/no penalty; no new
+SGD loss or penalty algorithm is added by this selector.
+
+All 72 fitted tree fixtures additionally receive independent certificates of
+node membership, weighted impurity, globally optimal split loss and normalized
+feature contributions. Six fixtures in the development checked run differed
+from sklearn in feature attribution on existing tied split paths. Those retain
+all selection checks against sklearn using the certified native fitted
+importance vector. Reports identify the selection oracle for every fixture,
+retain the source importance difference and numerical certificate witnesses,
+and hash the helper. They do not loosen feature-mask or transform comparisons.
+The remaining fixtures compare directly with the fitted source estimator.
+
+New implementation/adapters remain MIT with retained sklearn BSD attribution;
+no external repository or dependency is imported. Sparse arrays, arbitrary
+Python attribute paths, metadata routing and general estimator reflection are
+not implemented. Importances and numeric dense inputs must be finite; norm
+overflow raises a native diagnostic. Empty transform results are supported,
+while inverse_transform requires a nonempty selected matrix, as in sklearn.
+Naming requires fit even though direct prefit get_support/transform works.
+See docs/API.md and example/model_based_selection.f90 for native signatures.
+
+Reproduce after building one profile at a time:
+
+```
+python validation/compare_model_selector.py --profile checked
+python validation/check_model_selector_invalid_inputs.py --profile checked
+```
+
+Use --profile release for optimized validation, or --executable to select an
+already-built canonical executable without invoking fpm again. Full verification
+results for the frozen implementation are recorded below when complete.
+
+
+Final verification of the frozen implementation passed all 120 native test
+programs in checked and optimized fpm builds. Each canonical profile passed
+3,888 selector groups across 432 fixtures and all 47 selector rejection checks,
+8,556 existing Pipeline groups plus 58 rejection checks, and 3,360 existing
+composition groups plus 43 rejection checks. All 72 tree certificates passed
+per profile; six fixtures per profile used the certified native-tree selection
+oracle. The checked integration gate passed all 192 comparisons.
+
+Both canonical public example binaries retained columns 2 and 4 and printed
+training R2 0.9999949, matching the independent sklearn value
+0.9999949201575922. The final audit verified complete strict reports, identical
+profile fixture configurations, executable/validator/certificate/source hashes,
+and all 248 compiled content digests per profile (245 core/test/vendor files
+plus the two new drivers and example). Evidence is retained under
+validation/results/model_selector_final_audit.json, model_selector_*.json,
+and the native/integration logs. Existing unrelated reference-suite reports
+were retained rather than all rerun for this increment. The broad sklearn
+translation remains ongoing.

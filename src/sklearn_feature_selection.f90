@@ -1,4 +1,5 @@
 module sklearn_feature_selection
+  use sklearn_model_selection_features, only: select_from_model
   use sklearn_mutual_info, only: mutual_info_classif,mutual_info_regression,r_regression
   use sklearn_univariate_selection, only: select_percentile,select_fpr,select_fdr,select_fwe,generic_univariate_select, &
     univariate_classification_scores,univariate_regression_scores
@@ -11,6 +12,7 @@ module sklearn_feature_selection
   public :: select_percentile,select_fpr,select_fdr,select_fwe,generic_univariate_select
   public :: univariate_classification_scores,univariate_regression_scores
   public :: rfe,rfecv,rfecv_results
+  public :: select_from_model
   public :: sequential_feature_selector
   public :: variance_threshold,select_k_best,f_classif,f_regression,chi2
   type :: variance_threshold

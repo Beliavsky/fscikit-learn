@@ -5044,3 +5044,84 @@ than their cached objects; their content digests matched. Retained evidence
 is in validation/results/pipeline_final_audit.json and the Pipeline reports
 and native/integration logs. Older unrelated reference suites were retained,
 not all rerun for this increment. The broad sklearn translation remains ongoing.
+
+
+## Model-based feature selection (SelectFromModel)
+
+This increment adds select_from_model, bringing the inventory to 215 core
+public types, 121 core source modules and 120 native test programs. Ninety-nine
+retained core reference suites total 413,810 result groups; the separate
+42-group NumPy legacy RNG suite remains outside that count. The new registry
+adds 47 isolated rejection checks, bringing 13 registries to 2,979 cases.
+These are implemented API subsets rather than complete sklearn class ports.
+
+The dense selector clones supported coefficient/tree-importance estimators,
+accepts prefit models, aggregates matrix coefficients with nonzero integral or
+infinite norms, interprets mean/median/scaled/numeric thresholds, applies stable
+descending feature caps, and provides zero-filling inverse transforms, feature
+names and support indices. Native callbacks provide custom importances and
+feature caps. SGD partial_fit retains successive fitted state while first
+cloning only estimator parameters. Sequential Pipeline dispatch supports this
+supervised transformer, including integer regression targets, names and inverse
+transforms. The existing native estimator fit/weighting restrictions still apply.
+
+The new source suite retains 432 fixtures and 3,888 result groups over three
+seeds, twelve estimator/importance families and twelve control configurations.
+It checks support, importance norms, thresholds, fitted metadata, names, callback
+counts and full fit/query/inverse matrices, including empty selection, exact
+ties, positive/negative infinite thresholds and direct prefit transforms.
+Families cover explicit vector/matrix prefit coefficients, weighted Ridge,
+Lasso, binary/multiclass logistic regression, regression/classification CART,
+MultiTaskLasso, three-batch regression/classification SGD, and vector/matrix
+importance callbacks. The existing SGD solver supports L2/no penalty; no new
+SGD loss or penalty algorithm is added by this selector.
+
+All 72 fitted tree fixtures additionally receive independent certificates of
+node membership, weighted impurity, globally optimal split loss and normalized
+feature contributions. Six fixtures in the development checked run differed
+from sklearn in feature attribution on existing tied split paths. Those retain
+all selection checks against sklearn using the certified native fitted
+importance vector. Reports identify the selection oracle for every fixture,
+retain the source importance difference and numerical certificate witnesses,
+and hash the helper. They do not loosen feature-mask or transform comparisons.
+The remaining fixtures compare directly with the fitted source estimator.
+
+New implementation/adapters remain MIT with retained sklearn BSD attribution;
+no external repository or dependency is imported. Sparse arrays, arbitrary
+Python attribute paths, metadata routing and general estimator reflection are
+not implemented. Importances and numeric dense inputs must be finite; norm
+overflow raises a native diagnostic. Empty transform results are supported,
+while inverse_transform requires a nonempty selected matrix, as in sklearn.
+Naming requires fit even though direct prefit get_support/transform works.
+See docs/API.md and example/model_based_selection.f90 for native signatures.
+
+Reproduce after building one profile at a time:
+
+```
+python validation/compare_model_selector.py --profile checked
+python validation/check_model_selector_invalid_inputs.py --profile checked
+```
+
+Use --profile release for optimized validation, or --executable to select an
+already-built canonical executable without invoking fpm again. Full verification
+results for the frozen implementation are recorded below when complete.
+
+
+Final verification of the frozen implementation passed all 120 native test
+programs in checked and optimized fpm builds. Each canonical profile passed
+3,888 selector groups across 432 fixtures and all 47 selector rejection checks,
+8,556 existing Pipeline groups plus 58 rejection checks, and 3,360 existing
+composition groups plus 43 rejection checks. All 72 tree certificates passed
+per profile; six fixtures per profile used the certified native-tree selection
+oracle. The checked integration gate passed all 192 comparisons.
+
+Both canonical public example binaries retained columns 2 and 4 and printed
+training R2 0.9999949, matching the independent sklearn value
+0.9999949201575922. The final audit verified complete strict reports, identical
+profile fixture configurations, executable/validator/certificate/source hashes,
+and all 248 compiled content digests per profile (245 core/test/vendor files
+plus the two new drivers and example). Evidence is retained under
+validation/results/model_selector_final_audit.json, model_selector_*.json,
+and the native/integration logs. Existing unrelated reference-suite reports
+were retained rather than all rerun for this increment. The broad sklearn
+translation remains ongoing.

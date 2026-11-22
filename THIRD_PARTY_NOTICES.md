@@ -777,3 +777,21 @@ pipeline errors. It checks actual fitted training arrays, target order,
 neighbor geometry, measured feature perturbations and explicit floating-point
 bounds. It does not copy/link a new neighbor implementation into the library.
 Reference API: https://scikit-learn.org/1.6/modules/generated/sklearn.pipeline.Pipeline.html
+
+
+### Model-based feature selection (SelectFromModel)
+
+`src/sklearn_model_selection_features.f90` adapts scikit-learn 1.6.1
+`feature_selection/_from_model.py` and `_base.py` contracts for coefficient
+norms, automatic/scaled thresholds, stable caps, prefit copying, incremental
+fitting, support masks, feature names and transforms. Copyright The scikit-learn
+developers; BSD-3-Clause terms remain in `LICENSES/scikit-learn-COPYING`.
+Native typed dispatch, callback interfaces and clone bookkeeping are original
+MIT contributions. Existing child models retain their earlier notices.
+
+The validation-only tree certificate independently reconstructs weighted CART
+impurities, optimal split losses and feature contributions to handle the
+previously documented native/source tie traversal difference; sklearn remains
+the feature-selection oracle on these certified importances. No external
+repository, dependency or extension algorithm is imported in this increment.
+Reference API: https://scikit-learn.org/1.6/modules/generated/sklearn.feature_selection.SelectFromModel.html
