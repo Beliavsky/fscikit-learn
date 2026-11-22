@@ -10,12 +10,12 @@ from compare_classifier_chains import certify_complement_labels
 NAMES=['classes','feature_count','class_count','feature_log_prob','class_log_prior','joint','log_proba','proba','predict','features','score','train_predict']
 REJECTIONS={'first_classes':'first partial_fit requires classes','empty_classes':'labels must be nonempty',
  'changed_classes':'classes changed between partial_fit','changed_width':'feature count changed between partial_fit',
- 'unknown_label':'label is absent from declared classes','alpha_zero':'alpha must be strictly positive',
+ 'unknown_label':'label is absent from declared classes','alpha_negative':'alpha must be nonnegative',
  'alpha_nan':'alpha must be finite','negative_x':'requires nonnegative data','nan_x':'X contains NaN or infinity',
  'negative_weight':'sample weights must be nonnegative','nan_weight':'sample weights must be finite',
  'weight_size':'sample weight length mismatch','prior_size':'class_prior must match class count',
  'prior_negative':'class_prior must be nonnegative','prior_nan':'class_prior must be finite','prior_inf':'class_prior must be finite',
- 'prior_zero':'class_prior needs positive weight','threshold_negative':'threshold must be nonnegative',
+ 'prior_empty':'class_prior must match class count','threshold_negative':'threshold must be nonnegative',
  'threshold_nan':'threshold must be finite','bernoulli_nan':'X contains NaN or infinity',
  'unfitted':'NB is not fitted','query_width':'X and y sample counts differ','query_negative':'requires nonnegative data',
  'query_nan':'X contains NaN or infinity','overflow_product':'weighted count exceeds numeric range'}

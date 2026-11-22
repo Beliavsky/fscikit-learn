@@ -6859,3 +6859,77 @@ The separate 42-group legacy RNG reference suite remains excluded and was not
 rerun. All non-centroid neighbor procedure bodies were verified unchanged.
 MIT licensing and sklearn BSD attribution remain; no estimator type, external
 Fortran dependency or public extension algorithm is added.
+
+
+## Nonnegative discrete NB smoothing
+
+`multinomial_nb`, `bernoulli_nb` and `complement_nb` now accept finite scalar
+`alpha>=0`. Their `%force_alpha` defaults to true, retaining zero/tiny values;
+false floors effective smoothing to 1e-10 without changing input controls.
+Multinomial/Complement additionally accept allocated `%alpha_per_feature(:)`,
+which overrides scalar alpha and must have n_features finite nonnegative
+entries. Flooring applies per feature. Bernoulli retains scalar smoothing;
+feature-vector controls are explicitly rejected. Installed sklearn 1.6.1's
+Bernoulli vector denominator has class/feature broadcasting artifacts; a new
+mathematical variant is not substituted for that source implementation.
+
+Zero priors are accepted even when every fixed prior is zero, matching source;
+fixed priors remain unnormalized. `partial_fit` recomputes smoothed probabilities
+from raw accumulated counts with the current alpha controls. Changing smoothing
+then making a zero-weight update therefore recomputes probabilities without
+changing counts. `fit` resets fitted state, preserving input controls.
+
+Dense likelihood arithmetic preserves source NaN/Inf behavior. In particular,
+zero times an infinite feature weight is NaN; query rows and classes are handled
+individually. Complement normalization retains Inf/Inf and 0/0 NaNs. Positive-
+infinite joint scores normalize to NaN at infinite entries and negative infinity
+elsewhere, matching source logsumexp behavior. Undefined empirical priors,
+zero-total smoothed rows and unit Bernoulli probabilities remain explicit NaNs,
+without invalid/zero floating-point traps. Source first-NaN argmax is retained.
+Complement counts now follow source addition-before-subtraction order, including
+positive smoothing lost at large totals. Python warning objects are not emitted.
+
+See `example/feature_smoothed_nb.f90`. Sparse estimator data, vector Bernoulli
+alpha, unthresholded Bernoulli `binarize=None`, signed weights and weighted score
+remain outside this interface. Count/smoothing/query intermediates must fit the
+native real64 working range; existing explicit count range checks are retained.
+
+`validation/compare_nb_smoothing.py` retains seeded batch/streaming comparisons
+for scalar zero/tiny alpha, feature vectors containing zeros, force_alpha on/off,
+empirical/uniform/all-zero fixed priors, missing declared classes, zero/fractional
+weights and both Complement normalizations. Tall, wide and single-feature data
+cover one/two/three observed classes. Large-count cases retain source lost
+positive smoothing. All fitted state, query/training labels, scores and
+probabilities are checked at each snapshot; count-conservation and final
+streaming/single-update identities supplement source comparisons. No NaN/Inf
+fixture is dropped. Eleven new rejection cases cover vector controls and
+smoothing range checks. The two previously rejected zero-alpha/zero-prior cases
+in the streaming registry moved to supported checks, with negative-alpha and
+empty-prior rejection cases replacing them.
+
+Final verification: all 148 native test programs passed with checked flags
+`-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow` and in release mode.
+Each profile passed 134,675 affected reference groups: 59,642 new smoothing
+groups, 22,150 discrete-stream groups, 16,536 weighted-classifier groups,
+27,490 multiclass groups, 8,665 classifier-chain groups and 192 integration
+groups. All 11 new and 25 retained rejection cases passed per profile.
+
+The new suite retains 2,378 fixtures and 4,754 fitted snapshots, with 4,754
+independent count certificates, 11,359 fields containing source NaN/Inf,
+1,188 streaming/single-update equivalence cases and 69 bounded label-rounding
+certificates per profile. The final audit independently reconstructed every
+snapshot's required fitted-state and prediction fields; none was filtered out.
+It matched cross-profile inventories, executable/validator/source hashes and
+all 288 compiled source-content digests per profile. The example passed
+explicitly through fpm in both profiles and its output matched installed sklearn.
+Gaussian NB procedure bodies were independently verified unchanged.
+
+Reports, terminal logs and orchestration/audit scripts are archived in ignored
+`validation/results`, including `nb_smoothing_final_audit.json`.
+Cumulative inventory: 217 public core types, 129 core modules, 148 native test
+programs, 126 core reference suites and 717,271 retained groups. Thirty-five
+invalid-input registries retain 3,486 cases. Only the affected reference suites
+listed above were rerun; the cumulative inventory is not a full-rerun claim.
+The separate 42-group legacy RNG reference suite remains excluded and was not
+rerun. MIT licensing and sklearn BSD attribution remain; no estimator type,
+external Fortran dependency or public algorithm extension is added.

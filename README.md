@@ -227,3 +227,7 @@ CategoricalNB supports zero smoothing and `force_alpha`; see
 
 NearestCentroid supports empirical/custom priors and Euclidean probabilities; see
 [the example](example/prior_weighted_centroids.f90).
+
+Discrete Naive Bayes supports zero smoothing and `force_alpha`; Multinomial and
+Complement NB also support feature-wise smoothing. See
+[the example](example/feature_smoothed_nb.f90).

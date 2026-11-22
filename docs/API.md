@@ -5728,8 +5728,9 @@ Bernoulli counts use the strict `%binarize_threshold` comparison; original input
 must be finite and the threshold finite/nonnegative, matching source validation.
 Complement adds `%feature_all_`, the feature totals across classes. Probabilities
 and priors are recomputed from accumulated counts after each update, without
-reapplying smoothing to old counts. Inputs remain dense real64; positive scalar
-alpha and the existing thresholded Bernoulli interface are retained.
+reapplying smoothing to old counts. Inputs remain dense real64. Nonnegative
+scalar smoothing and feature-wise Multinomial/Complement smoothing are described
+in the nonnegative NB smoothing section below; thresholded Bernoulli is retained.
 
 An allocated `%class_prior(:)` supplies ordered nonnegative finite prior weights;
 it overrides `%fit_prior` and is used without renormalizing, matching sklearn.
@@ -5745,9 +5746,8 @@ are created explicitly without floating-point traps; NaN argmax behavior follows
 source. Bernoulli likelihoods that round to unit feature probability retain source NaNs
 without evaluating log(0) or opposing infinities. Source-score ties within
 roundoff use label certificates in validation.
-See `example/streaming_document_nb.f90`. Sparse estimator inputs, vector/zero
-alpha, raw Bernoulli `binarize=None`, signed weights and weighted `score` remain
-outside this increment. Count/smoothing intermediates must fit real64 range.
+See `example/streaming_document_nb.f90`. Sparse estimator inputs, raw Bernoulli
+`binarize=None`, signed weights and weighted `score` remain outside this API. Count/smoothing intermediates must fit real64 range.
 
 
 ## Prior-aware NearestCentroid
@@ -5785,3 +5785,37 @@ fit the native real64 working range, checked before arithmetic. Fit values
 are bounded by sqrt(huge(real64))/(16*sqrt(n_samples*n_features)); query and
 standardized values use sqrt(huge(real64))/(16*n_features). Each supplied prior
 must be at most huge(real64)/n_classes before summing.
+
+
+## Nonnegative discrete NB smoothing
+
+`multinomial_nb`, `bernoulli_nb` and `complement_nb` now accept finite scalar
+`alpha>=0`. Their `%force_alpha` defaults to true, retaining zero/tiny values;
+false floors effective smoothing to 1e-10 without changing input controls.
+Multinomial/Complement additionally accept allocated `%alpha_per_feature(:)`,
+which overrides scalar alpha and must have n_features finite nonnegative
+entries. Flooring applies per feature. Bernoulli retains scalar smoothing;
+feature-vector controls are explicitly rejected. Installed sklearn 1.6.1's
+Bernoulli vector denominator has class/feature broadcasting artifacts; a new
+mathematical variant is not substituted for that source implementation.
+
+Zero priors are accepted even when every fixed prior is zero, matching source;
+fixed priors remain unnormalized. `partial_fit` recomputes smoothed probabilities
+from raw accumulated counts with the current alpha controls. Changing smoothing
+then making a zero-weight update therefore recomputes probabilities without
+changing counts. `fit` resets fitted state, preserving input controls.
+
+Dense likelihood arithmetic preserves source NaN/Inf behavior. In particular,
+zero times an infinite feature weight is NaN; query rows and classes are handled
+individually. Complement normalization retains Inf/Inf and 0/0 NaNs. Positive-
+infinite joint scores normalize to NaN at infinite entries and negative infinity
+elsewhere, matching source logsumexp behavior. Undefined empirical priors,
+zero-total smoothed rows and unit Bernoulli probabilities remain explicit NaNs,
+without invalid/zero floating-point traps. Source first-NaN argmax is retained.
+Complement counts now follow source addition-before-subtraction order, including
+positive smoothing lost at large totals. Python warning objects are not emitted.
+
+See `example/feature_smoothed_nb.f90`. Sparse estimator data, vector Bernoulli
+alpha, unthresholded Bernoulli `binarize=None`, signed weights and weighted score
+remain outside this interface. Count/smoothing/query intermediates must fit the
+native real64 working range; existing explicit count range checks are retained.

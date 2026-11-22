@@ -88,7 +88,7 @@ contains
     case('changed_classes');call mn%partial_fit(data,labels,[-2,3]);call mn%partial_fit(data,labels,[-2,4]);return
     case('changed_width');call mn%partial_fit(data,labels,[-2,3]);call mn%partial_fit(data(:,:2),labels);return
     case('unknown_label');call mn%partial_fit(data,labels,[-2,4]);return
-    case('alpha_zero');mn%alpha=0
+    case('alpha_negative');mn%alpha=-1
     case('alpha_nan');mn%alpha=bad
     case('negative_x');data(1,1)=-1
     case('nan_x');data(1,1)=bad
@@ -99,7 +99,7 @@ contains
     case('prior_negative');mn%class_prior=[-1._dp,2._dp]
     case('prior_nan');mn%class_prior=[bad,1._dp]
     case('prior_inf');mn%class_prior=[ieee_value(0._dp,ieee_positive_inf),1._dp]
-    case('prior_zero');mn%class_prior=[0._dp,0._dp]
+    case('prior_empty');mn%class_prior=[real(dp)::]
     case('threshold_nan');bn%binarize_threshold=bad;call bn%fit(data,labels);return
     case('threshold_negative');bn%binarize_threshold=-.5_dp;call bn%fit(data,labels);return
     case('bernoulli_nan');data(1,1)=bad;call bn%fit(data,labels);return

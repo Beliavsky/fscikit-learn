@@ -1049,3 +1049,12 @@ uniform-distance prediction routing follow scikit-learn 1.6.1
 LICENSES/scikit-learn-COPYING remain retained. Native explicit undefined-value
 handling, range checks, interfaces and validation certificates are original
 MIT contributions. No external source package is imported.
+
+
+Discrete NB nonnegative/feature-wise smoothing, force_alpha and Complement
+addition-before-subtraction order follow sklearn 1.6.1 `naive_bayes.py`
+_BaseDiscreteNB, MultinomialNB, BernoulliNB and ComplementNB. Existing sklearn
+BSD notices and LICENSES/scikit-learn-COPYING remain retained. Native safe
+IEEE likelihood evaluation, explicit undefined-value handling, range contracts,
+interfaces and independent validation identities are original MIT contributions.
+No external source package is imported.
