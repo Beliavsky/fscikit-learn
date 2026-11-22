@@ -4137,3 +4137,86 @@ checks passed. Production code and native tests remained fixed through these
 final gates. Native logs are retained in validation/results as
 feature_mapping_native_checked.log and feature_mapping_native_release.log.
 The broader translation goal remains active.
+
+
+## Callable transforms and target wrappers (2026-11-21)
+
+Added the sklearn FunctionTransformer and TransformedTargetRegressor
+counterparts. Core inventory is now 211 public estimator/transformer/splitter
+types in 117 source modules, plus the existing four vendored optimizer modules.
+There are 115 native test programs and 95 retained core reference suites.
+The two new suites contain 6,114 groups across 972 fixtures: 1,410 groups /
+300 FunctionTransformer fixtures and 4,704 groups / 672 transformed-target
+fixtures. Total retained core groups are 398,006; the separate 42 legacy RNG
+groups remain excluded. The new isolated registry has 33 cases, bringing the
+ten registries to 2,831 cases. These counts measure API subsets, not complete
+sklearn class ports or a percentage of sklearn functionality.
+
+FunctionTransformer covers identity and numeric callbacks, optional dense
+validation, feature metadata, generated/explicit/callback feature names,
+fit-free transforms, changed-width inverse inputs and inverse diagnostics.
+The target wrapper covers cloned native transformer prototypes, paired target
+functions, default or supported native regressors, weighted SVD linear fits,
+scalar/matrix targets, original-scale scoring and independent multiple outputs.
+Unsupported joint multi-target bases are diagnosed rather than replaced with
+independent models. Full callback/rank/weighting limits are in docs/API.md.
+No dependency or public algorithm extension is added; original code remains
+MIT with sklearn-derived BSD attribution retained.
+
+Reference gates use installed sklearn 1.6.1, NumPy 2.2.6 and existing native
+transformers. Function results use 3e-12 relative/absolute tolerance; target
+results use 3e-9 except inherited PowerTransformer fits at 3e-6. Transformer
+state can have large absolute differences for very large power-fit parameters;
+reports retain maximum absolute differences, fixture contexts and fractions
+of the allowed relative/absolute tolerance. Every transformed training target
+is also checked directly. Metadata, names and output shapes are exact checks.
+
+The target validator retains all fixtures. If a native CART split differs,
+it uses the existing source-conditioned certificate: source sklearn stumps
+verify every node's response, impurity and admissible split within a measured
+floating-point accumulation bound. Predictions and inverse mapping are then
+checked against these certified source leaf responses. Constant-target R2
+is discontinuous at exact prediction equality; numerical discrepancies are
+recorded explicitly and the native score is checked against sklearn r2_score
+on native predictions. This is separate from direct prediction comparisons.
+Strict JSON reports record source/binary hashes, tree runtime provenance,
+warning counts, certificates and constant-target score differences.
+
+Reproduce after building the desired profile:
+
+```
+python validation/compare_function_transformer.py --profile checked
+python validation/compare_transformed_target.py --profile checked
+python validation/check_target_wrappers_invalid_inputs.py --profile checked
+```
+
+Use --profile release for the optimized gate. --executable accepts a completed
+native executable, avoiding another fpm invocation. Do not run simultaneous fpm
+builds in this checkout. The transformed_targets example shows log/exp target
+regression and a standalone callable transform through the sklearn facade.
+
+
+Final gates passed all 115 native test programs in both runtime/FPE-checked
+and optimized fpm profiles. Both canonical fpm reference executables passed
+all 6,114 new groups across the same 972 fixtures; each profile also passed
+all 33 isolated rejections. Each target report retained five source-conditioned
+CART certificates and 15 constant-target score discrepancies, with every
+fixture checked. The largest fraction of an allowed numerical tolerance was
+0.942568, in an inherited PowerTransformer fitted-state comparison. The
+FunctionTransformer suite had zero measured numerical difference.
+
+The existing 192-comparison sklearn integration gate passed against the updated
+checked executable. The transformed_targets example passed both profiles and
+matched an independent sklearn calculation: original-scale R2=1 and first
+log target 1.1666666667, with native maximum prediction error 1.0658e-14.
+No rerun of every historical reference suite is claimed.
+
+Final audits verified strict JSON, unique check identifiers, complete fixture
+counts, matching profile configurations, installed source hashes, canonical
+executable hashes and fresh objects for all 117 core modules, 115 native
+programs and four vendored optimizer modules per profile. Python compilation,
+Fortran line lengths and Git whitespace checks passed. Production and native
+test sources stayed fixed through these final gates. Native logs are retained
+as validation/results/target_wrappers_native_checked.log and
+validation/results/target_wrappers_native_release.log. The broader translation
+goal remains active.

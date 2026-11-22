@@ -4204,3 +4204,83 @@ the measured source pairwise order directly.
 All hash values and CSR structure comparisons remain exact. CSR counts are
 limited by the existing native integer storage capacity. See
 example/structured_features.f90 for a minimal numeric/categorical example.
+
+
+## Callable transforms and transformed regression targets
+
+`function_transformer` is exported through `sklearn_preprocessing` and `sklearn`.
+Its `func` and `inverse_func` procedure pointers accept a dense real(dp) matrix
+with intent(in) and return an allocatable real(dp) matrix. An absent callback
+means identity. Procedures and any captured/module state must remain valid for
+the lifetime of the transformer and its copies. Callbacks own their numerical
+domain and may change output dimensions. No Python kwargs, sparse arrays,
+arbitrary object inputs, pandas output containers or metadata routing are provided.
+
+Methods are fit, transform, fit_transform, inverse_transform and
+get_feature_names_out. Transform needs no preceding fit. Defaults are
+validate=false and check_inverse=true. Fit records n_features_in_ even without
+validation. Optional feature_string feature_names(:) records explicit column
+names; each fit resets this metadata. With validation enabled, inputs must be
+nonempty and finite; forward transforms enforce a known fitted input width.
+Inverse transforms validate their own input without enforcing the forward
+width. Callback outputs are not separately validated by FunctionTransformer.
+
+For feature names, set feature_names_out='one-to-one' or associate names_func.
+The latter receives class(*) transformer and feature_string input_features(:),
+returning an allocatable feature_string vector. An empty vector represents
+unknown input names for that callback. Names are either explicitly supplied,
+stored on fit, or generated as x0, x1, ... from the known input width.
+A one-to-one request with no known input width/names is diagnosed rather than
+returning Python's zero-dimensional object array containing None. One-to-one
+names for zero-column, unvalidated inputs require explicit feature names.
+
+When both callbacks are present, fitting optionally checks a round trip on
+rows 1, 1+step, ... with step=max(1,n/100). Tolerances are rtol=1e-7 and
+atol=1e-9, matching sklearn 1.6.1's dense inverse helper. Warning conditions are
+reported as inverse_checked_ and inverse_consistent_ instead of Python warnings.
+A failed numerical inverse check does not prevent fitting. Incompatible check
+shapes are diagnosed; rank-two NumPy broadcasting and NaN/Inf comparisons are
+preserved for the dense check.
+
+`transformed_target_regressor` is exported by `sklearn_compose` and `sklearn`.
+Allocate regressor and transformer from native prototypes, or associate func
+and inverse_func together. Combining a transformer with callbacks is rejected.
+The default base is LinearRegression; the default transformer is a validated
+FunctionTransformer. Supported exact transformer types are function_transformer,
+standard_scaler, minmax_scaler, maxabs_scaler, robust_scaler, power_transformer
+and quantile_transformer. Fitted copies are held in regressor_ and transformer_;
+prototypes are left unchanged. FunctionTransformer cloning copies its controls
+and procedure pointers while dropping learned metadata.
+
+fit accepts vector or matrix targets, with optional sample_weight. It fits the
+transformer on all unweighted targets, transforms y, then fits the base with
+weights where supported. Original targets and transformed training targets
+must be finite and nonempty; transformed sample count must equal X's count.
+Single transformed outputs accept the regression types supported by the native
+base dispatcher: linear_regression and its existing descendants, sgd_regressor,
+kneighbors_regressor, decision_tree_regressor/extra_tree_regressor, kernel_ridge
+and dummy_regressor. Base-specific controls and limitations continue to apply.
+Exact LinearRegression and Ridge additionally use the existing weighted SVD
+helper. Other bases inherit the dispatcher's current weighting restrictions.
+
+Multiple transformed outputs currently support exact linear_regression, ridge,
+elastic_net, lasso, kneighbors_regressor, kernel_ridge and dummy_regressor.
+These models fit outputs independently, preserving the corresponding sklearn
+semantics. regressor_ then contains a target_regressor_bundle with one fitted
+model_ per estimators_ slot. Joint multi-target trees and CV estimators are
+rejected in this path. Storage helper types are not additional algorithms.
+
+predict_matrix always returns a rank-two inverse-transformed result; predict
+returns a vector and requires one output column. transformed_predict exposes
+base predictions before inversion. training_dim_, n_outputs_,
+n_transformed_outputs_ and n_features_in_ record training dimensions. Fortran's
+static ranks require separate vector/matrix prediction methods. Inverse output
+is otherwise controlled by the callback, without a forced original width or
+finite-output restriction. score computes R2 on the original target scale,
+with uniform averaging across output columns and optional score weights.
+
+The wrapper's check_inverse defaults true and checks every max(1,n/10)-th row
+with NumPy's rtol=1e-5, atol=1e-8. Its inverse flags are separate from an embedded
+FunctionTransformer's flags. Original-target constant R2 can change from 1 to
+0 after a one-ulp prediction difference; it is not smoothed or clamped beyond
+sklearn's force_finite rule. See example/transformed_targets.f90.

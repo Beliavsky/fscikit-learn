@@ -723,3 +723,21 @@ The native quiet-IEEE reduction is reused from this project's attributed
 KernelCenterer port. SciPy and NumPy BSD terms are retained in
 `LICENSES/scipy-COPYING` and `LICENSES/numpy-COPYING`. The NumPy upstream source
 SHA256 was reverified as ed85d5b99f0b457cb7a316bf8c4acb884034bbbb81a89c5cedb62be80bf7c4f8.
+
+### FunctionTransformer and TransformedTargetRegressor
+
+`src/sklearn_function_transformer.f90` and `src/sklearn_compose.f90` adapt the
+contracts and fitting/check order of scikit-learn 1.6.1
+`preprocessing/_function_transformer.py` and `compose/_target.py`, including
+feature metadata, cloned transformers, target reshaping and sampled inverse
+checks. Copyright The scikit-learn developers; BSD-3-Clause terms remain in
+`LICENSES/scikit-learn-COPYING`. Dense inverse tolerance follows sklearn's
+`utils/validation.py::_allclose_dense_sparse`; wrapper checks follow NumPy
+allclose defaults. Native callback interfaces, allocatable storage adapters
+and static-rank prediction methods are original MIT contributions. Existing
+weighted SVD, quiet arithmetic and source-conditioned CART validation helpers
+retain their earlier attribution. No additional dependency is introduced.
+
+Reference API documentation:
+https://scikit-learn.org/1.6/modules/generated/sklearn.preprocessing.FunctionTransformer.html
+https://scikit-learn.org/1.6/modules/generated/sklearn.compose.TransformedTargetRegressor.html

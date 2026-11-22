@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 209 public estimator, transformer, and splitter types. Each is a
+There are 211 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Ninety-three reference suites additionally check 391,892
+All types have native tests. Ninety-five reference suites additionally check 398,006
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -25,6 +25,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 
 | Module (`sklearn_` prefix) | Public types and functions | Scope and numerical choices |
 | --- | --- | --- |
+| function_transformer / compose | `function_transformer`, `transformed_target_regressor` | Dense matrix callbacks, feature names and inverse diagnostics; cloned target transforms, supported native bases, weighted linear fits and independent multiple targets; joint multi-target trees excluded |
 | neighbor_graph / sparse | `kneighbors_transformer`, `radius_neighbors_transformer`; `csr_matrix` storage helper | Brute dense-feature and dense/CSR precomputed distances; connectivity/distance CSR outputs with explicit zeros |
 | threshold | `fixed_threshold_classifier`, `tuned_threshold_classifier_cv` | Binary probability/margin cutoffs; weighted fold score curves, interpolation and first-best threshold selection; holdout, custom folds and prefit validation |
 | tree_embedding | `random_trees_embedding` (also exported by `ensemble`) | Seeded totally random regression trees, dense one-hot leaf codes, warm starts, weights, leaf assignments and dense decision paths |
@@ -4879,3 +4880,60 @@ the measured source pairwise order directly.
 All hash values and CSR structure comparisons remain exact. CSR counts are
 limited by the existing native integer storage capacity. See
 example/structured_features.f90 for a minimal numeric/categorical example.
+
+
+## Callable transforms and target wrappers (2026-11-21)
+
+Added the sklearn FunctionTransformer and TransformedTargetRegressor
+counterparts. Core inventory is now 211 public estimator/transformer/splitter
+types in 117 source modules, plus the existing four vendored optimizer modules.
+There are 115 native test programs and 95 retained core reference suites.
+The two new suites contain 6,114 groups across 972 fixtures: 1,410 groups /
+300 FunctionTransformer fixtures and 4,704 groups / 672 transformed-target
+fixtures. Total retained core groups are 398,006; the separate 42 legacy RNG
+groups remain excluded. The new isolated registry has 33 cases, bringing the
+ten registries to 2,831 cases. These counts measure API subsets, not complete
+sklearn class ports or a percentage of sklearn functionality.
+
+FunctionTransformer covers identity and numeric callbacks, optional dense
+validation, feature metadata, generated/explicit/callback feature names,
+fit-free transforms, changed-width inverse inputs and inverse diagnostics.
+The target wrapper covers cloned native transformer prototypes, paired target
+functions, default or supported native regressors, weighted SVD linear fits,
+scalar/matrix targets, original-scale scoring and independent multiple outputs.
+Unsupported joint multi-target bases are diagnosed rather than replaced with
+independent models. Full callback/rank/weighting limits are in docs/API.md.
+No dependency or public algorithm extension is added; original code remains
+MIT with sklearn-derived BSD attribution retained.
+
+Reference gates use installed sklearn 1.6.1, NumPy 2.2.6 and existing native
+transformers. Function results use 3e-12 relative/absolute tolerance; target
+results use 3e-9 except inherited PowerTransformer fits at 3e-6. Transformer
+state can have large absolute differences for very large power-fit parameters;
+reports retain maximum absolute differences, fixture contexts and fractions
+of the allowed relative/absolute tolerance. Every transformed training target
+is also checked directly. Metadata, names and output shapes are exact checks.
+
+The target validator retains all fixtures. If a native CART split differs,
+it uses the existing source-conditioned certificate: source sklearn stumps
+verify every node's response, impurity and admissible split within a measured
+floating-point accumulation bound. Predictions and inverse mapping are then
+checked against these certified source leaf responses. Constant-target R2
+is discontinuous at exact prediction equality; numerical discrepancies are
+recorded explicitly and the native score is checked against sklearn r2_score
+on native predictions. This is separate from direct prediction comparisons.
+Strict JSON reports record source/binary hashes, tree runtime provenance,
+warning counts, certificates and constant-target score differences.
+
+Reproduce after building the desired profile:
+
+```
+python validation/compare_function_transformer.py --profile checked
+python validation/compare_transformed_target.py --profile checked
+python validation/check_target_wrappers_invalid_inputs.py --profile checked
+```
+
+Use --profile release for the optimized gate. --executable accepts a completed
+native executable, avoiding another fpm invocation. Do not run simultaneous fpm
+builds in this checkout. The transformed_targets example shows log/exp target
+regression and a standalone callable transform through the sklearn facade.

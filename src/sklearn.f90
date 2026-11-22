@@ -4,6 +4,7 @@ module sklearn
   use sklearn_preprocessing
   use sklearn_metrics
   use sklearn_image
+  use sklearn_compose
   use sklearn_inspection
   use sklearn_calibration
   use sklearn_linear_model
