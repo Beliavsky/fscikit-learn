@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 213 public estimator, transformer, and splitter types. Each is a
+There are 214 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Ninety-seven reference suites additionally check 401,366
+All types have native tests. Ninety-eight reference suites additionally check 409,922
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -25,6 +25,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 
 | Module (`sklearn_` prefix) | Public types and functions | Scope and numerical choices |
 | --- | --- | --- |
+| pipeline | `pipeline`; `pipeline_step` storage helper | Sequential dense transforms, supervised selectors and cross-fitted target encoding, supported native estimator tails, nested graphs, weighted fitting/scoring, inverse transforms, names and contiguous slices |
 | feature_composition / pipeline | `column_transformer`, `feature_union` | Dense parallel transformer graphs, 17 existing child types, recursive composition, positional/mask/name/callback column selection, remainder transforms, branch weights, feature names and output indices |
 | function_transformer / compose | `function_transformer`, `transformed_target_regressor` | Dense matrix callbacks, feature names and inverse diagnostics; cloned target transforms, supported native bases, weighted linear fits and independent multiple targets; joint multi-target trees excluded |
 | neighbor_graph / sparse | `kneighbors_transformer`, `radius_neighbors_transformer`; `csr_matrix` storage helper | Brute dense-feature and dense/CSR precomputed distances; connectivity/distance CSR outputs with explicit zeros |
@@ -251,7 +252,7 @@ distances; cosine similarity; linear, RBF, polynomial and sigmoid kernels.
 ## Remaining major scikit-learn areas
 
 Not translated: sparse data paths, general estimator base/clone/parameter search
-framework, general sequential pipelines, broader SVM/GLM/SGD options,
+framework, sparse/cached/metadata-routed pipeline paths, broader SVM/GLM/SGD options,
 broader histogram boosting, AdaBoost and bagging APIs,
 Barnes-Hut t-SNE,
 outlier detection beyond LOF/OneClassSVM/SGDOneClassSVM/IsolationForest/EllipticEnvelope,
@@ -5009,3 +5010,99 @@ fit. Both support all-dropped lists. The native API returns an empty name vector
 for unprefixed empty/all-dropped unions; the source unprefixed all-dropped
 naming path raises a NumPy empty-concatenate error. These differences are
 identified native container conventions, not public extension algorithms.
+
+
+## Sequential Pipeline and recursive dense transformer bridge (2026-11-21)
+
+Added the sklearn Pipeline counterpart with typed classifier/regressor
+prediction, sequential fit/fit_transform, supervised selector/TargetEncoder
+steps, supported native estimator tails, original final-estimator scoring,
+inverse transforms, feature names and independent contiguous slices. A new
+internal abstract dense_transformer protocol lets pipelines appear inside
+ColumnTransformer and FeatureUnion without a module cycle. Pipelines can also
+contain either parallel graph type or another pipeline. No additional algorithm
+is represented by this protocol or pipeline_step storage.
+
+The implementation preserves intermediate fit_transform versus final fit
+ordering. TargetEncoder training encodings are cross-fitted; subsequent
+transform/predict uses the fitted full-data mappings. Final estimator type,
+not target dtype, controls classification/regression. Real integral labels
+and integer regression targets have native adapter tests. Weights go to the
+final estimator. Scoring transforms input once and delegates the correct score
+family, including GLM D2. Existing component numerical/weighting restrictions
+remain explicit. The dense API is fit-first and excludes caching, metadata
+routing, arbitrary Python estimators and sparse paths; detailed method/rank,
+name-container, slicing and matrix-target limits are in docs/API.md.
+
+Inventory is now 214 core public types, 120 core source modules, 119 native
+test programs and 98 retained core reference suites totaling 409,922 result
+groups. The separate 42 legacy RNG groups remain excluded. The new pipeline
+suite has 8,556 groups across 756 unfiltered fixtures: three seeds, 13
+preprocessing families, transformer/regression/classification/matrix/GLM tasks,
+four configurations, twelve additional final-handoff fixtures, weighted tails,
+binary/multiclass and integer/real labels,
+fit versus fit_transform, names, inverse outputs, nested graphs and callback
+call counts. Matrix-target cases omit supervised single-target transformations
+that are not part of that API. New isolated checks add 58 cases, bringing twelve
+registries to 2,932 cases. These counts measure API subsets, not full sklearn
+class ports or a percentage of sklearn functionality.
+
+Reference tests use installed sklearn 1.6.1 with 3e-8 relative/absolute numeric
+tolerance, except native/source logistic and Poisson optimization at 3e-6.
+Classifier labels, names, classes, dimensions and callback counts are exact.
+Binary decision scores are compared in native (samples,1) form. Inverse groups
+cover available native component inverses; components whose native inverse is
+absent produce an explicit empty placeholder, not an asserted Python inverse.
+The source imputer's inverse also requires add_indicator, absent in the native
+simple imputer. Source KNN references explicitly select brute search to match
+the existing native backend.
+
+KNN cases additionally compare actual fitted training features and target order.
+Rare default-source differences from ties and Euclidean distance cancellation
+are not excluded or accepted under wider prediction tolerances. A recorded
+source-conditioned certificate validates native neighbor indices/distances
+against direct Euclidean geometry and relative accumulation bounds, verifies
+source-space admissibility under measured input perturbations, and bounds the
+source optimized distance kernel's squared error. Sklearn precomputed-distance
+KNN then independently reconstructs weighted predictions/probabilities and
+scores for the certified selected neighbors. The report marks affected groups
+with this oracle and retains changed-neighbor counts, perturbations and kernel
+error/bound witnesses. All other groups keep direct sklearn comparisons.
+
+The dispatcher change also requires rerunning both existing parallel-composition
+reference suites against updated binaries. The existing 192-group integration
+gate is rerun on the checked executable. Reports retain strict JSON, full
+fixture/check lists, validator/certificate/source hashes and canonical native
+executable hashes. Original contributions remain MIT with sklearn BSD notices;
+there is no new external dependency or public extension algorithm.
+
+Reproduce with one fpm build at a time:
+
+```
+python validation/compare_pipeline.py --profile checked
+python validation/check_pipeline_invalid_inputs.py --profile checked
+python validation/compare_column_transformer.py --profile checked
+python validation/compare_feature_union.py --profile checked
+```
+
+Use --profile release for optimized gates or --executable for a completed
+canonical binary. The public example is `fpm run --example sequential_pipeline`.
+
+
+Final verification of the corrected build passed all 119 native test programs
+in both checked and optimized profiles. Each profile passed 8,556 Pipeline
+groups across 756 fixtures, 58 Pipeline rejection checks, 3,360 existing
+composition reference groups and 43 composition rejection checks. Four KNN
+fixtures per profile required the retained geometric certificates. The checked
+integration gate passed all 192 comparisons. Both canonical example binaries
+reported training R2 0.9999792, feature numeric__x0 and 20 predictions, matching
+the independent sklearn example (R2 0.9999792424116486).
+
+The final audit verified complete strict reports, matching profile fixture
+configurations, executable/validator/source hashes and fpm object content
+digests for 243 source/test/vendor files plus four new app/example files in
+each profile. Two byte-identical sources per profile had newer timestamps
+than their cached objects; their content digests matched. Retained evidence
+is in validation/results/pipeline_final_audit.json and the Pipeline reports
+and native/integration logs. Older unrelated reference suites were retained,
+not all rerun for this increment. The broad sklearn translation remains ongoing.

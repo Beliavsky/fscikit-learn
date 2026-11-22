@@ -1,6 +1,7 @@
 ! Dense composition contracts: sklearn 1.6.1 compose/_column_transformer.py
 ! and pipeline.py. BSD-3-Clause attribution: THIRD_PARTY_NOTICES.md.
 module sklearn_feature_composition
+  use sklearn_transformer_protocol, only: dense_transformer
   use sklearn_common, only: dp,require
   use sklearn_feature_extraction, only: feature_string
   use sklearn_function_transformer, only: function_transformer
@@ -14,6 +15,8 @@ module sklearn_feature_composition
   implicit none
   private
   public :: column_transformer,feature_union,transformer_branch,column_selector,feature_name_formatter
+  ! Internal adapters shared with sequential pipelines, not facade algorithms.
+  public :: supported,fit_model,fit_transform_model,transform_model,model_names,input_names,integer_text,real_text
   abstract interface
     function feature_name_formatter(transformer_name,feature_name) result(name)
       character(*), intent(in) :: transformer_name,feature_name
@@ -237,6 +240,7 @@ contains
     type is(pca)
     type is(truncated_svd)
     type is(variance_threshold)
+    class is(dense_transformer)
     class default
       ok=.false.
     end select
@@ -298,6 +302,8 @@ contains
       call model%fit(x)
     type is(variance_threshold)
       call model%fit(x)
+    class is(dense_transformer)
+      call model%fit_data(x,names)
     class default
       call require(.false.,'composition unsupported transformer')
     end select
@@ -312,6 +318,8 @@ contains
       z=model%fit_transform(x,names)
     type is(feature_union)
       z=model%fit_transform(x,names)
+    class is(dense_transformer)
+      z=model%fit_map_data(x,names)
     class default
       call fit_model(model,x,names);z=transform_model(model,x)
     end select
@@ -359,6 +367,8 @@ contains
       z=model%transform(x)
     type is(missing_indicator)
       z=merge(1._dp,0._dp,model%transform(x))
+    class is(dense_transformer)
+      z=model%map_data(x)
     class default
       call require(.false.,'composition unsupported transformer')
     end select
@@ -428,6 +438,8 @@ contains
           names=[names,feature_string(prefix)]
         end do
       end if
+    class is(dense_transformer)
+      names=model%feature_names(input)
     class default
       call require(supported(model),'composition unsupported transformer')
       names=input

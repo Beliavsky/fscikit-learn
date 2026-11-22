@@ -758,3 +758,22 @@ source dependency or external Fortran repository is imported by this increment.
 Reference APIs:
 https://scikit-learn.org/1.6/modules/generated/sklearn.compose.ColumnTransformer.html
 https://scikit-learn.org/1.6/modules/generated/sklearn.pipeline.FeatureUnion.html
+
+### Sequential Pipeline and recursive transformer protocol
+
+`src/sklearn_pipeline.f90` adapts scikit-learn 1.6.1 `pipeline.py` contracts for
+step validation, intermediate fit_transform ordering, final fit/transform,
+method delegation, scoring, inverse order, feature names and slicing.
+Copyright The scikit-learn developers; BSD-3-Clause terms are retained in
+`LICENSES/scikit-learn-COPYING`. Native typed prediction/target adapters,
+allocatable step bookkeeping and the abstract dense_transformer bridge in
+`src/sklearn_transformer_protocol.f90` are original MIT contributions. Existing
+child implementations and weighted SVD retain their earlier notices. There is
+no new external dependency or imported Fortran repository in this increment.
+
+The validation-only KNN certificate uses sklearn neighbor APIs and precomputed
+metric aggregation to distinguish admissible distance ties/cancellation from
+pipeline errors. It checks actual fitted training arrays, target order,
+neighbor geometry, measured feature perturbations and explicit floating-point
+bounds. It does not copy/link a new neighbor implementation into the library.
+Reference API: https://scikit-learn.org/1.6/modules/generated/sklearn.pipeline.Pipeline.html

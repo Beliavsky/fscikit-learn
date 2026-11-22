@@ -4395,3 +4395,127 @@ KNNImputer names reproduce sklearn 1.6.1's omission of all-missing columns even
 when keep_empty_features retains their numeric output, so source names can have
 a different length from numeric output. A child's missing name API is diagnosed.
 See example/feature_composition.f90 for numeric/categorical branches and nesting.
+
+
+## Sequential Pipeline
+
+`pipeline` and the storage helper `pipeline_step` are exported by
+`sklearn_pipeline` and `sklearn`. Allocate steps(:), set each step's allocatable
+name, and allocate its model from a native estimator/transformer. action defaults
+to 'model'; 'passthrough' represents sklearn's None/'passthrough'. Drop is not
+a pipeline action. Names must be unique, omit '__' and avoid constructor-control
+names. At least one step is required. For example:
+
+```fortran
+allocate(model%steps(2))
+model%steps(1)%name='scale'
+allocate(model%steps(1)%model,source=scaler)
+model%steps(2)%name='regress'
+allocate(model%steps(2)%model,source=regressor)
+call model%fit(x,y)
+predicted=model%predict(x)
+```
+
+Fitting updates the models inside steps, matching sklearn's default fitted-step
+convention. Allocatable assignment/copying preserves native value semantics;
+independently allocated caller variables and sliced/copied pipelines do not
+share mutable learned arrays. Procedure targets and callback module/captured
+state remain the caller's responsibility. No joblib memory cache, Python
+get_params/set_params framework or metadata routing is provided.
+
+Intermediate transformers always use fit_transform, including TargetEncoder's
+cross-fitted training encodings. A final transformer uses fit on Pipeline fit,
+and fit_transform on Pipeline fit_transform. Targets are passed unchanged
+through intermediate steps. Final estimator type determines classification or
+regression independently of target dtype: integer regression targets become
+real-valued regression data, and integral real classification labels are checked
+and converted to native integer labels. Native labels must fit default integer.
+Each child retains its existing data-domain and parameter restrictions.
+
+Supported transformer steps include the composition dispatcher's 17 existing
+unsupervised types, column_transformer, feature_union, nested pipeline,
+select_k_best, generic_univariate_select and its select_percentile/select_fpr/
+select_fdr/select_fwe descendants, and target_encoder. Selectors preserve their
+native typed-target conventions: integer targets use classification scoring,
+real targets regression scoring unless the native selector's controls override
+that choice. For regression scoring this corresponds to explicitly selecting
+f_regression in sklearn, rather than its Python SelectKBest default f_classif.
+TargetEncoder keeps its own configured/auto target-type rules.
+
+Pipelines can appear inside ColumnTransformer/FeatureUnion branches as well as
+contain either graph type. An internal abstract dense_transformer protocol
+provides this recursive bridge without a circular module dependency. It is an
+implementation interface, not another algorithm. The current parallel graph
+fit API does not forward y, so a pipeline embedded in such a branch must be
+fittable without a supervised target. An outer sequential pipeline does forward
+y to its supervised steps.
+
+Final estimators include the native base dispatcher's classifier and regressor
+types, nested pipelines and transformed_target_regressor. Classifiers include
+logistic_regression and its native descendants, Gaussian/multinomial-family NB,
+SGD, k-neighbors, decision/extra trees, perceptron, passive-aggressive,
+ridge-classifier families, LinearSVC/SVC and DummyClassifier. Regressors include
+linear_regression and its native descendants, SGD, k-neighbors, decision/extra
+trees, kernel_ridge and DummyRegressor. Exact LinearRegression and Ridge use
+the existing weighted SVD helper. Other bases retain the dispatcher's weighting
+limits. Matrix targets currently require a transformed_target_regressor final
+estimator, directly or inside a nested pipeline; other native scalar-target
+bases are not silently replaced with independent multioutput models.
+
+fit accepts X alone, a real target vector, an integer target vector, or supported
+real matrix targets. Optional sample_weight goes to the final estimator, with
+semantics equivalent to final_step__sample_weight in a Python pipeline. It does
+not train intermediate scalers/selectors with weights. fit_transform accepts
+optional vector targets and requires a transformer/passthrough final step.
+transform requires every active step to transform; inverse_transform requires
+all active steps to provide a native inverse and applies them in reverse order.
+Imputer/one-hot inverse paths absent from the underlying native types remain
+unsupported. A FunctionTransformer's default identity inverse remains its own
+contract, even when its forward callback changes width.
+
+predict returns a real vector for scalar regression; predict_matrix returns
+rank-two regression output, including multiple outputs from a supported final
+TTR. predict_class returns integer classifier labels. predict_proba and
+decision_function delegate to supported final classifier methods; binary
+native decision scores have shape (samples,1). Methods are present as native
+bindings and diagnose unavailable final-estimator capabilities. Native
+transform/predict/score/name/inverse calls require fitting first, including
+stateless-only pipelines. predict_log_proba, clustering-only final estimators,
+fit_predict, partial_fit and arbitrary external estimator objects are outside
+this increment's dispatch.
+
+score delegates the final estimator's score semantics after preprocessing:
+accuracy for classifiers, R2 for ordinary regressors/TTR, and the native GLM's
+D2 for Tweedie/Poisson/Gamma descendants. Optional score weights are supported
+where the underlying native score permits them; weighted native GLM D2 remains
+unsupported. Pipeline scoring transforms each input once before delegating.
+Targets and weights are validated by the relevant child/score helpers; the
+pipeline does not impose the original X row count on a valid row-changing
+transform before final fitting.
+
+get_feature_names_out(input_features) chains supported child name methods.
+Optional explicit feature_string names model named dense input; standard child
+outputs are numeric matrices. Names remain available to fitting while steps
+are passthrough or unvalidated identity FunctionTransformers; other numeric
+outputs drop the input-container naming state. The pipeline records original
+input metadata separately for chained output-name generation. TargetEncoder
+multiclass names preserve integer versus real target-label formatting.
+
+named_step_index(name) returns a 1-based index or zero and works before fitting.
+Access fitted models through steps(i)%model. slice(first,last) returns an
+independent, contiguous, inclusive 1-based pipeline copy; negative indices,
+strides and Python's shared estimator references are not represented by this
+helper. Fitted slices can transform/invert or expose names for a preprocessing
+prefix. Slice input metadata comes from the first selected step's fitted input.
+
+n_features_in_, feature_names_in_, n_features_out_, estimator_kind_, target_rank_
+and classes_ provide native bookkeeping. estimator_kind_ is zero for a
+transformer, one for a classifier and two for a regressor; classes_ is copied
+on fitting. n_features_out_ is known after fit_transform or a final passthrough,
+and otherwise -1. Step input_width_/output_width_/input_names_ record fitted
+stage boundaries; integer_target_ records supervised label representation.
+These are stored fields rather than Python delegated properties. In particular,
+an all-passthrough native pipeline can generate x0, x1, ... names from recorded
+width; Python can return None on that empty-transform naming path.
+See example/sequential_pipeline.f90 for an imputation/scaling pipeline inside a
+column transformer followed by regression.
