@@ -6242,3 +6242,55 @@ occupy 4,000,000,000 bytes. Both explicit fpm example runs passed, and the examp
 validator checked the tied leading singular subspace using its invariant total
 variance ratio. Reports, audit and terminal logs are retained under the ignored
 `validation/results` directory.
+
+
+## KernelPCA learned pre-images (2026-11-22)
+
+Added sklearn KernelPCA's optional kernel-ridge inverse fitting and latent-query
+reconstruction, with alpha regularization and fitted latent/dual diagnostics.
+The uncentered latent kernel reuses the forward model's fitted gamma, and the
+linear inverse preserves sklearn's omission of the original feature mean.
+Refitting without inverse fitting clears stored inverse state. Precomputed
+inverse fitting and singular/indefinite ridge systems are rejected explicitly.
+
+`validation/compare_kernel_preimage.py` retains 4,520 groups across 452 fixtures,
+using installed sklearn 1.6.1 and 452 independent ridge-equation residual
+certificates. Cases cover linear/RBF/polynomial/cosine/sigmoid kernels, three
+seeds, tall/wide matrices, regularization including zero, explicit/default
+gamma, automatic/explicit component counts, zero/constant input, one-sample
+fits, fit versus fit_transform, training/query/arbitrary-latent reconstruction
+and clearing inverse state on refit. Fourteen rejection cases cover finite
+controls, alpha bounds, disabled/unfitted/stale inverse state, inverse query
+shape/finiteness/emptiness, precomputed fitting, zero-dimensional latent space
+and singular/indefinite systems. The indefinite sigmoid rejection is confirmed
+with the installed source as well as the native implementation.
+
+Inventory: 217 public core types, 129 core source modules, 141 native test
+programs and 118 core reference suites with 515,153 retained groups. The
+separate 42-group legacy RNG suite remains excluded. There are 28 invalid-input
+registries with 3,340 cases. These counts are cumulative; final verification
+below identifies the checks actually rerun for this change.
+
+Run `python validation/compare_kernel_preimage.py --profile checked`, or select
+`--profile release` / an explicit `--executable`. The original Fortran interfaces
+and Cholesky adaptation remain MIT, with the existing sklearn BSD notice
+retained. No additional source package, dependency or extension algorithm is
+imported. Dense inverse outputs and the existing eigensolver remain the scope.
+
+
+Final verification: all 141 native test programs passed in checked mode
+(`-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow`) and release mode.
+Each profile passed 4,832 reference groups: 4,520 new pre-image groups, all
+120 retained graph/neighbor/KernelPCA/Isomap groups and 192 integration groups.
+All 14 new rejection cases and four retained KernelPCA/Isomap rejection cases
+passed in each profile. The final audit matched validator, upstream-source and
+executable hashes, confirmed all 452 ridge certificates per profile and checked
+279 compiled source-content digests per profile (129 core modules, 141 tests,
+four vendor sources, four affected drivers and the example).
+
+Both explicit fpm example runs passed. The independent example validator
+matched sklearn's reconstruction RMSE of 0.00724053 on the 20-row illustrative
+fixture; this is not a general reconstruction guarantee. Reports, the final
+audit and seven terminal logs are retained in ignored `validation/results`.
+The cumulative inventory above is not a full rerun count. Other reference
+suites and the separate 42-group legacy RNG reference suite were not rerun.

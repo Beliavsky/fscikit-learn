@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 217 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and seventeen reference suites additionally check 510,633
+All types have native tests. One hundred and eighteen reference suites additionally check 515,153
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -44,7 +44,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | isotonic | `isotonic_regression`; `isotonic_fit`, `check_increasing` | Weighted pool-adjacent-violators, automatic Spearman direction, bounds, repeated-input aggregation and piecewise linear interpolation |
 | kernel_approximation | `rbf_sampler`, `nystroem`, `additive_chi2_sampler`, `skewed_chi2_sampler`, `polynomial_count_sketch` | Random Fourier RBF maps; sampled-landmark inverse-square-root maps for RBF/linear/polynomial/cosine kernels; additive and skewed chi2 maps; seeded polynomial TensorSketch with arbitrary-length FFTs |
 | random_projection | `gaussian_random_projection`, `sparse_random_projection`; `johnson_lindenstrauss_min_dim` | Gaussian/three-point random matrices, dense storage, automatic JL dimension, cached or on-demand pseudoinverse |
-| kernel_pca | `kernel_pca` | Centered linear/RBF/polynomial/sigmoid/cosine/precomputed Gram matrices; dense Jacobi eigensolver; out-of-sample transform |
+| kernel_pca | `kernel_pca` | Centered linear/RBF/polynomial/sigmoid/cosine/precomputed Gram matrices; dense Jacobi eigensolver; out-of-sample transform and learned kernel-ridge pre-images |
 | manifold | `isomap`, `tsne`; `trustworthiness`; re-exports `spectral_embedding`, `mds`, `locally_linear_embedding` | Isomap graph paths; dense exact t-SNE with adaptive gains and two-stage momentum; neighborhood rank trustworthiness; spectral embedding; metric/nonmetric SMACOF; dense standard/Hessian/modified LLE and LTSA with barycentric query transforms |
 | spectral | `spectral_embedding` | Dense symmetric eigensolver; RBF, symmetrized nearest-neighbor or precomputed affinity; degree normalization; connected-component count |
 | density | `kernel_density` | Exact Euclidean log densities with Gaussian/tophat/Epanechnikov/exponential/linear kernels; sample weights; fixed/Scott/Silverman bandwidth; Gaussian/tophat sampling |
@@ -6115,3 +6115,37 @@ SVD null bases are nonunique and are verified against source null spaces;
 nonzero coordinates remain compared directly. See
 `example/sparse_latent_semantics.f90`. ARPACK, CSC input storage and sparse
 inverse outputs remain outside this increment.
+
+
+## KernelPCA learned pre-images (2026-11-22)
+
+Added sklearn KernelPCA's optional kernel-ridge inverse fitting and latent-query
+reconstruction, with alpha regularization and fitted latent/dual diagnostics.
+The uncentered latent kernel reuses the forward model's fitted gamma, and the
+linear inverse preserves sklearn's omission of the original feature mean.
+Refitting without inverse fitting clears stored inverse state. Precomputed
+inverse fitting and singular/indefinite ridge systems are rejected explicitly.
+
+`validation/compare_kernel_preimage.py` retains 4,520 groups across 452 fixtures,
+using installed sklearn 1.6.1 and 452 independent ridge-equation residual
+certificates. Cases cover linear/RBF/polynomial/cosine/sigmoid kernels, three
+seeds, tall/wide matrices, regularization including zero, explicit/default
+gamma, automatic/explicit component counts, zero/constant input, one-sample
+fits, fit versus fit_transform, training/query/arbitrary-latent reconstruction
+and clearing inverse state on refit. Fourteen rejection cases cover finite
+controls, alpha bounds, disabled/unfitted/stale inverse state, inverse query
+shape/finiteness/emptiness, precomputed fitting, zero-dimensional latent space
+and singular/indefinite systems. The indefinite sigmoid rejection is confirmed
+with the installed source as well as the native implementation.
+
+Inventory: 217 public core types, 129 core source modules, 141 native test
+programs and 118 core reference suites with 515,153 retained groups. The
+separate 42-group legacy RNG suite remains excluded. There are 28 invalid-input
+registries with 3,340 cases. These counts are cumulative; final verification
+below identifies the checks actually rerun for this change.
+
+Run `python validation/compare_kernel_preimage.py --profile checked`, or select
+`--profile release` / an explicit `--executable`. The original Fortran interfaces
+and Cholesky adaptation remain MIT, with the existing sklearn BSD notice
+retained. No additional source package, dependency or extension algorithm is
+imported. Dense inverse outputs and the existing eigensolver remain the scope.

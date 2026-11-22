@@ -203,3 +203,6 @@ PCA offers full, randomized, covariance and automatic solver selection; see
 
 Randomized TruncatedSVD accepts dense and CSR input without densifying the sparse
 matrix; see [the latent semantic example](example/sparse_latent_semantics.f90).
+
+KernelPCA can learn an approximate inverse using kernel ridge regression; see
+[the reconstruction example](example/kernel_preimage.f90).

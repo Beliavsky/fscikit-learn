@@ -5521,3 +5521,31 @@ SVD null bases are nonunique and are verified against source null spaces;
 nonzero coordinates remain compared directly. See
 `example/sparse_latent_semantics.f90`. ARPACK, CSC input storage and sparse
 inverse outputs remain outside this increment.
+
+
+## KernelPCA learned inverse
+
+`kernel_pca` adds `%fit_inverse_transform=.false.` and `%alpha=1`.
+Enable inverse fitting before `fit` or `fit_transform` to learn a kernel-ridge
+pre-image of the original dense features from their latent coordinates.
+`%x_transformed_fit_` stores those training coordinates and `%dual_coef_`
+stores the sample-by-feature solution of `(K_latent + alpha I) dual = X`.
+The latent kernel is uncentered and uses the same kernel, degree, coef0 and
+fitted gamma as the forward model. In particular, automatic gamma remains
+`1 / original_feature_count`, rather than being recomputed for latent width.
+
+`inverse_transform(z)` returns a dense sample-by-original-feature matrix for
+new latent rows. It is a learned approximation. For the linear kernel it does
+not restore the original feature mean, matching sklearn; use ordinary PCA
+when mean-restoring linear reconstruction is required. Supported kernels are
+linear, RBF, polynomial, cosine and sigmoid. Nonnegative finite alpha is
+accepted, including zero when the resulting kernel system is positive definite.
+An indefinite or singular system is rejected by Cholesky, as in the source's
+positive-definite solve. Inverse fitting with a precomputed kernel is rejected.
+
+Inverse queries must be finite, nonempty and have the fitted latent width.
+A refit with inverse fitting disabled clears both inverse-model arrays, so
+reenabling the option requires a new fit. Explicit zero-eigenvalue components
+remain usable; removing all components leaves no valid inverse feature space.
+See `example/kernel_preimage.f90`. This increment retains the existing dense
+Jacobi eigensolver and adds no new dependency or public estimator type.

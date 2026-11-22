@@ -971,3 +971,12 @@ notices apply; LICENSES/scikit-learn-COPYING is retained. Native CSR transpose
 products, duplicate-aware variance, generic Fortran interfaces and diagnostic
 storage are original MIT contributions. No external source package, runtime or
 dependency is imported.
+
+
+`src/sklearn_kernel_pca.f90` adds learned pre-images following scikit-learn
+1.6.1 `decomposition/_kernel_pca.py` `_fit_inverse_transform` and
+`inverse_transform`: the uncentered latent kernel, alpha-regularized positive
+definite solve, stored training coordinates and kernel reconstruction. Existing
+sklearn BSD attribution and LICENSES/scikit-learn-COPYING remain retained.
+Native Fortran bindings, input contracts, Cholesky calls and refit-state clearing
+are original MIT contributions. No new external code or dependency is imported.
