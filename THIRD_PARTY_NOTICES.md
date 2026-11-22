@@ -885,3 +885,15 @@ supply the general Matern calculation. No SciFort runtime library is linked.
 The general Matern log-length derivative uses the standard K-order recurrence;
 independent sklearn central differences and SciPy Bessel values validate it.
 This numerical support is excluded from the public extension inventory.
+
+The GP regressor further adapts sklearn 1.6.1 gaussian_process/_gpr.py matrix
+outputs, scalar/vector alpha, target normalization, joint log likelihood and
+trace gradients, non-PD likelihood fallback, cloning semantics and bounded
+optimizer/restart scheduling. `sklearn_gp_kernels` adds ordered log-bound storage
+and composition. Scalar reduction order follows NumPy 2.2.6
+_core/src/umath/loops_utils.h.src, also used by the existing mutual-info backend;
+LICENSES/numpy-COPYING and the existing NumPy notices apply. The previously
+vendored L-BFGS-B 3.0 solver is reused unchanged under its retained notices.
+Native multi-rank interfaces, diagnostic storage and optimizer controls are
+original MIT contributions. No additional third-party code or runtime dependency
+is imported for this increment.

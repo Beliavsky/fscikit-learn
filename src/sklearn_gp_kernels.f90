@@ -18,6 +18,7 @@ module sklearn_gp_kernels
   type :: gp_kernel
     private
     type(kernel_node), allocatable :: nodes(:)
+    real(dp), allocatable :: log_bounds(:,:)
   contains
     procedure :: matrix=>kernel_matrix
     procedure :: diag=>kernel_diag
@@ -26,6 +27,8 @@ module sklearn_gp_kernels
     procedure :: theta=>kernel_theta
     procedure :: with_theta=>kernel_with_theta
     procedure :: is_set=>kernel_is_set
+    procedure :: bounds=>kernel_bounds
+    procedure :: with_bounds=>kernel_with_bounds
   end type
   type :: evaluation
     real(dp), allocatable :: value(:,:),gradient(:,:,:)
@@ -176,6 +179,9 @@ contains
     call require(a%is_set().and.b%is_set(),'GP kernel expression contains an empty child')
     n=size(a%nodes);m=size(b%nodes);root%kind=kind;root%left=n;root%right=n+m
     kernel%nodes=[a%nodes,b%nodes,root]
+    allocate(kernel%log_bounds(a%n_dims()+b%n_dims(),2))
+    kernel%log_bounds(:a%n_dims(),:)=a%bounds()
+    kernel%log_bounds(a%n_dims()+1:,:)=b%bounds()
     do i=n+1,n+m
       if(kernel%nodes(i)%left>0) kernel%nodes(i)%left=kernel%nodes(i)%left+n
       if(kernel%nodes(i)%right>0) kernel%nodes(i)%right=kernel%nodes(i)%right+n
@@ -230,6 +236,7 @@ contains
     call require(ieee_is_finite(exponent),'GP kernel exponent must be finite')
     root%kind=10;root%left=size(a%nodes);root%exponent=exponent
     kernel%nodes=[a%nodes,root]
+    kernel%log_bounds=a%bounds()
   end function
   integer function leaf_dimensions(node) result(n)
     type(kernel_node), intent(in) :: node
@@ -292,7 +299,9 @@ contains
     call require(size(theta)==self%n_dims(),'GP kernel theta length mismatch')
     call require(.not.any(ieee_is_nan(theta)),'GP kernel theta must not contain NaN')
     call require(all(theta<=log(huge(1._dp))),'GP kernel theta exceeds exponential range')
-    kernel%nodes=self%nodes;pos=0
+    kernel%nodes=self%nodes
+    if(allocated(self%log_bounds)) kernel%log_bounds=self%log_bounds
+    pos=0
     do i=1,size(kernel%nodes)
       associate(node=>kernel%nodes(i))
         n=leaf_dimensions(node);values=exp(theta(pos+1:pos+n));j=0
@@ -315,6 +324,25 @@ contains
         pos=pos+n
       end associate
     end do
+  end function
+  function kernel_bounds(self) result(bounds)
+    class(gp_kernel), intent(in) :: self
+    real(dp), allocatable :: bounds(:,:)
+    integer :: n
+    n=self%n_dims();allocate(bounds(n,2))
+    bounds(:,1)=log(1.e-5_dp);bounds(:,2)=log(1.e5_dp)
+    if(allocated(self%log_bounds)) bounds=self%log_bounds
+  end function
+  function kernel_with_bounds(self,bounds) result(kernel)
+    class(gp_kernel), intent(in) :: self
+    real(dp), intent(in) :: bounds(:,:)
+    type(gp_kernel) :: kernel
+    call require(all(shape(bounds)==[self%n_dims(),2]),'GP kernel bound shape mismatch')
+    call require(.not.any(ieee_is_nan(bounds)),'GP kernel bounds must not contain NaN')
+    call require(all(bounds(:,1)<=bounds(:,2)),'GP kernel lower bounds exceed upper bounds')
+    call require(all(bounds(:,1)<huge(1._dp)).and.all(bounds(:,2)>-huge(1._dp)), &
+      'GP kernel bound endpoints have invalid infinity signs')
+    kernel%nodes=self%nodes;kernel%log_bounds=bounds
   end function
   subroutine leaf_value(node,x,y,auto,i,j,value,gradient)
     type(kernel_node), intent(in) :: node

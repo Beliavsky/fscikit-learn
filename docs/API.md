@@ -5102,3 +5102,92 @@ and native labels, class counts and errors are retained in the reports. Optimize
 reductions select a different tied class in these fixtures; all other label
 comparisons remain exact. These three certificate groups are included in the
 9,132-group total; no fixture is dropped or relabeled.
+
+
+## Multi-target GP regression and marginal-likelihood kernel fitting
+
+`gaussian_process_regressor` now supports matrix targets, observation-specific
+noise, log-marginal likelihood evaluation/gradients and opt-in bounded L-BFGS-B
+kernel fitting with seeded restarts. Algorithms adapt sklearn 1.6.1
+`gaussian_process/_gpr.py`, with existing kernel derivatives and the already
+vendored L-BFGS-B 3.0 implementation. Native defaults retain optimizer='none';
+set `%optimizer='fmin_l_bfgs_b'` to learn free parameters in an explicit kernel.
+Legacy scalar RBF controls remain fixed, matching the no-free-parameter default
+kernel convention. GPC optimization is not added in this increment.
+
+Use `%fit(x,y)` with a real vector or (samples,targets) matrix. Scalar `%alpha`
+is retained; an allocated `%alpha_values(:)` overrides it and accepts one value
+(broadcast) or one per training row, all finite and nonnegative. Noise is added
+in normalized target units without target-scale adjustment, as in sklearn. The
+same covariance hyperparameters are shared across independent output columns,
+and joint likelihood is the sum of their likelihoods. `%n_targets=0` means
+automatic; a positive count configures prior output width and validates fitted
+width. `%n_targets_` and `%n_features_in_` describe the fitted data.
+
+`%predict_multi` and `%predict_std_multi` always return (samples,targets)
+matrices; `%predict_cov_multi` returns (samples,samples,targets). This explicit
+rank remains for a one-column matrix, whereas Python squeezes one-target
+predictions. Existing vector prediction/std/cov methods work with one target and
+raise a clear diagnostic for multiple targets. Matrix `%score` averages target
+R2 scores uniformly, with optional finite nonnegative sample weights; one-row
+R2 returns NaN. Covariance and standard deviation scale independently with each
+target's normalization. Matrix normalization clips near-zero scales; vector
+normalization replaces only exact zeros, following the source distinction.
+Scalar/one-column fast-axis reductions use the existing NumPy-compatible pairwise
+sum contract, including the non-binary constant-target regression case.
+
+New fitted storage includes normalized `%y_train_`, `%alpha_multi_`, target mean/
+scale vectors, and public `%kernel_`. `%alpha_`, `%y_train_mean_` and
+`%y_train_std_` remain authoritative for single-target prediction compatibility;
+matching matrix fields retain copies for diagnostics. Input `%kernel` remains
+unchanged by fitting; learned parameters are in `%kernel_`.
+
+`value=model%log_marginal_likelihood(theta,gradient,clone_kernel)` evaluates the
+joint likelihood and optional derivative with respect to log kernel parameters.
+With no theta it returns the cached fit likelihood and cannot return a gradient.
+The default clone_kernel=true leaves fitted state intact; false updates fitted
+kernel parameters, matching the source's side effect, without rebuilding cached
+prediction factors. A non-positive-definite candidate returns negative infinity
+and a zero gradient, while an invalid final fit raises a diagnostic.
+
+`gp_kernel%bounds()` returns log bounds in (n_dims,2) form, including (0,2) for an
+all-fixed expression. `%with_bounds(log_bounds)` returns a copy. Initial free
+bounds default to log([1e-5,1e5]) for each parameter; composed kernels preserve
+child bounds and theta clones retain them. This typed log-matrix API represents
+Python's per-hyperparameter positive-domain constructor bounds. Ordered finite
+or correctly signed infinite endpoints are accepted; random restarts require
+finite bounds. Bounds remain in the same order as theta/gradient.
+
+The optimizer uses ten L-BFGS correction vectors, default projected-gradient
+tolerance 1e-5, ftol=2.220446049250313e-9, and 15,000 iteration/function limits,
+matching SciPy defaults. `%n_restarts_optimizer` adds log-uniform initial points
+from the local legacy RNG, seeded by `%random_state` (default zero). The first
+run starts from the configured theta; the lowest objective is selected with
+first-best tie behavior. Controls `%tol`, `%ftol`, `%max_iter` and `%max_fun`
+allow explicit solver settings. Diagnostics include run points/objectives,
+iteration/evaluation totals, convergence and the chosen termination message.
+Optimizer paths and iteration counts need not be bit-identical to SciPy's C
+translation. General Matern derivatives retain the prior analytic implementation
+rather than sklearn's noisy 1e-10 numerical difference.
+
+The inventory remains 217 core estimator/transformer/splitter types and 129 core
+source modules, with 132 native test programs. A new suite brings 110 core
+reference suites to 448,167 retained groups, plus the separate 42-group legacy
+RNG suite. Twenty-eight new rejection cases bring 20 registries to 3,233 cases.
+The suite retains 8,070 groups over 384 fixtures, including 96 optimization
+comparisons across nine kernel configurations, scalar/vector noise, vector/
+matrix/one-column targets, normalization, priors, weighted scores, bounds,
+likelihood clone semantics and non-PD candidates. Posterior state is compared
+strictly at the native learned theta; learned objectives and predictions are
+also compared with independent SciPy optimizations, including every restart.
+Likelihood gradients are checked with independent sklearn central differences.
+No fixture is dropped for an optimizer-path difference.
+
+Reproduce with `python validation/compare_gpr_advanced.py --profile checked`,
+or use `--profile release` / `--executable` for an existing driver. See
+`example/gaussian_process_regression.f90` for multi-target fitting with learned
+kernel parameters and heteroscedastic noise. Posterior sampling, sparse data,
+metadata routing and general GP classifier kernel optimization remain outside
+this increment. No new dependency or public extension algorithm is introduced.
+Original contributions remain MIT with the existing sklearn, NumPy and optimizer
+notices retained.
