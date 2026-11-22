@@ -1032,3 +1032,11 @@ Existing sklearn BSD attribution and LICENSES/scikit-learn-COPYING are retained.
 Native Fortran streaming/weight interfaces, fitted diagnostics, safe absent-class
 and undefined-value handling and input contracts are original MIT contributions.
 No external source package or runtime dependency is imported.
+
+
+CategoricalNB zero smoothing, force_alpha flooring, unnormalized class priors,
+zero-mass behavior and latest-batch category metadata follow scikit-learn 1.6.1
+`naive_bayes.py` CategoricalNB and _BaseDiscreteNB. Existing sklearn BSD notices
+and LICENSES/scikit-learn-COPYING remain retained. Native safe zero logarithms,
+explicit undefined-value handling, range contracts and validation identities
+are original MIT contributions. No external source package is imported.

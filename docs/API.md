@@ -856,13 +856,20 @@ probability=model%predict_proba(x)
 ```
 
 fit and partial_fit accept optional sample_weight. The first partial_fit must
-supply all classes; batch fit infers them. Set alpha>0 for smoothing,
+supply all classes; batch fit infers them. Set alpha>=0 for smoothing,
 fit_prior=false for uniform priors, or allocate class_prior in sorted class
 order. min_categories reserves a scalar width; min_categories_per_feature
-reserves feature-specific widths. Feature codes are nonnegative integer values
+reserves feature-specific widths. `force_alpha` defaults to true, retaining zero
+and tiny alpha; false floors alpha to 1e-10 for probability calculations without
+changing the input field. Fixed `class_prior` values need not sum to one and
+override `fit_prior`. Zero total weights and all-zero priors are accepted;
+undefined source likelihoods/posteriors remain NaN without floating-point traps.
+Feature codes are nonnegative integer values
 stored in real(dp) arrays. Counts and feature log probabilities are available
 as category_count_(j)%values and feature_log_prob_(j)%values, each with shape
-(n_classes,n_categories_(j)). Other methods are joint_log_likelihood,
+(n_classes,retained_width). `n_categories_` reports the latest batch ranges,
+matching sklearn, while accumulated tables retain their maximum widths.
+Other methods are joint_log_likelihood,
 predict_log_proba, predict and score. See COVERAGE.md for incremental metadata
 and out-of-range category rules.
 

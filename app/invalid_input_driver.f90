@@ -5922,9 +5922,9 @@ program invalid_input_driver
   case('mi_new_missing')
     call mi%fit(x); x(1,1)=ieee_value(0._dp,ieee_quiet_nan); impute_mask=mi%transform(x)
 
-  case('cat_alpha')
+  case('cat_smoothing_range')
     labels=[-3,-3,9,9]
-    cat%alpha=0; call cat%fit(x,labels)
+    cat%alpha=huge(1._dp); call cat%fit(x,labels)
   case('cat_negative_alpha')
     labels=[-3,-3,9,9]
     cat%alpha=-1; call cat%fit(x,labels)
@@ -5952,9 +5952,9 @@ program invalid_input_driver
   case('cat_sample_nan')
     labels=[-3,-3,9,9]
     y(1)=ieee_value(0._dp,ieee_quiet_nan); call cat%fit(x,labels,sample_weight=y)
-  case('cat_sample_zero')
+  case('cat_weight_range')
     labels=[-3,-3,9,9]
-    call cat%fit(x,labels,sample_weight=0*y)
+    call cat%fit(x,labels,sample_weight=spread(huge(1._dp),1,size(labels)))
   case('cat_minimum')
     labels=[-3,-3,9,9]
     cat%min_categories=-1; call cat%fit(x,labels)
@@ -5973,9 +5973,19 @@ program invalid_input_driver
   case('cat_prior_nan')
     labels=[-3,-3,9,9]
     cat%class_prior=[ieee_value(0._dp,ieee_quiet_nan),1._dp]; call cat%fit(x,labels)
-  case('cat_prior_sum')
+  case('cat_prior_inf')
     labels=[-3,-3,9,9]
-    cat%class_prior=[.2_dp,.2_dp]; call cat%fit(x,labels)
+    cat%class_prior=[ieee_value(0._dp,ieee_positive_inf),1._dp]; call cat%fit(x,labels)
+  case('cat_empty_classes')
+    labels=[-3,-3,9,9]
+    call cat%partial_fit(x,labels,classes=[integer::])
+  case('cat_later_empty_classes')
+    labels=[-3,-3,9,9]
+    call cat%fit(x,labels); call cat%partial_fit(x,labels,classes=[integer::])
+  case('cat_cumulative_range')
+    labels=[-3,-3,9,9]
+    call cat%fit(x,labels,sample_weight=spread(1.e307_dp,1,size(labels)))
+    call cat%partial_fit(x,labels,sample_weight=spread(1.e307_dp,1,size(labels)))
   case('cat_partial_first')
     labels=[-3,-3,9,9]
     call cat%partial_fit(x,labels)

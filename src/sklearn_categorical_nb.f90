@@ -3,7 +3,7 @@
 module sklearn_categorical_nb
   use sklearn_common, only: dp,require,check_x,check_xy,unique_labels,label_index,logsumexp
   use sklearn_metrics, only: accuracy_score
-  use, intrinsic :: ieee_arithmetic, only: ieee_is_finite,ieee_value,ieee_negative_inf
+  use, intrinsic :: ieee_arithmetic, only: ieee_is_finite,ieee_is_nan,ieee_value,ieee_negative_inf,ieee_quiet_nan
   implicit none
   private
   public :: categorical_nb,categorical_table
@@ -13,7 +13,7 @@ module sklearn_categorical_nb
   end type
   type :: categorical_nb
     real(dp) :: alpha=1
-    logical :: fit_prior=.true.
+    logical :: fit_prior=.true.,force_alpha=.true.
     integer :: min_categories=0,n_features_in_=0
     integer, allocatable :: min_categories_per_feature(:),classes_(:),n_categories_(:)
     real(dp), allocatable :: class_prior(:),class_count_(:),class_log_prior_(:)
@@ -40,6 +40,7 @@ contains
     class(categorical_nb), intent(inout) :: self
     integer, intent(in) :: p,classes(:)
     integer :: j
+    call require(size(classes)>0,'CategoricalNB classes must not be empty')
     self%classes_=unique_labels(classes); self%n_features_in_=p
     self%class_count_=spread(0._dp,1,size(self%classes_)); self%n_categories_=spread(0,1,p)
     if(allocated(self%category_count_)) deallocate(self%category_count_,self%feature_log_prob_)
@@ -71,6 +72,7 @@ contains
       call require(present(classes),'CategoricalNB first partial_fit requires classes')
       call categorical_init(self,size(x,2),classes)
     else if(present(classes)) then
+      call require(size(classes)>0,'CategoricalNB classes must not be empty')
       sorted=unique_labels(classes)
       call require(size(sorted)==size(self%classes_),'CategoricalNB partial_fit classes changed')
       call require(all(sorted==self%classes_),'CategoricalNB partial_fit classes changed')
@@ -83,12 +85,15 @@ contains
     real(dp), intent(in) :: x(:,:)
     integer, intent(in) :: y(:)
     real(dp), intent(in), optional :: sample_weight(:)
-    real(dp), allocatable :: w(:),expanded(:,:),prior(:),smooth(:,:)
+    real(dp), allocatable :: w(:),expanded(:,:),smooth(:,:)
+    real(dp) :: smoothing,total,denominator
     integer, allocatable :: encoded(:)
     integer :: n,p,c,j,i,k,width,oldwidth
     call require(size(x,2)==self%n_features_in_,'CategoricalNB feature count mismatch')
     call require(ieee_is_finite(self%alpha),'nonfinite CategoricalNB alpha')
-    call require(self%alpha>0,'CategoricalNB alpha must be positive')
+    call require(self%alpha>=0,'CategoricalNB alpha must be nonnegative')
+    smoothing=self%alpha
+    if(.not.self%force_alpha) smoothing=max(smoothing,1.e-10_dp)
     call require(self%min_categories>=0,'CategoricalNB min_categories must be nonnegative')
     n=size(y); p=size(x,2); c=size(self%classes_)
     if(allocated(self%min_categories_per_feature)) then
@@ -104,7 +109,9 @@ contains
       call require(all(sample_weight>=0),'negative CategoricalNB sample weights')
       w=sample_weight
     end if
-    call require(sum(self%class_count_)+sum(w)>0,'CategoricalNB needs positive total weight')
+    call require(maxval(w)<=huge(1._dp)/(4*real(n,dp)),'CategoricalNB weight mass exceeds numeric range')
+    total=sum(self%class_count_)
+    call require(sum(w)<=huge(1._dp)/4-total,'CategoricalNB cumulative weight exceeds numeric range')
     do i=1,n
       k=encoded(i); self%class_count_(k)=self%class_count_(k)+w(i)
     end do
@@ -117,30 +124,52 @@ contains
         expanded(:,:oldwidth)=self%category_count_(j)%values
         call move_alloc(expanded,self%category_count_(j)%values)
       end if
-      self%n_categories_(j)=width
+      self%n_categories_(j)=max(int(maxval(x(:,j)))+1,self%min_categories)
+      if(allocated(self%min_categories_per_feature)) &
+        self%n_categories_(j)=max(self%n_categories_(j),self%min_categories_per_feature(j))
       do i=1,n
         k=int(x(i,j))+1
         self%category_count_(j)%values(encoded(i),k)=self%category_count_(j)%values(encoded(i),k)+w(i)
       end do
-      smooth=self%category_count_(j)%values+self%alpha
-      self%feature_log_prob_(j)%values=log(smooth)-spread(log(sum(smooth,dim=2)),2,width)
+      call require(smoothing<=huge(1._dp)/(4*real(width,dp)), &
+        'CategoricalNB smoothing exceeds numeric range')
+      smooth=self%category_count_(j)%values+smoothing
+      if(allocated(self%feature_log_prob_(j)%values)) deallocate(self%feature_log_prob_(j)%values)
+      allocate(self%feature_log_prob_(j)%values(c,width))
+      do k=1,c
+        denominator=sum(smooth(k,:))
+        if(denominator==0) then
+          self%feature_log_prob_(j)%values(k,:)=ieee_value(0._dp,ieee_quiet_nan)
+        else
+          self%feature_log_prob_(j)%values(k,:)=categorical_log(smooth(k,:))-log(denominator)
+        end if
+      end do
     end do
     if(allocated(self%class_prior)) then
       call require(size(self%class_prior)==c,'CategoricalNB class prior count mismatch')
       call require(all(ieee_is_finite(self%class_prior)),'nonfinite CategoricalNB class prior')
       call require(all(self%class_prior>=0),'negative CategoricalNB class prior')
-      call require(abs(sum(self%class_prior)-1._dp)<=1.e-8_dp,'CategoricalNB class priors must sum to one')
-      prior=self%class_prior
+      self%class_log_prior_=categorical_log(self%class_prior)
     else if(self%fit_prior) then
-      prior=self%class_count_/sum(self%class_count_)
+      total=sum(self%class_count_)
+      if(total==0) then
+        self%class_log_prior_=spread(ieee_value(0._dp,ieee_quiet_nan),1,c)
+      else
+        self%class_log_prior_=categorical_log(self%class_count_)-log(total)
+      end if
     else
-      prior=spread(1._dp/c,1,c)
+      self%class_log_prior_=spread(-log(real(c,dp)),1,c)
     end if
-    self%class_log_prior_=spread(ieee_value(0._dp,ieee_negative_inf),1,c)
-    do k=1,c
-      if(prior(k)>0) self%class_log_prior_(k)=log(prior(k))
-    end do
   end subroutine
+
+  elemental real(dp) function categorical_log(value) result(logged)
+    real(dp), intent(in) :: value
+    if(value==0) then
+      logged=ieee_value(0._dp,ieee_negative_inf)
+    else
+      logged=log(value)
+    end if
+  end function
 
   function categorical_joint(self,x) result(scores)
     class(categorical_nb), intent(in) :: self
@@ -152,7 +181,7 @@ contains
     call require(size(x,2)==self%n_features_in_,'CategoricalNB feature count mismatch')
     allocate(scores(size(x,1),size(self%classes_))); scores=0
     do j=1,size(x,2)
-      call require(all(x(:,j)<self%n_categories_(j)),'CategoricalNB unseen category exceeds fitted range')
+      call require(all(x(:,j)<size(self%category_count_(j)%values,2)),'CategoricalNB unseen category exceeds fitted range')
       do i=1,size(x,1)
         scores(i,:)=scores(i,:)+self%feature_log_prob_(j)%values(:,int(x(i,j))+1)
       end do
@@ -167,7 +196,13 @@ contains
     integer :: i
     scores=self%joint_log_likelihood(x)
     do i=1,size(x,1)
-      scores(i,:)=scores(i,:)-logsumexp(scores(i,:))
+      if(any(ieee_is_nan(scores(i,:)))) then
+        scores(i,:)=ieee_value(0._dp,ieee_quiet_nan)
+      else if(maxval(scores(i,:))==ieee_value(0._dp,ieee_negative_inf)) then
+        scores(i,:)=ieee_value(0._dp,ieee_quiet_nan)
+      else
+        scores(i,:)=scores(i,:)-logsumexp(scores(i,:))
+      end if
     end do
   end function
 
@@ -182,8 +217,19 @@ contains
     class(categorical_nb), intent(in) :: self
     real(dp), intent(in) :: x(:,:)
     integer, allocatable :: y(:)
+    integer :: i,k,index
     real(dp), allocatable :: scores(:,:)
-    scores=self%joint_log_likelihood(x); y=self%classes_(maxloc(scores,dim=2))
+    scores=self%joint_log_likelihood(x); allocate(y(size(x,1)))
+    do i=1,size(y)
+      index=0
+      do k=1,size(self%classes_)
+        if(ieee_is_nan(scores(i,k))) then
+          index=k; exit
+        end if
+      end do
+      if(index==0) index=maxloc(scores(i,:),dim=1)
+      y(i)=self%classes_(index)
+    end do
   end function
 
   real(dp) function categorical_score(self,x,y) result(score)

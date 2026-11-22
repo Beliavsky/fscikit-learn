@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 217 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and twenty-three reference suites additionally check 582,083
+All types have native tests. One hundred and twenty-four reference suites additionally check 635,543
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -36,7 +36,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | multioutput | `multi_output_regressor`, `multi_output_classifier`, `regressor_chain`, `classifier_chain` | Independent fitted base models per response column; supported native linear/SGD, NB, neighbors and tree families; ragged class probabilities; SGD/Gaussian NB streaming; native base weighting limits apply |
 | preprocessing | `kernel_centerer`, `ordinal_encoder`, `target_encoder`, `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `iterative_imputer`, `knn_imputer`, `missing_indicator`, `spline_transformer`, `label_encoder`, `one_hot_encoder`, `label_binarizer`, `multi_label_binarizer`, `power_transformer`, `kbins_discretizer`, `quantile_transformer`; `normalize`, `binarize`, `polynomial_features` | Ordinal category codes and infrequent grouping; cross-fitted target means; population variance; linear percentile interpolation; NaN imputation with mean/median/most-frequent/constant; numeric categories; empirical uniform/normal quantile transforms; dense polynomial terms through degree 12 with optional interactions; B-spline features and extrapolation |
 | linear_model | `linear_regression`, `lars`, `lasso_lars`, `lars_cv`, `lasso_lars_cv`, `lasso_lars_ic`, `ridge`, `ridge_classifier`, `ridge_classifier_cv`, `multi_task_elastic_net`, `multi_task_lasso`, `multi_task_elastic_net_cv`, `multi_task_lasso_cv`, `lasso`, `elastic_net`, `lasso_cv`, `elastic_net_cv`, `logistic_regression`, `logistic_regression_cv`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `sgd_regressor`, `sgd_classifier`, `sgd_one_class_svm`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `orthogonal_matching_pursuit_cv`, `huber_regressor`, `quantile_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; least-angle/Lasso homotopy paths with CV and AIC/BIC selection; coordinate descent with K-fold alpha/l1-ratio selection; weighted logistic Newton solver with raw-score prediction; perceptron; PA-I/II classification/regression with averaging; streaming stochastic-gradient regression/classification and one-class detection; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; weighted L1-regularized quantile regression; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
-| naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb`, `categorical_nb` | Weighted/streaming Gaussian moments, empirical/fixed priors and variance smoothing; weighted/streaming discrete event counts and fixed/empirical priors; strictly positive scalar alpha; Bernoulli threshold; optional complement normalization |
+| naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb`, `categorical_nb` | Weighted/streaming Gaussian moments, empirical/fixed priors and variance smoothing; weighted/streaming discrete event counts and fixed/empirical priors; scalar alpha (nonnegative for CategoricalNB, positive for the other discrete models); Bernoulli threshold; optional complement normalization |
 | neighbors | `neighborhood_components_analysis`, `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Supervised NCA metric learning; brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with optional shrinkage and uniform priors; Euclidean kernel density |
 | cluster | `kmeans`, `bisecting_kmeans`, `mini_batch_kmeans`, `spectral_coclustering`, `spectral_biclustering`, `hdbscan`, `dbscan`, `agglomerative_clustering`, `feature_agglomeration`, `mean_shift`, `affinity_propagation`, `spectral_clustering`, `optics`, `birch`; `estimate_bandwidth`, `cluster_optics_dbscan`, `cluster_optics_xi` | Lloyd/k-means++; paired row/column spectral partitions and checkerboard biclustering; weighted streaming mini-batch centroids; bisecting centroid hierarchy with Lloyd/Elkan splits; density expansion; single/complete/average/Ward merge trees and feature pooling; flat-kernel mode seeking; damped exemplar messages; normalized-Laplacian clustering with k-means or pivoted QR assignment; OPTICS reachability ordering, Xi hierarchy and DBSCAN extraction; BIRCH streaming CF tree and optional Ward clustering |
 | decomposition | `pca`, `incremental_pca`, `truncated_svd`, `nmf`, `mini_batch_nmf`, `sparse_pca`, `mini_batch_sparse_pca`, `dictionary_learning`, `mini_batch_dictionary_learning`, `sparse_coder`, `latent_dirichlet_allocation`; `sparse_encode`; re-exports `kernel_pca`, `factor_analysis`, `fast_ica` | Full/randomized/covariance PCA with automatic routing; PCA whitening/inversion, variance/Minka dimension selection and probabilistic scores; streaming stacked-SVD IncrementalPCA; exact dense and randomized dense/CSR TruncatedSVD; NMF multiplicative updates; sparse dictionary factorization and SparsePCA; five sparse coding methods; nonlinear kernel PCA; full/randomized-SVD factor analysis with orthogonal rotations; parallel/deflation ICA |
@@ -925,21 +925,20 @@ MIT and sklearn BSD attribution are retained.
 ## Categorical Naive Bayes
 
 `categorical_nb` fits a separate discrete probability table for each input
-feature, with Laplace/Lidstone smoothing controlled by finite alpha>0 (default
-1). Input is a dense real64 matrix containing nonnegative integer category
+feature, with Laplace/Lidstone smoothing controlled by finite alpha>=0 (default
+1). `force_alpha=true` retains zero/tiny smoothing; false floors it to 1e-10. Input is a dense real64 matrix containing nonnegative integer category
 codes. Categories start at zero; table column one represents category zero.
 This port rejects fractional codes rather than silently truncating them.
 Classification labels are arbitrary integers, sorted in classes_. Single-class
-fits are supported. Sample weights must be finite and nonnegative, with positive
-cumulative total. Zero-weight rows still determine the supported category range.
+fits are supported. Sample weights must be finite and nonnegative; all-zero
+weights are supported. Zero-weight rows still determine the supported category range.
 
 fit resets counters. partial_fit requires the full classes vector on its first
 call; later calls may omit it or supply the same set. New categories expand
 counters without discarding earlier data. Unknown class labels and changed
-feature counts are rejected. n_categories_ records the retained table widths
-(the largest observed/reserved range over all batches), even when a later
-batch has smaller codes. This makes incremental metadata reflect the retained
-tables rather than sklearn 1.6.1's latest-batch width metadata.
+feature counts are rejected. `n_categories_` records the latest batch ranges,
+matching sklearn 1.6.1. Count/probability tables retain their largest observed/
+reserved widths, and queries may use any category stored in those tables.
 
 min_categories=0 infers widths from data. A positive scalar reserves at least
 that many categories for every feature; optional min_categories_per_feature
@@ -950,20 +949,22 @@ codes should be compact consecutive integers rather than large identifiers.
 
 fit_prior=true learns empirical weighted class priors; false uses uniform
 priors. Optional class_prior supplies a nonnegative finite vector aligned to
-classes_, summing to one within 1e-8. Zero priors are represented by negative
-infinity in class_log_prior_ and yield zero class probability. An unobserved
-class supplied to partial_fit likewise has zero empirical prior until observed.
+classes_, without renormalization; this overrides fit_prior. Zero priors are
+represented by negative infinity. Zero-mass empirical priors, unsmoothed
+zero-mass category rows and impossible posterior normalizations retain source
+NaNs explicitly. Predictions select the first NaN score, or the first sorted
+label at finite ties. An unobserved class has zero empirical prior until observed.
 
 Methods are fit, partial_fit, joint_log_likelihood, predict_log_proba,
 predict_proba, predict and score (accuracy). Fitted fields include classes_,
 class_count_, class_log_prior_, n_features_in_ and n_categories_. Ragged tables
 category_count_(feature)%values and feature_log_prob_(feature)%values each have
-shape (n_classes,n_categories_for_feature), using the public categorical_table
+shape (n_classes,retained_categories_for_feature), using the public categorical_table
 storage type. This helper is not counted as an estimator. Log probabilities
 use log-sum-exp normalization; class ties choose the first sorted label.
 
 Sparse data, string categories, automatic encoding, vector smoothing alpha and
-alpha=0/force_alpha behavior are not implemented. The type is re-exported
+Python warning objects are not implemented. The type is re-exported
 through sklearn_naive_bayes and sklearn. There are now 110 core types in
 45 source modules. No dependency or public algorithm extension was added;
 original contributions remain MIT with sklearn BSD attribution retained.
@@ -6367,3 +6368,68 @@ Run `python validation/compare_discrete_stream.py --profile checked`, or use
 with existing sklearn BSD notices retained. No estimator type, public extension
 algorithm or external Fortran dependency is added. Sparse inputs, vector/zero
 alpha and signed weights remain outside this native interface.
+
+
+## CategoricalNB zero smoothing and prior boundaries
+
+CategoricalNB now implements scalar alpha=0 and `force_alpha` (default true),
+including the source 1e-10 floor when false. Fixed class priors are retained
+without renormalization and override fit_prior; all-zero fixed priors and
+zero total sample weight are accepted. Undefined feature rows, empirical
+priors and posterior normalization produce explicit NaNs safely under floating-
+point traps. Predictions follow source first-NaN/first-maximum behavior.
+
+Streaming `n_categories_` now matches sklearn 1.6.1 latest-batch metadata,
+while ragged tables retain their full accumulated widths and remain queryable.
+Previously rejected zero alpha, zero weight mass and nonunit priors moved to
+success-path checks. The invalid registry instead checks smoothing/weight
+range and nonfinite priors, and adds first/later empty-class and cumulative
+weight-range cases. Finite nonnegative sample weights, compact integer-valued
+categories and scalar alpha remain the native scope; source Python warnings
+are not emitted. Sparse arrays and vector alpha are outside this interface.
+
+The new `compare_categorical_smoothing.py` suite compares all fitted tables,
+latest-batch metadata, priors, query/training labels, joint likelihoods,
+probabilities and scores after every update. Three seeds cover one/two/three
+classes, one/three/seven features, six smoothing/floor configurations, batch
+and streaming fits, category growth followed by shrinking batch ranges,
+scalar/per-feature minima, missing declared classes, zero/fractional weights,
+uniform/empirical/nonunit/zero priors. Weighted per-feature class-mass identities
+and final streaming/batch equivalence supplement installed sklearn comparisons.
+No fixture is removed when source results are undefined. See
+`example/unsmoothed_categories.f90`.
+
+Final verification passed in checked and release builds. All 146 native test
+programs passed; checked flags were `-fcheck=all -fbacktrace
+-ffpe-trap=invalid,zero,overflow`. Each profile passed 76,282 reference groups:
+53,460 new categorical-smoothing groups, 480 original CategoricalNB groups,
+22,150 discrete-stream groups and 192 integration groups. The new suite retained
+1,296 fixtures and 2,916 snapshots, including 2,916 count certificates, 5,563
+fields containing source NaNs and 648 streaming/batch equivalence cases. No
+label tie certificates were needed. All 25 discrete-stream rejection cases
+and all 33 categorical rejection cases passed in both canonical profiles.
+The example also passed explicitly through fpm in both profiles.
+
+The full 2,450-case general invalid-input registry passed in each profile.
+Its standard checked entry point uses `-fcheck=all -fbacktrace`, without
+floating-point traps, linked against the checked library. An initial attempt
+with traps stopped at the existing spectral-biclustering
+`bcsp_co_margin_overflow` case before its expected diagnostic; the complete
+registry was then rerun in its standard configuration. All categorical cases
+were additionally rerun against the canonical executable with traps enabled.
+No legacy case was filtered out. This increment does not change the spectral
+biclustering overflow diagnostic.
+
+The final audit matched cross-profile inventories, executable/validator/source
+hashes and all 285 compiled source-content digests per profile. Reports, terminal
+logs, the standard checked registry executable and orchestration/audit scripts
+are retained in ignored `validation/results`, including
+`categorical_smoothing_final_audit.json`.
+
+Cumulative inventory: 217 public core types, 129 core modules, 146 native test
+programs, 124 core reference suites and 635,543 retained groups. Thirty-three
+invalid-input registries retain 3,445 cases. Only the affected reference suites
+listed above were rerun; these cumulative counts do not imply a full rerun.
+The separate 42-group legacy RNG reference suite remains excluded and was not
+rerun. MIT licensing and sklearn BSD attribution remain; no external package,
+estimator type or public algorithm extension is added.

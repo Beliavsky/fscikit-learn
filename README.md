@@ -221,3 +221,6 @@ LDA and QDA accept custom class priors, including zero-weight classes; see
 
 Multinomial, Bernoulli and Complement Naive Bayes support weighted streaming; see
 [the example](example/streaming_document_nb.f90).
+
+CategoricalNB supports zero smoothing and `force_alpha`; see
+[the example](example/unsmoothed_categories.f90).

@@ -1,15 +1,23 @@
 """Weighted and streaming categorical Naive Bayes reference checks."""
 from pathlib import Path
+import argparse
+import hashlib
 import json
 import subprocess
 import warnings
 import numpy as np
 import sklearn
 from sklearn.naive_bayes import CategoricalNB
+from compare_function_transformer import resolve
 ROOT = Path(__file__).resolve().parents[1]
 RESULTS = ROOT / "validation/results"
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--profile', choices=['checked', 'release'], default='checked')
+    parser.add_argument('--executable', type=Path)
+    args = parser.parse_args()
+    exe = args.executable.resolve() if args.executable else resolve(args.profile, 'reference_categorical_nb_driver')
     RESULTS.mkdir(exist_ok=True)
     checks = []
     for seed, n, p in ((7, 48, 3), (42, 72, 4), (2026, 24, 2)):
@@ -22,9 +30,7 @@ def main():
         with data.open("w") as stream:
             stream.write(f"{n} {p}\n")
             np.savetxt(stream, np.column_stack([x, w, y]), fmt="%.17g")
-        subprocess.run(["fpm", "run", "--flag", "-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow",
-                        "--target", "reference_categorical_nb_driver", "--", str(data), str(output)],
-                       cwd=ROOT, check=True)
+        subprocess.run([str(exe), str(data), str(output)], cwd=ROOT, check=True)
         actual = {}
         for line in output.read_text().splitlines():
             name, *values = line.split(); actual[name] = np.array(values, dtype=float)
@@ -74,7 +80,11 @@ def main():
             else:
                 np.testing.assert_allclose(actual[name], want, atol=3e-8, rtol=3e-8, err_msg=f"{seed} {name}")
             checks.append(dict(seed=seed, name=name, passed=True))
-    (RESULTS/"categorical_nb.json").write_text(json.dumps(dict(sklearn=sklearn.__version__, checks=checks), indent=2)+"\n")
+    sha = lambda path: hashlib.sha256(path.read_bytes()).hexdigest()
+    report = dict(sklearn=sklearn.__version__, profile=args.profile, checks=checks,
+                  native_sha256=sha(exe), validator_sha256=sha(Path(__file__)),
+                  source_sha256={'naive_bayes.py': sha(Path(sklearn.__file__).parent/'naive_bayes.py')})
+    (RESULTS/f"categorical_nb_{args.profile}.json").write_text(json.dumps(report, indent=2, allow_nan=False)+"\n")
     print(f"{len(checks)} CategoricalNB result groups passed")
 
 if __name__ == "__main__":

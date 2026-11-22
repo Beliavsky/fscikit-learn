@@ -6628,3 +6628,68 @@ profiles, and example output also matched sklearn. Reports, terminal logs and
 Only the affected reference suites listed here were rerun; the cumulative
 582,083-group inventory is not a full-rerun claim. The separate 42-group legacy
 RNG reference suite remains excluded and was not rerun.
+
+
+## CategoricalNB zero smoothing and prior boundaries
+
+CategoricalNB now implements scalar alpha=0 and `force_alpha` (default true),
+including the source 1e-10 floor when false. Fixed class priors are retained
+without renormalization and override fit_prior; all-zero fixed priors and
+zero total sample weight are accepted. Undefined feature rows, empirical
+priors and posterior normalization produce explicit NaNs safely under floating-
+point traps. Predictions follow source first-NaN/first-maximum behavior.
+
+Streaming `n_categories_` now matches sklearn 1.6.1 latest-batch metadata,
+while ragged tables retain their full accumulated widths and remain queryable.
+Previously rejected zero alpha, zero weight mass and nonunit priors moved to
+success-path checks. The invalid registry instead checks smoothing/weight
+range and nonfinite priors, and adds first/later empty-class and cumulative
+weight-range cases. Finite nonnegative sample weights, compact integer-valued
+categories and scalar alpha remain the native scope; source Python warnings
+are not emitted. Sparse arrays and vector alpha are outside this interface.
+
+The new `compare_categorical_smoothing.py` suite compares all fitted tables,
+latest-batch metadata, priors, query/training labels, joint likelihoods,
+probabilities and scores after every update. Three seeds cover one/two/three
+classes, one/three/seven features, six smoothing/floor configurations, batch
+and streaming fits, category growth followed by shrinking batch ranges,
+scalar/per-feature minima, missing declared classes, zero/fractional weights,
+uniform/empirical/nonunit/zero priors. Weighted per-feature class-mass identities
+and final streaming/batch equivalence supplement installed sklearn comparisons.
+No fixture is removed when source results are undefined. See
+`example/unsmoothed_categories.f90`.
+
+Final verification passed in checked and release builds. All 146 native test
+programs passed; checked flags were `-fcheck=all -fbacktrace
+-ffpe-trap=invalid,zero,overflow`. Each profile passed 76,282 reference groups:
+53,460 new categorical-smoothing groups, 480 original CategoricalNB groups,
+22,150 discrete-stream groups and 192 integration groups. The new suite retained
+1,296 fixtures and 2,916 snapshots, including 2,916 count certificates, 5,563
+fields containing source NaNs and 648 streaming/batch equivalence cases. No
+label tie certificates were needed. All 25 discrete-stream rejection cases
+and all 33 categorical rejection cases passed in both canonical profiles.
+The example also passed explicitly through fpm in both profiles.
+
+The full 2,450-case general invalid-input registry passed in each profile.
+Its standard checked entry point uses `-fcheck=all -fbacktrace`, without
+floating-point traps, linked against the checked library. An initial attempt
+with traps stopped at the existing spectral-biclustering
+`bcsp_co_margin_overflow` case before its expected diagnostic; the complete
+registry was then rerun in its standard configuration. All categorical cases
+were additionally rerun against the canonical executable with traps enabled.
+No legacy case was filtered out. This increment does not change the spectral
+biclustering overflow diagnostic.
+
+The final audit matched cross-profile inventories, executable/validator/source
+hashes and all 285 compiled source-content digests per profile. Reports, terminal
+logs, the standard checked registry executable and orchestration/audit scripts
+are retained in ignored `validation/results`, including
+`categorical_smoothing_final_audit.json`.
+
+Cumulative inventory: 217 public core types, 129 core modules, 146 native test
+programs, 124 core reference suites and 635,543 retained groups. Thirty-three
+invalid-input registries retain 3,445 cases. Only the affected reference suites
+listed above were rerun; these cumulative counts do not imply a full rerun.
+The separate 42-group legacy RNG reference suite remains excluded and was not
+rerun. MIT licensing and sklearn BSD attribution remain; no external package,
+estimator type or public algorithm extension is added.
