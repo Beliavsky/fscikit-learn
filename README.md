@@ -194,3 +194,6 @@ independent multiple targets; see [the example](example/gaussian_process_samplin
 
 Factor analysis supports randomized SVD and varimax/quartimax rotation; see
 [the example](example/factor_analysis_rotation.f90).
+
+PCA supports variance-fraction and Minka dimension selection, covariance,
+precision and Gaussian likelihoods; see [the example](example/probabilistic_pca.f90).

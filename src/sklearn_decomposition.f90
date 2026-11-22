@@ -6,6 +6,7 @@ module sklearn_decomposition
   use sklearn_incremental_pca, only: incremental_pca
   use sklearn_fast_ica, only: fast_ica
   use sklearn_common
+  use, intrinsic :: ieee_arithmetic, only: ieee_is_finite,ieee_value,ieee_negative_inf
   use sklearn_kernel_pca, only: kernel_pca
   use sklearn_factor_analysis, only: factor_analysis
   implicit none
@@ -17,7 +18,10 @@ module sklearn_decomposition
   public :: incremental_pca
   public :: fast_ica,pca, truncated_svd, nmf, kernel_pca, factor_analysis
   type :: pca
-    integer :: n_components=0,n_samples_=0
+    integer :: n_components=0,n_samples_=0,n_components_=0
+    character(16) :: dimension_mode='count'
+    real(dp) :: variance_fraction=.95_dp
+    real(dp), allocatable :: mle_log_likelihood_(:)
     logical :: whiten=.false.
     real(dp), allocatable :: components_(:,:),mean_(:),explained_variance_(:)
     real(dp), allocatable :: explained_variance_ratio_(:),singular_values_(:)
@@ -27,6 +31,10 @@ module sklearn_decomposition
     procedure :: transform=>pca_transform
     procedure :: inverse_transform=>pca_inverse
     procedure :: fit_transform=>pca_fit_transform
+    procedure :: get_covariance=>pca_covariance
+    procedure :: get_precision=>pca_precision
+    procedure :: score_samples=>pca_score_samples
+    procedure :: score=>pca_score
   end type
   type :: truncated_svd
     integer :: n_components=2
@@ -64,21 +72,134 @@ contains
     class(pca), intent(inout) :: self
     real(dp), intent(in) :: x(:,:)
     real(dp) :: centered(size(x,1),size(x,2)),u(size(x,1),size(x,2))
-    real(dp) :: values(size(x,2)),vectors(size(x,2),size(x,2)),total
-    integer :: k,n,p
+    real(dp) :: values(size(x,2)),vectors(size(x,2),size(x,2)),singular(size(x,2)),total
+    integer :: k,n,p,j,r
+    real(dp) :: cumulative
     call check_x(x); n=size(x,1); p=size(x,2); self%n_samples_=n
     call require(n>1,'PCA requires at least two samples')
+    call require(any(self%dimension_mode==[character(16)::'count','variance','mle','zero']),'unsupported PCA dimension_mode')
     k=self%n_components; if(k==0) k=min(n,p)
-    call require(k>0.and.k<=min(n,p),'invalid PCA n_components')
+    if(self%dimension_mode=='count') then
+      call require(k>0.and.k<=min(n,p),'invalid PCA n_components')
+    else if(self%dimension_mode=='variance') then
+      call require(ieee_is_finite(self%variance_fraction),'PCA variance_fraction must be finite')
+      call require(self%variance_fraction>0.and.self%variance_fraction<1,'PCA variance_fraction must be in (0,1)')
+    else if(self%dimension_mode=='mle') then
+      call require(n>=p,'PCA MLE requires samples >= features')
+    end if
+    if(allocated(self%mle_log_likelihood_)) deallocate(self%mle_log_likelihood_)
     self%mean_=sum(x,dim=1)/n; centered=x-spread(self%mean_,1,n)
     call dense_svd(centered,values,u,vectors)
-    self%singular_values_=values(:k); values=values**2/(n-1); total=sum(values)
+    singular=values;values=values**2/(n-1);total=sum(values);r=min(n,p)
+    select case(self%dimension_mode)
+    case('variance')
+      k=1
+      if(total>0) then
+        cumulative=0;k=r
+        do j=1,r
+          cumulative=cumulative+values(j)/total
+          if(cumulative>self%variance_fraction) then
+            k=j;exit
+          end if
+        end do
+      end if
+    case('mle')
+      allocate(self%mle_log_likelihood_(p));self%mle_log_likelihood_=ieee_value(0._dp,ieee_negative_inf)
+      do j=1,p-1
+        self%mle_log_likelihood_(j+1)=pca_rank_likelihood(values,j,n)
+      end do
+      k=maxloc(self%mle_log_likelihood_,dim=1)-1
+    case('zero');k=0
+    end select
+    self%n_components_=k;self%singular_values_=singular(:k)
     self%components_=transpose(vectors(:,:k)); self%explained_variance_=values(:k)
     self%explained_variance_ratio_=values(:k)*0
     if(total>0) self%explained_variance_ratio_=values(:k)/total
     self%noise_variance_=0
     if(k<min(n,p)) self%noise_variance_=sum(values(k+1:min(n,p)))/(min(n,p)-k)
   end subroutine
+  real(dp) function pca_rank_likelihood(spectrum,rank,n) result(value)
+    ! sklearn 1.6.1 _pca.py _assess_dimension (Minka NIPS 2000).
+    real(dp), intent(in) :: spectrum(:)
+    integer, intent(in) :: rank,n
+    real(dp), parameter :: small=1.e-15_dp
+    real(dp) :: pu,pl,pv,pp,pa,variance,m,product,adjusted(size(spectrum)),dimension
+    integer :: p,i,j
+    p=size(spectrum);value=ieee_value(0._dp,ieee_negative_inf)
+    if(spectrum(rank)<small) return
+    pu=-rank*log(2._dp)
+    do i=1,rank
+      dimension=real(p-i+1,dp)/2
+      pu=pu+log_gamma(dimension)-log(acos(-1._dp))*dimension
+    end do
+    pl=-sum(log(spectrum(:rank)))*n/2
+    variance=max(small,sum(spectrum(rank+1:))/real(p-rank,dp))
+    pv=-log(variance)*n*(p-rank)/2
+    m=real(p,dp)*rank-rank*real(rank+1,dp)/2
+    pp=log(2*acos(-1._dp))*(m+rank)/2
+    pa=0;adjusted=spectrum;adjusted(rank+1:)=variance
+    do i=1,rank
+      do j=i+1,p
+        product=(spectrum(i)-spectrum(j))*(1/adjusted(j)-1/adjusted(i))
+        call require(product>0,'PCA MLE spectrum is numerically invalid')
+        pa=pa+log(product)+log(real(n,dp))
+      end do
+    end do
+    value=pu+pl+pv+pp-pa/2-rank*log(real(n,dp))/2
+  end function
+  function pca_covariance(self) result(cov)
+    class(pca), intent(in) :: self
+    real(dp), allocatable :: cov(:,:),components(:,:),difference(:)
+    integer :: j
+    call require(allocated(self%components_),'PCA is not fitted')
+    components=self%components_
+    if(self%whiten) components=components*spread(sqrt(self%explained_variance_),2,size(components,2))
+    difference=max(self%explained_variance_-self%noise_variance_,0._dp)
+    cov=matmul(transpose(components),components*spread(difference,2,size(components,2)))
+    do j=1,size(cov,1)
+      cov(j,j)=cov(j,j)+self%noise_variance_
+    end do
+  end function
+  function pca_probability_factor(self) result(l)
+    class(pca), intent(in) :: self
+    real(dp), allocatable :: l(:,:),cov(:,:)
+    call require(allocated(self%components_),'PCA is not fitted')
+    call require(self%noise_variance_>0.or. &
+      (size(self%components_,1)==size(self%components_,2).and.all(self%explained_variance_>0)), &
+      'PCA covariance must be positive definite for precision and scoring')
+    cov=self%get_covariance();l=cholesky_factor(cov)
+  end function
+  function pca_precision(self) result(precision)
+    class(pca), intent(in) :: self
+    real(dp), allocatable :: precision(:,:),l(:,:),rhs(:)
+    integer :: p,j
+    l=pca_probability_factor(self);p=size(l,1);allocate(precision(p,p),rhs(p))
+    do j=1,p
+      rhs=0;rhs(j)=1;precision(:,j)=solve_upper(transpose(l),solve_lower(l,rhs))
+    end do
+  end function
+  function pca_score_samples(self,x) result(scores)
+    class(pca), intent(in) :: self
+    real(dp), intent(in) :: x(:,:)
+    real(dp), allocatable :: scores(:),l(:,:),centered(:,:)
+    real(dp) :: normalizer
+    integer :: i,j
+    call require(allocated(self%components_),'PCA is not fitted')
+    call check_xy(transpose(x),size(self%mean_));l=pca_probability_factor(self)
+    normalizer=size(x,2)*log(2*acos(-1._dp))
+    do j=1,size(l,1)
+      normalizer=normalizer+2*log(l(j,j))
+    end do
+    centered=x-spread(self%mean_,1,size(x,1));allocate(scores(size(x,1)))
+    do i=1,size(x,1)
+      scores(i)=-.5_dp*(sum(solve_lower(l,centered(i,:))**2)+normalizer)
+    end do
+  end function
+  real(dp) function pca_score(self,x) result(score)
+    class(pca), intent(in) :: self
+    real(dp), intent(in) :: x(:,:)
+    score=sum(self%score_samples(x))/size(x,1)
+  end function
   function pca_transform(self,x) result(z)
     class(pca), intent(in) :: self
     real(dp), intent(in) :: x(:,:)
@@ -93,7 +214,13 @@ contains
     real(dp), intent(in) :: z(:,:)
     real(dp), allocatable :: x(:,:),work(:,:)
     call require(allocated(self%components_),'PCA is not fitted')
-    call check_xy(transpose(z),size(self%components_,1)); work=z
+    if(size(self%components_,1)==0) then
+      call require(size(z,1)>0,'X must be nonempty')
+      call require(size(z,2)==0,'X and y sample counts differ')
+    else
+      call check_xy(transpose(z),size(self%components_,1))
+    end if
+    work=z
     if(self%whiten) work=work*spread(sqrt(self%explained_variance_),1,size(z,1))
     x=matmul(work,self%components_)+spread(self%mean_,1,size(z,1))
   end function

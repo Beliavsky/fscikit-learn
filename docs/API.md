@@ -5389,3 +5389,47 @@ One-feature, one-factor varimax has identically zero criterion, and cubic roundi
 can make the source helper stop in two steps rather than reach its limit. This
 iteration-only difference is recorded while factors and orthogonality remain
 strictly checked. See `example/factor_analysis_rotation.f90`.
+
+
+## Probabilistic PCA and automatic dimension selection
+
+`pca` adds `%dimension_mode='count'|'variance'|'mle'|'zero'` and fitted
+`%n_components_`. Default `'count'` keeps the existing integer `n_components`
+interface, including its legacy zero-means-all convention. Other modes override
+that integer field: `'variance'` uses `%variance_fraction` (default .95, strictly
+between zero and one), `'mle'` applies Minka's likelihood-based rank selection,
+and `'zero'` selects sklearn's explicit zero-component model. MLE requires
+samples >= features. Fraction selection uses a strict cumulative-variance
+threshold (right-sided search), so an exactly met threshold retains another
+component. Zero total variance selects one component in fraction mode and can
+select zero in MLE mode, following sklearn 1.6.1. The existing zero ratio
+convention remains: undefined 0/0 variance ratios are stored as zero.
+
+`%mle_log_likelihood_(:)` is allocated only for MLE fits. Entry 1 represents rank
+zero and is negative infinity; entry r+1 assesses rank r. The final feature rank
+is not assessed, as in sklearn. Candidates whose rank eigenvalue is below 1e-15 return negative infinity.
+Exact spectral ties can make Minka's logarithm undefined; fitting raises an
+explicit diagnostic, corresponding to sklearn's math-domain failure. Refitting
+in another dimension mode clears the diagnostic array. Full native Jacobi SVD
+remains the PCA backend for this increment.
+
+New `get_covariance`, `get_precision`, `score_samples(x)` and `score(x)` methods
+implement sklearn's probabilistic PCA contracts. The covariance combines the
+retained principal directions with isotropic `noise_variance_`. The pinned
+sklearn 1.6.1 implementation scales the directions by sqrt(explained_variance)
+again when whitening is enabled; the native generative covariance deliberately
+preserves that behavior. Precision and likelihood use a Cholesky factor of this
+covariance. They require a proper positive-definite covariance, and raise a
+clear diagnostic for zero covariance or noise-free reduced-rank models. There
+is no singular-Gaussian pseudodensity. Covariance remains available for such
+models, as do their transforms and inverses. A zero-dimensional inverse returns
+the fitted mean for each input row; transform results have a zero-width axis.
+
+SVD directions are not unique in zero or tied eigenspaces. Reference checks keep
+those fixtures, verify orthonormality, eigen equations and membership in the
+independent sklearn eigenspaces, then evaluate source operators in the certified
+native basis. Exactly zero-variance whitening magnifies floating-point projection
+residuals; training projections are compared before whitening in those certified
+null directions. Existing `fit_transform` remains fit followed by transform; it
+does not reproduce LAPACK U-based null-whitening coordinates. Gaussian moments and selected dimensions remain independently
+checked. See `example/probabilistic_pca.f90`.

@@ -939,3 +939,14 @@ notices and LICENSES/scikit-learn-COPYING apply. Native null-space completion,
 diagnostic storage and Fortran interfaces are original MIT contributions. The
 existing NumPy-compatible RNG is reused under its retained notices. No additional
 source package, runtime or dependency is imported.
+
+
+`src/sklearn_decomposition.f90` further adapts scikit-learn 1.6.1
+`decomposition/_pca.py` (`_assess_dimension`, `_infer_dimension`, component selection)
+and `decomposition/_base.py` (probabilistic covariance and precision contracts),
+plus PCA sample likelihoods. Minka's automatic PCA dimensionality method is
+credited in the source and sklearn's original documentation. Existing
+LICENSES/scikit-learn-COPYING and BSD notices apply. Typed dimension-mode
+selection, fitted diagnostic storage, Cholesky scoring interfaces and validation
+certificates are original MIT contributions. No additional source package,
+third-party runtime or dependency is imported.

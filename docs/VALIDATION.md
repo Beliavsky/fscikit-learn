@@ -6031,3 +6031,77 @@ trajectory details are retained separately per profile. Only the affected suites
 and checked integration suite listed here were rerun; 485,625 groups is the
 cumulative core reference inventory. Test, gate, example-build and audit logs
 are retained beside the ignored reports.
+
+
+## PCA dimension selection and probabilistic models
+
+Added variance-fraction and Minka MLE dimension selection, explicit zero-factor
+models, covariance, precision and per-sample/mean Gaussian likelihoods to the
+existing full-SVD PCA. Default count-mode behavior remains unchanged, including
+legacy zero count selecting all available components. Active dimension modes
+map sklearn's integer/float/string n_components union to typed Fortran controls.
+Fitted n_components_ and MLE candidate diagnostics support inspection/refits.
+Zero-dimensional inverses now return the mean. The native scoring path uses a
+Cholesky factor and requires a proper positive-definite covariance; covariance
+and transforms remain available for singular models. The pinned sklearn 1.6.1
+whitened generative covariance scaling is preserved deliberately.
+
+The new `validation/compare_pca_probability.py` retains 5,270 groups over 252
+fixtures: five tall/wide/single-feature shapes, three seeds, count/all/variance/
+MLE/zero choices, whitening on/off, constant matrices and exact right-sided
+fraction thresholds. It compares fitted dimensions, means, spectral statistics,
+noise, covariance, transforms/inverses, precision, scores and Minka candidate
+likelihoods with independent installed sklearn fits. There are 230 proper
+Gaussian fixtures. Twenty-two singular covariance models retain covariance/
+transform checks and a verified singular-domain record; new precision/score
+rejections separately verify the method preconditions.
+
+Sixteen nonunique-basis certificates verify orthonormality, eigen equations and
+membership in the independent source eigenspaces before source operators are
+evaluated in the native basis. For zero-variance whitening, training projections
+are compared before the epsilon division so floating-point null coordinates
+are not treated as meaningful. Eight undefined-ratio certificates retain the
+existing native zero convention for source NaN 0/0 ratios. Selected dimensions,
+spectra, covariance and proper Gaussian scores remain independently checked;
+no fixture is silently dropped. Exact Minka spectral ties raise an explicit
+native diagnostic, matching the source math-domain failure.
+
+Nineteen isolated rejection cases cover active modes/fractions, MLE shape/ties,
+component/sample/feature constraints, nonfinite inputs, unfitted calls, singular
+precision/scoring and zero-dimensional inverse shape. The inventory remains
+217 core estimator/transformer/splitter types and 129 core modules, with 138 native
+test programs. There are 115 core reference suites with 490,895 retained groups,
+plus the separate 42-group legacy RNG suite. Nineteen new rejection cases bring
+25 registries to 3,294 cases. These counts are cumulative; the final record below
+lists the suites actually rerun for this increment.
+
+Run `python validation/compare_pca_probability.py --profile checked`, or use
+`--profile release` / `--executable` for completed binaries. See
+`example/probabilistic_pca.f90`. Original interfaces/diagnostic storage remain MIT
+with existing sklearn BSD notices retained. No dependency, source package,
+public estimator type or extension algorithm is added. Randomized/ARPACK/
+covariance-eigh PCA solvers, sparse inputs and singular Gaussian pseudodensities
+remain outside this increment.
+
+
+Final verification passed in checked and release profiles: all 138 native test
+programs; 5,270 new PCA groups over 252 fixtures, 264 existing IncrementalPCA
+groups and 192 existing integration groups (5,726 reference groups per profile);
+and all 19 new invalid-input cases. The new example matched sklearn's Minka
+rank (six), noise variance, mean likelihood and 90-percent variance rank (two)
+in both profiles. Legacy integer-count PCA integration behavior remains checked.
+
+Both profiles retain sixteen independently verified nonunique-basis certificates,
+eight undefined-ratio certificates and twenty-two singular-domain model records,
+with 230 proper Gaussian fixtures checking precision and likelihood. Every
+source eigenspace membership and eigen residual is checked within its recorded
+bound; no null-space coordinate identity is claimed. No input fixture is omitted.
+
+The ignored `validation/results/pca_probability_final_audit.json` verifies strict
+JSON reports, executable/validator and installed sklearn source hashes, matching
+checked/release check inventories and 275 compiled-content digests per profile:
+129 core modules, four vendor modules, 138 native test programs, three affected
+reference drivers and the new example. All new certificates are validated by
+the audit. Only the suites listed here were rerun; 490,895 retained core groups
+is the cumulative reference inventory. Test, gate, example-build and audit logs
+are retained beside the ignored reports.
