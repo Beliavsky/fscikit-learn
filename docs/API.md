@@ -5479,3 +5479,45 @@ LU-normalized, sign-flipped defaults are preserved. Requested ranks larger than
 the matrix's smaller dimension are truncated to that dimension, including the
 new unnormalized path. See `example/pca_solver_selection.f90`. ARPACK, sparse
 inputs and alternate numerical dtypes remain outside this implementation.
+
+
+## Dense and CSR randomized TruncatedSVD
+
+`truncated_svd` adds `%algorithm='randomized'`, `%n_iter=5`,
+`%n_oversamples=10`, `%power_iteration_normalizer='auto'|'none'|'LU'|'QR'` and
+`%random_state=0`. The native default `%algorithm='full'` preserves the existing
+exact dense SVD backend; this tag is a Fortran compatibility choice, not a
+sklearn TruncatedSVD constructor value. Randomized fitting is the sklearn
+counterpart. It requires at least two features and a positive requested rank
+not exceeding feature count. Requests above sample count are clipped to the
+returned smaller matrix dimension, as in sklearn. Native fitted
+`%n_components_` and `%n_features_in_` expose the actual shape.
+
+`fit`, `fit_transform` and `transform` accept dense real64 matrices or the
+existing `csr_matrix` type. CSR fitting requires the randomized algorithm;
+query CSR matrices can be transformed by either fitted backend. Reduced
+coordinates, stored components and inverse transforms are dense. The input
+matrix is never centered. `fit_transform` returns the actual `X @ components.T`
+projection, unlike randomized PCA's projected-left coordinates. Explained
+variance is computed from those returned coordinates, not singular-value energy.
+Zero total feature variance retains the native zero ratio convention.
+
+The randomized core uses CSR forward/transpose products and dense reduced
+workspaces without allocating a dense copy of the input. Wide transposition,
+LU/QR/no normalization, seeded draws and sign selection share the existing
+dense core. Each estimator call owns its RNG and leaves sparse input storage
+unchanged. Zero-singular vectors are completed orthogonally for this estimator.
+CSR variance includes implicit zeros and uses two centered passes, aggregating
+unsorted duplicate values within each row before computing squared deviations.
+Stored zeros and duplicates remain unchanged in the caller's object.
+
+sklearn 1.6.1 TruncatedSVD has a parameter-validation typo: it lists 'OR' where
+its documented QR normalizer should be accepted. Native QR works. Reference
+fixtures record those source errors and execute the actual sklearn QR algorithm
+with parameter validation disabled for those otherwise valid configurations.
+Duplicate input references use a canonicalized copy of the same scipy CSR matrix
+for numerical matrix semantics. Native inputs need not be sorted or canonical.
+SVD null bases are nonunique and are verified against source null spaces;
+nonzero coordinates remain compared directly. See
+`example/sparse_latent_semantics.f90`. ARPACK, CSC input storage and sparse
+inverse outputs remain outside this increment.

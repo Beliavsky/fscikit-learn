@@ -7,6 +7,7 @@ module sklearn_decomposition
   use sklearn_fast_ica, only: fast_ica
   use sklearn_common
   use sklearn_legacy_rng, only: legacy_random_state
+  use sklearn_sparse, only: csr_matrix
   use sklearn_randomized_svd_core, only: randomized_svd
   use, intrinsic :: iso_fortran_env, only: int64
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite,ieee_value,ieee_negative_inf
@@ -42,14 +43,19 @@ module sklearn_decomposition
     procedure :: score=>pca_score
   end type
   type :: truncated_svd
-    integer :: n_components=2
+    integer :: n_components=2,n_components_=0,n_features_in_=0,n_iter=5,n_oversamples=10,random_state=0
+    character(16) :: algorithm='full'
+    character(8) :: power_iteration_normalizer='auto'
     real(dp), allocatable :: components_(:,:),singular_values_(:),explained_variance_(:)
     real(dp), allocatable :: explained_variance_ratio_(:)
   contains
-    procedure :: fit=>svd_fit
-    procedure :: transform=>svd_transform
+    procedure, private :: fit_dense=>svd_fit,fit_sparse=>svd_fit_sparse
+    generic :: fit=>fit_dense,fit_sparse
+    procedure, private :: transform_dense=>svd_transform,transform_sparse=>svd_transform_sparse
+    generic :: transform=>transform_dense,transform_sparse
     procedure :: inverse_transform=>svd_inverse
-    procedure :: fit_transform=>svd_fit_transform
+    procedure, private :: fit_transform_dense=>svd_fit_transform,fit_transform_sparse=>svd_fit_transform_sparse
+    generic :: fit_transform=>fit_transform_dense,fit_transform_sparse
   end type
   type :: nmf
     integer :: n_components=2,max_iter=1000,n_iter_=0,random_state=0
@@ -328,27 +334,134 @@ contains
     real(dp), allocatable :: z(:,:)
     call pca_fit_core(self,x,z)
   end function
-  subroutine svd_fit(self,x)
+  subroutine svd_controls(self,n,p,sparse)
+    class(truncated_svd), intent(in) :: self
+    integer, intent(in) :: n,p
+    logical, intent(in) :: sparse
+    call require(any(self%algorithm==[character(16)::'full','randomized']),'unsupported SVD algorithm')
+    call require(self%n_iter>=0,'SVD n_iter must be nonnegative')
+    call require(self%n_oversamples>0,'SVD n_oversamples must be positive')
+    call require(self%random_state>=0,'SVD random_state must be nonnegative')
+    call require(any(self%power_iteration_normalizer==[character(8)::'auto','none','LU','QR']), &
+      'unsupported SVD power_iteration_normalizer')
+    if(sparse) call require(self%algorithm=='randomized','SVD CSR fitting requires randomized algorithm')
+    if(self%algorithm=='full') then
+      call require(self%n_components>0.and.self%n_components<=min(n,p),'invalid SVD n_components')
+    else
+      call require(p>=2,'randomized SVD requires at least two features')
+      call require(self%n_components>0.and.self%n_components<=p,'invalid SVD n_components')
+      call require(self%n_components<=huge(1)-self%n_oversamples,'SVD sampling dimension exceeds integer capacity')
+    end if
+  end subroutine
+  subroutine svd_orient(self,u,vt)
     class(truncated_svd), intent(inout) :: self
-    real(dp), intent(in) :: x(:,:)
-    real(dp) :: u(size(x,1),size(x,2)),values(size(x,2)),vectors(size(x,2),size(x,2)),total
-    real(dp), allocatable :: z(:,:)
-    integer :: k,j
-    call check_x(x); k=self%n_components
-    call require(k>0.and.k<=min(size(x,1),size(x,2)),'invalid SVD n_components')
-    call dense_svd(x,values,u,vectors)
-    self%components_=transpose(vectors(:,:k)); self%singular_values_=values(:k)
-    z=matmul(x,transpose(self%components_)); self%explained_variance_=values(:k)*0
-    do j=1,k
-      self%explained_variance_(j)=sum((z(:,j)-sum(z(:,j))/size(x,1))**2)/size(x,1)
+    real(dp), intent(inout) :: u(:,:),vt(:,:)
+    real(dp), allocatable :: v(:,:)
+    integer :: j,index
+    ! Complete only this estimator's zero-singular bases, as in PCA.
+    call pca_complete_columns(u);v=transpose(vt);call pca_complete_columns(v);vt=transpose(v)
+    do j=1,size(vt,1)
+      index=maxloc(abs(vt(j,:)),dim=1)
+      if(vt(j,index)>=0) cycle
+      vt(j,:)=-vt(j,:);u(:,j)=-u(:,j)
     end do
-    total=0
-    do j=1,size(x,2)
-      total=total+sum((x(:,j)-sum(x(:,j))/size(x,1))**2)/size(x,1)
+    self%components_=vt;self%n_components_=size(vt,1);self%n_features_in_=size(vt,2)
+  end subroutine
+  subroutine svd_statistics(self,z,total)
+    class(truncated_svd), intent(inout) :: self
+    real(dp), intent(in) :: z(:,:),total
+    integer :: j
+    self%explained_variance_=self%singular_values_*0
+    do j=1,size(z,2)
+      self%explained_variance_(j)=sum((z(:,j)-sum(z(:,j))/size(z,1))**2)/size(z,1)
     end do
     self%explained_variance_ratio_=self%explained_variance_*0
     if(total>0) self%explained_variance_ratio_=self%explained_variance_/total
   end subroutine
+  subroutine svd_fit(self,x)
+    class(truncated_svd), intent(inout) :: self
+    real(dp), intent(in) :: x(:,:)
+    real(dp), allocatable :: u(:,:),values(:),vectors(:,:),vt(:,:),z(:,:)
+    real(dp) :: total
+    type(legacy_random_state) :: rng
+    integer :: k,j,n,p
+    call check_x(x);n=size(x,1);p=size(x,2);k=self%n_components;call svd_controls(self,n,p,.false.)
+    if(self%algorithm=='full') then
+      allocate(u(n,p),values(p),vectors(p,p));call dense_svd(x,values,u,vectors)
+      self%components_=transpose(vectors(:,:k));self%singular_values_=values(:k)
+      self%n_components_=k;self%n_features_in_=p
+    else
+      call rng%seed(self%random_state)
+      call randomized_svd(x,k,rng,values,u,vt,n_iter=self%n_iter,n_oversamples=self%n_oversamples, &
+        power_iteration_normalizer=self%power_iteration_normalizer,flip_sign=.false.)
+      call svd_orient(self,u,vt);self%singular_values_=values
+    end if
+    z=matmul(x,transpose(self%components_));total=0
+    do j=1,p
+      total=total+sum((x(:,j)-sum(x(:,j))/n)**2)/n
+    end do
+    call svd_statistics(self,z,total)
+  end subroutine
+  subroutine svd_fit_sparse(self,x)
+    class(truncated_svd), intent(inout) :: self
+    type(csr_matrix), intent(in) :: x
+    real(dp), allocatable :: u(:,:),s(:),vt(:,:),z(:,:)
+    type(legacy_random_state) :: rng
+    call x%validate();call require(x%n_rows>0.and.x%n_cols>0,'SVD CSR shape must be nonempty')
+    call require(all(ieee_is_finite(x%data)),'SVD CSR data must be finite')
+    call svd_controls(self,x%n_rows,x%n_cols,.true.);call rng%seed(self%random_state)
+    call randomized_svd(x,self%n_components,rng,s,u,vt,n_iter=self%n_iter,n_oversamples=self%n_oversamples, &
+      power_iteration_normalizer=self%power_iteration_normalizer,flip_sign=.false.)
+    call svd_orient(self,u,vt);self%singular_values_=s;z=x%matmul(transpose(self%components_))
+    call svd_statistics(self,z,svd_sparse_variance(x))
+  end subroutine
+  real(dp) function svd_sparse_variance(x) result(total)
+    type(csr_matrix), intent(in) :: x
+    real(dp), allocatable :: means(:),squares(:),work(:)
+    integer, allocatable :: marker(:),touched(:),counts(:)
+    integer :: pass,row,e,col,count,j
+    allocate(means(x%n_cols),squares(x%n_cols),work(x%n_cols),marker(x%n_cols),touched(x%n_cols),counts(x%n_cols))
+    means=0;squares=0;work=0;counts=0
+    do pass=1,2
+      marker=0
+      do row=1,x%n_rows
+        count=0
+        do e=x%indptr(row),x%indptr(row+1)-1
+          col=x%indices(e)
+          if(marker(col)/=row) then
+            marker(col)=row;work(col)=0;count=count+1;touched(count)=col
+          end if
+          work(col)=work(col)+x%data(e)
+        end do
+        do j=1,count
+          col=touched(j)
+          if(pass==1) then
+            means(col)=means(col)+work(col);counts(col)=counts(col)+1
+          else
+            squares(col)=squares(col)+(work(col)-means(col))**2
+          end if
+        end do
+      end do
+      if(pass==1) means=means/x%n_rows
+    end do
+    total=sum((squares+(x%n_rows-counts)*means**2)/x%n_rows)
+  end function
+  function svd_transform_sparse(self,x) result(z)
+    class(truncated_svd), intent(in) :: self
+    type(csr_matrix), intent(in) :: x
+    real(dp), allocatable :: z(:,:)
+    call require(allocated(self%components_),'truncated_svd is not fitted');call x%validate()
+    call require(x%n_rows>0.and.x%n_cols>0,'SVD CSR shape must be nonempty')
+    call require(all(ieee_is_finite(x%data)),'SVD CSR data must be finite')
+    call require(x%n_cols==size(self%components_,2),'SVD CSR feature count mismatch')
+    z=x%matmul(transpose(self%components_))
+  end function
+  function svd_fit_transform_sparse(self,x) result(z)
+    class(truncated_svd), intent(inout) :: self
+    type(csr_matrix), intent(in) :: x
+    real(dp), allocatable :: z(:,:)
+    call self%fit(x);z=self%transform(x)
+  end function
   function svd_transform(self,x) result(z)
     class(truncated_svd), intent(in) :: self
     real(dp), intent(in) :: x(:,:)

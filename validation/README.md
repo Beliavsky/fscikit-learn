@@ -5685,3 +5685,69 @@ retained PCA/factor evidence; t-SNE inventories match by seed/case/name with
 numeric details kept per profile. Only the suites listed above were rerun;
 502,473 retained core groups is the cumulative inventory. Test, gate, example-
 build and audit logs are retained beside the ignored reports.
+
+
+## Dense and sparse randomized TruncatedSVD
+
+Added randomized TruncatedSVD with seeded power/oversampling/normalization
+controls, dense/CSR generic fitting and inference, actual fitted shape metadata,
+and dense inverse transforms. The prior exact dense backend remains the native
+default. The shared randomized SVD core now uses one dense/CSR factorization
+body, with sparse forward/transpose products and no dense input conversion.
+TruncatedSVD does not center input, and fitted variance uses actual right-space
+training projections. Sparse variance includes implicit zeros and aggregates
+unsorted duplicate cells before centered square accumulation. Inputs are
+preserved; only reduced working matrices and fitted components are dense.
+
+`validation/compare_truncated_sparse.py` retains 8,160 groups over 680 fixtures,
+including 218 raw duplicate/unsorted/stored-zero cases, tall/wide/single-row
+shapes, three seeds, all supported normalizers, low/high powers, requests above
+sample count, the legacy dense backend and zero/constant matrices. A CSR case
+with shape 5,000 by 100,000 and 10,000 stored entries succeeds without input
+densification; a dense input representation would require 4,000,000,000 bytes.
+There are 43 nonunique-null-basis certificates and 174 undefined-ratio
+certificates. Source zero-total-variance ratios can be NaN or infinity from
+projection roundoff; the native zero convention is retained explicitly.
+
+The suite records 216 sklearn 1.6.1 QR validation failures caused by its 'OR'
+typo and validates the same source algorithm with that erroneous validation
+bypassed. All otherwise valid Source parameters remain unchanged. Duplicate
+references canonicalize a separate scipy CSR copy; the encoded native matrix
+and its storage remain unchanged. No input fixture is removed. Nineteen
+isolated rejection cases cover controls/ranks/capacity, dense and CSR finiteness,
+CSR structure/shape, unsupported sparse full fitting, fitted/query contracts and
+inverse shape.
+
+The inventory remains 217 core estimator/transformer/splitter types and 129 core
+modules, with 140 native test programs. There are 117 core reference suites with
+510,633 retained groups, plus the separate 42-group legacy RNG suite. Nineteen
+new rejection cases bring 27 registries to 3,326 cases. These are cumulative
+counts; final verification below lists the affected suites actually rerun.
+
+Run `python validation/compare_truncated_sparse.py --profile checked`, or use
+`--profile release` / `--executable` for completed binaries. See
+`example/sparse_latent_semantics.f90`. Original interfaces and sparse products
+remain MIT with existing sklearn and NumPy notices retained. No dependency,
+public estimator type or extension algorithm is added. Legacy single-feature
+exact dense fitting remains; new randomized fitting requires two features as
+in sklearn. ARPACK and CSC input remain outside this increment.
+
+
+Final verification: all 140 native test programs passed in both checked mode
+(`-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow`) and release mode.
+Each profile passed 41,096 affected reference groups and 68 rejection cases,
+including all 8,160 new TruncatedSVD groups and 19 new rejections. The rerun
+also covered PCA solvers and probability, FactorAnalysis options, regression
+and projections, dictionary learning, MiniBatchNMF, t-SNE, IncrementalPCA and
+192 integration comparisons. The separate 42-group legacy RNG suite was not
+rerun; the cumulative inventory above does not describe a complete rerun.
+
+The final audit matched reports to validator, upstream-source and executable
+hashes and verified 284 compiled source-content digests per profile. It retained
+43 null-basis certificates, 174 undefined-ratio certificates, 218 duplicate
+storage cases and 216 recorded Source QR-validation defects. A 5,000 by 100,000
+CSR fixture with 10,000 stored entries passed; its equivalent dense input would
+occupy 4,000,000,000 bytes. Both explicit fpm example runs passed, and the example
+validator checked the tied leading singular subspace using its invariant total
+variance ratio. Reports, audit and terminal logs are retained under the ignored
+`validation/results` directory.

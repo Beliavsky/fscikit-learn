@@ -960,3 +960,14 @@ and output rank truncation. Existing sklearn BSD and NumPy RNG notices apply;
 LICENSES/scikit-learn-COPYING remains the upstream license. Native orthogonal
 null completion, Fortran controls and diagnostic storage are original MIT
 contributions. No additional source package, runtime or dependency is imported.
+
+
+`src/sklearn_decomposition.f90` extends TruncatedSVD using the contracts in
+scikit-learn 1.6.1 `decomposition/_truncated_svd.py`: randomized factorization,
+right-vector sign selection, actual training projections and population variance
+ratios. `src/sklearn_randomized_svd_core.f90` generalizes its existing adaptation
+of `utils/extmath.py` to dense/CSR products. Existing sklearn BSD and NumPy RNG
+notices apply; LICENSES/scikit-learn-COPYING is retained. Native CSR transpose
+products, duplicate-aware variance, generic Fortran interfaces and diagnostic
+storage are original MIT contributions. No external source package, runtime or
+dependency is imported.

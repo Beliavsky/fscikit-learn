@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 217 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and sixteen reference suites additionally check 502,473
+All types have native tests. One hundred and seventeen reference suites additionally check 510,633
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -18,7 +18,7 @@ Global scope: dense real64 CPU arrays, integer classification labels, generally 
 per sample; cross-decomposition, multi-task regression and independent multioutput wrappers explicitly accept multiple response columns. General sparse estimator inputs, pandas integration, Python estimator cloning,
 metadata routing, parallel backends and binary model persistence are outside the
 initial translation. The neighbor graph transformers provide CSR graph outputs and
-accept CSR precomputed distances; other estimator inputs remain dense.
+accept CSR precomputed distances; randomized TruncatedSVD also accepts CSR matrices. Other estimator inputs remain dense.
 Fortran identifiers use snake_case rather than CamelCase.
 
 ## Implemented domains
@@ -39,7 +39,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb`, `categorical_nb` | Weighted/streaming Gaussian moments, empirical/fixed priors and variance smoothing; strictly positive scalar alpha; Bernoulli threshold; optional complement normalization |
 | neighbors | `neighborhood_components_analysis`, `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Supervised NCA metric learning; brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with optional shrinkage and uniform priors; Euclidean kernel density |
 | cluster | `kmeans`, `bisecting_kmeans`, `mini_batch_kmeans`, `spectral_coclustering`, `spectral_biclustering`, `hdbscan`, `dbscan`, `agglomerative_clustering`, `feature_agglomeration`, `mean_shift`, `affinity_propagation`, `spectral_clustering`, `optics`, `birch`; `estimate_bandwidth`, `cluster_optics_dbscan`, `cluster_optics_xi` | Lloyd/k-means++; paired row/column spectral partitions and checkerboard biclustering; weighted streaming mini-batch centroids; bisecting centroid hierarchy with Lloyd/Elkan splits; density expansion; single/complete/average/Ward merge trees and feature pooling; flat-kernel mode seeking; damped exemplar messages; normalized-Laplacian clustering with k-means or pivoted QR assignment; OPTICS reachability ordering, Xi hierarchy and DBSCAN extraction; BIRCH streaming CF tree and optional Ward clustering |
-| decomposition | `pca`, `incremental_pca`, `truncated_svd`, `nmf`, `mini_batch_nmf`, `sparse_pca`, `mini_batch_sparse_pca`, `dictionary_learning`, `mini_batch_dictionary_learning`, `sparse_coder`, `latent_dirichlet_allocation`; `sparse_encode`; re-exports `kernel_pca`, `factor_analysis`, `fast_ica` | Full/randomized/covariance PCA with automatic routing; PCA whitening/inversion, variance/Minka dimension selection and probabilistic scores; streaming stacked-SVD IncrementalPCA; exact dense SVD; NMF multiplicative updates; sparse dictionary factorization and SparsePCA; five sparse coding methods; nonlinear kernel PCA; full/randomized-SVD factor analysis with orthogonal rotations; parallel/deflation ICA |
+| decomposition | `pca`, `incremental_pca`, `truncated_svd`, `nmf`, `mini_batch_nmf`, `sparse_pca`, `mini_batch_sparse_pca`, `dictionary_learning`, `mini_batch_dictionary_learning`, `sparse_coder`, `latent_dirichlet_allocation`; `sparse_encode`; re-exports `kernel_pca`, `factor_analysis`, `fast_ica` | Full/randomized/covariance PCA with automatic routing; PCA whitening/inversion, variance/Minka dimension selection and probabilistic scores; streaming stacked-SVD IncrementalPCA; exact dense and randomized dense/CSR TruncatedSVD; NMF multiplicative updates; sparse dictionary factorization and SparsePCA; five sparse coding methods; nonlinear kernel PCA; full/randomized-SVD factor analysis with orthogonal rotations; parallel/deflation ICA |
 | cross_decomposition | `pls_regression`, `pls_canonical`, `cca`, `pls_svd` | Paired-matrix latent components: NIPALS regression/canonical deflation, CCA pseudoinverse mode, canonical direct SVD and PLSSVD cross-covariance projection; multiple response columns |
 | isotonic | `isotonic_regression`; `isotonic_fit`, `check_increasing` | Weighted pool-adjacent-violators, automatic Spearman direction, bounds, repeated-input aggregation and piecewise linear interpolation |
 | kernel_approximation | `rbf_sampler`, `nystroem`, `additive_chi2_sampler`, `skewed_chi2_sampler`, `polynomial_count_sketch` | Random Fourier RBF maps; sampled-landmark inverse-square-root maps for RBF/linear/polynomial/cosine kernels; additive and skewed chi2 maps; seeded polynomial TensorSketch with arbitrary-length FFTs |
@@ -6073,3 +6073,45 @@ LU-normalized, sign-flipped defaults are preserved. Requested ranks larger than
 the matrix's smaller dimension are truncated to that dimension, including the
 new unnormalized path. See `example/pca_solver_selection.f90`. ARPACK, sparse
 inputs and alternate numerical dtypes remain outside this implementation.
+
+
+## Dense and CSR randomized TruncatedSVD
+
+`truncated_svd` adds `%algorithm='randomized'`, `%n_iter=5`,
+`%n_oversamples=10`, `%power_iteration_normalizer='auto'|'none'|'LU'|'QR'` and
+`%random_state=0`. The native default `%algorithm='full'` preserves the existing
+exact dense SVD backend; this tag is a Fortran compatibility choice, not a
+sklearn TruncatedSVD constructor value. Randomized fitting is the sklearn
+counterpart. It requires at least two features and a positive requested rank
+not exceeding feature count. Requests above sample count are clipped to the
+returned smaller matrix dimension, as in sklearn. Native fitted
+`%n_components_` and `%n_features_in_` expose the actual shape.
+
+`fit`, `fit_transform` and `transform` accept dense real64 matrices or the
+existing `csr_matrix` type. CSR fitting requires the randomized algorithm;
+query CSR matrices can be transformed by either fitted backend. Reduced
+coordinates, stored components and inverse transforms are dense. The input
+matrix is never centered. `fit_transform` returns the actual `X @ components.T`
+projection, unlike randomized PCA's projected-left coordinates. Explained
+variance is computed from those returned coordinates, not singular-value energy.
+Zero total feature variance retains the native zero ratio convention.
+
+The randomized core uses CSR forward/transpose products and dense reduced
+workspaces without allocating a dense copy of the input. Wide transposition,
+LU/QR/no normalization, seeded draws and sign selection share the existing
+dense core. Each estimator call owns its RNG and leaves sparse input storage
+unchanged. Zero-singular vectors are completed orthogonally for this estimator.
+CSR variance includes implicit zeros and uses two centered passes, aggregating
+unsorted duplicate values within each row before computing squared deviations.
+Stored zeros and duplicates remain unchanged in the caller's object.
+
+sklearn 1.6.1 TruncatedSVD has a parameter-validation typo: it lists 'OR' where
+its documented QR normalizer should be accepted. Native QR works. Reference
+fixtures record those source errors and execute the actual sklearn QR algorithm
+with parameter validation disabled for those otherwise valid configurations.
+Duplicate input references use a canonicalized copy of the same scipy CSR matrix
+for numerical matrix semantics. Native inputs need not be sorted or canonical.
+SVD null bases are nonunique and are verified against source null spaces;
+nonzero coordinates remain compared directly. See
+`example/sparse_latent_semantics.f90`. ARPACK, CSC input storage and sparse
+inverse outputs remain outside this increment.

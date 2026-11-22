@@ -200,3 +200,6 @@ precision and Gaussian likelihoods; see [the example](example/probabilistic_pca.
 
 PCA offers full, randomized, covariance and automatic solver selection; see
 [the example](example/pca_solver_selection.f90).
+
+Randomized TruncatedSVD accepts dense and CSR input without densifying the sparse
+matrix; see [the latent semantic example](example/sparse_latent_semantics.f90).
