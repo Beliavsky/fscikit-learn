@@ -6531,3 +6531,31 @@ nonunique NNLS cases, thirteen direct Ridge certificates and 216 composition
 Ridge child certificates with 96 parent prediction records. Final artifacts are
 archived in ignored `validation/results`, including `positive_final_audit.json`;
 the initial composition comparison log is retained separately.
+
+## Free nonnegative factorization
+
+`compare_non_negative_factorization.py` requires `--executable`, `--profile`
+and `--report`, following the CD/MU stdin-driver workflow. For example:
+
+```powershell
+fpm build --flag "-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow"
+python validation/compare_non_negative_factorization.py --executable build/gfortran_81A15A8739108A9E/app/reference_non_negative_factorization_driver.exe --profile checked --report validation/results/nonnegative_free_checked.json
+```
+
+Use the executable for the intended compiler/profile. The suite compares 916
+fixtures / 3,664 groups with sklearn's public `non_negative_factorization`,
+plus 12 diagnostic cases. Fixed-H cases include ignored nonfinite W,
+overcomplete dictionaries, named initialization modes, zero component columns,
+regularized fits and general MU beta losses. Outputs are checked for matching
+factors, iterations, independent objective values, nonnegativity and exact
+fixed-H preservation. Source/native CD stopping differences at `tol=0` require
+projected-gradient residuals below an explicit floating-point reduction bound;
+the report retains both iteration counts and the certificate.
+
+Final checked and release profiles each pass 154 native tests, 44,914 affected
+reference groups and all 90 new/prior diagnostic cases. The new suite retains
+14 checked and 16 release stationarity-level stopping certificates. The final
+audit checks 294 compiled-content digests per profile, complete new field
+inventories, executable/validator/source hashes and unchanged existing
+decomposition arithmetic. Logs, reports and audit scripts are archived in
+ignored `validation/results`, including `nonnegative_final_audit.json`.

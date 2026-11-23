@@ -7043,3 +7043,46 @@ rerun. The separate 42-group legacy RNG suite remains excluded and was not rerun
 Original adapters, checked arithmetic and tests remain MIT with retained
 sklearn/SciPy/LAPACK BSD attribution. No public extension algorithm or additional
 runtime dependency is introduced.
+
+## Free nonnegative matrix factorization
+
+Added the dense sklearn 1.6.1 `non_negative_factorization` function, exported
+through `sklearn_decomposition` and the facade. The adapter reuses the existing
+CD/MU kernels and adds fixed-H output iteration counts without changing solver
+arithmetic. It preserves input arrays and returns separately owned W/H arrays.
+The native defaults are CD, automatic rank, 200 iterations, `tol=1e-4` and seed
+zero; Python's default seed remains process-state dependent. The existing
+`nmf` type defaults are unchanged.
+
+The new reference suite compares 916 fixtures / 3,664 groups and 12 diagnostics.
+It covers initialization modes, both solvers, automatic/explicit ranks,
+fixed/updated H, dimension-scaled regularization, shuffling, general beta losses,
+overcomplete dictionaries, ignored nonfinite W and zero component columns.
+Every fixture retains W, H, iterations and an independent objective plus
+nonnegativity/fixed-H invariants. CD iteration differences at machine
+stationarity require explicit projected-gradient certificates for both source
+and native solutions; source and native iteration counts remain in the report.
+
+Checked verification passes all 154 native tests and 44,914 affected reference
+groups: 3,664 new free-function, 20,214 prior CD, 20,844 prior MU and 192
+integration groups. All 12 new and 78 prior CD/MU diagnostic cases pass.
+Fourteen new-suite iteration differences satisfy their roundoff certificates;
+the largest W/H difference from source is about `3.1e-13`. The fixed-dictionary
+example recovers codes `[2,1]`, `[1,3]`, `[4,2]` with a reconstruction error of
+about `1.3e-10`. The checked audit verifies all report/executable/validator hashes,
+full new-suite field inventories, 294 compiled-content digests and unchanged
+existing decomposition arithmetic.
+
+Release verification also passes all 154 native tests, the same 44,914 affected
+reference groups and all 90 diagnostic cases. The optimized new suite retains
+16 certified stationarity-level iteration differences and W/H errors below
+`2e-13`. The release example matches sklearn. The final audit verifies 294
+compiled-content digests per profile, full new-suite field inventories,
+executable/validator/source hashes, all new stopping certificates and unchanged
+existing decomposition arithmetic. Artifacts are archived in ignored
+`validation/results`, including `nonnegative_final_audit.json`.
+
+Cumulative inventory is 217 public types, 131 core modules, 154 native tests,
+132 core reference suites / 871,813 retained groups and 40 invalid-input
+registries / 3,637 cases. Only the affected suites above were rerun; the separate
+42-group legacy RNG suite remains excluded and was not rerun.

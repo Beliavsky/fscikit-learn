@@ -254,3 +254,8 @@ support nonnegative coefficients with `positive=.true.`. Supported composition
 and weighted OLS/Ridge adapters preserve the option. See
 [the example](example/positive_linear_models.f90) and
 [the contract and numerical differences](docs/API.md#positive-linear-model-coefficients).
+
+The free `non_negative_factorization` API fits both factors or solves for W
+with H fixed, returning both factors and the iteration count. See
+[the fixed-component example](example/fixed_component_factorization.f90) and
+[the function contract](docs/API.md#free-nonnegative-matrix-factorization).

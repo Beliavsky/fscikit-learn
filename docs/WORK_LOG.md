@@ -7155,3 +7155,44 @@ Inventory: 217 core public types, 131 modules, 153 native tests, 131 core
 reference suites and 868,149 groups; 39 invalid-input registries retain 3,625
 cases. Only the affected suites above were rerun. The separate 42-group legacy
 RNG suite remains excluded and was not rerun.
+
+## Dense free nonnegative factorization
+
+Implemented sklearn's `non_negative_factorization` in `sklearn_decomposition`
+and exported it through the facade. The subroutine returns allocatable W/H
+matrices and an iteration count. It forwards CD/MU controls, numeric beta loss,
+initialization, automatic rank, regularization, seed and shuffling to existing
+kernels. The fixed-H branch infers rank from H when requested, validates H,
+initializes W according to the solver, ignores supplied W and returns H
+unchanged. Existing transform arithmetic is unchanged; its private helper now
+optionally returns the iteration count. Existing `nmf` defaults are preserved;
+the function uses sklearn's CD/automatic-rank/200-iteration/`1e-4` defaults and
+the documented native seed-zero convention.
+
+Added a native test, stdin reference driver, fixed-component example and a
+916-fixture public-sklearn comparison suite (3,664 groups, 12 diagnostic
+cases). Tests include independent objectives, nonnegativity, fixed-H ownership,
+invalid shapes/controls, ignored nonfinite W and overcomplete fixed dictionaries.
+CD zero-tolerance stopping differences require both projected-gradient
+residuals to satisfy an explicit roundoff bound; source results are retained.
+Original Fortran adapters and tests remain MIT, with retained sklearn BSD
+attribution. No dependency or public extension algorithm was added.
+
+Checked verification passed all 154 native tests, 44,914 affected reference
+groups and all 90 new/prior CD/MU diagnostics. Fourteen new-suite roundoff
+certificates passed. The example matched sklearn. The checked audit verified
+294 compiled-content digests, report/source/validator/executable hashes, new
+field inventories and unchanged existing decomposition arithmetic.
+
+Release verification passed the same 154 native tests, 44,914 affected reference
+groups and 90 diagnostic cases. The optimized new suite retained 16 certified
+stationarity-level iteration differences. Both examples matched sklearn. The
+final audit verified all 294 compiled-content digests per profile, new field
+inventories, report/executable/validator/source hashes, the stopping certificates
+and unchanged existing decomposition arithmetic. Results and logs are archived
+in ignored `validation/results`, including `nonnegative_final_audit.json`.
+
+Inventory: 217 public types, 131 core modules, 154 native tests, 132 core reference
+suites and 871,813 groups. Forty invalid-input registries retain 3,637 cases.
+Only the affected suites above were rerun. The separate legacy RNG suite remains
+excluded and was not rerun.

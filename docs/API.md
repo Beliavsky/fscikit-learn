@@ -5908,7 +5908,7 @@ validation retains those cases and certifies both projected gradients.
 Native defaults remain `solver='mu'`, `n_components=2`, `max_iter=1000` and
 `tol=1e-6`; these differ from sklearn 1.6.1 defaults. Both solvers now support
 the initialization and regularization controls above. CD requires `beta_loss=2`.
-There is no sparse CD input, free `non_negative_factorization` function, verbose
+There is no sparse CD input, verbose
 output or Python warning protocol. CD data, factors and regularization are bounded conservatively
 within the real64 working range; unsupported extremes receive diagnostics.
 See `example/coordinate_descent_nmf.f90` for an exact rank-one custom fit.
@@ -5948,7 +5948,7 @@ the native path follows that cumulative-denominator behavior. Each transform
 starts a fresh cache. All-zero fitted H is rejected as in sklearn.
 
 Inputs remain dense real64; sparse MU, named-string loss selectors, Python
-warnings and the free factorization function are outside this interface.
+warnings are outside this interface.
 Powers, products, reductions and ratios are checked against the native real64
 working range before evaluation. Extreme finite parameters or factors may
 therefore receive a diagnostic where Python produces nonfinite values.
@@ -6009,3 +6009,40 @@ provide this option. Sparse positive fits, a public NNLS optimizer API and
 additional direct-fit sample-weight signatures are outside this addition.
 Extreme designs, coefficients or predictions outside the native real64 working
 range receive diagnostics. See `example/positive_linear_models.f90`.
+
+## Free nonnegative matrix factorization
+
+`sklearn_decomposition` and the `sklearn` facade export:
+
+```fortran
+call non_negative_factorization(x, w, h, n_iter, n_components=0, &
+  init='auto', solver='cd', update_h=.true.)
+```
+
+`w` and `h` are allocatable real64 output matrices; `n_iter` is an integer
+output. Optional controls are `n_components`, `w0`, `h0`, `init`, `update_h`,
+`solver`, numeric `beta_loss`, `tol`, `max_iter`, `alpha_w`, `alpha_h`,
+`l1_ratio`, integer `random_state` and `shuffle`. Inputs are preserved and the
+returned factors own their storage. This differs from Python's possible
+in-place modification of custom initializers.
+
+The function defaults follow sklearn 1.6.1: CD, automatic component count,
+200 iterations and tolerance `1e-4`. The native seed defaults to zero;
+Python's `random_state=None` uses process RNG state. Automatic rank is encoded
+by zero: custom initialization and fixed-H solves infer it from `h0`;
+other fits use the number of features. `init='auto'` represents Python `None`,
+and `alpha_h=-1` represents `'same'`. Existing `nmf` type defaults are unchanged.
+
+With `update_h=.true.`, both factors are fitted using the existing CD or MU
+solver. `init='custom'` requires both `w0` and `h0`. Other initialization modes
+ignore supplied factors. With `update_h=.false.`, `h0` is required and returned
+unchanged. Supplied `w0` and initialization mode do not initialize the solve:
+CD starts W at zero; MU starts it at `sqrt(mean(X)/rank)`. Named initialization
+and solver controls are still validated, as in sklearn. The fixed-H iteration
+count is returned. The existing regularization, numerical-range restrictions,
+MU beta-loss behavior and sklearn 1.6.1 cumulative KL/L1 denominator behavior
+apply to this function too.
+
+Only dense real64 inputs are supported. Python warnings, verbosity, named
+string loss selectors and sparse inputs are outside this interface. See
+`example/fixed_component_factorization.f90`.

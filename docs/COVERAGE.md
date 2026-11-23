@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 217 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and thirty-one reference suites additionally check 868,149
+All types have native tests. One hundred and thirty-two reference suites additionally check 871,813
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -41,7 +41,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb`, `categorical_nb` | Weighted/streaming Gaussian moments, empirical/fixed priors and variance smoothing; dense/CSR weighted and streaming discrete event counts and fixed/empirical priors; nonnegative scalar alpha and force_alpha flooring, plus feature-wise Multinomial/Complement smoothing; Bernoulli threshold; optional complement normalization |
 | neighbors | `neighborhood_components_analysis`, `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Supervised NCA metric learning; brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with shrinkage, uniform/empirical/custom priors and Euclidean discriminant probabilities; Euclidean kernel density |
 | cluster | `kmeans`, `bisecting_kmeans`, `mini_batch_kmeans`, `spectral_coclustering`, `spectral_biclustering`, `hdbscan`, `dbscan`, `agglomerative_clustering`, `feature_agglomeration`, `mean_shift`, `affinity_propagation`, `spectral_clustering`, `optics`, `birch`; `estimate_bandwidth`, `cluster_optics_dbscan`, `cluster_optics_xi` | Lloyd/k-means++; paired row/column spectral partitions and checkerboard biclustering; weighted streaming mini-batch centroids; bisecting centroid hierarchy with Lloyd/Elkan splits; density expansion; single/complete/average/Ward merge trees and feature pooling; flat-kernel mode seeking; damped exemplar messages; normalized-Laplacian clustering with k-means or pivoted QR assignment; OPTICS reachability ordering, Xi hierarchy and DBSCAN extraction; BIRCH streaming CF tree and optional Ward clustering |
-| decomposition | `pca`, `incremental_pca`, `truncated_svd`, `nmf`, `mini_batch_nmf`, `sparse_pca`, `mini_batch_sparse_pca`, `dictionary_learning`, `mini_batch_dictionary_learning`, `sparse_coder`, `latent_dirichlet_allocation`; `sparse_encode`; re-exports `kernel_pca`, `factor_analysis`, `fast_ica` | Full/randomized/covariance PCA with automatic routing; PCA whitening/inversion, variance/Minka dimension selection and probabilistic scores; streaming stacked-SVD IncrementalPCA; exact dense and randomized dense/CSR TruncatedSVD; regularized NMF coordinate descent and beta-divergence multiplicative updates; sparse dictionary factorization and SparsePCA; five sparse coding methods; nonlinear kernel PCA; full/randomized-SVD factor analysis with orthogonal rotations; parallel/deflation ICA |
+| decomposition | `pca`, `incremental_pca`, `truncated_svd`, `nmf`, `mini_batch_nmf`, `sparse_pca`, `mini_batch_sparse_pca`, `dictionary_learning`, `mini_batch_dictionary_learning`, `sparse_coder`, `latent_dirichlet_allocation`; `sparse_encode`, `non_negative_factorization`; re-exports `kernel_pca`, `factor_analysis`, `fast_ica` | Full/randomized/covariance PCA with automatic routing; PCA whitening/inversion, variance/Minka dimension selection and probabilistic scores; streaming stacked-SVD IncrementalPCA; exact dense and randomized dense/CSR TruncatedSVD; regularized NMF coordinate descent and beta-divergence multiplicative updates, with a free function supporting fixed-H solves; sparse dictionary factorization and SparsePCA; five sparse coding methods; nonlinear kernel PCA; full/randomized-SVD factor analysis with orthogonal rotations; parallel/deflation ICA |
 | cross_decomposition | `pls_regression`, `pls_canonical`, `cca`, `pls_svd` | Paired-matrix latent components: NIPALS regression/canonical deflation, CCA pseudoinverse mode, canonical direct SVD and PLSSVD cross-covariance projection; multiple response columns |
 | isotonic | `isotonic_regression`; `isotonic_fit`, `check_increasing` | Weighted pool-adjacent-violators, automatic Spearman direction, bounds, repeated-input aggregation and piecewise linear interpolation |
 | kernel_approximation | `rbf_sampler`, `nystroem`, `additive_chi2_sampler`, `skewed_chi2_sampler`, `polynomial_count_sketch` | Random Fourier RBF maps; sampled-landmark inverse-square-root maps for RBF/linear/polynomial/cosine kernels; additive and skewed chi2 maps; seeded polynomial TensorSketch with arbitrary-length FFTs |
@@ -6666,7 +6666,8 @@ Existing native defaults and multiplicative-update arithmetic are retained;
 users select CD explicitly. Dense real64 inputs and conservative numerical
 working-range bounds apply. Sparse CD, general beta losses, the free
 factorization function, verbose output and Python warning behavior are outside
-this addition. No new estimator type or public extension is counted. See
+this addition. Later increments below provide general beta losses and the free
+factorization function. No new estimator type or public extension is counted. See
 [the API contract](API.md#coordinate-descent-nmf) and
 [the example](../example/coordinate_descent_nmf.f90).
 
@@ -6695,7 +6696,7 @@ KL/L1 transform denominator is retained and documented.
 This replaces the earlier basic MU update and runtime-RNG initialization;
 native default parameter values remain unchanged. Dense real64 range diagnostics
 guard powered arithmetic, products, reductions and ratios. Sparse MU, named
-string beta selectors, the free factorization function and Python warning
+string beta selectors and Python warning
 behavior remain outside this interface. CD's numerical kernel and the existing
 MiniBatchNMF implementation are retained. No new public estimator type or
 extension algorithm is added. See [the API contract](API.md#beta-divergence-nmf-multiplicative-updates)
@@ -6756,3 +6757,28 @@ Final checked and release verification each passed all 153 native tests,
 sklearn. The final audit verifies 296 compiled source-content digests per profile,
 all field inventories and the retained solver-difference certificates; see
 [the validation record](VALIDATION.md).
+
+## Free NMF function
+
+`non_negative_factorization` exposes sklearn's dense free-function API alongside
+the `nmf` type. It returns W, H and the iteration count, supports CD/MU,
+automatic rank inference, custom/random/NNDSVD initialization, regularization
+and fixed-H solves. Fixed solves ignore W initializers and preserve H.
+The function follows sklearn's solver/iteration/tolerance defaults, with a
+native deterministic default seed; the existing type defaults are unchanged.
+There is no new estimator type, public extension algorithm or dependency.
+Inputs remain dense real64; see the [API contract](API.md#free-nonnegative-matrix-factorization).
+
+The new suite retains 916 fixtures and 3,664 groups plus 12 rejection cases.
+Its checks cover both factors, iteration counts, an independent regularized
+objective, nonnegativity and exact preservation of fixed H. At machine
+stationarity, CD iteration differences require projected-gradient roundoff
+certificates for both source and native factors. Cumulative inventory is now
+217 public types, 131 core modules, 154 native test programs, 132 core reference
+suites and 871,813 retained groups. Forty invalid-input registries retain 3,637
+cases. The separate legacy RNG suite remains excluded.
+
+Both final profiles pass all 154 native tests, 44,914 affected reference groups
+and 90 diagnostic cases (12 new plus 78 prior CD/MU). The examples match sklearn.
+The audit verifies 294 compiled-content digests per profile and unchanged
+existing decomposition arithmetic; see the [validation record](VALIDATION.md).

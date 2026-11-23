@@ -1100,3 +1100,9 @@ Pinned primary reference files (copies archived in ignored validation results):
 - [SciPy 1.15.3 `_cython_nnls.pyx`](https://github.com/scipy/scipy/blob/v1.15.3/scipy/optimize/_cython_nnls.pyx): `eaa84be52696f2ba5b87295ee56895b7e89bb31e0e83378c43a628de7d1a47cd`
 - [LAPACK 3.12.0 `dlarfgp.f`](https://github.com/Reference-LAPACK/lapack/blob/v3.12.0/SRC/dlarfgp.f): `92be2c8b8483629c586b0ca43438299c64a7c5f000e7b843412a75c5df30f16c`
 - [LAPACK 3.12.0 `dlartgp.f`](https://github.com/Reference-LAPACK/lapack/blob/v3.12.0/SRC/dlartgp.f): `883db0660892cc772839e624243194f73ec8991858e528016071744a0a350dec`
+
+The dense free `non_negative_factorization` adapter follows sklearn 1.6.1
+`decomposition/_nmf.py`, including automatic rank inference and fixed-H
+initialization. It reuses the attributed CD and MU kernels. Original Fortran
+interfaces, validation and tests are MIT contributions; retained sklearn BSD
+terms continue to apply to the translated algorithm contracts.

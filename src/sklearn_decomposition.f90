@@ -22,6 +22,7 @@ module sklearn_decomposition
   public :: sparse_pca,dictionary_learning,sparse_coder,sparse_encode
   public :: incremental_pca
   public :: fast_ica,pca, truncated_svd, nmf, kernel_pca, factor_analysis
+  public :: non_negative_factorization
   type :: pca
     integer :: n_components=0,n_samples_=0,n_components_=0
     character(16) :: dimension_mode='count',svd_solver='full',fit_svd_solver_='full'
@@ -73,6 +74,53 @@ module sklearn_decomposition
     procedure :: inverse_transform=>nmf_inverse
   end type
 contains
+  ! sklearn 1.6.1 decomposition._nmf.non_negative_factorization (BSD-3-Clause).
+  ! See THIRD_PARTY_NOTICES.md. Inputs are preserved; outputs own their storage.
+  subroutine non_negative_factorization(x,w,h,n_iter,n_components,w0,h0,init,update_h,solver, &
+      beta_loss,tol,max_iter,alpha_w,alpha_h,l1_ratio,random_state,shuffle)
+    real(dp), intent(in) :: x(:,:)
+    real(dp), allocatable, intent(out) :: w(:,:),h(:,:)
+    integer, intent(out) :: n_iter
+    integer, optional, intent(in) :: n_components,max_iter,random_state
+    real(dp), optional, intent(in) :: w0(:,:),h0(:,:),beta_loss,tol,alpha_w,alpha_h,l1_ratio
+    character(*), optional, intent(in) :: init,solver
+    logical, optional, intent(in) :: update_h,shuffle
+    type(nmf) :: model
+    logical :: fit_h
+    integer :: k
+    model%n_components=0;model%solver='cd';model%max_iter=200;model%tol=1.e-4_dp
+    if(present(n_components)) model%n_components=n_components
+    if(present(max_iter)) model%max_iter=max_iter
+    if(present(random_state)) model%random_state=random_state
+    if(present(beta_loss)) model%beta_loss=beta_loss
+    if(present(tol)) model%tol=tol
+    if(present(alpha_w)) model%alpha_w=alpha_w
+    if(present(alpha_h)) model%alpha_h=alpha_h
+    if(present(l1_ratio)) model%l1_ratio=l1_ratio
+    if(present(shuffle)) model%shuffle=shuffle
+    if(present(init)) then
+      call require(any(init==[character(8)::'auto','random','custom','nndsvd','nndsvda','nndsvdar']), &
+        'unknown NMF initializer')
+      model%init=init
+    end if
+    if(present(solver)) then
+      call require(solver=='cd'.or.solver=='mu','unknown NMF solver')
+      model%solver=solver
+    end if
+    call nmf_controls(model)
+    fit_h=.true.;if(present(update_h)) fit_h=update_h
+    if(fit_h) then
+      w=model%fit_transform(x,w0,h0);h=model%components_;n_iter=model%n_iter_
+    else
+      call require(present(h0),'NMF fixed factorization requires H')
+      k=model%n_components;if(k==0) k=size(h0,1)
+      call require(k>0,'NMF component count must be positive')
+      call require(all(shape(h0)==[k,size(x,2)]),'NMF fixed H shape mismatch')
+      model%n_components_=k;model%n_features_in_=size(x,2);model%components_=h0
+      ! As in sklearn, W is initialized by the solver even when W0 was supplied.
+      w=nmf_factor_transform(model,x,n_iter);h=model%components_
+    end if
+  end subroutine
   subroutine oriented_eigen(gram,values,vectors)
     real(dp), intent(in) :: gram(:,:)
     real(dp), intent(out) :: values(:),vectors(:,:)
@@ -651,9 +699,10 @@ contains
     end if
     self%components_=h
   end function
-  function nmf_factor_transform(self,x) result(w)
+  function nmf_factor_transform(self,x,n_iterations) result(w)
     class(nmf), intent(in) :: self
     real(dp), intent(in) :: x(:,:)
+    integer, optional, intent(out) :: n_iterations
     real(dp), allocatable :: w(:,:),h(:,:)
     real(dp) :: violation,initial,l1w,l2w,l1h,l2h,last,previous
     logical :: converged
@@ -673,5 +722,6 @@ contains
       call nmf_mu_solve(x,w,h,self%beta_loss,self%max_iter,self%tol,l1w,l2w,l1h,l2h,.false., &
         n_iter,converged,initial,last,previous)
     end if
+    if(present(n_iterations)) n_iterations=n_iter
   end function
 end module
