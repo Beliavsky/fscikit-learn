@@ -5,7 +5,7 @@ module sklearn_neural_network
   use lbfgsb_module, only: setulb
   use, intrinsic :: iso_fortran_env, only: int64
   use sklearn_legacy_rng, only: legacy_random_state
-  use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
+  use, intrinsic :: ieee_arithmetic, only: ieee_is_finite,ieee_is_nan,ieee_value,ieee_quiet_nan,ieee_negative_inf
   use sklearn_common
   use sklearn_metrics, only: accuracy_score,r2_score
   implicit none
@@ -26,6 +26,12 @@ module sklearn_neural_network
     real(dp) :: momentum=.9_dp,power_t=.5_dp,beta_1=.9_dp,beta_2=.999_dp,epsilon=1.e-8_dp
     character(16) :: solver="adam",learning_rate="constant",out_activation_="identity"
     logical :: shuffle=.true.,nesterovs_momentum=.true.,warm_start=.false.
+    logical :: early_stopping=.false.
+    real(dp) :: validation_fraction=.1_dp,best_validation_score_=0
+    real(dp), allocatable :: validation_scores_(:)
+    type(dense_layer), allocatable :: best_layers_(:)
+    logical :: best_layers_alias_=.false.
+    integer, allocatable :: training_indices_(:),validation_indices_(:)
     integer :: no_improvement_count_=0
     logical :: multilabel_=.false.,optimizer_ready_=.false.
     character(16) :: optimizer_kind_='',optimizer_schedule_='constant'
@@ -107,6 +113,8 @@ contains
     call require(self%max_iter>0.and.self%learning_rate_init>0.and.self%alpha>=0.and.self%tol>=0, &
       'invalid MLP training controls')
     call require(self%max_fun>0,'MLP max_fun must be positive')
+    call require(ieee_is_finite(self%validation_fraction),'nonfinite MLP validation fraction')
+    call require(self%validation_fraction>=0.and.self%validation_fraction<1,'MLP validation fraction must be in [0,1)')
     call require(self%n_iter_no_change>0.and.self%batch_size>=0,'invalid MLP iteration or batch controls')
     call require(self%random_state>=0,'MLP random_state must be nonnegative')
     call require(self%momentum>=0.and.self%momentum<=1,'MLP momentum must be in [0,1]')
@@ -155,6 +163,16 @@ contains
       end do
       self%layers_(l)%m=0; self%layers_(l)%v=0; self%layers_(l)%mb=0; self%layers_(l)%vb=0
     end do
+    self%best_layers_=self%layers_
+    self%best_layers_alias_=.false.
+    if(self%solver/='lbfgs') then
+      if(allocated(self%validation_scores_)) deallocate(self%validation_scores_)
+      self%best_validation_score_=ieee_value(0._dp,ieee_quiet_nan)
+      if(self%early_stopping) then
+        self%validation_scores_=[real(dp)::]
+        self%best_validation_score_=ieee_value(0._dp,ieee_negative_inf)
+      end if
+    end if
     if(self%solver=='lbfgs'.and.allocated(self%optimizer_saved_layers_)) call restore_optimizer(self,.false.)
   end subroutine
   subroutine forward(self,x,classification,buffers)
@@ -326,6 +344,97 @@ contains
       end do
     end if
   end subroutine
+  subroutine shuffle_mlp_indices(indices,rng)
+    integer, intent(inout) :: indices(:)
+    type(legacy_random_state), intent(inout) :: rng
+    integer :: i,j,tmp
+    do i=size(indices),2,-1
+      j=rng%integer_index(i);tmp=indices(i);indices(i)=indices(j);indices(j)=tmp
+    end do
+  end subroutine
+  subroutine binary_allocation(counts,draws,rng,allocation)
+    integer, intent(in) :: counts(2),draws
+    type(legacy_random_state), intent(inout) :: rng
+    integer, intent(out) :: allocation(2)
+    real(dp) :: continuous(2),remainder(2)
+    integer :: tied(2),chosen,needed
+    continuous=real(counts,dp)/sum(counts)*draws;allocation=floor(continuous)
+    needed=draws-sum(allocation)
+    if(needed==0) return
+    remainder=continuous-allocation
+    do while(needed>0)
+      chosen=maxloc(remainder,dim=1)
+      if(remainder(1)==remainder(2)) then
+        ! RandomState.choice(..., replace=False) permutes even when taking all.
+        tied=[1,2];call shuffle_mlp_indices(tied,rng)
+        if(needed==2) then
+          allocation=allocation+1;exit
+        end if
+        chosen=tied(1)
+      end if
+      allocation(chosen)=allocation(chosen)+1;remainder(chosen)=-1;needed=needed-1
+    end do
+  end subroutine
+  subroutine validation_split(self,target,classification,rng)
+    class(network_storage), intent(inout) :: self
+    real(dp), intent(in) :: target(:,:)
+    logical, intent(in) :: classification
+    type(legacy_random_state), intent(inout) :: rng
+    integer, allocatable :: indices(:),members(:)
+    integer :: n,ntrain,nval,i,c,counts(2),nt(2),nv(2),a,b
+    n=size(target,1);nval=ceiling(n*self%validation_fraction);ntrain=n-nval
+    call require(nval>0,'MLP validation split needs positive validation fraction')
+    call require(ntrain>0,'MLP validation split leaves no training samples')
+    if(allocated(self%training_indices_)) deallocate(self%training_indices_)
+    if(allocated(self%validation_indices_)) deallocate(self%validation_indices_)
+    allocate(self%training_indices_(ntrain),self%validation_indices_(nval))
+    indices=[(i,i=1,n)]
+    if(classification.and.size(target,2)==1) then
+      counts=[count(target(:,1)==0),count(target(:,1)==1)]
+      call require(minval(counts)>=2,'MLP stratified validation needs two members per class')
+      call require(ntrain>=2.and.nval>=2,'MLP stratified validation needs two samples per partition')
+      call binary_allocation(counts,ntrain,rng,nt)
+      call binary_allocation(counts-nt,nval,rng,nv)
+      a=0;b=0
+      do c=1,2
+        members=pack(indices,target(:,1)==real(c-1,dp));call shuffle_mlp_indices(members,rng)
+        self%training_indices_(a+1:a+nt(c))=members(:nt(c))
+        self%validation_indices_(b+1:b+nv(c))=members(nt(c)+1:nt(c)+nv(c))
+        a=a+nt(c);b=b+nv(c)
+      end do
+      call shuffle_mlp_indices(self%training_indices_,rng);call shuffle_mlp_indices(self%validation_indices_,rng)
+    else
+      call shuffle_mlp_indices(indices,rng)
+      self%validation_indices_=indices(:nval);self%training_indices_=indices(nval+1:)
+    end if
+  end subroutine
+  real(dp) function validation_score(self,x,target,classification) result(score)
+    class(network_storage), intent(in) :: self
+    real(dp), intent(in) :: x(:,:),target(:,:)
+    logical, intent(in) :: classification
+    type(activation_buffer), allocatable :: buffers(:)
+    integer :: last,i,j,correct
+    call forward(self,x,classification,buffers);last=size(self%layers_)
+    if(classification) then
+      if(self%out_activation_=='logistic') then
+        correct=count(all((buffers(last)%values>.5_dp).eqv.(target>0),dim=2))
+      else
+        correct=0
+        do i=1,size(x,1)
+          if(maxloc(buffers(last)%values(i,:),dim=1)==maxloc(target(i,:),dim=1)) correct=correct+1
+        end do
+      end if
+      score=real(correct,dp)/size(x,1)
+    else
+      if(size(target,1)<2) then
+        score=ieee_value(0._dp,ieee_quiet_nan);return
+      end if
+      score=0
+      do j=1,size(target,2)
+        score=score+r2_score(target(:,j),buffers(last)%values(:,j))/size(target,2)
+      end do
+    end if
+  end function
   subroutine train(self,x,target,classification,incremental)
     class(network_storage), intent(inout) :: self
     real(dp), intent(in) :: x(:,:),target(:,:)
@@ -333,9 +442,9 @@ contains
     logical, optional, intent(in) :: incremental
     type(activation_buffer), allocatable :: buffers(:)
     type(legacy_random_state) :: rng
-    real(dp), allocatable :: gw(:,:),gb(:),prob(:,:),xb(:,:),yb(:,:)
+    real(dp), allocatable :: gw(:,:),gb(:),prob(:,:),xb(:,:),yb(:,:),xt(:,:),yt(:,:),xval(:,:),yval(:,:)
     integer, allocatable :: order(:)
-    real(dp) :: loss,rate,penalty,accumulated,eps
+    real(dp) :: loss,rate,penalty,accumulated,eps,score
     integer :: it,l,last,n,stale,bs,first,finish,m,i,j,tmp,history_size,epochs
     integer(int64) :: step
     logical :: reuse,streaming
@@ -368,8 +477,21 @@ contains
       if(size(target,2)==1.or.self%multilabel_) self%out_activation_='logistic'
     end if
     if(self%solver=='lbfgs') then
+      self%best_layers_alias_=.false.
       call train_lbfgs(self,x,target,classification,reuse)
       return
+    end if
+    call require(.not.(streaming.and.self%early_stopping),'MLP partial_fit does not support early stopping')
+    if(self%early_stopping) then
+      call require(allocated(self%validation_scores_),'MLP warm fit validation history unavailable')
+      call validation_split(self,target,classification,rng)
+      xt=x(self%training_indices_,:);yt=target(self%training_indices_,:)
+      xval=x(self%validation_indices_,:);yval=target(self%validation_indices_,:)
+      n=size(xt,1)
+    else
+      xt=x;yt=target
+      if(allocated(self%training_indices_)) deallocate(self%training_indices_)
+      if(allocated(self%validation_indices_)) deallocate(self%validation_indices_)
     end if
     if(reuse) then
       call require(allocated(self%loss_curve_),'MLP stochastic history unavailable; use a cold fit after L-BFGS')
@@ -377,7 +499,10 @@ contains
       self%loss_curve_=[self%loss_curve_,spread(0._dp,1,epochs)]
     else
       history_size=0;self%loss_curve_=spread(0._dp,1,epochs);self%best_loss_=huge(1._dp)
+      if(self%early_stopping) self%best_loss_=ieee_value(0._dp,ieee_quiet_nan)
     end if
+    if(.not.self%early_stopping) call require(.not.ieee_is_nan(self%best_loss_), &
+      'MLP warm fit loss history unavailable after early stopping')
     if(.not.streaming.or..not.self%optimizer_ready_) then
       call reset_optimizer(self)
     else
@@ -396,7 +521,7 @@ contains
       accumulated=0
       do first=1,n,bs
         finish=min(n,first+bs-1);m=finish-first+1
-        xb=x(order(first:finish),:);yb=target(order(first:finish),:)
+        xb=xt(order(first:finish),:);yb=yt(order(first:finish),:)
         call forward(self,xb,classification,buffers);penalty=0
         do l=1,last
           penalty=penalty+sum(self%layers_(l)%weights**2)
@@ -444,12 +569,34 @@ contains
         end do
       end do
       self%loss_=accumulated/n;self%loss_curve_(history_size+it)=self%loss_;self%t_=self%t_+n
-      if(self%loss_>self%best_loss_-self%tol) then
-        stale=stale+1
+      if(self%early_stopping) then
+        ! sklearn restores by assigning its checkpoint arrays. A subsequent
+        ! warm stochastic fit mutates those arrays until a new copy is saved.
+        if(self%best_layers_alias_) self%best_layers_=self%layers_
+        score=validation_score(self,xval,yval,classification)
+        self%validation_scores_=[self%validation_scores_,score]
+        ! NaN scores neither improve the checkpoint nor count toward patience.
+        if(ieee_is_nan(score)) then
+          stale=0
+        else
+          if(score<self%best_validation_score_+self%tol) then
+            stale=stale+1
+          else
+            stale=0
+          end if
+          if(score>self%best_validation_score_) then
+            self%best_validation_score_=score;self%best_layers_=self%layers_
+            self%best_layers_alias_=.false.
+          end if
+        end if
       else
-        stale=0
+        if(self%loss_>self%best_loss_-self%tol) then
+          stale=stale+1
+        else
+          stale=0
+        end if
+        self%best_loss_=min(self%best_loss_,self%loss_)
       end if
-      self%best_loss_=min(self%best_loss_,self%loss_)
       if(self%optimizer_kind_=='sgd'.and.self%optimizer_schedule_=='invscaling') &
         rate=self%optimizer_eta0_/(real(self%t_,dp)+1)**self%optimizer_power_
       if(stale>self%n_iter_no_change) then
@@ -463,6 +610,13 @@ contains
     self%n_iter_=min(it,epochs);self%loss_curve_=self%loss_curve_(:history_size+self%n_iter_)
     self%no_improvement_count_=stale
     self%optimizer_rate_=rate;self%optimizer_step_=step
+    if(self%early_stopping) then
+      do l=1,last
+        self%layers_(l)%weights=self%best_layers_(l)%weights
+        self%layers_(l)%bias=self%best_layers_(l)%bias
+      end do
+      self%best_layers_alias_=.true.
+    end if
   end subroutine
   subroutine mlpc_fit(self,x,y)
     class(mlp_classifier), intent(inout) :: self

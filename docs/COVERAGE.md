@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 221 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and fifty-one reference suites additionally check 1,852,492
+All types have native tests. One hundred and fifty-two reference suites additionally check 2,041,708
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -7926,3 +7926,54 @@ epochs, 360 samples and accuracy 1.0. The final audit verified field inventories
 153 compiled source contents per profile, source/executable/validator hashes and
 unchanged unrelated modules/existing native tests. Local reports are retained
 under `validation/results/mlp_partial_*`, including `mlp_partial_final_audit.json`.
+
+## MLP validation-set stopping
+
+`mlp_classifier` and `mlp_regressor` now support `early_stopping` and
+`validation_fraction` in stochastic fits. The holdout follows NumPy RandomState
+initialization draws, sklearn partition ordering and binary stratified class
+allocation/tie breaking. Multiclass, multilabel and regression splits remain
+unstratified, matching sklearn 1.6.1. Validation uses classifier accuracy,
+exact-row multilabel accuracy or uniform-average response R2. Histories,
+best score, strict improvement checkpoints, tolerance/patience, adaptive SGD
+rate reductions, final best-parameter restoration and training-only sample
+clocks follow source behavior. Final optimizer buffers and loss retain their
+last-epoch values.
+
+Warm fits retain validation history/patience/best score and redraw the holdout.
+Restored checkpoint arrays follow source aliasing during a later warm
+stochastic fit until a new strict improvement saves a copy. One-row regression
+holdouts produce NaN scores, consume no patience and preserve the cold initial
+checkpoint. Native `best_loss_` uses NaN for Python None. Cold L-BFGS resets
+the initial checkpoint but preserves stochastic histories; L-BFGS ignores
+validation stopping. Stochastic partial calls and warm changes requiring
+unavailable training/validation history are rejected. Native one-based split
+indices and checkpoint storage expose implementation diagnostics, not new
+algorithms.
+
+The new `compare_mlp_early.py` suite checks 189,216 required groups across 1,296
+workflows and 6,480 fits: three seeds, six response layouts, four activations,
+three architectures and six Adam/SGD configurations. Five-stage sequences cover
+cold/warm fits, varying holdout fractions, binary allocation ties, shuffled and
+ordered minibatches, constant/dependent inputs and responses, one-row R2,
+cold L-BFGS handoffs and resumed warm stochastic fits. It checks exact split
+indices, all layer parameters and optimizer buffers, copied best checkpoints,
+loss/validation histories, score/patience/sample counters, optimizer rates,
+predictions, probabilities and query scores. L-BFGS supplied objective/Jacobian
+checks remain at native returned points. Twelve isolated invalid-input
+diagnostics cover fractions, empty/undersized partitions, rare binary classes,
+unsupported partial stopping and unavailable warm histories.
+
+The full development suite and focused native test passed; final fpm checked
+and release verification is recorded below when complete. The native test also
+independently checks restored validation accuracy, stratified class counts,
+training-only clocks, warm history append and NaN checkpoint alias behavior.
+The example exposes holdout sizes, best/restored R2 and sample count. Sparse MLP
+input, alternative dtypes, arbitrary cached-layout changes and single-class
+estimator construction remain outside the subset. MIT package licensing and
+retained sklearn/NumPy BSD attribution continue; no dependency or extension
+estimator was added.
+
+Cumulative inventory: 221 public core types, 137 source modules, 176 native
+programs, 152 core reference suites / 2,041,708 retained required groups, and 57
+invalid-input registries / 3,994 cases. These remain API subsets.

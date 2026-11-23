@@ -1314,3 +1314,15 @@ optimizer diagnostics and snapshot storage, tests, example and validation
 harness are original MIT contributions. Installed-source hashes are retained
 with validation results. No new dependency or public extension estimator was
 introduced.
+
+## MLP validation stopping (BSD)
+
+Validation stopping further adapts scikit-learn 1.6.1
+`neural_network/_multilayer_perceptron.py` (holdout scoring, patience, checkpoint
+copies/restoration and warm-fit alias behavior), `model_selection/_split.py`
+(ShuffleSplit/StratifiedShuffleSplit partition ordering), and
+`utils/extmath.py` (`_approximate_mode` class allocation). Complete sklearn BSD
+terms remain in LICENSES/scikit-learn-COPYING. Existing NumPy RNG attribution
+also applies. Typed split/checkpoint diagnostics, native NaN handling under
+floating-point traps, tests, example and reference harness are original MIT
+contributions. No dependency or public extension estimator was added.

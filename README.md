@@ -333,3 +333,8 @@ MLP `partial_fit` now retains Adam moments or SGD velocities across one-epoch
 calls, with declared-class streaming and matrix targets. See
 [the streaming example](example/incremental_mlp.f90) and
 [the incremental contract](docs/API.md#incremental-multilayer-perceptrons).
+
+MLP `early_stopping=.true.` holds out a seeded validation partition, records
+validation scores and restores the best checkpoint. Binary targets use a
+stratified holdout. See [the example](example/early_stopping_mlp.f90) and
+[the early-stopping contract](docs/API.md#mlp-validation-set-early-stopping).

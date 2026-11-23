@@ -6615,5 +6615,44 @@ created L-BFGS-only model has no stochastic history, so switching it to a
 stochastic partial/warm call requires a prior ordinary stochastic fit.
 
 See [the streaming example](../example/incremental_mlp.f90) and
-[coverage details](COVERAGE.md). Validation-set early stopping and sparse MLP
-input remain outside this interface.
+[coverage details](COVERAGE.md). Sparse MLP input remains outside this interface.
+
+## MLP validation-set early stopping
+
+Set `early_stopping=.true.` for Adam/SGD fits and use `validation_fraction`
+(default 0.1) to reserve a holdout. Its size is `ceiling(n*validation_fraction)`;
+the training partition must remain nonempty. Integer-seeded splitting follows
+the initialization RNG draws and precedes epoch shuffling. Binary vector
+classification uses a stratified holdout, requiring at least two observations
+per class and at least two observations in each partition. Multiclass,
+multilabel and regression targets use an unstratified permutation, as in
+sklearn 1.6.1. The fraction must be in [0,1); zero is valid only when no
+stochastic validation split is requested.
+
+`validation_scores_` records each epoch's classifier accuracy (exact-row-match
+for multilabel) or uniform-average response R2. `best_validation_score_`
+tracks strict improvements. A score below `best_validation_score_+tol`
+increments patience; stopping occurs when the count exceeds
+`n_iter_no_change`, with SGD adaptive rate reductions preceding termination.
+The final weights/biases are restored from the best validation checkpoint.
+Optimizer buffers, `loss_` and the loss history describe the actual final
+training epoch. `best_loss_` is NaN, representing Python's None; validation
+stopping does not track a best training loss. The 64-bit `t_` counts only
+training-partition samples. A one-row regression holdout yields NaN R2, resets
+patience without improving the checkpoint, and restores initialization on a
+cold fit.
+
+Warm fits retain validation history, best score and patience, while drawing a
+fresh holdout from the per-call integer seed. The restored checkpoint follows
+sklearn's array aliasing: warm stochastic updates also modify that checkpoint
+until a new strict improvement saves a copy. Cold stochastic fits reset history;
+cold L-BFGS resets its initial checkpoint while preserving existing stochastic
+history. L-BFGS itself ignores early stopping. Stochastic partial calls reject
+early stopping. Toggling validation stopping on/off during a warm fit requires
+a cold fit because the corresponding source history is unavailable.
+
+Native diagnostics `training_indices_` and `validation_indices_` contain
+one-based positions in the last stochastic holdout split; `best_layers_` stores
+the checkpoint. These expose private implementation state, rather than adding
+new estimator algorithms. With validation stopping disabled, split diagnostics
+are unallocated. See [the example](../example/early_stopping_mlp.f90).
