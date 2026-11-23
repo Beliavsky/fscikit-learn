@@ -5446,7 +5446,7 @@ program invalid_input_driver
   case('sgd_loss')
     sgd%loss='bad'; call sgd%fit(x,y)
   case('sgd_penalty')
-    sgd%penalty='l1'; call sgd%fit(x,y)
+    sgd%penalty='unknown'; call sgd%fit(x,y)
   case('sgd_rate')
     sgd%learning_rate='bad'; call sgd%fit(x,y)
   case('sgd_alpha')

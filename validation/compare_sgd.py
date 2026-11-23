@@ -11,7 +11,10 @@ RESULTS = ROOT / "validation/results"
 
 def main():
     parser = argparse.ArgumentParser(); parser.add_argument('--executable', type=Path)
+    parser.add_argument('--profile',choices=['checked','release'],default='checked')
+    parser.add_argument('--report',type=Path,default=RESULTS/'sgd.json')
     args = parser.parse_args()
+    run_options = ["--profile", "release"] if args.profile=="release" else ["--flag", "-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow"]
     RESULTS.mkdir(exist_ok=True)
     checks = []
     for seed, n, p in ((7, 37, 5), (42, 43, 4), (2026, 19, 12)):
@@ -26,7 +29,7 @@ def main():
         if args.executable:
             subprocess.run([str(args.executable.resolve()), str(data), str(output)], cwd=ROOT, check=True)
         else:
-            subprocess.run(["fpm", "run", "--flag", "-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow",
+            subprocess.run(["fpm", "run", *run_options,
                             "--target", "reference_sgd_driver", "--", str(data), str(output)], cwd=ROOT, check=True)
         actual, expected = {}, {}
         for line in output.read_text().splitlines():
@@ -60,7 +63,7 @@ def main():
             assert actual[name].shape == want.shape, (seed, name)
             np.testing.assert_allclose(actual[name], want, atol=3e-8, rtol=3e-8, err_msg=f"{seed} {name}")
             checks.append(dict(seed=seed, name=name, passed=True))
-    (RESULTS/"sgd.json").write_text(json.dumps(dict(sklearn=sklearn.__version__, checks=checks), indent=2)+"\n")
+    args.report.write_text(json.dumps(dict(sklearn=sklearn.__version__,profile=args.profile,checks=checks), indent=2)+"\n")
     print(f"{len(checks)} SGD result groups passed")
 
 if __name__ == "__main__":

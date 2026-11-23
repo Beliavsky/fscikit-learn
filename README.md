@@ -289,3 +289,8 @@ contrast weights, including masks and explicit zero edges. See
 an adjustable tree angle and CSR precomputed distances. The dense exact solver
 remains available with `method='exact'`. See [the example](example/barnes_hut_tsne.f90)
 and [the API contract](docs/API.md#exact-and-barnes-hut-t-sne-and-trustworthiness).
+
+SGD regression and classification now support L1/elastic-net penalties,
+optimal/adaptive learning rates, source-compatible lazy averaging and seeded
+shuffling. See [the example](example/regularized_sgd.f90) and
+[the SGD controls](docs/API.md#streaming-sgd-classification).

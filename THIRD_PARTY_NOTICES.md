@@ -67,7 +67,7 @@ Reference paths by module:
 | multitask | linear_model/_coordinate_descent.py MultiTaskElasticNet/MultiTaskLasso centering/scaling, MultiTaskElasticNetCV/MultiTaskLassoCV alpha grids, warm paths, fold residuals, ordering and full-data refits; _cd_fast.pyx enet_coordinate_descent_multi_task block shrinkage and dual-gap stopping; utils/_random.pxd uint32 XorShift and 31-bit feature sampling; model_selection/_split.py KFold/PredefinedSplit partition semantics; existing NumPy-compatible bounded seed draws and native dense cyclic/random implementation |
 | ridge_classification | linear_model/_ridge.py RidgeClassifier encoding, weighting, centering and RidgeClassifierCV default leave-one-out scoring/results; native shared SVD and dual-resolvent implementation |
 | coordinate CV | linear_model/_coordinate_descent.py _alpha_grid and LinearModelCV (ElasticNetCV/LassoCV), model_selection/_split.py KFold boundaries; existing native coordinate solver |
-| sgd | linear_model/_stochastic_gradient.py and _sgd_fast.pyx.tp: SGDRegressor/SGDClassifier losses, binary/OVR and class-weight contracts, probability maps, update order, L2 decay, learning rates, averaging, sample clock and stopping contracts; native dense update implementation |
+| sgd | linear_model/_stochastic_gradient.py and _sgd_fast.pyx.tp: SGDRegressor/SGDClassifier losses, binary/OVR and class weights, probability maps, L1/elastic-net truncated gradients, L2 decay, all four schedules, lazy averaging, sample clocks and stopping; utils/_seq_dataset.pyx.tp and _random.pxd seeded permutations; native dense implementation |
 | linear_model | linear_model/_base.py, _ridge.py, _coordinate_descent.py, _logistic.py, _perceptron.py, _bayes.py, _omp.py, _huber.py, _ransac.py, _glm/glm.py; _loss/loss.py (Tweedie objectives/deviance); _theil_sen.py subset-fit, breakdown and modified-Weiszfeld contracts; native SVD and independent Fortran subset sampling; _passive_aggressive.py, _stochastic_gradient.py, _sgd_fast.pyx.tp PA-I/II updates, class weighting, averaging and stopping contracts; independent native shuffling |
 | naive_bayes | naive_bayes.py |
 | categorical_nb | naive_bayes.py CategoricalNB per-feature category counts, smoothing, priors, sample weights, incremental expansion and likelihood contracts; native ragged dense tables and strict integer-code validation |
@@ -1186,3 +1186,21 @@ singleton-axis mask selection; source exceptions remain in reference reports.
 The shared quiet-subtraction boundary correction is original MIT arithmetic,
 verified independently against NumPy float64 subtraction; the existing NumPy
 BSD notice remains retained. No new external runtime code or dependency is added.
+
+
+## SGD truncated gradients, schedules and shuffling (BSD)
+
+`src/sklearn_sgd.f90` additionally translates L1/elastic-net cumulative
+truncation (`l1penalty`), optimal-rate initialization, adaptive-rate reduction
+and WeightVector64 lazy averaging from the sklearn 1.6.1 sources identified
+above. L1 follows the method credited upstream to Y. Tsuruoka, J. Tsujii and
+S. Ananiadou (2009). The update order preserves the source's lazy averaging
+before L1 truncation, including its non-arithmetic-average behavior.
+Scalar seed draws and per-class OVR streams follow `_stochastic_gradient.py`;
+forward Fisher-Yates and unsigned xorshift follow the following sources:
+
+- `utils/_seq_dataset.pyx.tp`: `90a4faefb8dbb83c55266db5f0710366b01a54d902dfa89ab303a2a089ca2d5f`
+- `utils/_random.pxd`: `d25e4ddf7935cbf0a6b3e41a387d76c96ca64fffb6148ee7ab5a1b082a5e287d`
+
+The existing attributed NumPy-compatible MT19937 backend is reused. No
+dependency was added; the project remains MIT with retained BSD notices.

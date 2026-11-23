@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 221 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and forty-three reference suites additionally check 1,075,549
+All types have native tests. One hundred and forty-four reference suites additionally check 1,100,668
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -1371,15 +1371,18 @@ squared_epsilon_insensitive. epsilon defaults to .1 and must be finite and
 nonnegative. Huber uses the epsilon transition and clips its residual gradient;
 the epsilon-insensitive losses use the corresponding dead zone.
 
-penalty is 'l2' by default or 'none'; alpha defaults to 1e-4 and is finite and
-nonnegative. The unpenalized intercept is optional (fit_intercept=true). Each
+penalty defaults to 'l2'; 'none', 'l1' and 'elasticnet' are also supported.
+Elastic-net uses l1_ratio=.15, with endpoints zero/one giving L2/L1. alpha
+defaults to 1e-4 and is finite and nonnegative. The unpenalized intercept is optional (fit_intercept=true). Each
 row computes a pre-update gradient, clipped to [-1e12,1e12], applies L2 decay
 max(0,1-eta*alpha), then adds -eta*gradient*sample_weight times the row. Optional
 sample weights must be finite/nonnegative and match row count. Zero-weight
 rows still decay L2 coefficients, contribute to the unweighted stopping loss,
 and advance the sample clock; all-zero weights are allowed as in sklearn.
 
-learning_rate supports 'invscaling' (default) and 'constant'. eta0 defaults .01;
+learning_rate supports 'invscaling' (default), 'constant', 'optimal' and
+'adaptive'. Optimal requires positive alpha and permits eta0=0; adaptive
+reduces eta by five after exhausted patience while eta>1.e-6. eta0 defaults .01;
 power_t defaults .25 and must be nonnegative. Inverse scaling uses
 eta0/t_^power_t. t_ starts at 1 and increments once per row, including across
 partial_fit calls. fit always resets coefficient, intercept, averaging state
@@ -1399,18 +1402,20 @@ mean unweighted pre-update data loss (excluding regularization).
 tol defaults to 1e-3; tol=-1 disables stopping (sklearn tol=None). Other negative
 values are rejected. With stopping enabled, an epoch whose unweighted loss sum
 is greater than best_loss-tol*n increments the stale counter; improvements
-reset it. n_iter_no_change defaults to 5. Reaching patience sets converged_=true;
+reset it. n_iter_no_change defaults to 5. Reaching patience sets converged_=true
+except when an adaptive rate reduction is still possible;
 exhausting max_iter leaves it false. partial_fit ignores stopping and leaves
 converged_ false. The loss comparison is strict, including at tol=0.
 
 shuffle defaults false in this port (sklearn defaults true) to provide a
-deterministic ordered update stream. When enabled, native Fisher-Yates shuffling
-uses random_state and the package RNG. Each fit/partial_fit call seeds that
-native stream; it differs from NumPy/sklearn shuffles. Seeded native repeats
-are tested, while exact sklearn comparisons use shuffle=False.
+deterministic ordered update stream. When enabled, scalar-seeded shuffling now
+uses sklearn's local NumPy seed draws and forward xorshift Fisher-Yates pass.
+The index permutation is reshuffled in place each epoch with the same seed;
+fit/partial_fit seed a new local stream. Both ordered and shuffled trajectories
+are compared directly with sklearn, including per-class OVR streams.
 
-Scope: finite dense real64 matrices, one numeric target; no sparse data, L1/
-elastic-net penalties, optimal/adaptive rate schedules, warm-start fit, custom
+Scope: finite dense real64 matrices, one numeric target; no sparse data,
+warm-start fit, custom
 initial coefficients, validation-set early stopping or metadata routing.
 The source follows sklearn's stochastic gradient and loss contracts; original
 contributions remain MIT with retained BSD attribution. Exported through
@@ -1470,17 +1475,18 @@ rows. An all-zero probability row becomes uniform (also a finite fallback for
 complete logistic underflow). These probabilities are not separately calibrated.
 Other losses reject the probability method with an explicit diagnostic.
 
-Shared controls follow SGDRegressor: penalty='l2' or 'none', finite alpha>=0,
-constant/invscaling rates, eta0>0, power_t>=0, optional unpenalized intercept,
+Shared controls follow SGDRegressor: none/L1/L2/elastic-net penalties, finite
+alpha>=0, all four rate schedules, eta0>0 (zero allowed for optimal), power_t>=0,
+optional unpenalized intercept,
 max_iter, tol=-1 to disable stopping, training-loss patience and integer
 average thresholds. Defaults are hinge, alpha=1e-4, eta0=.01, invscaling,
 power_t=.25, tol=1e-3, max_iter=1000, n_iter_no_change=5, average=0 and
 shuffle=false. These ordered inverse-scaling defaults differ from sklearn's
-shuffle=true, optimal rate, power_t=.5 and eta0=0 defaults. Native seeded shuffles are
-reproducible but do not reproduce NumPy/sklearn permutations.
+shuffle=true, optimal rate, power_t=.5 and eta0=0 defaults. Explicitly enabled
+shuffling now reproduces scalar-seeded sklearn permutations.
 
 Scope: finite dense real64 arrays, integer labels, five classification losses;
-no L1/elastic-net, optimal/adaptive schedules, regression losses for classifiers,
+no regression losses for classifiers,
 custom coefficient initialization, warm-start fit, validation-set early stopping,
 log-probability API or parallel OVR. Exported through sklearn_linear_model and
 sklearn. Original contributions remain MIT with sklearn BSD attribution.
@@ -7285,3 +7291,55 @@ and reference-binary hashes, the exported duplicate threshold, unchanged exact
 affinity/objective bodies and unchanged unrelated core modules. Detailed local
 reports and audit helpers remain under ignored `validation/results`, including
 `tsne_bh_final_audit.json`. The implementation is committed as `2b5c9fb`.
+
+## SGD penalties, schedules and source shuffling batch
+
+The shared SGDRegressor/SGDClassifier engine now supports `l1`, `l2`, `none`
+and `elasticnet`, with `l1_ratio=.15` and the source cumulative truncated-gradient
+correction. All four public learning-rate schedules are supported: constant,
+inverse scaling, optimal initialization with the advancing sample clock, and
+adaptive reductions by five when training-loss patience is exhausted. Optimal
+requires positive alpha and accepts eta0=0. Adaptive stopping occurs only when
+the current rate cannot be reduced further (eta<=1.e-6). Each partial_fit runs
+one epoch; truncation corrections and adaptive-rate state reset per call, as
+in the source. Standard coefficients, average state and sample clock persist.
+
+Averaging now follows the source WeightVector64 lazy `average_a/average_b`
+updates and scale materialization, including resets below 1.e-9. This preserves
+the source's averaging-before-L1 order and its resulting non-arithmetic-average
+behavior for truncated gradients. Intercepts remain unpenalized. Repeated
+zero lazy scales, zero-weight rows and elastic-net endpoints are covered.
+
+Explicitly enabled shuffling now reproduces sklearn's scalar NumPy seed draws,
+forward xorshift Fisher-Yates permutations and per-class OVR seed streams.
+Permutations are reshuffled in place each epoch using the same seed. The
+implementation uses the existing local NumPy-compatible RNG and leaves the
+global Fortran RNG alone. The native defaults remain ordered inverse scaling;
+there is no new dependency or public extension type.
+
+`compare_sgd_regularization.py` contains 25,119 strict result groups across
+4,194 fixtures and seven new isolated diagnostics. Its main Cartesian grid
+covers three seeds, four regression losses or five classifier losses, regression
+and binary/three-class OVR fitting, all four penalties, all four schedules,
+average thresholds 0/1/10, ordered/shuffled data, varied sample weights and
+streaming batches. Further cases cover zero/large regularization, elastic-net
+endpoints, all-zero weights, repeated lazy-scale resets, nonzero adaptive
+updates after rate reductions, optimal eta0=0 at three regularization strengths,
+and the adaptive stopping threshold. Coefficients, intercepts, predictions or
+decisions, probabilities, labels and per-batch coefficient/clock traces use
+3.e-9 relative and 3.e-10 absolute tolerances. No alternative oracle or
+trajectory certificate is used. The reference driver streams cases in one
+process to avoid Windows launch overhead; diagnostics remain isolated.
+
+Existing sparse-input, warm-start fit, custom initialization, validation-set
+early stopping and averaged-classifier partial-fit intercept limitations remain
+as documented. The new controls reach supported composition wrappers through
+ordinary estimator copies. The original SGD, multiclass, multioutput and
+integration reference suites are included in the affected regression run.
+All unrelated core modules are unchanged; only the legacy unsupported-penalty
+fixture changes from now-supported `l1` to `unknown`.
+
+Cumulative inventory: 221 public core types, 136 source modules, 167 native
+programs, 144 core reference suites / 1,100,668 retained groups, and 49
+invalid-input registries / 3,837 cases. These remain API subsets. The package
+retains its MIT license and attributed third-party BSD sources.

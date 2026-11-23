@@ -2,7 +2,9 @@
 ! Lazy weight scaling also follows sklearn utils/_weight_vector.pyx.tp.
 ! BSD attribution: LICENSES/scikit-learn-COPYING; THIRD_PARTY_NOTICES.md.
 module sklearn_sgd
-  use sklearn_common, only: dp,require,check_x,check_xy,seed_rng,unique_labels,label_index,sigmoid
+  use sklearn_common, only: dp,require,check_x,check_xy,unique_labels,label_index,sigmoid
+  use sklearn_legacy_rng, only: legacy_random_state
+  use, intrinsic :: iso_fortran_env, only: int64
   use sklearn_metrics, only: r2_score,accuracy_score
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
   implicit none
@@ -19,6 +21,7 @@ module sklearn_sgd
     real(dp), private :: standard_intercept=0,average_intercept=0
     logical, private :: classification=.false.
     integer, private :: fitted_average=0
+    real(dp) :: l1_ratio=.15_dp
   contains
     procedure :: fit=>sgd_fit
     procedure :: partial_fit=>sgd_partial
@@ -35,6 +38,7 @@ module sklearn_sgd
     logical, allocatable :: converged_per_class_(:)
     real(dp), allocatable :: coef_(:,:),intercept_(:),loss_(:)
     type(sgd_regressor), allocatable, private :: heads(:)
+    real(dp) :: l1_ratio=.15_dp
   contains
     procedure :: fit=>sgdc_fit
     procedure :: partial_fit=>sgdc_partial
@@ -53,11 +57,16 @@ contains
       call require(any(self%loss==[character(32)::'squared_error','huber', &
         'epsilon_insensitive','squared_epsilon_insensitive']),'unknown SGD regression loss')
     end if
-    call require(self%penalty=='l2'.or.self%penalty=='none','unsupported SGD penalty')
-    call require(self%learning_rate=='constant'.or.self%learning_rate=='invscaling','unsupported SGD learning rate')
+    call require(any(self%penalty==[character(32)::'none','l1','l2','elasticnet']),'unsupported SGD penalty')
+    call require(any(self%learning_rate==[character(32)::'constant','invscaling','optimal','adaptive']), &
+      'unsupported SGD learning rate')
     call require(all(ieee_is_finite([self%alpha,self%eta0,self%power_t,self%epsilon,self%tol])),'nonfinite SGD controls')
     call require(self%alpha>=0,'SGD alpha must be nonnegative')
-    call require(self%eta0>0,'SGD eta0 must be positive')
+    call require(self%eta0>0.or.(self%eta0==0.and.self%learning_rate=='optimal'),'SGD eta0 must be positive')
+    if(self%learning_rate=='optimal') call require(self%alpha>0,'optimal SGD requires positive alpha')
+    call require(ieee_is_finite(self%l1_ratio),'SGD l1_ratio must be finite')
+    call require(self%l1_ratio>=0.and.self%l1_ratio<=1,'SGD l1_ratio must be in [0,1]')
+    call require(self%random_state>=0,'SGD random_state must be nonnegative')
     call require(self%power_t>=0,'SGD power_t must be nonnegative')
     call require(self%epsilon>=0,'SGD epsilon must be nonnegative')
     call require(self%tol>=0.or.self%tol== -1,'SGD tol must be nonnegative or -1')
@@ -136,9 +145,12 @@ contains
     integer, intent(in) :: epochs
     logical, intent(in) :: stopping
     real(dp), intent(in), optional :: sample_weight(:)
-    real(dp) :: weights(size(y)),sumloss,best_loss,value,gradient,eta,update,count,coin
-    real(dp) :: work(size(self%standard_coef)),wscale,inner
-    integer :: order(size(y)),n,i,j,it,pick,tmp,stale,feature
+    real(dp) :: weights(size(y)),sumloss,best_loss,value,gradient,eta,update,count,optimal_init,typw
+    real(dp) :: work(size(self%standard_coef)),wscale,inner,q(size(self%standard_coef)),u,ratio,z
+    real(dp) :: average_a,average_b,mu
+    type(legacy_random_state) :: rng
+    integer(int64) :: state
+    integer :: order(size(y)),n,i,j,it,pick,tmp,stale,feature,seed
     n=size(y); weights=1; work=self%standard_coef; wscale=1
     if(present(sample_weight)) then
       call require(size(sample_weight)==n,'SGD sample weight count mismatch')
@@ -146,11 +158,22 @@ contains
       call require(all(sample_weight>=0),'negative SGD sample weights'); weights=sample_weight
     end if
     order=[(i,i=1,n)]; best_loss=huge(1._dp); stale=0; self%converged_=.false.
-    if(self%shuffle) call seed_rng(self%random_state)
+    call rng%seed(self%random_state)
+    if(self%classification) tmp=rng%integer_index(2147483646)
+    seed=rng%integer_index(2147483647)-1
+    eta=self%eta0;optimal_init=0;u=0;q=0;average_a=0;average_b=1;ratio=self%l1_ratio
+    if(self%penalty=='l2') ratio=0
+    if(self%penalty=='l1') ratio=1
+    if(self%learning_rate=='optimal') then
+      typw=sqrt(1/sqrt(self%alpha))
+      call sgd_loss(self,-typw,1._dp,value,gradient)
+      optimal_init=1/((typw/max(1._dp,gradient))*self%alpha)
+    end if
     do it=1,epochs
       if(self%shuffle) then
-        do j=n,2,-1
-          call random_number(coin); pick=min(j,1+int(coin*j)); tmp=order(j); order(j)=order(pick); order(pick)=tmp
+        state=int(seed,int64)
+        do j=1,n-1
+          pick=j+modulo(next_random(state),n-j+1);tmp=order(j);order(j)=order(pick);order(pick)=tmp
         end do
       end if
       sumloss=0
@@ -161,20 +184,36 @@ contains
           inner=inner+work(feature)*x(i,feature)
         end do
         call sgd_loss(self,inner*wscale+self%standard_intercept,y(i),value,gradient)
-        sumloss=sumloss+value; eta=self%eta0
-        if(self%learning_rate=='invscaling') eta=eta/self%t_**self%power_t
+        sumloss=sumloss+value
+        if(self%learning_rate=='optimal') eta=1/(self%alpha*(optimal_init+self%t_-1))
+        if(self%learning_rate=='invscaling') eta=self%eta0/self%t_**self%power_t
         gradient=max(-1.e12_dp,min(1.e12_dp,gradient)); update=-eta*gradient*weights(i)
         ! Match source WeightVector64 lazy L2 scaling and reset threshold.
-        if(self%penalty=='l2') wscale=wscale*max(0._dp,1-eta*self%alpha)
+        if(self%penalty=='l2'.or.self%penalty=='elasticnet') wscale=wscale*max(0._dp,1-((1-ratio)*eta*self%alpha))
         if(wscale<1.e-9_dp) then
-          work=work*wscale; wscale=1
+          call reset_scale()
         end if
         if(update/=0) work=work+x(i,:)*(update/wscale)
         if(self%fit_intercept) self%standard_intercept=self%standard_intercept+update
         if(self%average>0.and.self%t_>=self%average) then
           count=self%t_-self%average+1
-          self%average_coef=self%average_coef+(work*wscale-self%average_coef)/count
+          mu=1/count
+          self%average_coef=self%average_coef+average_a*x(i,:)*(-update/wscale)
+          if(count>1) average_b=average_b/(1-mu)
+          average_a=average_a+mu*average_b*wscale
           self%average_intercept=self%average_intercept+(self%standard_intercept-self%average_intercept)/count
+        end if
+        if(self%penalty=='l1'.or.self%penalty=='elasticnet') then
+          u=u+ratio*eta*self%alpha
+          do feature=1,size(work)
+            z=work(feature)
+            if(wscale*z>0) then
+              work(feature)=max(0._dp,z-(u+q(feature))/wscale)
+            else if(wscale*z<0) then
+              work(feature)=min(0._dp,z+(u-q(feature))/wscale)
+            end if
+            q(feature)=q(feature)+wscale*(work(feature)-z)
+          end do
         end if
         self%t_=self%t_+1
       end do
@@ -189,16 +228,36 @@ contains
         end if
         best_loss=min(best_loss,sumloss)
         if(stale>=self%n_iter_no_change) then
-          self%converged_=.true.; exit
+          if(self%learning_rate=='adaptive'.and.eta>1.e-6_dp) then
+            eta=eta/5;stale=0
+          else
+            self%converged_=.true.;exit
+          end if
         end if
       end if
     end do
     self%n_iter_=min(it,epochs); self%loss_=sumloss/n
+    call reset_scale();self%standard_coef=work
     self%coef_=self%standard_coef; self%intercept_=self%standard_intercept
     if(self%average>0.and.self%t_-1>=self%average) then
       self%coef_=self%average_coef; self%intercept_=self%average_intercept
     end if
+  contains
+    subroutine reset_scale()
+      if(self%average>0) then
+        self%average_coef=(self%average_coef+average_a*work)/average_b;average_a=0;average_b=1
+      end if
+      work=work*wscale;wscale=1
+    end subroutine
   end subroutine
+  integer function next_random(state) result(value)
+    integer(int64), intent(inout) :: state
+    if(state==0) state=1
+    state=iand(ieor(state,ishft(state,13)),4294967295_int64)
+    state=ieor(state,ishft(state,-17))
+    state=iand(ieor(state,ishft(state,5)),4294967295_int64)
+    value=int(iand(state,2147483647_int64))
+  end function
   function sgd_predict(self,x) result(y)
     class(sgd_regressor), intent(in) :: self
     real(dp), intent(in) :: x(:,:)
@@ -217,6 +276,7 @@ contains
     type(sgd_regressor), intent(inout) :: head
     head%classification=.true.; head%loss=self%loss; head%penalty=self%penalty; head%learning_rate=self%learning_rate
     head%alpha=self%alpha; head%eta0=self%eta0; head%power_t=self%power_t; head%tol=self%tol
+    head%l1_ratio=self%l1_ratio
     head%max_iter=self%max_iter; head%n_iter_no_change=self%n_iter_no_change; head%average=self%average
     head%random_state=self%random_state; head%fit_intercept=self%fit_intercept; head%shuffle=self%shuffle
     call sgd_controls(head)
@@ -244,7 +304,8 @@ contains
     real(dp), intent(in), optional :: sample_weight(:),class_weight(:)
     integer, intent(in), optional :: classes(:)
     type(sgd_regressor) :: settings
-    integer, allocatable :: labels(:),encoded(:)
+    type(legacy_random_state) :: rng
+    integer, allocatable :: labels(:),encoded(:),seeds(:)
     real(dp), allocatable :: weights(:),cw(:),target(:),cost(:)
     integer :: n,p,k,channels,c,positive,i
     real(dp) :: start_t
@@ -296,6 +357,13 @@ contains
     end if
     channels=k
     if(k==2) channels=1
+    allocate(seeds(channels));seeds=self%random_state
+    if(k>2) then
+      call rng%seed(self%random_state)
+      do c=1,channels
+        seeds(c)=rng%integer_index(2147483647)-1
+      end do
+    end if
     if(fresh) then
       if(allocated(self%heads)) deallocate(self%heads)
       allocate(self%heads(channels)); self%classes_=labels; self%n_features_in_=p; self%t_=1
@@ -317,6 +385,7 @@ contains
         cost=weights*merge(cw(c),1._dp,encoded==c)
       end if
       call sgdc_configure(self,self%heads(c)); self%heads(c)%t_=start_t
+      self%heads(c)%random_state=seeds(c)
       if(incremental) then
         call sgd_run(self%heads(c),x,target,1,.false.,cost)
       else

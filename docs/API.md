@@ -1122,8 +1122,8 @@ predictions = model%predict(x)
 ! Alternatively call model%fit(x,y), which resets all accumulated state.
 ```
 
-Set tol=-1 to disable fit stopping. Ordered updates are the default; native
-shuffle can be enabled explicitly. See COVERAGE.md for losses, supported
+Set tol=-1 to disable fit stopping. Ordered updates are the default; sklearn's
+seeded shuffle can be enabled explicitly. See COVERAGE.md for losses, supported
 penalties/schedules, averaging, sample weights and differences from sklearn.
 
 
@@ -1150,6 +1150,22 @@ fit infers classes and resets state. First streaming batches may contain only
 one of the declared classes. Class weights are optional per-call arguments;
 balanced weighting is supported by fit. See COVERAGE.md for defaults, layouts,
 probability-supported losses and supported SGD controls.
+
+Both SGD estimators accept `penalty='none'`, `'l1'`, `'l2'` or `'elasticnet'`.
+`l1_ratio=.15` controls the elastic-net mix, with endpoints zero and one giving
+L2 and L1. L1 uses the source's cumulative truncated-gradient correction; the
+intercept is unpenalized. Averaging follows the source's lazy weight-vector
+arithmetic, including its ordering relative to L1 truncation.
+
+`learning_rate` accepts `'constant'`, `'invscaling'`, `'optimal'` and `'adaptive'`.
+Optimal requires positive `alpha`, ignores `eta0` and accepts `eta0=0`. Adaptive
+starts at `eta0`, divides the rate by five after training-loss patience is
+exhausted, and stops only once a further reduction is no longer allowed
+(`eta<=1.e-6`). `partial_fit` runs one epoch and retains the sample clock;
+adaptive rate reductions are local to each fitting call. Defaults remain
+ordered inverse scaling. With `shuffle=.true.`, scalar nonnegative integer
+seeds now reproduce sklearn's NumPy seed draws, forward xorshift permutations,
+and per-class OVR streams, without changing the global Fortran RNG.
 
 
 ## Group-aware and predefined validation
