@@ -6615,7 +6615,7 @@ created L-BFGS-only model has no stochastic history, so switching it to a
 stochastic partial/warm call requires a prior ordinary stochastic fit.
 
 See [the streaming example](../example/incremental_mlp.f90) and
-[coverage details](COVERAGE.md). Sparse MLP input remains outside this interface.
+[coverage details](COVERAGE.md). CSR MLP inputs are described below.
 
 ## MLP validation-set early stopping
 
@@ -6654,5 +6654,33 @@ a cold fit because the corresponding source history is unavailable.
 Native diagnostics `training_indices_` and `validation_indices_` contain
 one-based positions in the last stochastic holdout split; `best_layers_` stores
 the checkpoint. These expose private implementation state, rather than adding
-new estimator algorithms. With validation stopping disabled, split diagnostics
+new estimator algorithms. With validation stopping disabled in a stochastic fit, split diagnostics
 are unallocated. See [the example](../example/early_stopping_mlp.f90).
+
+## CSR multilayer perceptrons
+
+Both MLP types accept the native `csr_matrix` as `x` in `fit`, `partial_fit`,
+prediction and scoring methods. Dense vector/matrix target contracts remain
+the same. This includes joint-response regression, vector classifiers,
+multilabel indicators, probability/log-probability methods and matrix-returning
+prediction adapters. Adam, SGD, L-BFGS, warm starts, cached incremental
+optimizers and validation stopping share the dense implementation's controls
+and state. A fitted model may switch between dense and CSR inputs provided
+feature counts and target layouts remain compatible.
+
+CSR storage uses one-based `indptr` and column indices. Unsorted columns,
+duplicate entries, explicit zeros, empty rows and zero-stored-value matrices
+are accepted. Duplicate contributions are summed by sparse products without
+sorting or modifying the input arrays. Features and stored values must be
+nonempty in shape and finite, respectively; a nonempty shape may have no
+stored entries. Malformed storage and incompatible feature/sample counts
+are rejected before numerical kernels run.
+
+The first affine layer and its coefficient gradient traverse CSR entries
+directly. Minibatches and validation partitions select row indices without
+forming a dense feature matrix. Network parameters, gradients, subsequent
+activations and targets remain dense. Memory therefore still depends on the
+input-feature count times the first-layer width; CSR does not make the
+parameter arrays sparse. Training and querying leave storage unchanged.
+Only the native CSR container is accepted by these overloads. See
+[the example](../example/sparse_mlp.f90) and [coverage details](COVERAGE.md).

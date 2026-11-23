@@ -2,6 +2,7 @@
 ! _stochastic_optimizers,_base}.py (BSD-3-Clause); retained upstream notices.
 module sklearn_neural_network
   use sklearn_rbm, only: bernoulli_rbm
+  use sklearn_sparse, only: csr_matrix
   use lbfgsb_module, only: setulb
   use, intrinsic :: iso_fortran_env, only: int64
   use sklearn_legacy_rng, only: legacy_random_state
@@ -51,28 +52,91 @@ module sklearn_neural_network
     integer, allocatable :: classes_(:)
   contains
     procedure, private :: fit_vector=>mlpc_fit,fit_indicator=>mlpc_fit_indicator
-    generic :: fit=>fit_vector,fit_indicator
+    procedure, private :: fit_csr_vector=>mlpc_fit_csr,fit_csr_matrix=>mlpc_fit_indicator_csr
+    generic :: fit=>fit_vector,fit_indicator,fit_csr_vector,fit_csr_matrix
     procedure, private :: partial_vector=>mlpc_partial_vector,partial_indicator=>mlpc_partial_indicator
-    generic :: partial_fit=>partial_vector,partial_indicator
-    procedure :: predict_proba=>mlpc_proba
-    procedure :: predict_log_proba=>mlpc_log_proba
-    procedure :: predict=>mlpc_predict
-    procedure :: predict_indicator=>mlpc_predict_indicator
+    procedure, private :: partial_fit_csr_vector=>mlpc_partial_vector_csr,partial_fit_csr_matrix=>mlpc_partial_indicator_csr
+    generic :: partial_fit=>partial_vector,partial_indicator,partial_fit_csr_vector,partial_fit_csr_matrix
+    procedure, private :: predict_proba_dense=>mlpc_proba,predict_proba_csr=>mlpc_proba_csr
+    generic :: predict_proba=>predict_proba_dense,predict_proba_csr
+    procedure, private :: predict_log_proba_dense=>mlpc_log_proba,predict_log_proba_csr=>mlpc_log_proba_csr
+    generic :: predict_log_proba=>predict_log_proba_dense,predict_log_proba_csr
+    procedure, private :: predict_dense=>mlpc_predict,predict_csr=>mlpc_predict_csr
+    generic :: predict=>predict_dense,predict_csr
+    procedure, private :: predict_indicator_dense=>mlpc_predict_indicator,predict_indicator_csr=>mlpc_predict_indicator_csr
+    generic :: predict_indicator=>predict_indicator_dense,predict_indicator_csr
     procedure, private :: score_vector=>mlpc_score,score_indicator=>mlpc_score_indicator
-    generic :: score=>score_vector,score_indicator
+    procedure, private :: score_csr_vector=>mlpc_score_csr,score_csr_matrix=>mlpc_score_indicator_csr
+    generic :: score=>score_vector,score_indicator,score_csr_vector,score_csr_matrix
   end type
   type, extends(network_storage) :: mlp_regressor
   contains
     procedure, private :: fit_vector=>mlpr_fit,fit_matrix=>mlpr_fit_matrix
-    generic :: fit=>fit_vector,fit_matrix
+    procedure, private :: fit_csr_vector=>mlpr_fit_csr,fit_csr_matrix=>mlpr_fit_matrix_csr
+    generic :: fit=>fit_vector,fit_matrix,fit_csr_vector,fit_csr_matrix
     procedure, private :: partial_vector=>mlpr_partial_vector,partial_matrix=>mlpr_partial_matrix
-    generic :: partial_fit=>partial_vector,partial_matrix
-    procedure :: predict=>mlpr_predict
-    procedure :: predict_multioutput=>mlpr_predict_matrix
+    procedure, private :: partial_fit_csr_vector=>mlpr_partial_vector_csr,partial_fit_csr_matrix=>mlpr_partial_matrix_csr
+    generic :: partial_fit=>partial_vector,partial_matrix,partial_fit_csr_vector,partial_fit_csr_matrix
+    procedure, private :: predict_dense=>mlpr_predict,predict_csr=>mlpr_predict_csr
+    generic :: predict=>predict_dense,predict_csr
+    procedure, private :: predict_multioutput_dense=>mlpr_predict_matrix,predict_multioutput_csr=>mlpr_predict_matrix_csr
+    generic :: predict_multioutput=>predict_multioutput_dense,predict_multioutput_csr
     procedure, private :: score_vector=>mlpr_score,score_matrix=>mlpr_score_matrix
-    generic :: score=>score_vector,score_matrix
+    procedure, private :: score_csr_vector=>mlpr_score_csr,score_csr_matrix=>mlpr_score_matrix_csr
+    generic :: score=>score_vector,score_matrix,score_csr_vector,score_csr_matrix
   end type
 contains
+  subroutine check_mlp_csr(x,n)
+    type(csr_matrix), intent(in) :: x
+    integer, optional, intent(in) :: n
+    call x%validate()
+    call require(x%n_rows>0.and.x%n_cols>0,'MLP sparse input must be nonempty')
+    if(present(n)) call require(x%n_rows==n,'MLP sparse sample count mismatch')
+    call require(all(ieee_is_finite(x%data)),'MLP sparse input contains NaN or infinity')
+  end subroutine
+  subroutine check_mlp_input(x,sparse,n)
+    real(dp), intent(in) :: x(:,:)
+    type(csr_matrix), optional, intent(in) :: sparse
+    integer, intent(in) :: n
+    if(present(sparse)) then
+      call check_mlp_csr(sparse,n)
+    else
+      call check_xy(x,n)
+    end if
+  end subroutine
+  function csr_layer_product(x,weights,rows) result(values)
+    type(csr_matrix), intent(in) :: x
+    real(dp), intent(in) :: weights(:,:)
+    integer, optional, intent(in) :: rows(:)
+    real(dp), allocatable :: values(:,:)
+    integer :: n,i,j,k,row
+    n=x%n_rows;if(present(rows)) n=size(rows)
+    allocate(values(n,size(weights,2)));values=0
+    do i=1,n
+      row=i;if(present(rows)) row=rows(i)
+      do k=x%indptr(row),x%indptr(row+1)-1
+        do j=1,size(weights,2)
+          values(i,j)=values(i,j)+x%data(k)*weights(x%indices(k),j)
+        end do
+      end do
+    end do
+  end function
+  function csr_layer_gradient(x,delta,rows) result(gradient)
+    type(csr_matrix), intent(in) :: x
+    real(dp), intent(in) :: delta(:,:)
+    integer, optional, intent(in) :: rows(:)
+    real(dp), allocatable :: gradient(:,:)
+    integer :: i,j,k,row
+    allocate(gradient(x%n_cols,size(delta,2)));gradient=0
+    do i=1,size(delta,1)
+      row=i;if(present(rows)) row=rows(i)
+      do k=x%indptr(row),x%indptr(row+1)-1
+        do j=1,size(delta,2)
+          gradient(x%indices(k),j)=gradient(x%indices(k),j)+x%data(k)*delta(i,j)
+        end do
+      end do
+    end do
+  end function
   elemental real(dp) function mlp_logistic(x) result(v)
     real(dp), intent(in) :: x
     ! Match scipy.special.expit, including its negative overflow saturation,
@@ -165,6 +229,8 @@ contains
     end do
     self%best_layers_=self%layers_
     self%best_layers_alias_=.false.
+    if(self%solver=='lbfgs'.and..not.allocated(self%loss_curve_)) &
+      self%best_validation_score_=ieee_value(0._dp,ieee_quiet_nan)
     if(self%solver/='lbfgs') then
       if(allocated(self%validation_scores_)) deallocate(self%validation_scores_)
       self%best_validation_score_=ieee_value(0._dp,ieee_quiet_nan)
@@ -175,24 +241,35 @@ contains
     end if
     if(self%solver=='lbfgs'.and.allocated(self%optimizer_saved_layers_)) call restore_optimizer(self,.false.)
   end subroutine
-  subroutine forward(self,x,classification,buffers)
+  subroutine forward(self,x,classification,buffers,sparse,rows)
+    type(csr_matrix), optional, intent(in) :: sparse
+    integer, optional, intent(in) :: rows(:)
     class(network_storage), intent(in) :: self
     real(dp), intent(in) :: x(:,:)
     logical, intent(in) :: classification
     type(activation_buffer), allocatable, intent(out) :: buffers(:)
-    integer :: l,i,last
+    integer :: l,i,last,n
     call require(allocated(self%layers_),'MLP is not fitted')
-    call check_xy(transpose(x),size(self%layers_(1)%weights,1))
-    last=size(self%layers_); allocate(buffers(0:last)); buffers(0)%values=x
+    if(present(sparse)) then
+      call require(sparse%n_cols==self%n_features_in_,'MLP sparse feature count mismatch')
+      n=sparse%n_rows;if(present(rows)) n=size(rows)
+    else
+      call check_xy(transpose(x),size(self%layers_(1)%weights,1));n=size(x,1)
+    end if
+    last=size(self%layers_);allocate(buffers(0:last))
+    if(.not.present(sparse)) buffers(0)%values=x
     do l=1,last
-      buffers(l)%values=matmul(buffers(l-1)%values,self%layers_(l)%weights)+ &
-        spread(self%layers_(l)%bias,1,size(x,1))
+      if(l==1.and.present(sparse)) then
+        buffers(l)%values=csr_layer_product(sparse,self%layers_(l)%weights,rows)+spread(self%layers_(l)%bias,1,n)
+      else
+        buffers(l)%values=matmul(buffers(l-1)%values,self%layers_(l)%weights)+spread(self%layers_(l)%bias,1,n)
+      end if
       if(l<last) then
         buffers(l)%values=activate(buffers(l)%values,self%activation)
       else if(classification.and.self%out_activation_=='logistic') then
         buffers(l)%values=mlp_logistic(buffers(l)%values)
       else if(classification) then
-        do i=1,size(x,1)
+        do i=1,n
           buffers(l)%values(i,:)=exp(buffers(l)%values(i,:)-logsumexp(buffers(l)%values(i,:)))
         end do
       end if
@@ -212,7 +289,8 @@ contains
       width=size(self%layers_(l)%bias);self%layers_(l)%bias=point(start:start+width-1);start=start+width
     end do
   end subroutine
-  subroutine full_loss_gradient(self,x,target,classification,loss,gradient)
+  subroutine full_loss_gradient(self,x,target,classification,loss,gradient,sparse)
+    type(csr_matrix), optional, intent(in) :: sparse
     class(network_storage), intent(in) :: self
     real(dp), intent(in) :: x(:,:),target(:,:)
     logical, intent(in) :: classification
@@ -222,8 +300,9 @@ contains
     real(dp), allocatable :: prob(:,:),gw(:,:)
     real(dp) :: penalty,eps
     integer :: l,last,n,d,start,width
-    n=size(x,1);last=size(self%layers_);penalty=0;d=0
-    call forward(self,x,classification,buffers)
+    n=size(x,1);if(present(sparse)) n=sparse%n_rows
+    last=size(self%layers_);penalty=0;d=0
+    call forward(self,x,classification,buffers,sparse)
     do l=1,last
       penalty=penalty+sum(self%layers_(l)%weights**2)
       d=d+size(self%layers_(l)%weights)+size(self%layers_(l)%bias)
@@ -243,7 +322,11 @@ contains
     end do
     allocate(gradient(d));start=1
     do l=1,last
-      gw=(matmul(transpose(buffers(l-1)%values),buffers(l)%delta)+self%alpha*self%layers_(l)%weights)/n
+      if(l==1.and.present(sparse)) then
+        gw=(csr_layer_gradient(sparse,buffers(l)%delta)+self%alpha*self%layers_(l)%weights)/n
+      else
+        gw=(matmul(transpose(buffers(l-1)%values),buffers(l)%delta)+self%alpha*self%layers_(l)%weights)/n
+      end if
       width=size(gw);gradient(start:start+width-1)=reshape(transpose(gw),[width]);start=start+width
     end do
     do l=1,last
@@ -252,7 +335,8 @@ contains
     end do
     call require(ieee_is_finite(loss).and.all(ieee_is_finite(gradient)),'MLP objective overflow; scale the inputs')
   end subroutine
-  subroutine train_lbfgs(self,x,target,classification,preserve_history)
+  subroutine train_lbfgs(self,x,target,classification,preserve_history,sparse)
+    type(csr_matrix), optional, intent(in) :: sparse
     class(network_storage), intent(inout) :: self
     real(dp), intent(in) :: x(:,:),target(:,:)
     logical, intent(in) :: classification,preserve_history
@@ -290,7 +374,7 @@ contains
       call setulb(d,memory,point,lower,upper,nbd,f,g,1.e7_dp,self%tol,wa,iwa,task,-1,csave,lsave,isave,dsave)
       if(task(:2)=='FG') then
         call unpack_parameters(self,point)
-        call full_loss_gradient(self,x,target,classification,f,g)
+        call full_loss_gradient(self,x,target,classification,f,g,sparse)
         self%n_function_evaluations_=self%n_function_evaluations_+1
       else if(task(:5)=='NEW_X') then
         self%previous_parameters_=accepted;self%previous_loss_=dsave(2);accepted=point
@@ -305,7 +389,7 @@ contains
       end if
     end do
     call unpack_parameters(self,point)
-    call full_loss_gradient(self,x,target,classification,self%loss_,self%gradient_)
+    call full_loss_gradient(self,x,target,classification,self%loss_,self%gradient_,sparse)
     if(self%n_iter_==0) self%previous_loss_=self%loss_
     self%converged_=task(:4)=='CONV';self%optimization_message_=task
   end subroutine
@@ -408,23 +492,25 @@ contains
       self%validation_indices_=indices(:nval);self%training_indices_=indices(nval+1:)
     end if
   end subroutine
-  real(dp) function validation_score(self,x,target,classification) result(score)
+  real(dp) function validation_score(self,x,target,classification,sparse,rows) result(score)
+    type(csr_matrix), optional, intent(in) :: sparse
+    integer, optional, intent(in) :: rows(:)
     class(network_storage), intent(in) :: self
     real(dp), intent(in) :: x(:,:),target(:,:)
     logical, intent(in) :: classification
     type(activation_buffer), allocatable :: buffers(:)
-    integer :: last,i,j,correct
-    call forward(self,x,classification,buffers);last=size(self%layers_)
+    integer :: last,i,j,correct,n
+    call forward(self,x,classification,buffers,sparse,rows);last=size(self%layers_);n=size(target,1)
     if(classification) then
       if(self%out_activation_=='logistic') then
         correct=count(all((buffers(last)%values>.5_dp).eqv.(target>0),dim=2))
       else
         correct=0
-        do i=1,size(x,1)
+        do i=1,n
           if(maxloc(buffers(last)%values(i,:),dim=1)==maxloc(target(i,:),dim=1)) correct=correct+1
         end do
       end if
-      score=real(correct,dp)/size(x,1)
+      score=real(correct,dp)/n
     else
       if(size(target,1)<2) then
         score=ieee_value(0._dp,ieee_quiet_nan);return
@@ -435,7 +521,8 @@ contains
       end do
     end if
   end function
-  subroutine train(self,x,target,classification,incremental)
+  subroutine train(self,x,target,classification,incremental,sparse)
+    type(csr_matrix), optional, intent(in) :: sparse
     class(network_storage), intent(inout) :: self
     real(dp), intent(in) :: x(:,:),target(:,:)
     logical, intent(in) :: classification
@@ -443,18 +530,20 @@ contains
     type(activation_buffer), allocatable :: buffers(:)
     type(legacy_random_state) :: rng
     real(dp), allocatable :: gw(:,:),gb(:),prob(:,:),xb(:,:),yb(:,:),xt(:,:),yt(:,:),xval(:,:),yval(:,:)
-    integer, allocatable :: order(:)
+    integer, allocatable :: order(:),fit_rows(:),batch_rows(:)
     real(dp) :: loss,rate,penalty,accumulated,eps,score
-    integer :: it,l,last,n,stale,bs,first,finish,m,i,j,tmp,history_size,epochs
+    integer :: it,l,last,n,stale,bs,first,finish,m,i,j,tmp,history_size,epochs,p
     integer(int64) :: step
     logical :: reuse,streaming
-    call check_xy(x,size(target,1)); call check_x(target)
+    call check_mlp_input(x,sparse,size(target,1)); call check_x(target)
     streaming=.false.;if(present(incremental)) streaming=incremental
-    n=size(x,1);reuse=allocated(self%layers_).and.(self%warm_start.or.streaming)
+    n=size(target,1);p=size(x,2);if(present(sparse)) p=sparse%n_cols
+    fit_rows=[(i,i=1,n)]
+    reuse=allocated(self%layers_).and.(self%warm_start.or.streaming)
     epochs=self%max_iter;if(streaming) epochs=1
     if(reuse) then
       call controls(self)
-      call require(size(x,2)==self%n_features_in_,'MLP warm fit feature count mismatch')
+      call require(p==self%n_features_in_,'MLP warm fit feature count mismatch')
       call require(size(self%hidden_layer_sizes)==size(self%layers_)-1,'MLP warm fit layer count mismatch')
       if(self%solver=='lbfgs') then
         do l=1,size(self%hidden_layer_sizes)
@@ -468,7 +557,7 @@ contains
       if(allocated(self%previous_parameters_)) deallocate(self%previous_parameters_)
       self%previous_loss_=0
     else
-      call initialize(self,size(x,2),size(target,2),rng)
+      call initialize(self,p,size(target,2),rng)
     end if
     last=size(self%layers_)
     self%out_activation_='identity'
@@ -478,18 +567,20 @@ contains
     end if
     if(self%solver=='lbfgs') then
       self%best_layers_alias_=.false.
-      call train_lbfgs(self,x,target,classification,reuse)
+      call train_lbfgs(self,x,target,classification,reuse,sparse)
       return
     end if
     call require(.not.(streaming.and.self%early_stopping),'MLP partial_fit does not support early stopping')
     if(self%early_stopping) then
       call require(allocated(self%validation_scores_),'MLP warm fit validation history unavailable')
       call validation_split(self,target,classification,rng)
-      xt=x(self%training_indices_,:);yt=target(self%training_indices_,:)
-      xval=x(self%validation_indices_,:);yval=target(self%validation_indices_,:)
-      n=size(xt,1)
+      fit_rows=self%training_indices_;yt=target(fit_rows,:);yval=target(self%validation_indices_,:)
+      if(.not.present(sparse)) then
+        xt=x(fit_rows,:);xval=x(self%validation_indices_,:)
+      end if
+      n=size(fit_rows)
     else
-      xt=x;yt=target
+      yt=target
       if(allocated(self%training_indices_)) deallocate(self%training_indices_)
       if(allocated(self%validation_indices_)) deallocate(self%validation_indices_)
     end if
@@ -521,8 +612,18 @@ contains
       accumulated=0
       do first=1,n,bs
         finish=min(n,first+bs-1);m=finish-first+1
-        xb=xt(order(first:finish),:);yb=yt(order(first:finish),:)
-        call forward(self,xb,classification,buffers);penalty=0
+        batch_rows=fit_rows(order(first:finish));yb=yt(order(first:finish),:)
+        if(present(sparse)) then
+          call forward(self,x,classification,buffers,sparse,batch_rows)
+        else
+          if(self%early_stopping) then
+            xb=xt(order(first:finish),:)
+          else
+            xb=x(order(first:finish),:)
+          end if
+          call forward(self,xb,classification,buffers)
+        end if
+        penalty=0
         do l=1,last
           penalty=penalty+sum(self%layers_(l)%weights**2)
         end do
@@ -543,7 +644,11 @@ contains
         if(self%optimizer_kind_=='adam') &
           rate=self%optimizer_eta0_*sqrt(1-self%optimizer_beta2_**step)/(1-self%optimizer_beta1_**step)
         do l=1,last
-          gw=(matmul(transpose(buffers(l-1)%values),buffers(l)%delta)+self%alpha*self%layers_(l)%weights)/m
+          if(l==1.and.present(sparse)) then
+            gw=(csr_layer_gradient(sparse,buffers(l)%delta,batch_rows)+self%alpha*self%layers_(l)%weights)/m
+          else
+            gw=(matmul(transpose(buffers(l-1)%values),buffers(l)%delta)+self%alpha*self%layers_(l)%weights)/m
+          end if
           gb=sum(buffers(l)%delta,dim=1)/m
           if(self%optimizer_kind_=='adam') then
             self%layers_(l)%m=self%optimizer_beta1_*self%layers_(l)%m+(1-self%optimizer_beta1_)*gw
@@ -573,7 +678,11 @@ contains
         ! sklearn restores by assigning its checkpoint arrays. A subsequent
         ! warm stochastic fit mutates those arrays until a new copy is saved.
         if(self%best_layers_alias_) self%best_layers_=self%layers_
-        score=validation_score(self,xval,yval,classification)
+        if(present(sparse)) then
+          score=validation_score(self,x,yval,classification,sparse,self%validation_indices_)
+        else
+          score=validation_score(self,xval,yval,classification)
+        end if
         self%validation_scores_=[self%validation_scores_,score]
         ! NaN scores neither improve the checkpoint nor count toward patience.
         if(ieee_is_nan(score)) then
@@ -618,14 +727,15 @@ contains
       self%best_layers_alias_=.true.
     end if
   end subroutine
-  subroutine mlpc_fit(self,x,y)
+  subroutine mlpc_fit(self,x,y,sparse)
+    type(csr_matrix), optional, intent(in) :: sparse
     class(mlp_classifier), intent(inout) :: self
     real(dp), intent(in) :: x(:,:)
     integer, intent(in) :: y(:)
     real(dp), allocatable :: target(:,:)
     integer :: i
     integer, allocatable :: current_classes(:)
-    call check_xy(x,size(y))
+    call check_mlp_input(x,sparse,size(y))
     if(self%warm_start.and.allocated(self%layers_)) &
       call require(.not.self%multilabel_,'MLP warm fit target kind mismatch')
     self%multilabel_=.false.;current_classes=unique_labels(y)
@@ -644,16 +754,17 @@ contains
         target(i,label_index(self%classes_,y(i)))=1
       end do
     end if
-    call train(self,x,target,.true.)
+    call train(self,x,target,.true.,sparse=sparse)
   end subroutine
-  subroutine mlpc_fit_indicator(self,x,y)
+  subroutine mlpc_fit_indicator(self,x,y,sparse)
+    type(csr_matrix), optional, intent(in) :: sparse
     class(mlp_classifier), intent(inout) :: self
     real(dp), intent(in) :: x(:,:)
     integer, intent(in) :: y(:,:)
     integer :: j
-    call check_xy(x,size(y,1));call require(size(y,2)>0,'MLP indicator target width must be positive')
+    call check_mlp_input(x,sparse,size(y,1));call require(size(y,2)>0,'MLP indicator target width must be positive')
     if(size(y,2)==1) then
-      call mlpc_fit(self,x,y(:,1));return
+      call mlpc_fit(self,x,y(:,1),sparse);return
     end if
     call require(all(y==0.or.y==1),'MLP indicator targets must be zero or one')
     if(self%warm_start.and.allocated(self%layers_)) then
@@ -663,7 +774,7 @@ contains
       call require(all(self%classes_==[(j-1,j=1,size(y,2))]),'MLP warm fit class set mismatch')
     end if
     self%multilabel_=.true.;self%classes_=[(j-1,j=1,size(y,2))]
-    call train(self,x,real(y,dp),.true.)
+    call train(self,x,real(y,dp),.true.,sparse=sparse)
   end subroutine
   function mlpc_predict_indicator(self,x) result(y)
     class(mlp_classifier), intent(in) :: self
@@ -736,11 +847,12 @@ contains
     integer, intent(in) :: y(:)
     v=accuracy_score(y,self%predict(x))
   end function
-  subroutine mlpr_fit(self,x,y)
+  subroutine mlpr_fit(self,x,y,sparse)
+    type(csr_matrix), optional, intent(in) :: sparse
     class(mlp_regressor), intent(inout) :: self
     real(dp), intent(in) :: x(:,:),y(:)
     self%multilabel_=.false.
-    call train(self,x,reshape(y,[size(y),1]),.false.)
+    call train(self,x,reshape(y,[size(y),1]),.false.,sparse=sparse)
   end subroutine
   function mlpr_predict(self,x) result(y)
     class(mlp_regressor), intent(in) :: self
@@ -756,10 +868,11 @@ contains
     real(dp), intent(in) :: x(:,:),y(:)
     v=mlpr_score_matrix(self,x,reshape(y,[size(y),1]))
   end function
-  subroutine mlpr_fit_matrix(self,x,y)
+  subroutine mlpr_fit_matrix(self,x,y,sparse)
+    type(csr_matrix), optional, intent(in) :: sparse
     class(mlp_regressor), intent(inout) :: self
     real(dp), intent(in) :: x(:,:),y(:,:)
-    self%multilabel_=.false.;call train(self,x,y,.false.)
+    self%multilabel_=.false.;call train(self,x,y,.false.,sparse=sparse)
   end subroutine
   function mlpr_predict_matrix(self,x) result(y)
     class(mlp_regressor), intent(in) :: self
@@ -807,7 +920,8 @@ contains
     end if
     call require(size(self%classes_)>=2,'MLP partial_fit needs at least two declared classes')
   end subroutine
-  subroutine mlpc_partial_vector(self,x,y,classes)
+  subroutine mlpc_partial_vector(self,x,y,classes,sparse)
+    type(csr_matrix), optional, intent(in) :: sparse
     class(mlp_classifier), intent(inout) :: self
     real(dp), intent(in) :: x(:,:)
     integer, intent(in) :: y(:)
@@ -815,7 +929,7 @@ contains
     real(dp), allocatable :: target(:,:)
     integer, allocatable :: current(:)
     integer :: i,j
-    call partial_classes(self,classes);call check_xy(x,size(y))
+    call partial_classes(self,classes);call check_mlp_input(x,sparse,size(y))
     if(allocated(self%layers_)) call require(.not.self%multilabel_,'MLP partial_fit target kind mismatch')
     current=unique_labels(y)
     if(self%warm_start) then
@@ -834,18 +948,19 @@ contains
         j=label_index(self%classes_,y(i));target(i,j)=1
       end do
     end if
-    call train(self,x,target,.true.,.true.)
+    call train(self,x,target,.true.,.true.,sparse)
   end subroutine
-  subroutine mlpc_partial_indicator(self,x,y,classes)
+  subroutine mlpc_partial_indicator(self,x,y,classes,sparse)
+    type(csr_matrix), optional, intent(in) :: sparse
     class(mlp_classifier), intent(inout) :: self
     real(dp), intent(in) :: x(:,:)
     integer, intent(in) :: y(:,:)
     integer, optional, intent(in) :: classes(:)
     integer :: j
     if(size(y,2)==1) then
-      call mlpc_partial_vector(self,x,y(:,1),classes);return
+      call mlpc_partial_vector(self,x,y(:,1),classes,sparse);return
     end if
-    call partial_classes(self,classes);call check_xy(x,size(y,1))
+    call partial_classes(self,classes);call check_mlp_input(x,sparse,size(y,1))
     call require(size(y,2)>0,'MLP indicator target width must be positive')
     call require(all(y==0.or.y==1),'MLP indicator targets must be zero or one')
     if(allocated(self%layers_)) then
@@ -856,17 +971,193 @@ contains
     do j=0,size(y,2)-1
       call require(any(self%classes_==j),'MLP partial_fit contains an undeclared class')
     end do
-    self%multilabel_=.true.;call train(self,x,real(y,dp),.true.,.true.)
+    self%multilabel_=.true.;call train(self,x,real(y,dp),.true.,.true.,sparse)
   end subroutine
-  subroutine mlpr_partial_vector(self,x,y)
+  subroutine mlpr_partial_vector(self,x,y,sparse)
+    type(csr_matrix), optional, intent(in) :: sparse
     class(mlp_regressor), intent(inout) :: self
     real(dp), intent(in) :: x(:,:),y(:)
-    self%multilabel_=.false.;call train(self,x,reshape(y,[size(y),1]),.false.,.true.)
+    self%multilabel_=.false.;call train(self,x,reshape(y,[size(y),1]),.false.,.true.,sparse)
   end subroutine
-  subroutine mlpr_partial_matrix(self,x,y)
+  subroutine mlpr_partial_matrix(self,x,y,sparse)
+    type(csr_matrix), optional, intent(in) :: sparse
     class(mlp_regressor), intent(inout) :: self
     real(dp), intent(in) :: x(:,:),y(:,:)
-    self%multilabel_=.false.;call train(self,x,y,.false.,.true.)
+    self%multilabel_=.false.;call train(self,x,y,.false.,.true.,sparse)
   end subroutine
 
+
+  subroutine mlpc_fit_csr(self,x,y)
+    class(mlp_classifier), intent(inout) :: self
+    type(csr_matrix), intent(in) :: x
+    integer, intent(in) :: y(:)
+    real(dp) :: empty(0,0)
+    call mlpc_fit(self,empty,y,sparse=x)
+  end subroutine
+  subroutine mlpc_fit_indicator_csr(self,x,y)
+    class(mlp_classifier), intent(inout) :: self
+    type(csr_matrix), intent(in) :: x
+    integer, intent(in) :: y(:,:)
+    real(dp) :: empty(0,0)
+    call mlpc_fit_indicator(self,empty,y,sparse=x)
+  end subroutine
+  subroutine mlpr_fit_csr(self,x,y)
+    class(mlp_regressor), intent(inout) :: self
+    type(csr_matrix), intent(in) :: x
+    real(dp), intent(in) :: y(:)
+    real(dp) :: empty(0,0)
+    call mlpr_fit(self,empty,y,sparse=x)
+  end subroutine
+  subroutine mlpr_fit_matrix_csr(self,x,y)
+    class(mlp_regressor), intent(inout) :: self
+    type(csr_matrix), intent(in) :: x
+    real(dp), intent(in) :: y(:,:)
+    real(dp) :: empty(0,0)
+    call mlpr_fit_matrix(self,empty,y,sparse=x)
+  end subroutine
+  subroutine mlpc_partial_vector_csr(self,x,y,classes)
+    class(mlp_classifier), intent(inout) :: self
+    type(csr_matrix), intent(in) :: x
+    integer, intent(in) :: y(:)
+    integer, optional, intent(in) :: classes(:)
+    real(dp) :: empty(0,0)
+    call mlpc_partial_vector(self,empty,y,classes,sparse=x)
+  end subroutine
+  subroutine mlpc_partial_indicator_csr(self,x,y,classes)
+    class(mlp_classifier), intent(inout) :: self
+    type(csr_matrix), intent(in) :: x
+    integer, intent(in) :: y(:,:)
+    integer, optional, intent(in) :: classes(:)
+    real(dp) :: empty(0,0)
+    call mlpc_partial_indicator(self,empty,y,classes,sparse=x)
+  end subroutine
+  subroutine mlpr_partial_vector_csr(self,x,y)
+    class(mlp_regressor), intent(inout) :: self
+    type(csr_matrix), intent(in) :: x
+    real(dp), intent(in) :: y(:)
+    real(dp) :: empty(0,0)
+    call mlpr_partial_vector(self,empty,y,sparse=x)
+  end subroutine
+  subroutine mlpr_partial_matrix_csr(self,x,y)
+    class(mlp_regressor), intent(inout) :: self
+    type(csr_matrix), intent(in) :: x
+    real(dp), intent(in) :: y(:,:)
+    real(dp) :: empty(0,0)
+    call mlpr_partial_matrix(self,empty,y,sparse=x)
+  end subroutine
+  function mlpc_proba_csr(self,x) result(prob)
+    class(mlp_classifier), intent(in) :: self
+    type(csr_matrix), intent(in) :: x
+    real(dp), allocatable :: prob(:,:)
+    type(activation_buffer), allocatable :: buffers(:)
+    real(dp) :: empty(0,0)
+    call check_mlp_csr(x);call forward(self,empty,.true.,buffers,sparse=x)
+    if(self%n_outputs_==1) then
+      allocate(prob(x%n_rows,2));prob(:,2)=buffers(size(self%layers_))%values(:,1);prob(:,1)=1-prob(:,2)
+    else
+      prob=buffers(size(self%layers_))%values
+    end if
+  end function
+  function mlpc_log_proba_csr(self,x) result(prob)
+    class(mlp_classifier), intent(in) :: self
+    type(csr_matrix), intent(in) :: x
+    real(dp), allocatable :: prob(:,:)
+    ! sklearn returns -Inf for exactly zero probabilities.
+    prob=self%predict_proba(x)
+    block
+      use, intrinsic :: ieee_arithmetic, only: ieee_value,ieee_negative_inf
+      integer :: i,j
+      do j=1,size(prob,2)
+        do i=1,size(prob,1)
+          if(prob(i,j)==0) then
+            prob(i,j)=ieee_value(0._dp,ieee_negative_inf)
+          else
+            prob(i,j)=log(prob(i,j))
+          end if
+        end do
+      end do
+    end block
+  end function
+  function mlpc_predict_csr(self,x) result(y)
+    class(mlp_classifier), intent(in) :: self
+    type(csr_matrix), intent(in) :: x
+    integer :: y(x%n_rows),i
+    real(dp), allocatable :: prob(:,:)
+    call require(.not.self%multilabel_,'use predict_indicator for multilabel MLP outputs')
+    prob=self%predict_proba(x)
+    do i=1,size(y)
+      y(i)=self%classes_(maxloc(prob(i,:),dim=1))
+    end do
+  end function
+  function mlpc_predict_indicator_csr(self,x) result(y)
+    class(mlp_classifier), intent(in) :: self
+    type(csr_matrix), intent(in) :: x
+    integer, allocatable :: y(:,:)
+    real(dp), allocatable :: probability(:,:)
+    call require(self%multilabel_,'MLP indicator prediction requires a multilabel model')
+    probability=self%predict_proba(x);y=merge(1,0,probability>.5_dp)
+  end function
+  real(dp) function mlpc_score_csr(self,x,y) result(v)
+    class(mlp_classifier), intent(in) :: self
+    type(csr_matrix), intent(in) :: x
+    integer, intent(in) :: y(:)
+    v=accuracy_score(y,self%predict(x))
+  end function
+  real(dp) function mlpc_score_indicator_csr(self,x,y) result(v)
+    class(mlp_classifier), intent(in) :: self
+    type(csr_matrix), intent(in) :: x
+    integer, intent(in) :: y(:,:)
+    integer, allocatable :: prediction(:,:)
+    call check_mlp_csr(x,size(y,1));call require(size(y,2)>0,'MLP indicator target width must be positive')
+    if(size(y,2)==1.and..not.self%multilabel_) then
+      v=mlpc_score_csr(self,x,y(:,1));return
+    end if
+    call require(all(y==0.or.y==1),'MLP indicator targets must be zero or one')
+    prediction=self%predict_indicator(x)
+    call require(size(y,2)==size(prediction,2),'MLP indicator score width mismatch')
+    v=real(count(all(y==prediction,dim=2)),dp)/size(y,1)
+  end function
+  function mlpr_predict_csr(self,x) result(y)
+    class(mlp_regressor), intent(in) :: self
+    type(csr_matrix), intent(in) :: x
+    real(dp) :: y(x%n_rows)
+    type(activation_buffer), allocatable :: buffers(:)
+    real(dp) :: empty(0,0)
+    call check_mlp_csr(x);call forward(self,empty,.false.,buffers,sparse=x)
+    call require(self%n_outputs_==1,'use predict_multioutput for multiple MLP responses')
+    y=buffers(size(self%layers_))%values(:,1)
+  end function
+  function mlpr_predict_matrix_csr(self,x) result(y)
+    class(mlp_regressor), intent(in) :: self
+    type(csr_matrix), intent(in) :: x
+    real(dp), allocatable :: y(:,:)
+    type(activation_buffer), allocatable :: buffers(:)
+    real(dp) :: empty(0,0)
+    call check_mlp_csr(x);call forward(self,empty,.false.,buffers,sparse=x);y=buffers(size(self%layers_))%values
+  end function
+  real(dp) function mlpr_score_csr(self,x,y) result(v)
+    class(mlp_regressor), intent(in) :: self
+    type(csr_matrix), intent(in) :: x
+    real(dp), intent(in) :: y(:)
+    v=mlpr_score_matrix_csr(self,x,reshape(y,[size(y),1]))
+  end function
+  real(dp) function mlpr_score_matrix_csr(self,x,y) result(v)
+    use, intrinsic :: ieee_arithmetic, only: ieee_value,ieee_quiet_nan
+    class(mlp_regressor), intent(in) :: self
+    type(csr_matrix), intent(in) :: x
+    real(dp), intent(in) :: y(:,:)
+    real(dp), allocatable :: prediction(:,:)
+    integer :: j
+    call check_mlp_csr(x,size(y,1));call check_x(y)
+    prediction=self%predict_multioutput(x)
+    call require(size(y,2)==size(prediction,2),'MLP response score width mismatch')
+    if(size(y,1)<2) then
+      v=ieee_value(0._dp,ieee_quiet_nan);return
+    end if
+    v=0
+    do j=1,size(y,2)
+      v=v+r2_score(y(:,j),prediction(:,j))
+    end do
+    v=v/size(y,2)
+  end function
 end module

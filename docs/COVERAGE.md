@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 221 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and fifty-two reference suites additionally check 2,041,708
+All types have native tests. One hundred and fifty-three reference suites additionally check 2,279,164
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -19,7 +19,7 @@ per sample; cross-decomposition, multi-task regression, joint MLP regression and
 metadata routing, parallel backends and binary model persistence are outside the
 initial translation. The neighbor graph transformers provide CSR graph outputs and
 accept CSR precomputed distances, as do Isomap and Barnes-Hut TSNE. Randomized TruncatedSVD and direct Multinomial/
-Bernoulli/Complement Naive Bayes, SGD regression/classification, Normalizer/Binarizer and PolynomialFeatures also accept CSR matrices. Other estimator and
+Bernoulli/Complement Naive Bayes, SGD and MLP regression/classification, Normalizer/Binarizer and PolynomialFeatures also accept CSR matrices. Other estimator and
 meta-estimator inputs remain dense.
 Fortran identifiers use snake_case rather than CamelCase.
 
@@ -7997,3 +7997,46 @@ accuracy 1.0. The final audit verified field inventories, 156 compiled source
 contents per profile, source/executable/validator hashes and unchanged unrelated
 modules/existing native tests. Reports are retained locally under
 `validation/results/mlp_early_*`, including `mlp_early_final_audit.json`.
+
+## CSR MLP fitting, prediction and scoring
+
+Both MLP types now accept native `csr_matrix` feature inputs in all fit,
+partial-fit, prediction and score overloads. Target contracts remain dense.
+Sparse first-layer affine and transposed-gradient products traverse stored
+entries directly, including duplicate/unsorted columns, explicit zeros, empty
+rows and empty storage. Minibatch/holdout row indices select sparse rows without
+materializing a dense feature matrix. Parameters, gradients, targets and later
+activations remain dense. Adam/SGD/L-BFGS, cached incremental optimizers, warm
+fits and validation stopping share the existing numerical/state implementation.
+Dense and CSR calls may alternate with compatible feature counts/target shapes.
+Sparse containers are validated before numerical work and left unchanged.
+Dense training also avoids its former unnecessary full feature-array copy.
+
+The new `compare_mlp_sparse.py` suite checks 237,456 required groups across
+1,368 workflows and 8,208 fits: three seeds, six response layouts, four
+activations, three architectures and six Adam/SGD settings, with additional
+regression L-BFGS cases. Six stages mix initial regular/partial fits, repeated
+partial calls, warm storage transitions, cold/warm validation stopping and
+cold solver resets. Queries independently alternate dense and CSR storage.
+Six storage patterns cover canonical/reversed columns, explicit zeros,
+duplicates and empty rows/storage. All fitted parameters, optimizer buffers,
+loss/validation histories, best checkpoints, exact split indices, cached
+optimizer controls/rates, predictions, probabilities and scores are compared.
+L-BFGS supplied objectives/Jacobians are checked at native returned points.
+Seventeen diagnostics cover malformed CSR, nonfinite stored values, empty
+shapes, incompatible sample/features, unavailable fits and partial stopping.
+
+The native test independently compares dense/CSR solvers and mixed warm/partial
+calls, checks duplicate/unsorted/zero/empty storage and every target-rank adapter,
+and fits/queries a 4,000-by-100,000 CSR matrix whose dense representation would
+require 3.2 GB. The example demonstrates incremental sparse classification.
+The development suite passed all required groups and diagnostics; final
+checked/release verification is recorded below when complete.
+Single-class estimator construction, non-CSR sparse containers, alternative
+dtypes and arbitrary cached-layout changes remain outside this MLP subset.
+MIT licensing and retained sklearn BSD attribution continue; no dependency or
+public extension estimator was introduced.
+
+Cumulative inventory: 221 public core types, 137 source modules, 177 native
+programs, 153 core reference suites / 2,279,164 retained required groups, and 58
+invalid-input registries / 4,011 cases. These remain API subsets.

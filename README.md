@@ -338,3 +338,9 @@ MLP `early_stopping=.true.` holds out a seeded validation partition, records
 validation scores and restores the best checkpoint. Binary targets use a
 stratified holdout. See [the example](example/early_stopping_mlp.f90) and
 [the early-stopping contract](docs/API.md#mlp-validation-set-early-stopping).
+
+MLP fits, partial fits, predictions and scores also accept the native
+`csr_matrix`, including warm transitions between dense and CSR input. The
+first layer uses sparse products; parameters and later activations remain
+dense. See [the CSR example](example/sparse_mlp.f90) and
+[the input contract](docs/API.md#csr-multilayer-perceptrons).

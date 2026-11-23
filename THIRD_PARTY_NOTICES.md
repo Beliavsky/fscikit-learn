@@ -1326,3 +1326,15 @@ terms remain in LICENSES/scikit-learn-COPYING. Existing NumPy RNG attribution
 also applies. Typed split/checkpoint diagnostics, native NaN handling under
 floating-point traps, tests, example and reference harness are original MIT
 contributions. No dependency or public extension estimator was added.
+
+## CSR multilayer perceptrons (BSD contracts; MIT kernels)
+
+The CSR overloads in `src/sklearn_neural_network.f90` retain scikit-learn 1.6.1
+`neural_network/_multilayer_perceptron.py` sparse-input contracts: first-layer
+affine products, transposed feature-gradient products, minibatch/holdout row
+selection, solver controls and dense parameter/optimizer state. Existing
+sklearn BSD terms remain in LICENSES/scikit-learn-COPYING. Typed adapters,
+one-based CSR traversal kernels, nonmutation/shape checks, wide-input native
+test, example and reference harness are original MIT contributions. Validation
+records sklearn and SciPy sparse source hashes. No dependency or public
+extension estimator was added.
