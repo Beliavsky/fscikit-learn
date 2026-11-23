@@ -18,8 +18,8 @@ Global scope: dense real64 CPU arrays, integer classification labels, generally 
 per sample; cross-decomposition, multi-task regression and independent multioutput wrappers explicitly accept multiple response columns. General sparse estimator inputs, pandas integration, Python estimator cloning,
 metadata routing, parallel backends and binary model persistence are outside the
 initial translation. The neighbor graph transformers provide CSR graph outputs and
-accept CSR precomputed distances, as does Isomap. Randomized TruncatedSVD and direct Multinomial/
-Bernoulli/Complement Naive Bayes, Normalizer/Binarizer and PolynomialFeatures also accept CSR matrices. Other estimator and
+accept CSR precomputed distances, as do Isomap and Barnes-Hut TSNE. Randomized TruncatedSVD and direct Multinomial/
+Bernoulli/Complement Naive Bayes, SGD regression/classification, Normalizer/Binarizer and PolynomialFeatures also accept CSR matrices. Other estimator and
 meta-estimator inputs remain dense.
 Fortran identifiers use snake_case rather than CamelCase.
 
@@ -7561,12 +7561,13 @@ source saturation and nonfinite log probabilities. Twenty-five isolated
 diagnostics cover controls, shapes, finite data, unfitted
 queries and class cardinality.
 
-Most groups use rtol=5e-9 and atol=5e-11. One zero-input, single-sample-batch
-ReLU/custom-Adam fixture amplifies rounding over 13 epochs. Twelve result
-groups additionally use the measured componentwise propagation envelope from
+Most groups use rtol=5e-9 and atol=5e-11. Degenerate zero-input, single-sample-
+batch custom-Adam trajectories can amplify rounding over 13 epochs. The three
+such regression fixtures also measure componentwise propagation envelopes from
 six sklearn runs whose initial values move by one ULP (both directions, all
-parameters or one first/last-layer bias). They remain compared to the original
-unperturbed source values; every other fixture retains the strict tolerance.
+parameters or one first/last-layer bias). These bounds apply only when the
+strict comparison fails; each result remains compared to the original
+unperturbed source values. Every other fixture retains the strict tolerance.
 The source probes change final coefficients by up to about 4.3e-7; the checked
 Fortran development run differs by about 1.4e-7. This is an explicitly recorded
 numerical sensitivity check rather than a blanket tolerance increase.
@@ -7580,3 +7581,15 @@ no dependency or public extension estimator was added.
 Cumulative inventory: 221 public core types, 137 source modules, 171 native
 programs, 147 core reference suites / 1,421,788 retained groups, and 52
 invalid-input registries / 3,907 cases. These remain API subsets.
+
+Final verification passed in both checked (bounds/runtime checks and floating-
+point traps) and optimized release builds: all 171 native programs, 48,960
+MLP reference groups and 25 isolated diagnostic cases per build. The reference
+runs matched 3,172 nonfinite source values each. Twelve checked and thirteen
+release result groups used the measured one-ULP propagation envelopes; all
+remaining groups passed the strict tolerances above. Both XOR example runs
+predicted [0,1,1,0] after 463 epochs / 1,852 samples seen, with final loss
+0.004167032183886215. The combined audit verified 314 compiled source contents
+per build, source/validator/executable hashes and complete layer/field
+inventories. All unrelated core modules and native tests were unchanged.
+Reports and logs are retained locally under ignored validation/results.

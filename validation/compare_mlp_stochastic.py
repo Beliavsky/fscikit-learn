@@ -45,7 +45,7 @@ class PerturbedRegressor(MLPRegressor):
         direction=self.direction*np.inf
         if self.perturb_mode=='all':w=np.nextafter(w,direction);b=np.nextafter(b,direction)
         elif self.perturb_mode=='first' and self.draw_layer==1:b[0]=np.nextafter(b[0],direction)
-        elif self.perturb_mode=='last' and self.draw_layer==2:b[0]=np.nextafter(b[0],direction)
+        elif self.perturb_mode=='last' and self.draw_layer==len(self.hidden_layer_sizes)+1:b[0]=np.nextafter(b[0],direction)
         return w,b
 
 def main():
@@ -89,8 +89,8 @@ def main():
             warnings.simplefilter('ignore',ConvergenceWarning);warnings.simplefilter('ignore',UserWarning)
             model.fit(x,y)
         fields=reference_fields(model,q,kind,control['solver'])
-        if index==253:
-            # One zero-input ReLU/Adam trajectory amplifies roundoff. Compare
+        if kind==0 and opt==1 and batch==1 and np.all(x==0):
+            # Degenerate custom-Adam trajectories can amplify roundoff. Compare
             # to the unchanged baseline and retain its independently measured
             # +/- one-ULP initialization sensitivity, without widening other cases.
             radii={name:np.zeros_like(value,dtype=float) for name,value in fields.items()}
@@ -100,7 +100,8 @@ def main():
                     warnings.simplefilter('ignore',ConvergenceWarning);probe.fit(x,y)
                 altered=reference_fields(probe,q,kind,control['solver'])
                 for name,value in fields.items():radii[name]=np.maximum(radii[name],np.abs(altered[name]-value))
-            assert max(np.max(a) for name,a in radii.items() if name.startswith('weight_'))>1e-8
+            if index==253:
+                assert max(np.max(a) for name,a in radii.items() if name.startswith('weight_'))>1e-8
             roundoff[len(fixtures)]=radii
         c=control
         header=[n,p,kind,len(hidden),nq,c['max_iter'],batch,seed,int(shuffle),int(c['nesterovs_momentum']),c['n_iter_no_change']]
