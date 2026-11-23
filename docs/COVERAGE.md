@@ -7965,7 +7965,7 @@ diagnostics cover fractions, empty/undersized partitions, rare binary classes,
 unsupported partial stopping and unavailable warm histories.
 
 The full development suite and focused native test passed; final fpm checked
-and release verification is recorded below when complete. The native test also
+and release verification is recorded below. The native test also
 independently checks restored validation accuracy, stratified class counts,
 training-only clocks, warm history append and NaN checkpoint alias behavior.
 The example exposes holdout sizes, best/restored R2 and sample count. Sparse MLP
@@ -7977,3 +7977,23 @@ estimator was added.
 Cumulative inventory: 221 public core types, 137 source modules, 176 native
 programs, 152 core reference suites / 2,041,708 retained required groups, and 57
 invalid-input registries / 3,994 cases. These remain API subsets.
+
+Final validation-stopping verification (2026-11-23): the runtime-checked build
+(`-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow`) and release build
+compiled the project and executed seven focused MLP native programs each;
+all passed. The other 169 native programs were not executed in this batch.
+Six MLP reference suites passed 668,880 required groups and 112 invalid-input
+diagnostics per profile. All 189,216 new validation-stopping groups passed
+strictly, without rounding exceptions; the maximum coefficient error was
+2.67e-15 in both profiles. Comparisons matched 7,620 nonfinite source values,
+including best-loss None/NaN representations and one-row R2 histories.
+Existing warm-start rounding groups (7 each), stochastic rounding groups
+(12 checked / 13 release), L-BFGS endpoint differences (812 / 819 diagnostics)
+and two source-matched release line-search returns remain separately recorded.
+Both examples passed in both profiles: validation stopping used a 60/20 split,
+stopped after 83 epochs/4,980 training samples and restored R2
+0.99767682558853465; incremental fitting retained 180 epochs/360 samples with
+accuracy 1.0. The final audit verified field inventories, 156 compiled source
+contents per profile, source/executable/validator hashes and unchanged unrelated
+modules/existing native tests. Reports are retained locally under
+`validation/results/mlp_early_*`, including `mlp_early_final_audit.json`.
