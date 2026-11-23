@@ -8103,10 +8103,33 @@ probability convention, unseen query-label accuracy, dense/CSR and target-rank
 streaming, single-class validation patience, zero-tolerance histories and cold
 class-set expansion/collapse. The example demonstrates one-class streaming.
 The development suite passed all required groups and diagnostics; final
-checked/release verification is recorded below when complete. Non-CSR sparse inputs, alternative dtypes and arbitrary incremental
+checked/release verification is recorded below. Non-CSR sparse inputs, alternative dtypes and arbitrary incremental
 cached-layout changes remain outside the MLP subset. MIT licensing and retained
 sklearn BSD attribution continue; no dependency or extension estimator was added.
 
 Cumulative inventory: 221 public core types, 137 source modules, 178 native
 programs, 154 core reference suites / 2,514,388 retained required groups, and 59
 invalid-input registries / 4,021 cases. These remain API subsets.
+
+Final single-class MLP verification (2026-11-23): runtime-checked
+(`-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow`) and release builds
+compiled the project and executed nine focused MLP native programs each;
+all passed. The other 169 native programs were not executed in this batch.
+Eight MLP reference suites passed 1,141,560 required groups and 139 invalid-input
+diagnostics per profile. All 235,224 new single-class groups passed strictly
+without rounding exceptions; maximum coefficient error was 1.23e-15 in both
+profiles. Comparisons matched 17,334 nonfinite source values, including saturated
+query log probabilities and absent best-score/best-loss representations.
+Existing warm-start rounding groups (7 each), stochastic rounding groups
+(12 checked / 13 release), L-BFGS endpoint differences (812 / 819 diagnostics)
+and two source-matched release line-search returns remain separately recorded.
+The stochastic/L-BFGS obsolete single-class rejections were replaced with
+empty-batch cases. Three checked reference drivers were explicitly rebuilt
+after those registry corrections, verified directly and their suites rerun
+before the final audit. All four examples passed in both profiles: one-class
+streaming returned label 7 with two probability columns and accuracy 1.0;
+the sparse, incremental and validation-stopping examples retained their
+previous results. The final audit verified matching field inventories, 162
+compiled source contents per profile, source/executable/validator hashes and
+unchanged unrelated modules/existing native tests. Reports are retained locally
+under `validation/results/mlp_single_*`, including `mlp_single_final_audit.json`.
