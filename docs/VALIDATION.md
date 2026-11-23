@@ -7150,3 +7150,63 @@ Cumulative inventory: 218 public core types, 132 modules, 155 native test
 programs, 133 core reference suites / 886,045 groups and 41 invalid-input
 registries / 3,650 retained cases. Only the affected suites above were rerun.
 The separate 42-group legacy RNG suite remains excluded and was not rerun.
+
+## Normalizer and Binarizer
+
+Implemented dense/CSR Normalizer and Binarizer, their free functions and typed
+dense composition integration, following sklearn 1.6.1 `_data.py` and sparse
+kernels. The free normalization function adds both axes and returned norms;
+CSR output corresponds to source CSC converted back to CSR for column operations.
+Dense near-zero scales use the source `10*epsilon` guard; sparse nonzero scales
+do not. Sparse L1/L2 operate on stored entries, max canonicalizes duplicates,
+and binarization removes zeros while retaining qualifying duplicates. Returned
+sparse L1/L2 norms remain unsupported, matching source. Fitting records width
+and optional names; transform can precede fit, but feature-name output requires
+fit. Dense protocol inheritance integrates both estimators with Pipeline,
+FeatureUnion and ColumnTransformer without modifying their dispatch arithmetic.
+
+The shared base dispatcher now forwards the already implemented discrete NB
+sample weights and recognizes that capability. New cases verify MultinomialNB,
+BernoulliNB and ComplementNB in weighted/unweighted pipelines, bagging and voting.
+Separate multioutput/chain adapters are unchanged. No new runtime dependency
+or public extension algorithm was introduced. Original adapters are MIT with
+retained sklearn/SciPy BSD attribution.
+
+The core suite has 1,801 fixtures / 19,386 groups, 29 diagnostics and 50 explicitly
+retained nonfinite-result fields. The composition suite has 864 fixtures / 5,328
+groups. Inputs span dense/CSR, both axes, norms/thresholds, both fitted and
+prefit transforms, width/name checks, zero/tiny/subnormal/large values, near-zero
+scale boundaries, unsorted duplicates, cancellation and duplicate overflow.
+NaN/infinity masks must match source. The development run corrected the fitted
+feature-name guard and a harness use of optional unnamed pipeline metadata; it
+also exposed the stale NB dispatch restriction, now corrected. No fixture is
+discarded or numerical mismatch waived.
+
+Checked verification passes all 157 native tests, 57,356 affected reference
+groups and 130 diagnostics. The group total is 24,714 new core/composition,
+8,556 pipeline, 3,360 column/union, 16,965 voting, 3,569 stacking and 192
+integration. Diagnostics comprise 29 new, 58 existing pipeline and 43 existing
+composition cases. Existing reference certificates remain retained by their
+suites; the new suites require direct numerical agreement and matching IEEE
+outcome masks. The checked example matches sklearn's normalized CSR row
+`[0.6,0.8]` and weighted pipeline predictions `[1,1,-1,-1]`.
+
+The checked audit verifies all 304 compiled-content digests (133 core modules,
+four vendor modules, 157 tests, nine reference/rejection drivers and the example),
+complete group inventories, scalar/array IEEE outcomes and pinned executable/
+validator/sklearn/SciPy source hashes. It proves that the other preprocessing
+procedure bodies are unchanged, and that shared base dispatch changes are
+restricted to the discrete NB weight forwarding and capability flag.
+
+Release verification passes the same 157 native tests, 57,356 affected reference
+groups and 130 diagnostics. Both examples match sklearn. The final audit verifies
+304 compiled-content digests per profile, complete independent group inventories,
+matching finite/nonfinite source outcomes, pinned executable/validator/sklearn/
+SciPy hashes and unchanged surrounding preprocessing/dispatch arithmetic. Logs,
+reports and orchestration/audit scripts are archived in ignored
+`validation/results`, including `stateless_final_audit.json`.
+
+Cumulative inventory: 220 public core types, 133 source modules, 157 native tests,
+135 core reference suites / 910,759 retained groups and 42 invalid-input registries
+/ 3,679 cases. Only the affected suites above were rerun. The separate 42-group
+legacy RNG suite remains excluded and was not rerun.

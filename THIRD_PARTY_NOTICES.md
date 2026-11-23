@@ -1122,3 +1122,17 @@ remain MIT contributions. ASCII analysis is an explicit native limitation.
 The sklearn stop-list source credits the Glasgow Information Retrieval Group
 for the original English list, with source location
 `http://ir.dcs.gla.ac.uk/resources/linguistic_utils/stop_words`.
+
+### Normalizer, Binarizer and sparse preprocessing
+
+`src/sklearn_stateless_preprocessing.f90` adapts the scikit-learn 1.6.1
+`preprocessing/_data.py` Normalizer/Binarizer/free-function contracts,
+`utils/sparsefuncs.py`, `utils/sparsefuncs_fast.pyx` and `utils/extmath.py` norm
+semantics. Copyright The scikit-learn developers; BSD-3-Clause terms remain in
+`LICENSES/scikit-learn-COPYING`. Sparse max canonicalization follows SciPy 1.15.3
+`sparse/_compressed.py` and `sparse/_data.py`; retained SciPy BSD terms are in
+`LICENSES/scipy-COPYING`. Reference reports pin these source digests and versions.
+The native stable sorting, owned storage, feature-name/protocol adapters and
+quiet-arithmetic integration are original MIT contributions. Shared NB dispatch
+now forwards the existing underlying sample-weight argument. No C++ sorting
+implementation, new numerical binary or external runtime is imported.

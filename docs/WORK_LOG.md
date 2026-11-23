@@ -7243,3 +7243,43 @@ Inventory: 218 public types, 132 core modules, 155 native tests, 133 core refere
 suites and 886,045 groups. Forty-one invalid-input registries retain 3,650 cases.
 Only the affected suites above were rerun. The separate legacy RNG suite remains
 excluded and was not rerun.
+
+## Normalizer, Binarizer and sparse normalization
+
+Added dense/CSR stateless preprocessing estimators, one-to-one feature metadata,
+dense protocol composition and dense/CSR free-function overloads. Normalization
+supports both axes and returned norms, with source-specific dense near-zero
+versus sparse nonzero handling. Sparse normalization/binarization preserve the
+source distinctions among stored duplicates, canonical max reductions, explicit
+zeros and threshold filtering. Quiet IEEE primitives retain source overflow/
+NaN outcomes without native arithmetic traps. All outputs own their storage.
+
+The reference checks identified that feature-name output requires fitting,
+even though transforms work before fit. They also exposed a stale shared NB
+weight restriction. The adapter now forwards existing sample weights for the
+MultinomialNB hierarchy, including BernoulliNB and ComplementNB. New regression
+cases cover weighted/unweighted pipelines, voting and bagging for all three.
+The separate multioutput/chain dispatchers remain unchanged. Original Fortran
+adapters remain MIT with retained sklearn/SciPy BSD attribution.
+
+New reference suites retain 1,801 core fixtures / 19,386 groups, 29 diagnostics,
+50 source nonfinite-result fields, and 864 composition fixtures / 5,328 groups.
+Checked verification passes 157 native tests, 57,356 affected reference groups
+and 130 diagnostics. Existing pipeline, column/union, voting, stacking and
+integration suites were rerun. The example matches sklearn's normalized first
+row `[0.6,0.8]` and weighted classifications `[1,1,-1,-1]`. The checked audit
+verifies 304 compiled-content digests, complete field inventories, IEEE outcome
+masks, source/validator/executable hashes and unchanged preprocessing/base-dispatch
+arithmetic outside the intended additions and discrete NB forwarding/flag fix.
+
+Release verification passed all 157 native tests, the same 57,356 affected
+reference groups and 130 diagnostics. Both examples matched sklearn. The final
+audit verified 304 compiled-content digests per profile, complete field
+inventories, source finite/nonfinite outcomes, pinned executable/validator/
+sklearn/SciPy hashes and unchanged surrounding procedure bodies. Artifacts are
+archived in ignored `validation/results`, including `stateless_final_audit.json`.
+
+Inventory: 220 public types, 133 core modules, 157 native tests, 135 core reference
+suites / 910,759 groups and 42 invalid-input registries / 3,679 cases. Only the
+affected suites above were rerun. The separate legacy RNG suite remains excluded
+and was not rerun.

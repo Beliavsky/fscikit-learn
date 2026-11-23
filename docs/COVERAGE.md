@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 218 public estimator, transformer, and splitter types. Each is a
+There are 220 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and thirty-three reference suites additionally check 886,045
+All types have native tests. One hundred and thirty-five reference suites additionally check 910,759
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -19,7 +19,7 @@ per sample; cross-decomposition, multi-task regression and independent multioutp
 metadata routing, parallel backends and binary model persistence are outside the
 initial translation. The neighbor graph transformers provide CSR graph outputs and
 accept CSR precomputed distances. Randomized TruncatedSVD and direct Multinomial/
-Bernoulli/Complement Naive Bayes also accept CSR matrices. Other estimator and
+Bernoulli/Complement Naive Bayes and Normalizer/Binarizer also accept CSR matrices. Other estimator and
 meta-estimator inputs remain dense.
 Fortran identifiers use snake_case rather than CamelCase.
 
@@ -36,7 +36,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | multiclass | `one_vs_rest_classifier`, `one_vs_one_classifier`, `output_code_classifier` | Dense independent binary reductions; supported native classifier and regressor bases; constant heads; weighted fitting where the base supports it; Gaussian NB/SGD classification streaming for OVR/OVO; seeded legacy NumPy codebooks |
 | inspection | `permutation_importance`, `permutation_importance_multi`, `partial_dependence` | Dense callback-based permutation importance and brute partial dependence/ICE; seeded subsampling/shuffles; weighted averages; categorical and Cunnane percentile grids; numeric multiple-output responses |
 | multioutput | `multi_output_regressor`, `multi_output_classifier`, `regressor_chain`, `classifier_chain` | Independent fitted base models per response column; supported native linear/SGD, NB, neighbors and tree families; ragged class probabilities; SGD/Gaussian NB streaming; native base weighting limits apply |
-| preprocessing | `kernel_centerer`, `ordinal_encoder`, `target_encoder`, `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `iterative_imputer`, `knn_imputer`, `missing_indicator`, `spline_transformer`, `label_encoder`, `one_hot_encoder`, `label_binarizer`, `multi_label_binarizer`, `power_transformer`, `kbins_discretizer`, `quantile_transformer`; `normalize`, `binarize`, `polynomial_features` | Ordinal category codes and infrequent grouping; cross-fitted target means; population variance; linear percentile interpolation; NaN imputation with mean/median/most-frequent/constant; numeric categories; empirical uniform/normal quantile transforms; dense polynomial terms through degree 12 with optional interactions; B-spline features and extrapolation |
+| preprocessing | `kernel_centerer`, `ordinal_encoder`, `target_encoder`, `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `iterative_imputer`, `knn_imputer`, `missing_indicator`, `spline_transformer`, `label_encoder`, `one_hot_encoder`, `label_binarizer`, `multi_label_binarizer`, `power_transformer`, `kbins_discretizer`, `quantile_transformer`, `normalizer`, `binarizer`; `normalize`, `binarize`, `polynomial_features` | Ordinal category codes and infrequent grouping; cross-fitted target means; population variance; linear percentile interpolation; NaN imputation with mean/median/most-frequent/constant; numeric categories; empirical uniform/normal quantile transforms; dense polynomial terms through degree 12 with optional interactions; B-spline features and extrapolation; dense/CSR row normalization and thresholding, both-axis free normalization with returned norms |
 | linear_model | `linear_regression`, `lars`, `lasso_lars`, `lars_cv`, `lasso_lars_cv`, `lasso_lars_ic`, `ridge`, `ridge_classifier`, `ridge_classifier_cv`, `multi_task_elastic_net`, `multi_task_lasso`, `multi_task_elastic_net_cv`, `multi_task_lasso_cv`, `lasso`, `elastic_net`, `lasso_cv`, `elastic_net_cv`, `logistic_regression`, `logistic_regression_cv`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `sgd_regressor`, `sgd_classifier`, `sgd_one_class_svm`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `orthogonal_matching_pursuit_cv`, `huber_regressor`, `quantile_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; least-angle/Lasso homotopy paths with CV and AIC/BIC selection; coordinate descent with K-fold alpha/l1-ratio selection; weighted logistic Newton solver with raw-score prediction; perceptron; PA-I/II classification/regression with averaging; streaming stochastic-gradient regression/classification and one-class detection; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; weighted L1-regularized quantile regression; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb`, `categorical_nb` | Weighted/streaming Gaussian moments, empirical/fixed priors and variance smoothing; dense/CSR weighted and streaming discrete event counts and fixed/empirical priors; nonnegative scalar alpha and force_alpha flooring, plus feature-wise Multinomial/Complement smoothing; Bernoulli threshold; optional complement normalization |
 | neighbors | `neighborhood_components_analysis`, `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Supervised NCA metric learning; brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with shrinkage, uniform/empirical/custom priors and Euclidean discriminant probabilities; Euclidean kernel density |
@@ -6820,3 +6820,44 @@ examples match sklearn, including sparse NB predictions. The audit verifies
 pinned source/validator/executable hashes and unchanged existing text/hash/CSR
 arithmetic. Only the affected suites were rerun; the separate legacy RNG suite
 remains excluded. See the [validation record](VALIDATION.md).
+
+## Stateless numeric preprocessing
+
+Added `normalizer` and `binarizer` with dense/CSR fit, transform, fit-transform
+and one-to-one feature metadata. Both work through the existing dense transformer
+protocol inside Pipeline, FeatureUnion and ColumnTransformer. The existing free
+functions now accept CSR; normalization adds both axes and optional returned
+norms, preserving sklearn's unsupported sparse L1/L2 return-norm case. Dense
+near-zero norms use sklearn's `10*epsilon` guard, correcting the old exact-zero
+check. CSR storage behavior is retained: L1/L2 use individual stored entries;
+max coalesces duplicates; binarization removes zeros but preserves qualifying
+duplicates. Column output is CSR corresponding to source CSC converted to CSR.
+
+The shared base dispatcher forwards existing sample weights for MultinomialNB,
+BernoulliNB and ComplementNB and recognizes their weighting capability. This
+corrects stale limits in pipeline/voting/bagging/stacking dispatch. Separate
+multioutput/chain adapters retain their existing limits. New tests directly
+exercise weighted/unweighted pipelines, bagging and voting with all three NB
+classes. There is no new dependency or public extension algorithm. Original
+adapters remain MIT with retained sklearn/SciPy BSD attribution.
+
+The new core suite has 1,801 fixtures / 19,386 groups and 29 diagnostic cases.
+The composition suite has 864 fixtures / 5,328 groups, spanning normalization,
+thresholding, weighted Ridge/NB pipelines, unions, reordered columns, transformed
+remainders, bagging and voting. Boundary cases include near-zero thresholds,
+subnormal and large values, both sparse axes, unsorted duplicates, exact
+cancellation and duplicate overflow. Nonfinite source results are checked by
+NaN/infinity masks rather than discarded. Source metadata rules require fitting
+before feature-name output even though numeric transform works before fitting.
+See the [API contract](API.md#normalizer-binarizer-and-sparse-preprocessing-functions)
+and [example](../example/stateless_feature_preprocessing.f90).
+
+Cumulative inventory: 220 public core types, 133 source modules, 157 native tests,
+135 core reference suites / 910,759 groups and 42 invalid-input registries /
+3,679 retained cases. The separate legacy RNG suite remains excluded.
+
+Both final profiles pass all 157 native tests, 57,356 affected reference groups
+and 130 diagnostics. The audit verifies 304 compiled-content digests per profile,
+full field inventories, IEEE outcome masks and pinned hashes; both examples match
+source. Existing regression certificates remain retained, with no new numerical
+exceptions. Only affected suites were rerun; see the [validation record](VALIDATION.md).

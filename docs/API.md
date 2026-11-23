@@ -6104,3 +6104,67 @@ preprocessing/tokenization is not implemented here. Custom regexes/callables,
 accent stripping, filename/file inputs, encoding/error policies, float32 output,
 Python warnings and general text-transformer pipeline dispatch are outside this
 interface. See `example/hashed_text_documents.f90`.
+
+## Normalizer, Binarizer and sparse preprocessing functions
+
+`sklearn_preprocessing` and the `sklearn` facade export the `normalizer` and
+`binarizer` types, together with dense/CSR overloads of `normalize` and `binarize`.
+The types support `fit`, `transform`, `fit_transform` and
+`get_feature_names_out`. Numeric transforms work before fitting; fitting records
+`n_features_in_` and optional `feature_names_in_`, without learning numeric
+statistics. The native unfitted width sentinel is zero. After fitting, query
+widths must match. Feature-name output requires fitting, even when names are
+explicitly supplied; it preserves fitted names or generates `x0`, `x1`, ... .
+An unnamed refit clears old names. Optional fit names are `feature_string`
+records; numeric matrix queries carry no external column-name object.
+
+```fortran
+type(normalizer) :: unit
+type(binarizer) :: binary
+real(dp), allocatable :: z(:,:), scales(:)
+unit%norm='l2'
+z=unit%fit_transform(x)
+binary%threshold=.5_dp
+z=binary%transform(z)
+z=normalize(x, norm='l1', axis=0, norms=scales)
+```
+
+Normalizer's `norm` accepts `'l1'`, `'l2'` (default) or `'max'`; its estimator
+methods normalize rows. Binarizer's finite `threshold` defaults to zero, with
+strict `value > threshold` comparison. The free `normalize` function additionally
+accepts `axis=1` for rows (default) or `axis=0` for columns and an optional
+allocatable `norms` output representing sklearn's `return_norm=True`. Dense
+returned norms include sklearn's near-zero guard: a computed norm below
+`10*epsilon(real64)` becomes one, and its vector remains unchanged. This corrects
+the old free function's exact-zero-only guard. Nonzero sparse norms do not use
+that dense guard. Sparse L1/L2 returned norms are rejected, as in sklearn 1.6.1;
+sparse max normalization returns raw norms, including zero for an empty vector.
+
+Both dense and CSR input values must be finite and have nonempty dimensions.
+CSR row L1/L2 normalization uses stored entries, preserving their indices,
+duplicates and explicit zeros. Max normalization coalesces duplicate columns
+before measuring the norm and retains explicit cancellation zeros. Column
+normalization returns CSR in the ordering obtained by converting sklearn's CSC
+result back to CSR. Sparse binarization requires a nonnegative threshold,
+processes each stored entry, removes resulting zeros, and retains qualifying
+duplicate entries and their order. Sparse Binarizer fitting can validate a
+negative threshold, but transformation rejects it. Inputs are preserved; output
+arrays own their storage. In-place/`copy=False` behavior, CSC objects, float32
+output, Python warning protocols and sparse composition dispatch are not exposed.
+
+Quiet IEEE arithmetic follows source outcomes on extreme finite inputs: norm
+overflow can produce an infinite returned norm and zero normalized values;
+max normalization of overflowing duplicate sums can yield NaNs. These outcomes
+are compared explicitly with sklearn/SciPy, without a native trapped overflow
+or invalid division. Ordinary norm reductions may differ at rounding precision.
+
+Both estimator types implement the existing dense transformer protocol, so they
+work inside Pipeline, FeatureUnion and ColumnTransformer with one-to-one names.
+They have no supported inverse transform. The shared voting/bagging/stacking/
+pipeline classifier dispatcher now forwards supported sample weights to the
+MultinomialNB hierarchy, including BernoulliNB and ComplementNB. Its old
+weight rejection and capability flag were stale after weighted discrete NB was
+implemented. Weight domains remain those of the underlying estimators; separate
+multioutput/chain dispatchers retain their existing documented limits. New
+reference cases cover weighted and unweighted pipelines, voting and bagging
+with all three NB classes. See `example/stateless_feature_preprocessing.f90`.

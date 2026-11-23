@@ -1,4 +1,5 @@
 module sklearn_preprocessing
+  use sklearn_stateless_preprocessing, only: normalizer,binarizer,normalize,binarize
   use sklearn_function_transformer, only: function_transformer
   use sklearn_iterative_impute, only: iterative_imputer,imputer_triplet
   use sklearn_kernel_centering, only: kernel_centerer
@@ -25,6 +26,7 @@ module sklearn_preprocessing
   public :: power_transformer,kbins_discretizer,quantile_transformer
   public :: standard_scaler, minmax_scaler, maxabs_scaler, robust_scaler, simple_imputer
   public :: normalize, binarize, polynomial_features, label_encoder, one_hot_encoder
+  public :: normalizer,binarizer
   type :: standard_scaler
     logical :: with_mean=.true., with_std=.true.
     real(dp), allocatable :: mean_(:), var_(:), scale_(:)
@@ -249,31 +251,6 @@ contains
       where(ieee_is_nan(z(:,j))) z(:,j)=self%statistics_(j)
     end do
     call check_x(z)
-  end function
-  function normalize(x,norm) result(z)
-    real(dp), intent(in) :: x(:,:)
-    character(*), intent(in), optional :: norm
-    real(dp) :: z(size(x,1),size(x,2)),v
-    character(8) :: kind
-    integer :: i
-    call check_x(x); kind='l2'; if(present(norm)) kind=norm
-    do i=1,size(x,1)
-      select case(trim(kind))
-      case('l1'); v=sum(abs(x(i,:)))
-      case('l2'); v=sqrt(sum(x(i,:)**2))
-      case('max'); v=maxval(abs(x(i,:)))
-      case default; call require(.false.,'unknown normalization norm')
-      end select
-      if(v==0) v=1
-      z(i,:)=x(i,:)/v
-    end do
-  end function
-  function binarize(x,threshold) result(z)
-    real(dp), intent(in) :: x(:,:)
-    real(dp), intent(in), optional :: threshold
-    real(dp) :: z(size(x,1),size(x,2)),t
-    call check_x(x); t=0; if(present(threshold)) t=threshold
-    z=merge(1._dp,0._dp,x>t)
   end function
   function polynomial_features(x,degree,include_bias,interaction_only) result(z)
     real(dp), intent(in) :: x(:,:)

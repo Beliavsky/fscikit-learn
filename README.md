@@ -264,3 +264,9 @@ with H fixed, returning both factors and the iteration count. See
 with stop words, signed collisions, binary mode and L1/L2 normalization. Text
 analysis currently accepts ASCII; see [the API contract](docs/API.md#hashingvectorizer-text-features)
 and [the CSR classification example](example/hashed_text_documents.f90).
+
+`Normalizer` and `Binarizer` provide dense/CSR estimator APIs and integrate with
+dense pipelines and feature compositions. Their free functions also support
+CSR input, and normalization supports both axes and returned norms. See
+[the contract](docs/API.md#normalizer-binarizer-and-sparse-preprocessing-functions)
+and [the weighted classification example](example/stateless_feature_preprocessing.f90).

@@ -6592,3 +6592,36 @@ NB examples match source. The final audit checks 296 compiled-content digests
 per profile, complete analyzer/field inventories, pinned stop words, hashes and
 unchanged existing text/hash/CSR arithmetic. Artifacts and pre-fix logs are
 archived in ignored `validation/results`, including `hashing_text_final_audit.json`.
+
+## Normalizer/Binarizer and composition
+
+`compare_stateless_preprocessing.py --executable PATH --profile checked --report
+validation/results/stateless_preprocessing_checked.json` compares 1,801 dense/CSR
+fixtures / 19,386 groups and 29 diagnostics against sklearn 1.6.1. Use the
+`reference_stateless_preprocessing_driver` executable for the desired profile.
+The suite checks free functions, both estimator APIs, both axes, returned norms,
+prefit transforms, fitted widths/names, unnamed refits, zero/tiny/subnormal/large
+values, threshold boundaries, explicit zeros, unsorted duplicates, cancellation
+and duplicate overflow. NaN/Inf result masks must match exactly; numeric arrays
+use `rtol=3e-13`, `atol=3e-14`. CSR metadata, names and discrete outputs are exact.
+Native drivers verify input preservation. Source hashes pin sklearn `_data.py`,
+`sparsefuncs.py`, `sparsefuncs_fast.pyx`, `extmath.py` and SciPy sparse sources.
+
+`compare_stateless_composition.py` uses the same arguments with
+`reference_stateless_composition_driver`. It retains 864 fixtures / 5,328 groups
+for transformer pipelines, weighted Ridge/NB pipelines, weighted feature unions,
+column selections/remainders, bagging and voting. All three discrete NB classes
+exercise both weighted and unweighted paths. It checks predictions/probabilities,
+coefficients, output names/widths, inverse availability and untouched prototypes.
+
+The shared dispatch change is accompanied by the existing pipeline, column/union,
+voting, stacking and integration regression suites. Those file-based legacy
+suites run sequentially within and between profiles to preserve their shared
+validation files. The new stdin suites can run concurrently with the build.
+
+Final checked and release profiles each pass all 157 native tests, 57,356 affected
+reference groups and 130 diagnostics. The final audit checks 304 compiled-content
+digests per profile, complete new-suite field inventories, all finite/nonfinite
+outcome masks, pinned hashes and unchanged surrounding preprocessing/dispatch
+procedure bodies. Both examples match sklearn. Artifacts are archived in ignored
+`validation/results`, including `stateless_final_audit.json`.
