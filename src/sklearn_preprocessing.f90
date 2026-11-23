@@ -1,4 +1,5 @@
 module sklearn_preprocessing
+  use sklearn_polynomial, only: polynomial_features
   use sklearn_stateless_preprocessing, only: normalizer,binarizer,normalize,binarize
   use sklearn_function_transformer, only: function_transformer
   use sklearn_iterative_impute, only: iterative_imputer,imputer_triplet
@@ -251,59 +252,6 @@ contains
       where(ieee_is_nan(z(:,j))) z(:,j)=self%statistics_(j)
     end do
     call check_x(z)
-  end function
-  function polynomial_features(x,degree,include_bias,interaction_only) result(z)
-    real(dp), intent(in) :: x(:,:)
-    integer, intent(in), optional :: degree
-    logical, intent(in), optional :: include_bias,interaction_only
-    real(dp), allocatable :: z(:,:), work(:,:)
-    integer, allocatable :: indices(:)
-    integer :: d,p,n,k,total,level,j,start
-    logical :: bias,interaction
-    call check_x(x); d=2; if(present(degree)) d=degree
-    call require(d>=0.and.d<=12,'polynomial degree must be between 0 and 12')
-    bias=.true.; if(present(include_bias)) bias=include_bias
-    interaction=.false.; if(present(interaction_only)) interaction=interaction_only
-    n=size(x,1); p=size(x,2); total=merge(1,0,bias)
-    ! Count combinations using the same recursion that emits sklearn ordering.
-    allocate(indices(max(1,d))); k=0
-    do level=1,d
-      call count_terms(1,1,level)
-    end do
-    total=total+k
-    allocate(z(n,total)); k=0
-    if(bias) then
-      k=1; z(:,k)=1
-    end if
-    do level=1,d
-      call emit(1,1,level)
-    end do
-  contains
-    recursive subroutine count_terms(pos,first,depth)
-      integer, intent(in) :: pos,first,depth
-      integer :: t
-      if(pos>depth) then
-        k=k+1; return
-      end if
-      do t=first,p
-        call count_terms(pos+1,t+merge(1,0,interaction),depth)
-      end do
-    end subroutine
-    recursive subroutine emit(pos,first,depth)
-      integer, intent(in) :: pos,first,depth
-      integer :: t,h
-      if(pos>depth) then
-        k=k+1; z(:,k)=1
-        do h=1,depth
-          z(:,k)=z(:,k)*x(:,indices(h))
-        end do
-        return
-      end if
-      do t=first,p
-        indices(pos)=t
-        call emit(pos+1,t+merge(1,0,interaction),depth)
-      end do
-    end subroutine
   end function
   subroutine label_fit(self,y)
     class(label_encoder), intent(inout) :: self

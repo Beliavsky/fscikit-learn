@@ -6168,3 +6168,80 @@ implemented. Weight domains remain those of the underlying estimators; separate
 multioutput/chain dispatchers retain their existing documented limits. New
 reference cases cover weighted and unweighted pipelines, voting and bagging
 with all three NB classes. See `example/stateless_feature_preprocessing.f90`.
+
+## PolynomialFeatures estimator and retained array API
+
+`polynomial_features` is now both an estimator type and the retained array-call
+generic, exported by `sklearn_preprocessing` and `sklearn`:
+
+```fortran
+type(polynomial_features) :: poly
+real(dp), allocatable :: z(:,:)
+integer(int64), allocatable :: exponents(:,:)
+poly%degree=4
+poly%min_degree=2
+poly%include_bias=.false.
+z=poly%fit_transform(x)
+exponents=poly%get_powers()       ! alias: poly%powers_()
+z=polynomial_features(x,3)       ! earlier array-call syntax still works
+```
+
+The type supports dense/CSR `fit`, `transform`, `fit_transform`,
+`get_feature_names_out`, `get_powers` and its `powers_()` alias. Degree and count
+fields use int64. Controls are maximum `degree=2`, `min_degree=0`,
+`include_bias=.true.` and `interaction_only=.false.`. The degree pair represents
+sklearn's `(min_degree,max_degree)` form; a minimum of zero/one excludes no
+positive-degree term, and bias inclusion is independent of that minimum.
+Degree zero without bias is rejected. Interaction-only ranges above the input
+width may produce a valid zero-column result. The former degree-12 ceiling is
+removed from the array call, which also accepts optional `min_degree` after its
+earlier four arguments. Type constructors use keywords (or set fields after
+declaration); the first positional structure-constructor component is the
+internal transformer parent, not Python's degree argument.
+
+Fitting validates finite/nonempty input and records `n_features_in_`, int64
+`n_output_features_`, degree snapshots and optional `feature_names_in_`. It
+counts combinations without allocating the expansion or exponent table. Count
+arithmetic checks int64 overflow and uses exact reduced binomials and a
+Vandermonde difference for narrow high-degree ranges. Fit-only counts can exceed
+the package's CSR column range. `get_powers` materializes an int64 matrix shaped
+`(n_output_features_,n_features_in_)`; names and powers are generated on demand.
+Numeric transformation and metadata require fitting. Queries must match input
+width. Changing degree/bias/interaction controls requires refitting. Unnamed
+refits clear fitted names. Feature names preserve supplied UTF-8 strings and use
+source ordering, spaces and exponent suffixes; bias is named `1`.
+
+Dense output is a Fortran column-major array, corresponding to source `order='F'`;
+the Python memory-order selector is not exposed. Dense multiplication reuses the
+previous degree's suffix products in sklearn's association order. It streams two
+degree buffers instead of retaining the entire lower-degree expansion when only
+higher degrees are requested. Sparse output is real64 CSR. Global feature-column
+ranks use exact combinatorial counts, while sparse enumeration uses stored row
+features. Degrees at most three retain explicit product zeros, as in sklearn's
+CSR fast path; the higher-degree CSC path removes zero products except original
+linear entries. Quiet IEEE multiplication retains source infinities and NaNs.
+For higher degrees, potentially overflowing rows also account for implicit zeros,
+matching SciPy's sparse multiplication union semantics (`Inf * 0` may store NaN).
+The dense and sparse association paths can legitimately differ on extreme inputs.
+
+Two sklearn 1.6.1 defects receive explicit corrections:
+
+- Noncanonical CSR inputs are copied, sorted and coalesced before expansion.
+  The raw source fast path can compute incorrect duplicate-column products
+  (for a row representing `[5,1]`, one observed square was `19` rather than `25`).
+  Native results use the public canonical-CSR oracle, with ordinary cases also
+  checked against the equivalent dense expansion. Raw source results/errors are
+  retained in validation reports. Coalescing must leave finite input values;
+  duplicate sums that overflow receive a diagnostic.
+- Zero-column interaction results have empty powers/name arrays. Source can raise
+  from `vstack([])` or sparse `hstack([])` for these otherwise fitted shapes;
+  those exceptions are retained and the native empty arrays preserve dimensions.
+
+CSR output columns and stored counts retain the package's default-integer index
+limit; dense/powers/name allocations check addressable ranges and allocation
+status. Very large fit-only counts do not imply a materializable expansion.
+Outputs own their storage; input arrays remain unchanged. CSC objects, float32
+output, Python warning protocols and sparse pipeline dispatch are not exposed.
+Dense Pipeline, FeatureUnion and ColumnTransformer use the existing transformer
+protocol and polynomial output names. There is no inverse transform. See
+`example/polynomial_feature_pipeline.f90`.

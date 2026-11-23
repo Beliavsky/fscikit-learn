@@ -11,6 +11,7 @@ module sklearn_stateless_preprocessing
   implicit none
   private
   public :: normalizer,binarizer,normalize,binarize
+  public :: sorted_sparse ! Internal shared CSR helper; not re-exported by facade.
   interface normalize
     module procedure normalize_dense,normalize_sparse
   end interface

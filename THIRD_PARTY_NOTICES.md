@@ -1136,3 +1136,18 @@ The native stable sorting, owned storage, feature-name/protocol adapters and
 quiet-arithmetic integration are original MIT contributions. Shared NB dispatch
 now forwards the existing underlying sample-weight argument. No C++ sorting
 implementation, new numerical binary or external runtime is imported.
+
+### PolynomialFeatures
+
+`src/sklearn_polynomial.f90` adapts scikit-learn 1.6.1
+`preprocessing/_polynomial.py` and `_csr_polynomial_expansion.pyx`: feature
+ordering, degree controls, dense multiplication association, sparse storage
+behavior and metadata contracts. Copyright The scikit-learn developers; retained
+BSD-3-Clause terms are in `LICENSES/scikit-learn-COPYING`. The higher-degree
+sparse multiplication behavior follows SciPy 1.15.3 `sparse/_compressed.py`;
+retained SciPy BSD terms remain in `LICENSES/scipy-COPYING`. Reference reports
+pin the source files/versions. The native implementation corrects noncanonical
+CSR duplicate expansion and empty-output metadata/stacking defects observed in
+sklearn 1.6.1; raw source outcomes remain in validation reports. Exact checked
+counting, streaming buffers, column ranking, lazy metadata and protocol adapters
+are original MIT contributions. No additional runtime library is imported.

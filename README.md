@@ -270,3 +270,9 @@ dense pipelines and feature compositions. Their free functions also support
 CSR input, and normalization supports both axes and returned norms. See
 [the contract](docs/API.md#normalizer-binarizer-and-sparse-preprocessing-functions)
 and [the weighted classification example](example/stateless_feature_preprocessing.f90).
+
+`PolynomialFeatures` now provides an estimator API with degree ranges, lazy
+powers/names, CSR expansion and dense pipeline support. The existing
+`polynomial_features(x, ...)` call remains available and its degree-12 cap is
+removed. See [the contract and source corrections](docs/API.md#polynomialfeatures-estimator-and-retained-array-api)
+and [the quadratic pipeline example](example/polynomial_feature_pipeline.f90).

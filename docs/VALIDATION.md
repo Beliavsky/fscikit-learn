@@ -7210,3 +7210,38 @@ Cumulative inventory: 220 public core types, 133 source modules, 157 native test
 135 core reference suites / 910,759 retained groups and 42 invalid-input registries
 / 3,679 cases. Only the affected suites above were rerun. The separate 42-group
 legacy RNG suite remains excluded and was not rerun.
+
+## PolynomialFeatures estimator and sparse expansion
+
+The new estimator retains the original array-call API and adds degree ranges,
+int64 counts/powers, lazy feature names, dense/CSR transformation and dense
+composition. The old degree-12 cap is removed. Scope, allocation/index limits and
+source corrections are documented in API.md. Original Fortran adapters remain
+MIT with retained sklearn/SciPy BSD attribution.
+
+The core validator passes 1,985 fixtures / 38,020 groups and 31 diagnostics;
+composition adds 480 fixtures / 2,880 groups. The source reports preserve 984 raw
+noncanonical outcomes, 48 empty metadata exceptions, 36 empty sparse-transform
+exceptions and 243 nonfinite fields. Symbolic metadata for three huge one-feature
+exponents and one requested-range source count helper are explicitly identified
+oracle limits. Final reports require the complete fixture inventory starting at
+zero, exact integer metadata and matching NaN/signed-infinity masks.
+
+Checked verification passes all 159 native tests, 77,722 affected reference
+groups and 161 diagnostics. Legacy preprocessing/composition, pipelines,
+column/union and general integration suites were rerun. The explicit example
+matches quadratic predictions `[0.75,1,2.75]`, sparse shape `(5,2)`, eight stored
+entries and names `x0`, `x0^2`. The checked audit verifies 307 compiled-content
+digests, full field inventories, hashes and unchanged surrounding code.
+
+An intermittent internal-formatting failure exposed during fresh-process stress
+checks was corrected by direct integer-to-text conversion for lazy names. Native
+regressions cover empty/UTF-8 names and refits. The corrected checked and release
+builds each pass all 159 native programs, 77,722 affected reference groups and
+161 diagnostic cases, including 128 name/refit process repetitions per full core
+report. A focused optimized final-source run additionally passed 1,000 repetitions.
+The final audit verifies 307 compiled-content digests per profile, full fixture/
+field inventories, hashes and unchanged surrounding preprocessing/dispatch code.
+Both explicit examples match source. Reports and pre-fix logs are retained in
+ignored `validation/results`, including `polynomial_final_audit.json`. Only
+impacted suites were rerun; the separate legacy RNG suite remains excluded.

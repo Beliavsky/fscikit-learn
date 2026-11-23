@@ -7283,3 +7283,70 @@ Inventory: 220 public types, 133 core modules, 157 native tests, 135 core refere
 suites / 910,759 groups and 42 invalid-input registries / 3,679 cases. Only the
 affected suites above were rerun. The separate legacy RNG suite remains excluded
 and was not rerun.
+
+## PolynomialFeatures estimator, degree ranges and CSR expansion
+
+Added a composable `polynomial_features` estimator while retaining the earlier
+`polynomial_features(x,...)` array-call generic. It supports dense/CSR input,
+minimum/maximum degree, interaction-only output, bias control, fitted widths and
+names, lazy int64 powers/counts and dense protocol composition. Exact checked
+binomials/Vandermonde counting avoids unnecessary large intermediates; exponent
+iteration avoids allocating tuples proportional to enormous degrees. The old
+array-call degree-12 cap is removed. No new dependency or extension is added.
+MIT original adapters retain sklearn/SciPy BSD source attribution.
+
+Dense suffix reuse follows source multiplication association. CSR expansion uses
+canonicalized row storage and exact global column ranks, with source explicit-zero
+rules and quiet IEEE multiplication. Validation exposed higher-degree sparse
+`Inf * implicit-zero` NaNs, so the extreme-overflow path accounts for absent
+feature positions. Ordinary sparse rows continue to enumerate stored features.
+Native canonicalization corrects source duplicate-column product errors; empty
+interaction output also corrects source metadata/sparse-stacking failures. Raw
+source outcomes and exceptions remain in reports.
+
+New references retain 1,985 core fixtures / 38,020 groups, 31 diagnostics,
+984 noncanonical source records, 48 empty metadata exceptions, 36 empty sparse
+transform exceptions and 243 nonfinite reference fields. Three huge single-feature
+powers/names use symbolic identities, and one huge interaction fit-only count uses
+the source's exact requested-range helper rather than its expensive unused full
+auxiliary sum. The 480 composition fixtures / 2,880 groups cover normalization,
+weighted/unweighted Ridge, weighted unions, selected columns, names and prototypes.
+Transform tolerance is 3e-13 relative / 3e-14 absolute; independent Ridge SVDs use
+3e-12 / 3e-13. Integer metadata and nonfinite masks compare exactly.
+
+The native composition test initially used different Ridge alpha values for the
+pipeline and direct oracle; the fixture now shares the same prototype settings.
+All 159 checked native tests and the explicit quadratic/CSR example then passed.
+Pre-fix logs are retained in ignored validation/results.
+
+Checked verification passed all 159 native programs, 77,722 affected reference
+groups and 161 diagnostics. The audit verified 307 compiled-content digests,
+complete fixture/field inventories, source/validator/executable hashes and
+unchanged surrounding preprocessing/shared-dispatch code. The explicit example
+matched predictions `[0.75,1,2.75]`, CSR shape `(5,2)`, eight stored entries and
+feature names `x0`, `x0^2`.
+
+Repeated fresh-process checks later exposed an intermittent formatted-I/O crash
+in exponent name conversion in both profiles, despite their earlier native passes.
+Address mapping placed the failure in internal integer formatting while generating
+names. Lazy names now convert nonnegative indices/exponents directly to decimal
+text, without formatted-I/O state. Native regressions cover empty/UTF-8 names and
+refitting. The core validator now repeats the original name/refit fixture in 128
+fresh processes and compares every emitted field exactly; these repetitions are
+reported separately and do not inflate the distinct-fixture/group inventory.
+Both profiles and their affected comparisons were rebuilt and rerun after this
+change; the final results below verify the corrected implementation.
+
+Final checked and release verification each passes all 159 native tests, 77,722
+affected reference groups and 161 diagnostics. Both explicit examples match source.
+Each full core report includes 128 fresh-process name/refit repetitions, in
+addition to a focused optimized final-source run of 1,000 repetitions. The final
+audit verifies 307 compiled-content digests per profile, complete field/fixture
+inventories, exact integer/nonfinite outcomes, pinned hashes and unchanged
+surrounding preprocessing/shared-dispatch code. Artifacts and pre-fix logs are
+retained in ignored `validation/results`, including `polynomial_final_audit.json`.
+
+Inventory: 221 public core types, 134 source modules, 159 native tests, 137 core
+reference suites / 951,659 groups, and 43 invalid-input registries / 3,710 cases.
+Only affected reference suites were rerun; the separate legacy RNG suite remains
+excluded and was not rerun. These types remain subsets of their sklearn APIs.

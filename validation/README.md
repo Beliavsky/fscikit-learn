@@ -6625,3 +6625,50 @@ digests per profile, complete new-suite field inventories, all finite/nonfinite
 outcome masks, pinned hashes and unchanged surrounding preprocessing/dispatch
 procedure bodies. Both examples match sklearn. Artifacts are archived in ignored
 `validation/results`, including `stateless_final_audit.json`.
+
+## PolynomialFeatures reference suites
+
+`compare_polynomial.py --executable PATH --profile checked --report
+validation/results/polynomial_checked.json` uses `reference_polynomial_driver`
+and retains 1,985 fixtures / 38,020 groups plus 31 diagnostics. It compares dense
+and canonical CSR output, legacy array calls, degree ranges, interactions, bias,
+powers, feature counts, UTF-8/empty names and refits. Input preservation is checked
+natively. CSR shape/pointers/indices, names and int64 counts/exponents compare
+exactly, without float conversion of large integers. Floating arrays use
+`rtol=3e-13`, `atol=3e-14` with exact NaN and signed-infinity masks. Reports retain
+243 nonfinite reference fields, including higher-degree sparse overflow times
+implicit zero. They pin installed sklearn/SciPy source hashes.
+
+The suite retains 984 raw noncanonical source outcomes/errors while comparing
+native canonicalized output against public canonical-CSR results. Ordinary raw
+cases also check the equivalent dense result. Source empty-interaction defects
+are recorded as 48 metadata and 36 sparse-transform exceptions; native outputs
+are correctly empty. Three huge one-feature exponents use symbolic powers/names
+rather than allocating source tuples. One huge interaction fit-only case uses
+source `_num_combinations` on the requested range to avoid an enormous unused
+auxiliary count. Reports identify these oracle limits explicitly. Development
+`--start-fixture` runs are partial; final reports require start zero.
+
+`compare_polynomial_composition.py` uses the same executable/profile/report
+arguments with `reference_polynomial_composition_driver`. Its 480 fixtures /
+2,880 groups check polynomial/normalization pipelines, weighted/unweighted Ridge,
+weighted feature unions, column selection/remainders, names, inverse availability
+and untouched prototypes. Transform-only outputs retain the core tolerance;
+independent Ridge SVD implementations use `rtol=3e-12`, `atol=3e-13`.
+
+Affected legacy regressions include stateless preprocessing/composition,
+pipeline, column/union and general integration suites. File-based legacy suites
+run sequentially within and between profiles to avoid shared-file races.
+
+The original name/refit fixture also runs in 128 fresh native processes, comparing
+all emitted fields exactly. These repetitions retain a regression for an
+intermittent formatted-I/O failure found during stress verification and are
+reported separately from distinct fixture/group counts. The implementation now
+converts integer exponents/indices to text without internal formatted writes.
+
+Final checked and release verification each passes 159 native tests, 77,722
+affected reference groups and 161 diagnostics. Both explicit examples match source.
+The audit verifies 307 compiled-content digests per profile, complete field and
+fixture inventories (including 128 name/refit processes), pinned hashes and
+unchanged surrounding code. Artifacts and pre-fix logs remain in ignored
+`validation/results`, including `polynomial_final_audit.json`.

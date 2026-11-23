@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 220 public estimator, transformer, and splitter types. Each is a
+There are 221 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and thirty-five reference suites additionally check 910,759
+All types have native tests. One hundred and thirty-seven reference suites additionally check 951,659
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -19,7 +19,7 @@ per sample; cross-decomposition, multi-task regression and independent multioutp
 metadata routing, parallel backends and binary model persistence are outside the
 initial translation. The neighbor graph transformers provide CSR graph outputs and
 accept CSR precomputed distances. Randomized TruncatedSVD and direct Multinomial/
-Bernoulli/Complement Naive Bayes and Normalizer/Binarizer also accept CSR matrices. Other estimator and
+Bernoulli/Complement Naive Bayes, Normalizer/Binarizer and PolynomialFeatures also accept CSR matrices. Other estimator and
 meta-estimator inputs remain dense.
 Fortran identifiers use snake_case rather than CamelCase.
 
@@ -28,7 +28,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | Module (`sklearn_` prefix) | Public types and functions | Scope and numerical choices |
 | --- | --- | --- |
 | pipeline | `pipeline`; `pipeline_step` storage helper | Sequential dense transforms, supervised selectors and cross-fitted target encoding, supported native estimator tails, nested graphs, weighted fitting/scoring, inverse transforms, names and contiguous slices |
-| feature_composition / pipeline | `column_transformer`, `feature_union` | Dense parallel transformer graphs, 17 existing child types, recursive composition, positional/mask/name/callback column selection, remainder transforms, branch weights, feature names and output indices |
+| feature_composition / pipeline | `column_transformer`, `feature_union` | Dense parallel transformer graphs, supported dense child types, recursive composition, positional/mask/name/callback column selection, remainder transforms, branch weights, feature names and output indices |
 | function_transformer / compose | `function_transformer`, `transformed_target_regressor` | Dense matrix callbacks, feature names and inverse diagnostics; cloned target transforms, supported native bases, weighted linear fits and independent multiple targets; joint multi-target trees excluded |
 | neighbor_graph / sparse | `kneighbors_transformer`, `radius_neighbors_transformer`; `csr_matrix` storage helper | Brute dense-feature and dense/CSR precomputed distances; connectivity/distance CSR outputs with explicit zeros |
 | threshold | `fixed_threshold_classifier`, `tuned_threshold_classifier_cv` | Binary probability/margin cutoffs; weighted fold score curves, interpolation and first-best threshold selection; holdout, custom folds and prefit validation |
@@ -36,7 +36,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | multiclass | `one_vs_rest_classifier`, `one_vs_one_classifier`, `output_code_classifier` | Dense independent binary reductions; supported native classifier and regressor bases; constant heads; weighted fitting where the base supports it; Gaussian NB/SGD classification streaming for OVR/OVO; seeded legacy NumPy codebooks |
 | inspection | `permutation_importance`, `permutation_importance_multi`, `partial_dependence` | Dense callback-based permutation importance and brute partial dependence/ICE; seeded subsampling/shuffles; weighted averages; categorical and Cunnane percentile grids; numeric multiple-output responses |
 | multioutput | `multi_output_regressor`, `multi_output_classifier`, `regressor_chain`, `classifier_chain` | Independent fitted base models per response column; supported native linear/SGD, NB, neighbors and tree families; ragged class probabilities; SGD/Gaussian NB streaming; native base weighting limits apply |
-| preprocessing | `kernel_centerer`, `ordinal_encoder`, `target_encoder`, `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `iterative_imputer`, `knn_imputer`, `missing_indicator`, `spline_transformer`, `label_encoder`, `one_hot_encoder`, `label_binarizer`, `multi_label_binarizer`, `power_transformer`, `kbins_discretizer`, `quantile_transformer`, `normalizer`, `binarizer`; `normalize`, `binarize`, `polynomial_features` | Ordinal category codes and infrequent grouping; cross-fitted target means; population variance; linear percentile interpolation; NaN imputation with mean/median/most-frequent/constant; numeric categories; empirical uniform/normal quantile transforms; dense polynomial terms through degree 12 with optional interactions; B-spline features and extrapolation; dense/CSR row normalization and thresholding, both-axis free normalization with returned norms |
+| preprocessing | `kernel_centerer`, `ordinal_encoder`, `target_encoder`, `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `iterative_imputer`, `knn_imputer`, `missing_indicator`, `spline_transformer`, `label_encoder`, `one_hot_encoder`, `label_binarizer`, `multi_label_binarizer`, `power_transformer`, `kbins_discretizer`, `quantile_transformer`, `normalizer`, `binarizer`, `polynomial_features`; `normalize`, `binarize`, retained `polynomial_features(x,...)` | Ordinal category codes and infrequent grouping; cross-fitted target means; population variance; linear percentile interpolation; NaN imputation with mean/median/most-frequent/constant; numeric categories; empirical uniform/normal quantile transforms; dense/CSR polynomial estimator and retained array call with degree ranges, interactions and lazy powers/names; B-spline features and extrapolation; dense/CSR row normalization and thresholding, both-axis free normalization with returned norms |
 | linear_model | `linear_regression`, `lars`, `lasso_lars`, `lars_cv`, `lasso_lars_cv`, `lasso_lars_ic`, `ridge`, `ridge_classifier`, `ridge_classifier_cv`, `multi_task_elastic_net`, `multi_task_lasso`, `multi_task_elastic_net_cv`, `multi_task_lasso_cv`, `lasso`, `elastic_net`, `lasso_cv`, `elastic_net_cv`, `logistic_regression`, `logistic_regression_cv`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `sgd_regressor`, `sgd_classifier`, `sgd_one_class_svm`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `orthogonal_matching_pursuit_cv`, `huber_regressor`, `quantile_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; least-angle/Lasso homotopy paths with CV and AIC/BIC selection; coordinate descent with K-fold alpha/l1-ratio selection; weighted logistic Newton solver with raw-score prediction; perceptron; PA-I/II classification/regression with averaging; streaming stochastic-gradient regression/classification and one-class detection; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; weighted L1-regularized quantile regression; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb`, `categorical_nb` | Weighted/streaming Gaussian moments, empirical/fixed priors and variance smoothing; dense/CSR weighted and streaming discrete event counts and fixed/empirical priors; nonnegative scalar alpha and force_alpha flooring, plus feature-wise Multinomial/Complement smoothing; Bernoulli threshold; optional complement normalization |
 | neighbors | `neighborhood_components_analysis`, `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Supervised NCA metric learning; brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with shrinkage, uniform/empirical/custom priors and Euclidean discriminant probabilities; Euclidean kernel density |
@@ -6861,3 +6861,41 @@ and 130 diagnostics. The audit verifies 304 compiled-content digests per profile
 full field inventories, IEEE outcome masks and pinned hashes; both examples match
 source. Existing regression certificates remain retained, with no new numerical
 exceptions. Only affected suites were rerun; see the [validation record](VALIDATION.md).
+
+## PolynomialFeatures estimator and sparse expansion
+
+Added the `polynomial_features` estimator alongside the retained array-call
+syntax. It supports degree ranges, interactions, dense/CSR expansion, fitted
+widths and names, lazy int64 powers/counts, and dense Pipeline/FeatureUnion/
+ColumnTransformer composition. The former degree-12 array-call limit is removed.
+Exact reduced binomials and a Vandermonde difference avoid count overflow from
+unnecessarily large intermediate totals. Fit-only counts allocate no expansion.
+Dense suffix reuse preserves source multiplication association; sparse paths
+preserve source explicit-zero and IEEE multiplication behavior. CSR indices
+retain the package's default-integer limit. See the
+[API contract](API.md#polynomialfeatures-estimator-and-retained-array-api).
+
+The native implementation explicitly corrects two source defects: duplicate CSR
+columns are coalesced before expansion, and zero-column interaction results have
+empty metadata/output arrays. Reports retain 984 raw noncanonical source
+outcomes, 48 empty-metadata exceptions and 36 empty sparse-transform exceptions.
+Three huge single-feature exponent cases use symbolic metadata identities;
+one extreme interaction fit-only case uses sklearn's exact requested-range
+count helper to avoid its expensive unused full-degree auxiliary count.
+These are identified source corrections/oracle limits, not extension algorithms.
+Original adapters remain MIT with retained sklearn/SciPy BSD attribution.
+
+New reference coverage comprises 1,985 fixtures / 38,020 groups, 31 diagnostics,
+243 nonfinite reference fields, and 480 composition fixtures / 2,880 groups.
+Cumulative inventory: 221 public core types, 134 source modules, 159 native tests,
+137 core reference suites / 951,659 groups and 43 invalid-input registries /
+3,710 cases. Types remain API subsets; these counts do not imply complete sklearn
+coverage. The separate legacy RNG suite remains excluded.
+
+The final corrected checked and release profiles each pass all 159 native tests,
+77,722 affected reference groups and 161 diagnostic cases. Full reports include
+128 fresh-process name/refit repetitions per profile; an additional focused
+optimized final-source check passed 1,000 repetitions. The audit verifies 307
+compiled-content digests per profile, complete inventories, hashes and unchanged
+surrounding preprocessing/dispatch code. Both explicit examples match source.
+Only affected suites were rerun; see the [validation record](VALIDATION.md).
