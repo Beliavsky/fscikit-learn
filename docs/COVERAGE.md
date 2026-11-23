@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 217 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and twenty-nine reference suites additionally check 858,153
+All types have native tests. One hundred and thirty-one reference suites additionally check 868,149
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -6713,3 +6713,46 @@ Final corrected checked and release builds each passed all 151 native tests,
 matched sklearn. The audit verified 290 compiled-content digests per profile and
 all cross-profile field inventories, including the 24 strict subnormal boundary
 fixtures. See [the validation record](VALIDATION.md).
+
+## Positive linear-model coefficients (2026-11-22)
+
+`linear_regression`, `ridge`, `elastic_net`, `lasso`, `elastic_net_cv` and
+`lasso_cv` accept `positive=.true.`. Coefficients are nonnegative while the
+intercept remains unrestricted. Weighted OLS/Ridge adapters center and rescale
+before constrained fitting; supported pipeline, transformed-target, bagging,
+multioutput and regressor-chain clones preserve the flag. Other weight limits
+remain unchanged. The default false path retains its existing numerical methods.
+
+Positive OLS uses native Lawson-Hanson NNLS with QR insertion/removal. Positive
+Ridge uses an augmented NNLS system for the same constrained quadratic;
+augmentation requires O(p**2) storage. Positive OLS avoids the unconstrained
+SVD's square V storage and has a 10,000-feature native regression fixture.
+ElasticNet/Lasso project coordinate updates at zero, including all CV folds and
+the final refit. Native coefficient-change stopping remains in use.
+
+The NNLS QR tail is corrected relative to SciPy 1.15.3: its final below-pivot row
+is cleared before later column removal. An explicit wide-case KKT regression
+checks the correction against an independent BVLS optimum. Exact Ridge solutions
+can differ from public sklearn finite L-BFGS stopping, and nonunique NNLS can
+select different coefficient representatives/extrapolations. These cases retain
+explicit optimality and strong-convexity certificates rather than asserting
+unqualified coefficient parity. See [the API contract](API.md#positive-linear-model-coefficients).
+
+Unsupported inherited positive flags (Bayesian/ARD, OMP, Huber, RANSAC, TheilSen,
+PA, GLMs and RidgeCV) receive diagnostics. Sparse input, a public optimizer API
+and new direct-fit weighting signatures are outside this addition. MIT original
+contributions and retained sklearn/SciPy/LAPACK BSD attribution apply. No new
+public estimator type, extension algorithm or runtime dependency is introduced.
+
+New reference inventory: 1,044 core fit/CV fixtures (8,388 groups), 192 positive
+composition fixtures (1,608 groups) and 30 isolated diagnostics. Cumulative
+inventory: 217 core public types, 131 core modules, 153 native test programs,
+131 core reference suites and 868,149 groups. Thirty-nine invalid-input
+registries retain 3,625 cases. The separate 42-group legacy RNG suite remains
+excluded from core reference counts.
+
+Final checked and release verification each passed all 153 native tests,
+55,764 affected reference groups and all 30 new rejections. Both examples matched
+sklearn. The final audit verifies 296 compiled source-content digests per profile,
+all field inventories and the retained solver-difference certificates; see
+[the validation record](VALIDATION.md).

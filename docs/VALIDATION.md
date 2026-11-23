@@ -6990,3 +6990,56 @@ cumulative totals do not imply a full reference rerun. The separate 42-group
 legacy RNG suite remains excluded and was not rerun. Original interfaces and
 checked arithmetic remain MIT with retained sklearn/NumPy BSD attribution.
 No public extension algorithm or runtime dependency is added.
+
+## Positive linear-model constraints (2026-11-22)
+
+All 153 native test programs passed in checked mode
+(`-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow`) and release mode.
+Each profile passed 55,764 affected reference groups: 8,388 positive fit/CV,
+1,608 positive composition, 216 existing coordinate-CV, 32,100 bagging,
+8,556 pipeline, 4,704 transformed-target and 192 integration groups. All 30 new
+isolated rejection cases passed per profile. Only these affected reference
+suites were rerun.
+
+The core sweep retains 1,044 fixtures across OLS, Ridge, ElasticNet/Lasso and
+their CV wrappers, with intercept/no-intercept, ordinary controls, weights,
+wide/duplicate/zero/constant/scaled columns and negative targets. Nonnegativity,
+objective and projected KKT conditions are checked independently. The 192
+composition fixtures check positive options and fitted coefficients through
+pipelines, transformed targets, bagging, independent multioutput and chains.
+
+Each profile retains one certified correction of the stale final QR-tail row
+in SciPy 1.15.3, checked against independent BVLS and a deterministic native KKT
+regression. Two nonunique NNLS cases retain null-image/optimality proofs and
+record differing query extrapolations. Thirteen direct Ridge cases retain
+strong-convexity bounds for public finite L-BFGS optimizer differences. All 216
+composition Ridge children receive corresponding constrained-solution proofs;
+96 parent prediction comparisons retain public and exact results. No fixture
+or objective comparison was discarded. Numerical deviations are documented in
+the API rather than described as unqualified coefficient parity.
+
+The native wide-OLS test fits a two-by-10,000 design without the unconstrained
+square-V allocation. Positive and unconstrained refits, projected coordinates,
+CV refits, weighted fitting and template-preserving fitted cloning are tested.
+Unsupported inherited flags and invalid domains/ranges terminate with diagnostics
+without trapped arithmetic. Both explicit fpm example runs match sklearn:
+OLS coefficients `[0,3]`, unrestricted intercept `2`, Ridge coefficients `[0,1.5]`.
+
+The final audit verifies full core/composition field inventories, executable/
+validator/source hashes and all 296 compiled-content digests per profile:
+131 core modules, four vendor modules, 153 tests, seven reference drivers and
+the example. It also verifies the unchanged unconstrained SVD procedure body,
+ordinary weighted SVD arithmetic suffix and unaffected regressor fit bodies
+apart from the unsupported-option guard. Reports, logs and audit/orchestration
+scripts are archived in ignored `validation/results`, including
+`positive_final_audit.json`. The initial public-Ridge comparison failure in
+composition is retained separately; final composition reports use the explicit
+certified constrained-solution oracle.
+
+Cumulative inventory: 217 public core types, 131 core modules, 153 native tests,
+131 core reference suites and 868,149 retained groups. Thirty-nine invalid-input
+registries retain 3,625 cases. Cumulative counts do not imply a full reference
+rerun. The separate 42-group legacy RNG suite remains excluded and was not rerun.
+Original adapters, checked arithmetic and tests remain MIT with retained
+sklearn/SciPy/LAPACK BSD attribution. No public extension algorithm or additional
+runtime dependency is introduced.

@@ -2,7 +2,8 @@
 ! See THIRD_PARTY_NOTICES.md and LICENSES/scikit-learn-COPYING.
 module sklearn_weighted_linear
   use sklearn_common, only: dp,require,dense_svd,check_xy,check_x
-  use sklearn_linear_model, only: linear_regression
+  use sklearn_linear_model, only: linear_regression,ridge
+  use sklearn_nnls, only: positive_least_squares
   use sklearn_ieee_math, only: ieee_difference,ieee_product,ieee_quotient,ieee_total,ieee_mean
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite,ieee_is_nan
   implicit none
@@ -13,9 +14,13 @@ contains
     class(linear_regression), intent(inout) :: model
     real(dp), intent(in) :: x(:,:),y(:),w(:),alpha
     real(dp) :: xc(size(x,1),size(x,2)),yc(size(y)),xm(size(x,2)),ym
-    real(dp) :: u(size(x,1),size(x,2)),s(size(x,2)),v(size(x,2),size(x,2)),projection(size(x,2))
+    real(dp), allocatable :: u(:,:),s(:),v(:,:)
+    real(dp) :: projection(size(x,2))
     real(dp) :: mass,scale,cutoff,limit
     integer :: i,j
+    call check_xy(x,size(y));call check_x(reshape(y,[size(y),1]))
+    call require(size(w)==size(y),'bagging linear weight length mismatch')
+    call require(all(ieee_is_finite(w)),'bagging linear weights must be finite')
     call require(ieee_is_finite(alpha),'bagging ridge alpha must be finite')
     call require(alpha>=0,'bagging ridge alpha must be nonnegative')
     call require(all(w>=0),'bagging linear weights must be nonnegative')
@@ -39,6 +44,22 @@ contains
     call require(all(ieee_is_finite(xc)).and.all(ieee_is_finite(yc)),'bagging linear rescaling overflow')
     limit=sqrt(huge(1._dp))/sqrt(real(max(size(x,1),size(x,2)),dp))/4
     call require(maxval(abs(xc))<=limit.and.maxval(abs(yc))<=limit,'bagging linear design exceeds working range')
+    if(model%positive) then
+      select type(model)
+      type is(linear_regression)
+      type is(ridge)
+      class default
+        call require(.false.,'weighted positive linear fit requires LinearRegression or Ridge')
+      end select
+      call positive_least_squares(xc,yc,alpha,model%coef_)
+      model%rank_=0
+      do j=1,size(x,2)
+        projection(j)=ieee_product(xm(j),model%coef_(j))
+      end do
+      model%intercept_=ieee_difference(ym,ieee_total(projection))
+      call require(ieee_is_finite(model%intercept_),'positive linear intercept exceeds working range');return
+    end if
+    allocate(u(size(x,1),size(x,2)),s(size(x,2)),v(size(x,2),size(x,2)))
     call dense_svd(xc,s,u,v)
     cutoff=epsilon(1._dp)*max(size(x,1),size(x,2))*maxval(s)
     model%rank_=count(s>cutoff); projection=matmul(transpose(u),yc)
@@ -63,6 +84,7 @@ contains
     real(dp) :: s(size(x,2)),u(size(x,1),size(x,2)),v(size(x,2),size(x,2)),projection(size(x,2))
     real(dp) :: outside(size(y)),remainder(size(y)),inverse(size(x,2)),dual(size(y)),diagonal(size(y)),errors(size(y))
     integer :: i,j,best,rank_,positive
+    call require(.not.model%positive,'RidgeCV does not support positive coefficients')
     call check_xy(x,size(y)); call check_x(reshape(y,[size(y),1]))
     call require(size(alphas)>0,'RidgeCV needs candidate alphas')
     call require(all(ieee_is_finite(alphas)),'RidgeCV alphas must be finite')

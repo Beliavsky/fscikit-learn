@@ -6495,3 +6495,39 @@ field inventories, six MU Decimal certificates and sixteen CD stopping
 certificates per profile. Final artifacts are archived in ignored
 `validation/results/nmf_mu_final_audit.json` and companion files. Pre-subnormal-fix
 reports are retained separately and do not satisfy the final audit.
+
+## Positive linear coefficients
+
+Build the reference drivers, then pass explicit executables:
+
+```text
+python validation/compare_positive_linear.py --executable build/gfortran_81A15A8739108A9E/app/reference_positive_linear_driver.exe --profile checked --report validation/results/positive_linear_checked.json
+python validation/compare_positive_composition.py --executable build/gfortran_81A15A8739108A9E/app/reference_positive_composition_driver.exe --profile checked --report validation/results/positive_composition_checked.json
+```
+
+Use the release executable directory and `--profile release` for optimized
+validation. Core checks retain 1,044 fit/CV fixtures and 8,388 groups. Composition
+checks retain 192 fixtures and 1,608 groups across pipelines, transformed targets,
+bagging, independent multioutput and regressor chains. Thirty isolated rejection
+cases check unsupported flags, domains, fitted state, weights and numerical
+ranges. Partial `--start-fixture` runs are development evidence only.
+
+Primary comparisons use installed sklearn 1.6.1 and SciPy 1.15.3, with independent
+objective, nonnegativity and projected KKT checks. Three explicit certificate
+categories retain reference differences: the SciPy stale-QR-tail defect (checked
+against BVLS), nonunique NNLS representatives (null-image and KKT bounds, with
+query differences recorded), and public Ridge finite-optimizer stopping
+(strong-convexity coefficient bounds against augmented NNLS). Composition Ridge
+children receive the same constrained-solution certificates; public and exact
+composition predictions are both retained. No fixture or objective is discarded.
+The ordinary SVD and coordinate solvers remain regression controls.
+
+Final checked and release profiles each pass all 153 native tests, 55,764 affected
+reference groups and 30 new rejections. This includes 9,996 new positive groups
+plus 45,768 legacy coordinate-CV, bagging, pipeline, transformed-target and
+integration groups. The audit verifies all field inventories and 296 compiled
+source-content digests per profile. Each retains one QR-tail correction, two
+nonunique NNLS cases, thirteen direct Ridge certificates and 216 composition
+Ridge child certificates with 96 parent prediction records. Final artifacts are
+archived in ignored `validation/results`, including `positive_final_audit.json`;
+the initial composition comparison log is retained separately.

@@ -19,6 +19,7 @@ fpm test
 fpm run --example histogram_boosting
 fpm run --example coordinate_descent_nmf
 fpm run --example beta_divergence_nmf
+fpm run --example positive_linear_models
 fpm run --example image_patches
 fpm run --example neighborhood_components
 fpm run --example gaussian_process_classification
@@ -247,3 +248,9 @@ NMF's multiplicative-update solver also supports KL, Itakura-Saito and general
 beta divergences with regularization and shared initialization controls. See
 [the KL example](example/beta_divergence_nmf.f90) and
 [the MU contract](docs/API.md#beta-divergence-nmf-multiplicative-updates).
+
+LinearRegression, Ridge, ElasticNet/Lasso and their native coordinate-CV wrappers
+support nonnegative coefficients with `positive=.true.`. Supported composition
+and weighted OLS/Ridge adapters preserve the option. See
+[the example](example/positive_linear_models.f90) and
+[the contract and numerical differences](docs/API.md#positive-linear-model-coefficients).

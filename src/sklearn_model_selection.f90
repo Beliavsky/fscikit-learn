@@ -329,6 +329,7 @@ contains
     type(index_split), allocatable :: folds(:)
     real(dp) :: score
     integer :: i,j,best
+    call require(.not.self%positive,'RidgeCV does not support positive coefficients')
     call check_xy(x,size(y))
     if(.not.allocated(self%alphas)) self%alphas=[0.1_dp,1._dp,10._dp]
     if(self%cv==0) then

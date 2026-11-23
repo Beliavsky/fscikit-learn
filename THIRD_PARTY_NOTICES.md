@@ -22,6 +22,7 @@ Reference paths by module:
 
 | Fortran module | scikit-learn reference |
 | --- | --- |
+| nnls / linear_model / weighted_linear | sklearn 1.6.1 linear_model/_base.py positive LinearRegression centering/rescaling, _ridge.py positive Ridge objective, _coordinate_descent.py positive ElasticNet/Lasso/CV; SciPy 1.15.3 optimize/_cython_nnls.pyx Lawson-Hanson active sets, QR insertion/removal and iteration accounting (BSD, LICENSES/scipy-COPYING); LAPACK 3.12.0 DLARFGP/DLARTGP reflector/rotation conventions (LICENSES/lapack-LICENSE, University of Tennessee, University of California Berkeley, University of Colorado Denver, NAG Ltd.). Native scaled reflector, checked ranges and correction of the stale last QR-tail entry in SciPy 1.15.3. Research: C. L. Lawson and R. J. Hanson, Solving Least Squares Problems (1974) |
 | nmf_mu / decomposition | decomposition/_nmf.py _fit_multiplicative_update, _multiplicative_update_w/h, _beta_divergence and NMF fixed-H initialization; float32-epsilon denominator conventions, float64 factor cutoffs, ten-iteration stopping and sklearn 1.6.1 cached KL/L1 transform behavior. Research: D. D. Lee and H. S. Seung (2001), multiplicative NMF; C. Fevotte and J. Idier (2011), beta-divergence MM. Existing attributed NNDSVD/legacy-RNG initializer; original native checked real64 arithmetic |
 | decomposition (coordinate-descent NMF) | decomposition/_nmf.py NMF initialization, regularization scaling, alternating coordinate sweeps, projected-gradient stopping and fixed-component transform; decomposition/_cdnmf_fast.pyx projected coordinate update order and zero-Hessian handling. Reuses the attributed MiniBatchNMF NNDSVD initializer and NumPy-compatible legacy RNG. Native finite working-range diagnostics |
 | graphical_lasso_cv (covariance) | covariance/_graph_lasso.py refined CV grids and warm-start paths; covariance/_empirical_covariance.py likelihood and alpha-zero baseline; linear_model/_cd_fast.pyx zero-diagonal CD skip; model_selection/_split.py KFold; shared native Jacobi and IEEE environment helpers |
@@ -1082,3 +1083,20 @@ NumPy-compatible legacy RNG; no upstream source package is imported. Native
 Fortran interfaces, working-range diagnostics and independent reconstruction
 and objective validation are original MIT contributions. No additional runtime
 dependency or public algorithm extension is introduced.
+
+
+Positive linear regression uses the sklearn 1.6.1 `_base.py`, `_ridge.py` and
+`_coordinate_descent.py` contracts. The NNLS backend adapts SciPy 1.15.3's
+Lawson-Hanson QR active set and LAPACK 3.12.0 positive-diagonal reflector/rotation
+conventions. SciPy BSD terms are retained in `LICENSES/scipy-COPYING`; LAPACK
+BSD terms and university copyright notices are retained in
+`LICENSES/lapack-LICENSE`. The native implementation corrects the stale final
+QR-tail entry observed in SciPy 1.15.3. It does not import a SciPy/LAPACK binary
+or require a new runtime dependency. Original Fortran adapters, checked ranges,
+certificates and tests remain MIT contributions.
+
+Pinned primary reference files (copies archived in ignored validation results):
+
+- [SciPy 1.15.3 `_cython_nnls.pyx`](https://github.com/scipy/scipy/blob/v1.15.3/scipy/optimize/_cython_nnls.pyx): `eaa84be52696f2ba5b87295ee56895b7e89bb31e0e83378c43a628de7d1a47cd`
+- [LAPACK 3.12.0 `dlarfgp.f`](https://github.com/Reference-LAPACK/lapack/blob/v3.12.0/SRC/dlarfgp.f): `92be2c8b8483629c586b0ca43438299c64a7c5f000e7b843412a75c5df30f16c`
+- [LAPACK 3.12.0 `dlartgp.f`](https://github.com/Reference-LAPACK/lapack/blob/v3.12.0/SRC/dlartgp.f): `883db0660892cc772839e624243194f73ec8991858e528016071744a0a350dec`

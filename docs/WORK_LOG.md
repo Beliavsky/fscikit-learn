@@ -7102,3 +7102,56 @@ Inventory: 217 core public types, 130 core modules, 151 native tests, 129 core
 reference suites and 858,153 retained groups; 38 invalid-input registries retain
 3,595 cases. Only the affected suites above were rerun. The separate 42-group
 legacy RNG suite remains excluded and was not rerun.
+
+## Positive linear-model constraints (2026-11-22)
+
+Added `positive` to the shared coefficient-storage hierarchy, supporting the
+sklearn option in LinearRegression, Ridge, ElasticNet, Lasso and coordinate-CV
+wrappers. Unsupported inherited uses in Bayesian/ARD, OMP, Huber, RANSAC,
+TheilSen, PA, GLMs and RidgeCV are diagnosed. Weighted OLS/Ridge fitting and
+fitted composition clones preserve the option. The false path retains the
+existing unconstrained SVD and coordinate methods.
+
+Implemented a native Lawson-Hanson QR active set, using scaled positive-beta
+Householder reflectors and Givens column removal. Positive Ridge uses an
+augmented NNLS design. Positive coordinates are projected to zero in ordinary
+and CV/refit paths. Unrestricted intercept recovery and checked predictions
+remain separate from coefficient constraints. Positive OLS avoids SVD square-V
+storage; a two-row, 10,000-feature fixture exercises the wide path.
+
+Independent KKT checks found and reproduced a SciPy 1.15.3 defect: the final
+below-pivot QR entry is left stale on insertion, which can corrupt later column
+removal. The native implementation zeros that full tail. A deterministic wide
+regression and BVLS/KKT certificates retain the correction. Exact positive
+Ridge also receives strong-convexity certificates where public finite L-BFGS
+stopping differs. Nonunique NNLS representatives and their query differences
+are recorded explicitly rather than silently skipped.
+
+Added two native tests, two reference drivers, a positive-model example and
+core/composition validators. Existing coordinate-CV validation now accepts an
+explicit executable to avoid nested fpm calls in regression gates. The core
+sweep retains 1,044 fixtures/8,388 groups; the composition sweep retains 192
+fixtures/1,608 groups. Thirty rejection cases check domains and unsupported
+flags. Checked verification passed all 153 native tests and 55,764 affected
+groups. Its audit verifies 296 compiled-content digests and all core/composition
+fixture fields, including one QR-tail correction, two nonunique cases, thirteen
+direct Ridge certificates and 216 certified composition Ridge children.
+
+Original Fortran interfaces, range guards and validation are MIT contributions.
+Existing sklearn/SciPy BSD attribution remains, with LAPACK 3.12.0 conventions
+and its full BSD license retained in `LICENSES/lapack-LICENSE`. No new public
+estimator type, extension algorithm or external runtime dependency is added.
+
+Final verification passed all 153 native tests in checked and release profiles,
+55,764 affected reference groups and 30 new rejection cases per profile. The
+example matched sklearn in both profiles. Final audits verified 296 compiled
+source-content digests per profile, complete field inventories and all solver
+certificates. The initial composition comparison used public Ridge finite
+optimizer coefficients; final reports retain certified exact constrained
+solutions and the public prediction differences. Artifacts are archived in
+ignored `validation/results`, including `positive_final_audit.json`.
+
+Inventory: 217 core public types, 131 modules, 153 native tests, 131 core
+reference suites and 868,149 groups; 39 invalid-input registries retain 3,625
+cases. Only the affected suites above were rerun. The separate 42-group legacy
+RNG suite remains excluded and was not rerun.

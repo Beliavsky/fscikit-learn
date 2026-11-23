@@ -1,7 +1,8 @@
 module sklearn_linear_model
+  use sklearn_nnls, only: positive_least_squares
   use sklearn_resampling, only: index_split
   use sklearn_composite_scores, only: score_weights
-  use sklearn_ieee_math, only: ieee_mean
+  use sklearn_ieee_math, only: ieee_mean,ieee_quotient,ieee_product,ieee_total,ieee_difference
   use sklearn_omp_cv, only: orthogonal_matching_pursuit_cv
   use sklearn_least_angle, only: lars,lasso_lars,lars_path,lars_path_result, &
     lars_cv,lasso_lars_cv,lasso_lars_ic
@@ -35,7 +36,7 @@ module sklearn_linear_model
     logical :: shuffle=.true.,fit_intercept=.true.,classification=.false.,pa_two=.false.
   end type
   type :: linear_regression
-    logical :: fit_intercept=.true.
+    logical :: fit_intercept=.true.,positive=.false.
     real(dp), allocatable :: coef_(:)
     real(dp) :: intercept_=0
     integer :: rank_=0
@@ -205,6 +206,34 @@ module sklearn_linear_model
     procedure :: fit=>gamma_fit
   end type
 contains
+  subroutine check_positive_regression(self)
+    class(linear_regression), intent(in) :: self
+    if(.not.self%positive) return
+    select type(self)
+    type is(linear_regression)
+    type is(ridge)
+    class is(elastic_net)
+    class default
+      call require(.false.,'positive coefficients are unsupported for this regressor')
+    end select
+  end subroutine
+  subroutine positive_data_check(x,y)
+    real(dp), intent(in) :: x(:,:),y(:)
+    real(dp) :: limit
+    call check_xy(x,size(y));call check_x(reshape(y,[size(y),1]))
+    limit=sqrt(huge(1._dp))/(256*real(max(size(x,1),size(x,2)),dp))
+    call require(maxval(abs(x))<=limit.and.maxval(abs(y))<=limit,'positive linear data exceeds working range')
+  end subroutine
+  real(dp) function positive_dot(a,b) result(value)
+    real(dp), intent(in) :: a(:),b(:)
+    real(dp) :: products(size(a))
+    integer :: j
+    do j=1,size(a)
+      products(j)=ieee_product(a(j),b(j))
+    end do
+    value=ieee_total(products)
+    call require(ieee_is_finite(value),'positive linear product exceeds working range')
+  end function
   ! sklearn 1.6.1 linear_model/_passive_aggressive.py, _stochastic_gradient.py
   ! and _sgd_fast.pyx.tp. Retained BSD terms: LICENSES/scikit-learn-COPYING.
   function pa_settings(c,tol,max_iter,patience,average,shuffle,fit_intercept) result(options)
@@ -299,6 +328,7 @@ contains
     class(passive_aggressive_regressor), intent(inout) :: self
     real(dp), intent(in) :: x(:,:),y(:)
     type(pa_config) :: options
+    call check_positive_regression(self)
     call check_xy(x,size(y)); call check_x(reshape(y,[size(y),1]))
     options=pa_settings(self%c,self%tol,self%max_iter,self%n_iter_no_change,self%average,self%shuffle,self%fit_intercept)
     call require(ieee_is_finite(self%epsilon),'nonfinite passive-aggressive epsilon')
@@ -440,6 +470,7 @@ contains
     real(dp) :: combinations,coin,cutoff
     integer :: n,p,q,m,k,i,j,h,pick,tmp,first
     integer, allocatable :: subset(:),pool(:)
+    call check_positive_regression(self)
     call check_xy(x,size(y)); call check_x(reshape(y,[size(y),1]))
     call require(ieee_is_finite(self%tol),'nonfinite TheilSen tolerance')
     call require(self%tol>0.and.self%max_iter>0,'invalid TheilSen iteration controls')
@@ -538,6 +569,7 @@ contains
     real(dp), allocatable :: design(:,:),w(:),trial(:),g(:),gt(:),pg(:),h(:,:),direction(:),s(:),v(:),hv(:)
     real(dp) :: loss,next,rate,sy,lower,slope
     integer :: n,p,q,j,it,ls
+    call check_positive_regression(self)
     call check_xy(x,size(y)); call check_x(reshape(y,[size(y),1]))
     call require(self%epsilon>=1.and.self%alpha>=0.and.self%tol>0.and.self%max_iter>0, &
       'invalid HuberRegressor controls')
@@ -600,6 +632,7 @@ contains
     integer, allocatable :: indices(:),inliers(:)
     real(dp) :: threshold,coin,score,best_score,den,bound,residual(size(y))
     logical :: mask(size(y))
+    call check_positive_regression(self)
     call check_xy(x,size(y)); call check_x(reshape(y,[size(y),1]))
     n=size(y); p=size(x,2); m=self%min_samples
     if(m==0) m=p+1
@@ -704,6 +737,7 @@ contains
     real(dp) :: loss,next,rate,cutoff
     integer :: n,p,q,it,ls
     logical :: valid
+    call check_positive_regression(self)
     call check_xy(x,size(y)); call check_x(reshape(y,[size(y),1]))
     call require(self%power==0.or.(self%power>=1.and.self%power<=2),'supported Tweedie powers are 0 or [1,2]')
     call require(self%alpha>=0.and.self%tol>0.and.self%max_iter>0,'invalid GLM controls')
@@ -810,6 +844,7 @@ contains
     real(dp) :: u(size(x,1),size(x,2)),s(size(x,2)),v(size(x,2),size(x,2))
     real(dp) :: rhs(size(x,2)),old(size(x,2)),weights(size(x,2)),gamma,rss
     integer :: it,j,p,k
+    call check_positive_regression(self)
     call require(self%max_iter>0.and.self%tol>=0,'invalid BayesianRidge iteration parameters')
     call require(min(self%alpha_1,self%alpha_2,self%lambda_1,self%lambda_2)>0, &
       'BayesianRidge hyperpriors must be positive')
@@ -878,6 +913,7 @@ contains
     real(dp) :: old(size(x,2)),gamma(size(x,2)),rss
     integer, allocatable :: keep(:)
     integer :: it,j,p
+    call check_positive_regression(self)
     call require(self%max_iter>0.and.self%tol>=0.and.self%threshold_lambda>0,'invalid ARD parameters')
     call require(min(self%alpha_1,self%alpha_2,self%lambda_1,self%lambda_2)>0,'ARD hyperpriors must be positive')
     call centered(x,y,self%fit_intercept,xc,yc,xm,ym); p=size(x,2)
@@ -921,6 +957,7 @@ contains
     real(dp) :: residual(size(y)),corr(size(x,2))
     real(dp), allocatable :: s(:),u(:,:),v(:,:),c(:)
     integer :: p,k,j,limit,idx(size(x,2))
+    call check_positive_regression(self)
     call centered(x,y,self%fit_intercept,xc,yc,xm,ym); p=size(x,2)
     call require(self%n_nonzero_coefs>=0.and.self%n_nonzero_coefs<=p,'invalid OMP sparsity')
     call require(self%tol>=0.or.self%tol==-1,'OMP tol must be nonnegative or -1')
@@ -957,6 +994,28 @@ contains
   subroutine spectral_fit(self,x,y,alpha)
     class(linear_regression), intent(inout) :: self
     real(dp), intent(in) :: x(:,:),y(:),alpha
+    call check_positive_regression(self)
+    if(self%positive) then
+      call positive_fit_core(self,x,y,alpha)
+    else
+      call spectral_unconstrained(self,x,y,alpha)
+    end if
+  end subroutine
+  subroutine positive_fit_core(self,x,y,alpha)
+    class(linear_regression), intent(inout) :: self
+    real(dp), intent(in) :: x(:,:),y(:),alpha
+    real(dp) :: xc(size(x,1),size(x,2)),yc(size(y)),xm(size(x,2)),ym
+    call require(ieee_is_finite(alpha),'positive linear alpha must be finite')
+    call require(alpha>=0,'alpha must be nonnegative')
+    call positive_data_check(x,y)
+    call centered(x,y,self%fit_intercept,xc,yc,xm,ym)
+    call positive_least_squares(xc,yc,alpha,self%coef_)
+    self%rank_=0;self%intercept_=ieee_difference(ym,positive_dot(xm,self%coef_))
+    call require(ieee_is_finite(self%intercept_),'positive linear intercept exceeds working range')
+  end subroutine
+  subroutine spectral_unconstrained(self,x,y,alpha)
+    class(linear_regression), intent(inout) :: self
+    real(dp), intent(in) :: x(:,:),y(:),alpha
     real(dp) :: xc(size(x,1),size(x,2)),yc(size(y)),xm(size(x,2)),ym
     real(dp) :: u(size(x,1),size(x,2)),vals(size(x,2)),vecs(size(x,2),size(x,2))
     real(dp) :: rhs(size(x,2)),projection(size(x,2)),cutoff
@@ -989,9 +1048,17 @@ contains
     class(linear_regression), intent(in) :: self
     real(dp), intent(in) :: x(:,:)
     real(dp) :: y(size(x,1))
+    integer :: i
     call require(allocated(self%coef_),'linear model is not fitted')
     call check_xy(transpose(x),size(self%coef_))
-    y=matmul(x,self%coef_)+self%intercept_
+    if(self%positive) then
+      do i=1,size(x,1)
+        y(i)=ieee_difference(positive_dot(x(i,:),self%coef_),-self%intercept_)
+      end do
+      call require(all(ieee_is_finite(y)),'positive linear prediction exceeds working range')
+    else
+      y=matmul(x,self%coef_)+self%intercept_
+    end if
   end function
   real(dp) function linear_score(self,x,y) result(s)
     class(linear_regression), intent(in) :: self
@@ -1010,6 +1077,11 @@ contains
     real(dp) :: xc(size(x,1),size(x,2)),yc(size(y)),xm(size(x,2)),ym
     real(dp) :: residual(size(y)),old,update,rho,den,change
     integer :: it,j,n
+    call check_positive_regression(self)
+    if(self%positive) then
+      call require(all(ieee_is_finite([self%alpha,self%l1_ratio,self%tol])),'positive elastic controls must be finite')
+      call positive_data_check(x,y)
+    end if
     call require(self%alpha>=0.and.self%l1_ratio>=0.and.self%l1_ratio<=1,'invalid elastic net penalties')
     call require(self%max_iter>0.and.self%tol>0,'invalid elastic net iteration controls')
     call centered(x,y,self%fit_intercept,xc,yc,xm,ym); n=size(y)
@@ -1021,7 +1093,14 @@ contains
         rho=dot_product(xc(:,j),residual)/n
         den=sum(xc(:,j)**2)/n+self%alpha*(1-self%l1_ratio)
         update=0
-        if(den>0) update=sign(max(abs(rho)-self%alpha*self%l1_ratio,0._dp),rho)/den
+        if(den>0) then
+          if(self%positive) then
+            update=ieee_quotient(max(rho-self%alpha*self%l1_ratio,0._dp),den)
+            call require(ieee_is_finite(update),'positive elastic coordinate exceeds working range')
+          else
+            update=sign(max(abs(rho)-self%alpha*self%l1_ratio,0._dp),rho)/den
+          end if
+        end if
         self%coef_(j)=update; residual=residual-xc(:,j)*update
         change=max(change,abs(update-old))
       end do
@@ -1029,7 +1108,13 @@ contains
         self%converged_=.true.; exit
       end if
     end do
-    self%n_iter_=min(it,self%max_iter); self%intercept_=ym-dot_product(xm,self%coef_)
+    self%n_iter_=min(it,self%max_iter)
+    if(self%positive) then
+      self%intercept_=ieee_difference(ym,positive_dot(xm,self%coef_))
+      call require(ieee_is_finite(self%intercept_),'positive linear intercept exceeds working range')
+    else
+      self%intercept_=ym-dot_product(xm,self%coef_)
+    end if
   end subroutine
   subroutine lasso_cv_fit(self,x,y)
     class(lasso_cv), intent(inout) :: self
@@ -1047,6 +1132,7 @@ contains
     real(dp) :: ym,alpha_max,mse
     integer :: n,p,na,nr,r,a,f,first,last,fold_size,i,best_a,best_r
     call check_xy(x,size(y)); call check_x(reshape(y,[size(y),1])); n=size(y); p=size(x,2)
+    if(self%positive) call positive_data_check(x,y)
     call require(self%cv>=2.and.self%cv<=n,'invalid coordinate CV fold count')
     call require(ieee_is_finite(self%tol),'nonfinite coordinate CV tolerance')
     call require(self%tol>0.and.self%max_iter>0,'invalid coordinate CV iteration controls')
@@ -1083,7 +1169,8 @@ contains
       end if
     end do
     indices=[(i,i=1,n)]; self%all_cv_converged_=.true.
-    model%fit_intercept=self%fit_intercept; model%max_iter=self%max_iter; model%tol=self%tol
+    model%fit_intercept=self%fit_intercept; model%positive=self%positive
+    model%max_iter=self%max_iter; model%tol=self%tol
     do r=1,nr
       model%l1_ratio=ratios(r); first=1
       do f=1,self%cv

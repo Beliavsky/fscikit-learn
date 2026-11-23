@@ -5953,3 +5953,59 @@ Powers, products, reductions and ratios are checked against the native real64
 working range before evaluation. Extreme finite parameters or factors may
 therefore receive a diagnostic where Python produces nonfinite values.
 See `example/beta_divergence_nmf.f90` for a regularized KL fit and transform.
+
+## Positive linear-model coefficients
+
+Set `positive=.true.` on `linear_regression`, `ridge`, `elastic_net`, `lasso`,
+`elastic_net_cv` or `lasso_cv` to constrain coefficients to be nonnegative:
+
+```fortran
+type(linear_regression) :: model
+type(ridge) :: regularized
+model%positive=.true.
+call model%fit(x,y)
+regularized%positive=.true.
+regularized%alpha=1._dp
+call regularized%fit(x,y)
+```
+
+X and y may contain either sign; the intercept remains unrestricted. The
+default is false. Direct fits remain vector-target fits. Supported pipeline,
+transformed-target, bagging, independent multioutput and chain adapters retain
+the flag when cloning. Existing weighted OLS/Ridge composition paths apply
+weighted centering and square-root weight rescaling before fitting constraints.
+Other native weight-support limits remain as documented for each wrapper.
+
+Positive OLS uses a dense Lawson-Hanson active set with Householder QR and
+Givens column removal. Positive Ridge solves the same constrained quadratic
+objective using NNLS on `[X_centered; sqrt(alpha)*I]` and `[y_centered; 0]`.
+Ridge therefore requires O(n_features**2) augmentation storage. Positive OLS
+does not allocate that augmentation or the unconstrained SVD's square V matrix.
+`rank_` is zero for positive OLS/Ridge as an unavailable-diagnostic sentinel;
+sklearn does not expose rank on this path. Source-compatible coefficient
+constraints, intercepts and predictions are the numerical contract.
+
+Positive ElasticNet/Lasso projects each coordinate update to zero rather than
+allowing a negative soft-thresholded coefficient. Their CV wrappers use the
+positive option throughout every candidate/fold and final refit. Existing native
+coordinate-change convergence diagnostics are retained; they do not duplicate
+Python's dual-gap iteration counts.
+
+There are two documented numerical differences from the installed reference.
+The native NNLS implementation zeros the entire accepted column's QR tail,
+including its final row. SciPy 1.15.3 leaves that last row stale, which can make
+some wide fits violate KKT optimality after column removal. The corrected native
+solution is checked against independent BVLS and optimality certificates.
+Ridge's exact constrained solve can differ from sklearn's finite L-BFGS stopping;
+these differences receive strong-convexity certificates. Nonunique NNLS
+solutions can choose different coefficient representatives and consequently
+different predictions outside the training row space; validation records those
+cases explicitly rather than asserting coefficient identity.
+
+The flag is inherited through native coefficient-storage types. Fits on native
+BayesianRidge, ARD, OMP, Huber, RANSAC, TheilSen, passive-aggressive, Tweedie,
+Poisson/Gamma and RidgeCV reject true because those sklearn estimators do not
+provide this option. Sparse positive fits, a public NNLS optimizer API and
+additional direct-fit sample-weight signatures are outside this addition.
+Extreme designs, coefficients or predictions outside the native real64 working
+range receive diagnostics. See `example/positive_linear_models.f90`.
