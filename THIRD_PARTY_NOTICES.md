@@ -1287,3 +1287,17 @@ Adam/SGD and L-BFGS notices apply, with full BSD terms retained in LICENSES.
 Native shape adapters, 64-bit counters, diagnostics, examples and validation
 are original MIT contributions. Validation records unchanged installed-source
 hashes and explicitly identifies the isolated roundoff-propagation check.
+
+
+## MLP matrix targets (BSD)
+
+The matrix-target paths in `src/sklearn_neural_network.f90` further follow
+sklearn 1.6.1 `neural_network/_multilayer_perceptron.py` and `_base.py`:
+shared multiresponse networks, sample/output loss normalization, supplied
+backpropagation Jacobians, multilabel logistic outputs and binary losses.
+Indicator prediction follows LabelBinarizer's threshold convention; scoring
+follows sklearn uniform-average R2 and exact-match multilabel accuracy.
+The complete sklearn BSD terms remain in LICENSES/scikit-learn-COPYING.
+Typed rank overloads, matrix-returning prediction adapters, diagnostics,
+analytic tests, example and validation harness are original MIT contributions.
+No new dependency or extension estimator was added.

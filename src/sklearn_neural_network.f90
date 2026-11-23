@@ -27,6 +27,7 @@ module sklearn_neural_network
     character(16) :: solver="adam",learning_rate="constant",out_activation_="identity"
     logical :: shuffle=.true.,nesterovs_momentum=.true.,warm_start=.false.
     integer :: no_improvement_count_=0
+    logical :: multilabel_=.false.
     character(16) :: activation='relu'
     logical :: converged_=.false.
     type(dense_layer), allocatable :: layers_(:)
@@ -37,17 +38,23 @@ module sklearn_neural_network
   type, extends(network_storage) :: mlp_classifier
     integer, allocatable :: classes_(:)
   contains
-    procedure :: fit=>mlpc_fit
+    procedure, private :: fit_vector=>mlpc_fit,fit_indicator=>mlpc_fit_indicator
+    generic :: fit=>fit_vector,fit_indicator
     procedure :: predict_proba=>mlpc_proba
     procedure :: predict_log_proba=>mlpc_log_proba
     procedure :: predict=>mlpc_predict
-    procedure :: score=>mlpc_score
+    procedure :: predict_indicator=>mlpc_predict_indicator
+    procedure, private :: score_vector=>mlpc_score,score_indicator=>mlpc_score_indicator
+    generic :: score=>score_vector,score_indicator
   end type
   type, extends(network_storage) :: mlp_regressor
   contains
-    procedure :: fit=>mlpr_fit
+    procedure, private :: fit_vector=>mlpr_fit,fit_matrix=>mlpr_fit_matrix
+    generic :: fit=>fit_vector,fit_matrix
     procedure :: predict=>mlpr_predict
-    procedure :: score=>mlpr_score
+    procedure :: predict_multioutput=>mlpr_predict_matrix
+    procedure, private :: score_vector=>mlpr_score,score_matrix=>mlpr_score_matrix
+    generic :: score=>score_vector,score_matrix
   end type
 contains
   elemental real(dp) function mlp_logistic(x) result(v)
@@ -150,7 +157,7 @@ contains
         spread(self%layers_(l)%bias,1,size(x,1))
       if(l<last) then
         buffers(l)%values=activate(buffers(l)%values,self%activation)
-      else if(classification.and.size(buffers(l)%values,2)==1) then
+      else if(classification.and.self%out_activation_=='logistic') then
         buffers(l)%values=mlp_logistic(buffers(l)%values)
       else if(classification) then
         do i=1,size(x,1)
@@ -192,9 +199,9 @@ contains
     if(classification) then
       eps=epsilon(1._dp);prob=max(eps,min(1-eps,buffers(last)%values))
       loss=-sum(target*log(prob))/n
-      if(size(target,2)==1) loss=loss-sum((1-target)*log(1-prob))/n
+      if(self%out_activation_=='logistic') loss=loss-sum((1-target)*log(1-prob))/n
     else
-      loss=sum((buffers(last)%values-target)**2)/(2*n)
+      loss=sum((buffers(last)%values-target)**2)/(2*real(n,dp)*size(target,2))
     end if
     loss=loss+self%alpha*penalty/(2*n)
     buffers(last)%delta=buffers(last)%values-target
@@ -308,7 +315,7 @@ contains
     self%out_activation_='identity'
     if(classification) then
       self%out_activation_='softmax'
-      if(size(target,2)==1) self%out_activation_='logistic'
+      if(size(target,2)==1.or.self%multilabel_) self%out_activation_='logistic'
     end if
     if(self%solver=='lbfgs') then
       call train_lbfgs(self,x,target,classification,reuse)
@@ -347,9 +354,9 @@ contains
         if(classification) then
           prob=max(eps,min(1-eps,buffers(last)%values))
           loss=-sum(yb*log(prob))/m
-          if(size(target,2)==1) loss=loss-sum((1-yb)*log(1-prob))/m
+          if(self%out_activation_=='logistic') loss=loss-sum((1-yb)*log(1-prob))/m
         else
-          loss=sum((buffers(last)%values-yb)**2)/(2*m)
+          loss=sum((buffers(last)%values-yb)**2)/(2*real(m,dp)*size(target,2))
         end if
         loss=loss+self%alpha*penalty/(2*m);accumulated=accumulated+loss*m
         buffers(last)%delta=buffers(last)%values-yb
@@ -411,7 +418,10 @@ contains
     real(dp), allocatable :: target(:,:)
     integer :: i
     integer, allocatable :: current_classes(:)
-    call check_xy(x,size(y));current_classes=unique_labels(y)
+    call check_xy(x,size(y))
+    if(self%warm_start.and.allocated(self%layers_)) &
+      call require(.not.self%multilabel_,'MLP warm fit target kind mismatch')
+    self%multilabel_=.false.;current_classes=unique_labels(y)
     if(self%warm_start.and.allocated(self%classes_)) then
       call require(size(current_classes)==size(self%classes_),'MLP warm fit class set mismatch')
       call require(all(current_classes==self%classes_),'MLP warm fit class set mismatch')
@@ -429,13 +439,52 @@ contains
     end if
     call train(self,x,target,.true.)
   end subroutine
+  subroutine mlpc_fit_indicator(self,x,y)
+    class(mlp_classifier), intent(inout) :: self
+    real(dp), intent(in) :: x(:,:)
+    integer, intent(in) :: y(:,:)
+    integer :: j
+    call check_xy(x,size(y,1));call require(size(y,2)>0,'MLP indicator target width must be positive')
+    if(size(y,2)==1) then
+      call mlpc_fit(self,x,y(:,1));return
+    end if
+    call require(all(y==0.or.y==1),'MLP indicator targets must be zero or one')
+    if(self%warm_start.and.allocated(self%layers_)) then
+      call require(self%multilabel_,'MLP warm fit target kind mismatch')
+      call require(size(y,2)==self%n_outputs_,'MLP warm fit indicator width mismatch')
+    end if
+    self%multilabel_=.true.;self%classes_=[(j-1,j=1,size(y,2))]
+    call train(self,x,real(y,dp),.true.)
+  end subroutine
+  function mlpc_predict_indicator(self,x) result(y)
+    class(mlp_classifier), intent(in) :: self
+    real(dp), intent(in) :: x(:,:)
+    integer, allocatable :: y(:,:)
+    real(dp), allocatable :: probability(:,:)
+    call require(self%multilabel_,'MLP indicator prediction requires a multilabel model')
+    probability=self%predict_proba(x);y=merge(1,0,probability>.5_dp)
+  end function
+  real(dp) function mlpc_score_indicator(self,x,y) result(v)
+    class(mlp_classifier), intent(in) :: self
+    real(dp), intent(in) :: x(:,:)
+    integer, intent(in) :: y(:,:)
+    integer, allocatable :: prediction(:,:)
+    call check_xy(x,size(y,1));call require(size(y,2)>0,'MLP indicator target width must be positive')
+    if(size(y,2)==1.and..not.self%multilabel_) then
+      v=mlpc_score(self,x,y(:,1));return
+    end if
+    call require(all(y==0.or.y==1),'MLP indicator targets must be zero or one')
+    prediction=self%predict_indicator(x)
+    call require(size(y,2)==size(prediction,2),'MLP indicator score width mismatch')
+    v=real(count(all(y==prediction,dim=2)),dp)/size(y,1)
+  end function
   function mlpc_proba(self,x) result(prob)
     class(mlp_classifier), intent(in) :: self
     real(dp), intent(in) :: x(:,:)
     real(dp), allocatable :: prob(:,:)
     type(activation_buffer), allocatable :: buffers(:)
     call forward(self,x,.true.,buffers)
-    if(size(self%classes_)==2) then
+    if(self%n_outputs_==1) then
       allocate(prob(size(x,1),2));prob(:,2)=buffers(size(self%layers_))%values(:,1);prob(:,1)=1-prob(:,2)
     else
       prob=buffers(size(self%layers_))%values
@@ -466,6 +515,7 @@ contains
     real(dp), intent(in) :: x(:,:)
     integer :: y(size(x,1)),i
     real(dp), allocatable :: prob(:,:)
+    call require(.not.self%multilabel_,'use predict_indicator for multilabel MLP outputs')
     prob=self%predict_proba(x)
     do i=1,size(y)
       y(i)=self%classes_(maxloc(prob(i,:),dim=1))
@@ -480,6 +530,7 @@ contains
   subroutine mlpr_fit(self,x,y)
     class(mlp_regressor), intent(inout) :: self
     real(dp), intent(in) :: x(:,:),y(:)
+    self%multilabel_=.false.
     call train(self,x,reshape(y,[size(y),1]),.false.)
   end subroutine
   function mlpr_predict(self,x) result(y)
@@ -487,11 +538,44 @@ contains
     real(dp), intent(in) :: x(:,:)
     real(dp) :: y(size(x,1))
     type(activation_buffer), allocatable :: buffers(:)
-    call forward(self,x,.false.,buffers); y=buffers(size(self%layers_))%values(:,1)
+    call forward(self,x,.false.,buffers)
+    call require(self%n_outputs_==1,'use predict_multioutput for multiple MLP responses')
+    y=buffers(size(self%layers_))%values(:,1)
   end function
   real(dp) function mlpr_score(self,x,y) result(v)
     class(mlp_regressor), intent(in) :: self
     real(dp), intent(in) :: x(:,:),y(:)
-    v=r2_score(y,self%predict(x))
+    v=mlpr_score_matrix(self,x,reshape(y,[size(y),1]))
   end function
+  subroutine mlpr_fit_matrix(self,x,y)
+    class(mlp_regressor), intent(inout) :: self
+    real(dp), intent(in) :: x(:,:),y(:,:)
+    self%multilabel_=.false.;call train(self,x,y,.false.)
+  end subroutine
+  function mlpr_predict_matrix(self,x) result(y)
+    class(mlp_regressor), intent(in) :: self
+    real(dp), intent(in) :: x(:,:)
+    real(dp), allocatable :: y(:,:)
+    type(activation_buffer), allocatable :: buffers(:)
+    call forward(self,x,.false.,buffers);y=buffers(size(self%layers_))%values
+  end function
+  real(dp) function mlpr_score_matrix(self,x,y) result(v)
+    use, intrinsic :: ieee_arithmetic, only: ieee_value,ieee_quiet_nan
+    class(mlp_regressor), intent(in) :: self
+    real(dp), intent(in) :: x(:,:),y(:,:)
+    real(dp), allocatable :: prediction(:,:)
+    integer :: j
+    call check_xy(x,size(y,1));call check_x(y)
+    prediction=self%predict_multioutput(x)
+    call require(size(y,2)==size(prediction,2),'MLP response score width mismatch')
+    if(size(y,1)<2) then
+      v=ieee_value(0._dp,ieee_quiet_nan);return
+    end if
+    v=0
+    do j=1,size(y,2)
+      v=v+r2_score(y(:,j),prediction(:,j))
+    end do
+    v=v/size(y,2)
+  end function
+
 end module

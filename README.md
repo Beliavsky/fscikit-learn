@@ -321,3 +321,9 @@ MLP `warm_start` reuses fitted parameters and accumulates training history acros
 fits, with fresh stochastic optimizer state per call. See
 [the warm-start MLP example](example/warm_started_mlp.f90) and
 [the warm-start contract](docs/API.md#warm-start-multilayer-perceptrons).
+
+
+MLPs now support joint multioutput regression and multilabel indicator targets.
+Use the matrix prediction methods and target-rank score overloads shown in
+[the example](example/mlp_matrix_targets.f90) and
+[the API recipe](docs/API.md#mlp-matrix-targets).

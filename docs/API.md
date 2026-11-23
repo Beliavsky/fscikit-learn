@@ -6449,7 +6449,7 @@ shared reductions and sparse/image/weighted-model consumers of that helper.
 ## Stochastic multilayer perceptrons
 
 `mlp_classifier` and `mlp_regressor` accept dense finite real64 feature matrices,
-integer class labels or one real response. Set `hidden_layer_sizes` to a positive
+integer class labels/indicator matrices or real scalar/matrix responses. Set `hidden_layer_sizes` to a positive
 integer array (default `[100]`); an allocated empty array gives no hidden layer.
 `activation` is `relu`, `tanh`, `logistic` or `identity`. `solver` is `adam`
 (default), `sgd` or `lbfgs`. Binary classifiers use a single logistic output, multiclass
@@ -6540,3 +6540,32 @@ Long or sensitive solver handoffs can amplify backend roundoff. The retained
 reference reports compare the original trajectories and identify the isolated
 checkpoint-response bound; see [COVERAGE.md](COVERAGE.md) and
 [the warm-start example](../example/warm_started_mlp.f90).
+
+
+## MLP matrix targets
+
+`mlp_regressor%fit(x,y)` accepts an n_samples-by-n_responses real matrix for
+joint training with shared hidden layers. Use `predict_multioutput(x)` to get
+an n_queries-by-n_responses matrix and `score(x,y_matrix)` for uniform-average
+per-response R2. A one-column target also permits the original vector predict
+method. A model with multiple responses requires the matrix method. Scoring
+one sample returns NaN; constant-response scores follow sklearn force_finite
+behavior. Reported squared loss averages over both samples and responses;
+updates and the L-BFGS supplied Jacobian retain sklearn 1.6.1's sample-only
+gradient normalization. The regularization denominator remains n_samples.
+
+`mlp_classifier%fit(x,y_indicator)` accepts integer zero/one matrices with at
+least two label columns. The fitted native diagnostic `multilabel_` is true,
+`out_activation_='logistic'` and classes_ lists zero-based label-column indices.
+Use `predict_indicator(x)` for an integer indicator matrix. Each label is
+positive only for probability >0.5. `predict_proba` and `predict_log_proba`
+return one positive-event probability/log probability per label; rows need not
+sum to one. `score(x,y_indicator)` measures exact-row-match accuracy, rather
+than averaging individual label decisions. Vector predict is reserved for
+vector/binary/multiclass target models.
+
+An n-by-1 classification matrix follows the existing vector-label contract,
+including binary probability expansion. Warm matrix fits require compatible
+target kind and output width; cold fits can change them. All supported MLP
+solvers and warm-start behavior apply. See
+[the example](../example/mlp_matrix_targets.f90) and [coverage details](COVERAGE.md).

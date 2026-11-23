@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 221 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and forty-nine reference suites additionally check 1,518,124
+All types have native tests. One hundred and fifty reference suites additionally check 1,594,588
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -15,7 +15,7 @@ tracked separately in [EXTENSIONS.md](EXTENSIONS.md) and excluded from the
 selective, clearly identified extensions while prioritizing core correctness.
 
 Global scope: dense real64 CPU arrays, integer classification labels, generally one target
-per sample; cross-decomposition, multi-task regression and independent multioutput wrappers explicitly accept multiple response columns. General sparse estimator inputs, pandas integration, Python estimator cloning,
+per sample; cross-decomposition, multi-task regression, joint MLP regression and independent multioutput wrappers explicitly accept multiple response columns. General sparse estimator inputs, pandas integration, Python estimator cloning,
 metadata routing, parallel backends and binary model persistence are outside the
 initial translation. The neighbor graph transformers provide CSR graph outputs and
 accept CSR precomputed distances, as do Isomap and Barnes-Hut TSNE. Randomized TruncatedSVD and direct Multinomial/
@@ -66,7 +66,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | discriminant_analysis | `linear_discriminant_analysis`, `quadratic_discriminant_analysis` | LDA offers LSQR, SVD and generalized-eigen classification/projection with fixed/automatic shrinkage and custom priors; QDA full/thin regularization and custom priors; solver-specific rank contracts are documented below |
 | svm | `svc`, `nu_svc`, `linear_svc`, `linear_svr`; re-exports `svr`, `nu_svr`, `one_class_svm` | Primal L2 squared-loss linear classification/regression; OVO SVC/NuSVC; epsilon/nu support-vector regression and one-class detection; native pairwise dual optimization and weighted capacities |
 | mixture | `gaussian_mixture`, `bayesian_gaussian_mixture` | EM Gaussian mixtures and variational Bayesian mixtures with finite Dirichlet or truncated stick-breaking weights; full/tied/diag/spherical covariances; responsibilities and likelihood scores; GaussianMixture BIC/AIC |
-| neural_network | `mlp_classifier`, `mlp_regressor`, `bernoulli_rbm` | Arbitrary dense hidden layers, relu/tanh/logistic/identity, seeded minibatch Adam/SGD or full-data L-BFGS, momentum/Nesterov and SGD schedules, binary logistic/multiclass softmax classification or squared-error regression, L2 regularization |
+| neural_network | `mlp_classifier`, `mlp_regressor`, `bernoulli_rbm` | Arbitrary dense hidden layers, relu/tanh/logistic/identity, seeded minibatch Adam/SGD or full-data L-BFGS, momentum/Nesterov and SGD schedules, binary/multilabel logistic or multiclass softmax classification, scalar/joint squared-error regression, L2 regularization |
 | gaussian_process | `gaussian_process_regressor`, `gaussian_process_classifier` | Configurable covariance expressions or legacy RBF controls; anisotropy, Matern/RQ/periodic/dot/constant/white kernels and sums/products/powers; scalar/vector-alpha Cholesky regression, independent multiple targets, likelihood gradients and opt-in bounded kernel fitting; Laplace binary/OVR classification with optional independent kernel fitting, binary likelihood gradients and warm starts |
 | covariance | `empirical_covariance`, `shrunk_covariance`, `ledoit_wolf`, `oas`, `graphical_lasso`, `graphical_lasso_cv`, `min_cov_det`, `elliptic_envelope`; `fast_mcd` | Population covariance, pseudoinverse precision, squared Mahalanobis distance, likelihood, Frobenius/spectral covariance error; L1-penalized sparse precision via block coordinate descent and refined cross-validation; FastMCD robust covariance and elliptic outlier detection |
 | calibration | `calibrated_classifier_cv`; `calibration_curve` | Sigmoid/isotonic CV ensembles, out-of-fold calibration and prefit calibration with logistic, Gaussian NB or KNN bases; uniform/quantile reliability bins |
@@ -214,8 +214,7 @@ distances; cosine similarity; linear, RBF, polynomial and sigmoid kernels.
   SVR, NuSVC and one-class SVM are separate native types. Platt probability
   scaling and LIBSVM model-file compatibility are not provided.
 - MLP supports seeded minibatch Adam/SGD and full-data L-BFGS. Validation-set
-  early stopping, partial_fit, sparse input, multilabel classification and
-  multioutput regression remain outside its interface. Floating-point rounding
+  early stopping, partial_fit and sparse input remain outside its interface. Floating-point rounding
   can amplify in sensitive trajectories; see the stochastic MLP increment below.
 - Gaussian-process kernel hyperparameters are fixed; no optimizer or kernel
   algebra interface. Only one real target and isotropic RBF are supported.
@@ -7766,3 +7765,57 @@ contents per build, source/optimizer/validator/executable hashes and complete
 required/diagnostic inventories. Unrelated core modules and all existing native
 tests were unchanged, as were activation, query and objective/gradient kernels.
 Reports, source probes and logs remain locally in ignored validation/results.
+
+
+## Joint MLP regression and multilabel indicator targets
+
+Added rank-two fit overloads to mlp_regressor and mlp_classifier for all three
+solvers and warm fits. Multioutput regression uses one shared network with a
+coefficient column per response. Its reported squared data loss averages over
+samples and responses, while backpropagation divides by the sample count; L2
+loss/gradients also divide by the sample count. These are sklearn 1.6.1's
+separate loss/Jacobian conventions and are retained explicitly, including in
+L-BFGS callbacks. Single-response calculations retain their former values.
+
+Multilabel indicators use independent sigmoid outputs for every label, summed
+binary cross-entropies per sample and independent >0.5 thresholds. Probabilities
+are positive-event probabilities per label and need not sum to one. This also
+applies to two-label matrices even though classes_ then contains [0,1].
+classes_ contains zero-based label-column indices. An n-by-1 classification
+target delegates to the existing vector classification path; a one-column
+regression target retains scalar prediction compatibility.
+
+Fortran's fixed function-result rank requires explicit matrix prediction
+methods: predict_multioutput for regression and predict_indicator for multilabel
+classification. Existing vector predict calls reject fitted matrix-output
+models instead of dropping a response or choosing one indicator. Matrix score
+overloads use uniform-average per-response R2 or exact-row-match accuracy.
+Constant-response R2 follows force_finite behavior; single-sample MLP R2 is NaN.
+Warm fits retain target-kind/output-width checks and existing stochastic state
+contracts, and cold fits can change output mode or response width.
+
+The new reference suite covers 1,296 workflows / 3,888 cold/warm/cold fits and
+76,464 required groups. Three seeds, regression/indicator targets, one/two/four
+responses, four activations, three architectures and six optimizer configurations
+cover minibatches, schedules and all solvers. Constant indicators/responses,
+degenerate features, one-column targets, extreme classifier queries and
+single-sample scoring are included. Coefficients, optimizer states, loss
+histories, metadata, predictions, probabilities, log probabilities and scores
+are compared at rtol=5e-8 / atol=5e-9. L-BFGS objective and supplied Jacobian
+values are additionally compared at native returned parameters with tighter
+tolerances. The checked development run required no rounding-envelope exception;
+its largest coefficient error was 3.22e-15. Nineteen diagnostics cover empty,
+nonfinite and malformed targets, prediction-rank mistakes, scores, warm target
+mismatches and unfitted access.
+
+Native analytic tests check a zero-parameter two-response SGD step (loss averages
+responses but updates retain source sample-only normalization), uniform-average
+R2, undefined one-row R2, independent sigmoid gradients, probability sums above
+one, strict threshold ties, exact-row scoring and one-column compatibility.
+The new matrix-target example fits two joint responses and overlapping labels.
+Original contributions remain MIT with retained sklearn BSD attribution; no
+additional dependency or public extension estimator was introduced.
+
+Cumulative inventory: 221 public core types, 137 source modules, 174 native
+programs, 150 core reference suites / 1,594,588 retained required groups, and 55
+invalid-input registries / 3,961 cases. These remain API subsets.
