@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 221 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and forty-eight reference suites additionally check 1,436,476
+All types have native tests. One hundred and forty-nine reference suites additionally check 1,518,124
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -214,7 +214,7 @@ distances; cosine similarity; linear, RBF, polynomial and sigmoid kernels.
   SVR, NuSVC and one-class SVM are separate native types. Platt probability
   scaling and LIBSVM model-file compatibility are not provided.
 - MLP supports seeded minibatch Adam/SGD and full-data L-BFGS. Validation-set
-  early stopping, warm starts, partial_fit, sparse input, multilabel classification and
+  early stopping, partial_fit, sparse input, multilabel classification and
   multioutput regression remain outside its interface. Floating-point rounding
   can amplify in sensitive trajectories; see the stochastic MLP increment below.
 - Gaussian-process kernel hyperparameters are fixed; no optimizer or kernel
@@ -7683,3 +7683,69 @@ source/optimizer/validator/executable hashes and complete required/diagnostic
 field inventories. Unrelated core modules, existing native tests and the
 stochastic training/prediction kernel were unchanged. Reports, source probes
 and logs are retained locally under ignored validation/results.
+
+
+## Warm-start multilayer perceptron fitting
+
+Added warm_start to both MLP types for Adam, SGD and L-BFGS fits. The first fit
+initializes normally; subsequent warm fits reuse published coefficient/bias
+arrays and retain the feature/class contracts. Stochastic fits append loss
+history, retain best_loss_ and no_improvement_count_, and accumulate a 64-bit
+t_ sample clock. n_iter_ counts epochs in the current call. Switching back to
+a cold fit resets these histories, clocks and parameters.
+
+Following sklearn 1.6.1 _fit/_fit_stochastic, each warm Adam/SGD fit constructs
+a fresh optimizer: moments, variances or velocities start at zero, optimizer
+steps and initial learning rates restart, and the current seed starts a new
+shuffle stream without consuming initialization draws. Inverse scaling after
+an epoch still uses the accumulated sample clock. Fresh optimizer buffers
+follow the actual edited parameter shapes.
+
+Warm L-BFGS calls reconstruct optimizer workspaces and reset optimizer iteration/
+evaluation counters while retaining the fitted parameters and any existing
+stochastic histories/sample count. Stochastic training can then resume with a
+fresh optimizer. A new L-BFGS model has no stochastic history; a subsequent
+stochastic warm fit requires an earlier stochastic history, as in the source
+interface. Use a cold stochastic fit when that history is unavailable.
+
+Warm classifiers require exactly the previously fitted class set. Feature count
+and layer count must stay compatible. Stochastic warm fits retain actual layer
+widths when positive public hidden sizes of the same layer count are changed;
+a cold fit applies the new architecture. L-BFGS packing additionally requires
+public widths to match the actual layers. Numerically edited parameter arrays
+and compatible shape replacements are used directly rather than reinitialized.
+
+The new reference suite covers 756 workflows / 4,536 fits and 81,648 result
+groups. Three seeds, three response kinds, four activations, three architectures
+and seven optimizer configurations exercise repeated warm fits, parameter edits,
+cold resets, seed/rate/alpha changes, SGD schedules, and stochastic/L-BFGS
+transitions. Checks include all coefficients, biases and optimizer buffers,
+loss histories, patience state, sample/epoch metadata and query outputs.
+Dedicated histories cross the signed 32-bit sample limit and replace parameter
+shapes. Eight diagnostics cover warm feature/class/architecture mismatches,
+unavailable stochastic history and revalidation of invalid controls.
+
+Strict comparisons use rtol=5e-9 and atol=5e-10. One all-zero regression workflow
+reaches an exact zero bias in SciPy L-BFGS and a roundoff residual in the native
+optimizer. Subsequent Adam updates amplify that residual: seven final-stage
+fields differ from the unperturbed source trajectory. They are additionally
+checked against the componentwise source response to 32 checkpoint-bias
+perturbations: signed powers of two from 2^-12 through 2^3 times machine epsilon,
+scaled by the preceding parameter working magnitude (at least one). The source
+optimizer, history and data remain unchanged in these probes. The original
+endpoint values and strict-failure markers remain in the report; the bound
+applies only to this workflow/stage. Every other result group keeps the strict
+tolerance. This check records cross-solver rounding sensitivity.
+
+Native tests independently check scalar SGD updates, optimizer-state resets,
+history and clock accumulation, cold resets, L-BFGS handoffs, edited shapes,
+layer-width behavior and a sample count above 2^31. A warm-start XOR example
+shows the distinction between current-call epochs and accumulated history.
+Partial_fit, validation-set early stopping, sparse MLP inputs, multilabel
+classification and joint multioutput regression remain outside this subset.
+Original contributions remain MIT with retained sklearn/SciPy BSD notices.
+No dependency or public extension type was added.
+
+Cumulative inventory: 221 public core types, 137 source modules, 173 native
+programs, 149 core reference suites / 1,518,124 retained required groups, and 54
+invalid-input registries / 3,942 cases. These remain API subsets.

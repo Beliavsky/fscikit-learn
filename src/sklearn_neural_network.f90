@@ -20,11 +20,13 @@ module sklearn_neural_network
   type :: network_storage
     integer, allocatable :: hidden_layer_sizes(:)
     integer :: max_iter=200,random_state=0,n_iter_=0,n_iter_no_change=10,batch_size=0
-    integer :: n_features_in_=0,n_outputs_=0,n_layers_=0,t_=0,max_fun=15000,n_function_evaluations_=0
+    integer :: n_features_in_=0,n_outputs_=0,n_layers_=0,max_fun=15000,n_function_evaluations_=0
+    integer(int64) :: t_=0
     real(dp) :: learning_rate_init=0.001_dp,alpha=0.0001_dp,tol=1.e-4_dp,loss_=0,best_loss_=0
     real(dp) :: momentum=.9_dp,power_t=.5_dp,beta_1=.9_dp,beta_2=.999_dp,epsilon=1.e-8_dp
     character(16) :: solver="adam",learning_rate="constant",out_activation_="identity"
-    logical :: shuffle=.true.,nesterovs_momentum=.true.
+    logical :: shuffle=.true.,nesterovs_momentum=.true.,warm_start=.false.
+    integer :: no_improvement_count_=0
     character(16) :: activation='relu'
     logical :: converged_=.false.
     type(dense_layer), allocatable :: layers_(:)
@@ -81,13 +83,8 @@ contains
     case('identity'); z=1
     end select
   end function
-  subroutine initialize(self,p,outputs,rng)
+  subroutine controls(self)
     class(network_storage), intent(inout) :: self
-    integer, intent(in) :: p,outputs
-    integer, allocatable :: sizes(:)
-    type(legacy_random_state), intent(inout) :: rng
-    integer :: l,inputs,width,i,j
-    real(dp) :: bound
     call require(all(ieee_is_finite([self%learning_rate_init,self%alpha,self%tol,self%momentum, &
       self%power_t,self%beta_1,self%beta_2,self%epsilon])),'nonfinite MLP controls')
     call require(self%max_iter>0.and.self%learning_rate_init>0.and.self%alpha>=0.and.self%tol>=0, &
@@ -103,11 +100,21 @@ contains
     call require(any(self%activation==['relu    ','tanh    ','logistic','identity']),'unknown MLP activation')
     if(.not.allocated(self%hidden_layer_sizes)) self%hidden_layer_sizes=[100]
     call require(all(self%hidden_layer_sizes>0),'hidden layer sizes must be positive')
+  end subroutine
+  subroutine initialize(self,p,outputs,rng)
+    class(network_storage), intent(inout) :: self
+    integer, intent(in) :: p,outputs
+    integer, allocatable :: sizes(:)
+    type(legacy_random_state), intent(inout) :: rng
+    integer :: l,inputs,width,i,j
+    real(dp) :: bound
+    call controls(self)
     sizes=[p,self%hidden_layer_sizes,outputs]
     if(allocated(self%layers_)) deallocate(self%layers_)
     allocate(self%layers_(size(sizes)-1)); call rng%seed(self%random_state)
     self%n_features_in_=p;self%n_outputs_=outputs;self%n_layers_=size(sizes);self%t_=0
     self%n_iter_=0;self%n_function_evaluations_=0;self%optimization_message_=''
+    self%no_improvement_count_=0
     if(allocated(self%gradient_)) deallocate(self%gradient_)
     if(allocated(self%previous_parameters_)) deallocate(self%previous_parameters_)
     self%previous_loss_=0
@@ -206,10 +213,10 @@ contains
     end do
     call require(ieee_is_finite(loss).and.all(ieee_is_finite(gradient)),'MLP objective overflow; scale the inputs')
   end subroutine
-  subroutine train_lbfgs(self,x,target,classification)
+  subroutine train_lbfgs(self,x,target,classification,preserve_history)
     class(network_storage), intent(inout) :: self
     real(dp), intent(in) :: x(:,:),target(:,:)
-    logical, intent(in) :: classification
+    logical, intent(in) :: classification,preserve_history
     integer, parameter :: memory=10
     real(dp), allocatable :: point(:),g(:),wa(:),lower(:),upper(:),accepted(:)
     integer, allocatable :: iwa(:),nbd(:)
@@ -237,8 +244,11 @@ contains
     end do
     nbd=0;lower=0;upper=0;wa=0;iwa=0;isave=0;dsave=0;lsave=.false.;csave='';task='START';f=0;g=0
     accepted=point;self%previous_parameters_=point
-    self%converged_=.false.;self%best_loss_=0
-    if(allocated(self%loss_curve_)) deallocate(self%loss_curve_)
+    self%converged_=.false.
+    if(.not.preserve_history) then
+      self%best_loss_=0
+      if(allocated(self%loss_curve_)) deallocate(self%loss_curve_)
+    end if
     do
       ! SciPy minimize defaults: memory=10, factr=1e7, maxls=20; tol maps to gtol.
       call setulb(d,memory,point,lower,upper,nbd,f,g,1.e7_dp,self%tol,wa,iwa,task,-1,csave,lsave,isave,dsave)
@@ -272,20 +282,52 @@ contains
     real(dp), allocatable :: gw(:,:),gb(:),prob(:,:),xb(:,:),yb(:,:)
     integer, allocatable :: order(:)
     real(dp) :: loss,rate,penalty,accumulated,eps
-    integer :: it,l,last,n,stale,bs,first,finish,m,step,i,j,tmp
+    integer :: it,l,last,n,stale,bs,first,finish,m,step,i,j,tmp,history_size
+    logical :: reuse
     call check_xy(x,size(target,1)); call check_x(target)
-    n=size(x,1); call initialize(self,size(x,2),size(target,2),rng); last=size(self%layers_)
+    n=size(x,1);reuse=allocated(self%layers_).and.self%warm_start
+    if(reuse) then
+      call controls(self)
+      call require(size(x,2)==self%n_features_in_,'MLP warm fit feature count mismatch')
+      call require(size(self%hidden_layer_sizes)==size(self%layers_)-1,'MLP warm fit layer count mismatch')
+      if(self%solver=='lbfgs') then
+        do l=1,size(self%hidden_layer_sizes)
+          call require(self%hidden_layer_sizes(l)==size(self%layers_(l)%bias),'MLP warm L-BFGS layer width mismatch')
+        end do
+      end if
+      call require(size(target,2)==size(self%layers_(size(self%layers_))%bias),'MLP warm fit output count mismatch')
+      call rng%seed(self%random_state)
+      self%n_iter_=0;self%n_function_evaluations_=0;self%optimization_message_=''
+      if(allocated(self%gradient_)) deallocate(self%gradient_)
+      if(allocated(self%previous_parameters_)) deallocate(self%previous_parameters_)
+      self%previous_loss_=0
+    else
+      call initialize(self,size(x,2),size(target,2),rng)
+    end if
+    last=size(self%layers_)
     self%out_activation_='identity'
     if(classification) then
       self%out_activation_='softmax'
       if(size(target,2)==1) self%out_activation_='logistic'
     end if
     if(self%solver=='lbfgs') then
-      call train_lbfgs(self,x,target,classification)
+      call train_lbfgs(self,x,target,classification,reuse)
       return
     end if
-    self%loss_curve_=spread(0._dp,1,self%max_iter); self%best_loss_=huge(1._dp)
-    stale=0;step=0;self%converged_=.false.;rate=self%learning_rate_init
+    if(reuse) then
+      call require(allocated(self%loss_curve_),'MLP stochastic history unavailable; use a cold fit after L-BFGS')
+      history_size=size(self%loss_curve_)
+      self%loss_curve_=[self%loss_curve_,spread(0._dp,1,self%max_iter)]
+    else
+      history_size=0;self%loss_curve_=spread(0._dp,1,self%max_iter);self%best_loss_=huge(1._dp)
+    end if
+    ! sklearn fit reconstructs the stochastic optimizer even when weights are warm.
+    do l=1,last
+      self%layers_(l)%m=spread(spread(0._dp,1,size(self%layers_(l)%weights,1)),2,size(self%layers_(l)%weights,2))
+      self%layers_(l)%v=self%layers_(l)%m
+      self%layers_(l)%mb=spread(0._dp,1,size(self%layers_(l)%bias));self%layers_(l)%vb=self%layers_(l)%mb
+    end do
+    stale=self%no_improvement_count_;step=0;self%converged_=.false.;rate=self%learning_rate_init
     bs=min(200,n);if(self%batch_size>0) bs=min(self%batch_size,n)
     order=[(i,i=1,n)];eps=epsilon(1._dp)
     do it=1,self%max_iter
@@ -342,7 +384,7 @@ contains
             all(ieee_is_finite(self%layers_(l)%bias)),'MLP fit overflow; scale the inputs')
         end do
       end do
-      self%loss_=accumulated/n;self%loss_curve_(it)=self%loss_;self%t_=self%t_+n
+      self%loss_=accumulated/n;self%loss_curve_(history_size+it)=self%loss_;self%t_=self%t_+n
       if(self%loss_>self%best_loss_-self%tol) then
         stale=stale+1
       else
@@ -359,7 +401,8 @@ contains
         end if
       end if
     end do
-    self%n_iter_=min(it,self%max_iter);self%loss_curve_=self%loss_curve_(:self%n_iter_)
+    self%n_iter_=min(it,self%max_iter);self%loss_curve_=self%loss_curve_(:history_size+self%n_iter_)
+    self%no_improvement_count_=stale
   end subroutine
   subroutine mlpc_fit(self,x,y)
     class(mlp_classifier), intent(inout) :: self
@@ -367,7 +410,14 @@ contains
     integer, intent(in) :: y(:)
     real(dp), allocatable :: target(:,:)
     integer :: i
-    call check_xy(x,size(y)); self%classes_=unique_labels(y)
+    integer, allocatable :: current_classes(:)
+    call check_xy(x,size(y));current_classes=unique_labels(y)
+    if(self%warm_start.and.allocated(self%classes_)) then
+      call require(size(current_classes)==size(self%classes_),'MLP warm fit class set mismatch')
+      call require(all(current_classes==self%classes_),'MLP warm fit class set mismatch')
+    else
+      self%classes_=current_classes
+    end if
     call require(size(self%classes_)>=2,'MLP classification needs at least two classes')
     if(size(self%classes_)==2) then
       allocate(target(size(y),1));target(:,1)=real(merge(1,0,y==self%classes_(2)),dp)

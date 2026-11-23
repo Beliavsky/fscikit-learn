@@ -6460,7 +6460,7 @@ sizes are clipped to the sample count. `shuffle=.true.` and nonnegative
 `random_state` select the NumPy-compatible initialization/permutation stream.
 The existing native seed default remains zero. `learning_rate_init=.001`,
 `alpha=.0001`, `max_iter=200`, `tol=.0001`, `n_iter_no_change=10` match source
-stochastic defaults. Zero tolerance is accepted. Fits are fresh and repeatable.
+stochastic defaults. Zero tolerance is accepted. Default cold fits are fresh and repeatable.
 
 Adam uses `beta_1=.9`, `beta_2=.999`, `epsilon=1e-8`. SGD uses `momentum=.9`,
 `nesterovs_momentum=.true.` and `learning_rate='constant'`, `'invscaling'` or
@@ -6495,18 +6495,48 @@ machine epsilon. A fit may stop at initialization with `n_iter_=0`.
 The existing hidden-layer, activation, alpha, seed, prediction and score
 interfaces apply. Minibatch/shuffle and stochastic optimizer controls are
 ignored after parameter validation. L2 regularization divides by the full
-sample count. `loss_` is the final full-data objective. `t_` remains zero;
-`loss_curve_` is unallocated. `best_loss_` is a stochastic-only diagnostic.
+sample count. `loss_` is the final full-data objective. A fresh L-BFGS-only fit
+has `t_=0` and unallocated `loss_curve_`; warm calls retain any earlier
+stochastic history and clock. `best_loss_` is a stochastic-only diagnostic.
 
 Native optimizer diagnostics are `n_function_evaluations_`, `converged_`,
 `optimization_message_`, `gradient_`, `previous_parameters_` and
 `previous_loss_`. Packed vectors contain every coefficient matrix in row-major
 order, then every bias vector. These extra diagnostic attributes support
 objective/gradient and termination checks and are not sklearn public fields.
-Changing solvers with a cold fit resets stale state.
+Changing solvers with a cold fit resets stale state; warm transitions retain the histories described below.
 
 Long nonconvex optimization can yield different final parameters, predictions
 and work counts from SciPy's optimizer. The reference suite retains those
 endpoint differences and independently validates sklearn loss/gradients at the
 returned parameters and the solver's stopping criteria. See
 [COVERAGE.md](COVERAGE.md) and [the XOR example](../example/lbfgs_mlp.f90).
+
+
+## Warm-start multilayer perceptrons
+
+Set `warm_start=.true.` on `mlp_classifier` or `mlp_regressor` to reuse fitted
+weights and biases in later `fit` calls. The first call initializes normally.
+Warm classifiers require the same set of labels, and feature/layer counts
+remain fixed. For stochastic solvers, positive hidden-size changes with the
+same layer count leave actual widths unchanged; a cold fit applies them.
+L-BFGS also requires the declared widths to match the existing parameter shapes.
+Published parameter edits and compatible shape replacements are honored.
+
+Each Adam/SGD fit recreates optimizer moments/velocities and its initial rate.
+Warm calls retain `loss_curve_`, `best_loss_`, the native patience diagnostic
+`no_improvement_count_`, and a 64-bit `t_`. `n_iter_` counts only the latest
+call's epochs; `size(loss_curve_)` counts all retained epochs. A fresh shuffle
+stream uses the current integer seed without repeating initialization draws.
+Setting `warm_start=.false.` requests a new parameter initialization and fresh
+stochastic history/sample count.
+
+Warm L-BFGS preserves existing stochastic history and `t_`, and resets its own
+iteration/evaluation counters. It can be followed by another stochastic warm
+fit when stochastic history already exists. A newly fitted L-BFGS-only model
+has no such history: use a cold stochastic fit to switch from that state.
+
+Long or sensitive solver handoffs can amplify backend roundoff. The retained
+reference reports compare the original trajectories and identify the isolated
+checkpoint-response bound; see [COVERAGE.md](COVERAGE.md) and
+[the warm-start example](../example/warm_started_mlp.f90).

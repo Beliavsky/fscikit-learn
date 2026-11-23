@@ -1275,3 +1275,15 @@ The typed packing, native state diagnostics, tests, example and validation
 harness are original MIT contributions. Validation retains installed-source
 and vendored-optimizer hashes and explicitly records differing long-fit
 endpoints. No additional dependency was imported.
+
+
+## Warm-start multilayer perceptrons (BSD)
+
+The warm-fit paths in `src/sklearn_neural_network.f90` further adapt sklearn
+1.6.1 `neural_network/_multilayer_perceptron.py` (_fit, _validate_input and
+_fit_stochastic): parameter reuse, feature/class checks, optimizer recreation,
+seed handling and retained loss/patience/sample state. Existing initialization,
+Adam/SGD and L-BFGS notices apply, with full BSD terms retained in LICENSES.
+Native shape adapters, 64-bit counters, diagnostics, examples and validation
+are original MIT contributions. Validation records unchanged installed-source
+hashes and explicitly identifies the isolated roundoff-propagation check.

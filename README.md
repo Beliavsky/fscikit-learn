@@ -315,3 +315,9 @@ MLPs also support full-data `solver='lbfgs'`, with iteration/evaluation limits
 and optimizer diagnostics. See [the L-BFGS XOR example](example/lbfgs_mlp.f90)
 and [the solver contract](docs/API.md#l-bfgs-multilayer-perceptrons), including
 long-fit numerical differences from SciPy.
+
+
+MLP `warm_start` reuses fitted parameters and accumulates training history across
+fits, with fresh stochastic optimizer state per call. See
+[the warm-start MLP example](example/warm_started_mlp.f90) and
+[the warm-start contract](docs/API.md#warm-start-multilayer-perceptrons).
