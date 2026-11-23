@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 221 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and thirty-nine reference suites additionally check 983,718
+All types have native tests. One hundred and forty reference suites additionally check 1,046,165
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -6988,3 +6988,28 @@ These corrections are identified behavior differences within the existing
 estimator counterpart, rather than additional public algorithms. Original
 implementation remains MIT with sklearn/NumPy BSD attribution; no dependency
 or public extension is added.
+
+Cumulative inventory: 221 public core types, 135 source modules, 163 native
+programs, 140 core reference suites / 1,046,165 retained groups, and 45
+invalid-input registries / 3,736 cases. The cumulative group total includes
+22 additional weighted-tree and eight bagging groups retained by the improved
+split matching. The former single-class AdaBoost rejection was removed because
+that fit is supported by sklearn. Public types remain API subsets.
+
+Final validation passes all 163 native programs in both checked and release
+profiles. The checked affected reference run retains 181,543 groups across
+AdaBoost, CART, weighted classifiers, bagging, stacking, voting, Pipeline,
+gradient boosting, multiclass, multioutput and general integration suites.
+The targeted release run retains 72,587 groups across the new AdaBoost CART,
+original AdaBoost and weighted-tree suites. Each profile also passes 2,463
+main/new diagnostic cases. Numerical checked tests retain bounds checks,
+backtraces and traps for invalid, zero and overflow. The legacy main diagnostic
+registry uses its standard bounds checks without floating-point traps, so
+intentional overflow inputs can reach their expected error messages.
+
+The final audit checks 316 compiled-file digests per profile, reference-field
+inventories, source/validator/executable hashes, installed sklearn source and
+binary hashes, both example outputs, and unchanged non-AdaBoost dispatch
+branches. Full reports and logs are retained under ignored validation/results.
+Only the affected reference suites were rerun; the cumulative total also
+includes retained results from earlier batches.
