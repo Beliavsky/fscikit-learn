@@ -95,7 +95,7 @@ contains
     real(dp),allocatable::v(:),prob(:,:)
     a=1;target=[0._dp,1._dp];nan=ieee_value(0._dp,ieee_quiet_nan)
     select case(mode)
-    case('solver');r%solver='lbfgs'
+    case('solver');r%solver='unknown'
     case('activation');r%activation='unknown'
     case('rate');r%learning_rate='unknown'
     case('epochs');r%max_iter=0

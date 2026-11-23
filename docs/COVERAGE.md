@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 221 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and forty-seven reference suites additionally check 1,421,788
+All types have native tests. One hundred and forty-eight reference suites additionally check 1,436,476
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -66,7 +66,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | discriminant_analysis | `linear_discriminant_analysis`, `quadratic_discriminant_analysis` | LDA offers LSQR, SVD and generalized-eigen classification/projection with fixed/automatic shrinkage and custom priors; QDA full/thin regularization and custom priors; solver-specific rank contracts are documented below |
 | svm | `svc`, `nu_svc`, `linear_svc`, `linear_svr`; re-exports `svr`, `nu_svr`, `one_class_svm` | Primal L2 squared-loss linear classification/regression; OVO SVC/NuSVC; epsilon/nu support-vector regression and one-class detection; native pairwise dual optimization and weighted capacities |
 | mixture | `gaussian_mixture`, `bayesian_gaussian_mixture` | EM Gaussian mixtures and variational Bayesian mixtures with finite Dirichlet or truncated stick-breaking weights; full/tied/diag/spherical covariances; responsibilities and likelihood scores; GaussianMixture BIC/AIC |
-| neural_network | `mlp_classifier`, `mlp_regressor`, `bernoulli_rbm` | Arbitrary dense hidden layers, relu/tanh/logistic/identity, seeded minibatch Adam/SGD, momentum/Nesterov and SGD schedules, binary logistic/multiclass softmax classification or squared-error regression, L2 regularization |
+| neural_network | `mlp_classifier`, `mlp_regressor`, `bernoulli_rbm` | Arbitrary dense hidden layers, relu/tanh/logistic/identity, seeded minibatch Adam/SGD or full-data L-BFGS, momentum/Nesterov and SGD schedules, binary logistic/multiclass softmax classification or squared-error regression, L2 regularization |
 | gaussian_process | `gaussian_process_regressor`, `gaussian_process_classifier` | Configurable covariance expressions or legacy RBF controls; anisotropy, Matern/RQ/periodic/dot/constant/white kernels and sums/products/powers; scalar/vector-alpha Cholesky regression, independent multiple targets, likelihood gradients and opt-in bounded kernel fitting; Laplace binary/OVR classification with optional independent kernel fitting, binary likelihood gradients and warm starts |
 | covariance | `empirical_covariance`, `shrunk_covariance`, `ledoit_wolf`, `oas`, `graphical_lasso`, `graphical_lasso_cv`, `min_cov_det`, `elliptic_envelope`; `fast_mcd` | Population covariance, pseudoinverse precision, squared Mahalanobis distance, likelihood, Frobenius/spectral covariance error; L1-penalized sparse precision via block coordinate descent and refined cross-validation; FastMCD robust covariance and elliptic outlier detection |
 | calibration | `calibrated_classifier_cv`; `calibration_curve` | Sigmoid/isotonic CV ensembles, out-of-fold calibration and prefit calibration with logistic, Gaussian NB or KNN bases; uniform/quantile reliability bins |
@@ -213,8 +213,8 @@ distances; cosine similarity; linear, RBF, polynomial and sigmoid kernels.
   second class. This differs from sklearn's multiclass decision conventions.
   SVR, NuSVC and one-class SVM are separate native types. Platt probability
   scaling and LIBSVM model-file compatibility are not provided.
-- MLP supports seeded minibatch Adam and SGD. Validation-set early stopping,
-  L-BFGS, warm starts, partial_fit, sparse input, multilabel classification and
+- MLP supports seeded minibatch Adam/SGD and full-data L-BFGS. Validation-set
+  early stopping, warm starts, partial_fit, sparse input, multilabel classification and
   multioutput regression remain outside its interface. Floating-point rounding
   can amplify in sensitive trajectories; see the stochastic MLP increment below.
 - Gaussian-process kernel hyperparameters are fixed; no optimizer or kernel
@@ -7593,3 +7593,70 @@ predicted [0,1,1,0] after 463 epochs / 1,852 samples seen, with final loss
 per build, source/validator/executable hashes and complete layer/field
 inventories. All unrelated core modules and native tests were unchanged.
 Reports and logs are retained locally under ignored validation/results.
+
+
+## Full-data L-BFGS multilayer perceptrons
+
+Added solver='lbfgs' to mlp_classifier and mlp_regressor, using the already
+vendored L-BFGS-B implementation with unbounded parameters. All coefficients
+are packed in NumPy row-major order, followed by all intercepts, as in sklearn
+1.6.1 _fit_lbfgs/_loss_grad_lbfgs. Initialization, activations, binary logistic
+and multiclass softmax output, clipped logistic losses and squared-error
+regression retain the preceding MLP contracts. L2 regularization uses the full
+sample count and leaves intercepts unpenalized.
+
+Optimizer defaults match scipy.optimize.minimize's L-BFGS-B adapter: ten
+corrections, factr=1e7 and twenty line-search steps, with MLP tol mapped to the
+projected-gradient threshold. max_iter bounds accepted iterations;
+max_fun=15000 bounds evaluations softly, using the source's strict greater-than
+check after accepted steps. Initialization can satisfy the gradient tolerance
+with zero optimizer iterations. Stochastic batch sizes, shuffling, momentum
+and learning-rate schedules do not affect L-BFGS fits.
+
+The native diagnostic fields n_function_evaluations_, optimization_message_,
+gradient_, previous_parameters_ and previous_loss_ expose the returned gradient
+and preceding accepted state for verification. Gradient and parameter vectors
+use the same packed order. t_ stays zero; loss_curve_ is unallocated and
+best_loss_ has no stochastic interpretation for this solver. Cold solver
+changes clear stale diagnostic arrays. The new example learns XOR with L-BFGS.
+
+The new reference suite runs 1,080 fixtures across three seeds, three response
+kinds, four activations, three network architectures and ten work/tolerance
+configurations. Degenerate and duplicate features, initial convergence,
+iteration limits and evaluation limits are included. Its 14,688 required result
+groups compare loss, gradient and queries to unchanged sklearn routines at the
+native returned parameters; check the preceding objective; and verify the
+reported termination against source gradient/relative-loss criteria or work
+limits. Short and evaluation-limited fits also compare complete source
+parameters, predictions and optimizer metadata. Twenty-seven diagnostics cover
+controls, data, target/query shapes, unfitted access and class cardinality.
+
+Longer fits additionally retain 2,592 complete endpoint comparisons against
+sklearn. In the checked development run, 812 comparisons across 131 fixtures
+differed at rtol=2e-6/atol=2e-7. These are recorded as trajectory diagnostics and
+excluded from the core required-group count. Long optimization may produce
+different coefficients, predictions, losses and work counts. The native and
+source losses/gradients at identical parameters still agree: development
+maximum loss error was 1.65e-13 and gradient error 1.39e-11. All 1,080 returned
+states passed the independent termination checks. No line-search failures
+occurred in that run.
+
+Two retained source-only probes move initial parameters by one ULP in either
+direction. They change sklearn's final coefficients by up to 0.224 and final
+loss by up to 2.57e-4, demonstrating sensitivity in representative logistic and
+ReLU networks. These probes are diagnostic records. They do not replace the
+source objective or turn differing endpoint comparisons into matches.
+The vendored Fortran optimizer and SciPy 1.15.3's C implementation need not
+follow identical rounded trajectories.
+
+Native tests also check the no-hidden-layer reduction to ridge normal
+equations, the unpenalized intercept, sample-clock/history contracts, zero-step
+convergence, work limits, solver changes and multiclass softmax prediction.
+Dense scalar regression and integer binary/multiclass classification remain the
+supported targets. Validation-set early stopping, warm starts, partial_fit,
+sparse input, multilabel classification and joint multioutput regression remain
+outside this interface. No dependency or public extension type was added.
+
+Cumulative inventory: 221 public core types, 137 source modules, 172 native
+programs, 148 core reference suites / 1,436,476 retained required groups, and 53
+invalid-input registries / 3,934 cases. These remain API subsets.

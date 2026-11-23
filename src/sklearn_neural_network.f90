@@ -1,7 +1,9 @@
-! Stochastic MLP contracts: sklearn 1.6.1 neural_network/{_multilayer_perceptron,
+! Stochastic and L-BFGS MLP contracts: sklearn 1.6.1 neural_network/{_multilayer_perceptron,
 ! _stochastic_optimizers,_base}.py (BSD-3-Clause); retained upstream notices.
 module sklearn_neural_network
   use sklearn_rbm, only: bernoulli_rbm
+  use lbfgsb_module, only: setulb
+  use, intrinsic :: iso_fortran_env, only: int64
   use sklearn_legacy_rng, only: legacy_random_state
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
   use sklearn_common
@@ -18,7 +20,7 @@ module sklearn_neural_network
   type :: network_storage
     integer, allocatable :: hidden_layer_sizes(:)
     integer :: max_iter=200,random_state=0,n_iter_=0,n_iter_no_change=10,batch_size=0
-    integer :: n_features_in_=0,n_outputs_=0,n_layers_=0,t_=0
+    integer :: n_features_in_=0,n_outputs_=0,n_layers_=0,t_=0,max_fun=15000,n_function_evaluations_=0
     real(dp) :: learning_rate_init=0.001_dp,alpha=0.0001_dp,tol=1.e-4_dp,loss_=0,best_loss_=0
     real(dp) :: momentum=.9_dp,power_t=.5_dp,beta_1=.9_dp,beta_2=.999_dp,epsilon=1.e-8_dp
     character(16) :: solver="adam",learning_rate="constant",out_activation_="identity"
@@ -26,7 +28,9 @@ module sklearn_neural_network
     character(16) :: activation='relu'
     logical :: converged_=.false.
     type(dense_layer), allocatable :: layers_(:)
-    real(dp), allocatable :: loss_curve_(:)
+    real(dp), allocatable :: loss_curve_(:),gradient_(:),previous_parameters_(:)
+    real(dp) :: previous_loss_=0
+    character(60) :: optimization_message_=""
   end type
   type, extends(network_storage) :: mlp_classifier
     integer, allocatable :: classes_(:)
@@ -88,12 +92,13 @@ contains
       self%power_t,self%beta_1,self%beta_2,self%epsilon])),'nonfinite MLP controls')
     call require(self%max_iter>0.and.self%learning_rate_init>0.and.self%alpha>=0.and.self%tol>=0, &
       'invalid MLP training controls')
+    call require(self%max_fun>0,'MLP max_fun must be positive')
     call require(self%n_iter_no_change>0.and.self%batch_size>=0,'invalid MLP iteration or batch controls')
     call require(self%random_state>=0,'MLP random_state must be nonnegative')
     call require(self%momentum>=0.and.self%momentum<=1,'MLP momentum must be in [0,1]')
     call require(self%power_t>=0.and.self%beta_1>=0.and.self%beta_1<1.and. &
       self%beta_2>=0.and.self%beta_2<1.and.self%epsilon>0,'invalid MLP optimizer controls')
-    call require(any(self%solver==['adam','sgd ']),'unknown MLP solver')
+    call require(any(self%solver==['adam ','sgd  ','lbfgs']),'unknown MLP solver')
     call require(any(self%learning_rate==['constant  ','invscaling','adaptive  ']),'unknown MLP learning rate')
     call require(any(self%activation==['relu    ','tanh    ','logistic','identity']),'unknown MLP activation')
     if(.not.allocated(self%hidden_layer_sizes)) self%hidden_layer_sizes=[100]
@@ -102,6 +107,10 @@ contains
     if(allocated(self%layers_)) deallocate(self%layers_)
     allocate(self%layers_(size(sizes)-1)); call rng%seed(self%random_state)
     self%n_features_in_=p;self%n_outputs_=outputs;self%n_layers_=size(sizes);self%t_=0
+    self%n_iter_=0;self%n_function_evaluations_=0;self%optimization_message_=''
+    if(allocated(self%gradient_)) deallocate(self%gradient_)
+    if(allocated(self%previous_parameters_)) deallocate(self%previous_parameters_)
+    self%previous_loss_=0
     do l=1,size(self%layers_)
       inputs=sizes(l); width=sizes(l+1); bound=sqrt(6._dp/(inputs+width))
       if(self%activation=='logistic') bound=sqrt(2._dp/(inputs+width))
@@ -143,6 +152,117 @@ contains
       end if
     end do
   end subroutine
+  subroutine unpack_parameters(self,point)
+    class(network_storage), intent(inout) :: self
+    real(dp), intent(in) :: point(:)
+    integer :: l,start,width,inputs,outputs
+    start=1
+    do l=1,size(self%layers_)
+      inputs=size(self%layers_(l)%weights,1);outputs=size(self%layers_(l)%weights,2);width=inputs*outputs
+      self%layers_(l)%weights=transpose(reshape(point(start:start+width-1),[outputs,inputs]))
+      start=start+width
+    end do
+    do l=1,size(self%layers_)
+      width=size(self%layers_(l)%bias);self%layers_(l)%bias=point(start:start+width-1);start=start+width
+    end do
+  end subroutine
+  subroutine full_loss_gradient(self,x,target,classification,loss,gradient)
+    class(network_storage), intent(in) :: self
+    real(dp), intent(in) :: x(:,:),target(:,:)
+    logical, intent(in) :: classification
+    real(dp), intent(out) :: loss
+    real(dp), allocatable, intent(out) :: gradient(:)
+    type(activation_buffer), allocatable :: buffers(:)
+    real(dp), allocatable :: prob(:,:),gw(:,:)
+    real(dp) :: penalty,eps
+    integer :: l,last,n,d,start,width
+    n=size(x,1);last=size(self%layers_);penalty=0;d=0
+    call forward(self,x,classification,buffers)
+    do l=1,last
+      penalty=penalty+sum(self%layers_(l)%weights**2)
+      d=d+size(self%layers_(l)%weights)+size(self%layers_(l)%bias)
+    end do
+    if(classification) then
+      eps=epsilon(1._dp);prob=max(eps,min(1-eps,buffers(last)%values))
+      loss=-sum(target*log(prob))/n
+      if(size(target,2)==1) loss=loss-sum((1-target)*log(1-prob))/n
+    else
+      loss=sum((buffers(last)%values-target)**2)/(2*n)
+    end if
+    loss=loss+self%alpha*penalty/(2*n)
+    buffers(last)%delta=buffers(last)%values-target
+    do l=last-1,1,-1
+      buffers(l)%delta=matmul(buffers(l+1)%delta,transpose(self%layers_(l+1)%weights))* &
+        derivative(buffers(l)%values,self%activation)
+    end do
+    allocate(gradient(d));start=1
+    do l=1,last
+      gw=(matmul(transpose(buffers(l-1)%values),buffers(l)%delta)+self%alpha*self%layers_(l)%weights)/n
+      width=size(gw);gradient(start:start+width-1)=reshape(transpose(gw),[width]);start=start+width
+    end do
+    do l=1,last
+      width=size(self%layers_(l)%bias)
+      gradient(start:start+width-1)=sum(buffers(l)%delta,dim=1)/n;start=start+width
+    end do
+    call require(ieee_is_finite(loss).and.all(ieee_is_finite(gradient)),'MLP objective overflow; scale the inputs')
+  end subroutine
+  subroutine train_lbfgs(self,x,target,classification)
+    class(network_storage), intent(inout) :: self
+    real(dp), intent(in) :: x(:,:),target(:,:)
+    logical, intent(in) :: classification
+    integer, parameter :: memory=10
+    real(dp), allocatable :: point(:),g(:),wa(:),lower(:),upper(:),accepted(:)
+    integer, allocatable :: iwa(:),nbd(:)
+    real(dp) :: f,dsave(29)
+    integer :: isave(44),d,l,start,width
+    integer(int64) :: dimension
+    logical :: lsave(4)
+    character(60) :: task,csave
+    dimension=0
+    do l=1,size(self%layers_)
+      dimension=dimension+int(size(self%layers_(l)%weights),int64)+size(self%layers_(l)%bias)
+    end do
+    call require(dimension<=(huge(d)-11*memory*memory-8*memory)/(2*memory+5), &
+      'MLP optimizer dimension exceeds integer capacity')
+    d=int(dimension)
+    allocate(point(d),g(d),wa((2*memory+5)*d+11*memory*memory+8*memory), &
+      iwa(3*d),nbd(d),lower(d),upper(d))
+    start=1
+    do l=1,size(self%layers_)
+      width=size(self%layers_(l)%weights)
+      point(start:start+width-1)=reshape(transpose(self%layers_(l)%weights),[width]);start=start+width
+    end do
+    do l=1,size(self%layers_)
+      width=size(self%layers_(l)%bias);point(start:start+width-1)=self%layers_(l)%bias;start=start+width
+    end do
+    nbd=0;lower=0;upper=0;wa=0;iwa=0;isave=0;dsave=0;lsave=.false.;csave='';task='START';f=0;g=0
+    accepted=point;self%previous_parameters_=point
+    self%converged_=.false.;self%best_loss_=0
+    if(allocated(self%loss_curve_)) deallocate(self%loss_curve_)
+    do
+      ! SciPy minimize defaults: memory=10, factr=1e7, maxls=20; tol maps to gtol.
+      call setulb(d,memory,point,lower,upper,nbd,f,g,1.e7_dp,self%tol,wa,iwa,task,-1,csave,lsave,isave,dsave)
+      if(task(:2)=='FG') then
+        call unpack_parameters(self,point)
+        call full_loss_gradient(self,x,target,classification,f,g)
+        self%n_function_evaluations_=self%n_function_evaluations_+1
+      else if(task(:5)=='NEW_X') then
+        self%previous_parameters_=accepted;self%previous_loss_=dsave(2);accepted=point
+        self%n_iter_=self%n_iter_+1
+        if(self%n_iter_>=self%max_iter) then
+          task='STOP: TOTAL NO. OF ITERATIONS REACHED LIMIT'
+        else if(self%n_function_evaluations_>self%max_fun) then
+          task='STOP: TOTAL NO. OF F,G EVALUATIONS EXCEEDS LIMIT'
+        end if
+      else
+        exit
+      end if
+    end do
+    call unpack_parameters(self,point)
+    call full_loss_gradient(self,x,target,classification,self%loss_,self%gradient_)
+    if(self%n_iter_==0) self%previous_loss_=self%loss_
+    self%converged_=task(:4)=='CONV';self%optimization_message_=task
+  end subroutine
   subroutine train(self,x,target,classification)
     class(network_storage), intent(inout) :: self
     real(dp), intent(in) :: x(:,:),target(:,:)
@@ -159,6 +279,10 @@ contains
     if(classification) then
       self%out_activation_='softmax'
       if(size(target,2)==1) self%out_activation_='logistic'
+    end if
+    if(self%solver=='lbfgs') then
+      call train_lbfgs(self,x,target,classification)
+      return
     end if
     self%loss_curve_=spread(0._dp,1,self%max_iter); self%best_loss_=huge(1._dp)
     stale=0;step=0;self%converged_=.false.;rate=self%learning_rate_init

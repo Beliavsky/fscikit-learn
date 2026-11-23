@@ -6452,7 +6452,7 @@ shared reductions and sparse/image/weighted-model consumers of that helper.
 integer class labels or one real response. Set `hidden_layer_sizes` to a positive
 integer array (default `[100]`); an allocated empty array gives no hidden layer.
 `activation` is `relu`, `tanh`, `logistic` or `identity`. `solver` is `adam`
-(default) or `sgd`. Binary classifiers use a single logistic output, multiclass
+(default), `sgd` or `lbfgs`. Binary classifiers use a single logistic output, multiclass
 classifiers use softmax, and regression uses an identity output.
 
 `batch_size=0` represents sklearn's `auto` (`min(200,n_samples)`); positive
@@ -6480,3 +6480,33 @@ minibatches. `converged_` is a native diagnostic for loss/patience stopping.
 See [the example](../example/stochastic_mlp.f90). For numerical rounding
 sensitivity and unsupported interfaces, see the stochastic MLP section of
 [COVERAGE.md](COVERAGE.md).
+
+
+## L-BFGS multilayer perceptrons
+
+Set `mlp_classifier%solver='lbfgs'` or `mlp_regressor%solver='lbfgs'` for
+full-data limited-memory quasi-Newton training. `max_iter=200` controls accepted
+optimizer steps, `max_fun=15000` controls function/gradient evaluations, and
+`tol=.0001` controls the projected gradient infinity norm. The evaluation limit
+is soft: a line search can exceed it before the next accepted step. The solver
+also uses SciPy's default relative function-reduction tolerance, 1e7 times
+machine epsilon. A fit may stop at initialization with `n_iter_=0`.
+
+The existing hidden-layer, activation, alpha, seed, prediction and score
+interfaces apply. Minibatch/shuffle and stochastic optimizer controls are
+ignored after parameter validation. L2 regularization divides by the full
+sample count. `loss_` is the final full-data objective. `t_` remains zero;
+`loss_curve_` is unallocated. `best_loss_` is a stochastic-only diagnostic.
+
+Native optimizer diagnostics are `n_function_evaluations_`, `converged_`,
+`optimization_message_`, `gradient_`, `previous_parameters_` and
+`previous_loss_`. Packed vectors contain every coefficient matrix in row-major
+order, then every bias vector. These extra diagnostic attributes support
+objective/gradient and termination checks and are not sklearn public fields.
+Changing solvers with a cold fit resets stale state.
+
+Long nonconvex optimization can yield different final parameters, predictions
+and work counts from SciPy's optimizer. The reference suite retains those
+endpoint differences and independently validates sklearn loss/gradients at the
+returned parameters and the solver's stopping criteria. See
+[COVERAGE.md](COVERAGE.md) and [the XOR example](../example/lbfgs_mlp.f90).

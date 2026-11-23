@@ -309,3 +309,9 @@ MLP classification and regression use seeded minibatch Adam or SGD, with
 momentum/Nesterov updates and constant, inverse-scaling or adaptive SGD rates.
 See [the XOR example](example/stochastic_mlp.f90) and
 [the MLP controls](docs/API.md#stochastic-multilayer-perceptrons).
+
+
+MLPs also support full-data `solver='lbfgs'`, with iteration/evaluation limits
+and optimizer diagnostics. See [the L-BFGS XOR example](example/lbfgs_mlp.f90)
+and [the solver contract](docs/API.md#l-bfgs-multilayer-perceptrons), including
+long-fit numerical differences from SciPy.

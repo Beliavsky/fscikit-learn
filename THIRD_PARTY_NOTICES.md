@@ -1260,3 +1260,18 @@ The MLP logistic activation also follows scipy.special.expit's negative
 exponential-overflow saturation boundary, using an explicit guard to remain
 safe with floating-point traps enabled. This mathematical behavior was checked
 against SciPy 1.15.3; its BSD notice is retained in LICENSES/scipy-COPYING.
+
+
+## L-BFGS multilayer perceptrons (BSD)
+
+The L-BFGS paths in `src/sklearn_neural_network.f90` adapt sklearn 1.6.1
+`neural_network/_multilayer_perceptron.py` (_fit_lbfgs, _loss_grad_lbfgs,
+_pack and _unpack) and the already attributed `_base.py` loss/gradient
+contracts. The optimizer adapter follows SciPy 1.15.3
+`optimize/_lbfgsb_py.py` defaults and work-limit behavior, using the existing
+vendored L-BFGS-B dependency. Upstream notices remain in
+LICENSES/scikit-learn-COPYING, LICENSES/scipy-COPYING and the vendor directory.
+The typed packing, native state diagnostics, tests, example and validation
+harness are original MIT contributions. Validation retains installed-source
+and vendored-optimizer hashes and explicitly records differing long-fit
+endpoints. No additional dependency was imported.
