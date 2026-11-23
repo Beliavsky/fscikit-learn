@@ -187,7 +187,7 @@ contains
     select case(mode)
     case('missing_classes');call c%partial_fit(a,[0,1])
     case('empty_classes');call c%partial_fit(a,[0,1],classes=[integer::])
-    case('one_class');call c%partial_fit(a,[0,0],classes=[0])
+    case('empty_batch');call c%partial_fit(a(:0,:),[integer::],classes=[0])
     case('unknown_class');call c%partial_fit(a,[0,2],classes=[0,1])
     case('changed_classes');call c%partial_fit(a,[0,1],classes=[0,1]);call c%partial_fit(a,[0,1],classes=[0,2])
     case('changed_class_count');call c%partial_fit(a,[0,1],classes=[0,1]);call c%partial_fit(a,[0,1],classes=[0,1,2])

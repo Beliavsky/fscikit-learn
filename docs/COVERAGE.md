@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 221 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and fifty-three reference suites additionally check 2,279,164
+All types have native tests. One hundred and fifty-four reference suites additionally check 2,514,388
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -8062,3 +8062,50 @@ profile, source/executable/validator hashes, absence of dense conversion in the
 MLP module, and unchanged unrelated modules/existing native tests. Reports are
 retained locally under `validation/results/mlp_sparse_*`, including
 `mlp_sparse_final_audit.json`.
+
+## Single-class MLP encodings
+
+MLP classification now permits one observed or declared integer class, with
+dense/CSR input, vector/one-column targets, all ordinary solvers, stochastic
+partial fitting, warm fits and validation stopping. The fitted diagnostic
+`single_class_` identifies the zero-valued one-logit target encoding.
+Predictions always return the sole label; probability/log-probability methods
+retain sklearn's two-column output despite a one-entry classes_ array.
+One-class validation follows StratifiedShuffleSplit's population and partition
+permutations, permits one observation per partition, and scores accuracy 1.
+Positive/zero tolerance, patience/rate reductions, warm checkpoint aliases and
+training-only sample clocks retain source behavior. Cold fits may expand or
+collapse class sets and switch vector/multilabel target kinds. Warm/incremental
+class declarations remain fixed. CSR vector predictions also validate storage
+before allocating results, including malformed oversized-row-count inputs.
+
+The new `compare_mlp_single.py` suite checks 235,224 required groups across
+756 workflows and 7,560 fits: three seeds, three sole labels (negative, zero
+and positive), four activations, three architectures and seven solver settings.
+Ten stages mix initial regular/partial fits, repeated partial/warm calls,
+cold/warm validation stopping, zero-tolerance plateaus, binary/multiclass/
+multilabel resets and returns to the original single class. Dense and CSR
+storage alternate independently for training and queries; sample counts 2/7/19
+include single-observation holdouts. Saturated query probabilities and query
+labels outside the fitted set are exercised. All parameters, optimizer buffers,
+loss/validation histories, best checkpoints, split indices, cached controls,
+encoding flags, predictions, probabilities and scores are compared. L-BFGS
+supplied objectives/Jacobians are checked at native returned points using
+independent snapshots of each class layout. Ten diagnostics cover empty,
+unknown or changed declarations, incompatible warm targets, partial stopping,
+empty holdouts and malformed oversized classifier/regressor CSR queries.
+
+The existing partial-fit invalid registry replaces its former single-class
+rejection with an empty-batch rejection, retaining 21 cases. Native tests
+independently verify predictions when the sigmoid exceeds 0.5, the two-column
+probability convention, unseen query-label accuracy, dense/CSR and target-rank
+streaming, single-class validation patience, zero-tolerance histories and cold
+class-set expansion/collapse. The example demonstrates one-class streaming.
+The development suite passed all required groups and diagnostics; final
+checked/release verification is recorded below when complete. Non-CSR sparse inputs, alternative dtypes and arbitrary incremental
+cached-layout changes remain outside the MLP subset. MIT licensing and retained
+sklearn BSD attribution continue; no dependency or extension estimator was added.
+
+Cumulative inventory: 221 public core types, 137 source modules, 178 native
+programs, 154 core reference suites / 2,514,388 retained required groups, and 59
+invalid-input registries / 4,021 cases. These remain API subsets.

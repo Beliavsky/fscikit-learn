@@ -128,7 +128,7 @@ def main():
             assert parts[0] not in actual;actual[parts[0]]=np.array(list(map(float,parts[1:])))
     assert case+1==len(records)
     invalid=dict(missing_classes='MLP first partial_fit requires classes',empty_classes='MLP partial_fit classes must be nonempty',
-                 one_class='MLP partial_fit needs at least two declared classes',unknown_class='MLP partial_fit contains an undeclared class',
+                 empty_batch='X must be nonempty',unknown_class='MLP partial_fit contains an undeclared class',
                  changed_classes='MLP partial_fit class declaration mismatch',changed_class_count='MLP partial_fit class declaration mismatch',
                  warm_subset='MLP warm fit class set mismatch',cls_solver='MLP classifier partial_fit requires a stochastic solver',
                  reg_width='MLP warm fit feature count mismatch',cls_width='MLP warm fit feature count mismatch',

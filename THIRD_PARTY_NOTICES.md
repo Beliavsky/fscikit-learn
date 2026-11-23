@@ -1338,3 +1338,14 @@ one-based CSR traversal kernels, nonmutation/shape checks, wide-input native
 test, example and reference harness are original MIT contributions. Validation
 records sklearn and SciPy sparse source hashes. No dependency or public
 extension estimator was added.
+
+## Single-class MLP encodings (BSD)
+
+Single-class MLP fitting and prediction further follow scikit-learn 1.6.1
+`neural_network/_multilayer_perceptron.py`, `preprocessing/_label.py`
+(LabelBinarizer's one-class zero encoding and inverse thresholding), and
+`model_selection/_split.py` (one-class stratified holdout ordering). Existing
+sklearn BSD terms remain in LICENSES/scikit-learn-COPYING. Native encoding
+diagnostics, allocation-after-validation adapters, typed tests, example and
+reference harness are original MIT contributions. No dependency or public
+extension estimator was added.

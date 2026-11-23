@@ -6586,8 +6586,8 @@ may be unsorted or contain duplicates; later declarations must identify the
 same set. Vector batches may contain only a subset of those classes unless
 `warm_start=.true.`, which activates sklearn's strict same-class-set check.
 For indicator matrices the normal declaration is `[0,1,...,n_labels-1]`.
-Existing fitted classifiers can omit the declaration. The native classifier
-subset continues to require at least two declared classes. Feature/output
+Existing fitted classifiers can omit the declaration. A declaration may contain
+a single class, as described below. Feature/output
 counts and target kind remain compatible across incremental calls.
 
 The cached optimizer retains its type and optimizer-specific settings until a
@@ -6623,7 +6623,7 @@ Set `early_stopping=.true.` for Adam/SGD fits and use `validation_fraction`
 (default 0.1) to reserve a holdout. Its size is `ceiling(n*validation_fraction)`;
 the training partition must remain nonempty. Integer-seeded splitting follows
 the initialization RNG draws and precedes epoch shuffling. Binary vector
-classification uses a stratified holdout, requiring at least two observations
+classification with two classes uses a stratified holdout, requiring at least two observations
 per class and at least two observations in each partition. Multiclass,
 multilabel and regression targets use an unstratified permutation, as in
 sklearn 1.6.1. The fraction must be in [0,1); zero is valid only when no
@@ -6684,3 +6684,32 @@ input-feature count times the first-layer width; CSR does not make the
 parameter arrays sparse. Training and querying leave storage unchanged.
 Only the native CSR container is accepted by these overloads. See
 [the example](../example/sparse_mlp.f90) and [coverage details](COVERAGE.md).
+
+## Single-class MLP classifiers
+
+`mlp_classifier%fit(x,y)` accepts one unique integer label, including an n-by-1
+target matrix. The first `partial_fit` declaration may also contain one class;
+later declarations and labels must remain compatible. Dense and CSR inputs,
+all regular-fit solvers, stochastic partial fitting, warm starts and validation
+stopping retain the same contracts as other MLP classifiers.
+
+The single class is encoded as zero in a one-logit network, matching sklearn's
+LabelBinarizer. `predict` always returns that sole label, regardless of the
+sigmoid threshold. The source probability convention still returns two columns
+from `predict_proba`/`predict_log_proba`, even though `classes_` has one entry;
+these columns should not be interpreted as two declared class labels.
+Native diagnostic `single_class_` identifies this fitted encoding. Query
+accuracy can be below one if true labels differ from the sole fitted label.
+
+Validation stopping stratifies the one-class population, shuffles training and
+validation indices separately and permits one observation in either partition.
+Its validation accuracy is always one. With positive tolerance, flat scores
+consume patience; with zero tolerance they do not, following sklearn's strict
+comparison. Warm histories, optimizer recreation and checkpoint alias behavior
+are retained. A cold fit can change between single-class, binary, multiclass
+and multilabel targets. Warm/incremental fits cannot expand a declared class
+set; declare all expected classes up front when expansion is required.
+
+CSR vector prediction validates storage before allocating its result, including
+malformed inputs with oversized row counts. See
+[the example](../example/single_class_mlp.f90) and [coverage details](COVERAGE.md).

@@ -34,7 +34,7 @@ module sklearn_neural_network
     logical :: best_layers_alias_=.false.
     integer, allocatable :: training_indices_(:),validation_indices_(:)
     integer :: no_improvement_count_=0
-    logical :: multilabel_=.false.,optimizer_ready_=.false.
+    logical :: multilabel_=.false.,single_class_=.false.,optimizer_ready_=.false.
     character(16) :: optimizer_kind_='',optimizer_schedule_='constant'
     real(dp) :: optimizer_rate_=0,optimizer_eta0_=0,optimizer_beta1_=0,optimizer_beta2_=0,optimizer_epsilon_=0
     real(dp) :: optimizer_momentum_=0,optimizer_power_=0
@@ -474,6 +474,10 @@ contains
     allocate(self%training_indices_(ntrain),self%validation_indices_(nval))
     indices=[(i,i=1,n)]
     if(classification.and.size(target,2)==1) then
+      if(self%single_class_) then
+        call shuffle_mlp_indices(indices,rng)
+        self%training_indices_=indices(:ntrain);self%validation_indices_=indices(ntrain+1:)
+      else
       counts=[count(target(:,1)==0),count(target(:,1)==1)]
       call require(minval(counts)>=2,'MLP stratified validation needs two members per class')
       call require(ntrain>=2.and.nval>=2,'MLP stratified validation needs two samples per partition')
@@ -486,6 +490,7 @@ contains
         self%validation_indices_(b+1:b+nv(c))=members(nt(c)+1:nt(c)+nv(c))
         a=a+nt(c);b=b+nv(c)
       end do
+      end if
       call shuffle_mlp_indices(self%training_indices_,rng);call shuffle_mlp_indices(self%validation_indices_,rng)
     else
       call shuffle_mlp_indices(indices,rng)
@@ -502,7 +507,9 @@ contains
     integer :: last,i,j,correct,n
     call forward(self,x,classification,buffers,sparse,rows);last=size(self%layers_);n=size(target,1)
     if(classification) then
-      if(self%out_activation_=='logistic') then
+      if(self%single_class_) then
+        correct=n
+      else if(self%out_activation_=='logistic') then
         correct=count(all((buffers(last)%values>.5_dp).eqv.(target>0),dim=2))
       else
         correct=0
@@ -745,8 +752,10 @@ contains
     else
       self%classes_=current_classes
     end if
-    call require(size(self%classes_)>=2,'MLP classification needs at least two classes')
-    if(size(self%classes_)==2) then
+    self%single_class_=size(self%classes_)==1
+    if(self%single_class_) then
+      allocate(target(size(y),1));target=0
+    else if(size(self%classes_)==2) then
       allocate(target(size(y),1));target(:,1)=real(merge(1,0,y==self%classes_(2)),dp)
     else
       allocate(target(size(y),size(self%classes_))); target=0
@@ -773,7 +782,7 @@ contains
       call require(size(self%classes_)==size(y,2),'MLP warm fit class set mismatch')
       call require(all(self%classes_==[(j-1,j=1,size(y,2))]),'MLP warm fit class set mismatch')
     end if
-    self%multilabel_=.true.;self%classes_=[(j-1,j=1,size(y,2))]
+    self%multilabel_=.true.;self%single_class_=.false.;self%classes_=[(j-1,j=1,size(y,2))]
     call train(self,x,real(y,dp),.true.,sparse=sparse)
   end subroutine
   function mlpc_predict_indicator(self,x) result(y)
@@ -837,6 +846,9 @@ contains
     real(dp), allocatable :: prob(:,:)
     call require(.not.self%multilabel_,'use predict_indicator for multilabel MLP outputs')
     prob=self%predict_proba(x)
+    if(self%single_class_) then
+      y=self%classes_(1);return
+    end if
     do i=1,size(y)
       y(i)=self%classes_(maxloc(prob(i,:),dim=1))
     end do
@@ -918,7 +930,7 @@ contains
     else
       call require(allocated(self%classes_),'MLP first partial_fit requires classes')
     end if
-    call require(size(self%classes_)>=2,'MLP partial_fit needs at least two declared classes')
+    call require(size(self%classes_)>=1,'MLP partial_fit needs a declared class')
   end subroutine
   subroutine mlpc_partial_vector(self,x,y,classes,sparse)
     type(csr_matrix), optional, intent(in) :: sparse
@@ -940,7 +952,10 @@ contains
       call require(any(self%classes_==current(i)),'MLP partial_fit contains an undeclared class')
     end do
     self%multilabel_=.false.
-    if(size(self%classes_)==2) then
+    self%single_class_=size(self%classes_)==1
+    if(self%single_class_) then
+      allocate(target(size(y),1));target=0
+    else if(size(self%classes_)==2) then
       allocate(target(size(y),1));target(:,1)=real(merge(1,0,y==self%classes_(2)),dp)
     else
       allocate(target(size(y),size(self%classes_)));target=0
@@ -971,7 +986,7 @@ contains
     do j=0,size(y,2)-1
       call require(any(self%classes_==j),'MLP partial_fit contains an undeclared class')
     end do
-    self%multilabel_=.true.;call train(self,x,real(y,dp),.true.,.true.,sparse)
+    self%multilabel_=.true.;self%single_class_=.false.;call train(self,x,real(y,dp),.true.,.true.,sparse)
   end subroutine
   subroutine mlpr_partial_vector(self,x,y,sparse)
     type(csr_matrix), optional, intent(in) :: sparse
@@ -1081,10 +1096,15 @@ contains
   function mlpc_predict_csr(self,x) result(y)
     class(mlp_classifier), intent(in) :: self
     type(csr_matrix), intent(in) :: x
-    integer :: y(x%n_rows),i
+    integer, allocatable :: y(:)
+    integer :: i
     real(dp), allocatable :: prob(:,:)
     call require(.not.self%multilabel_,'use predict_indicator for multilabel MLP outputs')
     prob=self%predict_proba(x)
+    allocate(y(x%n_rows))
+    if(self%single_class_) then
+      y=self%classes_(1);return
+    end if
     do i=1,size(y)
       y(i)=self%classes_(maxloc(prob(i,:),dim=1))
     end do
@@ -1120,7 +1140,7 @@ contains
   function mlpr_predict_csr(self,x) result(y)
     class(mlp_regressor), intent(in) :: self
     type(csr_matrix), intent(in) :: x
-    real(dp) :: y(x%n_rows)
+    real(dp), allocatable :: y(:)
     type(activation_buffer), allocatable :: buffers(:)
     real(dp) :: empty(0,0)
     call check_mlp_csr(x);call forward(self,empty,.false.,buffers,sparse=x)

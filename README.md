@@ -344,3 +344,8 @@ MLP fits, partial fits, predictions and scores also accept the native
 first layer uses sparse products; parameters and later activations remain
 dense. See [the CSR example](example/sparse_mlp.f90) and
 [the input contract](docs/API.md#csr-multilayer-perceptrons).
+
+MLP classifiers also support a single observed or declared class, with dense
+or CSR input, including warm/incremental fits and validation stopping. See
+[the example](example/single_class_mlp.f90) and
+[the single-class contract](docs/API.md#single-class-mlp-classifiers).
