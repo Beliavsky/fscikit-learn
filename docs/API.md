@@ -1040,15 +1040,17 @@ The retained mse_path_ has dimensions (alpha,fold,ratio); alphas_ is
 parameter defaults, stopping differences, convergence flags and scope.
 
 
-## Boosting weighted classification stumps
+## Boosting weighted classification trees
 
 ```fortran
 use sklearn, only: dp, adaboost_classifier
 type(adaboost_classifier) :: model
 real(dp), allocatable :: x(:,:), probabilities(:,:), stages(:,:,:)
 integer, allocatable :: y(:), predicted(:)
-! Populate finite x and integer y with at least two classes.
+! Populate finite x and integer y.
 model%n_estimators = 50
+model%max_depth = 2
+model%random_state = 42
 model%learning_rate = .5_dp
 call model%fit(x,y)
 predicted = model%predict(x)
@@ -1056,9 +1058,13 @@ probabilities = model%predict_proba(x)
 stages = model%staged_predict_proba(x)
 ```
 
-Optional sample_weight is passed to fit. The weak learner is fixed to a weighted
-Gini stump. n_estimators_ records the retained count after early stopping; see
-COVERAGE.md for SAMME conventions, staged layouts, tie behavior and limits.
+Optional sample_weight is accepted by fit, score and staged_score. The default
+weak learner is a Gini stump; max_depth, min_samples_split, min_samples_leaf,
+max_features, min_impurity_decrease, criterion and splitter configure CART.
+predict_log_proba and staged_score are also available. estimators_ contains
+retained fitted trees and estimator_ the unfitted prototype. AdaBoost is a
+supported classifier tail in Pipeline and a base for voting, bagging and
+stacking. See COVERAGE.md for seeded SAMME conventions and boundary behavior.
 
 
 ## Streaming SGD regression

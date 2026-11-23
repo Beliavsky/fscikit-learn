@@ -14,7 +14,7 @@ program reference_adaboost_driver
   end do
   close(input); call get_command_argument(2,path); open(newunit=output,file=trim(path),status='replace')
   do j=1,6
-    model=adaboost_classifier(); model%n_estimators=8; train=x; weights=w; y=binary
+    model=adaboost_classifier(); model%n_estimators=8; model%random_state=7; train=x; weights=w; y=binary
     select case(j)
     case(2); y=multi
     case(3); train(:,2:)=0; weights=1

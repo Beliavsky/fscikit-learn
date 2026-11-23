@@ -53,7 +53,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | outlier | `local_outlier_factor` | Training outlier scores and novelty detection, automatic/percentile threshold, Minkowski and other supported pairwise metrics |
 | semi_supervised | `label_propagation`, `label_spreading`, `self_training_classifier` | Dense RBF or directed k-neighbor graph, hard/soft clamping, transductive labels and inductive probabilities; threshold/k-best self-training with logistic, Gaussian NB or KNN bases |
 | tree | `decision_tree_classifier`, `decision_tree_regressor`, `extra_tree_classifier`, `extra_tree_regressor` | Weighted CART and standalone randomized trees; Gini/entropy/log-loss classification, squared-error regression; depth/leaf/split/feature controls, normalized impurity importance, leaf indices |
-| ensemble | `hist_gradient_boosting_regressor`, `hist_gradient_boosting_classifier`, `stacking_classifier`, `stacking_regressor`, `bagging_classifier`, `bagging_regressor`, `random_forest_classifier`, `random_forest_regressor`, `extra_trees_classifier`, `extra_trees_regressor`, `gradient_boosting_regressor`, `gradient_boosting_classifier`, `adaboost_classifier`, `adaboost_regressor`, `isolation_forest`, `voting_classifier`, `voting_regressor` | Histogram Newton boosting with missing-value routing and five regression losses; heterogeneous hard/soft voting and averaged regression; bootstrap forests, randomized feature subsets, random-threshold Extra Trees, squared-error residual boosting; binary/multiclass classification boosting with Newton leaf updates; weighted Gini-stump SAMME; AdaBoost.R2 with depth-controlled CART; random isolation trees and path-length anomaly scores |
+| ensemble | `hist_gradient_boosting_regressor`, `hist_gradient_boosting_classifier`, `stacking_classifier`, `stacking_regressor`, `bagging_classifier`, `bagging_regressor`, `random_forest_classifier`, `random_forest_regressor`, `extra_trees_classifier`, `extra_trees_regressor`, `gradient_boosting_regressor`, `gradient_boosting_classifier`, `adaboost_classifier`, `adaboost_regressor`, `isolation_forest`, `voting_classifier`, `voting_regressor` | Histogram Newton boosting with missing-value routing and five regression losses; heterogeneous hard/soft voting and averaged regression; bootstrap forests, randomized feature subsets, random-threshold Extra Trees, squared-error residual boosting; binary/multiclass classification boosting with Newton leaf updates; seeded SAMME with configurable weighted CART; AdaBoost.R2 with depth-controlled CART; random isolation trees and path-length anomaly scores |
 | validation | `cross_validate`, general `cross_val_score`, `cross_val_predict`, typed `cross_val_predict_class` adapter; `learning_curve`, `validation_curve`, `permutation_test_score` | Dense vector targets, multiple/scalar scorers, fit weights, returned fold models/indices, no-target transformer callbacks, partitioned out-of-fold responses, class encoding and missing-class columns |
 | search | `grid_search_cv`, `randomized_search_cv`; typed parameter grids and samplers | Serial dense candidate/fold evaluation, default or explicit folds, single/multiple scorers, callbacks, weighted fits, ranking and refitting; native scalar parameter adapters and nested Pipeline paths |
 | model_selection | `kfold`, `stratified_kfold`, `time_series_split`, `group_kfold`, `leave_one_out`, `leave_one_group_out`, `predefined_split`, `shuffle_split`, `stratified_shuffle_split`, `group_shuffle_split`, `repeated_kfold`, `repeated_stratified_kfold`, `leave_p_out`, `leave_p_groups_out`, `ridge_cv`; `train_test_split`, `shuffle_indices`, `cross_val_score` | Index-based splits; seeded random/group/stratified holdouts; repeated shuffled folds; exhaustive sample/group combinations; fraction/count size controls; optional stratification; time gap/window; CV for linear-regression family and logistic regression; ridge CV selects negative mean squared error |
@@ -1302,58 +1302,62 @@ No public extension or runtime dependency was added.
 
 ## AdaBoost classification
 
-`adaboost_classifier` implements sklearn 1.6.1 AdaBoostClassifier's discrete
-SAMME algorithm with native weighted depth-one Gini trees. This port fixes the
-weak learner to decision stumps: no custom estimator, deeper trees, SAMME.R,
-random feature subsets or sparse input is implemented. At least two distinct
-integer labels are required; classes_ is sorted. n_estimators defaults to 50
-and learning_rate to 1; both must be positive and the rate finite. fit accepts
-optional finite nonnegative sample_weight with positive total.
+`adaboost_classifier` implements sklearn 1.6.1 discrete SAMME with native
+weighted CART weak learners. Defaults are 50 rounds, learning_rate=1,
+max_depth=1, criterion='gini', splitter='best', random_state=0. Configure
+max_depth, min_samples_split, min_samples_leaf, integer max_features (0 means
+all), min_impurity_decrease, criterion ('gini', 'entropy', 'log_loss') and
+splitter ('best', 'random'). These controls correspond to an explicit
+DecisionTreeClassifier base in Python; arbitrary estimator objects, sparse
+inputs, SAMME.R, class weights and monotonic constraints are not implemented.
 
-Each round fits a weighted Gini stump and measures weighted classification
-error. Accepted weights are learning_rate*(log((1-error)/error)+log(K-1)).
-A perfect learner gets weight 1 and terminates, independent of learning_rate.
-A learner at or above random-guessing error 1-1/K is discarded; if it is the
-first learner, fitting fails. Original zero-weight rows stay excluded. Positive
-weights are clipped at machine epsilon each round as in sklearn. Weight updates
-use normalized log weights for overflow resistance; extremely small positive
-weights can underflow to zero during normalization and are clipped next round.
+fit accepts dense finite real64 data, integer labels (including one class),
+and optional finite nonnegative sample_weight with positive total. Trees use
+float32 feature comparisons and reject values outside float32 range. Each fit
+resets the integer-seeded legacy NumPy RNG. Each round draws a fresh CART seed;
+feature traversal, sorting, partitioning and weighted criterion updates follow
+the installed sklearn backend. Its runtime FEATURE_THRESHOLD is 0, despite the
+bundled Cython declaration specifying 1e-7; validation records the binary hashes
+and runtime value. Leaf vote ties select the smallest sorted label.
 
-Stumps consider all features and midpoint thresholds on positive-weight rows.
-Features are converted to float32 as in sklearn trees, so inputs beyond float32
-range are rejected. Adjacent values within 1e-7 are treated as equal. Equal or
-roundoff-level tied split gains choose the earliest scanned feature/threshold,
-while sklearn randomizes feature order; geometrically tied fits can differ.
-Leaf vote ties choose the smallest sorted label. No RNG parameter is needed
-for the native deterministic scan.
+SAMME uses weighted classification error and
+learning_rate*(log((1-error)/error)+log(K-1)). Perfect learners get weight 1
+and stop. A learner no better than random guessing is discarded; the first
+such learner raises an error. Initial zero weights stay excluded and positive
+weights are clipped to machine epsilon each round. Source-associated NumPy
+reductions and exp(log(weight)+increment) preserve stopping on nonfinite
+sample-weight sums. Infinite learner weights and undefined votes retain
+source Inf/NaN results without triggering native floating-point traps. An
+existing native correction rescales finite initial weights whose sum overflows;
+the Python reference for that case uses the equivalent rescaled public input.
 
-Methods are fit, decision_function, predict, predict_proba, score and three
-staged methods (staged_decision_function, staged_predict, staged_predict_proba).
-Binary decisions have shape (n,1), with twice the normalized signed weighted
-vote, matching sklearn 1.6.1. Positive scores select the larger label, zero the
-smaller. Multiclass decisions have shape (n,K): each learner contributes +weight
-to its class and -weight/(K-1) to other classes, divided by total learner weight.
-Probabilities use sklearn's SAMME softmax conversion; they are not calibrated.
-score is accuracy. Staged decision/probability results have shape
-(n,channels,n_estimators_) and (n,K,n_estimators_); staged predictions are
-(n,n_estimators_). These are materialized arrays rather than Python generators.
+Methods are fit, decision_function, predict, predict_proba, predict_log_proba,
+score and staged_decision_function, staged_predict, staged_predict_proba,
+staged_score. score and staged_score accept optional sample_weight. Binary
+decisions have shape (n,1); multiclass decisions (n,K). Probabilities use the
+SAMME softmax conversion. Staged arrays have layouts (n,channels,T), (n,K,T),
+(n,T) and (T), respectively; accumulation makes one pass through the retained
+learners. Single-class final outputs follow sklearn. Native single-class
+stages return constant decisions/probabilities/predictions/scores, correcting
+the source generators' ZeroDivisionError; the validator retains those errors.
 
-n_estimators_ is the number of retained learners. estimator_weights_ and
-estimator_errors_ retain requested n_estimators length, with unused entries 0
-and 1 respectively. stump_feature_ uses one-based feature indices (0 for a
-constant tree), stump_threshold_ contains float32-based split midpoints, and
-stump_left_/stump_right_ contain original integer labels. Only their first
-n_estimators_ entries are fitted. feature_importances_ is the learner-weighted
-mean of normalized stump importances; constant stumps contribute zero.
-n_features_in_ and n_classes_ record fitted dimensions. Repeated fit resets
-all learned arrays. Exported through sklearn_ensemble and sklearn.
+estimators_ contains the retained fitted CART models; estimator_ is the
+unfitted prototype. n_estimators_ is the retained count. estimator_weights_
+and estimator_errors_ keep the requested length with unused entries 0 and 1.
+feature_importances_ is the learner-weighted mean of full-tree importances.
+The retained stump_feature_, stump_threshold_, stump_left_ and stump_right_
+arrays summarize each tree's root and immediate child majority labels; they
+fully describe a weak learner only when max_depth=1. Features are one-based,
+with 0 for leaves. n_features_in_, n_classes_ and sorted classes_ describe
+the fitted data. Refit resets learned state.
 
-Scope: dense finite real64 matrices with float32 tree comparisons; no class
-weights, custom weak learners, log-probability API or regression boosting in
-this type. Staged computations prioritize clarity over streaming efficiency.
-Original contributions remain MIT with sklearn BSD attribution. Inventory:
-121 core types, 51 source modules and 51 native tests. No public extension or
-runtime dependency was added.
+AdaBoost also participates in the shared native classifier dispatch used by
+Pipeline, voting, bagging and stacking. seed_base assigns the explicit nested
+CART prototype seed before the AdaBoost seed, matching sklearn's sorted
+parameter order. tree_random_state records that prototype seed; individual
+learners receive seeds from random_state. The original caller's prototype is
+preserved by native composition copies. No public extension or dependency is
+added; original implementation remains MIT with retained BSD attribution.
 
 
 ## Stochastic-gradient regression
@@ -6944,3 +6948,43 @@ verifies 321 compiled-content digests per profile, complete new field inventorie
 exact subtraction bits and nonfinite masks, pinned hashes and unchanged
 surrounding procedure bodies. Only affected suites were rerun; the separate
 legacy RNG suite remains excluded. See the [validation record](VALIDATION.md).
+
+
+## Seeded AdaBoost CART and shared classifier split fidelity
+
+AdaBoostClassifier now supports configurable native CART weak learners rather
+than fixed stumps: depths, split/leaf sizes, feature subsets, impurity cutoffs,
+Gini/entropy/log-loss criteria and best/random splitters. Fitted trees and the
+unfitted prototype are exposed. New predict_log_proba, weighted score and
+staged_score methods complement the existing staged predictions; staged voting
+now accumulates each learner once. Integer seeds reproduce sklearn's per-tree
+seed sequence and reset on refit. Pipeline and the shared voting/bagging/
+stacking dispatcher accept this classifier, including nested seed assignment.
+
+The shared classifier tree builder now follows the source's introsort,
+in-place partitions, incremental/reverse class-count updates and final child
+impurity recomputation. This addresses concrete discrepancies found when the
+same weighted data were supplied directly to both tree implementations.
+Regression splits retain their existing path. Existing non-AdaBoost dispatch
+branches retain their implementation.
+
+The new reference suite uses 1,460 fixtures and retains 62,417 result groups.
+It checks complete fitted tree topology, sample counts, masses, impurities,
+leaf probabilities, individual predictions/importances/seeds/depths, ensemble
+outputs, all staged APIs, weighted scores, refits and input preservation.
+It spans binary, multiclass and single-class targets; three seeds; eight tree
+configurations; round counts and learning rates; zero/tiny/overflowing initial
+weights; and extreme learner weights. NaN and infinity masks are compared
+explicitly. Fourteen invalid-input cases accompany the suite. Source hashes,
+compiled tree binary hashes and the runtime feature threshold are recorded.
+
+The report retains 1,152 source single-class generator division errors,
+two initial-weight normalization corrections and 20 fields with nonfinite
+source results. Native single-class stages return the corresponding constant
+outputs. Finite initial weights whose sum overflows are rescaled before
+normalization; that reference uses an equivalent rescaled public sklearn fit.
+Other nonfinite learner-weight and stopping outcomes follow the source.
+These corrections are identified behavior differences within the existing
+estimator counterpart, rather than additional public algorithms. Original
+implementation remains MIT with sklearn/NumPy BSD attribution; no dependency
+or public extension is added.

@@ -16,6 +16,7 @@ module sklearn_base_dispatch
   use sklearn_kernel_ridge, only: kernel_ridge
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite,ieee_is_nan,ieee_value,ieee_quiet_nan
   use sklearn_legacy_rng, only: legacy_random_state
+  use sklearn_adaboost, only: adaboost_classifier
   implicit none
   private
   public :: train_classifier,train_regressor,labels,regression,probabilities
@@ -50,6 +51,8 @@ contains
       ok=allocated(model%classes_)
     type is(dummy_classifier)
       ok=allocated(model%classes_)
+    type is(adaboost_classifier)
+      ok=model%n_estimators_>0
     end select
   end function
   subroutine train_classifier(model,x,y,weights)
@@ -87,6 +90,8 @@ contains
     type is(dummy_classifier)
       call require(.not.present(weights),'voting base has no native weighted fit')
       call model%fit(x,y)
+    type is(adaboost_classifier)
+      call model%fit(x,y,weights)
     class default
       call require(.false.,'unsupported native voting classifier base')
     end select
@@ -163,6 +168,8 @@ contains
       values=model%predict(x)
     type is(dummy_classifier)
       values=model%predict(x)
+    type is(adaboost_classifier)
+      values=model%predict(x)
     class default
       call require(.false.,'voting base does not support labels')
     end select
@@ -214,6 +221,8 @@ contains
       values=model%predict_proba(x)
     type is(dummy_classifier)
       values=model%predict_proba(x)
+    type is(adaboost_classifier)
+      values=model%predict_proba(x)
     class default
       call require(.false.,'voting base does not support probabilities')
     end select
@@ -225,6 +234,7 @@ contains
     ok=.true.
     if(classifier) then
       select type(model)
+      type is(adaboost_classifier)
       class is(logistic_regression)
       type is(gaussian_nb)
       type is(sgd_classifier)
@@ -268,6 +278,7 @@ contains
     class is(decision_tree_regressor)
     class is(ridge_classifier)
     type is(linear_svc)
+    type is(adaboost_classifier)
     class default
       ok=.false.
     end select
@@ -284,6 +295,7 @@ contains
     class is(decision_tree_classifier)
     class is(multinomial_nb)
     type is(dummy_classifier)
+    type is(adaboost_classifier)
     class default
       ok=.false.
     end select
@@ -316,6 +328,8 @@ contains
       values=model%classes_
     type is(svc)
       values=model%classes_
+    type is(adaboost_classifier)
+      values=model%classes_
     class default
       call require(.false.,'native base has no class probability metadata')
     end select
@@ -331,6 +345,7 @@ contains
     class is(ridge_classifier)
     type is(linear_svc)
     type is(svc)
+    type is(adaboost_classifier)
     class default
       ok=.false.
     end select
@@ -353,6 +368,8 @@ contains
     type is(linear_svc)
       value=model%decision_function(x)
     type is(svc)
+      value=model%decision_function(x)
+    type is(adaboost_classifier)
       value=model%decision_function(x)
     class default
       call require(.false.,'native base has no decision_function')
@@ -383,6 +400,10 @@ contains
       model%random_state=value
     type is(theil_sen_regressor)
       model%random_state=value
+    type is(adaboost_classifier)
+      ! Explicit CART base: nested tree first, then the AdaBoost RNG.
+      model%tree_random_state=value
+      model%random_state=rng%integer_index(2147483647)-1
     end select
   end subroutine
 end module

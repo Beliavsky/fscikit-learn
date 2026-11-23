@@ -1,6 +1,8 @@
 """Check public input diagnostics in isolated processes (expected error stops)."""
 from pathlib import Path
 import ast
+import argparse
+import hashlib
 import json
 import subprocess
 
@@ -1902,8 +1904,7 @@ CASES = {
     "ada_weight_negative": "negative AdaBoost sample weights",
     "ada_weight_nan": "nonfinite AdaBoost sample weights",
     "ada_weight_zero": "AdaBoost needs positive total sample weight",
-    "ada_single": "AdaBoost requires at least two classes",
-    "ada_random": "AdaBoost stump is no better than random guessing",
+    "ada_random": "AdaBoost weak learner is no better than random guessing",
     "ada_targets": "sample counts differ",
     "ada_nan_x": "X contains NaN or infinity",
     "ada_empty": "X must be nonempty",
@@ -2397,6 +2398,9 @@ CASES = {
 
 
 def main():
+    parser=argparse.ArgumentParser();parser.add_argument('--executable',type=Path)
+    parser.add_argument('--profile',choices=['checked','release'],default='checked')
+    parser.add_argument('--report',type=Path);args=parser.parse_args()
     # A duplicate literal key silently drops a diagnostic before the driver runs.
     assignments = ast.parse(Path(__file__).read_text()).body
     registration = next(node.value for node in assignments if isinstance(node, ast.Assign)
@@ -2405,23 +2409,20 @@ def main():
     assert len(case_keys) == len(set(case_keys)), "duplicate input-error case registration"
     # invalid_input_driver stores its command argument in character(32).
     assert max(map(len, case_keys)) <= 32, "input-error case exceeds driver argument buffer"
-    subprocess.run(["fpm", "build", "--flag", "-fcheck=all -fbacktrace"], cwd=ROOT, check=True)
-    # Ask fpm for the selected executable instead of rediscovering its build
-    # directory or starting a complete fpm process for every rejection case.
-    resolved = subprocess.run(["fpm", "run", "--flag", "-fcheck=all -fbacktrace", "--target",
-                               "invalid_input_driver", "--runner"], cwd=ROOT, text=True,
-                              stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=True)
-    candidates = []
-    for line in resolved.stdout.splitlines():
-        name = line.strip().strip('"')
-        if name.endswith(("invalid_input_driver", "invalid_input_driver.exe")):
-            path = ROOT / name
-            if path.is_file():
-                candidates.append(path.resolve())
-    assert len(candidates) == 1, ("could not resolve unique fpm executable", resolved.stdout)
+    if args.executable:
+        executable=args.executable.resolve()
+    else:
+        options=['--profile','release'] if args.profile=='release' else ['--flag','-fcheck=all -fbacktrace']
+        resolved=subprocess.run(['fpm','run',*options,'--target','invalid_input_driver','--runner'],
+                                cwd=ROOT,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,check=True)
+        candidates=[(ROOT/line.strip().strip('"')).resolve() for line in resolved.stdout.splitlines()
+                    if line.strip().strip('"').endswith(('invalid_input_driver','invalid_input_driver.exe'))]
+        candidates=[p for p in candidates if p.is_file()]
+        assert len(candidates)==1,('could not resolve unique fpm executable',resolved.stdout)
+        executable=candidates[0]
     results = []
     for case, message in CASES.items():
-        proc = subprocess.run([str(candidates[0]), case], cwd=ROOT, text=True,
+        proc = subprocess.run([str(executable), case], cwd=ROOT, text=True,
                               stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         assert proc.returncode != 0, (case, "invalid input accepted", proc.stdout)
         assert message in proc.stdout, (case, "wrong diagnostic", proc.stdout)
@@ -2430,7 +2431,12 @@ def main():
         print(f"PASS rejected {case}: {message}")
     destination = ROOT / "validation" / "results"
     destination.mkdir(exist_ok=True)
-    (destination / "invalid_inputs.json").write_text(json.dumps(results, indent=2)+"\n")
+    output=args.report or destination/'invalid_inputs.json'
+    output.parent.mkdir(parents=True,exist_ok=True)
+    report=dict(profile=args.profile,checks=results,executable=str(executable),
+                executable_sha256=hashlib.sha256(executable.read_bytes()).hexdigest(),
+                validator_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest())
+    output.write_text(json.dumps(report if args.report else results,indent=2,allow_nan=False)+'\n')
     print(f"{len(results)} invalid-input cases passed")
 
 

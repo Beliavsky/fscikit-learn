@@ -5506,8 +5506,6 @@ program invalid_input_driver
     y=1; y(1)=ieee_value(0._dp,ieee_quiet_nan); call ada%fit(x,[-4,-4,7,7],sample_weight=y)
   case('ada_weight_zero')
     call ada%fit(x,[-4,-4,7,7],sample_weight=[0._dp,0._dp,0._dp,0._dp])
-  case('ada_single')
-    call ada%fit(x,[7,7,7,7])
   case('ada_random')
     call ada%fit(x,[-4,-4,7,7])
   case('ada_targets')

@@ -144,6 +144,7 @@ python validation/compare_incremental_pca.py
 python validation/compare_feature_agglomeration.py
 python validation/compare_coordinate_cv.py
 python validation/compare_adaboost.py
+python validation/compare_adaboost_cart.py --executable build/<profile>/app/reference_adaboost_cart_driver.exe --profile checked --report validation/results/adaboost_cart_checked.json
 python validation/compare_sgd.py
 python validation/compare_sgd_classifier.py
 python validation/check_invalid_inputs.py

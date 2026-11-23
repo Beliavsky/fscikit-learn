@@ -169,15 +169,155 @@ contains
         end do
       end if
     end function
+    subroutine sort_swap(values,ids,a,b)
+      real(dp), intent(inout) :: values(:)
+      integer, intent(inout) :: ids(:)
+      integer, intent(in) :: a,b
+      real(dp) :: value
+      integer :: index
+      value=values(a);values(a)=values(b);values(b)=value
+      index=ids(a);ids(a)=ids(b);ids(b)=index
+    end subroutine
+    subroutine sift(values,ids,base,start,finish)
+      real(dp), intent(inout) :: values(:)
+      integer, intent(inout) :: ids(:)
+      integer, intent(in) :: base,start,finish
+      integer :: root,child,largest
+      root=start
+      do
+        child=2*root+1;largest=root
+        if(child<finish) then
+          if(values(base+largest)<values(base+child)) largest=child
+        end if
+        if(child+1<finish) then
+          if(values(base+largest)<values(base+child+1)) largest=child+1
+        end if
+        if(largest==root) exit
+        call sort_swap(values,ids,base+root,base+largest);root=largest
+      end do
+    end subroutine
+    subroutine heap_sort(values,ids,base,n)
+      real(dp), intent(inout) :: values(:)
+      integer, intent(inout) :: ids(:)
+      integer, intent(in) :: base,n
+      integer :: start,finish
+      start=(n-2)/2
+      do
+        call sift(values,ids,base,start,n)
+        if(start==0) exit
+        start=start-1
+      end do
+      finish=n-1
+      do while(finish>0)
+        call sort_swap(values,ids,base,base+finish)
+        call sift(values,ids,base,0,finish);finish=finish-1
+      end do
+    end subroutine
+    recursive subroutine intro_sort(values,ids,first,length,maximum_depth)
+      real(dp), intent(inout) :: values(:)
+      integer, intent(inout) :: ids(:)
+      integer, intent(in) :: first,length,maximum_depth
+      real(dp) :: a,b,c,pivot
+      integer :: n,base,depth,i,left,right
+      n=length;base=first;depth=maximum_depth
+      do while(n>1)
+        if(depth<=0) then
+          call heap_sort(values,ids,base,n);return
+        end if
+        depth=depth-1;a=values(base);b=values(base+n/2);c=values(base+n-1)
+        if(a<b) then
+          if(b<c) then
+            pivot=b
+          else if(a<c) then
+            pivot=c
+          else
+            pivot=a
+          end if
+        else if(b<c) then
+          if(a<c) then
+            pivot=a
+          else
+            pivot=c
+          end if
+        else
+          pivot=b
+        end if
+        i=0;left=0;right=n
+        do while(i<right)
+          if(values(base+i)<pivot) then
+            call sort_swap(values,ids,base+i,base+left);i=i+1;left=left+1
+          else if(values(base+i)>pivot) then
+            right=right-1;call sort_swap(values,ids,base+i,base+right)
+          else
+            i=i+1
+          end if
+        end do
+        call intro_sort(values,ids,base,left,depth);base=base+right;n=n-right
+      end do
+    end subroutine
+    subroutine sample_sort(values,ids)
+      real(dp), intent(inout) :: values(:)
+      integer, intent(inout) :: ids(:)
+      integer :: remaining,depth
+      remaining=size(ids);depth=0
+      do while(remaining>1)
+        remaining=remaining/2;depth=depth+1
+      end do
+      call intro_sort(values,ids,1,size(ids),2*depth)
+    end subroutine
+    subroutine classification_update(ids,cut,pos,mass,sums,wl,sl,wr,sr)
+      integer, intent(in) :: ids(:),cut
+      integer, intent(inout) :: pos
+      real(dp), intent(in) :: mass,sums(:)
+      real(dp), intent(inout) :: wl,sl(:)
+      real(dp), intent(out) :: wr,sr(:)
+      integer :: j,c,index
+      if(cut-pos<=size(ids)-cut) then
+        do j=pos+1,cut
+          index=ids(j);c=label_index(classes,int(y(index)))
+          sl(c)=ieee_difference(sl(c),-w(index));wl=ieee_difference(wl,-w(index))
+        end do
+      else
+        sl=sums;wl=mass
+        do j=size(ids),cut+1,-1
+          index=ids(j);c=label_index(classes,int(y(index)))
+          sl(c)=ieee_difference(sl(c),w(index));wl=ieee_difference(wl,w(index))
+        end do
+      end if
+      wr=ieee_difference(mass,wl)
+      do c=1,size(sums)
+        sr(c)=ieee_difference(sums(c),sl(c))
+      end do
+      pos=cut
+    end subroutine
+    subroutine partition_final(ids,feature,threshold)
+      integer, intent(inout) :: ids(:)
+      integer, intent(in) :: feature
+      real(dp), intent(in) :: threshold
+      integer :: at,last
+      at=1;last=size(ids)
+      do while(at<last)
+        if(z(ids(at),feature)<=threshold) then
+          at=at+1
+        else
+          call swap(ids(at),ids(last));last=last-1
+        end if
+      end do
+    end subroutine
     recursive integer function grow(ids,depth,known,inherited) result(node)
       integer, intent(in) :: ids(:),depth,known
       real(dp), intent(in) :: inherited
-      integer, allocatable :: ordered(:),left(:),right(:)
+      integer, allocatable :: ordered(:),left(:),right(:),work(:)
+      real(dp), allocatable :: feature_values(:)
       real(dp) :: sums(max(1,size(classes))),sl(max(1,size(classes))),sr(max(1,size(classes)))
       real(dp) :: mass,squares,parent,wl,wr,sql,sqr,il,ir,proxy,best,low,high,threshold,best_threshold
       real(dp) :: best_left,best_right,best_wl,best_wr,improvement
       integer :: n,fi,fj,drawn,found,visited,nconstant,f,cut,j,c,best_feature,left_node,right_node,first,last
-      n=size(ids); call moments(ids,mass,sums,squares)
+      integer :: pos,best_pos,at,partition_end
+      n=size(ids);call moments(ids,mass,sums,squares)
+      if(size(classes)>0) then
+        work=ids;allocate(feature_values(n))
+      end if
       self%node_count_=self%node_count_+1; node=self%node_count_
       self%nodes_(node)%n_samples=n; self%nodes_(node)%weighted_n_samples=mass; self%nodes_(node)%depth=depth
       parent=inherited
@@ -198,14 +338,20 @@ contains
       end if
       fi=size(x,2); found=0; drawn=0; visited=0; nconstant=known
       best=ieee_value(0._dp,ieee_negative_inf); best_feature=0; best_threshold=0
-      best_left=0; best_right=0; best_wl=0; best_wr=0
+      best_left=0;best_right=0;best_wl=0;best_wr=0;best_pos=0;f=0
       do while(fi>nconstant.and.(visited<nf.or.visited<=found+drawn))
         visited=visited+1; fj=drawn+modulo(next_random(),fi-found-drawn)
         if(fj<known) then
           call swap(all_features(drawn+1),all_features(fj+1)); drawn=drawn+1; cycle
         end if
         fj=fj+found; f=all_features(fj+1)
-        ordered=ids(argsort(z(ids,f))); low=z(ordered(1),f); high=z(ordered(n),f)
+        if(size(classes)>0) then
+          feature_values=z(work,f)
+          if(.not.self%random_thresholds) call sample_sort(feature_values,work)
+          ordered=work;low=minval(feature_values);high=maxval(feature_values)
+        else
+          ordered=ids(argsort(z(ids,f)));low=z(ordered(1),f);high=z(ordered(n),f)
+        end if
         ! The tested sklearn 1.6.1 binary exports FEATURE_THRESHOLD=0.0,
         ! despite the 1e-7 initializer in its .pxd source. Keep distinct
         ! float32 values distinct, matching the observed binary behavior.
@@ -217,8 +363,22 @@ contains
         if(self%random_thresholds) then
           threshold=(high-low)*real(next_random(),dp)/2147483647._dp+low
           if(threshold==high) threshold=low
-          cut=count(z(ordered,f)<=threshold); first=cut; last=cut
+          if(size(classes)>0) then
+            at=1;partition_end=n+1
+            do while(at<partition_end)
+              if(feature_values(at)<=threshold) then
+                at=at+1
+              else
+                partition_end=partition_end-1;call sort_swap(feature_values,work,at,partition_end)
+              end if
+            end do
+            cut=partition_end-1;ordered=work
+          else
+            cut=count(z(ordered,f)<=threshold)
+          end if
+          first=cut;last=cut
         end if
+        pos=0;wl=0;sl=0
         do cut=first,last
           if(cut<self%min_samples_leaf.or.n-cut<self%min_samples_leaf) cycle
           if(.not.self%random_thresholds) then
@@ -226,12 +386,17 @@ contains
             threshold=z(ordered(cut),f)/2+z(ordered(cut+1),f)/2
             if(threshold==z(ordered(cut+1),f)) threshold=z(ordered(cut),f)
           end if
-          call moments(ordered(:cut),wl,sl,sql); wr=ieee_difference(mass,wl)
+          if(size(classes)>0) then
+            call classification_update(ordered,cut,pos,mass,sums,wl,sl,wr,sr);sql=0;sqr=0
+          else
+            call moments(ordered(:cut),wl,sl,sql);wr=ieee_difference(mass,wl)
+            do c=1,size(sums)
+              sr(c)=ieee_difference(sums(c),sl(c))
+            end do
+            sqr=ieee_difference(squares,sql)
+          end if
           if(less(wl,min_weight).or.less(wr,min_weight)) cycle
-          do c=1,size(sums)
-            sr(c)=ieee_difference(sums(c),sl(c))
-          end do
-          sqr=ieee_difference(squares,sql); il=impurity(wl,sl,sql); ir=impurity(wr,sr,sqr)
+          il=impurity(wl,sl,sql);ir=impurity(wr,sr,sqr)
           if(size(classes)==0) then
             proxy=ieee_difference(ieee_quotient(ieee_product(sl(1),sl(1)),wl), &
               -ieee_quotient(ieee_product(sr(1),sr(1)),wr))
@@ -240,20 +405,30 @@ contains
           end if
           if(ieee_is_nan(proxy)) cycle
           if(proxy>best) then
-            best=proxy; best_feature=f; best_threshold=threshold
+            best=proxy;best_feature=f;best_threshold=threshold;best_pos=cut
             best_left=il; best_right=ir; best_wl=wl; best_wr=wr
           end if
         end do
       end do
       all_features(:known)=constants(:known); constants(known+1:nconstant)=all_features(known+1:nconstant)
       if(best_feature==0) return
+      if(size(classes)>0) then
+        if(.not.self%random_thresholds.or.f/=best_feature) call partition_final(work,best_feature,best_threshold)
+        pos=0;wl=0;sl=0
+        call classification_update(work,best_pos,pos,mass,sums,wl,sl,wr,sr)
+        best_left=impurity(wl,sl,0._dp);best_right=impurity(wr,sr,0._dp);best_wl=wl;best_wr=wr
+      end if
       improvement=ieee_difference(parent,ieee_product(ieee_quotient(best_wr,mass),best_right))
       improvement=ieee_difference(improvement,ieee_product(ieee_quotient(best_wl,mass),best_left))
       improvement=ieee_product(ieee_quotient(mass,root_weight),improvement)
       if(.not.ieee_is_nan(improvement)) then
         if(ieee_difference(improvement,-epsilon(1._dp))<self%min_impurity_decrease) return
       end if
-      left=pack(ids,z(ids,best_feature)<=best_threshold); right=pack(ids,z(ids,best_feature)>best_threshold)
+      if(size(classes)>0) then
+        left=work(:best_pos);right=work(best_pos+1:)
+      else
+        left=pack(ids,z(ids,best_feature)<=best_threshold);right=pack(ids,z(ids,best_feature)>best_threshold)
+      end if
       self%nodes_(node)%feature=best_feature; self%nodes_(node)%threshold=best_threshold
       self%nodes_(node)%missing_go_left=size(left)>size(right)
       left_node=grow(left,depth+1,nconstant,best_left); right_node=grow(right,depth+1,nconstant,best_right)

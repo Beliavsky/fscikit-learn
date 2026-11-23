@@ -1,6 +1,8 @@
 """Weighted decision-stump SAMME comparisons against scikit-learn 1.6.1."""
 from pathlib import Path
 import json
+import argparse
+import hashlib
 import subprocess
 import numpy as np
 import sklearn
@@ -9,6 +11,18 @@ ROOT = Path(__file__).resolve().parents[1]
 RESULTS = ROOT / "validation/results"
 
 def main():
+    parser=argparse.ArgumentParser();parser.add_argument('--executable',type=Path)
+    parser.add_argument('--profile',choices=['checked','release'],default='checked')
+    parser.add_argument('--report',type=Path);args=parser.parse_args()
+    if args.executable:executable=args.executable.resolve()
+    else:
+        options=['--profile','release'] if args.profile=='release' else ['--flag','-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow']
+        resolved=subprocess.run(['fpm','run',*options,'--target','reference_adaboost_driver','--runner'],
+                                cwd=ROOT,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,check=True)
+        candidates=[(ROOT/line.strip().strip('"')).resolve() for line in resolved.stdout.splitlines()
+                    if line.strip().strip('"').endswith(('reference_adaboost_driver','reference_adaboost_driver.exe'))]
+        candidates=[p for p in candidates if p.is_file()];assert len(candidates)==1,resolved.stdout
+        executable=candidates[0]
     RESULTS.mkdir(exist_ok=True)
     checks = []
     for seed, n, p in ((7, 57, 3), (42, 71, 4), (2026, 43, 5)):
@@ -16,12 +30,11 @@ def main():
         x = rng.normal(size=(n, p)); w = rng.uniform(.2, 2, n); w[0] = 0
         binary = np.where(x[:, 0]+.5*x[:, 1]+.6*rng.normal(size=n)>0, 11, -5)
         multi = np.array([-4, 7, 21])[np.argmax(np.column_stack([x[:, 0], x[:, 1], -x[:, 0]-x[:, 1]])+.5*rng.normal(size=(n, 3)), axis=1)]
-        data, output = RESULTS/f"adaboost_{seed}.txt", RESULTS/f"adaboost_actual_{seed}.txt"
+        data, output = RESULTS/f"adaboost_{args.profile}_{seed}.txt", RESULTS/f"adaboost_actual_{args.profile}_{seed}.txt"
         with data.open("w") as stream:
             stream.write(f"{n} {p}\n")
             np.savetxt(stream, np.column_stack([x, w, binary, multi]), fmt="%.17g")
-        subprocess.run(["fpm", "run", "--flag", "-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow",
-                        "--target", "reference_adaboost_driver", "--", str(data), str(output)], cwd=ROOT, check=True)
+        subprocess.run([str(executable), str(data), str(output)], cwd=ROOT, check=True)
         actual, expected = {}, {}
         for line in output.read_text().splitlines():
             name, *values = line.split(); actual[name] = np.array(values, dtype=float)
@@ -51,7 +64,11 @@ def main():
             assert actual[name].shape == want.shape, (seed, name)
             np.testing.assert_allclose(actual[name], want, atol=3e-8, rtol=3e-8, err_msg=f"{seed} {name}")
             checks.append(dict(seed=seed, name=name, passed=True))
-    (RESULTS/"adaboost.json").write_text(json.dumps(dict(sklearn=sklearn.__version__, checks=checks), indent=2)+"\n")
+    report=dict(profile=args.profile,sklearn=sklearn.__version__,checks=checks,
+                executable_sha256=hashlib.sha256(executable.read_bytes()).hexdigest(),
+                validator_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest())
+    output=args.report or RESULTS/'adaboost.json';output.parent.mkdir(parents=True,exist_ok=True)
+    output.write_text(json.dumps(report,indent=2,allow_nan=False)+'\n')
     print(f"{len(checks)} AdaBoost result groups passed")
 
 if __name__ == "__main__":
