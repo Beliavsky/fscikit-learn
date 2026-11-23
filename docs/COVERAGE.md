@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 221 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and forty-four reference suites additionally check 1,100,668
+All types have native tests. One hundred and forty-five reference suites additionally check 1,236,748
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -1385,8 +1385,8 @@ learning_rate supports 'invscaling' (default), 'constant', 'optimal' and
 reduces eta by five after exhausted patience while eta>1.e-6. eta0 defaults .01;
 power_t defaults .25 and must be nonnegative. Inverse scaling uses
 eta0/t_^power_t. t_ starts at 1 and increments once per row, including across
-partial_fit calls. fit always resets coefficient, intercept, averaging state
-and the clock. partial_fit initializes on its first batch, runs exactly one
+partial_fit calls. Cold fit resets coefficient, intercept, averaging state
+and the clock. Warm fit semantics are detailed in the later SGD fit batch. partial_fit initializes on its first batch, runs exactly one
 epoch and retains standard coefficients/clock thereafter. Feature width and
 averaging configuration must remain fixed during partial_fit; fit can reset
 them. max_iter applies to fit and defaults to 1000.
@@ -1414,9 +1414,9 @@ The index permutation is reshuffled in place each epoch with the same seed;
 fit/partial_fit seed a new local stream. Both ordered and shuffled trajectories
 are compared directly with sklearn, including per-class OVR streams.
 
-Scope: finite dense real64 matrices, one numeric target; no sparse data,
-warm-start fit, custom
-initial coefficients, validation-set early stopping or metadata routing.
+Scope: finite dense real64 matrices and one numeric target; sparse data,
+validation-set early stopping and metadata routing remain unsupported. Warm
+fits and explicit initialization are described in the later SGD fit batch.
 The source follows sklearn's stochastic gradient and loss contracts; original
 contributions remain MIT with retained BSD attribution. Exported through
 sklearn_linear_model and sklearn. Inventory: 122 core types, 52 modules and
@@ -1427,8 +1427,9 @@ sklearn_linear_model and sklearn. Inventory: 122 core types, 52 modules and
 
 `sgd_classifier` implements sklearn 1.6.1 SGDClassifier's binary/one-vs-rest
 classification contracts using the shared native SGD engine. Supported losses
-are hinge (default), squared_hinge, perceptron, log_loss and modified_huber.
-Methods are fit, partial_fit, decision_function, predict, predict_proba and
+are hinge (default), squared_hinge, perceptron, log_loss, modified_huber,
+squared_error, huber, epsilon_insensitive and squared_epsilon_insensitive.
+Methods are fit, partial_fit, decision_function, predict, predict_proba, predict_log_proba and
 accuracy score. At least two known classes are required. fit discovers sorted
 integer classes from its target labels and resets all fitted state.
 
@@ -1485,10 +1486,10 @@ shuffle=false. These ordered inverse-scaling defaults differ from sklearn's
 shuffle=true, optimal rate, power_t=.5 and eta0=0 defaults. Explicitly enabled
 shuffling now reproduces scalar-seeded sklearn permutations.
 
-Scope: finite dense real64 arrays, integer labels, five classification losses;
-no regression losses for classifiers,
-custom coefficient initialization, warm-start fit, validation-set early stopping,
-log-probability API or parallel OVR. Exported through sklearn_linear_model and
+Scope: finite dense real64 arrays, integer labels and nine classification losses;
+sparse feature input, validation-set early stopping and parallel OVR remain
+unsupported. Warm fits, explicit initialization and log probabilities are
+described in the later SGD fit batch. Exported through sklearn_linear_model and
 sklearn. Original contributions remain MIT with sklearn BSD attribution.
 Inventory: 123 core types, 52 modules and 53 native tests. No dependency or
 public extension was added.
@@ -7360,3 +7361,70 @@ parser and upstream source hashes, unchanged unrelated core modules and
 unchanged unrelated legacy diagnostics. Detailed local reports and audit
 helpers remain under ignored `validation/results`, including
 `sgd_regularization_final_audit.json`. Implementation commit: `bf1c19f`.
+
+
+## SGD warm initialization and complete classifier loss mapping batch
+
+SGD regression and classification now support warm fits and explicit coefficient/
+intercept initializers. Every fit restarts the sample clock; partial_fit keeps
+advancing it. Cold fits accept the native published coefficient/intercept shapes.
+Binary classifiers additionally accept vector coefficients, arbitrary 2D shapes
+with the correct element count (flattened in C order), and scalar intercepts.
+Multiclass coefficient/intercept shapes must match the class and feature counts.
+All initializer arrays and feature inputs are preserved.
+
+The port preserves sklearn 1.6.1's different averaged warm-fit paths. A fitted
+warm regressor retains standard and average buffers and ignores new fit
+initializers. A warm classifier starts from its published coefficients and
+intercepts, with explicit initializers taking precedence, and creates fresh
+averaging buffers. Regressor averaging configuration must remain fixed across
+warm fits. The regressor's retained-average behavior is checked analytically
+and against the actual source, rather than replaced by a conventional average.
+
+SGDClassifier now supports all nine source losses: hinge, squared_hinge,
+perceptron, log_loss, modified_huber, squared_error, huber,
+epsilon_insensitive and squared_epsilon_insensitive. epsilon=.1 configures the
+last three applicable contrasts. predict_log_proba supports log loss and
+modified Huber, returning negative infinity for exact zero probabilities without
+triggering checked floating-point traps.
+
+The internal sklearn_sgd_clone module supplies parameter-only copies. Cold clone
+sites in multioutput/chains, multiclass, voting, bagging, stacking, thresholding,
+SelectFromModel, CV/learning curves and search discard fitted SGD state while
+retaining constructor controls. Existing streaming-copy adapters now retain
+l1_ratio, epsilon and warm_start. Search also exposes epsilon, l1_ratio,
+warm_start, average, random_state and n_iter_no_change, including nested pipeline
+names. CV/search reset SGD children recursively inside nested pipelines; direct
+pipeline fits preserve their warm tails. Existing prefit branches keep their
+fitted bases.
+
+The native cloning identity test compares 768 predictions, decisions, masks,
+scores and probabilities obtained from unfitted prototypes against those from
+fitted warm prototypes with an extra feature. It checks independent outputs,
+chains, OVR/OVO and streaming reductions, voting, bagging, stacking, selection,
+fixed thresholds, CV, incremental learning curves and nested pipeline search.
+It also checks nondefault epsilon/l1_ratio preservation and that fitted caller
+coefficients remain unchanged. This tests the clone contract independently of
+the implementation's state-reset code.
+
+compare_sgd_fit.py contributes 136,080 strict source groups across 6,480 workflows
+and 19,440 fitting stages. Three seeds cover regression and binary/three-class
+classification, every applicable loss, all four penalties and schedules, average
+thresholds 0/1/10, both shuffle settings, optional initializer combinations,
+repeated warm/cold fits, explicit published-array replacement and mixed
+partial_fit/warm-fit histories. Coefficients, intercepts, predictions/decisions,
+labels, probabilities, log probabilities and clocks use 3.e-9 relative and
+3.e-10 absolute tolerances. Negative-infinity and NaN masks are checked explicitly;
+there are no trajectory certificates or alternative source oracles. Twenty-one
+new isolated input checks cover shapes, nonfinite initializers, warm-width and
+averaging constraints, epsilon controls and log-probability availability.
+
+Remaining SGD limits include sparse input, validation-set early stopping,
+parallel OVR, general metadata routing and averaged classifier partial fits with
+an intercept. Public native defaults remain ordered inverse scaling. No public
+extension type or dependency was added. The package stays MIT with retained
+third-party BSD attribution; the internal parameter-copy implementation is MIT.
+
+Cumulative inventory: 221 public core types, 137 source modules, 169 native
+programs, 145 core reference suites / 1,236,748 retained groups, and 50
+invalid-input registries / 3,858 cases. These remain API subsets.

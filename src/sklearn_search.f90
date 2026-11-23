@@ -207,6 +207,7 @@ contains
     real(dp), optional, intent(in) :: yr(:),weights(:)
     integer, optional, intent(in) :: yi(:)
     allocate(model,source=self%estimator)
+    call reset_search_clone(model)
     if(associated(self%set_params_func)) then
       call self%set_params_func(model,parameters)
     else

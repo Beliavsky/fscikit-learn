@@ -7,7 +7,7 @@ module sklearn_validation
   use sklearn_parameter_space, only: parameter_value,parameter_set
   use sklearn_legacy_rng, only: legacy_random_state
   use sklearn_ieee_math, only: ieee_mean
-  use sklearn_search_adapters, only: search_classifier,fit_search_native,search_regression,search_labels, &
+  use sklearn_search_adapters, only: reset_search_clone, search_classifier,fit_search_native,search_regression,search_labels, &
     search_probabilities,search_decisions,search_classes,native_search_score,set_search_params
   use sklearn_feature_composition, only: fit_model
   use sklearn_pipeline, only: pipeline
@@ -16,6 +16,7 @@ module sklearn_validation
   use sklearn_tree, only: decision_tree_classifier
   use sklearn_ensemble, only: random_forest_classifier,gradient_boosting_classifier
   use sklearn_sgd, only: sgd_classifier,sgd_regressor
+  use sklearn_sgd_clone, only: reset_sgd_fit
   use sklearn_dummy, only: dummy_classifier
   use, intrinsic :: iso_fortran_env, only: int64
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite,ieee_is_nan,ieee_value,ieee_negative_inf
@@ -254,6 +255,7 @@ contains
     type(cross_validation_options), intent(in) :: settings
     real(dp), optional, intent(in) :: yr(:),weights(:)
     integer, optional, intent(in) :: yi(:),original_integer(:)
+    call reset_search_clone(model)
     if(associated(settings%fit_func)) then
       call settings%fit_func(model,x,yr,yi,weights)
     else if(.not.present(yr).and..not.present(yi)) then
@@ -647,18 +649,9 @@ contains
     type(gaussian_nb) :: bayes
     select type(model)
     type is(sgd_regressor)
-      reg%loss=model%loss;reg%penalty=model%penalty;reg%learning_rate=model%learning_rate
-      reg%alpha=model%alpha;reg%eta0=model%eta0;reg%power_t=model%power_t;reg%epsilon=model%epsilon;reg%tol=model%tol
-      reg%max_iter=model%max_iter;reg%n_iter_no_change=model%n_iter_no_change;reg%average=model%average
-      reg%random_state=model%random_state;reg%fit_intercept=model%fit_intercept;reg%shuffle=model%shuffle
-      model=reg
+      call reset_sgd_fit(model)
     type is(sgd_classifier)
-      classifier%loss=model%loss;classifier%penalty=model%penalty;classifier%learning_rate=model%learning_rate
-      classifier%alpha=model%alpha;classifier%eta0=model%eta0;classifier%power_t=model%power_t;classifier%tol=model%tol
-      classifier%max_iter=model%max_iter;classifier%n_iter_no_change=model%n_iter_no_change
-      classifier%average=model%average;classifier%random_state=model%random_state
-      classifier%fit_intercept=model%fit_intercept;classifier%shuffle=model%shuffle
-      classifier%class_weight_balanced=model%class_weight_balanced;model=classifier
+      call reset_sgd_fit(model)
     type is(gaussian_nb)
       bayes%var_smoothing=model%var_smoothing
       if(allocated(model%priors)) bayes%priors=model%priors

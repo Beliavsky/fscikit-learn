@@ -5,6 +5,7 @@ module sklearn_multioutput
   use sklearn_linear_model, only: linear_regression,logistic_regression
   use sklearn_naive_bayes, only: gaussian_nb,multinomial_nb
   use sklearn_sgd, only: sgd_regressor,sgd_classifier
+  use sklearn_sgd_clone, only: clone_sgd_parameters,reset_sgd_fit
   use sklearn_neighbors, only: kneighbors_regressor,kneighbors_classifier
   use sklearn_tree, only: decision_tree_regressor,decision_tree_classifier
   use sklearn_model_selection, only: kfold,index_split
@@ -106,6 +107,7 @@ contains
       if(streaming) then
         call model%partial_fit(x,y,weights)
       else
+        call reset_sgd_fit(model)
         call model%fit(x,y,weights)
       end if
     class is(linear_regression)
@@ -120,22 +122,13 @@ contains
   function clone_sgdr(source) result(model)
     type(sgd_regressor), intent(in) :: source
     type(sgd_regressor) :: model
-    model%loss=source%loss; model%penalty=source%penalty; model%learning_rate=source%learning_rate
-    model%alpha=source%alpha; model%eta0=source%eta0; model%power_t=source%power_t
-    model%epsilon=source%epsilon; model%tol=source%tol; model%max_iter=source%max_iter
-    model%n_iter_no_change=source%n_iter_no_change; model%average=source%average
-    model%random_state=source%random_state; model%fit_intercept=source%fit_intercept; model%shuffle=source%shuffle
+    model=clone_sgd_parameters(source)
   end function
 
   function clone_sgdc(source) result(model)
     type(sgd_classifier), intent(in) :: source
     type(sgd_classifier) :: model
-    model%loss=source%loss; model%penalty=source%penalty; model%learning_rate=source%learning_rate
-    model%alpha=source%alpha; model%eta0=source%eta0; model%power_t=source%power_t
-    model%tol=source%tol; model%max_iter=source%max_iter; model%n_iter_no_change=source%n_iter_no_change
-    model%average=source%average; model%random_state=source%random_state
-    model%fit_intercept=source%fit_intercept; model%shuffle=source%shuffle
-    model%class_weight_balanced=source%class_weight_balanced
+    model=clone_sgd_parameters(source)
   end function
 
   subroutine reg_fit(self,x,y,estimator,sample_weight)
@@ -298,6 +291,7 @@ contains
       if(streaming) then
         call model%partial_fit(x,y,classes,weights)
       else
+        call reset_sgd_fit(model)
         call model%fit(x,y,weights)
       end if
     class is(logistic_regression)

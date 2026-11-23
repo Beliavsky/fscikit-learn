@@ -6,6 +6,7 @@ module sklearn_multiclass
   use sklearn_linear_model, only: logistic_regression,perceptron,passive_aggressive_classifier,linear_regression
   use sklearn_ridge_classification, only: ridge_classifier
   use sklearn_sgd, only: sgd_classifier,sgd_regressor
+  use sklearn_sgd_clone, only: clone_sgd_parameters,reset_sgd_fit
   use sklearn_svm, only: svc,linear_svc
   use sklearn_naive_bayes, only: gaussian_nb,multinomial_nb
   use sklearn_neighbors, only: kneighbors_classifier,kneighbors_regressor
@@ -170,6 +171,7 @@ contains
       slot%constant_=.true.; slot%constant_value_=y(1); return
     end if
     allocate(slot%estimator_,source=base)
+    call reset_sgd_fit(slot%estimator_)
     call train(slot%estimator_,x,y,weights,.false.)
   end subroutine
 
@@ -236,11 +238,7 @@ contains
       if(allocated(base%priors)) nb%priors=base%priors
       allocate(slot%estimator_,source=nb)
     type is(sgd_classifier)
-      clf%loss=base%loss; clf%penalty=base%penalty; clf%learning_rate=base%learning_rate
-      clf%alpha=base%alpha; clf%eta0=base%eta0; clf%power_t=base%power_t
-      clf%tol=base%tol; clf%max_iter=base%max_iter; clf%n_iter_no_change=base%n_iter_no_change
-      clf%average=base%average; clf%random_state=base%random_state; clf%fit_intercept=base%fit_intercept
-      clf%shuffle=base%shuffle; clf%class_weight_balanced=base%class_weight_balanced
+      clf=clone_sgd_parameters(base)
       allocate(slot%estimator_,source=clf)
     class default
       call require(.false.,'multiclass base has no native partial_fit')

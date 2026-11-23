@@ -6,7 +6,7 @@ module sklearn_sgd
   use sklearn_legacy_rng, only: legacy_random_state
   use, intrinsic :: iso_fortran_env, only: int64
   use sklearn_metrics, only: r2_score,accuracy_score
-  use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
+  use, intrinsic :: ieee_arithmetic, only: ieee_is_finite,ieee_value,ieee_negative_inf
   implicit none
   private
   public :: sgd_regressor,sgd_classifier
@@ -22,6 +22,7 @@ module sklearn_sgd
     logical, private :: classification=.false.
     integer, private :: fitted_average=0
     real(dp) :: l1_ratio=.15_dp
+    logical :: warm_start=.false.
   contains
     procedure :: fit=>sgd_fit
     procedure :: partial_fit=>sgd_partial
@@ -39,12 +40,17 @@ module sklearn_sgd
     real(dp), allocatable :: coef_(:,:),intercept_(:),loss_(:)
     type(sgd_regressor), allocatable, private :: heads(:)
     real(dp) :: l1_ratio=.15_dp
+    real(dp) :: epsilon=.1_dp
+    logical :: warm_start=.false.
   contains
-    procedure :: fit=>sgdc_fit
+    procedure, private :: fit_matrix=>sgdc_fit,fit_vector=>sgdc_fit_vector
+    procedure, private :: fit_scalar_bias=>sgdc_fit_scalar_bias,fit_vector_scalar_bias=>sgdc_fit_vector_scalar_bias
+    generic :: fit=>fit_matrix,fit_vector,fit_scalar_bias,fit_vector_scalar_bias
     procedure :: partial_fit=>sgdc_partial
     procedure :: decision_function=>sgdc_decision
     procedure :: predict=>sgdc_predict
     procedure :: predict_proba=>sgdc_proba
+    procedure :: predict_log_proba=>sgdc_log_proba
     procedure :: score=>sgdc_score
   end type
 contains
@@ -52,7 +58,8 @@ contains
     class(sgd_regressor), intent(in) :: self
     if(self%classification) then
       call require(any(self%loss==[character(32)::'hinge','squared_hinge','perceptron', &
-        'log_loss','modified_huber']),'unknown SGD classification loss')
+        'log_loss','modified_huber','squared_error','huber','epsilon_insensitive', &
+        'squared_epsilon_insensitive']),'unknown SGD classification loss')
     else
       call require(any(self%loss==[character(32)::'squared_error','huber', &
         'epsilon_insensitive','squared_epsilon_insensitive']),'unknown SGD regression loss')
@@ -80,12 +87,34 @@ contains
     self%standard_intercept=0; self%average_intercept=0; self%intercept_=0; self%t_=1
     self%n_features_in_=p; self%fitted_average=self%average
   end subroutine
-  subroutine sgd_fit(self,x,y,sample_weight)
+  subroutine sgd_fit(self,x,y,sample_weight,coef_init,intercept_init)
     class(sgd_regressor), intent(inout) :: self
     real(dp), intent(in) :: x(:,:),y(:)
     real(dp), intent(in), optional :: sample_weight(:)
+    real(dp), intent(in), optional :: coef_init(:),intercept_init
     call sgd_controls(self); call check_xy(x,size(y)); call check_x(reshape(y,[size(y),1]))
-    call sgd_initialize(self,size(x,2)); call sgd_run(self,x,y,self%max_iter,.true.,sample_weight)
+    if(self%warm_start.and.allocated(self%coef_)) then
+      call require(size(x,2)==self%n_features_in_,'SGD warm_start feature count mismatch')
+      call require(self%average==self%fitted_average,'SGD averaging cannot change during warm_start')
+      if(self%average==0) then
+        self%standard_coef=self%coef_;self%standard_intercept=self%intercept_
+      end if
+      self%t_=1
+      ! sklearn's regressor ignores fit initializers on an already warm fit.
+      ! Averaged warm fits retain standard and accumulated-average buffers.
+    else
+      call sgd_initialize(self,size(x,2))
+      if(present(coef_init)) then
+        call require(size(coef_init)==size(x,2),'SGD coefficient initializer shape mismatch')
+        call require(all(ieee_is_finite(coef_init)),'SGD coefficient initializer must be finite')
+        self%standard_coef=coef_init
+      end if
+      if(present(intercept_init)) then
+        call require(ieee_is_finite(intercept_init),'SGD intercept initializer must be finite')
+        self%standard_intercept=intercept_init
+      end if
+    end if
+    call sgd_run(self,x,y,self%max_iter,.true.,sample_weight)
   end subroutine
   subroutine sgd_partial(self,x,y,sample_weight)
     class(sgd_regressor), intent(inout) :: self
@@ -277,16 +306,29 @@ contains
     head%classification=.true.; head%loss=self%loss; head%penalty=self%penalty; head%learning_rate=self%learning_rate
     head%alpha=self%alpha; head%eta0=self%eta0; head%power_t=self%power_t; head%tol=self%tol
     head%l1_ratio=self%l1_ratio
+    head%epsilon=self%epsilon
     head%max_iter=self%max_iter; head%n_iter_no_change=self%n_iter_no_change; head%average=self%average
     head%random_state=self%random_state; head%fit_intercept=self%fit_intercept; head%shuffle=self%shuffle
     call sgd_controls(head)
   end subroutine
-  subroutine sgdc_fit(self,x,y,sample_weight,class_weight)
+  subroutine sgdc_fit(self,x,y,sample_weight,class_weight,coef_init,intercept_init)
     class(sgd_classifier), intent(inout) :: self
     real(dp), intent(in) :: x(:,:)
     integer, intent(in) :: y(:)
     real(dp), intent(in), optional :: sample_weight(:),class_weight(:)
-    call sgdc_train(self,x,y,.false.,sample_weight,class_weight)
+    real(dp), intent(in), optional :: coef_init(:,:),intercept_init(:)
+    real(dp), allocatable :: initial(:,:),bias(:)
+    if(present(coef_init)) then
+      initial=coef_init
+    else if(self%warm_start.and.allocated(self%coef_)) then
+      initial=self%coef_
+    end if
+    if(present(intercept_init)) then
+      bias=intercept_init
+    else if(self%warm_start.and.allocated(self%intercept_)) then
+      bias=self%intercept_
+    end if
+    call sgdc_train(self,x,y,.false.,sample_weight,class_weight,coef_init=initial,intercept_init=bias)
   end subroutine
   subroutine sgdc_partial(self,x,y,classes,sample_weight,class_weight)
     class(sgd_classifier), intent(inout) :: self
@@ -296,13 +338,35 @@ contains
     real(dp), intent(in), optional :: sample_weight(:),class_weight(:)
     call sgdc_train(self,x,y,.true.,sample_weight,class_weight,classes)
   end subroutine
-  subroutine sgdc_train(self,x,y,incremental,sample_weight,class_weight,classes)
+  subroutine sgdc_fit_vector(self,x,y,sample_weight,class_weight,coef_init,intercept_init)
+    class(sgd_classifier), intent(inout) :: self
+    real(dp), intent(in) :: x(:,:),coef_init(:)
+    integer, intent(in) :: y(:)
+    real(dp), optional, intent(in) :: sample_weight(:),class_weight(:),intercept_init(:)
+    call sgdc_fit(self,x,y,sample_weight,class_weight,reshape(coef_init,[1,size(coef_init)]),intercept_init)
+  end subroutine
+  subroutine sgdc_fit_scalar_bias(self,x,y,sample_weight,class_weight,coef_init,intercept_init)
+    class(sgd_classifier), intent(inout) :: self
+    real(dp), intent(in) :: x(:,:),intercept_init
+    integer, intent(in) :: y(:)
+    real(dp), optional, intent(in) :: sample_weight(:),class_weight(:),coef_init(:,:)
+    call sgdc_fit(self,x,y,sample_weight,class_weight,coef_init,[intercept_init])
+  end subroutine
+  subroutine sgdc_fit_vector_scalar_bias(self,x,y,sample_weight,class_weight,coef_init,intercept_init)
+    class(sgd_classifier), intent(inout) :: self
+    real(dp), intent(in) :: x(:,:),coef_init(:),intercept_init
+    integer, intent(in) :: y(:)
+    real(dp), optional, intent(in) :: sample_weight(:),class_weight(:)
+    call sgdc_fit(self,x,y,sample_weight,class_weight,reshape(coef_init,[1,size(coef_init)]),[intercept_init])
+  end subroutine
+  subroutine sgdc_train(self,x,y,incremental,sample_weight,class_weight,classes,coef_init,intercept_init)
     class(sgd_classifier), intent(inout) :: self
     real(dp), intent(in) :: x(:,:)
     integer, intent(in) :: y(:)
     logical, intent(in) :: incremental
     real(dp), intent(in), optional :: sample_weight(:),class_weight(:)
     integer, intent(in), optional :: classes(:)
+    real(dp), intent(in), optional :: coef_init(:,:),intercept_init(:)
     type(sgd_regressor) :: settings
     type(legacy_random_state) :: rng
     integer, allocatable :: labels(:),encoded(:),seeds(:)
@@ -357,6 +421,18 @@ contains
     end if
     channels=k
     if(k==2) channels=1
+    if(present(coef_init)) then
+      if(channels==1) then
+        call require(size(coef_init)==p,'SGDClassifier coefficient initializer shape mismatch')
+      else
+        call require(all(shape(coef_init)==[channels,p]),'SGDClassifier coefficient initializer shape mismatch')
+      end if
+      call require(all(ieee_is_finite(coef_init)),'SGD coefficient initializer must be finite')
+    end if
+    if(present(intercept_init)) then
+      call require(size(intercept_init)==channels,'SGDClassifier intercept initializer shape mismatch')
+      call require(all(ieee_is_finite(intercept_init)),'SGD intercept initializer must be finite')
+    end if
     allocate(seeds(channels));seeds=self%random_state
     if(k>2) then
       call rng%seed(self%random_state)
@@ -369,6 +445,14 @@ contains
       allocate(self%heads(channels)); self%classes_=labels; self%n_features_in_=p; self%t_=1
       do c=1,channels
         call sgdc_configure(self,self%heads(c)); call sgd_initialize(self%heads(c),p)
+        if(present(coef_init)) then
+          if(channels==1) then
+            self%heads(c)%standard_coef=reshape(transpose(coef_init),[p])
+          else
+            self%heads(c)%standard_coef=coef_init(c,:)
+          end if
+        end if
+        if(present(intercept_init)) self%heads(c)%standard_intercept=intercept_init(c)
       end do
     end if
     self%coef_=spread(spread(0._dp,1,channels),2,p)
@@ -411,6 +495,22 @@ contains
     call require(allocated(self%heads),'SGDClassifier is not fitted'); call check_x(x)
     call require(size(x,2)==self%n_features_in_,'SGDClassifier feature count mismatch')
     scores=matmul(x,transpose(self%coef_))+spread(self%intercept_,1,size(x,1))
+  end function
+  function sgdc_log_proba(self,x) result(values)
+    class(sgd_classifier), intent(in) :: self
+    real(dp), intent(in) :: x(:,:)
+    real(dp), allocatable :: values(:,:)
+    integer :: i,j
+    values=self%predict_proba(x)
+    do j=1,size(values,2)
+      do i=1,size(values,1)
+        if(values(i,j)>0) then
+          values(i,j)=log(values(i,j))
+        else
+          values(i,j)=ieee_value(0._dp,ieee_negative_inf)
+        end if
+      end do
+    end do
   end function
   function sgdc_predict(self,x) result(y)
     class(sgd_classifier), intent(in) :: self

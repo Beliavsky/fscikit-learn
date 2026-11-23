@@ -8,6 +8,7 @@ module sklearn_voting
     passive_aggressive_classifier,passive_aggressive_regressor
   use sklearn_ridge_classification, only: ridge_classifier
   use sklearn_sgd, only: sgd_classifier,sgd_regressor
+  use sklearn_sgd_clone, only: reset_sgd_fit
   use sklearn_naive_bayes, only: gaussian_nb,multinomial_nb
   use sklearn_neighbors, only: kneighbors_classifier,kneighbors_regressor
   use sklearn_tree, only: decision_tree_classifier,decision_tree_regressor
@@ -159,6 +160,7 @@ contains
     allocate(self%estimators_(size(self%active_indices_)))
     do i=1,size(self%estimators_)
       self%estimators_(i)=estimators(self%active_indices_(i))
+      call reset_sgd_fit(self%estimators_(i)%estimator)
       call train_classifier(self%estimators_(i)%estimator,x,encoded,sample_weight)
     end do
     self%n_features_in_=size(x,2); self%configured_count_=size(estimators); self%fitted_=.true.
@@ -177,6 +179,7 @@ contains
     allocate(self%estimators_(size(self%active_indices_)))
     do i=1,size(self%estimators_)
       self%estimators_(i)=estimators(self%active_indices_(i))
+      call reset_sgd_fit(self%estimators_(i)%estimator)
       call train_regressor(self%estimators_(i)%estimator,x,y,sample_weight)
     end do
     self%n_features_in_=size(x,2); self%configured_count_=size(estimators); self%fitted_=.true.

@@ -1,6 +1,7 @@
 ! Bagging: sklearn 1.6.1 ensemble/_bagging.py and _base.py (BSD-3-Clause).
 ! Dense native adaptation; see THIRD_PARTY_NOTICES.md and LICENSES.
 module sklearn_bagging
+  use sklearn_sgd_clone, only: reset_sgd_fit
   use sklearn_composite_scores, only: score_weights,regression_score
   use sklearn_weighted_linear, only: weighted_linear
   use sklearn_common, only: dp,require,check_xy,check_x,unique_labels,label_index,dense_svd
@@ -123,6 +124,7 @@ contains
     if(allocated(self%estimator_)) deallocate(self%estimator_)
     if(present(estimator)) then
       allocate(self%estimator_,source=estimator)
+      call reset_sgd_fit(self%estimator_)
     else if(classifier) then
       allocate(self%estimator_,source=default_c)
     else
@@ -148,6 +150,7 @@ contains
     do b=old+1,self%n_estimators
       seed=rng%integer_index(2147483647)-1; seeds(b)=seed
       allocate(members(b)%estimator,source=self%estimator_)
+      call reset_sgd_fit(members(b)%estimator)
       call seed_base(members(b)%estimator,seed)
       call draw_rng%seed(seed)
       features(b)%values=sample_indices(draw_rng,p,nf,self%bootstrap_features)

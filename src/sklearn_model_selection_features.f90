@@ -1,6 +1,7 @@
 ! SelectFromModel contracts: sklearn 1.6.1 feature_selection/_from_model.py
 ! and _base.py (BSD-3-Clause). Native adapters are original MIT contributions.
 module sklearn_model_selection_features
+  use sklearn_sgd_clone, only: reset_sgd_fit
   use sklearn_common, only: dp,require,check_x,check_xy,argsort
   use sklearn_feature_extraction, only: feature_string
   use sklearn_linear_model, only: linear_regression,ridge,elastic_net,lasso,elastic_net_cv,lasso_cv, &
@@ -426,23 +427,7 @@ contains
   end subroutine
   subroutine reset_incremental(model)
     class(*), intent(inout) :: model
-    type(sgd_regressor) :: reg
-    type(sgd_classifier) :: clf
-    select type(model)
-    type is(sgd_regressor)
-      reg%loss=model%loss;reg%penalty=model%penalty;reg%learning_rate=model%learning_rate
-      reg%alpha=model%alpha;reg%eta0=model%eta0;reg%power_t=model%power_t;reg%epsilon=model%epsilon;reg%tol=model%tol
-      reg%max_iter=model%max_iter;reg%n_iter_no_change=model%n_iter_no_change;reg%average=model%average
-      reg%random_state=model%random_state;reg%fit_intercept=model%fit_intercept;reg%shuffle=model%shuffle
-      model=reg
-    type is(sgd_classifier)
-      clf%loss=model%loss;clf%penalty=model%penalty;clf%learning_rate=model%learning_rate
-      clf%alpha=model%alpha;clf%eta0=model%eta0;clf%power_t=model%power_t;clf%tol=model%tol
-      clf%max_iter=model%max_iter;clf%n_iter_no_change=model%n_iter_no_change;clf%average=model%average
-      clf%random_state=model%random_state;clf%fit_intercept=model%fit_intercept;clf%shuffle=model%shuffle
-      clf%class_weight_balanced=model%class_weight_balanced
-      model=clf
-    end select
+    call reset_sgd_fit(model)
   end subroutine
   subroutine fit_regression(self,x,y,estimator,sample_weight,feature_names)
     class(select_from_model), intent(inout) :: self

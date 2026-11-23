@@ -6,6 +6,7 @@ module sklearn_search_adapters
     probabilities,decisions,base_classes,base_decision
   use sklearn_linear_model, only: linear_regression,ridge,elastic_net,logistic_regression,tweedie_regressor
   use sklearn_sgd, only: sgd_classifier,sgd_regressor
+  use sklearn_sgd_clone, only: reset_sgd_fit
   use sklearn_naive_bayes, only: gaussian_nb,multinomial_nb
   use sklearn_neighbors, only: kneighbors_classifier,kneighbors_regressor
   use sklearn_tree, only: decision_tree_classifier,decision_tree_regressor
@@ -24,8 +25,23 @@ module sklearn_search_adapters
   implicit none
   private
   public :: search_classifier,set_search_params,fit_search_native,search_regression,search_labels
+  public :: reset_search_clone
   public :: search_probabilities,search_decisions,search_classes,native_search_score
 contains
+  recursive subroutine reset_search_clone(model)
+    class(*), intent(inout) :: model
+    integer :: i
+    select type(model)
+    type is(pipeline)
+      if(allocated(model%steps)) then
+        do i=1,size(model%steps)
+          if(allocated(model%steps(i)%model)) call reset_search_clone(model%steps(i)%model)
+        end do
+      end if
+    class default
+      call reset_sgd_fit(model)
+    end select
+  end subroutine
   recursive logical function search_classifier(model) result(classifier)
     class(*), intent(in) :: model
     classifier=base_supported(model,.true.)
@@ -153,6 +169,12 @@ contains
       end select
     type is(sgd_regressor)
       select case(name)
+      case('epsilon');model%epsilon=value%as_real()
+      case('l1_ratio');model%l1_ratio=value%as_real()
+      case('warm_start');model%warm_start=value%as_logical()
+      case('average');model%average=value%as_integer()
+      case('random_state');model%random_state=value%as_integer()
+      case('n_iter_no_change');model%n_iter_no_change=value%as_integer()
       case('alpha');model%alpha=value%as_real()
       case('eta0');model%eta0=value%as_real()
       case('power_t');model%power_t=value%as_real()
@@ -167,6 +189,12 @@ contains
       end select
     type is(sgd_classifier)
       select case(name)
+      case('epsilon');model%epsilon=value%as_real()
+      case('l1_ratio');model%l1_ratio=value%as_real()
+      case('warm_start');model%warm_start=value%as_logical()
+      case('average');model%average=value%as_integer()
+      case('random_state');model%random_state=value%as_integer()
+      case('n_iter_no_change');model%n_iter_no_change=value%as_integer()
       case('alpha');model%alpha=value%as_real()
       case('eta0');model%eta0=value%as_real()
       case('power_t');model%power_t=value%as_real()

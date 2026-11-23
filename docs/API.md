@@ -1119,7 +1119,7 @@ model%average = 1
 call model%partial_fit(x(:10,:),y(:10))
 call model%partial_fit(x(11:,:),y(11:))
 predictions = model%predict(x)
-! Alternatively call model%fit(x,y), which resets all accumulated state.
+! Alternatively call model%fit(x,y); warm_start controls reuse between fits.
 ```
 
 Set tol=-1 to disable fit stopping. Ordered updates are the default; sklearn's
@@ -1146,7 +1146,7 @@ predictions = model%predict(x)
 probabilities = model%predict_proba(x)
 ```
 
-fit infers classes and resets state. First streaming batches may contain only
+fit infers classes; warm_start controls reuse between fits. First streaming batches may contain only
 one of the declared classes. Class weights are optional per-call arguments;
 balanced weighting is supported by fit. See COVERAGE.md for defaults, layouts,
 probability-supported losses and supported SGD controls.
@@ -1166,6 +1166,36 @@ adaptive rate reductions are local to each fitting call. Defaults remain
 ordered inverse scaling. With `shuffle=.true.`, scalar nonnegative integer
 seeds now reproduce sklearn's NumPy seed draws, forward xorshift permutations,
 and per-class OVR streams, without changing the global Fortran RNG.
+
+Both estimators expose `warm_start=.false.`. Each `fit` restarts the sample
+clock at one, whereas `partial_fit` advances the existing clock. Optional
+`coef_init` and `intercept_init` seed a cold fit. Regression uses a coefficient
+vector and scalar intercept; classification accepts a class-by-feature matrix
+and intercept vector. Binary classifiers also accept flattened coefficient
+vectors, arbitrary two-dimensional coefficient shapes with the correct total
+size (flattened in C order), and scalar intercepts. Multiclass initializers
+must match `(n_classes,n_features)` and `(n_classes)`.
+
+Warm classifier fits reuse the published coefficients and intercepts unless
+explicit initializers override them; averaged classifier fits restart their
+averaging buffers. As in sklearn 1.6.1, warm regressor fits ignore newly supplied
+initializers once fitted and retain their standard/average buffers. The sample
+clock and per-call optimizer state restart. The regressor's averaging configuration must remain fixed
+across warm fits. Inputs and initializer arrays are preserved.
+
+Classifier losses now include `squared_error`, `huber`, `epsilon_insensitive`
+and `squared_epsilon_insensitive` in addition to hinge, squared hinge,
+perceptron, log loss and modified Huber. `epsilon=.1` controls Huber and
+epsilon-insensitive losses. `predict_log_proba` is available for log loss and
+modified Huber; zero probabilities return IEEE negative infinity without
+triggering floating-point traps.
+
+Wrappers that train fresh estimator clones discard fitted SGD state and retain
+all constructor controls, including epsilon/l1_ratio/warm_start. This includes
+CV/search clones of nested pipeline steps. Direct pipeline fits retain warm
+SGD tails, while existing prefit wrapper modes retain fitted bases. Search
+accepts epsilon, l1_ratio, warm_start, average, random_state and n_iter_no_change
+for SGD, including nested pipeline parameter names.
 
 
 ## Group-aware and predefined validation

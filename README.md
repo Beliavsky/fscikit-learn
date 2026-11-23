@@ -294,3 +294,7 @@ SGD regression and classification now support L1/elastic-net penalties,
 optimal/adaptive learning rates, source-compatible lazy averaging and seeded
 shuffling. See [the example](example/regularized_sgd.f90) and
 [the SGD controls](docs/API.md#streaming-sgd-classification).
+
+SGD also supports warm fits, explicit coefficient/intercept initialization,
+all nine classifier losses and log probabilities. See
+[the warm-start example](example/warm_started_sgd.f90).

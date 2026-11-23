@@ -1,0 +1,41 @@
+! Parameter-only SGD copies for native sklearn-style clone sites (MIT).
+! Preserve constructor controls and discard learned state, as sklearn.base.clone.
+module sklearn_sgd_clone
+  use sklearn_sgd, only: sgd_regressor,sgd_classifier
+  implicit none
+  private
+  public :: clone_sgd_parameters,reset_sgd_fit
+  interface clone_sgd_parameters
+    module procedure clone_sgdr_parameters,clone_sgdc_parameters
+  end interface
+contains
+  function clone_sgdr_parameters(source) result(model)
+    type(sgd_regressor), intent(in) :: source
+    type(sgd_regressor) :: model
+    model%loss=source%loss;model%penalty=source%penalty;model%learning_rate=source%learning_rate
+    model%alpha=source%alpha;model%eta0=source%eta0;model%power_t=source%power_t
+    model%epsilon=source%epsilon;model%tol=source%tol;model%l1_ratio=source%l1_ratio
+    model%max_iter=source%max_iter;model%n_iter_no_change=source%n_iter_no_change;model%average=source%average
+    model%random_state=source%random_state;model%fit_intercept=source%fit_intercept
+    model%shuffle=source%shuffle;model%warm_start=source%warm_start
+  end function
+  function clone_sgdc_parameters(source) result(model)
+    type(sgd_classifier), intent(in) :: source
+    type(sgd_classifier) :: model
+    model%loss=source%loss;model%penalty=source%penalty;model%learning_rate=source%learning_rate
+    model%alpha=source%alpha;model%eta0=source%eta0;model%power_t=source%power_t
+    model%epsilon=source%epsilon;model%tol=source%tol;model%l1_ratio=source%l1_ratio
+    model%max_iter=source%max_iter;model%n_iter_no_change=source%n_iter_no_change;model%average=source%average
+    model%random_state=source%random_state;model%fit_intercept=source%fit_intercept
+    model%shuffle=source%shuffle;model%warm_start=source%warm_start;model%class_weight_balanced=source%class_weight_balanced
+  end function
+  subroutine reset_sgd_fit(model)
+    class(*), intent(inout) :: model
+    select type(model)
+    type is(sgd_regressor)
+      model=clone_sgd_parameters(model)
+    type is(sgd_classifier)
+      model=clone_sgd_parameters(model)
+    end select
+  end subroutine
+end module

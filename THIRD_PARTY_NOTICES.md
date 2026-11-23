@@ -1204,3 +1204,26 @@ forward Fisher-Yates and unsigned xorshift follow the following sources:
 
 The existing attributed NumPy-compatible MT19937 backend is reused. No
 dependency was added; the project remains MIT with retained BSD notices.
+
+
+## SGD warm fits, initialization and additional losses (BSD)
+
+`src/sklearn_sgd.f90` further adapts sklearn 1.6.1
+`linear_model/_stochastic_gradient.py`: BaseSGD parameter allocation,
+SGDRegressor/SGDClassifier repeated-fit initialization, warm-start distinctions,
+clock resets, binary initializer flattening, all nine classifier loss mappings
+and `predict_log_proba`. Regression warm fits preserve the source's existing
+standard/average buffers and ignore newly supplied initializers once fitted;
+classifier warm fits allocate from the published coefficients, with explicit
+initializers taking precedence. Huber and epsilon-insensitive classifier losses
+reuse the already attributed `_sgd_fast.pyx.tp` loss formulas. The source hashes
+are unchanged from the retained SGD notices above. Original contributions
+remain MIT, with complete sklearn BSD terms in `LICENSES/scikit-learn-COPYING`.
+
+
+`src/sklearn_sgd_clone.f90` is an original MIT implementation of SGD parameter-only
+copying, following the `sklearn.base.clone` contract. Clone sites in native
+multioutput, multiclass, voting/bagging/stacking, thresholding, feature selection,
+validation and search reuse it; prefit branches preserve trained state. The
+parameter adapters and recursive pipeline traversal are original typed Fortran
+code. No additional third-party code or dependency was imported.
