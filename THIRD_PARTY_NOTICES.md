@@ -1301,3 +1301,16 @@ The complete sklearn BSD terms remain in LICENSES/scikit-learn-COPYING.
 Typed rank overloads, matrix-returning prediction adapters, diagnostics,
 analytic tests, example and validation harness are original MIT contributions.
 No new dependency or extension estimator was added.
+
+
+## Incremental multilayer perceptrons (BSD)
+
+The incremental MLP paths further adapt sklearn 1.6.1
+`neural_network/_multilayer_perceptron.py` (_fit, _fit_stochastic, partial_fit
+and _validate_input), `_stochastic_optimizers.py` (cached optimizer fields and
+iteration updates) and `utils/multiclass.py` (_check_partial_fit_first_call).
+Existing full sklearn/SciPy BSD notices apply. The typed rank adapters, native
+optimizer diagnostics and snapshot storage, tests, example and validation
+harness are original MIT contributions. Installed-source hashes are retained
+with validation results. No new dependency or public extension estimator was
+introduced.

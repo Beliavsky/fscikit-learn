@@ -27,7 +27,13 @@ module sklearn_neural_network
     character(16) :: solver="adam",learning_rate="constant",out_activation_="identity"
     logical :: shuffle=.true.,nesterovs_momentum=.true.,warm_start=.false.
     integer :: no_improvement_count_=0
-    logical :: multilabel_=.false.
+    logical :: multilabel_=.false.,optimizer_ready_=.false.
+    character(16) :: optimizer_kind_='',optimizer_schedule_='constant'
+    real(dp) :: optimizer_rate_=0,optimizer_eta0_=0,optimizer_beta1_=0,optimizer_beta2_=0,optimizer_epsilon_=0
+    real(dp) :: optimizer_momentum_=0,optimizer_power_=0
+    logical :: optimizer_nesterov_=.false.
+    integer(int64) :: optimizer_step_=0
+    type(dense_layer), allocatable :: optimizer_saved_layers_(:)
     character(16) :: activation='relu'
     logical :: converged_=.false.
     type(dense_layer), allocatable :: layers_(:)
@@ -40,6 +46,8 @@ module sklearn_neural_network
   contains
     procedure, private :: fit_vector=>mlpc_fit,fit_indicator=>mlpc_fit_indicator
     generic :: fit=>fit_vector,fit_indicator
+    procedure, private :: partial_vector=>mlpc_partial_vector,partial_indicator=>mlpc_partial_indicator
+    generic :: partial_fit=>partial_vector,partial_indicator
     procedure :: predict_proba=>mlpc_proba
     procedure :: predict_log_proba=>mlpc_log_proba
     procedure :: predict=>mlpc_predict
@@ -51,6 +59,8 @@ module sklearn_neural_network
   contains
     procedure, private :: fit_vector=>mlpr_fit,fit_matrix=>mlpr_fit_matrix
     generic :: fit=>fit_vector,fit_matrix
+    procedure, private :: partial_vector=>mlpr_partial_vector,partial_matrix=>mlpr_partial_matrix
+    generic :: partial_fit=>partial_vector,partial_matrix
     procedure :: predict=>mlpr_predict
     procedure :: predict_multioutput=>mlpr_predict_matrix
     procedure, private :: score_vector=>mlpr_score,score_matrix=>mlpr_score_matrix
@@ -117,11 +127,14 @@ contains
     real(dp) :: bound
     call controls(self)
     sizes=[p,self%hidden_layer_sizes,outputs]
+    if(self%solver=='lbfgs'.and.self%optimizer_ready_.and.allocated(self%layers_)) then
+      if(.not.allocated(self%optimizer_saved_layers_)) self%optimizer_saved_layers_=self%layers_
+    end if
     if(allocated(self%layers_)) deallocate(self%layers_)
     allocate(self%layers_(size(sizes)-1)); call rng%seed(self%random_state)
     self%n_features_in_=p;self%n_outputs_=outputs;self%n_layers_=size(sizes);self%t_=0
     self%n_iter_=0;self%n_function_evaluations_=0;self%optimization_message_=''
-    self%no_improvement_count_=0
+    if(self%solver/='lbfgs') self%no_improvement_count_=0
     if(allocated(self%gradient_)) deallocate(self%gradient_)
     if(allocated(self%previous_parameters_)) deallocate(self%previous_parameters_)
     self%previous_loss_=0
@@ -142,6 +155,7 @@ contains
       end do
       self%layers_(l)%m=0; self%layers_(l)%v=0; self%layers_(l)%mb=0; self%layers_(l)%vb=0
     end do
+    if(self%solver=='lbfgs'.and.allocated(self%optimizer_saved_layers_)) call restore_optimizer(self,.false.)
   end subroutine
   subroutine forward(self,x,classification,buffers)
     class(network_storage), intent(in) :: self
@@ -252,10 +266,7 @@ contains
     nbd=0;lower=0;upper=0;wa=0;iwa=0;isave=0;dsave=0;lsave=.false.;csave='';task='START';f=0;g=0
     accepted=point;self%previous_parameters_=point
     self%converged_=.false.
-    if(.not.preserve_history) then
-      self%best_loss_=0
-      if(allocated(self%loss_curve_)) deallocate(self%loss_curve_)
-    end if
+    ! Source L-BFGS leaves any pre-existing stochastic history and optimizer intact.
     do
       ! SciPy minimize defaults: memory=10, factr=1e7, maxls=20; tol maps to gtol.
       call setulb(d,memory,point,lower,upper,nbd,f,g,1.e7_dp,self%tol,wa,iwa,task,-1,csave,lsave,isave,dsave)
@@ -280,19 +291,58 @@ contains
     if(self%n_iter_==0) self%previous_loss_=self%loss_
     self%converged_=task(:4)=='CONV';self%optimization_message_=task
   end subroutine
-  subroutine train(self,x,target,classification)
+  subroutine reset_optimizer(self)
+    class(network_storage), intent(inout) :: self
+    integer :: l
+    if(allocated(self%optimizer_saved_layers_)) deallocate(self%optimizer_saved_layers_)
+    do l=1,size(self%layers_)
+      self%layers_(l)%m=spread(spread(0._dp,1,size(self%layers_(l)%weights,1)),2,size(self%layers_(l)%weights,2))
+      self%layers_(l)%v=self%layers_(l)%m
+      self%layers_(l)%mb=spread(0._dp,1,size(self%layers_(l)%bias));self%layers_(l)%vb=self%layers_(l)%mb
+    end do
+    self%optimizer_kind_=self%solver;self%optimizer_schedule_=self%learning_rate
+    self%optimizer_eta0_=self%learning_rate_init;self%optimizer_rate_=self%learning_rate_init
+    self%optimizer_beta1_=self%beta_1;self%optimizer_beta2_=self%beta_2;self%optimizer_epsilon_=self%epsilon
+    self%optimizer_momentum_=self%momentum;self%optimizer_nesterov_=self%nesterovs_momentum
+    self%optimizer_power_=self%power_t;self%optimizer_step_=0;self%optimizer_ready_=.true.
+  end subroutine
+  subroutine restore_optimizer(self,consume)
+    class(network_storage), intent(inout) :: self
+    logical, intent(in) :: consume
+    integer :: l
+    if(allocated(self%optimizer_saved_layers_)) then
+      if(consume) call require(size(self%optimizer_saved_layers_)==size(self%layers_), &
+        'MLP cached optimizer layer count mismatch')
+      do l=1,min(size(self%optimizer_saved_layers_),size(self%layers_))
+        self%layers_(l)%m=self%optimizer_saved_layers_(l)%m;self%layers_(l)%v=self%optimizer_saved_layers_(l)%v
+        self%layers_(l)%mb=self%optimizer_saved_layers_(l)%mb;self%layers_(l)%vb=self%optimizer_saved_layers_(l)%vb
+      end do
+      if(consume) deallocate(self%optimizer_saved_layers_)
+    end if
+    if(consume) then
+      do l=1,size(self%layers_)
+        call require(all(shape(self%layers_(l)%m)==shape(self%layers_(l)%weights)).and. &
+          size(self%layers_(l)%mb)==size(self%layers_(l)%bias),'MLP cached optimizer parameter shape mismatch')
+      end do
+    end if
+  end subroutine
+  subroutine train(self,x,target,classification,incremental)
     class(network_storage), intent(inout) :: self
     real(dp), intent(in) :: x(:,:),target(:,:)
     logical, intent(in) :: classification
+    logical, optional, intent(in) :: incremental
     type(activation_buffer), allocatable :: buffers(:)
     type(legacy_random_state) :: rng
     real(dp), allocatable :: gw(:,:),gb(:),prob(:,:),xb(:,:),yb(:,:)
     integer, allocatable :: order(:)
     real(dp) :: loss,rate,penalty,accumulated,eps
-    integer :: it,l,last,n,stale,bs,first,finish,m,step,i,j,tmp,history_size
-    logical :: reuse
+    integer :: it,l,last,n,stale,bs,first,finish,m,i,j,tmp,history_size,epochs
+    integer(int64) :: step
+    logical :: reuse,streaming
     call check_xy(x,size(target,1)); call check_x(target)
-    n=size(x,1);reuse=allocated(self%layers_).and.self%warm_start
+    streaming=.false.;if(present(incremental)) streaming=incremental
+    n=size(x,1);reuse=allocated(self%layers_).and.(self%warm_start.or.streaming)
+    epochs=self%max_iter;if(streaming) epochs=1
     if(reuse) then
       call controls(self)
       call require(size(x,2)==self%n_features_in_,'MLP warm fit feature count mismatch')
@@ -324,20 +374,20 @@ contains
     if(reuse) then
       call require(allocated(self%loss_curve_),'MLP stochastic history unavailable; use a cold fit after L-BFGS')
       history_size=size(self%loss_curve_)
-      self%loss_curve_=[self%loss_curve_,spread(0._dp,1,self%max_iter)]
+      self%loss_curve_=[self%loss_curve_,spread(0._dp,1,epochs)]
     else
-      history_size=0;self%loss_curve_=spread(0._dp,1,self%max_iter);self%best_loss_=huge(1._dp)
+      history_size=0;self%loss_curve_=spread(0._dp,1,epochs);self%best_loss_=huge(1._dp)
     end if
-    ! sklearn fit reconstructs the stochastic optimizer even when weights are warm.
-    do l=1,last
-      self%layers_(l)%m=spread(spread(0._dp,1,size(self%layers_(l)%weights,1)),2,size(self%layers_(l)%weights,2))
-      self%layers_(l)%v=self%layers_(l)%m
-      self%layers_(l)%mb=spread(0._dp,1,size(self%layers_(l)%bias));self%layers_(l)%vb=self%layers_(l)%mb
-    end do
-    stale=self%no_improvement_count_;step=0;self%converged_=.false.;rate=self%learning_rate_init
+    if(.not.streaming.or..not.self%optimizer_ready_) then
+      call reset_optimizer(self)
+    else
+      call restore_optimizer(self,.true.)
+    end if
+    stale=self%no_improvement_count_;step=self%optimizer_step_
+    self%converged_=.false.;rate=self%optimizer_rate_
     bs=min(200,n);if(self%batch_size>0) bs=min(self%batch_size,n)
     order=[(i,i=1,n)];eps=epsilon(1._dp)
-    do it=1,self%max_iter
+    do it=1,epochs
       if(self%shuffle) then
         do i=n,2,-1
           j=rng%integer_index(i);tmp=order(i);order(i)=order(j);order(j)=tmp
@@ -365,23 +415,25 @@ contains
             derivative(buffers(l)%values,self%activation)
         end do
         step=step+1
-        if(self%solver=='adam') rate=self%learning_rate_init*sqrt(1-self%beta_2**step)/(1-self%beta_1**step)
+        if(self%optimizer_kind_=='adam') &
+          rate=self%optimizer_eta0_*sqrt(1-self%optimizer_beta2_**step)/(1-self%optimizer_beta1_**step)
         do l=1,last
           gw=(matmul(transpose(buffers(l-1)%values),buffers(l)%delta)+self%alpha*self%layers_(l)%weights)/m
           gb=sum(buffers(l)%delta,dim=1)/m
-          if(self%solver=='adam') then
-            self%layers_(l)%m=self%beta_1*self%layers_(l)%m+(1-self%beta_1)*gw
-            self%layers_(l)%v=self%beta_2*self%layers_(l)%v+(1-self%beta_2)*gw**2
-            self%layers_(l)%mb=self%beta_1*self%layers_(l)%mb+(1-self%beta_1)*gb
-            self%layers_(l)%vb=self%beta_2*self%layers_(l)%vb+(1-self%beta_2)*gb**2
-            self%layers_(l)%weights=self%layers_(l)%weights-rate*self%layers_(l)%m/(sqrt(self%layers_(l)%v)+self%epsilon)
-            self%layers_(l)%bias=self%layers_(l)%bias-rate*self%layers_(l)%mb/(sqrt(self%layers_(l)%vb)+self%epsilon)
+          if(self%optimizer_kind_=='adam') then
+            self%layers_(l)%m=self%optimizer_beta1_*self%layers_(l)%m+(1-self%optimizer_beta1_)*gw
+            self%layers_(l)%v=self%optimizer_beta2_*self%layers_(l)%v+(1-self%optimizer_beta2_)*gw**2
+            self%layers_(l)%mb=self%optimizer_beta1_*self%layers_(l)%mb+(1-self%optimizer_beta1_)*gb
+            self%layers_(l)%vb=self%optimizer_beta2_*self%layers_(l)%vb+(1-self%optimizer_beta2_)*gb**2
+            self%layers_(l)%weights=self%layers_(l)%weights- &
+              rate*self%layers_(l)%m/(sqrt(self%layers_(l)%v)+self%optimizer_epsilon_)
+            self%layers_(l)%bias=self%layers_(l)%bias-rate*self%layers_(l)%mb/(sqrt(self%layers_(l)%vb)+self%optimizer_epsilon_)
           else
-            self%layers_(l)%m=self%momentum*self%layers_(l)%m-rate*gw
-            self%layers_(l)%mb=self%momentum*self%layers_(l)%mb-rate*gb
-            if(self%nesterovs_momentum) then
-              self%layers_(l)%weights=self%layers_(l)%weights+self%momentum*self%layers_(l)%m-rate*gw
-              self%layers_(l)%bias=self%layers_(l)%bias+self%momentum*self%layers_(l)%mb-rate*gb
+            self%layers_(l)%m=self%optimizer_momentum_*self%layers_(l)%m-rate*gw
+            self%layers_(l)%mb=self%optimizer_momentum_*self%layers_(l)%mb-rate*gb
+            if(self%optimizer_nesterov_) then
+              self%layers_(l)%weights=self%layers_(l)%weights+self%optimizer_momentum_*self%layers_(l)%m-rate*gw
+              self%layers_(l)%bias=self%layers_(l)%bias+self%optimizer_momentum_*self%layers_(l)%mb-rate*gb
             else
               self%layers_(l)%weights=self%layers_(l)%weights+self%layers_(l)%m
               self%layers_(l)%bias=self%layers_(l)%bias+self%layers_(l)%mb
@@ -398,18 +450,19 @@ contains
         stale=0
       end if
       self%best_loss_=min(self%best_loss_,self%loss_)
-      if(self%solver=='sgd'.and.self%learning_rate=='invscaling') &
-        rate=self%learning_rate_init/(real(self%t_,dp)+1)**self%power_t
+      if(self%optimizer_kind_=='sgd'.and.self%optimizer_schedule_=='invscaling') &
+        rate=self%optimizer_eta0_/(real(self%t_,dp)+1)**self%optimizer_power_
       if(stale>self%n_iter_no_change) then
-        if(self%solver=='sgd'.and.self%learning_rate=='adaptive'.and.rate>1.e-6_dp) then
+        if(self%optimizer_kind_=='sgd'.and.self%optimizer_schedule_=='adaptive'.and.rate>1.e-6_dp) then
           rate=rate/5;stale=0
         else
           self%converged_=.true.;exit
         end if
       end if
     end do
-    self%n_iter_=min(it,self%max_iter);self%loss_curve_=self%loss_curve_(:history_size+self%n_iter_)
+    self%n_iter_=min(it,epochs);self%loss_curve_=self%loss_curve_(:history_size+self%n_iter_)
     self%no_improvement_count_=stale
+    self%optimizer_rate_=rate;self%optimizer_step_=step
   end subroutine
   subroutine mlpc_fit(self,x,y)
     class(mlp_classifier), intent(inout) :: self
@@ -452,6 +505,8 @@ contains
     if(self%warm_start.and.allocated(self%layers_)) then
       call require(self%multilabel_,'MLP warm fit target kind mismatch')
       call require(size(y,2)==self%n_outputs_,'MLP warm fit indicator width mismatch')
+      call require(size(self%classes_)==size(y,2),'MLP warm fit class set mismatch')
+      call require(all(self%classes_==[(j-1,j=1,size(y,2))]),'MLP warm fit class set mismatch')
     end if
     self%multilabel_=.true.;self%classes_=[(j-1,j=1,size(y,2))]
     call train(self,x,real(y,dp),.true.)
@@ -577,5 +632,87 @@ contains
     end do
     v=v/size(y,2)
   end function
+
+  subroutine partial_classes(self,classes)
+    class(mlp_classifier), intent(inout) :: self
+    integer, optional, intent(in) :: classes(:)
+    integer, allocatable :: declared(:)
+    call require(self%solver/='lbfgs','MLP classifier partial_fit requires a stochastic solver')
+    call controls(self)
+    if(present(classes)) then
+      call require(size(classes)>0,'MLP partial_fit classes must be nonempty')
+      declared=unique_labels(classes)
+      if(allocated(self%classes_)) then
+        call require(size(declared)==size(self%classes_),'MLP partial_fit class declaration mismatch')
+        call require(all(declared==self%classes_),'MLP partial_fit class declaration mismatch')
+      else
+        self%classes_=declared
+      end if
+    else
+      call require(allocated(self%classes_),'MLP first partial_fit requires classes')
+    end if
+    call require(size(self%classes_)>=2,'MLP partial_fit needs at least two declared classes')
+  end subroutine
+  subroutine mlpc_partial_vector(self,x,y,classes)
+    class(mlp_classifier), intent(inout) :: self
+    real(dp), intent(in) :: x(:,:)
+    integer, intent(in) :: y(:)
+    integer, optional, intent(in) :: classes(:)
+    real(dp), allocatable :: target(:,:)
+    integer, allocatable :: current(:)
+    integer :: i,j
+    call partial_classes(self,classes);call check_xy(x,size(y))
+    if(allocated(self%layers_)) call require(.not.self%multilabel_,'MLP partial_fit target kind mismatch')
+    current=unique_labels(y)
+    if(self%warm_start) then
+      call require(size(current)==size(self%classes_),'MLP warm fit class set mismatch')
+      call require(all(current==self%classes_),'MLP warm fit class set mismatch')
+    end if
+    do i=1,size(current)
+      call require(any(self%classes_==current(i)),'MLP partial_fit contains an undeclared class')
+    end do
+    self%multilabel_=.false.
+    if(size(self%classes_)==2) then
+      allocate(target(size(y),1));target(:,1)=real(merge(1,0,y==self%classes_(2)),dp)
+    else
+      allocate(target(size(y),size(self%classes_)));target=0
+      do i=1,size(y)
+        j=label_index(self%classes_,y(i));target(i,j)=1
+      end do
+    end if
+    call train(self,x,target,.true.,.true.)
+  end subroutine
+  subroutine mlpc_partial_indicator(self,x,y,classes)
+    class(mlp_classifier), intent(inout) :: self
+    real(dp), intent(in) :: x(:,:)
+    integer, intent(in) :: y(:,:)
+    integer, optional, intent(in) :: classes(:)
+    integer :: j
+    if(size(y,2)==1) then
+      call mlpc_partial_vector(self,x,y(:,1),classes);return
+    end if
+    call partial_classes(self,classes);call check_xy(x,size(y,1))
+    call require(size(y,2)>0,'MLP indicator target width must be positive')
+    call require(all(y==0.or.y==1),'MLP indicator targets must be zero or one')
+    if(allocated(self%layers_)) then
+      call require(self%multilabel_,'MLP partial_fit target kind mismatch')
+      call require(size(y,2)==self%n_outputs_,'MLP warm fit indicator width mismatch')
+    end if
+    if(self%warm_start) call require(size(self%classes_)==size(y,2),'MLP warm fit class set mismatch')
+    do j=0,size(y,2)-1
+      call require(any(self%classes_==j),'MLP partial_fit contains an undeclared class')
+    end do
+    self%multilabel_=.true.;call train(self,x,real(y,dp),.true.,.true.)
+  end subroutine
+  subroutine mlpr_partial_vector(self,x,y)
+    class(mlp_regressor), intent(inout) :: self
+    real(dp), intent(in) :: x(:,:),y(:)
+    self%multilabel_=.false.;call train(self,x,reshape(y,[size(y),1]),.false.,.true.)
+  end subroutine
+  subroutine mlpr_partial_matrix(self,x,y)
+    class(mlp_regressor), intent(inout) :: self
+    real(dp), intent(in) :: x(:,:),y(:,:)
+    self%multilabel_=.false.;call train(self,x,y,.false.,.true.)
+  end subroutine
 
 end module

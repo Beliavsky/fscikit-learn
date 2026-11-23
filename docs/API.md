@@ -6504,7 +6504,7 @@ Native optimizer diagnostics are `n_function_evaluations_`, `converged_`,
 `previous_loss_`. Packed vectors contain every coefficient matrix in row-major
 order, then every bias vector. These extra diagnostic attributes support
 objective/gradient and termination checks and are not sklearn public fields.
-Changing solvers with a cold fit resets stale state; warm transitions retain the histories described below.
+A cold stochastic fit recreates its optimizer and history. L-BFGS retains any existing stochastic optimizer/history, including on cold fits, as detailed below.
 
 Long nonconvex optimization can yield different final parameters, predictions
 and work counts from SciPy's optimizer. The reference suite retains those
@@ -6528,8 +6528,9 @@ Warm calls retain `loss_curve_`, `best_loss_`, the native patience diagnostic
 `no_improvement_count_`, and a 64-bit `t_`. `n_iter_` counts only the latest
 call's epochs; `size(loss_curve_)` counts all retained epochs. A fresh shuffle
 stream uses the current integer seed without repeating initialization draws.
-Setting `warm_start=.false.` requests a new parameter initialization and fresh
-stochastic history/sample count.
+Setting `warm_start=.false.` requests new parameters and a fresh sample count.
+A cold stochastic fit also resets history and optimizer state; L-BFGS preserves
+existing stochastic history/cache as described under incremental fitting.
 
 Warm L-BFGS preserves existing stochastic history and `t_`, and resets its own
 iteration/evaluation counters. It can be followed by another stochastic warm
@@ -6569,3 +6570,50 @@ including binary probability expansion. Warm matrix fits require compatible
 target kind and output width; cold fits can change them. All supported MLP
 solvers and warm-start behavior apply. See
 [the example](../example/mlp_matrix_targets.f90) and [coverage details](COVERAGE.md).
+
+
+## Incremental multilayer perceptrons
+
+`mlp_regressor%partial_fit(x,y)` accepts vector or matrix responses.
+`mlp_classifier%partial_fit(x,y,classes=...)` accepts vector labels or indicator
+matrices. Adam/SGD perform exactly one epoch per call, retaining moments or
+velocities, optimizer step/rate state, loss history, patience state and the
+64-bit sample clock. `n_iter_` counts the current call (one epoch); each batch
+can still produce multiple optimizer steps.
+
+Declare all possible classifier classes on the first partial call. The array
+may be unsorted or contain duplicates; later declarations must identify the
+same set. Vector batches may contain only a subset of those classes unless
+`warm_start=.true.`, which activates sklearn's strict same-class-set check.
+For indicator matrices the normal declaration is `[0,1,...,n_labels-1]`.
+Existing fitted classifiers can omit the declaration. The native classifier
+subset continues to require at least two declared classes. Feature/output
+counts and target kind remain compatible across incremental calls.
+
+The cached optimizer retains its type and optimizer-specific settings until a
+regular stochastic fit creates a new optimizer. Thus changing public
+`learning_rate_init`, momentum/Nesterov, Adam betas/epsilon, inverse exponent or
+schedule between partial calls does not update the cache. Even changing the
+public stochastic solver leaves an existing cached optimizer in use. Alpha,
+activation, batching, shuffling, seed, tolerance and patience controls apply to
+the current call. Integer seeds restart the per-call shuffle stream; only the
+first call consumes initialization draws. Ordinary warm fits still recreate
+optimizer state while retaining weights/history.
+
+Native cached-state diagnostics include `optimizer_ready_`, `optimizer_kind_`,
+`optimizer_rate_`, `optimizer_step_` and the `optimizer_*` parameter fields.
+They represent sklearn private optimizer state rather than additional sklearn
+public parameters. Cached parameter shapes must remain compatible.
+
+L-BFGS classifier partial calls are rejected. Installed sklearn 1.6.1 exposes
+regression partial_fit with L-BFGS because of its availability predicate; that
+path performs a full bounded-iteration L-BFGS call, rather than one stochastic
+epoch, and is retained here. L-BFGS leaves existing stochastic history/cache
+intact. A cold L-BFGS fit reinitializes weights and sample count while preserving
+that history/cache; a later stochastic partial call can resume it. A newly
+created L-BFGS-only model has no stochastic history, so switching it to a
+stochastic partial/warm call requires a prior ordinary stochastic fit.
+
+See [the streaming example](../example/incremental_mlp.f90) and
+[coverage details](COVERAGE.md). Validation-set early stopping and sparse MLP
+input remain outside this interface.

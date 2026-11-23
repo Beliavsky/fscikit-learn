@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 221 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and fifty reference suites additionally check 1,594,588
+All types have native tests. One hundred and fifty-one reference suites additionally check 1,852,492
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -214,7 +214,7 @@ distances; cosine similarity; linear, RBF, polynomial and sigmoid kernels.
   SVR, NuSVC and one-class SVM are separate native types. Platt probability
   scaling and LIBSVM model-file compatibility are not provided.
 - MLP supports seeded minibatch Adam/SGD and full-data L-BFGS. Validation-set
-  early stopping, partial_fit and sparse input remain outside its interface. Floating-point rounding
+  early stopping and sparse input remain outside its interface. Floating-point rounding
   can amplify in sensitive trajectories; see the stochastic MLP increment below.
 - Gaussian-process kernel hyperparameters are fixed; no optimizer or kernel
   algebra interface. Only one real target and isotropic RBF are supported.
@@ -7839,3 +7839,72 @@ validator/executable hashes. All unrelated core modules and existing native
 test sources were unchanged. The full native inventory is 174 programs;
 execution in this increment selected the five MLP programs. Reports and logs
 remain locally under ignored validation/results.
+
+
+## Incremental MLP fitting and cached optimizer state
+
+Added vector/matrix partial_fit overloads to both MLP types. Adam/SGD partial
+calls run one epoch, retain moments/velocities and cached optimizer parameters,
+and append loss/patience/sample state. Ordinary cold or warm stochastic fits
+still create new optimizers. Cached type, rate, initial rate, Adam beta/epsilon
+and batch timestep, or SGD momentum/Nesterov/schedule/exponent, are retained
+until a regular stochastic fit refreshes them. Alpha, activation, batch size,
+shuffle, seed, tolerance and patience remain live per-call settings.
+
+Classifiers require a class declaration on the first partial call. Unsorted and
+duplicated declarations are normalized, later declarations must match, and
+vector batches can omit known classes. Source warm_start=True activates its
+stricter full-class-set requirement even for partial calls. Indicator targets
+use label-column declarations and the matrix-target prediction/score contracts.
+The existing native subset requires at least two declared classes. Continuing
+features, outputs, target mode and cached parameter layouts remain compatible.
+
+Integer seeds reset each call's shuffle stream; only initial training consumes
+Glorot draws. Adam's step counts batches across partial calls, while t_ counts
+samples and n_iter_ resets to the current call's one epoch. Inverse/adaptive
+rates and patience state carry between calls. Cached optimizer type is used
+even when a different stochastic solver or optimizer settings are subsequently
+assigned to public parameters, matching sklearn's existing _optimizer behavior.
+Native optimizer_* diagnostics expose this otherwise private source state.
+
+Cold L-BFGS behavior now also preserves existing stochastic history/cache, as
+sklearn 1.6.1 does: weights and sample count are reinitialized, but a later
+stochastic partial call can use the earlier moments/velocities and cached rate.
+Snapshot storage preserves those buffers while L-BFGS changes coefficients.
+Warm L-BFGS already retained that state. Classifier L-BFGS partial calls are
+unavailable. Installed sklearn 1.6.1's regressor availability predicate exposes
+partial_fit with L-BFGS; that observable path is retained as a complete
+iteration-limited L-BFGS call, with no stochastic epoch/sample increment.
+A newly created L-BFGS-only model still has no stochastic history to resume.
+
+The new suite checks 257,904 required groups across 1,368 workflows and 12,312
+fits: three seeds, scalar/joint regression, binary/multiclass/indicator targets,
+four activations, three architectures and six stochastic configurations, plus
+regression L-BFGS cases. Nine-stage histories mix repeated single-class/variable-
+size partial batches, changed public optimizer settings and solver names,
+regular warm/cold fits, cached-state refreshes, and cold L-BFGS handoffs.
+One-column vector/matrix adapters and nonstandard indicator class declarations
+are also exercised. Every layer's weights, biases and cached buffers, history,
+metadata, optimizer rates/parameters, predictions, probabilities and scores are
+compared. L-BFGS objective/Jacobian checks at native returned points remain.
+Twenty-one diagnostics cover declarations, unknown classes, target/input shape
+and kind, controls, unavailable history and classifier solver restrictions.
+
+The checked development run passed with no rounding exception: maximum
+coefficient error was 6.03e-15 and supplied-Jacobian error 4.45e-16. Native tests
+independently compare split SGD/Adam partial batches to equivalent minibatches,
+check cached-parameter/type retention, warm optimizer recreation, declared-class
+and indicator streaming, 64-bit clocks, preserved cold-L-BFGS state and the
+regression L-BFGS partial path. The streaming example reaches exact training
+classification with 180 partial calls, 180 retained epochs and 360 samples.
+The driver forwards all optimizer controls, including Nesterov, and reports use
+JSON-native class identifiers.
+
+Validation-set early stopping, sparse MLP inputs, alternative dtypes, arbitrary
+cached-layout changes and the existing single-class-estimator restriction
+remain outside this subset. Original code remains MIT with retained BSD
+attribution; no dependency or public extension estimator was added.
+
+Cumulative inventory: 221 public core types, 137 source modules, 175 native
+programs, 151 core reference suites / 1,852,492 retained required groups, and 56
+invalid-input registries / 3,982 cases. These remain API subsets.

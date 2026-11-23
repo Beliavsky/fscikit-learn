@@ -327,3 +327,9 @@ MLPs now support joint multioutput regression and multilabel indicator targets.
 Use the matrix prediction methods and target-rank score overloads shown in
 [the example](example/mlp_matrix_targets.f90) and
 [the API recipe](docs/API.md#mlp-matrix-targets).
+
+
+MLP `partial_fit` now retains Adam moments or SGD velocities across one-epoch
+calls, with declared-class streaming and matrix targets. See
+[the streaming example](example/incremental_mlp.f90) and
+[the incremental contract](docs/API.md#incremental-multilayer-perceptrons).
