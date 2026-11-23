@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 221 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and forty-one reference suites additionally check 1,050,643
+All types have native tests. One hundred and forty-two reference suites additionally check 1,071,235
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -7197,3 +7197,17 @@ The checked audit verifies 309 compiled-file digests, complete field inventories
 roundoff records, executable/validator/source and reference-binary hashes,
 and the seeded example outputs. Reports and logs remain in ignored
 validation/results. Release validation is recorded after its audit completes.
+
+
+Cumulative inventory: 221 public core types, 135 source modules, 165 native
+programs, 142 core reference suites / 1,071,235 groups, and 47 invalid-input
+registries / 3,801 cases. These remain API subsets; no public extension type or
+new dependency is counted. Only affected reference suites were rerun.
+
+Both checked and release profiles pass all 165 native programs, 21,015 affected
+reference groups and 39 diagnostic cases. Each runs the seeded density example
+and passes the final 309-file compiled-content audit. The release fixture
+inventory matches checked. Raw source/nonfinite outcomes and explicit tree
+roundoff records are retained per profile, with hashes of installed tree,
+NumPy RNG and SciPy special-function binaries. The cumulative reference total
+also retains results from previous batches.
