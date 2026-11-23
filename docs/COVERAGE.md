@@ -8232,3 +8232,30 @@ sklearn/NumPy BSD attribution and dependency inventory are unchanged.
 Cumulative inventory: 222 core public types, 138 source modules, 180 native
 programs, 156 reference suites / 2,557,042 retained required groups, and 61
 invalid-input registries / 4,047 cases. These remain API subsets.
+
+
+Final MeanShift seeding verification (2026-11-23): runtime-checked
+(`-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow`) and optimized release
+fpm builds compiled the project and each executed seven focused native programs:
+MeanShift seeding, modes/spectral clustering, clustering/decomposition,
+FeatureAgglomeration, BIRCH, Gaussian mixtures and Bayesian mixtures. All passed;
+the other 173 native programs were not executed in this batch.
+Three reference suites passed 23,137 required groups per profile: 17,382 new
+seeding/sampling groups, 231 existing mode/spectral/density groups and 5,524
+Bayesian mixture groups. All fourteen new rejection diagnostics passed.
+Fitted centers, labels and iteration counts matched exactly. Maximum seed errors
+were 7.11e-15 checked / 7.11e-15 release;
+maximum bandwidth errors were 1.78e-15 /
+1.78e-15. Both examples produced three clusters with no
+singleton fallback and a positive seeded subsampled bandwidth. The combined
+audit verified complete field inventories, 153 compiled source contents per
+profile, source/executable/validator hashes and unchanged unrelated core modules
+and existing native tests. Reports are retained locally under
+`validation/results/mean_shift_seeding_*`, including
+`mean_shift_seeding_final_audit.json`.
+
+Canonical builds in this batch used fpm 0.12.0. A checksum-verified private
+fpm 0.14.0 OpenMP executable and successful isolated four-job smoke build are
+retained under ignored `validation/results/tools` for future parallel builds.
+The global fpm installation remains unchanged; the README documents the optional
+upstream parallel-build command and corrects its stale public type count.
