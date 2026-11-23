@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 217 public estimator, transformer, and splitter types. Each is a
+There are 218 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and thirty-two reference suites additionally check 871,813
+All types have native tests. One hundred and thirty-three reference suites additionally check 886,045
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -60,7 +60,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | feature_selection | `select_from_model`, `variance_threshold`, `select_k_best`, `select_percentile`, `select_fpr`, `select_fdr`, `select_fwe`, `generic_univariate_select`, `sequential_feature_selector`, `rfe`, `rfecv`; `f_classif`, `f_regression`, `chi2`, `r_regression`, `mutual_info_classif`, `mutual_info_regression` | Model coefficient/tree-importance thresholds and stable caps; dense scores and masks; greedy forward/backward CV regression selection; coefficient-based recursive elimination and CV for regression/logistic classification; inverse transform fills dropped columns with zero; new statistical selectors include p-values and multiplicity control |
 | image | `patch_extractor`; `extract_patches_2d`, `reconstruct_from_patches_2d` | Exhaustive or seeded with-replacement image patches; grayscale and multichannel batches; source overlap averaging |
 | feature_extraction | `dict_vectorizer`, `feature_hasher` | Named numeric/categorical mappings; string lists; learned or hashed columns; real64 CSR and dense outputs |
-| feature_extraction_text | `count_vectorizer`, `tfidf_transformer`, `tfidf_vectorizer` | Dense unigram counts; ASCII alphanumeric/underscore tokens of length 2-128; sorted vocabulary; min/max document frequency, binary counts and max features; smoothed/unsmoothed IDF, sublinear TF, l1/l2/no normalization |
+| feature_extraction_text | `count_vectorizer`, `tfidf_transformer`, `tfidf_vectorizer`, `hashing_vectorizer` | Dense vocabulary/TF-IDF unigram counts with ASCII tokens of length 2-128; stateless CSR signed/binary hashed word, character and within-word character n-grams with dynamic token storage, ASCII analysis and English/custom stop words; l1/l2/no normalization |
 | dummy | `dummy_classifier`, `dummy_regressor` | Prior/most-frequent/stratified/uniform/constant classification; mean/median/quantile/constant regression |
 | kernel_ridge | `kernel_ridge` | Positive alpha; linear/RBF/polynomial/sigmoid kernels; no intercept |
 | discriminant_analysis | `linear_discriminant_analysis`, `quadratic_discriminant_analysis` | LDA offers LSQR, SVD and generalized-eigen classification/projection with fixed/automatic shrinkage and custom priors; QDA full/thin regularization and custom priors; solver-specific rank contracts are documented below |
@@ -6782,3 +6782,41 @@ Both final profiles pass all 154 native tests, 44,914 affected reference groups
 and 90 diagnostic cases (12 new plus 78 prior CD/MU). The examples match sklearn.
 The audit verifies 294 compiled-content digests per profile and unchanged
 existing decomposition arithmetic; see the [validation record](VALIDATION.md).
+
+## HashingVectorizer
+
+Added `hashing_vectorizer`, the sklearn 1.6.1 stateless text hashing estimator.
+It provides word/character/within-word-character n-grams, English/custom stop
+words, lowercasing, signed or unsigned hashes, binary mode and optional L1/L2
+row normalization. It uses existing MurmurHash3, FeatureHasher and CSR storage;
+there is no vocabulary, extra runtime dependency or public extension algorithm.
+Its native `analyze` method exposes the ordered analyzer tokens for inspection.
+The default million-feature result is sparse. CSR output feeds existing sparse
+Naive Bayes models directly.
+
+Analysis currently supports ASCII bytes only. Non-ASCII text/stop words receive
+a diagnostic. File/encoding callbacks, arbitrary token regexes/callables,
+Unicode/accent processing and general text pipeline dispatch remain outside
+this increment. `token_min_length` encodes an ASCII word regex. Character-array
+inputs trim trailing padding; dynamic `feature_string` inputs preserve exact
+content. Existing CountVectorizer/TF-IDF behavior is unchanged. See the
+[API contract](API.md#hashingvectorizer-text-features) and
+[CSR example](../example/hashed_text_documents.f90).
+
+The new suite retains 1,779 fixtures / 14,232 groups and 13 isolated diagnostics.
+It checks every analyzer token before hashing, exact CSR shapes/pointers/indices,
+numerical values, independent signed-hash reconstruction and normalization,
+plus stateless/dense adapter invariants. Cases include stored-zero cancellation,
+binary conversion after aggregation, empty rows, all ASCII controls, long tokens,
+all 318 English stop words and maximum-integer n-gram lengths. Cumulative core
+inventory is now 218 public types, 132 source modules, 155 native tests,
+133 reference suites / 886,045 groups and 41 invalid-input registries / 3,650
+cases. The separate legacy RNG suite remains excluded.
+
+Final checked and release profiles each pass all 155 native tests, 17,369
+affected reference groups and 53 diagnostics (13 new and 40 prior). Both
+examples match sklearn, including sparse NB predictions. The audit verifies
+296 compiled-content digests per profile, complete analyzer/group inventories,
+pinned source/validator/executable hashes and unchanged existing text/hash/CSR
+arithmetic. Only the affected suites were rerun; the separate legacy RNG suite
+remains excluded. See the [validation record](VALIDATION.md).

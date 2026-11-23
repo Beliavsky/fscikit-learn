@@ -6559,3 +6559,36 @@ audit checks 294 compiled-content digests per profile, complete new field
 inventories, executable/validator/source hashes and unchanged existing
 decomposition arithmetic. Logs, reports and audit scripts are archived in
 ignored `validation/results`, including `nonnegative_final_audit.json`.
+
+## HashingVectorizer
+
+Build the intended profile and pass its `reference_hashing_vectorizer_driver`
+executable to `compare_hashing_vectorizer.py --executable PATH --profile checked
+--report validation/results/hashing_vectorizer_checked.json` (or use `release`).
+The reference suite uses sklearn 1.6.1's public HashingVectorizer and built
+analyzers. It retains 1,779 fixtures / 14,232 groups and 13 native diagnostic
+cases. Tests compare all analyzer tokens in order, exact CSR metadata and index
+arrays, normalized values, independently reconstructed signed hash counts,
+row norms, stateless transforms and explicit dense adapters. Token fingerprints
+and pinned source/validator/executable hashes are retained in the JSON report.
+
+The grid covers all three analyzers, four n-gram ranges, three normalization
+modes, signs, binary/nonbinary counts, lowercasing, English/custom/no stop words,
+one/two-character token minima, exact/padded document adapters and sparse widths
+up to the default million features. Boundary fixtures cover ASCII controls,
+2,048-character tokens, every English stop word, cancellation zeros, short
+padded words and maximum-integer n-gram ranges. Unicode is explicitly outside
+the native analyzer domain and receives a diagnostic; it is not included in
+claims of source parity. Numeric comparisons use `rtol=2e-14`, `atol=1e-15`;
+CSR metadata and analyzer strings must match exactly. No numerical exceptions
+are accepted by this suite.
+
+Final checked and release runs each pass 155 native tests, 17,369 affected
+reference groups and 53 diagnostics. The affected group total includes 14,232
+new text-hashing groups, 2,945 prior feature-mapping/hash groups and 192
+integration groups. All 288,369 analyzer tokens and stored values match sklearn
+exactly in each profile; row-norm identity errors are below `4.5e-16`. Both sparse
+NB examples match source. The final audit checks 296 compiled-content digests
+per profile, complete analyzer/field inventories, pinned stop words, hashes and
+unchanged existing text/hash/CSR arithmetic. Artifacts and pre-fix logs are
+archived in ignored `validation/results`, including `hashing_text_final_audit.json`.

@@ -1,9 +1,10 @@
 module sklearn_feature_extraction_text
+  use sklearn_hashing_text, only: hashing_vectorizer
   use sklearn_common
   use sklearn_preprocessing, only: normalize
   implicit none
   private
-  public :: count_vectorizer,tfidf_transformer,tfidf_vectorizer
+  public :: count_vectorizer,tfidf_transformer,tfidf_vectorizer,hashing_vectorizer
   integer, parameter :: word_length=128
   type :: count_vectorizer
     logical :: lowercase=.true.,binary=.false.

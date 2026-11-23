@@ -6046,3 +6046,61 @@ apply to this function too.
 Only dense real64 inputs are supported. Python warnings, verbosity, named
 string loss selectors and sparse inputs are outside this interface. See
 `example/fixed_component_factorization.f90`.
+
+## HashingVectorizer text features
+
+`hashing_vectorizer` is exported by `sklearn_feature_extraction_text` and the
+`sklearn` facade. `transform` and `fit_transform` return real64 `csr_matrix`
+objects with the project's 1-based pointers and column indices. The default
+`n_features=1048576` is sparse; `transform_dense` and `fit_transform_dense`
+explicitly allocate a dense result. No vocabulary, IDF or learned state is stored.
+`transform` works before fitting. `fit` and `partial_fit` validate the native
+configuration and leave it unchanged; fitting does not analyze the documents.
+
+```fortran
+type(hashing_vectorizer) :: vectorizer
+type(csr_matrix) :: features
+vectorizer%n_features=1024
+vectorizer%ngram_max=2
+features=vectorizer%transform([character(24)::'a red apple','a blue ocean'])
+```
+
+Controls follow sklearn 1.6.1: `analyzer='word'`, `'char'` or `'char_wb'`,
+`ngram_min`/`ngram_max` (both default one), `lowercase=.true.`,
+`alternate_sign=.true.`, `binary=.false.` and `norm='l2'` (`'l1'` and `'none'`
+are also supported). The word analyzer uses ASCII letters, digits and underscore.
+`token_min_length=2` represents the default regex; positive N represents
+`(?u)\b\w{N,}\b` within the supported ASCII domain. Tokens and n-grams use dynamic
+storage without CountVectorizer's existing 128-character token limit.
+
+Set `english_stop_words=.true.` for sklearn's pinned 318-word English list,
+or assign a character array to `stop_words` for a custom list. These choices
+are mutually exclusive. Custom entries use their original case, with trailing
+Fortran padding ignored. Word stop filtering precedes n-gram construction.
+Character analyzers ignore word stop filtering and the word minimum length.
+Character analysis collapses whitespace runs of at least two characters to one
+space, preserving a single whitespace character. `char_wb` pads each whitespace
+word on both sides and emits a short padded word once when it is shorter than
+the requested n-gram length, matching sklearn.
+
+`analyze(document)` returns the exact ordered `feature_string` token sequence,
+corresponding to the result of applying sklearn's built analyzer. Character
+array document arguments discard trailing padding spaces. To preserve every
+byte, including trailing spaces, pass an array of `feature_string` records
+(imported from `sklearn_feature_extraction` or the facade) with allocated `%text`.
+A scalar `analyze` argument uses its entire supplied length. Empty documents and
+all-filtered rows are valid; an empty document sequence is rejected by transform.
+
+Hashing reuses the existing MurmurHash3/FeatureHasher implementation, including
+signed collisions, sorted CSR indices and explicit stored cancellation zeros.
+Binary mode fills every stored entry with one AFTER aggregation, including a
+stored zero, before row normalization. Zero rows remain zero. Nonnegative models
+such as MultinomialNB require `alternate_sign=.false.`; the example demonstrates
+feeding the resulting CSR features directly to that classifier.
+
+Text analysis currently accepts ASCII bytes only (including ASCII controls).
+Non-ASCII document/stop-word bytes receive a diagnostic; sklearn's Unicode
+preprocessing/tokenization is not implemented here. Custom regexes/callables,
+accent stripping, filename/file inputs, encoding/error policies, float32 output,
+Python warnings and general text-transformer pipeline dispatch are outside this
+interface. See `example/hashed_text_documents.f90`.

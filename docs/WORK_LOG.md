@@ -7196,3 +7196,50 @@ Inventory: 217 public types, 131 core modules, 154 native tests, 132 core refere
 suites and 871,813 groups. Forty invalid-input registries retain 3,637 cases.
 Only the affected suites above were rerun. The separate legacy RNG suite remains
 excluded and was not rerun.
+
+## Stateless text hashing
+
+Implemented sklearn 1.6.1 HashingVectorizer with word/character/within-word
+character n-grams, stop-word filtering, signed/binary counts, normalized CSR
+output and explicit dense adapters. The text module and facade re-export the
+new type. Existing MurmurHash3, FeatureHasher and CSR storage are reused without
+arithmetic changes. Dynamic strings preserve exact content; padded character
+arrays trim trailing spaces. Tokens use dynamic storage, and sparse output
+supports the default million-feature width without a vocabulary or IDF state.
+
+Added native tests, a stdin reference driver, a 1,779-fixture / 14,232-group
+public-sklearn comparison suite with 13 diagnostic cases, and a sparse NB
+classification example. Analyzer token order is checked before hashing,
+including all English stop words, ASCII controls, long/empty text and maximum
+integer n-gram ranges. A checked-DO boundary failure in the first development
+run was corrected using explicit guarded loop advancement; the test is retained.
+The obsolete build was stopped and restarted for the correction. The complete
+corrected development run compares all 288,369 analyzer tokens exactly, with
+maximum numeric differences below `4.5e-16` and no tolerance exceptions.
+
+ASCII analysis is an explicit current limit; Unicode receives a diagnostic.
+The original Fortran contributions remain MIT with retained sklearn BSD and
+stop-list attribution. No dependency or extension algorithm was added.
+
+Checked verification passed all 155 native tests, 17,369 affected reference
+groups and 53 diagnostics (13 new and 40 prior). Existing feature-mapping/hash
+regressions retain 2,945 groups and integration retains 192. All 288,369 analyzed
+tokens and stored values match sklearn exactly; row-norm identity errors remain
+below `4.5e-16`. The sparse NB example matches sklearn: shape `(4,1024)`, 16
+stored entries and predictions `[0,1]`. The checked audit verifies 296 compiled
+source-content digests, pinned stop words, all field/token inventories, hashes
+and unchanged existing text/hash/CSR arithmetic.
+
+Release verification passed all 155 native tests, the same 17,369 affected
+reference groups and 53 diagnostics. Both profiles match every analyzer token
+and stored value exactly, with row-norm identity errors below `4.5e-16`; both
+examples match sklearn. The final audit verifies 296 compiled-content digests
+per profile, all field/token inventories, source/validator/executable hashes,
+the pinned English stop list and unchanged existing text/hash/CSR arithmetic.
+Results, logs and audit scripts are archived in ignored `validation/results`,
+including `hashing_text_final_audit.json` and the retained pre-fix logs.
+
+Inventory: 218 public types, 132 core modules, 155 native tests, 133 core reference
+suites and 886,045 groups. Forty-one invalid-input registries retain 3,650 cases.
+Only the affected suites above were rerun. The separate legacy RNG suite remains
+excluded and was not rerun.

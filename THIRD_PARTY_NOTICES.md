@@ -1106,3 +1106,19 @@ The dense free `non_negative_factorization` adapter follows sklearn 1.6.1
 initialization. It reuses the attributed CD and MU kernels. Original Fortran
 interfaces, validation and tests are MIT contributions; retained sklearn BSD
 terms continue to apply to the translated algorithm contracts.
+
+### HashingVectorizer and text analyzers
+
+`src/sklearn_hashing_text.f90` translates the scikit-learn 1.6.1
+`feature_extraction/text.py` HashingVectorizer contract and its word/character/
+character-within-word analyzer algorithms. The 318-entry English stop-word table
+is copied from that release's `feature_extraction/_stop_words.py`. Copyright
+The scikit-learn developers; retained BSD-3-Clause terms are in
+`LICENSES/scikit-learn-COPYING`. Source SHA256 digests are pinned in the reference
+reports. Hashing reuses the already attributed native MurmurHash3 and
+FeatureHasher implementation. No additional upstream repository or runtime
+library is imported. Original Fortran interfaces, checked storage and tests
+remain MIT contributions. ASCII analysis is an explicit native limitation.
+The sklearn stop-list source credits the Glasgow Information Retrieval Group
+for the original English list, with source location
+`http://ir.dcs.gla.ac.uk/resources/linguistic_utils/stop_words`.

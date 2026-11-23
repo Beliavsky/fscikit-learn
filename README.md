@@ -259,3 +259,8 @@ The free `non_negative_factorization` API fits both factors or solves for W
 with H fixed, returning both factors and the iteration count. See
 [the fixed-component example](example/fixed_component_factorization.f90) and
 [the function contract](docs/API.md#free-nonnegative-matrix-factorization).
+
+`HashingVectorizer` supplies stateless word/character n-gram features as CSR,
+with stop words, signed collisions, binary mode and L1/L2 normalization. Text
+analysis currently accepts ASCII; see [the API contract](docs/API.md#hashingvectorizer-text-features)
+and [the CSR classification example](example/hashed_text_documents.f90).

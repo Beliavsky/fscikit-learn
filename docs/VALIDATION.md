@@ -7086,3 +7086,67 @@ Cumulative inventory is 217 public types, 131 core modules, 154 native tests,
 132 core reference suites / 871,813 retained groups and 40 invalid-input
 registries / 3,637 cases. Only the affected suites above were rerun; the separate
 42-group legacy RNG suite remains excluded and was not rerun.
+
+## HashingVectorizer
+
+Added sklearn 1.6.1's stateless HashingVectorizer in `sklearn_hashing_text`,
+re-exported through the existing text module and facade. It supports ASCII
+word/character/within-word character analysis; lowercasing; configurable n-grams
+and positive minimum word length; pinned English/custom stop words; signed,
+unsigned and binary counts; CSR output; explicit dense output; and L1/L2/no
+normalization. The two document adapters distinguish exact dynamic strings from
+right-padded Fortran character arrays. Empty documents are valid, and transform
+works before fitting. Existing CountVectorizer/TF-IDF, FeatureHasher, MurmurHash
+and CSR arithmetic are unchanged. No new runtime dependency was introduced.
+
+The reference suite compares 1,779 fixtures / 14,232 groups to the public
+HashingVectorizer and its built analyzers. It checks every ordered analyzer token,
+exact CSR metadata/indices, numerical values, an independent reconstruction from
+signed MurmurHash values, row norms and stateless/dense adapter invariants.
+Native tests cover stored-zero collision binarization and sparse default width.
+A CSR MultinomialNB example demonstrates downstream use with unsigned hashes.
+All 318 English stop words, ASCII controls, long tokens, empty rows, short padded
+words and maximum-integer n-gram requests are retained boundary cases.
+
+The first development run caught GNU Fortran's checked-DO rejection when the
+upper bound equals the maximum default integer, even with an immediate exit.
+The char_wb n-gram loop now uses guarded explicit advancement, and the native
+regression includes that maximum-bound request. The in-progress obsolete build
+was stopped for this source correction; its log and the original failing
+reference log remain archived separately. The corrected full development run
+passes all fixtures, comparing 288,369 analyzer tokens exactly and normalized
+values within `4.5e-16`. No tolerance exceptions or discarded fixtures are used.
+
+Original Fortran adapters and tests remain MIT; sklearn's BSD terms and English
+stop-list attribution are retained. Unicode analysis, accent/encoding options,
+custom regex/callable analyzers and general text pipeline dispatch remain outside
+the implemented interface and are explicitly documented.
+
+Checked verification passes all 155 native tests, 17,369 affected reference
+groups and 53 diagnostic cases: 14,232 new HashingVectorizer groups, 2,945 prior
+feature-mapping/hash groups and 192 integration groups, plus 13 new and 40 prior
+isolated diagnostics. The checked suite's stored numerical values match sklearn
+exactly; row-norm identity errors are at most `4.5e-16`. CSR metadata and all
+288,369 analyzer tokens match exactly. No numerical exceptions are accepted.
+The example matches sklearn's `(4,1024)` CSR result with 16 stored entries and
+predicted classes `[0,1]`.
+
+The checked audit verifies 296 compiled source-content digests (132 core modules,
+four vendor modules, 155 native tests, four drivers and the example), pinned
+English stop words, complete result-group inventories, analyzer fingerprints,
+source/validator/executable hashes and unchanged existing text/hash/CSR arithmetic.
+
+Release verification passes the same 155 native tests, 17,369 affected reference
+groups and 53 diagnostics. Stored values and every analyzer token match sklearn
+exactly; row-norm identity errors remain below `4.5e-16`. The release example
+matches the checked example and sklearn. The final audit verifies all 296
+compiled-content digests per profile, complete group inventories, all analyzer
+fingerprints, source/validator/executable hashes, the pinned English stop list,
+and unchanged existing text/hash/CSR arithmetic. Artifacts are archived in
+ignored `validation/results`, including `hashing_text_final_audit.json`; the
+initial boundary failure and interrupted pre-fix build logs are retained.
+
+Cumulative inventory: 218 public core types, 132 modules, 155 native test
+programs, 133 core reference suites / 886,045 groups and 41 invalid-input
+registries / 3,650 retained cases. Only the affected suites above were rerun.
+The separate 42-group legacy RNG suite remains excluded and was not rerun.
