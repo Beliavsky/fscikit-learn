@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 221 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and forty reference suites additionally check 1,046,165
+All types have native tests. One hundred and forty-one reference suites additionally check 1,050,643
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -18,7 +18,7 @@ Global scope: dense real64 CPU arrays, integer classification labels, generally 
 per sample; cross-decomposition, multi-task regression and independent multioutput wrappers explicitly accept multiple response columns. General sparse estimator inputs, pandas integration, Python estimator cloning,
 metadata routing, parallel backends and binary model persistence are outside the
 initial translation. The neighbor graph transformers provide CSR graph outputs and
-accept CSR precomputed distances. Randomized TruncatedSVD and direct Multinomial/
+accept CSR precomputed distances, as does Isomap. Randomized TruncatedSVD and direct Multinomial/
 Bernoulli/Complement Naive Bayes, Normalizer/Binarizer and PolynomialFeatures also accept CSR matrices. Other estimator and
 meta-estimator inputs remain dense.
 Fortran identifiers use snake_case rather than CamelCase.
@@ -7069,3 +7069,30 @@ The isomap_distance_graphs example demonstrates radius component completion
 and CSR precomputed query projection. Original native algorithms remain MIT,
 with retained sklearn/SciPy BSD contract attribution. No new dependency,
 public estimator type or extension algorithm is introduced.
+
+Cumulative inventory: 221 public core types, 135 source modules, 164 native
+programs, 141 core reference suites / 1,050,643 groups, and 46 invalid-input
+registries / 3,767 cases. The new suite contributes 362 fixtures / 4,478 groups
+and 31 diagnostics. It spans three seeds, Euclidean/Manhattan/Minkowski metrics,
+fixed-count and radius graphs, all path choices, dense and CSR fit/query
+combinations, parameter changes after fitting, singleton and oversized fits,
+asymmetric/nonzero-diagonal distances, duplicate points and stored columns,
+zero edges, and the larger sparse auto-path branch.
+
+Nineteen source errors are retained and matched: 16 during fitting (disconnected
+CSR graphs and infinite p) and three empty-radius query reductions. Embedding
+and query Gram/cross-Gram matrices, positive eigenspaces and eigenvalues check
+the geometry without requiring the same valid eigenvector basis. Geodesic
+matrices, centering statistics, metadata, output names and input preservation
+are checked directly. Reconstruction errors are compared as squared residuals
+with an explicit floating-point accumulation bound. These fixtures produce no
+source NaN reconstruction errors.
+
+Checked and release profiles each pass all 164 native programs, 4,790 affected
+reference groups and 32 diagnostic cases (the new registry plus the existing
+Isomap neighbor-count rejection). Both execute the new example. The final
+audit verifies 308 compiled-file digests per profile, complete field inventories,
+source/validator/executable hashes, installed source provenance, the SciPy
+shortest-path binary hash, and unchanged non-Isomap modules and reconstruction
+error body. Reports and logs are retained in ignored validation/results. Only
+affected reference suites were rerun; cumulative counts retain earlier results.
