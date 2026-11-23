@@ -7267,3 +7267,21 @@ MIT licensing and third-party BSD notices remain intact.
 Cumulative inventory: 221 public core types, 136 source modules, 166 native
 programs, 143 core reference suites / 1,075,549 retained groups, and 48
 invalid-input registries / 3,830 cases. These remain API subsets.
+
+Final verification: both checked (`-fcheck=all -fbacktrace
+-ffpe-trap=invalid,zero,overflow`) and release profiles pass all 166 native
+programs, 6,246 affected reference groups and 75 isolated diagnostics. The
+reference total comprises 4,314 Barnes-Hut groups, 1,620 retained exact t-SNE
+groups, 120 graph/neighbor groups and 192 integration groups. The diagnostics
+comprise 29 new cases and 46 retained t-SNE/trustworthiness cases. All 72 full
+Barnes-Hut embeddings have zero discrepancy from sklearn in both profiles;
+all tested force gradients also match exactly. Both example runs produce KL
+0.610453724861145 and trustworthiness 0.9211111111111111. The previous exact
+example was rebuilt and retains its explicit exact solver.
+
+The final audit verifies 314 compiled source contents per profile, distinct
+checked/release driver binaries, complete fixture/field inventories, source
+and reference-binary hashes, the exported duplicate threshold, unchanged exact
+affinity/objective bodies and unchanged unrelated core modules. Detailed local
+reports and audit helpers remain under ignored `validation/results`, including
+`tsne_bh_final_audit.json`. The implementation is committed as `2b5c9fb`.
