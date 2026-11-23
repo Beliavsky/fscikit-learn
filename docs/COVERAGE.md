@@ -8031,7 +8031,7 @@ calls, checks duplicate/unsorted/zero/empty storage and every target-rank adapte
 and fits/queries a 4,000-by-100,000 CSR matrix whose dense representation would
 require 3.2 GB. The example demonstrates incremental sparse classification.
 The development suite passed all required groups and diagnostics; final
-checked/release verification is recorded below when complete.
+checked/release verification is recorded below.
 Single-class estimator construction, non-CSR sparse containers, alternative
 dtypes and arbitrary cached-layout changes remain outside this MLP subset.
 MIT licensing and retained sklearn BSD attribution continue; no dependency or
@@ -8040,3 +8040,25 @@ public extension estimator was introduced.
 Cumulative inventory: 221 public core types, 137 source modules, 177 native
 programs, 153 core reference suites / 2,279,164 retained required groups, and 58
 invalid-input registries / 4,011 cases. These remain API subsets.
+
+Final CSR MLP verification (2026-11-23): runtime-checked
+(`-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow`) and release builds
+compiled the project and executed eight focused MLP native programs each;
+all passed, including the 4,000-by-100,000 wide-input test. The other 169 native
+programs were not executed in this batch. Seven MLP reference suites passed
+906,336 required groups and 129 invalid-input diagnostics per profile. All
+237,456 new CSR groups passed strictly without rounding exceptions. Maximum
+coefficient errors were 8.00e-15 checked / 9.11e-15 release; 8,481 nonfinite
+source values matched, including absent best-score/best-loss representations
+and one-row regression validation histories. Existing warm-start rounding
+groups (7 each), stochastic rounding groups (12 checked / 13 release), L-BFGS
+endpoint differences (812 / 819 diagnostics) and two source-matched release
+line-search returns remain separately documented. All three MLP examples passed
+in both profiles: sparse classification stored 6 of 24 feature values and
+reached accuracy 1.0; incremental fitting retained 180 epochs/360 samples;
+validation stopping restored R2 0.99767682558853465 after 83 epochs.
+The final audit verified field inventories, 159 compiled source contents per
+profile, source/executable/validator hashes, absence of dense conversion in the
+MLP module, and unchanged unrelated modules/existing native tests. Reports are
+retained locally under `validation/results/mlp_sparse_*`, including
+`mlp_sparse_final_audit.json`.
