@@ -298,3 +298,9 @@ shuffling. See [the example](example/regularized_sgd.f90) and
 SGD also supports warm fits, explicit coefficient/intercept initialization,
 all nine classifier losses and log probabilities. See
 [the warm-start example](example/warm_started_sgd.f90).
+
+
+SGD regression and classification also accept CSR training, streaming batches
+and queries, including unsorted/duplicate storage and source sparse intercept
+updates. See [the sparse text SGD example](example/sparse_sgd_text.f90) and
+[the CSR contract](docs/API.md#csr-sgd-input-and-queries).

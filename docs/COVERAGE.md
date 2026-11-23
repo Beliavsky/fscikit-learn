@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 221 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and forty-five reference suites additionally check 1,236,748
+All types have native tests. One hundred and forty-six reference suites additionally check 1,372,828
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -7452,3 +7452,57 @@ source/validator/parser hashes, unchanged SGD loss/update routines and unchanged
 unrelated core modules and main diagnostics. Detailed local reports and audit
 helpers remain under ignored `validation/results`, including
 `sgd_fit_final_audit.json`. Implementation commit: `ebc8cdb`.
+
+
+## CSR SGD regression and classification batch
+
+Both SGD estimators now accept native CSR input for fit, partial_fit, prediction
+and scoring. Classifiers also support sparse decision_function, predict_proba
+and predict_log_proba. Dense and sparse batches/queries can be mixed using the
+same standard/averaged parameters, feature metadata and sample clock. The shared
+parameter preparation retains explicit initialization and warm-fit behavior.
+All existing losses, penalties, schedules, sample/class weights and averaging
+controls apply to CSR.
+
+The serial kernel visits stored entries in their original order for dot
+products, coefficient updates, averaging corrections and L1 truncation.
+Unsorted columns, duplicates, explicit zeros and empty rows are supported
+without canonicalization or densification. L2 decay remains lazy and applies
+even to zero-weight or empty rows. L1 truncation visits stored features only;
+implicit zeros and explicitly stored zeros therefore need not give the same
+trajectory. Sparse intercepts use the source multiplier 0.01, dense intercepts
+use 1.0. Each mixed-format batch uses its own input-format rules. These
+source-defined differences are retained rather than forcing dense/CSR equality.
+
+Model storage is O(n_features) per coefficient/averaging channel plus CSR data
+and outputs; training never constructs a dense samples-by-features matrix.
+Queries use CSR multiplication with dense coefficients. A native analytic test
+checks sparse intercept updates and stored-zero L1 behavior, mixed input/query
+formats, probabilities/scores and a million-feature CSR model. The sparse text
+example feeds signed HashingVectorizer features directly to logistic SGD.
+
+compare_sgd_csr.py contributes 136,080 strict source result groups across 6,480
+workflows and 19,440 fitting stages. Three seeds cover every applicable loss,
+all penalties/schedules, average thresholds 0/1/10 and both shuffle settings.
+Storage patterns include canonical CSR, explicit zeros, unsorted rows,
+duplicate/cancelling entries and entirely zero data. Additional histories mix
+dense/CSR partial_fit and warm fits, published-array replacement, all native
+initializer forms and both query formats. Coefficients, intercepts, predictions/
+decisions, labels, probabilities, log probabilities and clocks use 3.e-9
+relative and 3.e-10 absolute tolerances with explicit nonfinite masks, without
+trajectory certificates or alternative source oracles. Twenty-four new isolated
+CSR diagnostics cover structure, finite data, shapes, weights, initialization,
+queries and probability availability. Inputs and initializers are preserved.
+
+The full retained dense SGD and affected composition/reference suites are
+included in verification because dense and CSR paths share update/state code.
+Sparse outer pipelines, CV and composition entry points retain their existing
+dense input contracts; direct CSR SGD is available now. General sparse
+containers other than the native csr_matrix, validation-set early stopping,
+parallel OVR and previously documented averaging restrictions remain outside
+this subset. Original code stays MIT with retained sklearn BSD attribution.
+No dependency or public extension type was added.
+
+Cumulative inventory: 221 public core types, 137 source modules, 170 native
+programs, 146 core reference suites / 1,372,828 retained groups, and 51
+invalid-input registries / 3,882 cases. These remain API subsets.

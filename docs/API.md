@@ -1198,6 +1198,31 @@ accepts epsilon, l1_ratio, warm_start, average, random_state and n_iter_no_chang
 for SGD, including nested pipeline parameter names.
 
 
+## CSR SGD input and queries
+
+`sgd_regressor` and `sgd_classifier` accept `csr_matrix` in `fit`, `partial_fit`,
+`predict` and `score`. Classifiers also accept CSR in `decision_function`,
+`predict_proba` and `predict_log_proba`. The dense and CSR overloads share fitted
+state, initializers and warm-start controls; batches and queries can change
+format while preserving feature width and averaging configuration.
+
+Training visits stored entries in their original order. Unsorted columns,
+duplicate entries, explicit zeros and empty rows are retained. Sparse L1
+truncation visits only stored features, so dropping explicit zero entries can
+change an L1/elastic-net trajectory. Sparse intercept updates use sklearn's
+0.01 multiplier, while dense updates use 1.0. Consequently a CSR fit need not
+equal a dense fit of the same numerical matrix. Both follow their respective
+source paths. All nine classifier losses, four penalties and four schedules
+work with CSR, including averaging, sample weights and class weights.
+
+The estimators never form a dense samples-by-features matrix. Storage is
+proportional to the CSR entries and dense coefficient/averaging work vectors;
+queries use sparse matrix multiplication. Coefficients and public outputs remain
+dense. CSR arrays and initializer arrays are preserved. Validation checks the
+CSR structure, nonempty shape and finite stored data. Sparse outer pipelines,
+CV and composition interfaces remain limited by their existing dense input
+contracts; direct sparse SGD can consume CSR text-vectorizer output.
+
 ## Group-aware and predefined validation
 
 ```fortran

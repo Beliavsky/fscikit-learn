@@ -1227,3 +1227,16 @@ multioutput, multiclass, voting/bagging/stacking, thresholding, feature selectio
 validation and search reuse it; prefit branches preserve trained state. The
 parameter adapters and recursive pipeline traversal are original typed Fortran
 code. No additional third-party code or dependency was imported.
+
+
+## CSR stochastic gradient descent (BSD)
+
+The CSR paths in `src/sklearn_sgd.f90` further adapt sklearn 1.6.1
+`linear_model/_base.py` (`make_dataset` and SPARSE_INTERCEPT_DECAY),
+`utils/_seq_dataset.pyx.tp` (CSRDataset stored-row traversal),
+`linear_model/_sgd_fast.pyx.tp` and `utils/_weight_vector.pyx.tp`
+(stored-index updates, L1 truncation, lazy scaling and averaging).
+The existing recorded source hashes apply. Sparse intercepts use 0.01 scaling;
+explicit zeros and duplicate indices follow the stored-entry source contract.
+The native CSR storage and typed overloads are original MIT contributions.
+No additional dependency or public extension estimator was introduced.
