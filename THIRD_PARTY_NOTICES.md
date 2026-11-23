@@ -22,6 +22,7 @@ Reference paths by module:
 
 | Fortran module | scikit-learn reference |
 | --- | --- |
+| nmf_mu / decomposition | decomposition/_nmf.py _fit_multiplicative_update, _multiplicative_update_w/h, _beta_divergence and NMF fixed-H initialization; float32-epsilon denominator conventions, float64 factor cutoffs, ten-iteration stopping and sklearn 1.6.1 cached KL/L1 transform behavior. Research: D. D. Lee and H. S. Seung (2001), multiplicative NMF; C. Fevotte and J. Idier (2011), beta-divergence MM. Existing attributed NNDSVD/legacy-RNG initializer; original native checked real64 arithmetic |
 | decomposition (coordinate-descent NMF) | decomposition/_nmf.py NMF initialization, regularization scaling, alternating coordinate sweeps, projected-gradient stopping and fixed-component transform; decomposition/_cdnmf_fast.pyx projected coordinate update order and zero-Hessian handling. Reuses the attributed MiniBatchNMF NNDSVD initializer and NumPy-compatible legacy RNG. Native finite working-range diagnostics |
 | graphical_lasso_cv (covariance) | covariance/_graph_lasso.py refined CV grids and warm-start paths; covariance/_empirical_covariance.py likelihood and alpha-zero baseline; linear_model/_cd_fast.pyx zero-diagonal CD skip; model_selection/_split.py KFold; shared native Jacobi and IEEE environment helpers |
 | ordinal_encoding | preprocessing/_encoders.py numeric OrdinalEncoder, category grouping and inverse index conventions; utils/_encode.py counting contracts; shared native numeric category container from target_encoding |

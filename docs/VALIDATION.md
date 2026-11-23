@@ -6942,3 +6942,51 @@ above were rerun; these totals do not imply a full reference rerun. The separate
 42-group legacy RNG suite remains excluded and was not rerun. MIT licensing and
 retained sklearn/NumPy BSD attribution continue; no extension algorithm or
 runtime dependency is added.
+
+## Beta-divergence NMF multiplicative updates (2026-11-22)
+
+Both corrected profiles passed all 151 native test programs: checked mode used
+`-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow`, and release used fpm's
+release profile. Each passed 47,750 affected reference groups: 20,844 new MU
+groups, 20,214 CD regressions, 6,500 MiniBatchNMF groups and 192 integration
+groups. All 44 new MU and 34 existing CD rejection checks passed per profile.
+The CD registry now checks non-Frobenius-loss rejection in place of the earlier
+regularized-MU rejection, since regularized MU is now supported.
+
+The MU sweep retains 2,090 fixtures covering six initializers, nine primary beta
+losses, regularization, one/thirteen/converged iteration limits, fixed-H queries,
+auto/overcomplete counts, zero factors/entries, exact fits and epsilon-scale data.
+Public sklearn results and the actual upstream MU update/stopping functions are
+checked, along with independent objectives, nonnegativity and reconstruction.
+All 56 source-matching zero-H transform failures are retained.
+
+A targeted counterexample found powered results incorrectly clipped before
+rounding to a positive subnormal. After fixing the implementation, both complete
+profiles were rebuilt and rerun. A native regression and 24 boundary fixtures
+across beta 2.5, 3 and 4 use zero absolute tolerance and 3e-12 relative tolerance
+for W/H, preserving tiny nonzero coordinates. Initial pre-fix results are archived
+separately and are not used by the final audit.
+
+Six MU diagnostic certificates per profile bound cancellation in source
+square-root divergence reporting and independently compute the final mathematical
+divergence using 60-digit Decimal arithmetic from exact input floats. Sixteen
+existing CD stopping certificates also pass per profile. No fixture, factor
+comparison or objective comparison was dropped.
+
+Both explicit fpm KL example runs matched sklearn: 30 fit iterations, square-root
+divergence approximately 0.078976237024 and fixed-H code sum 10.859084336789.
+The final audit verifies full cross-profile field inventories, executable/
+validator/upstream hashes and 290 compiled-content digests per profile: 130 core
+modules, four vendor modules, 151 native tests, four reference drivers and the
+example. It also verifies unchanged CD numerical kernels, non-NMF decomposition
+procedure bodies and MiniBatchNMF source. Reports, terminal logs, example checks
+and orchestration/audit scripts are archived in ignored `validation/results`,
+including `nmf_mu_final_audit.json`.
+
+Cumulative inventory: 217 public core types, 130 core modules, 151 native tests,
+129 core reference suites and 858,153 retained groups. Thirty-eight invalid-input
+registries retain 3,595 cases. Only the affected references above were rerun;
+cumulative totals do not imply a full reference rerun. The separate 42-group
+legacy RNG suite remains excluded and was not rerun. Original interfaces and
+checked arithmetic remain MIT with retained sklearn/NumPy BSD attribution.
+No public extension algorithm or runtime dependency is added.

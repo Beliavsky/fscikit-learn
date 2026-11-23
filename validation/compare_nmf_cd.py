@@ -36,7 +36,7 @@ REJECTIONS = {
     'zero_h_transform': 'NMF transform components must not be all zero',
     'data_range': 'NMF data exceeds working range', 'factor_range': 'NMF factors exceed working range',
     'regularization_range': 'NMF regularization exceeds working range',
-    'mu_regularization': 'NMF regularization/shuffle controls require cd',
+    'cd_beta': 'NMF cd solver requires Frobenius beta_loss=2',
 }
 
 

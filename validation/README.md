@@ -6455,3 +6455,43 @@ per profile. Logs, reports and audit scripts are archived in ignored
 `validation/results`, including `nmf_cd_final_audit.json`. Cumulative counts are
 128 core reference suites and 837,309 groups; the separate 42-group legacy RNG
 suite remains excluded and was not rerun.
+
+## NMF multiplicative updates and beta divergences
+
+Build the reference driver first, then run the appropriate profile explicitly:
+
+```text
+python validation/compare_nmf_mu.py --executable build/gfortran_81A15A8739108A9E/app/reference_nmf_mu_driver.exe --profile checked --report validation/results/nmf_mu_checked.json
+python validation/compare_nmf_mu.py --executable build/gfortran_C983BD113DCA31CD/app/reference_nmf_mu_driver.exe --profile release --report validation/results/nmf_mu_release.json
+```
+
+The canonical sweep retains 2,090 fixtures across six initialization modes,
+nine primary beta values, tall/wide data, three regularization settings,
+one/thirteen/converged iteration limits, auto/overcomplete counts, custom zero
+factors, exact rank-one fits, zero entries and data below source epsilon.
+Twenty-four powered-underflow boundary fixtures retain zero absolute tolerance
+for factor comparisons and check rounding on both sides of the subnormal boundary.
+It checks public sklearn fit/transform results, replays the upstream MU updates
+and stopping rule, and independently checks reconstruction, nonnegativity and
+the regularized mathematical objective. Fixed-H KL/L1 caching is included.
+Forty-four isolated rejections cover controls, shapes, data/fitted-state domains
+and numerical working ranges without trapped arithmetic.
+
+Near an exact fit, source beta-divergence subtraction can cancel at floating-point
+precision before taking its square root. Any affected diagnostic comparison
+retains an explicit arithmetic-scale error bound and a separate 60-digit Decimal
+calculation from the exact input floats. All factors, objectives and fixture
+fields remain checked. Decimal is used because NumPy longdouble on this Windows
+build has float64 precision. Full reports record `start_fixture=0`; the optional
+`--start-fixture` switch is only for development debugging, and partial runs are
+not accepted by the final audit. Reports retain executable, validator, imported
+CD-validator and installed upstream SHA256 hashes.
+
+Final corrected checked and release builds each passed all 151 native tests,
+20,844 MU groups, 20,214 CD groups, 6,500 MiniBatchNMF groups, 192 integration
+groups and 78 rejection checks. Both explicit KL examples matched sklearn.
+The final audit verified 290 compiled-content digests per profile, complete
+field inventories, six MU Decimal certificates and sixteen CD stopping
+certificates per profile. Final artifacts are archived in ignored
+`validation/results/nmf_mu_final_audit.json` and companion files. Pre-subnormal-fix
+reports are retained separately and do not satisfy the final audit.

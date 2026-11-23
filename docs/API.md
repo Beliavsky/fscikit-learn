@@ -5906,11 +5906,50 @@ exact-zero stopping decision and iteration count relative to sklearn; reference
 validation retains those cases and certifies both projected gradients.
 
 Native defaults remain `solver='mu'`, `n_components=2`, `max_iter=1000` and
-`tol=1e-6`; these differ from sklearn 1.6.1 defaults. Existing MU arithmetic and
-runtime-RNG initialization are retained. Initialization options, regularization
-and shuffling in this addition require explicit `solver='cd'`; MU requires
-`init='auto'` with no supplied factors. There is no sparse CD input, beta-loss
-selection, free `non_negative_factorization` function, verbose output or Python
-warning protocol. CD data, factors and regularization are bounded conservatively
+`tol=1e-6`; these differ from sklearn 1.6.1 defaults. Both solvers now support
+the initialization and regularization controls above. CD requires `beta_loss=2`.
+There is no sparse CD input, free `non_negative_factorization` function, verbose
+output or Python warning protocol. CD data, factors and regularization are bounded conservatively
 within the real64 working range; unsupported extremes receive diagnostics.
 See `example/coordinate_descent_nmf.f90` for an exact rank-one custom fit.
+
+## Beta-divergence NMF multiplicative updates
+
+`nmf%solver='mu'` implements the dense sklearn 1.6.1 multiplicative-update/MM
+algorithm. Set numeric `beta_loss=2` for Frobenius, `1` for generalized KL, `0`
+for Itakura-Saito, or another finite real beta for the general divergence.
+Beta at most zero requires strictly positive training and query X. The MM
+exponent is `1/(2-beta)` for beta below one, `1/(beta-1)` above two and one
+otherwise. Prediction denominators follow source float32-epsilon flooring;
+small factors follow the source float64-epsilon stability cutoffs.
+
+MU shares `auto`, `random`, custom and NNDSVD initialization, automatic component
+counts and dimension-scaled L1/L2 regularization with CD. `shuffle` is accepted
+and ignored by MU, following sklearn. Integer seeds use the shared local legacy
+NumPy-compatible RNG. This replaces the earlier basic MU path's runtime-RNG
+initialization, update arithmetic and per-iteration stopping rule; the default
+parameter values remain unchanged.
+
+MU tests convergence every ten iterations, using the strict condition
+`(previous_error-error)/initial_error < tol`. The errors are square roots of
+twice the unpenalized beta divergence. `tol=0` disables this test. A zero-over-zero
+ratio does not converge, matching source IEEE semantics without a trapped
+division. Fitted native diagnostics `mu_initial_error_`, `mu_error_` and
+`mu_previous_error_` retain the initial, final and previous checkpoint errors.
+The checkpoint variable can equal the final error when the iteration limit is
+exhausted immediately after a checkpoint.
+`reconstruction_err_` is `mu_error_`, including for non-Frobenius losses. MU
+clears the CD diagnostics; CD clears the MU diagnostics.
+
+MU `transform` initializes every W entry to `sqrt(mean(X)/n_components_)`, holds
+H fixed and preserves fitted state. For KL with L1 regularization, sklearn 1.6.1
+adds the penalty in place to its cached H sum on successive transform sweeps;
+the native path follows that cumulative-denominator behavior. Each transform
+starts a fresh cache. All-zero fitted H is rejected as in sklearn.
+
+Inputs remain dense real64; sparse MU, named-string loss selectors, Python
+warnings and the free factorization function are outside this interface.
+Powers, products, reductions and ratios are checked against the native real64
+working range before evaluation. Extreme finite parameters or factors may
+therefore receive a diagnostic where Python produces nonfinite values.
+See `example/beta_divergence_nmf.f90` for a regularized KL fit and transform.

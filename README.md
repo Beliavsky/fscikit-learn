@@ -18,6 +18,7 @@ fpm build
 fpm test
 fpm run --example histogram_boosting
 fpm run --example coordinate_descent_nmf
+fpm run --example beta_divergence_nmf
 fpm run --example image_patches
 fpm run --example neighborhood_components
 fpm run --example gaussian_process_classification
@@ -241,3 +242,8 @@ NMF supports dense coordinate descent with L1/L2 regularization, seeded shufflin
 and random/custom/NNDSVD initialization. Select `solver='cd'`; see
 [the example](example/coordinate_descent_nmf.f90) and
 [the API contract](docs/API.md#coordinate-descent-nmf).
+
+NMF's multiplicative-update solver also supports KL, Itakura-Saito and general
+beta divergences with regularization and shared initialization controls. See
+[the KL example](example/beta_divergence_nmf.f90) and
+[the MU contract](docs/API.md#beta-divergence-nmf-multiplicative-updates).

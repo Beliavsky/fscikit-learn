@@ -1,5 +1,6 @@
 module sklearn_decomposition
   use sklearn_minibatch_nmf, only: mini_batch_nmf,nmf_initialize_factors
+  use sklearn_nmf_mu, only: nmf_mu_solve
   use sklearn_lda, only: latent_dirichlet_allocation
   use sklearn_dictionary, only: sparse_pca,dictionary_learning,sparse_coder,sparse_encode, &
     mini_batch_dictionary_learning,mini_batch_sparse_pca
@@ -61,6 +62,7 @@ module sklearn_decomposition
     integer :: n_components=2,max_iter=1000,n_iter_=0,random_state=0,n_components_=0,n_features_in_=0
     real(dp) :: tol=1.e-6_dp,reconstruction_err_=0,alpha_w=0,alpha_h=-1,l1_ratio=0
     real(dp) :: cd_violation_=0,cd_initial_violation_=0
+    real(dp) :: beta_loss=2,mu_initial_error_=0,mu_error_=0,mu_previous_error_=0
     logical :: converged_=.false.,shuffle=.false.
     character(8) :: solver='mu',init='auto'
     real(dp), allocatable :: components_(:,:)
@@ -488,35 +490,9 @@ contains
     class(nmf), intent(inout) :: self
     real(dp), intent(in) :: x(:,:)
     real(dp), optional, intent(in) :: w0(:,:),h0(:,:)
-    real(dp), allocatable :: w(:,:),h(:,:),numerator(:,:),denominator(:,:)
-    real(dp) :: previous,error,initial,scale
-    integer :: it,n,p,k
+    real(dp), allocatable :: w(:,:)
     call nmf_controls(self)
-    if(self%solver=='cd') then
-      w=nmf_cd_fit(self,x,w0,h0);return
-    end if
-    call require(self%init=='auto'.and..not.present(w0).and..not.present(h0), &
-      'NMF initialization options require cd solver')
-    call check_x(x); call require(all(x>=0),'NMF requires nonnegative X')
-    n=size(x,1); p=size(x,2); k=self%n_components
-    call require(k>0.and.self%max_iter>0.and.self%tol>0,'invalid NMF controls')
-    self%n_components_=k;self%n_features_in_=p;self%cd_violation_=0;self%cd_initial_violation_=0
-    allocate(w(n,k),h(k,p)); call seed_rng(self%random_state)
-    call random_number(w); call random_number(h); scale=sqrt(sum(x)/(n*p*k))
-    w=(w+0.1_dp)*scale; h=(h+0.1_dp)*scale
-    initial=sqrt(sum((x-matmul(w,h))**2)); previous=initial; self%converged_=.false.
-    do it=1,self%max_iter
-      numerator=matmul(x,transpose(h)); denominator=matmul(w,matmul(h,transpose(h)))
-      w=w*numerator/max(denominator,1.e-15_dp)
-      numerator=matmul(transpose(w),x); denominator=matmul(matmul(transpose(w),w),h)
-      h=h*numerator/max(denominator,1.e-15_dp)
-      error=sqrt(sum((x-matmul(w,h))**2))
-      if(abs(previous-error)<=self%tol*max(initial,epsilon(1._dp))) then
-        self%converged_=.true.; exit
-      end if
-      previous=error
-    end do
-    self%n_iter_=min(it,self%max_iter); self%components_=h; self%reconstruction_err_=error
+    w=nmf_factor_fit(self,x,w0,h0)
   end function
   subroutine nmf_fit(self,x,w0,h0)
     class(nmf), intent(inout) :: self
@@ -528,24 +504,10 @@ contains
   function nmf_transform(self,x) result(w)
     class(nmf), intent(in) :: self
     real(dp), intent(in) :: x(:,:)
-    real(dp), allocatable :: w(:,:),gram(:,:),numerator(:,:)
-    real(dp) :: previous,error,initial
-    integer :: it
+    real(dp), allocatable :: w(:,:)
     call require(allocated(self%components_),'NMF is not fitted')
     call nmf_controls(self)
-    if(self%solver=='cd') then
-      w=nmf_cd_transform(self,x);return
-    end if
-    call check_xy(transpose(x),size(self%components_,2)); call require(all(x>=0),'NMF requires nonnegative X')
-    allocate(w(size(x,1),size(self%components_,1))); w=1
-    gram=matmul(self%components_,transpose(self%components_)); numerator=matmul(x,transpose(self%components_))
-    initial=sqrt(sum((x-matmul(w,self%components_))**2)); previous=initial
-    do it=1,self%max_iter
-      w=w*numerator/max(matmul(w,gram),1.e-15_dp)
-      error=sqrt(sum((x-matmul(w,self%components_))**2))
-      if(abs(previous-error)<=self%tol*max(initial,epsilon(1._dp))) exit
-      previous=error
-    end do
+    w=nmf_factor_transform(self,x)
   end function
   function nmf_inverse(self,w) result(x)
     class(nmf), intent(in) :: self
@@ -558,15 +520,14 @@ contains
     class(nmf), intent(in) :: self
     call require(self%solver=='mu'.or.self%solver=='cd','unknown NMF solver')
     call require(self%n_components>=0.and.self%max_iter>0.and.self%random_state>=0,'invalid NMF controls')
-    call require(all(ieee_is_finite([self%tol,self%alpha_w,self%alpha_h,self%l1_ratio])), &
+    call require(all(ieee_is_finite([self%tol,self%alpha_w,self%alpha_h,self%l1_ratio,self%beta_loss])), &
       'NMF controls must be finite')
     call require(self%tol>=0.and.self%alpha_w>=0.and.(self%alpha_h==-1.or.self%alpha_h>=0), &
       'NMF tolerance/regularization must be nonnegative (alpha_h -1 means same)')
     call require(self%l1_ratio>=0.and.self%l1_ratio<=1,'NMF l1_ratio must lie in [0,1]')
     call require(any(self%init==[character(8)::'auto','random','custom','nndsvd','nndsvda','nndsvdar']), &
       'unknown NMF initializer')
-    if(self%solver=='mu') call require(self%alpha_w==0.and.self%alpha_h==-1.and.self%l1_ratio==0.and..not.self%shuffle, &
-      'NMF regularization/shuffle controls require cd solver')
+    if(self%solver=='cd') call require(self%beta_loss==2,'NMF cd solver requires Frobenius beta_loss=2')
   end subroutine
   subroutine nmf_cd_data(x)
     real(dp), intent(in) :: x(:,:)
@@ -652,13 +613,15 @@ contains
     end do
     n_iter=min(it,self%max_iter);if(update_h) h=transpose(ht)
   end subroutine
-  function nmf_cd_fit(self,x,w0,h0) result(w)
+  function nmf_factor_fit(self,x,w0,h0) result(w)
     class(nmf), intent(inout) :: self
     real(dp), intent(in) :: x(:,:)
     real(dp), optional, intent(in) :: w0(:,:),h0(:,:)
     real(dp), allocatable :: w(:,:),h(:,:)
+    real(dp) :: l1w,l2w,l1h,l2h
     integer :: k,n,p
     call nmf_cd_data(x);n=size(x,1);p=size(x,2);k=self%n_components
+    if(self%beta_loss<=0) call require(all(x>0),'NMF nonpositive beta requires strictly positive X')
     if(k==0) then
       k=p
       if(self%init=='custom'.and.present(h0)) k=size(h0,1)
@@ -675,20 +638,40 @@ contains
     end if
     call nmf_initialize_factors(x,k,self%init,self%random_state,w,h,w0,h0)
     self%n_components_=k;self%n_features_in_=p
-    call nmf_cd_solve(self,x,w,h,.true.,self%n_iter_,self%cd_violation_,self%cd_initial_violation_,self%converged_)
-    self%components_=h;self%reconstruction_err_=sqrt(sum((x-matmul(w,h))**2))
+    self%cd_violation_=0;self%cd_initial_violation_=0
+    self%mu_initial_error_=0;self%mu_error_=0;self%mu_previous_error_=0
+    if(self%solver=='cd') then
+      call nmf_cd_solve(self,x,w,h,.true.,self%n_iter_,self%cd_violation_,self%cd_initial_violation_,self%converged_)
+      self%reconstruction_err_=sqrt(sum((x-matmul(w,h))**2))
+    else
+      call nmf_cd_regularization(self,n,p,l1w,l2w,l1h,l2h)
+      call nmf_mu_solve(x,w,h,self%beta_loss,self%max_iter,self%tol,l1w,l2w,l1h,l2h,.true., &
+        self%n_iter_,self%converged_,self%mu_initial_error_,self%mu_error_,self%mu_previous_error_)
+      self%reconstruction_err_=self%mu_error_
+    end if
+    self%components_=h
   end function
-  function nmf_cd_transform(self,x) result(w)
+  function nmf_factor_transform(self,x) result(w)
     class(nmf), intent(in) :: self
     real(dp), intent(in) :: x(:,:)
     real(dp), allocatable :: w(:,:),h(:,:)
-    real(dp) :: violation,initial
+    real(dp) :: violation,initial,l1w,l2w,l1h,l2h,last,previous
     logical :: converged
     integer :: n_iter
     call nmf_cd_data(x)
+    if(self%beta_loss<=0) call require(all(x>0),'NMF nonpositive beta requires strictly positive X')
     call require(size(x,2)==self%n_features_in_,'NMF query feature count mismatch')
+    call require(all(ieee_is_finite(self%components_)),'NMF transform components must be finite')
+    call require(all(self%components_>=0),'NMF transform components must be nonnegative')
     call require(maxval(self%components_)>0,'NMF transform components must not be all zero')
     allocate(w(size(x,1),self%n_components_));w=0;h=self%components_
-    call nmf_cd_solve(self,x,w,h,.false.,n_iter,violation,initial,converged)
+    if(self%solver=='cd') then
+      call nmf_cd_solve(self,x,w,h,.false.,n_iter,violation,initial,converged)
+    else
+      w=sqrt(sum(x)/real(size(x),dp)/self%n_components_)
+      call nmf_cd_regularization(self,size(x,1),size(x,2),l1w,l2w,l1h,l2h)
+      call nmf_mu_solve(x,w,h,self%beta_loss,self%max_iter,self%tol,l1w,l2w,l1h,l2h,.false., &
+        n_iter,converged,initial,last,previous)
+    end if
   end function
 end module

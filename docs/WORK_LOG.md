@@ -7054,3 +7054,51 @@ Inventory: 217 core public types, 129 core modules, 150 native tests, 128 core
 reference suites and 837,309 retained groups; 37 invalid-input registries retain
 3,551 cases. Only the affected references above were rerun. The separate 42-group
 legacy RNG suite remains excluded and was not rerun.
+
+## Beta-divergence NMF multiplicative updates (2026-11-22)
+
+Replaced the basic NMF MU path with the dense sklearn 1.6.1 multiplicative/MM
+algorithm, supporting numeric beta losses, shared random/custom/NNDSVD
+initialization, auto component counts and dimension-scaled L1/L2 penalties.
+Implemented source update order, MM exponents, epsilon floors/cutoffs,
+ten-iteration convergence and fixed-H transform initialization. Matched the
+observed sklearn 1.6.1 cached KL/L1 denominator mutation during transform.
+Native checked arithmetic diagnoses unsupported real64 extremes before powered
+operations, products, reductions or division. Default parameter values are
+retained; seeded initialization and stopping now follow source MU semantics.
+
+Added an internal MU module, native test, KL example, reference driver and
+validator. Updated the CD invalid-input registry to reject non-Frobenius loss
+after regularized MU became supported. CD numerical kernels, other decomposition
+procedure bodies and the MiniBatchNMF source remain unchanged.
+
+The new canonical sweep retains 2,090 fixtures and 20,844 groups, including
+56 all-zero-H transform rejections. It checks public fits/transforms, actual
+upstream updates, fitted metadata, initial/final/checkpoint errors and independent
+objectives/nonnegativity/reconstruction. Six checked diagnostic certificates
+bound divergence cancellation and independently verify the final divergence
+using 60-digit Decimal arithmetic. No fixture or factor comparison is dropped.
+Forty-four new isolated native rejection cases pass with trapped arithmetic.
+
+A targeted subnormal counterexample exposed premature powered-value clipping.
+The implementation now lets pow round representable subnormal results, matching
+source. A native regression and 24 boundary fixtures across beta 2.5, 3 and 4
+retain zero absolute tolerance for W/H factors. Both complete verification
+profiles are rerun after the fix; initial pre-fix reports are archived separately.
+
+No public estimator type, extension algorithm or runtime dependency is added.
+Original interfaces and checked arithmetic remain MIT; sklearn/NumPy BSD
+attribution and the NMF research references are retained.
+
+Final post-fix verification passed all 151 native tests, 47,750 affected reference
+groups and 78 rejection checks per profile in checked and release builds. Both
+explicit fpm KL example runs matched sklearn (30 iterations and divergence
+approximately 0.078976237024). The final audit verified all fixture fields,
+report hashes and 290 compiled-content digests per profile; the six MU and sixteen
+CD numerical certificates pass in each profile. Final reports/logs are archived
+in ignored `validation/results`, including `nmf_mu_final_audit.json`.
+
+Inventory: 217 core public types, 130 core modules, 151 native tests, 129 core
+reference suites and 858,153 retained groups; 38 invalid-input registries retain
+3,595 cases. Only the affected suites above were rerun. The separate 42-group
+legacy RNG suite remains excluded and was not rerun.

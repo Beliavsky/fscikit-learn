@@ -86,7 +86,7 @@ contains
     case('data_range');data=huge(1._dp)
     case('factor_range');a=huge(1._dp)/8
     case('regularization_range');test%alpha_w=huge(1._dp)
-    case('mu_regularization');test%solver='mu';test%init='auto';test%alpha_w=.1_dp
+    case('cd_beta');test%beta_loss=1
     case default;error stop 'unknown NMF rejection case'
     end select
     result=test%fit_transform(data,a,b)
