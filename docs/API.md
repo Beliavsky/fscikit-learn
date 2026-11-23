@@ -6444,3 +6444,39 @@ scaling in the extreme opposite-sign path distinguishes a rounded finite result
 from true overflow without changing halting modes. Ordinary finite subtraction,
 signed zeros and existing nonfinite semantics are retained. This also corrects
 shared reductions and sparse/image/weighted-model consumers of that helper.
+
+
+## Stochastic multilayer perceptrons
+
+`mlp_classifier` and `mlp_regressor` accept dense finite real64 feature matrices,
+integer class labels or one real response. Set `hidden_layer_sizes` to a positive
+integer array (default `[100]`); an allocated empty array gives no hidden layer.
+`activation` is `relu`, `tanh`, `logistic` or `identity`. `solver` is `adam`
+(default) or `sgd`. Binary classifiers use a single logistic output, multiclass
+classifiers use softmax, and regression uses an identity output.
+
+`batch_size=0` represents sklearn's `auto` (`min(200,n_samples)`); positive
+sizes are clipped to the sample count. `shuffle=.true.` and nonnegative
+`random_state` select the NumPy-compatible initialization/permutation stream.
+The existing native seed default remains zero. `learning_rate_init=.001`,
+`alpha=.0001`, `max_iter=200`, `tol=.0001`, `n_iter_no_change=10` match source
+stochastic defaults. Zero tolerance is accepted. Fits are fresh and repeatable.
+
+Adam uses `beta_1=.9`, `beta_2=.999`, `epsilon=1e-8`. SGD uses `momentum=.9`,
+`nesterovs_momentum=.true.` and `learning_rate='constant'`, `'invscaling'` or
+`'adaptive'`; `power_t=.5` controls inverse scaling. Inverse scaling updates
+after each epoch using `(t_+1)**power_t`; adaptive scheduling divides by five
+when the strict source patience test fails, stopping when the rate is already
+at most 1e-6. Adam ignores the SGD schedule and momentum, as in sklearn.
+
+Inspect `layers_(l)%weights` and `%bias`, `loss_curve_`, `loss_`, `best_loss_`,
+`n_iter_`, `t_`, `n_features_in_`, `n_outputs_`, `n_layers_` and
+`out_activation_`. `t_` counts samples, while Adam optimizer updates count
+minibatches. `converged_` is a native diagnostic for loss/patience stopping.
+`predict_proba` returns both binary class probabilities;
+`predict_log_proba` preserves negative infinity at exact zero probabilities.
+`predict`, `score` and the query shape checks retain their prior signatures.
+
+See [the example](../example/stochastic_mlp.f90). For numerical rounding
+sensitivity and unsupported interfaces, see the stochastic MLP section of
+[COVERAGE.md](COVERAGE.md).

@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 221 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and forty-six reference suites additionally check 1,372,828
+All types have native tests. One hundred and forty-seven reference suites additionally check 1,421,788
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -66,7 +66,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | discriminant_analysis | `linear_discriminant_analysis`, `quadratic_discriminant_analysis` | LDA offers LSQR, SVD and generalized-eigen classification/projection with fixed/automatic shrinkage and custom priors; QDA full/thin regularization and custom priors; solver-specific rank contracts are documented below |
 | svm | `svc`, `nu_svc`, `linear_svc`, `linear_svr`; re-exports `svr`, `nu_svr`, `one_class_svm` | Primal L2 squared-loss linear classification/regression; OVO SVC/NuSVC; epsilon/nu support-vector regression and one-class detection; native pairwise dual optimization and weighted capacities |
 | mixture | `gaussian_mixture`, `bayesian_gaussian_mixture` | EM Gaussian mixtures and variational Bayesian mixtures with finite Dirichlet or truncated stick-breaking weights; full/tied/diag/spherical covariances; responsibilities and likelihood scores; GaussianMixture BIC/AIC |
-| neural_network | `mlp_classifier`, `mlp_regressor`, `bernoulli_rbm` | Arbitrary dense hidden layer sizes, relu/tanh/logistic/identity, full-batch Adam, softmax classification or squared-error regression, L2 regularization |
+| neural_network | `mlp_classifier`, `mlp_regressor`, `bernoulli_rbm` | Arbitrary dense hidden layers, relu/tanh/logistic/identity, seeded minibatch Adam/SGD, momentum/Nesterov and SGD schedules, binary logistic/multiclass softmax classification or squared-error regression, L2 regularization |
 | gaussian_process | `gaussian_process_regressor`, `gaussian_process_classifier` | Configurable covariance expressions or legacy RBF controls; anisotropy, Matern/RQ/periodic/dot/constant/white kernels and sums/products/powers; scalar/vector-alpha Cholesky regression, independent multiple targets, likelihood gradients and opt-in bounded kernel fitting; Laplace binary/OVR classification with optional independent kernel fitting, binary likelihood gradients and warm starts |
 | covariance | `empirical_covariance`, `shrunk_covariance`, `ledoit_wolf`, `oas`, `graphical_lasso`, `graphical_lasso_cv`, `min_cov_det`, `elliptic_envelope`; `fast_mcd` | Population covariance, pseudoinverse precision, squared Mahalanobis distance, likelihood, Frobenius/spectral covariance error; L1-penalized sparse precision via block coordinate descent and refined cross-validation; FastMCD robust covariance and elliptic outlier detection |
 | calibration | `calibrated_classifier_cv`; `calibration_curve` | Sigmoid/isotonic CV ensembles, out-of-fold calibration and prefit calibration with logistic, Gaussian NB or KNN bases; uniform/quantile reliability bins |
@@ -213,9 +213,10 @@ distances; cosine similarity; linear, RBF, polynomial and sigmoid kernels.
   second class. This differs from sklearn's multiclass decision conventions.
   SVR, NuSVC and one-class SVM are separate native types. Platt probability
   scaling and LIBSVM model-file compatibility are not provided.
-- MLP uses full-batch Adam, not sklearn's default minibatches. It has no
-  validation-set early stopping, SGD/L-BFGS solver, warm start, or multilabel
-  outputs. Random initialization and convergence history differ from Python.
+- MLP supports seeded minibatch Adam and SGD. Validation-set early stopping,
+  L-BFGS, warm starts, partial_fit, sparse input, multilabel classification and
+  multioutput regression remain outside its interface. Floating-point rounding
+  can amplify in sensitive trajectories; see the stochastic MLP increment below.
 - Gaussian-process kernel hyperparameters are fixed; no optimizer or kernel
   algebra interface. Only one real target and isotropic RBF are supported.
 - Text uses ASCII unigrams only, without Unicode word rules, custom tokenizers,
@@ -7518,3 +7519,64 @@ The combined audit verified 336 compiled source contents per build, executable
 and validator hashes, identical stage/field inventories, preserved source
 inputs, and unchanged unrelated core modules and loss routines. Reports and
 logs are retained locally under the ignored validation/results directory.
+
+
+## Source-compatible stochastic multilayer perceptrons
+
+Replaced the original full-batch-only MLP training with sklearn 1.6.1 minibatch
+Adam and SGD for dense scalar regression, binary and multiclass classification.
+Initialization draws Glorot coefficients in NumPy row-major order, then biases,
+using the retained legacy RandomState generator. Epoch shuffles use the same
+continuing generator and Fisher-Yates permutation. Binary classification uses
+one sigmoid output; multiclass uses softmax. All four hidden activations and
+empty, single or multiple hidden layers are supported.
+
+Added auto/explicit batch sizing, configurable Adam beta_1/beta_2/epsilon,
+SGD momentum and Nesterov updates, constant/invscaling/adaptive schedules,
+and source loss accumulation and stopping. Regularization divides by the
+current batch size, and final short batches retain their own denominator.
+Adam counts optimizer steps per batch; t_ counts samples per epoch.
+Adaptive reductions divide the rate by five and stop only after the source
+rate/patience conditions. Cold refits reset initialization and optimizer state.
+Defaults now follow sklearn (200 epochs, tol=1e-4, patience=10).
+
+The native layer arrays remain the coefficient/intercept interface. Added
+n_features_in_, n_outputs_, n_layers_, t_, best_loss_, out_activation_ and
+predict_log_proba, preserving negative infinity for saturated probabilities.
+Native tests check seeded two-batch updates, sample clocks, refit isolation,
+adaptive stopping, binary parameter shape and probability threshold ties.
+The nonlinear regression test explicitly retains its former tighter tolerance
+and patience. A new example learns XOR with minibatch momentum SGD.
+
+compare_mlp_stochastic.py checks 48,960 result groups across 2,880 fixtures:
+three seeds, regression/binary/multiclass, four activations, eight optimizer
+configurations, five batch settings and both shuffle settings. Auto batches
+use 203 samples to exercise the 200-sample boundary; other cases include final
+short batches and oversized batch clipping. Degenerate zero/constant columns,
+repeated samples and no/one/two hidden layers are included. Checks cover every
+layer's coefficients, intercepts, Adam moments/variances or SGD velocities,
+loss curves, metadata, predictions, class probabilities and log probabilities.
+Classifier queries also include extreme positive/negative inputs, checking
+source saturation and nonfinite log probabilities. Twenty-five isolated
+diagnostics cover controls, shapes, finite data, unfitted
+queries and class cardinality.
+
+Most groups use rtol=5e-9 and atol=5e-11. One zero-input, single-sample-batch
+ReLU/custom-Adam fixture amplifies rounding over 13 epochs. Twelve result
+groups additionally use the measured componentwise propagation envelope from
+six sklearn runs whose initial values move by one ULP (both directions, all
+parameters or one first/last-layer bias). They remain compared to the original
+unperturbed source values; every other fixture retains the strict tolerance.
+The source probes change final coefficients by up to about 4.3e-7; the checked
+Fortran development run differs by about 1.4e-7. This is an explicitly recorded
+numerical sensitivity check rather than a blanket tolerance increase.
+
+Dense real64 CPU input, integer class labels and one regression response remain
+the supported input contracts. Validation-set early stopping, L-BFGS, warm
+starts, partial_fit, sparse input, multilabel targets and joint multioutput
+regression are not added. The MIT package retains sklearn BSD attribution;
+no dependency or public extension estimator was added.
+
+Cumulative inventory: 221 public core types, 137 source modules, 171 native
+programs, 147 core reference suites / 1,421,788 retained groups, and 52
+invalid-input registries / 3,907 cases. These remain API subsets.

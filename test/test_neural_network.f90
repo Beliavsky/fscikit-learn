@@ -20,6 +20,7 @@ program test_neural_network
   end do
   regressor%hidden_layer_sizes=[12]; regressor%activation='tanh'
   regressor%learning_rate_init=0.02_dp; regressor%max_iter=2000
+  regressor%tol=1.e-6_dp; regressor%n_iter_no_change=20
   call regressor%fit(x,y); call require(regressor%score(x,y)>0.99_dp,'MLP nonlinear regression')
   print *, 'neural networks: PASS'
 end program

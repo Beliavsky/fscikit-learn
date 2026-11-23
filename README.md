@@ -304,3 +304,8 @@ SGD regression and classification also accept CSR training, streaming batches
 and queries, including unsorted/duplicate storage and source sparse intercept
 updates. See [the sparse text SGD example](example/sparse_sgd_text.f90) and
 [the CSR contract](docs/API.md#csr-sgd-input-and-queries).
+
+MLP classification and regression use seeded minibatch Adam or SGD, with
+momentum/Nesterov updates and constant, inverse-scaling or adaptive SGD rates.
+See [the XOR example](example/stochastic_mlp.f90) and
+[the MLP controls](docs/API.md#stochastic-multilayer-perceptrons).

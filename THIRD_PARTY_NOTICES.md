@@ -1240,3 +1240,23 @@ The existing recorded source hashes apply. Sparse intercepts use 0.01 scaling;
 explicit zeros and duplicate indices follow the stored-entry source contract.
 The native CSR storage and typed overloads are original MIT contributions.
 No additional dependency or public extension estimator was introduced.
+
+
+## Stochastic multilayer perceptrons (BSD)
+
+`src/sklearn_neural_network.f90` adapts sklearn 1.6.1
+`neural_network/_multilayer_perceptron.py` (Glorot initialization, minibatches,
+backpropagation, epoch losses and stopping), `_stochastic_optimizers.py`
+(Adam and momentum/Nesterov SGD, inverse/adaptive learning rates) and
+`_base.py` (activation derivatives and clipped logistic losses).
+The full upstream BSD-3-Clause notice is retained in
+`LICENSES/scikit-learn-COPYING`. NumPy-compatible scalar draws and permutations
+reuse the previously attributed `sklearn_legacy_rng` implementation.
+The typed interfaces, diagnostics, examples and validation harness are original
+MIT contributions. Validation records hashes of the installed source modules,
+and separately identifies the measured one-ULP rounding-sensitivity probes.
+
+The MLP logistic activation also follows scipy.special.expit's negative
+exponential-overflow saturation boundary, using an explicit guard to remain
+safe with floating-point traps enabled. This mathematical behavior was checked
+against SciPy 1.15.3; its BSD notice is retained in LICENSES/scipy-COPYING.
