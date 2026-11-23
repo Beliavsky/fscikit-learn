@@ -7819,3 +7819,23 @@ additional dependency or public extension estimator was introduced.
 Cumulative inventory: 221 public core types, 137 source modules, 174 native
 programs, 150 core reference suites / 1,594,588 retained required groups, and 55
 invalid-input registries / 3,961 cases. These remain API subsets.
+
+Final checked (bounds/runtime checks and floating-point traps) and optimized
+release builds both compiled the project successfully and passed the five
+relevant MLP native programs selected with fpm test. Each build also passed
+76,464 new target groups, 81,648 warm groups, 48,960 stochastic groups, 14,688
+required L-BFGS groups and 79 invalid-input diagnostics: 221,760 required result
+groups per build. The new target suite matched 2,882 nonfinite source values
+and needed no rounding-envelope exception. Maximum coefficient errors were
+3.22e-15 checked / 3.78e-15 release; supplied-Jacobian errors were at most
+3.34e-16 / 3.06e-16. The existing numerical diagnostics retained their previous
+counts and return-status outcomes.
+
+The matrix-target example passed both builds, with joint-response R2 above
+0.99999999, exact-row multilabel accuracy 1.0 and overlapping positive-label
+probabilities above 0.999. The audit verified 151 relevant compiled source
+contents per build, complete result-field inventories and source/helper/
+validator/executable hashes. All unrelated core modules and existing native
+test sources were unchanged. The full native inventory is 174 programs;
+execution in this increment selected the five MLP programs. Reports and logs
+remain locally under ignored validation/results.
