@@ -8170,3 +8170,24 @@ and retained sklearn BSD notices continue; no dependency or extension was added.
 Cumulative inventory: 222 public core types, 138 source modules, 179 native
 programs, 155 core reference suites / 2,539,660 retained required groups, and
 60 invalid-input registries / 4,033 cases. These remain API subsets.
+
+Final FrozenEstimator verification (2026-11-23): runtime-checked
+(`-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow`) and optimized release
+builds compiled the project and each executed ten focused native programs:
+FrozenEstimator, both pipeline tests, polynomial composition/count sketch/features,
+positive composition, stateless composition/preprocessing and calibration.
+All passed. The other 169 native programs were not executed in this batch.
+Seven reference suites passed 59,156 required groups per profile: 25,272 frozen,
+8,556 pipeline, 2,160 ColumnTransformer, 1,200 FeatureUnion, 2,880 polynomial
+composition, 5,328 stateless composition and 13,760 calibration groups.
+All twelve frozen invalid-input diagnostics passed in both profiles. Their
+assertions inspect primary diagnostic lines, avoiding accidental matches in
+debug backtrace filenames. All exact frozen delegation errors were zero;
+comparisons also matched 218 nonfinite Python endpoint values per profile.
+Both profiles retain the same 35 logistic endpoint differences among 15,552
+separate numerical diagnostics; those differences are excluded from passes.
+The example passed in both profiles with unchanged scaler means and training
+R2=1. The combined audit checked 159 compiled source contents per profile,
+complete frozen field inventories, source/executable/validator hashes and
+unchanged unrelated core modules and existing native tests. Reports are retained
+locally under `validation/results/frozen_*`, including `frozen_final_audit.json`.

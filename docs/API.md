@@ -6745,8 +6745,14 @@ assignment copies the wrapper while sharing its estimator target; rebinding
 one such copy does not rebind other copies.
 
 Supported targets include the native base-dispatch classifier/regressor families,
-MLPs, composition transformers and transformer-protocol implementations, including
-pipelines. Query inputs are dense real64 arrays. This does not add Python-style
+MLPs and transformer-protocol implementations, including pipelines. Transformer
+adapters cover StandardScaler, MinMaxScaler, MaxAbsScaler, RobustScaler,
+SimpleImputer, KNNImputer, MissingIndicator, OneHotEncoder, OrdinalEncoder,
+PowerTransformer, QuantileTransformer, KBinsDiscretizer, SplineTransformer,
+FunctionTransformer, PolynomialFeatures, Normalizer, Binarizer, VarianceThreshold,
+PCA, TruncatedSVD, ColumnTransformer and FeatureUnion. Other transformer families
+have no fitted-state adapter in this initial subset.
+Query inputs are dense real64 arrays. This does not add Python-style
 general attribute forwarding, global estimator cloning, metadata routing or every
 estimator-specific method. Access the target pointer for methods such as PCA
 covariance. A wrapped native pipeline retains its explicit outer-fit requirement.
