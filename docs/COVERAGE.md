@@ -8296,3 +8296,34 @@ and retained sklearn/NumPy notices continue; no dependency or extension was adde
 Cumulative inventory: 222 public core types, 139 source modules, 181 native
 programs, 157 reference suites / 2,572,884 retained required groups, and 62
 invalid-input registries / 4,069 cases. These remain API subsets.
+
+
+Final regression-generator verification (2026-11-23): four-job fpm
+0.14.0 OpenMP builds compiled the project in runtime-checked
+(`-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow`) and optimized release
+profiles. Each executed four focused native programs: regression generators,
+datasets/Gaussian process, seeded sample generators and classification generators.
+All passed; the other 177 native programs were not executed in this batch.
+Three reference suites passed 17,122 required groups per profile: 15,842 new
+regression/low-rank groups, 672 existing sample-generator groups and 608 existing
+classification-generator groups. All 76 diagnostics passed, including 22 new
+cases. Coefficients matched exactly and comparisons matched 4,588 nonfinite
+source values per profile. Maximum feature errors were 2.26e-15
+checked / 2e-15 release; maximum target errors were
+8.08e-13 / 9.09e-13; maximum singular-profile
+errors were 2.11e-15 /
+2.11e-15. Both facade examples returned a 20x5
+low-rank matrix, 60x8 features, two target columns, reconstruction errors below
+4e-15 and first-target training R2=1.
+
+The combined audit verified 151 compiled source units per profile, complete
+reference field inventories, source/executable/validator hashes and unchanged
+unrelated core modules and existing native tests. Fpm 0.14 stores target
+fingerprints combining source FNV hashes with sorted dependency fingerprints;
+the audit reproduces this algorithm rather than treating them as source-only
+hashes. A first audit using the older source-only interpretation correctly
+failed at the facade and was replaced after inspecting the tagged upstream
+implementation. The verified private build tool leaves the global fpm installation
+unchanged. Reports and fingerprint helpers are retained under ignored
+`validation/results/regression_datasets_*`, `fpm014_fingerprints.py` and
+`regression_datasets_final_audit.json`.
