@@ -119,6 +119,7 @@ python validation/compare_isomap_graphs.py --executable build/<profile>/app/refe
 python validation/compare_regression_projection.py
 python validation/compare_robust_glm.py
 python validation/compare_modes_density.py
+python validation/compare_density_extended.py --executable build/<profile>/app/reference_density_extended_driver.exe --profile checked --report validation/results/density_extended_checked.json
 python validation/compare_ica.py
 python validation/compare_isotonic_kernel.py
 python validation/compare_cross_decomposition.py

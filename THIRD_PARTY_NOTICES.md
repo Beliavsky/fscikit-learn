@@ -112,7 +112,7 @@ Reference paths by module:
 | factor_analysis | decomposition/_factor_analysis.py; full-SVD likelihood iteration, diagonal noise updates and posterior transform |
 | random_projection | random_projection.py; JL dimension bound, Gaussian/three-point distributions and pseudoinverse contract; independent Fortran random stream |
 | spectral | manifold/_spectral_embedding.py; degree-normalized eigenvectors and affinity construction, with native dense eigensolver |
-| density | neighbors/_kde.py, _binary_tree.pxi; kernel normalization, bandwidth rules and weighted mixture contract; native brute-force evaluation and Gaussian/uniform-ball sampling |
+| density | neighbors/_kde.py, _binary_tree.pxi.tp, _kd_tree.pyx.tp, _ball_tree.pyx.tp and metrics/_dist_metrics.pyx.tp; kernel normalization, KD/Ball bounds, traversal/stopping, weighted mixtures and metric contracts; NumPy RandomState draw ordering and reductions; scipy.special.gammainc uniform-ball mapping; native trees, heap partitions and incomplete-gamma implementation |
 
 The additional SVM models also follow the LIBSVM formulations bundled with
 sklearn 1.6.1 in `sklearn/svm/src/libsvm/svm.cpp`, copyright (c) 2000-2009

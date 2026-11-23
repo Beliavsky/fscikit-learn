@@ -376,15 +376,39 @@ For RBF, `gamma=-1` selects `1/n_features`; `gamma_` reports it. Default
 `n_connected_components_`. They provide training embeddings only; arbitrary
 eigenvector signs/rotations and label permutations are not meaningful.
 
-KernelDensity has `fit(x,sample_weight=...)`, `score_samples`, total log-density
-`score`, and `sample(n_samples,random_state=...)`. Supported kernels are
-`'gaussian'`, `'tophat'`, `'epanechnikov'`, `'exponential'` and `'linear'`.
-`bandwidth_rule='fixed'` uses positive `bandwidth` (default 1); `'scott'` and
-`'silverman'` choose their dimension/sample-count rules. `bandwidth_` stores the
-result. Optional sample weights must be finite, nonnegative and not all zero.
-Sampling is supported for Gaussian/tophat kernels. Zero density yields negative
-infinity; Gaussian evaluation stays in the log domain to avoid probability
-underflow. See `example/clustering_density.f90` for a runnable example.
+KernelDensity provides `fit(x,sample_weight=...)`, `score_samples`, total
+log-density `score`, and Gaussian/tophat `sample`. Kernels are `'gaussian'`,
+`'tophat'`, `'epanechnikov'`, `'exponential'`, `'linear'` and `'cosine'`.
+Set `bandwidth_rule='scott'` or `'silverman'` for the sample-count rules;
+the default `'fixed'` uses positive finite `bandwidth`. `bandwidth_` is fitted.
+
+`algorithm='auto'` selects a KD-tree; explicit `'kd_tree'` and `'ball_tree'`
+are supported. `leaf_size`, `breadth_first`, `atol` and `rtol` control tree
+construction and scoring. `metric` accepts Euclidean, Manhattan, Chebyshev and
+Minkowski families and aliases; `p` and optional `metric_weights(:)` map to
+Minkowski metric parameters. See COVERAGE.md for the source weighted-KD bound
+behavior and non-Euclidean normalization. All-zero sample weights are valid
+and give NaN scores. Compact kernels return negative infinity outside support.
+
+```fortran
+use sklearn, only: dp,kernel_density
+use sklearn_legacy_rng, only: legacy_random_state
+type(kernel_density) :: model
+type(legacy_random_state) :: rng
+real(dp), allocatable :: x(:,:),draws(:,:)
+! Populate finite training x first.
+model%algorithm='ball_tree'
+model%kernel='tophat'
+call model%fit(x)
+draws=model%sample(5,random_state=42)
+call rng%seed(42)
+draws=model%sample(5,random_state=rng) ! advances the caller's stream
+```
+
+`sample(0,seed)` returns an empty matrix. Sampling follows NumPy draw order;
+tophat uses the source incomplete-gamma mapping. Run `density_seeded_sampling`
+for a complete example. Fitted tree diagnostics and copy-out array layouts are
+specified in COVERAGE.md.
 
 ## FastICA
 

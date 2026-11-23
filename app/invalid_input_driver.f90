@@ -6579,7 +6579,7 @@ program invalid_input_driver
     embedding%affinity='precomputed'; z=reshape([1._dp,-1._dp,-1._dp,1._dp],[2,2]); call embedding%fit(z)
   case('spectral_components'); embedding%n_components=4; call embedding%fit(x)
   case('density_bandwidth'); density%bandwidth=0; call density%fit(x)
-  case('density_weights'); call density%fit(x,sample_weight=[0._dp,0._dp,0._dp,0._dp])
+  case('density_weights'); call density%fit(x,sample_weight=[-1._dp,0._dp,0._dp,0._dp])
   case('density_kernel'); density%kernel='invalid'; call density%fit(x)
   case('density_unfitted'); pred=density%score_samples(x)
   case('density_sampling'); density%kernel='linear'; call density%fit(x); z=density%sample(2)

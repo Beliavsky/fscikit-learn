@@ -1,6 +1,8 @@
 """Dense sklearn references for modes, spectral methods and kernel density."""
 from pathlib import Path
 import json
+import argparse
+import hashlib
 import os
 import subprocess
 import warnings
@@ -98,6 +100,13 @@ def reference(x, continuous):
 
 
 def main():
+    parser=argparse.ArgumentParser();parser.add_argument('--executable',type=Path)
+    parser.add_argument('--profile',choices=['checked','release'],default='checked');parser.add_argument('--report',type=Path)
+    args=parser.parse_args()
+    if args.executable:executable=args.executable.resolve()
+    else:
+        from compare_function_transformer import resolve
+        executable=resolve(args.profile,'reference_modes_density_driver')
     RESULTS.mkdir(exist_ok=True)
     report = {"sklearn_version": sklearn.__version__, "checks": []}
     for seed, n, p in ((7, 60, 2), (42, 72, 3), (2026, 84, 4)):
@@ -110,8 +119,7 @@ def main():
         with data.open("w") as f:
             f.write(f"{n} {p}\n")
             np.savetxt(f, np.column_stack([x, continuous]), fmt="%.17g")
-        subprocess.run(["fpm", "run", "--target", "reference_modes_density_driver", "--", str(data), str(output)],
-                       cwd=ROOT, check=True)
+        subprocess.run([str(executable),str(data),str(output)],cwd=ROOT,check=True)
         actual = {}
         for line in output.read_text().splitlines():
             name, *values = line.split(); actual[name] = np.array(values, dtype=float)
@@ -126,7 +134,10 @@ def main():
                 np.testing.assert_allclose(actual[name], want, atol=3e-8, rtol=3e-8, err_msg=f"seed={seed} {name}")
             report["checks"].append({"seed": seed, "api": name, "passed": True})
             print(f"PASS seed={seed} {name}", flush=True)
-    (RESULTS/"modes_density_report.json").write_text(json.dumps(report, indent=2)+"\n")
+    report.update(profile=args.profile,executable_sha256=hashlib.sha256(executable.read_bytes()).hexdigest(),
+                  validator_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest())
+    destination=args.report or RESULTS/'modes_density_report.json'
+    destination.write_text(json.dumps(report,indent=2,allow_nan=False)+'\n')
     print(f"{len(report['checks'])} mode/spectral/density reference comparisons passed against sklearn {sklearn.__version__}")
 
 

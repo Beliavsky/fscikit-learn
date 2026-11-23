@@ -39,7 +39,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | preprocessing | `kernel_centerer`, `ordinal_encoder`, `target_encoder`, `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `iterative_imputer`, `knn_imputer`, `missing_indicator`, `spline_transformer`, `label_encoder`, `one_hot_encoder`, `label_binarizer`, `multi_label_binarizer`, `power_transformer`, `kbins_discretizer`, `quantile_transformer`, `normalizer`, `binarizer`, `polynomial_features`; `normalize`, `binarize`, retained `polynomial_features(x,...)` | Ordinal category codes and infrequent grouping; cross-fitted target means; population variance; linear percentile interpolation; NaN imputation with mean/median/most-frequent/constant; numeric categories; empirical uniform/normal quantile transforms; dense/CSR polynomial estimator and retained array call with degree ranges, interactions and lazy powers/names; B-spline features and extrapolation; dense/CSR row normalization and thresholding, both-axis free normalization with returned norms |
 | linear_model | `linear_regression`, `lars`, `lasso_lars`, `lars_cv`, `lasso_lars_cv`, `lasso_lars_ic`, `ridge`, `ridge_classifier`, `ridge_classifier_cv`, `multi_task_elastic_net`, `multi_task_lasso`, `multi_task_elastic_net_cv`, `multi_task_lasso_cv`, `lasso`, `elastic_net`, `lasso_cv`, `elastic_net_cv`, `logistic_regression`, `logistic_regression_cv`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `sgd_regressor`, `sgd_classifier`, `sgd_one_class_svm`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `orthogonal_matching_pursuit_cv`, `huber_regressor`, `quantile_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; least-angle/Lasso homotopy paths with CV and AIC/BIC selection; coordinate descent with K-fold alpha/l1-ratio selection; weighted logistic Newton solver with raw-score prediction; perceptron; PA-I/II classification/regression with averaging; streaming stochastic-gradient regression/classification and one-class detection; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; weighted L1-regularized quantile regression; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb`, `categorical_nb` | Weighted/streaming Gaussian moments, empirical/fixed priors and variance smoothing; dense/CSR weighted and streaming discrete event counts and fixed/empirical priors; nonnegative scalar alpha and force_alpha flooring, plus feature-wise Multinomial/Complement smoothing; Bernoulli threshold; optional complement normalization |
-| neighbors | `neighborhood_components_analysis`, `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Supervised NCA metric learning; brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with shrinkage, uniform/empirical/custom priors and Euclidean discriminant probabilities; Euclidean kernel density |
+| neighbors | `neighborhood_components_analysis`, `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Supervised NCA metric learning; brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with shrinkage, uniform/empirical/custom priors and Euclidean discriminant probabilities; tree-based kernel density |
 | cluster | `kmeans`, `bisecting_kmeans`, `mini_batch_kmeans`, `spectral_coclustering`, `spectral_biclustering`, `hdbscan`, `dbscan`, `agglomerative_clustering`, `feature_agglomeration`, `mean_shift`, `affinity_propagation`, `spectral_clustering`, `optics`, `birch`; `estimate_bandwidth`, `cluster_optics_dbscan`, `cluster_optics_xi` | Lloyd/k-means++; paired row/column spectral partitions and checkerboard biclustering; weighted streaming mini-batch centroids; bisecting centroid hierarchy with Lloyd/Elkan splits; density expansion; single/complete/average/Ward merge trees and feature pooling; flat-kernel mode seeking; damped exemplar messages; normalized-Laplacian clustering with k-means or pivoted QR assignment; OPTICS reachability ordering, Xi hierarchy and DBSCAN extraction; BIRCH streaming CF tree and optional Ward clustering |
 | decomposition | `pca`, `incremental_pca`, `truncated_svd`, `nmf`, `mini_batch_nmf`, `sparse_pca`, `mini_batch_sparse_pca`, `dictionary_learning`, `mini_batch_dictionary_learning`, `sparse_coder`, `latent_dirichlet_allocation`; `sparse_encode`, `non_negative_factorization`; re-exports `kernel_pca`, `factor_analysis`, `fast_ica` | Full/randomized/covariance PCA with automatic routing; PCA whitening/inversion, variance/Minka dimension selection and probabilistic scores; streaming stacked-SVD IncrementalPCA; exact dense and randomized dense/CSR TruncatedSVD; regularized NMF coordinate descent and beta-divergence multiplicative updates, with a free function supporting fixed-H solves; sparse dictionary factorization and SparsePCA; five sparse coding methods; nonlinear kernel PCA; full/randomized-SVD factor analysis with orthogonal rotations; parallel/deflation ICA |
 | cross_decomposition | `pls_regression`, `pls_canonical`, `cca`, `pls_svd` | Paired-matrix latent components: NIPALS regression/canonical deflation, CCA pseudoinverse mode, canonical direct SVD and PLSSVD cross-covariance projection; multiple response columns |
@@ -49,7 +49,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | kernel_pca | `kernel_pca` | Centered linear/RBF/polynomial/sigmoid/cosine/precomputed Gram matrices; dense Jacobi eigensolver; out-of-sample transform and learned kernel-ridge pre-images |
 | manifold | `isomap`, `tsne`; `trustworthiness`; re-exports `spectral_embedding`, `mds`, `locally_linear_embedding` | Isomap radius/fixed-count graphs, dense/CSR precomputed distances and FW/Dijkstra paths; dense exact t-SNE with adaptive gains and two-stage momentum; neighborhood rank trustworthiness; spectral embedding; metric/nonmetric SMACOF; dense standard/Hessian/modified LLE and LTSA with barycentric query transforms |
 | spectral | `spectral_embedding` | Dense symmetric eigensolver; RBF, symmetrized nearest-neighbor or precomputed affinity; degree normalization; connected-component count |
-| density | `kernel_density` | Exact Euclidean log densities with Gaussian/tophat/Epanechnikov/exponential/linear kernels; sample weights; fixed/Scott/Silverman bandwidth; Gaussian/tophat sampling |
+| density | `kernel_density` | KD/Ball-tree log densities with six kernels; Minkowski-family metrics and feature weights; query tolerances/traversal controls; sample weights and bandwidth rules; NumPy-compatible Gaussian/tophat draws |
 | outlier | `local_outlier_factor` | Training outlier scores and novelty detection, automatic/percentile threshold, Minkowski and other supported pairwise metrics |
 | semi_supervised | `label_propagation`, `label_spreading`, `self_training_classifier` | Dense RBF or directed k-neighbor graph, hard/soft clamping, transductive labels and inductive probabilities; threshold/k-best self-training with logistic, Gaussian NB or KNN bases |
 | tree | `decision_tree_classifier`, `decision_tree_regressor`, `extra_tree_classifier`, `extra_tree_regressor` | Weighted CART and standalone randomized trees; Gini/entropy/log-loss classification, squared-error regression; depth/leaf/split/feature controls, normalized impurity importance, leaf indices |
@@ -124,13 +124,14 @@ distances; cosine similarity; linear, RBF, polynomial and sigmoid kernels.
   exactly `n_clusters` dimensions. Cluster assignment is k-means or `cluster_qr`,
   not discretization; there are no callable kernels, precomputed-distance graph
   mode, sparse storage, radius affinity, or out-of-sample spectral transform.
-- KernelDensity is an exact dense Euclidean mixture, with no tree backend,
-  approximation tolerances or non-Euclidean metrics. Cosine kernels are not yet
-  implemented. Zero density under compact kernels returns negative infinity,
-  not a finite floor. Its `score` sums log densities. Sample weights must be
-  nonnegative with positive total. Bandwidth rules use sample count and feature
-  dimension as in sklearn, without additional covariance scaling. Sampling is
-  available only for Gaussian/tophat kernels and uses the Fortran RNG.
+- KernelDensity supports all six source kernels and native KD/Ball trees,
+  exact or tolerance-bounded queries, Minkowski-family metrics and weighted
+  Minkowski distances. Kernel volume factors follow the source Euclidean formulas;
+  non-Euclidean distances generally do not yield normalized densities. Gaussian/tophat sampling uses
+  NumPy-compatible seeded draws and the source incomplete-gamma ball mapping.
+  Source zero-weight and cosine-normalization nonfinite outcomes are retained.
+  Other BallTree metrics, sparse features and parallel execution are absent.
+  Detailed backend behavior and numerical comparison limits appear below.
 
 - HuberRegressor uses bounded full-memory BFGS for coefficients, intercept and
   scale, with the sklearn Huber objective and L2 penalty. It has no warm start,
@@ -7096,3 +7097,103 @@ source/validator/executable hashes, installed source provenance, the SciPy
 shortest-path binary hash, and unchanged non-Isomap modules and reconstruction
 error body. Reports and logs are retained in ignored validation/results. Only
 affected reference suites were rerun; cumulative counts retain earlier results.
+
+
+## KernelDensity trees, metrics and NumPy-compatible sampling
+
+`kernel_density` now implements all six sklearn kernels, adding cosine to
+Gaussian, tophat, Epanechnikov, exponential and linear. algorithm accepts
+'auto', 'kd_tree' and 'ball_tree'; auto selects KD-tree for the supported metric
+family, matching sklearn. Trees use balanced feature-range median partitions,
+with leaf_size=40 by default. breadth_first selects the source heap traversal
+or depth-first recursion. atol and rtol default to zero; positive finite
+values control the source density-bound stopping criteria. Node construction,
+box/ball bounds, weighted centroids, traversal and log-bound updates follow
+sklearn 1.6.1. The median groups agree with the source, while within-leaf order
+can differ from the platform C++ partition routine.
+
+Supported metrics are euclidean/l2, manhattan/cityblock/l1,
+chebyshev/infinity and minkowski/p. For Minkowski, p>0 includes fractional
+orders; unweighted infinite p follows the source Chebyshev alias. An optional
+metric_weights vector maps to metric_params['w'] and requires finite
+nonnegative feature weights and finite positive p. Query metrics and feature
+weights use the fitted snapshot; changing those parameters requires refitting.
+The current kernel and traversal/tolerance settings apply at query time, as in
+Python, while bandwidth_ remains fitted. Other BallTree metrics and arbitrary
+Python metric objects are not implemented. Inputs remain dense finite real64.
+
+Source KD-tree bounds omit Minkowski feature weights. This can affect pruning,
+including a single-point weighted model, and is reproduced by the native
+KD-tree backend. Explicit Ball-tree fits use weighted distances in their
+bounds. The source cosine normalization formula is retained, including its
+nonfinite results for some dimensions; this is not replaced by a different
+normalizer. Non-Euclidean scoring retains the source Euclidean volume
+normalization and is not generally a normalized density in that metric.
+The KD-tree Chebyshev radius diagnostic also follows the source pow(rad,0)
+convention, giving a stored value of 1.
+
+fit accepts finite nonnegative sample weights, including all zero. Zero total
+weight produces source NaN scores; sampling still selects the first stored
+point through the source left-insertion cumulative-weight rule. Overflowing
+weight sums and tiny-bandwidth IEEE results are retained without triggering
+native floating-point traps. The existing normalized weights_ view remains;
+sample_weight_ stores raw weights, weight_sum_ the NumPy-associated total,
+and n_features_in_/n_samples_fit_ record fitted dimensions. algorithm_ and
+n_nodes_ are native fitted-tree diagnostics. get_tree_arrays returns copies of
+one-based point indices, inclusive [first,last,is_leaf] spans, a
+(2,n_nodes,n_features) bounds array, radii and node weights. For Ball-tree,
+the first bounds plane contains centers and the second is zero. These storage
+helpers do not add public estimator types or algorithms.
+
+sample supports integer seeds and a mutable legacy_random_state object through
+the same generic method. Integer seeds reset a local stream on every call;
+object calls advance the supplied state. Omitted random_state uses a separate
+clock-seeded module stream shared by density models. Explicit calls do not
+change that stream or the Fortran intrinsic RNG. Zero-sized sample requests
+are valid. All mixture uniforms precede normal draws, and raw-weight cumulative
+sums use left search insertion, matching RandomState. Gaussian draws use the
+selected training center plus bandwidth-scaled normals. Tophat uses the source
+regularized-incomplete-gamma transform of normal-vector squared radius, with
+no additional radius draw. Both samplers use Euclidean Gaussian/ball geometry
+regardless of the scoring metric, as in sklearn. Other kernels do not sample.
+
+The density_seeded_sampling example shows integer and shared-state draws and
+the cosine kernel. Original adapters and numerical implementations remain MIT,
+with retained sklearn/NumPy/SciPy attribution. No new dependency or extension
+algorithm is introduced.
+
+
+The new reference suite retains 1,144 fixtures and 20,592 comparison groups,
+with 34 isolated input diagnostics. It checks all kernels and supported metric
+aliases, fixed/Scott/Silverman bandwidths, both tree types and traversals,
+leaf sizes, approximation controls, ordinary/zero/tiny/overflowing weights,
+support boundaries, high dimensions, parameter changes after fitting,
+integer-seed repeats, mutable RNG streams (including a cached normal), empty
+samples, and default sample count. Point partitions, spans, bounds/centers,
+radii and node masses are compared with fitted sklearn trees. Sample values
+and the next RNG outputs are compared with RandomState/SciPy references.
+
+Cross-runtime arithmetic can leave different bound-subtraction residues for
+very small tree densities, giving large differences after taking logarithms.
+These are not reported as direct log-score matches. The checked run retains
+102 explicit density-space roundoff certificates plus 14 log-score sum
+identities across 65 fixtures; the largest certified density discrepancy is
+1.499e-14. The acceptance bound is 256*machine_epsilon*n_nodes*exp(log_norm).
+All fitted-tree structure comparisons still have to pass. Raw native, source
+and source single-leaf log outputs are retained. Single-leaf fits are diagnostic:
+zero-weight Ball-tree leaves can have NaN centers, so source results can depend
+materially on tree configuration and a single-leaf fit is not universally an
+equivalent oracle. Total scores in certified fixtures must equal the sum of
+the returned native log scores. Other output and IEEE-mask comparisons remain
+direct. The report retains 1,708 fields with nonfinite source results.
+
+All 165 checked native programs pass, along with 21,015 affected reference
+groups and 39 diagnostic cases. The existing mode/spectral/density validator
+now accepts an explicit executable and profile, permitting isolated checked
+and release runs without nested fpm calls. The legacy density_weights case
+now supplies a negative weight; its former all-zero input is a valid source
+fit. Other legacy diagnostics and other core modules retain their bodies.
+The checked audit verifies 309 compiled-file digests, complete field inventories,
+roundoff records, executable/validator/source and reference-binary hashes,
+and the seeded example outputs. Reports and logs remain in ignored
+validation/results. Release validation is recorded after its audit completes.
