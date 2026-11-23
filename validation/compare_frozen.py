@@ -155,12 +155,13 @@ def main():
             assert parts[0] not in actual;actual[parts[0]]=np.array(list(map(float,parts[1:])))
     assert index+1==len(records)
     invalid=dict(unbound='not fitted',unfitted='not fitted',missing_predict='has no predict',missing_transform='has no transform',
-       wrong_regression_kind='use predict_class',wrong_classifier_kind='use predict',query_width='feature',query_nan='NaN or infinity',
+       wrong_regression_kind='use predict_class',wrong_classifier_kind='use predict',query_width='sample counts differ',query_nan='NaN or infinity',
        names_width='feature',score_count='label sizes',wrong_classes='not a classifier',unsupported='not fitted')
     rejections=[]
     for mode,message in invalid.items():
         result=subprocess.run([str(exe),mode],text=True,capture_output=True,cwd=ROOT);output=result.stdout+result.stderr
-        assert result.returncode!=0 and message.lower() in output.lower(),(mode,output)
+        diagnostic=next((line for line in output.splitlines() if line.startswith('fscikit-learn:')), '')
+        assert result.returncode!=0 and message.lower() in diagnostic.lower(),(mode,output)
         assert not any(s in output for s in ['SIGFPE','Fortran runtime error']),(mode,output)
         rejections.append(dict(case=mode,passed=True))
     report=dict(profile=args.profile,sklearn=sklearn.__version__,numpy=np.__version__,scipy=scipy.__version__,cases=len(configurations),stages=len(records),
