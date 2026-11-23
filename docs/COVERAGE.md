@@ -7908,3 +7908,21 @@ attribution; no dependency or public extension estimator was added.
 Cumulative inventory: 221 public core types, 137 source modules, 175 native
 programs, 151 core reference suites / 1,852,492 retained required groups, and 56
 invalid-input registries / 3,982 cases. These remain API subsets.
+
+Final partial-fit verification (2026-11-23): both the runtime-checked build
+(`-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow`) and release build
+compiled the project and executed all six focused MLP native programs; all
+passed. This batch did not execute the other 169 native programs. Five MLP
+reference suites passed 479,664 required comparison groups and 100 invalid-input
+diagnostics per profile. The 257,904 new partial-fit groups passed strictly,
+without rounding exceptions or nonfinite reference values. Maximum coefficient
+errors were 6.03e-15 checked / 5.22e-15 release; supplied-Jacobian errors were
+4.45e-16 in both profiles. The existing warm-start rounding groups (7 per
+profile), stochastic rounding groups (12 checked / 13 release), long-L-BFGS
+endpoint differences (812 / 819 diagnostic comparisons) and two source-matched
+release line-search returns remain separately documented, not strict parity
+claims. The incremental example passed in both profiles with 180 calls/retained
+epochs, 360 samples and accuracy 1.0. The final audit verified field inventories,
+153 compiled source contents per profile, source/executable/validator hashes and
+unchanged unrelated modules/existing native tests. Local reports are retained
+under `validation/results/mlp_partial_*`, including `mlp_partial_final_audit.json`.
