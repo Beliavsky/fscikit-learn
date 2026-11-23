@@ -325,16 +325,38 @@ Scoring requires a nonconstant target. See [COVERAGE.md](COVERAGE.md) for limits
 ## Mode seeking, spectral methods and kernel density
 
 `mean_shift`, `affinity_propagation`, `spectral_clustering` and
-`estimate_bandwidth` are exported by `sklearn_cluster`. `spectral_embedding`
+`estimate_bandwidth` and `get_bin_seeds` are exported by `sklearn_cluster`. `spectral_embedding`
 is exported by `sklearn_manifold` and implemented in `sklearn_spectral`.
 `kernel_density` is exported by `sklearn_neighbors` and implemented in
 `sklearn_density`. All five types are available through `use sklearn`.
 
 MeanShift has `fit`, `fit_predict` and nearest-center `predict`. A positive
 `bandwidth` selects the radius; default `-1` calls `estimate_bandwidth(x)` using
-all rows and quantile 0.3. The helper accepts an optional quantile in `[0,1]`.
+all rows and quantile 0.3. The helper accepts an optional quantile in `[0,1]`,
+positive `n_samples` and nonnegative integer `random_state` (default 0).
+Subsampling follows NumPy legacy RandomState permutation without replacement;
+requests at least as large as the dataset still permute all rows. To fit using a
+subsampled estimate, assign the helper's returned positive value to `bandwidth`.
+The estimator's automatic estimate continues to use all rows.
 `bandwidth_` holds the fitted value, including zero if automatically estimated.
 Pass alternative seeds as `call model%fit(x,seeds=initial_locations)`.
+Set `bin_seeding=.true.` to use grid bins spaced by the fitted bandwidth,
+with `min_bin_freq` (default 1) controlling the minimum bin population.
+Explicit fit seeds take precedence over bin seeding. The public helper
+`get_bin_seeds(x,bin_size,min_bin_freq,binning_failed,float64_width)` exposes the same seeds:
+nearest-even bin rounding, first-seen bin order, float32 coordinate/multiplication
+rounding returned as real64, and original-point fallback when every point forms
+its own selected bin. Its optional logical output, and the estimator's native
+`binning_failed_` diagnostic, identify that fallback rather than emitting a Python
+warning. The optional `float64_width=.true.` preserves float32 bin coordinates
+but multiplies in real64, matching a NumPy float64 scalar rather than a Python
+float. Automatic estimator bandwidths use this mode, matching sklearn's promotion.
+A zero helper bin size returns the input values, including automatically
+estimated zero bandwidth. No qualifying bins return an array of shape `(0,p)`;
+fitting with no qualifying seeds fails clearly. Native helper widths must be
+finite and nonnegative, frequencies positive, and bin coordinates and products
+representable in their selected precision; nonfinite inputs and overflowing coordinates are rejected.
+See [the example](../example/mean_shift_bins.f90).
 `cluster_all=false` marks training points farther than the bandwidth from any
 center as -1; prediction still assigns every query to its nearest center.
 Inspect `cluster_centers_`, `labels_`, `n_iter_` and `converged_`. The iteration

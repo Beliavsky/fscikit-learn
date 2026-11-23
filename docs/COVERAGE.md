@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and fifty-five reference suites additionally check 2,539,660
+All types have native tests. One hundred and fifty-six reference suites additionally check 2,557,042
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -101,9 +101,9 @@ distances; cosine similarity; linear, RBF, polynomial and sigmoid kernels.
 
 ## Intentional differences and limits
 
-- MeanShift uses all training points as seeds, or explicit seeds passed to
-  `fit(x,seeds=...)`. There is no bin seeding or subsampling/parallel bandwidth
-  estimation. `bandwidth=-1` estimates the full-data 0.3-quantile bandwidth;
+- MeanShift uses all training points, frequency-filtered grid bins or explicit
+  seeds passed to `fit(x,seeds=...)`. Bandwidth estimation supports seeded
+  subsampling, but has no parallel backend. `bandwidth=-1` estimates the full-data 0.3-quantile bandwidth;
   automatically estimated zero bandwidth is allowed for degenerate/small data.
   `cluster_all=false` gives orphan training labels -1; `predict` still returns
   the nearest center for every query, matching sklearn. Exact seed endpoints
@@ -8191,3 +8191,44 @@ R2=1. The combined audit checked 159 compiled source contents per profile,
 complete frozen field inventories, source/executable/validator hashes and
 unchanged unrelated core modules and existing native tests. Reports are retained
 locally under `validation/results/frozen_*`, including `frozen_final_audit.json`.
+
+
+## MeanShift bin seeds and subsampled bandwidth (sklearn 1.6.1)
+
+MeanShift now supports `bin_seeding` and positive `min_bin_freq`, with explicit
+fit seeds taking precedence. The public `get_bin_seeds` helper preserves
+first-seen bin order, nearest-even rounding and source float32 bin coordinates.
+Python-float widths multiply in float32; optional `float64_width` reproduces
+NumPy float64 scalar promotion, used automatically for estimated bandwidths.
+The native `binning_failed_` flag identifies sklearn's singleton-bin fallback
+warning; a zero helper width returns original points. Empty helper results have
+shape `(0,p)`; fitting with no qualifying seeds fails explicitly. Native finite
+range and positive-frequency requirements are documented in API.md.
+
+`estimate_bandwidth` additionally accepts positive `n_samples` and nonnegative
+integer `random_state`, defaulting to zero. Sampling follows legacy NumPy
+RandomState permutations, including permutation of all rows when the request
+is at least the population size. The estimator's automatic bandwidth continues
+to use all rows; callers can explicitly assign a subsampled estimate.
+
+The new `compare_mean_shift_seeding.py` suite retains 17,382 required groups
+across 3,235 configurations: 544 direct helper cases, 1,728 fits and 963 bandwidth
+estimates. Four seeds exercise dimensions 1--4, signed half-bin ties and their
+adjacent floats, duplicate/constant data, large integer coordinates, 10,000-row
+binning, frequency filtering, empty selections, both scalar promotion forms,
+explicit-seed precedence, automatic/fixed/zero bandwidths, iteration caps,
+orphan labels and query predictions. Sampling includes one row, requests above
+the population, zero/unit/intermediate quantiles, and estimates crossing the
+source's 500-row batch boundary. Fourteen diagnostics check malformed controls,
+NaN data, overflowing/unrepresentable coordinates and empty bins.
+All development groups and diagnostics passed. Helper seeds compare exactly;
+automatic-bandwidth seeds allow only the existing bandwidth numerical tolerance.
+Maximum development errors were 7.11e-15 for seeds, 1.78e-15 for bandwidth and
+zero for fitted centers. Native tests independently exercise the seed/fit
+identities and fallback state resets. The example demonstrates three clusters
+from frequent bins and a seeded subsampled bandwidth. MIT licensing, retained
+sklearn/NumPy BSD attribution and dependency inventory are unchanged.
+
+Cumulative inventory: 222 core public types, 138 source modules, 180 native
+programs, 156 reference suites / 2,557,042 retained required groups, and 61
+invalid-input registries / 4,047 cases. These remain API subsets.

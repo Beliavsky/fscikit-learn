@@ -1359,3 +1359,15 @@ sklearn BSD terms remain in LICENSES/scikit-learn-COPYING. Native encoding
 diagnostics, allocation-after-validation adapters, typed tests, example and
 reference harness are original MIT contributions. No dependency or public
 extension estimator was added.
+
+
+## MeanShift grid seeds and bandwidth sampling (BSD)
+
+The `get_bin_seeds` helper and MeanShift/estimate_bandwidth additions in
+`src/sklearn_cluster.f90` follow scikit-learn 1.6.1 `cluster/_mean_shift.py`:
+frequency-filtered insertion-ordered grid seeds, nearest-even rounding,
+float32 seed storage/multiplication, singleton-bin fallback and legacy-RNG
+sampling without replacement. Scikit-learn BSD terms remain in
+`LICENSES/scikit-learn-COPYING`; the existing NumPy RNG notices continue to
+apply. The native hash table, diagnostics, tests, example and reference harness
+are original MIT contributions. No dependency or extension algorithm was added.

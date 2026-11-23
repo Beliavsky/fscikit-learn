@@ -355,3 +355,8 @@ checks fitted state and leaves the underlying model untouched, including inside
 pipelines. See [the example](example/frozen_pipeline.f90) and
 [the lifetime and API contract](docs/API.md#frozen-estimators). This adapter uses
 Fortran 2018 assumed-rank arguments.
+
+
+MeanShift supports frequency-filtered grid seeding and reproducible bandwidth
+subsampling. See [the example](example/mean_shift_bins.f90) and
+[the API contract](docs/API.md#mode-seeking-spectral-methods-and-kernel-density).

@@ -5,6 +5,8 @@ module sklearn_cluster
   use sklearn_bicluster, only: spectral_coclustering,spectral_biclustering
   use sklearn_hdbscan, only: hdbscan
   use sklearn_common
+  use sklearn_legacy_rng, only: legacy_random_state
+  use, intrinsic :: iso_fortran_env, only: real32,int64
   use sklearn_metrics, only: pairwise_distances
   use sklearn_spectral, only: spectral_affinity_matrix,spectral_eigenvectors
   use sklearn_optics, only: optics,cluster_optics_dbscan,cluster_optics_xi
@@ -15,7 +17,7 @@ module sklearn_cluster
   public :: hdbscan
   public :: optics,cluster_optics_dbscan,cluster_optics_xi
   public :: kmeans,dbscan,agglomerative_clustering
-  public :: mean_shift,estimate_bandwidth,affinity_propagation,spectral_clustering
+  public :: mean_shift,estimate_bandwidth,get_bin_seeds,affinity_propagation,spectral_clustering
   public :: feature_agglomeration
   public :: birch
   ! CF tree contracts follow sklearn 1.6.1 cluster/_birch.py (BSD notices retained).
@@ -92,8 +94,8 @@ module sklearn_cluster
   end type
   type :: mean_shift
     real(dp) :: bandwidth=-1,bandwidth_=0
-    integer :: max_iter=300,n_iter_=0
-    logical :: cluster_all=.true.,converged_=.false.
+    integer :: max_iter=300,n_iter_=0,min_bin_freq=1
+    logical :: cluster_all=.true.,converged_=.false.,bin_seeding=.false.,binning_failed_=.false.
     real(dp), allocatable :: cluster_centers_(:,:)
     integer, allocatable :: labels_(:)
   contains
@@ -126,17 +128,116 @@ module sklearn_cluster
 contains
   ! sklearn 1.6.1 cluster/_mean_shift.py, _affinity_propagation.py and
   ! _spectral.py. See THIRD_PARTY_NOTICES.md for retained upstream attribution.
-  real(dp) function estimate_bandwidth(x,quantile) result(bandwidth)
+  ! sklearn 1.6.1 cluster/_mean_shift.py: insertion-ordered grid bins,
+  ! nearest-even rounding and float32 seed storage; native queries stay real64.
+  function get_bin_seeds(x,bin_size,min_bin_freq,binning_failed,float64_width) result(seeds)
+    real(dp), intent(in) :: x(:,:),bin_size
+    integer, optional, intent(in) :: min_bin_freq
+    logical, optional, intent(out) :: binning_failed
+    logical, optional, intent(in) :: float64_width
+    logical :: wide
+    real(dp), allocatable :: seeds(:,:),grid(:,:)
+    real(dp) :: point(size(x,2)),v,t
+    real(real32) :: width32,coordinate32
+    integer, allocatable :: slots(:),frequency(:)
+    integer :: n,p,threshold,capacity,i,j,pos,idx,used,selected,k
+    integer(int64) :: hash,bits
+    wide=.false.;if(present(float64_width)) wide=float64_width
+    call check_x(x);n=size(x,1);p=size(x,2);threshold=1
+    if(present(min_bin_freq)) threshold=min_bin_freq
+    call require(threshold>=1,'min_bin_freq must be positive')
+    call require(ieee_is_finite(bin_size),'bin_size must be finite')
+    call require(bin_size>=0,'bin_size must be nonnegative')
+    if(present(binning_failed)) binning_failed=.false.
+    if(bin_size==0) then
+      seeds=x;return
+    end if
+    if(bin_size<1) call require(maxval(abs(x))<=huge(1._dp)*bin_size,'bin coordinates overflow')
+    call require(n<=huge(n)/4,'too many grid bin samples')
+    capacity=1
+    do while(capacity<2*n)
+      capacity=2*capacity
+    end do
+    allocate(grid(n,p),frequency(n),slots(capacity));slots=0;frequency=0;used=0
+    do i=1,n
+      hash=0
+      do j=1,p
+        v=x(i,j)/bin_size;t=aint(v)
+        if(abs(v-t)>.5_dp) t=t+sign(1._dp,v)
+        if(abs(v-t)==.5_dp.and.mod(abs(t),2._dp)==1) t=t+sign(1._dp,v)
+        if(t==0) t=0._dp
+        point(j)=t;bits=transfer(t,bits)
+        bits=ieor(bits,ishft(bits,-32));bits=ieor(bits,ishft(bits,-16))
+        bits=ieor(bits,ishft(bits,-8));bits=ieor(bits,ishft(bits,-4))
+        bits=ieor(bits,ishft(bits,-2));bits=ieor(bits,ishft(bits,-1))
+        hash=ieor(ieor(ishft(hash,5),ishft(hash,-2)),bits)
+      end do
+      pos=int(iand(hash,int(capacity-1,int64)))+1
+      do
+        idx=slots(pos)
+        if(idx==0) then
+          used=used+1;idx=used;slots(pos)=idx;grid(idx,:)=point
+          exit
+        end if
+        if(all(grid(idx,:)==point)) exit
+        pos=mod(pos,capacity)+1
+      end do
+      frequency(idx)=frequency(idx)+1
+    end do
+    selected=count(frequency(:used)>=threshold)
+    if(selected==n) then
+      if(present(binning_failed)) binning_failed=.true.
+      seeds=x;return
+    end if
+    allocate(seeds(selected,p));k=0
+    if(selected==0) return
+    if(.not.wide) then
+      call require(bin_size<=real(huge(width32),dp),'bin_size exceeds float32 seed range')
+      width32=real(bin_size,real32)
+    end if
+    do i=1,used
+      if(frequency(i)<threshold) cycle
+      k=k+1
+      do j=1,p
+        call require(abs(grid(i,j))<=real(huge(coordinate32),dp),'bin coordinate exceeds float32 seed range')
+        coordinate32=real(grid(i,j),real32)
+        if(wide) then
+          if(bin_size>1) call require(abs(real(coordinate32,dp))<=huge(1._dp)/bin_size,'bin seed overflow')
+          seeds(k,j)=real(coordinate32,dp)*bin_size
+        else
+          call require(abs(real(coordinate32,dp)*real(width32,dp))<=real(huge(width32),dp), &
+            'bin seed exceeds float32 range')
+          seeds(k,j)=real(coordinate32*width32,dp)
+        end if
+      end do
+    end do
+  end function
+  real(dp) function estimate_bandwidth(x,quantile,n_samples,random_state) result(bandwidth)
     real(dp), intent(in) :: x(:,:)
     real(dp), intent(in), optional :: quantile
+    integer, optional, intent(in) :: n_samples,random_state
     real(dp) :: q
-    real(dp), allocatable :: d(:,:)
-    integer :: n,k,i,order(size(x,1))
-    call check_x(x); n=size(x,1); q=0.3_dp; if(present(quantile)) q=quantile
+    real(dp), allocatable :: d(:,:),sample(:,:)
+    integer, allocatable :: permutation(:),order(:)
+    integer :: n,k,i,j,temp,seed
+    type(legacy_random_state) :: rng
+    call check_x(x);q=0.3_dp;if(present(quantile)) q=quantile
+    call require(ieee_is_finite(q),'bandwidth quantile must be finite')
     call require(q>=0.and.q<=1,'bandwidth quantile must be in [0,1]')
-    k=max(1,int(n*q)); d=pairwise_distances(x,x); bandwidth=0
+    seed=0;if(present(random_state)) seed=random_state
+    call rng%seed(seed)
+    sample=x;n=size(x,1)
+    if(present(n_samples)) then
+      call require(n_samples>=1,'bandwidth n_samples must be positive')
+      permutation=[(i,i=1,n)]
+      do i=n,2,-1
+        j=rng%integer_index(i);temp=permutation(i);permutation(i)=permutation(j);permutation(j)=temp
+      end do
+      sample=x(permutation(:min(n,n_samples)),:);n=size(sample,1)
+    end if
+    allocate(order(n));k=max(1,int(n*q));d=pairwise_distances(sample,sample);bandwidth=0
     do i=1,n
-      order=argsort(d(i,:)); bandwidth=bandwidth+d(i,order(k))
+      order=argsort(d(i,:));bandwidth=bandwidth+d(i,order(k))
     end do
     bandwidth=bandwidth/n
   end function
@@ -163,14 +264,19 @@ contains
     integer :: n,p,s,i,j,k,completed,valid_count,idx
     call check_x(x); n=size(x,1); p=size(x,2)
     call require(self%max_iter>=0,'MeanShift max_iter must be nonnegative')
+    call require(self%min_bin_freq>=1,'MeanShift min_bin_freq must be positive')
+    call require(ieee_is_finite(self%bandwidth),'MeanShift bandwidth must be finite')
     call require(self%bandwidth>0.or.self%bandwidth==-1,'MeanShift bandwidth must be positive or -1')
     self%bandwidth_=self%bandwidth
     if(self%bandwidth==-1) self%bandwidth_=estimate_bandwidth(x)
     call check_x(reshape([self%bandwidth_],[1,1]))
-    starts=x
+    starts=x;self%binning_failed_=.false.
     if(present(seeds)) then
-      call check_xy(transpose(seeds),p); starts=seeds
+      call check_xy(transpose(seeds),p);starts=seeds
+    else if(self%bin_seeding) then
+      starts=get_bin_seeds(x,self%bandwidth_,self%min_bin_freq,self%binning_failed_,float64_width=self%bandwidth==-1)
     end if
+    call require(size(starts,1)>0,'no MeanShift seeds satisfy min_bin_freq')
     s=size(starts,1); allocate(centers(s,p),counts(s),order(s)); valid_count=0
     self%n_iter_=0; self%converged_=.true.
     do i=1,s
