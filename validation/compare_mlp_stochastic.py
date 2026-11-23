@@ -145,7 +145,7 @@ def main():
         'momentum':'MLP momentum must be in [0,1]','power':'invalid MLP optimizer controls',
         'beta1':'invalid MLP optimizer controls','beta2':'invalid MLP optimizer controls','epsilon':'invalid MLP optimizer controls',
         'nonfinite':'nonfinite MLP controls','hidden':'hidden layer sizes must be positive',
-        'data':'NaN or infinity','target':'NaN or infinity','target_count':'sample', 'one_class':'MLP classification needs at least two classes',
+        'data':'NaN or infinity','target':'NaN or infinity','target_count':'sample', 'empty_batch':'X must be nonempty',
         'reg_unfitted':'MLP is not fitted','cls_unfitted':'MLP is not fitted', 'reg_width':'sample','cls_width':'sample'}
     rejections=[]
     for mode,message in invalid.items():

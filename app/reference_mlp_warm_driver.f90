@@ -162,7 +162,7 @@ contains
     case('data');a(1,1)=nan
     case('target');target(1)=nan
     case('target_count');call r%fit(a,[1._dp]);return
-    case('one_class');call c%fit(a,[3,3]);return
+    case('empty_batch');call c%fit(a(:0,:),[integer::]);return
     case('reg_unfitted');v=r%predict(a);return
     case('cls_unfitted');prob=c%predict_proba(a);return
     case('reg_width');call r%fit(a,target);v=r%predict(a(:,1:1));return

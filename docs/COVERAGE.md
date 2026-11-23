@@ -8095,8 +8095,9 @@ independent snapshots of each class layout. Ten diagnostics cover empty,
 unknown or changed declarations, incompatible warm targets, partial stopping,
 empty holdouts and malformed oversized classifier/regressor CSR queries.
 
-The existing partial-fit invalid registry replaces its former single-class
-rejection with an empty-batch rejection, retaining 21 cases. Native tests
+The existing partial-fit, stochastic and L-BFGS invalid registries replace their
+former single-class rejections with empty-batch rejections, retaining 21, 25
+and 27 cases respectively. Native tests
 independently verify predictions when the sigmoid exceeds 0.5, the two-column
 probability convention, unseen query-label accuracy, dense/CSR and target-rank
 streaming, single-class validation patience, zero-tolerance histories and cold
