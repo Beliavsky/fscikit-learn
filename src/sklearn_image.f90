@@ -1,6 +1,7 @@
 ! Image patch algorithms adapted from sklearn 1.6.1 feature_extraction/image.py.
 ! BSD-3-Clause attribution is retained in THIRD_PARTY_NOTICES.md.
 module sklearn_image
+  use sklearn_image_graph, only: grid_to_graph,img_to_graph
   use sklearn_common, only: dp,require
   use sklearn_legacy_rng, only: legacy_random_state
   use sklearn_ieee_math, only: ieee_difference,ieee_quotient
@@ -9,6 +10,7 @@ module sklearn_image
   implicit none
   private
   public :: patch_extractor,extract_patches_2d,reconstruct_from_patches_2d
+  public :: grid_to_graph,img_to_graph
   type :: patch_extractor
     integer :: patch_size(2)=0,max_patches=0,random_state=0
     real(dp) :: patch_fraction=0

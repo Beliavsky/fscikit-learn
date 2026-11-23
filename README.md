@@ -276,3 +276,8 @@ powers/names, CSR expansion and dense pipeline support. The existing
 `polynomial_features(x, ...)` call remains available and its degree-12 cap is
 removed. See [the contract and source corrections](docs/API.md#polynomialfeatures-estimator-and-retained-array-api)
 and [the quadratic pipeline example](example/polynomial_feature_pipeline.f90).
+
+Image/grid graph builders now provide sparse axis connectivity and pixel/voxel
+contrast weights, including masks and explicit zero edges. See
+[the graph API](docs/API.md#image-and-grid-graph-builders) and
+[the example](example/image_graphs.f90).

@@ -6245,3 +6245,65 @@ output, Python warning protocols and sparse pipeline dispatch are not exposed.
 Dense Pipeline, FeatureUnion and ColumnTransformer use the existing transformer
 protocol and polynomial output names. There is no inverse transform. See
 `example/polynomial_feature_pipeline.f90`.
+
+## Image and grid graph builders
+
+`grid_to_graph` and `img_to_graph` are exported by `sklearn_image_graph`,
+`sklearn_image` and the `sklearn` facade. Both return owned real64 `csr_matrix`
+objects, with sorted, 1-based columns. Use `%to_dense()` for the counterpart of
+source `return_as=np.ndarray`; COO/CSC output classes and a dtype selector are
+not exposed.
+
+```fortran
+type(csr_matrix) :: lattice,gradient
+logical :: selected(2,3)
+real(dp) :: image(2,3)
+lattice=grid_to_graph(2,3)        ! n_z defaults to one
+selected=.true.
+gradient=img_to_graph(image,selected)
+```
+
+`grid_to_graph(n_x,n_y,n_z,mask)` builds axis-adjacent voxel connectivity with
+unit edge weights and unit diagonal entries. All dimensions must be positive;
+`n_z` is optional. Its optional logical mask may be scalar or rank one, two or
+three, with total size equal to the grid volume. Multidimensional masks flatten
+in C order, matching source. Pass `mask=` when omitting `n_z`.
+
+`img_to_graph(image,mask)` accepts real64 scalar, vector, matrix and rank-three
+arrays. A vector maps to source `atleast_3d` shape `(1,n,1)`; a matrix maps to
+`(n_x,n_y,1)`. An image mask must have the same rank and shape as the image.
+Zero-volume images and empty selections return valid `(0,0)` CSR matrices.
+
+Voxel numbering follows NumPy C order: z varies fastest, then y, then x.
+Masking compacts selected voxel numbers in that order. Only immediate axis
+neighbors are connected, in both directions; there are no diagonal spatial
+neighbors or wraparound connections. Image edge weights are absolute differences
+of adjacent voxel values, and diagonal entries contain the selected image values.
+Explicit zero gradients and zero diagonals remain stored. Negative values,
+NaNs and infinities are accepted, as in source. Quiet IEEE arithmetic preserves
+NaN/infinity results without triggering the checked build's arithmetic traps.
+
+The native image mask path corrects sklearn 1.6.1's singleton-axis defect:
+source squeezes the image when selecting diagonal values but leaves its mask
+unsqueezed. Same-shaped masks can therefore raise `IndexError`. Native masks
+retain their declared shape; reference reports retain those source exceptions
+and use the public source function with a mask matched to its internally
+squeezed image as the numerical oracle. Arbitrary malformed mask sizes/shapes are diagnosed.
+
+Construction visits the grid and selected edges, using O(volume + stored entries)
+memory rather than allocating dense adjacency. CSR dimensions/stored counts
+retain the package's default-integer range; checked int64 volume/count arithmetic
+precedes allocations, with diagnostics for unsupported ranges/allocation failure.
+See `example/image_graphs.f90`.
+
+## Quiet subtraction at the real64 boundary
+
+The shared internal `ieee_difference` helper now preserves correctly rounded
+finite differences at the overflow boundary. For example, both
+`huge(1._dp) - (-1.e200_dp)` and `1.e200_dp - (-huge(1._dp))` round to the largest
+finite real64 value under default round-to-nearest arithmetic. The earlier
+`HUGE+b` guard could return infinity for the latter expression. Power-of-two
+scaling in the extreme opposite-sign path distinguishes a rounded finite result
+from true overflow without changing halting modes. Ordinary finite subtraction,
+signed zeros and existing nonfinite semantics are retained. This also corrects
+shared reductions and sparse/image/weighted-model consumers of that helper.

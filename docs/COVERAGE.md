@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 221 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and thirty-seven reference suites additionally check 951,659
+All types have native tests. One hundred and thirty-nine reference suites additionally check 983,718
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -58,7 +58,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | search | `grid_search_cv`, `randomized_search_cv`; typed parameter grids and samplers | Serial dense candidate/fold evaluation, default or explicit folds, single/multiple scorers, callbacks, weighted fits, ranking and refitting; native scalar parameter adapters and nested Pipeline paths |
 | model_selection | `kfold`, `stratified_kfold`, `time_series_split`, `group_kfold`, `leave_one_out`, `leave_one_group_out`, `predefined_split`, `shuffle_split`, `stratified_shuffle_split`, `group_shuffle_split`, `repeated_kfold`, `repeated_stratified_kfold`, `leave_p_out`, `leave_p_groups_out`, `ridge_cv`; `train_test_split`, `shuffle_indices`, `cross_val_score` | Index-based splits; seeded random/group/stratified holdouts; repeated shuffled folds; exhaustive sample/group combinations; fraction/count size controls; optional stratification; time gap/window; CV for linear-regression family and logistic regression; ridge CV selects negative mean squared error |
 | feature_selection | `select_from_model`, `variance_threshold`, `select_k_best`, `select_percentile`, `select_fpr`, `select_fdr`, `select_fwe`, `generic_univariate_select`, `sequential_feature_selector`, `rfe`, `rfecv`; `f_classif`, `f_regression`, `chi2`, `r_regression`, `mutual_info_classif`, `mutual_info_regression` | Model coefficient/tree-importance thresholds and stable caps; dense scores and masks; greedy forward/backward CV regression selection; coefficient-based recursive elimination and CV for regression/logistic classification; inverse transform fills dropped columns with zero; new statistical selectors include p-values and multiplicity control |
-| image | `patch_extractor`; `extract_patches_2d`, `reconstruct_from_patches_2d` | Exhaustive or seeded with-replacement image patches; grayscale and multichannel batches; source overlap averaging |
+| image / image_graph | `patch_extractor`; `extract_patches_2d`, `reconstruct_from_patches_2d`, `grid_to_graph`, `img_to_graph` | Exhaustive or seeded with-replacement image patches; grayscale and multichannel batches; source overlap averaging; masked real64 CSR grid connectivity and pixel/voxel gradients |
 | feature_extraction | `dict_vectorizer`, `feature_hasher` | Named numeric/categorical mappings; string lists; learned or hashed columns; real64 CSR and dense outputs |
 | feature_extraction_text | `count_vectorizer`, `tfidf_transformer`, `tfidf_vectorizer`, `hashing_vectorizer` | Dense vocabulary/TF-IDF unigram counts with ASCII tokens of length 2-128; stateless CSR signed/binary hashed word, character and within-word character n-grams with dynamic token storage, ASCII analysis and English/custom stop words; l1/l2/no normalization |
 | dummy | `dummy_classifier`, `dummy_regressor` | Prior/most-frequent/stratified/uniform/constant classification; mean/median/quantile/constant regression |
@@ -263,7 +263,7 @@ Barnes-Hut t-SNE,
 outlier detection beyond LOF/OneClassSVM/SGDOneClassSVM/IsolationForest/EllipticEnvelope,
 calibration with further base estimators and general metadata routing,
 additional multiclass base estimators and sparse reductions,
-additional inspection utilities, further feature-selection wrappers, image graph features,
+additional inspection utilities, further feature-selection wrappers,
 real dataset loaders and the full plotting/display API.
 
 SciFort is available at `../scifort` but not linked by this initial package.
@@ -6899,3 +6899,48 @@ optimized final-source check passed 1,000 repetitions. The audit verifies 307
 compiled-content digests per profile, complete inventories, hashes and unchanged
 surrounding preprocessing/dispatch code. Both explicit examples match source.
 Only affected suites were rerun; see the [validation record](VALIDATION.md).
+
+## Image/grid graphs and quiet subtraction boundaries
+
+Added scikit-learn's `grid_to_graph` and `img_to_graph` helpers with owned real64
+CSR output, C-order voxel numbering and selected-voxel compaction. They preserve
+bidirectional axis connectivity, explicit zero edges and all diagonal entries.
+Image graphs use absolute adjacent differences and image-valued diagonals;
+grid graphs use ones. Scalars/vectors/matrices/volumes, empty selections and
+zero-volume images are supported. Masks and dimensions have explicit checks.
+Construction is linear in grid volume/stored entries, without dense adjacency.
+The public contract documents CSR index limits and the absence of dtype/output-
+class selectors. No new estimator type, extension algorithm or runtime dependency
+is introduced. See the [API contract](API.md#image-and-grid-graph-builders).
+
+The source image mask path squeezes the image but not its mask, so otherwise
+same-shaped singleton-axis masks can fail. Native masks preserve their declared
+shape. The suite retains 560 raw source exceptions and uses the public function
+with a mask matched to its internal squeezed image for the intended graph.
+Across 1,832 fixtures / 14,653 groups, it checks CSR structure/data/signs, dense
+views, stored-zero masks, sparse multiplication, input preservation and 13
+diagnostics. Three large graph cases avoid dense materialization. Reports retain
+352 nonfinite reference fields and enforce exact NaN/signed-infinity masks.
+
+Near-maximum image gradients exposed a premature-overflow bug in the shared
+quiet-subtraction guard. The corrected extreme opposite-sign path uses
+power-of-two scaling, preserving finite rounded results and true overflow without
+changing halting modes. Independent NumPy subtraction checks cover 8,703 scalar
+pairs / 17,406 groups, including 258 cases the old guard got wrong. Finite value
+bits and non-NaN signs match exactly; nonfinite classifications match exactly.
+Other quiet primitive/reduction procedure bodies remain unchanged.
+
+Cumulative inventory: 221 public core types, 135 source modules, 161 native tests,
+139 core reference suites / 983,718 groups and 44 invalid-input registries /
+3,723 cases. Types remain API subsets and helpers do not add estimator types.
+The separate legacy RNG suite remains excluded.
+
+Final checked and release profiles each pass 161 native tests, 276,126 affected
+reference groups and 308 diagnostics. The shared-helper regression set includes
+image patches, structured features, histogram boosting, sparse/smoothed Naive
+Bayes, positive regressors, preprocessing, weighted classifiers/trees and
+pipeline/column/union integration. Both examples match source. The final audit
+verifies 321 compiled-content digests per profile, complete new field inventories,
+exact subtraction bits and nonfinite masks, pinned hashes and unchanged
+surrounding procedure bodies. Only affected suites were rerun; the separate
+legacy RNG suite remains excluded. See the [validation record](VALIDATION.md).

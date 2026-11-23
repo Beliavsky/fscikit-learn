@@ -9,6 +9,7 @@ module sklearn_ieee_math
 contains
   real(dp) function ieee_difference(a,b) result(value)
     real(dp), intent(in) :: a,b
+    real(dp) :: half
     value=ieee_value(0._dp,ieee_quiet_nan)
     if(ieee_is_nan(a).or.ieee_is_nan(b)) return
     if(.not.ieee_is_finite(a).or..not.ieee_is_finite(b)) then
@@ -19,13 +20,18 @@ contains
         value=ieee_value(0._dp,ieee_negative_inf)
       end if
     else
-      if(b<0) then
-        if(a>huge(a)+b) then
-          value=ieee_value(0._dp,ieee_positive_inf); return
-        end if
-      else if(b>0) then
-        if(a< -huge(a)+b) then
-          value=ieee_value(0._dp,ieee_negative_inf); return
+      if((a>0.and.b<0).or.(a<0.and.b>0)) then
+        if(max(abs(a),abs(b))>huge(a)*.5_dp) then
+          ! Power-of-two scaling preserves the rounded result at the overflow
+          ! boundary. Comparing a with HUGE+b can report infinity too early.
+          half=a*.5_dp-b*.5_dp
+          if(abs(half)>huge(a)*.5_dp) then
+            value=ieee_value(0._dp,ieee_positive_inf)
+            if(half<0) value=-value
+          else
+            value=half*2
+          end if
+          return
         end if
       end if
       value=a-b

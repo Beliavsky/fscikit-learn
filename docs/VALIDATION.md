@@ -7245,3 +7245,38 @@ field inventories, hashes and unchanged surrounding preprocessing/dispatch code.
 Both explicit examples match source. Reports and pre-fix logs are retained in
 ignored `validation/results`, including `polynomial_final_audit.json`. Only
 impacted suites were rerun; the separate legacy RNG suite remains excluded.
+
+## Image/grid graphs and quiet-subtraction boundary verification
+
+The new graph suite passes 1,832 fixtures / 14,653 groups and 13 diagnostic cases.
+It compares source CSR structure/data/signs, dense views, stored-zero masks and
+large sparse multiplication. Reports retain 560 raw source singleton-axis mask
+exceptions and 352 nonfinite fields, with exact NaN/signed-infinity masks. The
+contract identifies the consistent-mask public source oracle, dtype/output-class
+limits and default-integer CSR limits.
+
+The new subtraction suite passes 8,703 scalar pairs / 17,406 groups against NumPy,
+matching every finite value bit and all non-NaN signs. Its anchor grid, random
+finite bit patterns and explicit overflow-rounding cases expose 258 premature
+infinities in the former shared guard. Scaling the extreme opposite-sign case
+corrects the rounding boundary without changing floating-point halting modes.
+Other quiet primitive/reduction procedure bodies remain unchanged.
+
+The checked build passes all 161 native tests. Its public example matches the
+20-node / 82-entry grid, three selected gradient nodes / five entries and matrix
+`[[1,0,7],[0,4,0],[7,0,8]]`. The native sparse-scaling regression checks a
+60,000-node grid with 299,000 entries without constructing dense adjacency.
+Broader affected reference suites and release verification are recorded below.
+
+Final checked and release verification each passes all 161 native programs,
+276,126 affected reference groups and 308 diagnostics. Existing image-patch,
+structured-feature, histogram-boosting, sparse/smoothed NB, positive-regression,
+preprocessing, weighted-classifier/tree and pipeline/column/union/integration
+suites were rerun because the subtraction helper is shared. Both examples match
+source. The final audit verifies 321 compiled-content digests per profile,
+complete new-suite field inventories, bit-exact finite subtraction, exact
+nonfinite outcomes, graph-mask corrections, source/validator/executable hashes,
+distinct optimized executables and unchanged surrounding procedure bodies.
+Artifacts are retained in ignored `validation/results`, including
+`image_graph_final_audit.json`. Only affected suites were rerun; the separate
+legacy RNG suite remains excluded.

@@ -6672,3 +6672,43 @@ The audit verifies 307 compiled-content digests per profile, complete field and
 fixture inventories (including 128 name/refit processes), pinned hashes and
 unchanged surrounding code. Artifacts and pre-fix logs remain in ignored
 `validation/results`, including `polynomial_final_audit.json`.
+
+## Image/grid graph and subtraction reference suites
+
+`compare_image_graph.py --executable PATH --profile checked --report
+validation/results/image_graph_checked.json` uses `reference_image_graph_driver`.
+The suite retains 1,832 fixtures / 14,653 groups and 13 diagnostics, spanning
+scalar/vector/matrix/volume images, 2D/3D grids, scalar and rank-one/two/three
+masks, disconnected/empty selections, zeros, negative values, tiny values,
+near-overflow differences and NaN/Inf inputs. It checks CSR metadata, pointers,
+indices, data signs, dense views, stored-zero masks and untouched inputs. Three
+large graph cases check sparse multiplication without dense adjacency. Integer
+outputs/signs compare exactly, and floats use `rtol=3e-14`, `atol=0` with exact
+NaN and signed-infinity masks. Reports retain 352 nonfinite source fields.
+
+The reports preserve 560 raw sklearn 1.6.1 exceptions for masks with singleton
+axes: source squeezes the image alone when selecting diagonal values. Native
+same-shaped masks are valid. The numerical oracle is the public source function
+with a mask matched to its internally squeezed image. Ordinary successful raw
+source outputs are also checked against that oracle. Grid masks retain source
+C-order flattening. Image/mask rank and shape rules are documented in API.md.
+
+`compare_ieee_difference.py` uses the same arguments with
+`reference_ieee_difference_driver`. It checks 8,703 scalar pairs / 17,406 groups
+against NumPy float64 subtraction: a Cartesian anchor grid, random finite bit
+patterns and explicit overflow-rounding boundary cases. Every finite result bit,
+including signed zero, must match exactly; NaN/signed-infinity masks and non-NaN
+signs must also match. Reports retain the 258 original guard errors. The source
+NumPy binary, validator, parser and executable hashes are pinned. This checks
+the shared internal helper, not a new public extension.
+
+Final checked and release profiles each pass 161 native tests, 276,126 affected
+reference groups and 308 diagnostics. The shared-helper regressions include image,
+structured-feature, histogram-boosting, sparse/smoothed NB, positive-regression,
+preprocessing, weighted-classifier/tree and pipeline/column/union/integration
+suites. File-based legacy suites run sequentially within/between profiles.
+The final audit checks 321 compiled-content digests per profile, complete field
+inventories, graph-mask outcomes, exact subtraction bits, pinned hashes, distinct
+optimized executables and unchanged surrounding procedure bodies. Both examples
+match source. Reports/pre-fix logs remain in ignored `validation/results`,
+including `image_graph_final_audit.json`.

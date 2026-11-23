@@ -1151,3 +1151,16 @@ CSR duplicate expansion and empty-output metadata/stacking defects observed in
 sklearn 1.6.1; raw source outcomes remain in validation reports. Exact checked
 counting, streaming buffers, column ranking, lazy metadata and protocol adapters
 are original MIT contributions. No additional runtime library is imported.
+
+### Image/grid graphs and quiet subtraction
+
+`src/sklearn_image_graph.f90` adapts scikit-learn 1.6.1
+`feature_extraction/image.py` (`_make_edges_3d`, `_compute_gradient_3d`, mask
+compaction, `grid_to_graph`, `img_to_graph`). Copyright The scikit-learn
+developers; retained BSD-3-Clause terms are in `LICENSES/scikit-learn-COPYING`.
+The row-sorted, owned native CSR builder, range checks and shape adapters are
+original MIT contributions. The implementation corrects the source's unsqueezed
+singleton-axis mask selection; source exceptions remain in reference reports.
+The shared quiet-subtraction boundary correction is original MIT arithmetic,
+verified independently against NumPy float64 subtraction; the existing NumPy
+BSD notice remains retained. No new external runtime code or dependency is added.

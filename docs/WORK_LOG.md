@@ -7350,3 +7350,61 @@ Inventory: 221 public core types, 134 source modules, 159 native tests, 137 core
 reference suites / 951,659 groups, and 43 invalid-input registries / 3,710 cases.
 Only affected reference suites were rerun; the separate legacy RNG suite remains
 excluded and was not rerun. These types remain subsets of their sklearn APIs.
+
+## Image/grid graph builders and subtraction boundary correction
+
+Added `grid_to_graph` and `img_to_graph` to the image module/facade, backed by a
+native sorted CSR builder. Voxel numbering and selected-mask compaction follow
+NumPy C order. Grid graphs retain ones on axis edges/diagonal; image graphs
+retain absolute adjacent differences and image-valued diagonals, including
+stored zeros and nonfinite values. Scalar/vector/matrix/volume image adapters,
+logical masks, empty images/selections and index/allocation checks are documented.
+The builder uses linear sparse storage; a native 60,000-node grid regression
+checks 299,000 stored entries and exact boundary/interior degree counts.
+No estimator type, public extension or external dependency is added.
+
+The reference suite preserves 560 sklearn 1.6.1 singleton-axis mask exceptions.
+The source selects diagonal values from a squeezed image using an unsqueezed
+mask. Native same-shaped masks are valid; the public source function with a mask
+matched to its internal squeezed image supplies the intended graph oracle.
+Ordinary successful raw source graphs are also compared. New coverage is 1,832
+fixtures / 14,653 groups, 13 diagnostics, 352 nonfinite source fields and three
+large sparse cases checked without dense adjacency.
+
+The original development run failed on a near-maximum image-gradient fixture:
+the shared quiet-subtraction guard could report infinity for a rounded finite
+result, differently in the two edge orientations. The shared helper now scales
+the extreme opposite-sign path by a power of two before testing true
+overflow. Ordinary subtraction, signed zeros and nonfinite semantics are retained.
+Independent NumPy checks pass 8,703 pairs / 17,406 groups bit for bit, including
+258 cases exposing the previous guard. Other quiet primitive/reduction procedure
+bodies and existing image patch procedures remain unchanged. Original native
+storage/arithmetic remain MIT with retained sklearn/NumPy BSD attribution.
+
+Checked verification passes all 161 native tests and the two new reference
+suites. The public example matches a 20-node / 82-entry grid and the masked
+three-node gradient matrix `[[1,0,7],[0,4,0],[7,0,8]]` with five stored entries.
+The shared helper change is accompanied by image, structured-feature, histogram
+boosting, sparse/smoothed NB, positive regression, preprocessing, weighted
+classifier/tree and composition/integration regressions in both build profiles.
+Final results below follow termination of both profiles and all regression groups.
+
+The checked audit passes 161 native tests, 276,126 affected reference groups and
+308 diagnostic cases. It verifies 321 compiled-content digests, complete new-suite
+field inventories, exact subtraction bits, graph-mask outcomes, source/validator/
+executable hashes and unchanged surrounding image-patch/quiet-primitive bodies.
+The separate legacy RNG suite was not rerun and remains excluded.
+
+Final checked and release verification each passes all 161 native programs,
+276,126 affected reference groups and 308 diagnostic cases. Both examples match
+source. The audit verifies 321 compiled-content digests per profile, complete
+new-suite field inventories, exact finite subtraction bits/nonfinite outcomes,
+graph mask corrections, source/validator/executable hashes, distinct optimized
+executables and unchanged surrounding image-patch/quiet-primitive bodies.
+Artifacts and pre-fix logs are retained in ignored `validation/results`, including
+`image_graph_final_audit.json`.
+
+Inventory: 221 public core types, 135 source modules, 161 native tests, 139 core
+reference suites / 983,718 groups and 44 invalid-input registries / 3,723 cases.
+Only affected suites were rerun. The separate legacy RNG suite remains excluded
+and was not rerun. Public types remain subsets of their source APIs.
