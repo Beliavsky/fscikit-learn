@@ -370,3 +370,10 @@ subsampling. See [the example](example/mean_shift_bins.f90) and
 low-rank features and sample/feature shuffling. See
 [the example](example/low_rank_regression.f90) and
 [the API contract](docs/API.md#low-rank-matrices-and-regression-generators).
+
+
+Blob, moon and circle generators support NumPy-compatible seeded output and
+unequal class counts, including empty classes and singleton curves. Blobs also
+accept per-cluster scales and return center locations. See
+[the example](example/geometric_samples.f90) and
+[the API contract](docs/API.md#seeded-blobs-moons-and-circles).

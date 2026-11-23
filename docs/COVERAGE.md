@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and fifty-seven reference suites additionally check 2,572,884
+All types have native tests. One hundred and fifty-eight reference suites additionally check 2,621,604
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -71,7 +71,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | gaussian_process | `gaussian_process_regressor`, `gaussian_process_classifier` | Configurable covariance expressions or legacy RBF controls; anisotropy, Matern/RQ/periodic/dot/constant/white kernels and sums/products/powers; scalar/vector-alpha Cholesky regression, independent multiple targets, likelihood gradients and opt-in bounded kernel fitting; Laplace binary/OVR classification with optional independent kernel fitting, binary likelihood gradients and warm starts |
 | covariance | `empirical_covariance`, `shrunk_covariance`, `ledoit_wolf`, `oas`, `graphical_lasso`, `graphical_lasso_cv`, `min_cov_det`, `elliptic_envelope`; `fast_mcd` | Population covariance, pseudoinverse precision, squared Mahalanobis distance, likelihood, Frobenius/spectral covariance error; L1-penalized sparse precision via block coordinate descent and refined cross-validation; FastMCD robust covariance and elliptic outlier detection |
 | calibration | `calibrated_classifier_cv`; `calibration_curve` | Sigmoid/isotonic CV ensembles, out-of-fold calibration and prefit calibration with logistic, Gaussian NB or KNN bases; uniform/quantile reliability bins |
-| datasets | `make_classification`, `make_hastie_10_2`, `make_blobs`, `make_regression`, `make_low_rank_matrix`, `make_moons`, `make_circles`, `make_friedman1/2/3`, `make_sparse_uncorrelated`, `make_s_curve`, `make_swiss_roll`, `make_gaussian_quantiles` | Native synthetic generators; new regression/manifold/quantile generators match seeded legacy NumPy draws; no bundled real-world datasets |
+| datasets | `make_classification`, `make_hastie_10_2`, `make_blobs`, `make_regression`, `make_low_rank_matrix`, `make_moons`, `make_circles`, `make_friedman1/2/3`, `make_sparse_uncorrelated`, `make_s_curve`, `make_swiss_roll`, `make_gaussian_quantiles` | Native synthetic generators with seeded legacy NumPy draws; scalar/joint regression, low-rank profiles, unequal blob/curve counts, per-cluster blob scales and center outputs; no bundled real-world datasets |
 
 ## Metrics and kernels
 
@@ -8327,3 +8327,39 @@ implementation. The verified private build tool leaves the global fpm installati
 unchanged. Reports and fingerprint helpers are retained under ignored
 `validation/results/regression_datasets_*`, `fpm014_fingerprints.py` and
 `regression_datasets_final_audit.json`.
+
+
+## Seeded blob, moon and circle generators (sklearn 1.6.1)
+
+The original intrinsic-RNG implementations now follow sklearn's integer-seeded
+legacy NumPy streams. Blobs support scalar totals or per-cluster counts,
+optional/default center counts, explicit centers with feature-width inference,
+scalar/vector standard deviations, center boxes, optional returned centers and
+shuffle controls. Remainders go to the first clusters. Empty clusters retain
+their original class IDs; zero-scale draws still advance the Gaussian stream.
+Vector NaNs/positive infinities preserve source IEEE outputs. Native scale
+arrays are limited to scalar/vector ranks. Curve generators support explicit
+two-class counts, singleton and empty classes, exact endpoint construction,
+zero-radius inner circles and source shuffle-before-noise ordering. Scalar
+controls are validated; finite extreme noise returns quiet source infinities.
+The native default is isolated seed 0; the old seeded arrays intentionally change.
+
+`compare_geometric_datasets.py` retains 48,720 required groups across 7,460
+configurations: 3,960 blob and 3,500 curve cases, with five seeds including
+2147483647, 1/2/5 blob features, 1/3/5 centers, scalar/vector sample counts,
+zero-population groups, explicit and randomly generated centers, ignored center
+boxes, scalar/vector/default scales, both shuffle states and returned-center
+presence/absence. Curves cover sample counts 1/2/3/4/7/23/100, seven unequal or
+empty count pairs, four circle factors and absent/zero/ordinary/extreme noise.
+Direct fields and exact repeated-call identities are required. Thirty-three
+isolated diagnostics cover malformed sizes, count overflow, center shapes,
+scale ranks/signs, boxes, seeds, factors and noise. Development passed all groups
+and diagnostics: finite coordinates, center locations and labels matched
+exactly, and comparisons matched 8,370 nonfinite source values. Native tests
+also verify geometry, count/label identities, center nonmutation, output-presence
+independence and intrinsic-RNG isolation. MIT licensing, retained BSD attribution
+and dependency inventory are unchanged.
+
+Cumulative inventory: 222 public core types, 139 source modules, 182 native
+programs, 158 reference suites / 2,621,604 retained required groups, and 63
+invalid-input registries / 4,102 cases. These remain API subsets.

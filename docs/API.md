@@ -6829,3 +6829,49 @@ counts and valid tail strength are checked even when an option has no effect.
 Very large finite noise can return source-matched infinities without triggering
 floating-point traps. Other existing generators retain their documented RNGs.
 See [the example](../example/low_rank_regression.f90).
+
+
+## Seeded blobs, moons and circles
+
+`make_blobs`, `make_moons` and `make_circles` now use isolated NumPy-compatible
+legacy RNG state. Their native default seed is 0. This intentionally changes the
+old intrinsic-RNG seeded arrays while retaining the original positional call
+forms. Their scalar size arguments require positive sample counts; vector counts
+may be zero, including all-empty outputs. Labels remain zero-based integers.
+
+```fortran
+call make_blobs(n_samples,n_features,n_centers,x,y,random_state,cluster_std,centers, &
+  center_box,shuffle,centers_out)
+call make_moons(n_samples,x,y,noise,random_state,shuffle)
+call make_circles(n_samples,x,y,noise,factor,random_state,shuffle)
+```
+
+For blobs, `n_samples` may be a scalar total or a vector of nonnegative
+per-cluster counts. Scalar totals distribute the remainder to the first
+clusters. `n_centers` is now optional: absent scalar-count calls use three
+random centers or infer the number from an explicit center matrix; vector-count
+calls infer it from the count length. A supplied `n_centers` must agree with
+explicit center/count dimensions. Use `x=x,y=y` keywords to omit this middle
+argument. Explicit centers also determine the output feature width, while the
+supplied `n_features` argument must still be positive.
+
+`cluster_std` accepts a nonnegative finite scalar or a vector with one scale
+per cluster; default 1. The scalar/vector adapter uses Fortran 2018 assumed rank.
+Vector NaNs and positive infinities follow the source's quiet IEEE output
+behavior. Higher-rank scale arrays are outside this interface. The optional
+`center_box(:)` holds two finite ordered bounds, default `[-10,10]`; equal
+bounds are valid. It is ignored when explicit centers are supplied.
+`centers_out(:,:)` returns an allocated copy of the center locations without
+altering generated samples. Gaussian values are drawn cluster-by-cluster in
+row-major order, including zero-scale draws, followed by optional sample
+shuffling (default true).
+
+For moons/circles, a two-entry integer vector specifies outer/inner class counts.
+A scalar total uses floor(total/2) outer points and the remaining inner points.
+Singleton arcs/circles and empty classes follow NumPy linspace conventions;
+all-empty results have shape `(0,2)`. Circle factors lie in `[0,1)`, including
+zero; default 0.8. Optional finite nonnegative noise is applied after shuffling,
+including normal draws for an explicitly provided zero noise. Omitted noise
+adds no draws. `shuffle` defaults to true. Large finite scales/noise can return
+source-matched infinities without floating-point traps. All calls leave the
+intrinsic Fortran RNG unchanged. See [the example](../example/geometric_samples.f90).

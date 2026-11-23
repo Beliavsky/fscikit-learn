@@ -1384,3 +1384,15 @@ continue to apply. The independent native Householder implementation follows
 LAPACK's zero-tail reflector convention; no SciPy/LAPACK routine is linked or
 copied. Typed adapters, quiet IEEE noise composition, tests, example and reference
 harness are original MIT contributions. No dependency or extension was added.
+
+
+## Seeded blob and geometric generators (BSD)
+
+The make_blobs, make_moons and make_circles adapters in `src/sklearn_datasets.f90`
+follow scikit-learn 1.6.1 `datasets/_samples_generator.py`: center/sample/scale
+shapes, legacy NumPy draw order, remainder allocation, linspace endpoints,
+shuffle/noise ordering and optional center output. Existing sklearn BSD terms
+remain in `LICENSES/scikit-learn-COPYING`; existing NumPy RNG notices continue
+to apply. Native rank adapters, count guards, quiet IEEE composition, tests,
+example and reference harness are original MIT contributions. No dependency or
+extension algorithm was added.
