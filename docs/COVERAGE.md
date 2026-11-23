@@ -8363,3 +8363,29 @@ and dependency inventory are unchanged.
 Cumulative inventory: 222 public core types, 139 source modules, 182 native
 programs, 158 reference suites / 2,621,604 retained required groups, and 63
 invalid-input registries / 4,102 cases. These remain API subsets.
+
+
+Final geometric-generator verification (2026-11-23): four-job fpm
+0.14.0 builds compiled the project in runtime-checked
+(`-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow`) and optimized release
+profiles. Each executed five focused native programs: geometric generators,
+regression generators, datasets/Gaussian process, seeded sample generators and
+classification generators. All passed; the other 177 native programs were not
+executed in this batch. Four reference suites passed 65,842 required groups per
+profile: 48,720 new geometric groups, 15,842 regression/low-rank groups, 672
+existing sample-generator groups and 608 classification groups. All 109
+invalid-input diagnostics passed, including 33 new cases.
+
+Finite coordinate errors were 0 checked /
+1.78e-15 release. Centers, labels, metadata and repeated-call
+identities matched exactly in both profiles. Comparisons matched 8,370 nonfinite
+geometric source values and retained 4,588 source-matched nonfinite regression
+values per profile. Both facade examples returned blob populations [0,10,15],
+unchanged supplied centers, moon populations [1,7] and squared radius zero for
+the zero-factor inner circle. The combined audit verified 153 compiled source
+units per profile using dependency-aware fingerprints, complete reference field
+inventories, source/executable/validator hashes and unchanged unrelated modules
+and existing native tests. Reports are retained locally under ignored
+`validation/results/geometric_datasets_*`, including
+`geometric_datasets_final_audit.json`. MIT licensing and retained upstream BSD
+attribution continue; no dependency or public extension was introduced.
