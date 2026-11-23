@@ -198,12 +198,27 @@ Kernel PCA uses `kernel`, `gamma`, `degree`, `coef0`, `n_components` and
 `remove_zero_eig`; its outputs are `eigenvalues_` and `eigenvectors_`.
 For `kernel='precomputed'`, fit on a symmetric square training Gram matrix and
 transform a `(n_queries,n_training)` cross-Gram matrix. `n_components=0` selects
-all nonzero components. There is no learned inverse/preimage transform.
+all nonzero components. For feature inputs, set `fit_inverse_transform=true` before fitting to
+learn the kernel-ridge preimage map used by `inverse_transform`.
 
 Isomap provides `fit`, `fit_transform`, `transform`, `embedding_`,
-`dist_matrix_` and `reconstruction_error()`. Set `n_neighbors` strictly between
-zero and the training sample count. Its dense geodesic graph is completed if
-disconnected; `n_connected_components_` reports the count before completion.
+`dist_matrix_`, `get_feature_names_out()` and `reconstruction_error()`. With
+fixed-count neighborhoods, set `0 < n_neighbors < n_samples` and leave
+`radius=-1` (the native spelling of Python None). For radius neighborhoods,
+set `n_neighbors=0` and a finite nonnegative `radius`. `path_method` accepts
+`'auto'`, `'FW'` or `'D'`; the latter runs heap-based Dijkstra.
+
+Set `metric='precomputed'` for dense or `csr_matrix` distance inputs. Training
+matrices are square; query matrices have `n_samples_fit_` columns. Missing CSR
+entries are absent edges, and stored zeros are distance-zero edges. Full
+feature/distance inputs allow disconnected-component completion; disconnected
+CSR graphs raise an error. `n_connected_components_` records the original
+component count. Fitted dimensions are `n_features_in_`, `n_samples_fit_` and
+`n_features_out_`; `path_method_` is a native diagnostic for the chosen solver.
+Output names are `isomap0`, `isomap1`, etc. Optional character input names are
+checked for matching input width. Refit applies changed parameters; transforms
+use the fitted neighbor search settings. Run `isomap_distance_graphs` for an
+example of radius fitting and CSR queries.
 
 Radius-neighbor classifiers/regressors use `radius`, `metric`, `p` and
 `weights='uniform'` or `'distance'`. Classification defaults to an error for a

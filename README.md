@@ -115,6 +115,7 @@ python validation/compare_sequential_selection.py
 python validation/compare_group_splitters.py
 python validation/compare_sklearn.py
 python validation/compare_graph_algorithms.py
+python validation/compare_isomap_graphs.py --executable build/<profile>/app/reference_isomap_graphs_driver.exe --profile checked --report validation/results/isomap_graphs_checked.json
 python validation/compare_regression_projection.py
 python validation/compare_robust_glm.py
 python validation/compare_modes_density.py

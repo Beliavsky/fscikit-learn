@@ -47,7 +47,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | kernel_approximation | `rbf_sampler`, `nystroem`, `additive_chi2_sampler`, `skewed_chi2_sampler`, `polynomial_count_sketch` | Random Fourier RBF maps; sampled-landmark inverse-square-root maps for RBF/linear/polynomial/cosine kernels; additive and skewed chi2 maps; seeded polynomial TensorSketch with arbitrary-length FFTs |
 | random_projection | `gaussian_random_projection`, `sparse_random_projection`; `johnson_lindenstrauss_min_dim` | Gaussian/three-point random matrices, dense storage, automatic JL dimension, cached or on-demand pseudoinverse |
 | kernel_pca | `kernel_pca` | Centered linear/RBF/polynomial/sigmoid/cosine/precomputed Gram matrices; dense Jacobi eigensolver; out-of-sample transform and learned kernel-ridge pre-images |
-| manifold | `isomap`, `tsne`; `trustworthiness`; re-exports `spectral_embedding`, `mds`, `locally_linear_embedding` | Isomap graph paths; dense exact t-SNE with adaptive gains and two-stage momentum; neighborhood rank trustworthiness; spectral embedding; metric/nonmetric SMACOF; dense standard/Hessian/modified LLE and LTSA with barycentric query transforms |
+| manifold | `isomap`, `tsne`; `trustworthiness`; re-exports `spectral_embedding`, `mds`, `locally_linear_embedding` | Isomap radius/fixed-count graphs, dense/CSR precomputed distances and FW/Dijkstra paths; dense exact t-SNE with adaptive gains and two-stage momentum; neighborhood rank trustworthiness; spectral embedding; metric/nonmetric SMACOF; dense standard/Hessian/modified LLE and LTSA with barycentric query transforms |
 | spectral | `spectral_embedding` | Dense symmetric eigensolver; RBF, symmetrized nearest-neighbor or precomputed affinity; degree normalization; connected-component count |
 | density | `kernel_density` | Exact Euclidean log densities with Gaussian/tophat/Epanechnikov/exponential/linear kernels; sample weights; fixed/Scott/Silverman bandwidth; Gaussian/tophat sampling |
 | outlier | `local_outlier_factor` | Training outlier scores and novelty detection, automatic/percentile threshold, Minkowski and other supported pairwise metrics |
@@ -239,14 +239,16 @@ distances; cosine similarity; linear, RBF, polynomial and sigmoid kernels.
   queries include matching training points. Neighbor-count clamping is reported
   in `n_neighbors_`; warnings are not emitted. Duplicate/tied-neighbor ordering
   can differ from sklearn's search backend.
-- Kernel PCA has no inverse transform, callable kernels or sparse/randomized/
-  ARPACK solver. `n_components=0` means all nonzero components; other counts are
+- Kernel PCA has no callable kernels or sparse/randomized/
+  ARPACK solver; optional fitted inverse transforms are supported. `n_components=0` means all nonzero components; other counts are
   clipped to sample count. Significant selected negative eigenvalues are
   rejected. Repeated eigenvalues can yield different valid bases.
-- Isomap supports fixed-count neighbors and ordinary feature inputs only,
-  with quadratic storage and cubic shortest-path work. No radius graph,
-  precomputed distances or alternative path/eigen solver. Disconnected graph
-  completion is reflected in `n_connected_components_` rather than a warning.
+- Isomap supports fixed-count or radius neighborhoods, dense features and
+  dense/CSR precomputed distances, and FW/Dijkstra geodesics. Full distances
+  permit disconnected-graph completion; disconnected CSR graphs are rejected.
+  Distances and eigendecomposition remain dense. Native stable neighbor tie
+  ordering can differ from sklearn's search backends. See the detailed section
+  below for parameter sentinels, fitted state and numerical scope.
 - Semi-supervised labels reserve `-1` for unlabeled samples and require at least
   one labeled sample. RBF and KNN kernels are supported, not callable kernels.
   Zero-evidence inductive queries are rejected instead of returning NaN
@@ -7013,3 +7015,57 @@ binary hashes, both example outputs, and unchanged non-AdaBoost dispatch
 branches. Full reports and logs are retained under ignored validation/results.
 Only the affected reference suites were rerun; the cumulative total also
 includes retained results from earlier batches.
+
+
+## Isomap radius neighborhoods and distance graphs
+
+`isomap` now supports radius neighborhoods and dense/CSR precomputed distances
+in addition to dense feature-based fixed-count graphs. Set n_neighbors=0 for
+Python's n_neighbors=None and supply a finite radius>=0. The default radius=-1
+represents Python None; combining a positive neighbor count and a nonnegative
+radius is rejected. p must be finite and >=1. Oversized positive component
+counts are clipped by KernelPCA; one-sample radius fits are supported.
+
+Training distance matrices are square, while query distance matrices have one
+column per fitted sample. CSR missing entries are unavailable neighbors, not
+zero distances. Explicit zero edges and unsorted/duplicate stored columns are
+preserved during neighbor selection; repeated selected self entries in a
+fixed-count training query raise an error as the source also cannot reshape
+that neighborhood. Radius selection includes its boundary and removes training
+self edges. Query points without radius neighbors raise a clear diagnostic.
+Native stable neighbor ordering can differ from sklearn's backend-specific
+ordering when the k-neighbor boundary is tied.
+
+Disconnected feature/dense-distance graphs are connected at the closest pair
+for every pair of original components, using the source's component traversal
+and first-minimum order. Disconnected precomputed CSR graphs are rejected,
+because full cross-component distances are unavailable. The existing native
+n_connected_components_ diagnostic records the count before completion.
+
+path_method accepts 'FW', 'D' and 'auto'. 'FW' uses Floyd-Warshall; 'D' runs
+binary-heap Dijkstra over an undirected adjacency structure, taking the smaller
+weight of reciprocal or duplicate edges and retaining zero edges. The native
+auto policy selects FW below 100 samples or when the undirected dense working
+graph is at least one-quarter populated, otherwise Dijkstra. path_method_ is a
+native diagnostic for the selected backend, rather than an additional
+algorithm or a source attribute. Shortest-path results agree numerically across
+these choices. Sparse inputs still lead to quadratic distance/kernel storage;
+dense graph assembly and the existing native Jacobi eigensolver limit scale.
+Sparse feature matrices, tree-based neighbor acceleration, ARPACK/randomized
+eigensolvers and parallel execution remain outside this type's current scope.
+
+Fitted metadata include n_features_in_, n_samples_fit_ and n_features_out_.
+get_feature_names_out returns feature_string names isomap0, isomap1, etc.; an
+optional character input-name array is checked against fitted input width.
+Transforms use the fitted search metric, p and neighborhood settings; refit
+updates them and supports switching between feature and CSR distance inputs.
+Fitted embedding_, dist_matrix_ and kernel_pca_ remain available. Reconstruction
+error retains the prior native nonnegative residual clamp: roundoff-negative
+source residuals can yield NaN in Python and zero here; the validator tracks
+that case and bounds squared-error differences by residual roundoff.
+This is an identified numerical difference within the existing counterpart.
+
+The isomap_distance_graphs example demonstrates radius component completion
+and CSR precomputed query projection. Original native algorithms remain MIT,
+with retained sklearn/SciPy BSD contract attribution. No new dependency,
+public estimator type or extension algorithm is introduced.

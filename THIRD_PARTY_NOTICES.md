@@ -100,7 +100,7 @@ Reference paths by module:
 | radius neighbors / nearest centroid | neighbors/_classification.py, _regression.py, _nearest_centroid.py |
 | outlier (LOF) | neighbors/_lof.py |
 | kernel_pca | decomposition/_kernel_pca.py; kernel centering and PSD eigenvalue rules adapted for Fortran |
-| manifold (Isomap) | manifold/_isomap.py; utils/graph.py (connected-component completion) |
+| manifold (Isomap) | manifold/_isomap.py radius/fixed-count neighborhoods, precomputed distances and projection; utils/graph.py connected-component completion; neighbors/_base.py stored sparse neighbor selection; base.py output feature names; SciPy csgraph undirected shortest-path contracts; original native FW and heap Dijkstra implementations |
 | semi_supervised | semi_supervised/_label_propagation.py; RBF/KNN diffusion and clamping |
 | mds | manifold/_mds.py; metric/nonmetric SMACOF updates, stress normalization, legacy convergence and multi-start selection; native isotonic fitting and independent Fortran RNG |
 | ranking / calibration | metrics/_ranking.py binary threshold curves, AUC/AP and partial-area conventions; metrics/_classification.py Brier loss; calibration.py reliability bins; NumPy pairwise sum and percentile interpolation |
