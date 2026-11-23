@@ -7428,3 +7428,27 @@ third-party BSD attribution; the internal parameter-copy implementation is MIT.
 Cumulative inventory: 221 public core types, 137 source modules, 169 native
 programs, 145 core reference suites / 1,236,748 retained groups, and 50
 invalid-input registries / 3,858 cases. These remain API subsets.
+
+Final verification: checked (`-fcheck=all -fbacktrace
+-ffpe-trap=invalid,zero,overflow`) and release profiles both pass all 169 native
+programs, 281,953 affected reference groups and 384 isolated diagnostics. The
+reference run includes the 136,080 new warm/initializer groups, retained SGD
+penalty/regression/classification suites, independent-output and multiclass
+reductions, voting/bagging/stacking, search, learning/validation curves,
+permutation tests, out-of-fold prediction, selection, pipelines, thresholding
+and integration. Diagnostics comprise 21 new cases, 55 retained SGD cases and
+308 existing search/pipeline/selector/threshold/validation/curve cases.
+
+Both profiles check 2,621 nonfinite reference log-probability values with exact
+masks. The source comparisons retain the documented absolute/relative tolerances
+without trajectory certificates. The native clone-isolation identity covers
+768 collected outputs. Both example runs improve regression R2 from
+0.8469345057054836 to 0.9106907710754828 on the repeated warm fit, restart the
+sample clock at 151, and achieve Huber classification accuracy 1.0.
+
+The final audit verifies 334 compiled source contents per profile, distinct
+checked/release binaries, complete 6,480-workflow / 19,440-stage field inventories,
+source/validator/parser hashes, unchanged SGD loss/update routines and unchanged
+unrelated core modules and main diagnostics. Detailed local reports and audit
+helpers remain under ignored `validation/results`, including
+`sgd_fit_final_audit.json`. Implementation commit: `ebc8cdb`.
