@@ -7343,3 +7343,20 @@ Cumulative inventory: 221 public core types, 136 source modules, 167 native
 programs, 144 core reference suites / 1,100,668 retained groups, and 49
 invalid-input registries / 3,837 cases. These remain API subsets. The package
 retains its MIT license and attributed third-party BSD sources.
+
+Final verification: checked (`-fcheck=all -fbacktrace
+-ffpe-trap=invalid,zero,overflow`) and release profiles both pass all 167 native
+programs, 56,353 affected reference groups and 62 isolated diagnostics. The
+reference total comprises 25,119 new SGD groups, 216 retained regression groups,
+306 retained classification groups, 27,490 multiclass groups, 3,030 multioutput
+groups and 192 integration groups. All seven new and 55 retained SGD diagnostics
+pass. The largest coefficient discrepancy from sklearn is
+5.684341886080802e-14 in each profile. Both example runs produce regression R2
+0.9996711850882956 and classification accuracy 0.975.
+
+The final audit verifies 315 compiled source contents per profile, distinct
+checked/release driver binaries, complete fixture/field inventories, validator,
+parser and upstream source hashes, unchanged unrelated core modules and
+unchanged unrelated legacy diagnostics. Detailed local reports and audit
+helpers remain under ignored `validation/results`, including
+`sgd_regularization_final_audit.json`. Implementation commit: `bf1c19f`.
