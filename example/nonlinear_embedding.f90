@@ -9,7 +9,7 @@ program nonlinear_embedding
     group=real((i-1)/16,dp)
     x(i,:)=[3*group+sin(real(i,dp)),2*group+cos(.7_dp*i),sin(.3_dp*i),cos(.1_dp*i)]
   end do
-  model%perplexity=8; model%max_iter=400; model%random_state=42
+  model%method='exact';model%perplexity=8; model%max_iter=400; model%random_state=42
   embedding=model%fit_transform(x)
   print *, 'Dense exact t-SNE embedding shape: ',shape(embedding)
   print *, 'Learning rate, final KL and zero-based iteration: ', &

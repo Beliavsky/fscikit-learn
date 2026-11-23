@@ -727,7 +727,7 @@ CASES = {
     "tsne_student_zero": "t-SNE Student normalization is zero",
     "tsne_samples": "t-SNE requires at least two samples",
     "tsne_components": "t-SNE n_components must be positive",
-    "tsne_method": "only exact t-SNE is implemented",
+    "tsne_method": "invalid t-SNE method",
     "tsne_iterations": "t-SNE max_iter must be at least 250",
     "tsne_patience": "t-SNE progress patience must be positive",
     "tsne_perplexity_negative": "t-SNE requires 0 < perplexity < n_samples",

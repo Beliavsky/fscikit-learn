@@ -284,3 +284,8 @@ Image/grid graph builders now provide sparse axis connectivity and pixel/voxel
 contrast weights, including masks and explicit zero edges. See
 [the graph API](docs/API.md#image-and-grid-graph-builders) and
 [the example](example/image_graphs.f90).
+
+`tsne` now defaults to Barnes-Hut, with one through three embedding dimensions,
+an adjustable tree angle and CSR precomputed distances. The dense exact solver
+remains available with `method='exact'`. See [the example](example/barnes_hut_tsne.f90)
+and [the API contract](docs/API.md#exact-and-barnes-hut-t-sne-and-trustworthiness).

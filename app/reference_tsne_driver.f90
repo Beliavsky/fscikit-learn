@@ -10,6 +10,7 @@ program reference_tsne_driver
   integer :: trace_unit,first,replay_iteration
   logical :: single
   character(1024) :: input,output
+  model%method='exact'
   call get_command_argument(1,input); call get_command_argument(2,output)
   open(newunit=unit,file=trim(input),status='old')
   read(unit,*) n,features,k,iterations,patience,seed,initialization,metric,single,nshort

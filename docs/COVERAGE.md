@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 221 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and forty-two reference suites additionally check 1,071,235
+All types have native tests. One hundred and forty-three reference suites additionally check 1,075,549
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -47,7 +47,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | kernel_approximation | `rbf_sampler`, `nystroem`, `additive_chi2_sampler`, `skewed_chi2_sampler`, `polynomial_count_sketch` | Random Fourier RBF maps; sampled-landmark inverse-square-root maps for RBF/linear/polynomial/cosine kernels; additive and skewed chi2 maps; seeded polynomial TensorSketch with arbitrary-length FFTs |
 | random_projection | `gaussian_random_projection`, `sparse_random_projection`; `johnson_lindenstrauss_min_dim` | Gaussian/three-point random matrices, dense storage, automatic JL dimension, cached or on-demand pseudoinverse |
 | kernel_pca | `kernel_pca` | Centered linear/RBF/polynomial/sigmoid/cosine/precomputed Gram matrices; dense Jacobi eigensolver; out-of-sample transform and learned kernel-ridge pre-images |
-| manifold | `isomap`, `tsne`; `trustworthiness`; re-exports `spectral_embedding`, `mds`, `locally_linear_embedding` | Isomap radius/fixed-count graphs, dense/CSR precomputed distances and FW/Dijkstra paths; dense exact t-SNE with adaptive gains and two-stage momentum; neighborhood rank trustworthiness; spectral embedding; metric/nonmetric SMACOF; dense standard/Hessian/modified LLE and LTSA with barycentric query transforms |
+| manifold | `isomap`, `tsne`; `trustworthiness`; re-exports `spectral_embedding`, `mds`, `locally_linear_embedding` | Isomap radius/fixed-count graphs, dense/CSR precomputed distances and FW/Dijkstra paths; exact and Barnes-Hut t-SNE with sparse affinities, CSR distances, adaptive gains and two-stage momentum; neighborhood rank trustworthiness; spectral embedding; metric/nonmetric SMACOF; dense standard/Hessian/modified LLE and LTSA with barycentric query transforms |
 | spectral | `spectral_embedding` | Dense symmetric eigensolver; RBF, symmetrized nearest-neighbor or precomputed affinity; degree normalization; connected-component count |
 | density | `kernel_density` | KD/Ball-tree log densities with six kernels; Minkowski-family metrics and feature weights; query tolerances/traversal controls; sample weights and bandwidth rules; NumPy-compatible Gaussian/tophat draws |
 | outlier | `local_outlier_factor` | Training outlier scores and novelty detection, automatic/percentile threshold, Minkowski and other supported pairwise metrics |
@@ -262,7 +262,6 @@ distances; cosine similarity; linear, RBF, polynomial and sigmoid kernels.
 Not translated: sparse data paths, general Python estimator base/clone/parameter
 reflection, sparse/parallel/recoverable-error search paths, sparse/cached/metadata-routed pipeline paths, broader SVM/GLM/SGD options,
 broader histogram boosting, AdaBoost and bagging APIs,
-Barnes-Hut t-SNE,
 outlier detection beyond LOF/OneClassSVM/SGDOneClassSVM/IsolationForest/EllipticEnvelope,
 calibration with further base estimators and general metadata routing,
 additional multiclass base estimators and sparse reductions,
@@ -7211,3 +7210,60 @@ inventory matches checked. Raw source/nonfinite outcomes and explicit tree
 roundoff records are retained per profile, with hashes of installed tree,
 NumPy RNG and SciPy special-function binaries. The cumulative reference total
 also retains results from previous batches.
+
+## Barnes-Hut t-SNE batch
+
+`tsne` now defaults to sklearn's `method='barnes_hut'`; select `method='exact'`
+for the retained dense algorithm. Barnes-Hut adds one through three embedding
+components, angle-controlled spatial summaries, sparse nearest-neighbor joint
+probabilities, and dense or CSR precomputed unsquared distances. Existing random,
+PCA and explicit real64 initialization, adaptive gains, early exaggeration,
+momentum phases and checkpoint stopping are shared. PCA's float32 PC1 standard
+deviation now uses NumPy's pairwise summation order. The old exact test and
+example explicitly select their original method.
+
+The new internal `sklearn_tsne_bh` module uses a dynamically grown serial
+float32 tree, source insertion/barycenter rounding, duplicate leaf masses,
+source positive and repulsive force arithmetic, and sparse symmetrization.
+Its optional diagnostic snapshots expose parent/child/point/depth/mass/leaf
+fields plus bounds, centers, barycenters and squared widths. Integer snapshots
+and floating tree snapshots compare exactly with the installed sklearn binary.
+The binary exports `EPSILON=0` despite the pxd initializer 1.e-6; provenance
+records the source and binary hashes and reads the exported value. This is an
+internal source-counterpart helper, not an additional estimator extension.
+
+`compare_tsne_bh.py` retains 4,314 result groups across 1,110 fixtures: 126
+sparse-affinity cases, 900 force/tree cases, 12 short optimizer cases and 72
+complete fits. Three seeds cover one through three dimensions, two through 100
+samples, zero/normal/extreme sparse distances, varying neighborhood counts,
+angles zero through one, duplicate/collapsed/tiny/large coordinates, skipped
+points and omitted objectives. Complete fits cover explicit float64, random
+and PCA initialization; Euclidean, Manhattan, cosine and dense/CSR precomputed
+metrics; explicit/automatic rates; exaggeration; 250/300/350 iteration limits;
+checkpoint stopping; input preservation and repeatable refits. Complete source
+embeddings and KL diagnostics use strict 3.e-8 relative/absolute tolerances,
+without trajectory certificates. Tree structure and float32 bounds are exact.
+There are 29 additional isolated diagnostic checks.
+
+For skipped-point helper comparisons, the validator calls sklearn's compiled
+backend directly: its Python wrapper omits forwarding the argument. The source
+also allocates only `n_samples-skip` summary slots, so fixtures use one skipped
+point and a duplicate pair to keep source execution within that capacity. Native
+recursive traversal has no such summary buffer. Public estimator fits do not
+use skipped points.
+
+Barnes-Hut force evaluation normally takes O(N log N), while dense feature
+neighbor search still uses quadratic pairwise work/storage. CSR precomputed
+input avoids that full matrix and must provide at least neighbor-count-plus-one
+stored candidates per row; explicitly stored self zeros are recommended.
+Neighbor ties follow the package's stable ordering and can select a different
+cutoff subset from sklearn. Sparse feature matrices, parallel execution,
+callable metrics and generic metric dictionaries remain unsupported. The
+native implementation diagnoses float32 working-range overflow and subdivision
+beyond 511 levels. The exact affinity/objective bodies and all unrelated core
+source modules are unchanged. No dependency or public extension type was added;
+MIT licensing and third-party BSD notices remain intact.
+
+Cumulative inventory: 221 public core types, 136 source modules, 166 native
+programs, 143 core reference suites / 1,075,549 retained groups, and 48
+invalid-input registries / 3,830 cases. These remain API subsets.

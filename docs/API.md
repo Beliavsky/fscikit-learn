@@ -2251,7 +2251,7 @@ See `example/resampling.f90` and `validation/compare_resampling.py` for usage
 and exact source comparisons. These are core sklearn algorithms, with no new
 public extensions or dependencies.
 
-## Dense exact t-SNE and trustworthiness
+## Exact and Barnes-Hut t-SNE and trustworthiness
 
 `tsne` and `trustworthiness` are exported by `sklearn_manifold`, the `sklearn`
 facade and their implementation module `sklearn_tsne`. `sklearn_tsne_core` is an
@@ -2272,9 +2272,9 @@ print *, embedding_model%kl_divergence_, trustworthiness(x,embedding,4)
 Parameters: `n_components=2`, `perplexity=30`, `early_exaggeration=12`,
 `learning_rate=-1` (source `auto`), `max_iter=1000`,
 `n_iter_without_progress=300`, `min_grad_norm=1.e-7`, `random_state=0`,
-`init='pca'`, `metric='euclidean'`, `p=2` and `method='exact'`.
-This port implements the dense exact solver. Python defaults to `barnes_hut`;
-that method is rejected here. Exact t-SNE uses quadratic memory and quadratic
+`init='pca'`, `metric='euclidean'`, `p=2`, `angle=.5` and `method='barnes_hut'`.
+The default now follows Python. Select `method='exact'` to retain the previous
+dense solver. Exact t-SNE uses quadratic memory and quadratic
 pair interactions per iteration. It supports dimensions above three, with
 source degrees of freedom `max(n_components-1,1)` and source objective/gradient
 formulas. At least two samples, positive dimension and
@@ -2307,8 +2307,29 @@ matching the source's non-Euclidean path. Inputs and explicit initial arrays
 are preserved, including precomputed input, which Python 1.6.1 can square in
 place. Euclidean feature distances are computed directly as squared
 differences; roundoff can differ from Python's Gram calculation.
-Sparse matrices, callable metrics, general metric-parameter dictionaries,
-parallel backends and Barnes-Hut/neighbor-graph approximation are unsupported.
+Barnes-Hut supports one through three components, a float32 spatial tree,
+sparse nearest-neighbor affinities and `angle` in [0,1]. Angle zero visits all
+leaves; it still uses sparse affinities and therefore need not equal the exact
+method. Neighbor count is `min(n_samples-1,int(3*perplexity+1))`. Its tree force
+calculation normally takes O(N log N) work. Dense feature input currently uses
+brute-force pairwise neighbor search with quadratic work and storage.
+
+With `method='barnes_hut', metric='precomputed'`, `fit` and `fit_transform` also
+accept a `csr_matrix` of unsquared distances. Each row must store at least
+neighbor-count-plus-one candidates; explicitly stored zero self distances are
+recommended. This path avoids constructing a full distance matrix. Random or
+explicit initialization is required for precomputed input. Duplicate positions
+share tree leaves. Equal neighbor distances use the package's stable ordering;
+the source's selected neighbors can differ when a tie crosses the cutoff.
+Spatial coordinates and squared distances have finite
+float32 working-range checks, and pathological subdivision is limited to 511
+levels. Force gradients are float32 even with explicit real64 initialization;
+positions and gains retain the initialization's precision. The serial tree
+matches the installed sklearn 1.6.1 binary's exact-equality duplicate threshold
+(exported `EPSILON=0`, despite its source initializer of 1.e-6).
+
+Callable metrics, general metric-parameter dictionaries, sparse feature input
+and parallel backends are unsupported.
 There is no out-of-sample transform, inverse transform or prediction method.
 
 Fitted attributes: `embedding_`, `kl_divergence_`, `learning_rate_`,

@@ -140,7 +140,9 @@ def trajectory_certificate(path,initial,p,cfg,rate,actual):
 
 
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('--executable',type=Path);args=parser.parse_args()
+    parser=argparse.ArgumentParser();parser.add_argument('--executable',type=Path)
+    parser.add_argument('--profile',default='checked')
+    parser.add_argument('--report',type=Path,default=RESULTS/'tsne.json');args=parser.parse_args()
     executable=args.executable.resolve() if args.executable else resolve()
     RESULTS.mkdir(exist_ok=True);checks=[];ties=[];trajectories=[]
     for seed in [0,7,42,2026,314159]:
@@ -207,7 +209,11 @@ def main():
                     err_msg=f'{seed} {case} {name} {cfg}')
                 checks.append(dict(seed=seed,case=case,name=name,atol=atol,rtol=rtol,max_abs_error=float(np.max(np.abs(actual[name]-want))),oracle=oracle,passed=True))
         print(f'seed {seed}: exact t-SNE and trustworthiness passed',flush=True)
-    (RESULTS/'tsne.json').write_text(json.dumps(dict(sklearn=sklearn.__version__,checks=checks,tie_certificates=ties,trajectory_certificates=trajectories),indent=2)+'\n')
+    import hashlib
+    args.report.write_text(json.dumps(dict(sklearn=sklearn.__version__,profile=args.profile,
+        executable_sha256=hashlib.sha256(executable.read_bytes()).hexdigest(),
+        validator_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+        checks=checks,tie_certificates=ties,trajectory_certificates=trajectories),indent=2)+'\n')
     print(f'{len(checks)} t-SNE result groups passed')
 
 

@@ -10,6 +10,7 @@ program test_tsne
   real(dp) :: x(8,3),initial(8,2),original(8,3),old_init(8,2),delta
   real(dp), allocatable :: p(:),g(:,:),work(:,:),z(:,:),again(:,:)
   integer :: i,j,iteration
+  model%method='exact'
   distances=1
   do i=1,4
     distances(i,i)=0

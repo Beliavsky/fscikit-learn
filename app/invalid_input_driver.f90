@@ -2511,7 +2511,7 @@ program invalid_input_driver
   case('tsne_components')
     sne%n_components=0; call sne%fit(x)
   case('tsne_method')
-    sne%method="barnes_hut"; call sne%fit(x)
+    sne%method="unknown"; call sne%fit(x)
   case('tsne_iterations')
     sne%max_iter=249; call sne%fit(x)
   case('tsne_patience')

@@ -282,7 +282,7 @@ it and the new types. No upstream binary or new dependency is distributed.
 Original contributions retain MIT; adapted portions retain the full upstream
 BSD-3-Clause terms in `LICENSES/scikit-learn-COPYING`.
 
-## Dense exact t-SNE and trustworthiness (BSD)
+## Exact/Barnes-Hut t-SNE and trustworthiness (BSD)
 
 `src/sklearn_tsne.f90` and `src/sklearn_tsne_core.f90` adapt scikit-learn 1.6.1
 `manifold/_t_sne.py`: TSNE exact-distance handling, PCA/random initialization,
@@ -294,6 +294,28 @@ fallback. Source SHA-256 hashes under the installed baseline:
 
 - `_t_sne.py`: `207fd179a53a2067990c3411ac0ad49dc70df67a942bd1e91b5b4003ead9e34a`
 - `_utils.pyx`: `1bae8cb04ebc6682f2d878103e9821d8fab6399876b87c9de3ca6259700dd1bc`
+
+`src/sklearn_tsne_bh.f90` additionally translates the serial spatial tree and
+Barnes-Hut forces from sklearn 1.6.1 `neighbors/_quad_tree.pyx` and
+`manifold/_barnes_hut_tsne.pyx`, plus sparse affinity construction from
+`_t_sne.py`. The Barnes-Hut source credits Christopher Moody and Nick Travers;
+the spatial tree credits Thomas Moreau and Olivier Grisel.
+Attribution and BSD-3-Clause terms are retained in
+`LICENSES/scikit-learn-COPYING`. Additional source hashes:
+
+- `_barnes_hut_tsne.pyx`: `c2222a881c6a22426ed5da3c40493efd19bb0199f390cdbf7726712f80e8e64e`
+- `_quad_tree.pyx`: `81a023897606191ad22c7ed387cc3a4648904101d36568e8e905a9086e0ece72`
+- `_quad_tree.pxd`: `3c1c56c3ba2e3a71b5268e9fc3df976ff8c51e6f011e1ac4360222879506d96e`
+
+Research attribution: Laurens van der Maaten, "Accelerating t-SNE using
+Tree-Based Algorithms," Journal of Machine Learning Research 15 (2014),
+3221--3245. The port follows the installed binary's exported duplicate
+threshold `EPSILON=0`; its pxd source initializer is 1.e-6. Skipped-point
+handling is tested directly against the compiled backend on buffer-safe
+fixtures because the Python wrapper does not forward that argument. Native
+tree traversal does not use the upstream fixed summary buffer. NumPy-style
+float32 pairwise summation also supplies PCA initialization's PC1 scaling.
+The package remains MIT with retained third-party BSD notices.
 
 Research attribution: Laurens van der Maaten and Geoffrey Hinton, "Visualizing
 Data using t-SNE," Journal of Machine Learning Research 9 (2008), 2579--2605;

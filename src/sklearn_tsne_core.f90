@@ -3,11 +3,13 @@
 ! Internal numerical backend; provenance and complete notices: THIRD_PARTY_NOTICES.md.
 module sklearn_tsne_core
   use sklearn_common, only: dp,require,check_x
+  use sklearn_sparse, only: csr_matrix
+  use sklearn_tsne_bh, only: tsne_bh_objective
   use, intrinsic :: iso_fortran_env, only: real32,int64
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
   implicit none
   private
-  public :: tsne_joint_probabilities,tsne_exact_objective,tsne_gradient_descent
+  public :: tsne_joint_probabilities,tsne_exact_objective,tsne_gradient_descent,tsne_sum32
 contains
   elemental real(dp) function rounded(value) result(answer)
     real(dp), intent(in) :: value
@@ -36,6 +38,28 @@ contains
     else
       split=n/2; split=split-mod(split,8)
       total=pair_sum(values(:split))+pair_sum(values(split+1:))
+    end if
+  end function
+  recursive real(real32) function tsne_sum32(a) result(value)
+    real(real32), intent(in) :: a(:)
+    real(real32) :: b(8)
+    integer :: n,i,whole,split
+    n=size(a);value=-0._real32
+    if(n<8) then
+      do i=1,n
+        value=value+a(i)
+      end do
+    else if(n<=128) then
+      b=a(:8);whole=n-mod(n,8)
+      do i=9,whole,8
+        b=b+a(i:i+7)
+      end do
+      value=((b(1)+b(2))+(b(3)+b(4)))+((b(5)+b(6))+(b(7)+b(8)))
+      do i=whole+1,n
+        value=value+a(i)
+      end do
+    else
+      split=n/2;split=split-mod(split,8);value=tsne_sum32(a(:split))+tsne_sum32(a(split+1:))
     end if
   end function
   subroutine tsne_joint_probabilities(squared_distances,perplexity,p)
@@ -153,7 +177,7 @@ contains
     if(single) gradient=rounded(gradient)
   end subroutine
   subroutine tsne_gradient_descent(position,p,degrees,first,last,patience,momentum,rate,min_norm, &
-      single,auto_rate,error,last_iteration,trace)
+      single,auto_rate,error,last_iteration,trace,bh_probabilities,angle)
     real(dp), intent(inout) :: position(:,:)
     real(dp), intent(in) :: p(:),momentum,rate,min_norm
     integer, intent(in) :: degrees,first,last,patience
@@ -161,13 +185,17 @@ contains
     real(dp), intent(out) :: error
     integer, intent(out) :: last_iteration
     real(dp), allocatable, intent(out), optional :: trace(:,:)
+    type(csr_matrix), optional, intent(in) :: bh_probabilities
+    real(dp), optional, intent(in) :: angle
+    real(dp) :: theta
     real(dp), allocatable :: update(:,:),gains(:,:),gradient(:,:)
     logical, allocatable :: inc(:,:)
     real(dp) :: best_error,norm,increment,decay,min_gain,current_error
     integer :: i,best_iteration,steps,params
     allocate(update(size(position,1),size(position,2)),gains(size(position,1),size(position,2)))
     update=0; gains=1; best_error=huge(1._dp); error=huge(1._dp); best_iteration=first; last_iteration=first
-    steps=0; params=size(position)
+    steps=0; params=size(position);theta=.5_dp
+    if(present(angle)) theta=angle
     if(present(trace)) then
       call require(params<=(huge(params)-1)/4,'t-SNE trace exceeds native index range')
       allocate(trace(max(0,last-first),4*params+1))
@@ -177,7 +205,11 @@ contains
       increment=rounded(increment); decay=rounded(decay); min_gain=rounded(min_gain)
     end if
     do i=first,last-1
-      call tsne_exact_objective(position,p,degrees,current_error,gradient,single)
+      if(present(bh_probabilities)) then
+        call tsne_bh_objective(position,bh_probabilities,degrees,theta,current_error,gradient)
+      else
+        call tsne_exact_objective(position,p,degrees,current_error,gradient,single)
+      end if
       error=current_error
       if(mod(i+1,50)/=0.and.i/=last-1) error=huge(1._dp)
       inc=update*gradient<0
@@ -189,7 +221,7 @@ contains
       end where
       if(single) gains=rounded(gains)
       gains=max(gains,min_gain); gradient=gradient*gains
-      if(single) gradient=rounded(gradient)
+      if(single.or.present(bh_probabilities)) gradient=rounded(gradient)
       if(single.and..not.auto_rate) then
         update=rounded(rounded(rounded(momentum)*update)-rounded(rounded(rate)*gradient))
       else
@@ -210,7 +242,7 @@ contains
       if(mod(i+1,50)/=0) cycle
       norm=maxval(abs(gradient))
       if(norm>0) norm=norm*sqrt(sum((gradient/norm)**2))
-      if(single) norm=rounded(norm)
+      if(single.or.present(bh_probabilities)) norm=rounded(norm)
       if(error<best_error) then
         best_error=error; best_iteration=i
       else if(i-best_iteration>patience) then
