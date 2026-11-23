@@ -7506,3 +7506,15 @@ No dependency or public extension type was added.
 Cumulative inventory: 221 public core types, 137 source modules, 170 native
 programs, 146 core reference suites / 1,372,828 retained groups, and 51
 invalid-input registries / 3,882 cases. These remain API subsets.
+
+Final verification passed in both checked (bounds/runtime checks and floating-
+point traps) and optimized release builds: all 170 native programs, 418,033
+reference result groups across 20 affected suites, and 415 diagnostic cases
+per build. Both builds ran the sparse text example successfully. The new CSR
+suite matched sklearn 1.6.1 with maximum coefficient error
+1.7763568394002505e-15; its 37 nonfinite source values matched by explicit
+masks. Dense SGD, warm-start and composition regressions passed as well.
+The combined audit verified 336 compiled source contents per build, executable
+and validator hashes, identical stage/field inventories, preserved source
+inputs, and unchanged unrelated core modules and loss routines. Reports and
+logs are retained locally under the ignored validation/results directory.
