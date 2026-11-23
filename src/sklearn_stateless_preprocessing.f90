@@ -22,6 +22,8 @@ module sklearn_stateless_preprocessing
     integer :: n_features_in_=0
     type(feature_string), allocatable :: feature_names_in_(:)
   contains
+    procedure :: is_fitted=>bridge_fitted
+    procedure :: bridge_features=>bridge_features
     procedure :: feature_names=>stateless_names
     procedure :: get_feature_names_out=>stateless_names
   end type
@@ -364,5 +366,13 @@ contains
     type(feature_string), optional, intent(in) :: feature_names(:)
     type(csr_matrix) :: z
     call self%fit(x,feature_names);z=self%transform(x)
+  end function
+  logical function bridge_fitted(self) result(ok)
+    class(stateless_transformer), intent(in) :: self
+    ok=.true.
+  end function
+  integer function bridge_features(self) result(value)
+    class(stateless_transformer), intent(in) :: self
+    value=self%n_features_in_
   end function
 end module

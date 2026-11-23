@@ -13,6 +13,23 @@ module sklearn_transformer_protocol
     procedure :: fit_map_data=>protocol_fit_map
     procedure :: inverse_data=>protocol_inverse
     procedure :: can_inverse=>protocol_no_inverse
+    procedure :: can_transform=>protocol_true
+    procedure :: is_fitted=>protocol_false
+    procedure :: bridge_kind=>protocol_zero
+    procedure :: bridge_features=>protocol_zero
+    procedure :: bridge_supports=>protocol_supports
+    procedure :: bridge_classes=>protocol_classes
+    procedure :: bridge_predict=>protocol_predict
+    procedure :: bridge_labels=>protocol_labels
+    procedure :: bridge_matrix=>protocol_matrix
+    procedure :: bridge_proba=>protocol_proba
+    procedure :: bridge_log_proba=>protocol_proba
+    procedure :: bridge_score_samples=>protocol_predict
+    procedure :: bridge_score_unsupervised=>protocol_score_unsupervised
+    procedure :: bridge_decision=>protocol_decision
+    procedure :: bridge_score_real=>protocol_score_real
+    procedure :: bridge_score_integer=>protocol_score_integer
+    procedure :: bridge_score_matrix=>protocol_score_matrix
   end type
   abstract interface
     subroutine fit_interface(self,x,feature_names)
@@ -51,5 +68,88 @@ contains
   logical function protocol_no_inverse(self) result(available)
     class(dense_transformer), intent(in) :: self
     available=.false.
+  end function
+  logical function protocol_true(self) result(ok)
+    class(dense_transformer), intent(in) :: self
+    ok=.true.
+  end function
+  logical function protocol_false(self) result(ok)
+    class(dense_transformer), intent(in) :: self
+    ok=.false.
+  end function
+  integer function protocol_zero(self) result(value)
+    class(dense_transformer), intent(in) :: self
+    value=0
+  end function
+  recursive logical function protocol_supports(self,name) result(ok)
+    class(dense_transformer), intent(in) :: self
+    character(*), intent(in) :: name
+    ok=.false.
+    select case(name)
+    case('fit');ok=.true.
+    case('transform','fit_transform','get_feature_names_out');ok=self%can_transform()
+    case('inverse_transform');ok=self%can_inverse()
+    end select
+  end function
+  function protocol_classes(self) result(value)
+    class(dense_transformer), intent(in) :: self
+    integer, allocatable :: value(:)
+    allocate(value(0));call require(.false.,'native transformer has no classes delegation')
+  end function
+  function protocol_predict(self,x) result(value)
+    class(dense_transformer), intent(in) :: self
+    real(dp), intent(in) :: x(:,:)
+    real(dp), allocatable :: value(:)
+    allocate(value(0));call require(.false.,'native transformer has no predict delegation')
+  end function
+  function protocol_labels(self,x) result(value)
+    class(dense_transformer), intent(in) :: self
+    real(dp), intent(in) :: x(:,:)
+    integer, allocatable :: value(:)
+    allocate(value(0));call require(.false.,'native transformer has no labels delegation')
+  end function
+  function protocol_matrix(self,x) result(value)
+    class(dense_transformer), intent(in) :: self
+    real(dp), intent(in) :: x(:,:)
+    real(dp), allocatable :: value(:,:)
+    allocate(value(0,0));call require(.false.,'native transformer has no matrix delegation')
+  end function
+  function protocol_proba(self,x) result(value)
+    class(dense_transformer), intent(in) :: self
+    real(dp), intent(in) :: x(:,:)
+    real(dp), allocatable :: value(:,:)
+    allocate(value(0,0));call require(.false.,'native transformer has no proba delegation')
+  end function
+  function protocol_decision(self,x) result(value)
+    class(dense_transformer), intent(in) :: self
+    real(dp), intent(in) :: x(:,:)
+    real(dp), allocatable :: value(:,:)
+    allocate(value(0,0));call require(.false.,'native transformer has no decision delegation')
+  end function
+  real(dp) function protocol_score_real(self,x,y,sample_weight) result(value)
+    class(dense_transformer), intent(in) :: self
+    real(dp), intent(in) :: x(:,:)
+    real(dp), intent(in) :: y(:)
+    real(dp), optional, intent(in) :: sample_weight(:)
+    value=0;call require(.false.,'native transformer has no score delegation')
+  end function
+  real(dp) function protocol_score_integer(self,x,y,sample_weight) result(value)
+    class(dense_transformer), intent(in) :: self
+    real(dp), intent(in) :: x(:,:)
+    integer, intent(in) :: y(:)
+    real(dp), optional, intent(in) :: sample_weight(:)
+    value=0;call require(.false.,'native transformer has no score delegation')
+  end function
+  real(dp) function protocol_score_matrix(self,x,y,sample_weight) result(value)
+    class(dense_transformer), intent(in) :: self
+    real(dp), intent(in) :: x(:,:)
+    real(dp), intent(in) :: y(:,:)
+    real(dp), optional, intent(in) :: sample_weight(:)
+    value=0;call require(.false.,'native transformer has no score delegation')
+  end function
+  real(dp) function protocol_score_unsupervised(self,x) result(value)
+    class(dense_transformer), intent(in) :: self
+    real(dp), intent(in) :: x(:,:)
+    value=0;call require(.false.,'native transformer has no unsupervised score delegation')
   end function
 end module

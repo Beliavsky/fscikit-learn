@@ -18,6 +18,8 @@ module sklearn_polynomial
     logical :: include_bias=.true.,interaction_only=.false.,fitted_bias_=.true.,fitted_interaction_=.false.
     type(feature_string), allocatable :: feature_names_in_(:)
   contains
+    procedure :: is_fitted=>bridge_fitted
+    procedure :: bridge_features=>bridge_features
     procedure :: fit_data=>poly_fit
     procedure, private :: fit_sparse=>poly_fit_sparse
     generic :: fit=>fit_data,fit_sparse
@@ -500,5 +502,13 @@ contains
     if(present(include_bias)) model%include_bias=include_bias
     if(present(interaction_only)) model%interaction_only=interaction_only
     z=model%fit_transform(x)
+  end function
+  logical function bridge_fitted(self) result(ok)
+    class(polynomial_features), intent(in) :: self
+    ok=self%n_features_in_>0
+  end function
+  integer function bridge_features(self) result(value)
+    class(polynomial_features), intent(in) :: self
+    value=self%n_features_in_
   end function
 end module

@@ -349,3 +349,9 @@ MLP classifiers also support a single observed or declared class, with dense
 or CSR input, including warm/incremental fits and validation stopping. See
 [the example](example/single_class_mlp.f90) and
 [the single-class contract](docs/API.md#single-class-mlp-classifiers).
+
+`frozen_estimator` reuses a fitted estimator through a live reference. Its fit
+checks fitted state and leaves the underlying model untouched, including inside
+pipelines. See [the example](example/frozen_pipeline.f90) and
+[the lifetime and API contract](docs/API.md#frozen-estimators). This adapter uses
+Fortran 2018 assumed-rank arguments.

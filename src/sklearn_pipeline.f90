@@ -2,6 +2,10 @@
 ! Native typed adapters are original MIT; see THIRD_PARTY_NOTICES.md.
 module sklearn_pipeline
   use sklearn_common, only: dp,require,check_xy
+  use sklearn_naive_bayes, only: gaussian_nb,multinomial_nb
+  use sklearn_sgd, only: sgd_classifier
+  use sklearn_neighbors, only: kneighbors_classifier
+  use sklearn_frozen, only: frozen_estimator,frozen_model_features
   use sklearn_feature_extraction, only: feature_string
   use sklearn_transformer_protocol, only: dense_transformer
   use sklearn_feature_composition, only: feature_union,transformer_branch,column_transformer, &
@@ -39,6 +43,21 @@ module sklearn_pipeline
     type(feature_string), allocatable :: feature_names_in_(:)
     logical, private :: fitted_=.false.
   contains
+    procedure :: is_fitted=>pipeline_is_fitted
+    procedure :: can_transform=>pipeline_can_transform
+    procedure :: bridge_kind=>pipeline_kind
+    procedure :: bridge_features=>pipeline_features
+    procedure :: bridge_supports=>pipeline_supports
+    procedure :: bridge_classes=>pipeline_classes
+    procedure :: bridge_predict=>pipeline_predict
+    procedure :: bridge_labels=>pipeline_labels
+    procedure :: bridge_matrix=>pipeline_predict_matrix
+    procedure :: bridge_proba=>pipeline_proba
+    procedure :: bridge_log_proba=>pipeline_log_proba
+    procedure :: bridge_decision=>pipeline_decisions
+    procedure :: bridge_score_real=>score_real
+    procedure :: bridge_score_integer=>score_integer
+    procedure :: bridge_score_matrix=>score_matrix
     procedure :: fit_data=>fit_unsupervised
     procedure, private :: fit_regression,fit_classification,fit_matrix
     generic :: fit=>fit_data,fit_regression,fit_classification,fit_matrix
@@ -56,6 +75,7 @@ module sklearn_pipeline
     procedure :: predict_matrix=>pipeline_predict_matrix
     procedure :: predict_class=>pipeline_labels
     procedure :: predict_proba=>pipeline_proba
+    procedure :: predict_log_proba=>pipeline_log_proba
     procedure :: decision_function=>pipeline_decisions
     procedure, private :: score_real,score_integer,score_matrix
     generic :: score=>score_real,score_integer,score_matrix
@@ -70,7 +90,7 @@ contains
   end function
   recursive logical function transform_supported(model) result(ok)
     class(*), intent(in) :: model
-    ok=composition_supported(model)
+    ok=.false.
     select type(model)
     type is(pipeline)
       ok=.false.
@@ -90,6 +110,8 @@ contains
       ok=.true.
     type is(target_encoder)
       ok=.true.
+    class default
+      ok=composition_supported(model)
     end select
   end function
   recursive integer function estimator_kind(model) result(kind)
@@ -104,6 +126,8 @@ contains
           end associate
         end if
       end if
+    type is(frozen_estimator)
+      kind=model%bridge_kind()
     type is(transformed_target_regressor)
       kind=2
     class default
@@ -265,6 +289,8 @@ contains
     select type(model)
     type is(pipeline)
       call model%fit(x,y,weights,feature_names=names)
+    type is(frozen_estimator)
+      call model%fit(x,y,weights)
     type is(transformed_target_regressor)
       call model%fit(x,y,weights)
     type is(linear_regression)
@@ -328,6 +354,15 @@ contains
           call move_alloc(discard,work);step%output_width_=size(work,2)
         else
           kind=estimator_kind(step%model)
+          select type(model=>step%model)
+          type is(frozen_estimator)
+            call model%fit(work)
+            if(kind==1) self%classes_=model%get_classes()
+            if(i==1) then
+              if(model%bridge_features()>0) self%n_features_in_=model%bridge_features()
+            end if
+            cycle
+          end select
           select case(kind)
           case(1)
             call require(present(yi).or.present(yr),'Pipeline classifier requires a vector target')
@@ -469,6 +504,8 @@ contains
     real(dp), intent(in) :: x(:,:)
     real(dp), allocatable :: y(:)
     select type(model)
+    type is(frozen_estimator)
+      y=model%predict(x)
     type is(pipeline)
       y=model%predict(x)
     type is(transformed_target_regressor)
@@ -495,6 +532,8 @@ contains
     z=through(self,x,.false.);n=size(self%steps)
     call require(self%steps(n)%action=='model','Pipeline final passthrough has no predict')
     select type(model=>self%steps(n)%model)
+    type is(frozen_estimator)
+      y=model%predict_matrix(z)
     type is(pipeline)
       y=model%predict_matrix(z)
     type is(transformed_target_regressor)
@@ -509,6 +548,8 @@ contains
     real(dp), intent(in) :: x(:,:)
     integer, allocatable :: y(:)
     select type(model)
+    type is(frozen_estimator)
+      y=model%predict_class(x)
     type is(pipeline)
       y=model%predict_class(x)
     class default
@@ -534,6 +575,8 @@ contains
     z=through(self,x,.false.);n=size(self%steps)
     call require(self%steps(n)%action=='model','Pipeline final passthrough has no predict_proba')
     select type(model=>self%steps(n)%model)
+    type is(frozen_estimator)
+      y=model%predict_proba(z)
     type is(pipeline)
       y=model%predict_proba(z)
     class default
@@ -549,6 +592,8 @@ contains
     z=through(self,x,.false.);n=size(self%steps)
     call require(self%steps(n)%action=='model','Pipeline final passthrough has no decision_function')
     select type(model=>self%steps(n)%model)
+    type is(frozen_estimator)
+      y=model%decision_function(z)
     type is(pipeline)
       y=model%decision_function(z)
     class default
@@ -561,6 +606,8 @@ contains
     real(dp), intent(in) :: x(:,:),y(:)
     real(dp), optional, intent(in) :: w(:)
     select type(model)
+    type is(frozen_estimator)
+      value=model%score(x,y,w)
     type is(pipeline)
       value=model%score(x,y,w)
     type is(transformed_target_regressor)
@@ -609,6 +656,8 @@ contains
     z=through(self,x,.false.);n=size(self%steps)
     call require(self%steps(n)%action=='model','Pipeline final passthrough has no score')
     select type(model=>self%steps(n)%model)
+    type is(frozen_estimator)
+      value=model%score(z,y,sample_weight)
     type is(pipeline)
       value=model%score(z,y,sample_weight)
     type is(transformed_target_regressor)
@@ -783,5 +832,91 @@ contains
       selected%estimator_kind_=estimator_kind(selected%steps(size(selected%steps))%model)
     end if
     if(selected%estimator_kind_==1.and.allocated(self%classes_)) selected%classes_=self%classes_
+  end function
+  logical function pipeline_is_fitted(self) result(ok)
+    class(pipeline), intent(in) :: self
+    ok=self%fitted_
+  end function
+  recursive logical function pipeline_can_transform(self) result(ok)
+    class(pipeline), intent(in) :: self
+    ok=transform_supported(self)
+  end function
+  recursive integer function pipeline_kind(self) result(kind)
+    class(pipeline), intent(in) :: self
+    kind=estimator_kind(self)
+  end function
+  integer function pipeline_features(self) result(n)
+    class(pipeline), intent(in) :: self
+    n=self%n_features_in_
+  end function
+  recursive function pipeline_classes(self) result(values)
+    class(pipeline), intent(in) :: self
+    integer, allocatable :: values(:)
+    call require(self%fitted_,'Pipeline is not fitted')
+    call require(allocated(self%classes_),'Pipeline is not a classifier')
+    select type(model=>self%steps(size(self%steps))%model)
+    type is(frozen_estimator);values=model%get_classes()
+    type is(pipeline);values=model%bridge_classes()
+    class default;values=base_classes(model)
+    end select
+  end function
+  recursive logical function pipeline_supports(self,name) result(ok)
+    class(pipeline), intent(in) :: self
+    character(*), intent(in) :: name
+    integer :: n,kind
+    ok=.false.;if(.not.allocated(self%steps)) return
+    n=size(self%steps);if(n==0) return
+    select case(name)
+    case('fit');ok=.true.
+    case('get_feature_names_out');ok=.true.
+    case('transform','fit_transform');ok=transform_supported(self)
+    case('inverse_transform');ok=self%can_inverse()
+    case('predict','score');ok=estimator_kind(self)>0
+    case('predict_proba','predict_log_proba','decision_function')
+      if(self%steps(n)%action/='model') return
+      if(.not.allocated(self%steps(n)%model)) return
+      select type(model=>self%steps(n)%model)
+      type is(pipeline);ok=model%bridge_supports(name)
+      type is(frozen_estimator);ok=model%has_method(name)
+      type is(kneighbors_classifier);ok=name=='predict_proba'
+      class default
+        if(name=='decision_function') then
+          ok=base_decision(model)
+        else
+          ok=base_proba(model)
+        end if
+      end select
+    end select
+  end function
+  recursive function pipeline_log_proba(self,x) result(y)
+    class(pipeline), intent(in) :: self
+    real(dp), intent(in) :: x(:,:)
+    real(dp), allocatable :: y(:,:),z(:,:)
+    integer :: n
+    call require(self%bridge_supports('predict_log_proba'),'Pipeline final estimator has no predict_log_proba')
+    z=through(self,x,.false.);n=size(self%steps)
+    call require(self%steps(n)%action=='model','Pipeline final passthrough has no predict_log_proba')
+    select type(model=>self%steps(n)%model)
+    type is(pipeline);y=model%bridge_log_proba(z)
+    type is(frozen_estimator);y=model%predict_log_proba(z)
+    type is(gaussian_nb);y=model%predict_log_proba(z)
+    class is(multinomial_nb);y=model%predict_log_proba(z)
+    type is(sgd_classifier);y=model%predict_log_proba(z)
+    class default
+      y=probabilities(model,z)
+      block
+        use, intrinsic :: ieee_arithmetic, only: ieee_value,ieee_negative_inf
+        integer :: i,j
+        do j=1,size(y,2)
+          do i=1,size(y,1)
+            if(y(i,j)==0) then
+              y(i,j)=ieee_value(0._dp,ieee_negative_inf)
+            else
+              y(i,j)=log(y(i,j))
+            end if
+          end do
+        end do
+      end block
+    end select
   end function
 end module

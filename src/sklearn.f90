@@ -44,6 +44,7 @@ module sklearn
   use sklearn_cross_decomposition
   use sklearn_multiclass
   use sklearn_multioutput
+  use sklearn_frozen, only: frozen_estimator,frozen_parameters
   implicit none
   public
 end module

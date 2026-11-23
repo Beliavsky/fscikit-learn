@@ -7,6 +7,7 @@ module sklearn_calibrated_classifier
   use sklearn_naive_bayes, only: gaussian_nb
   use sklearn_neighbors, only: kneighbors_classifier
   use sklearn_isotonic, only: isotonic_regression
+  use sklearn_frozen, only: frozen_estimator
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
   implicit none
   private
@@ -40,6 +41,8 @@ contains
     integer, intent(in) :: y(:)
     real(dp), intent(in), optional :: sample_weight(:)
     select type(model)
+    type is(frozen_estimator)
+      call model%fit(x,y,sample_weight)
     class is(logistic_regression)
       call model%fit(x,y,sample_weight)
     type is(gaussian_nb)
@@ -55,6 +58,8 @@ contains
     class(*), intent(in) :: model
     integer, allocatable :: labels(:)
     select type(model)
+    type is(frozen_estimator)
+      labels=model%get_classes()
     class is(logistic_regression)
       call require(allocated(model%classes_),'prefit calibration estimator is not fitted')
       labels=model%classes_
@@ -76,6 +81,12 @@ contains
     integer, allocatable :: labels(:)
     labels=base_labels(model)
     select type(model)
+    type is(frozen_estimator)
+      if(model%has_method('decision_function')) then
+        values=model%decision_function(x)
+      else
+        prob=model%predict_proba(x)
+      end if
     class is(logistic_regression)
       values=model%decision_function(x)
     type is(gaussian_nb)
@@ -221,6 +232,10 @@ contains
     self%fitted_=.false.; call check_xy(x,size(y)); n=size(y)
     call require(self%method=='sigmoid'.or.self%method=='isotonic','unknown calibration method')
     select type(estimator)
+    type is(frozen_estimator)
+      call require(estimator%bridge_kind()==1,'calibration requires a frozen classifier')
+      call require(estimator%has_method('decision_function').or.estimator%has_method('predict_proba'), &
+        'frozen calibration estimator has no responses')
     class is(logistic_regression)
     type is(gaussian_nb)
     type is(kneighbors_classifier)

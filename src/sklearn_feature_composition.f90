@@ -217,7 +217,7 @@ contains
       call require(supported(branch%model),'composition unsupported transformer')
     end if
   end subroutine
-  logical function supported(model) result(ok)
+  recursive logical function supported(model) result(ok)
     class(*), intent(in) :: model
     ok=.true.
     select type(model)
@@ -241,6 +241,7 @@ contains
     type is(truncated_svd)
     type is(variance_threshold)
     class is(dense_transformer)
+      ok=model%can_transform()
     class default
       ok=.false.
     end select

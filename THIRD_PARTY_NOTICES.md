@@ -1339,6 +1339,16 @@ test, example and reference harness are original MIT contributions. Validation
 records sklearn and SciPy sparse source hashes. No dependency or public
 extension estimator was added.
 
+## Frozen estimator adapter (BSD contracts; MIT implementation)
+
+`src/sklearn_frozen.f90` follows scikit-learn 1.6.1 `frozen/_frozen.py` for
+no-op fit, fitted-state checks, conditional method delegation, clone identity
+and estimator-only parameters. Pipeline and calibration integration follow
+`pipeline.py`, `base.py` and the existing native adapters. Scikit-learn BSD
+terms remain in `LICENSES/scikit-learn-COPYING`. The borrowed Fortran pointers,
+typed bridge protocol, tests, example and reference harness are original MIT
+contributions. No external repository or dependency was imported.
+
 ## Single-class MLP encodings (BSD)
 
 Single-class MLP fitting and prediction further follow scikit-learn 1.6.1

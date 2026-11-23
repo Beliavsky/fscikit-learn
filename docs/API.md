@@ -6713,3 +6713,43 @@ set; declare all expected classes up front when expansion is required.
 CSR vector prediction validates storage before allocating its result, including
 malformed inputs with oversized row counts. See
 [the example](../example/single_class_mlp.f90) and [coverage details](COVERAGE.md).
+
+## Frozen estimators
+
+`frozen_estimator` implements a dense subset of sklearn 1.6.1 FrozenEstimator.
+Declare the wrapped model `TARGET` and associate `fixed%estimator => model`, or
+call `fixed%set_params(model)`. The target must outlive every wrapper and pipeline
+copy that references it. The wrapper borrows the model; it does not own a copy.
+External refits and parameter changes are visible immediately.
+
+`fit(x,y,sample_weight)` only checks whether the target is fitted. All arguments
+are optional and ignored, including their types, ranks, values and shapes.
+This requires Fortran 2018 assumed-rank support. Stateless Normalizer, Binarizer
+and FunctionTransformer targets are considered fitted without an explicit fit.
+`fit_transform` and `fit_predict` are deliberately unavailable.
+
+`has_method(name)` describes the target's supported operations. Dense transforms,
+inverse transforms, feature names, classifier probabilities/log probabilities,
+decision functions and scores are delegated where supported. Use `predict` for
+scalar regression, `predict_class` for integer class labels, `predict_matrix`
+for joint regression and `predict_indicator` for MLP multilabel classification.
+`get_classes()` returns classifier labels. `bridge_features()` returns zero when
+native metadata is unavailable. The internal bridge methods also let pipelines
+forward supported operations; they are not additional algorithms.
+
+`get_params(deep)` returns a `frozen_parameters` helper containing only the
+estimator pointer; `deep` has no effect. `get_estimator()` returns that pointer.
+On a wrapper declared `TARGET`, `clone()` returns a pointer to the same wrapper,
+so rebinding through that alias affects the original. Ordinary Fortran value
+assignment copies the wrapper while sharing its estimator target; rebinding
+one such copy does not rebind other copies.
+
+Supported targets include the native base-dispatch classifier/regressor families,
+MLPs, composition transformers and transformer-protocol implementations, including
+pipelines. Query inputs are dense real64 arrays. This does not add Python-style
+general attribute forwarding, global estimator cloning, metadata routing or every
+estimator-specific method. Access the target pointer for methods such as PCA
+covariance. A wrapped native pipeline retains its explicit outer-fit requirement.
+For all-data calibration with a frozen classifier, use the existing calibrated
+classifier's `prefit=.true.` control; its logical ensemble API is unchanged.
+See [the frozen pipeline example](../example/frozen_pipeline.f90).

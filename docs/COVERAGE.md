@@ -3,9 +3,9 @@
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
-There are 221 public estimator, transformer, and splitter types. Each is a
+There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and fifty-four reference suites additionally check 2,514,388
+All types have native tests. One hundred and fifty-five reference suites additionally check 2,539,660
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -27,6 +27,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 
 | Module (`sklearn_` prefix) | Public types and functions | Scope and numerical choices |
 | --- | --- | --- |
+| frozen | `frozen_estimator`; `frozen_parameters` storage helper | Borrowed live fitted models, no-op fit, explicit identity clone, conditional dense methods, pipeline and prefit calibration integration |
 | pipeline | `pipeline`; `pipeline_step` storage helper | Sequential dense transforms, supervised selectors and cross-fitted target encoding, supported native estimator tails, nested graphs, weighted fitting/scoring, inverse transforms, names and contiguous slices |
 | feature_composition / pipeline | `column_transformer`, `feature_union` | Dense parallel transformer graphs, supported dense child types, recursive composition, positional/mask/name/callback column selection, remainder transforms, branch weights, feature names and output indices |
 | function_transformer / compose | `function_transformer`, `transformed_target_regressor` | Dense matrix callbacks, feature names and inverse diagnostics; cloned target transforms, supported native bases, weighted linear fits and independent multiple targets; joint multi-target trees excluded |
@@ -8133,3 +8134,39 @@ previous results. The final audit verified matching field inventories, 162
 compiled source contents per profile, source/executable/validator hashes and
 unchanged unrelated modules/existing native tests. Reports are retained locally
 under `validation/results/mlp_single_*`, including `mlp_single_final_audit.json`.
+
+
+## FrozenEstimator (sklearn 1.6.1)
+
+The native borrowed-reference adapter preserves fitted models during pipeline
+fitting. It supports no-op fit with ignored arbitrary-rank arguments, fitted-state
+checks, conditional methods, estimator-only parameters and explicit clone identity.
+Targets must have TARGET lifetime beyond every referring wrapper. Fortran value
+assignment shares the target but copies the wrapper; explicit clone returns a
+pointer to the same wrapper. See API.md for dense input and supported-family limits.
+No general Python attribute forwarding or global cloning machinery is implied.
+
+`compare_frozen.py` checks 486 configurations and 1,944 lifecycle stages across
+27 model configurations, three seeds, two feature counts and three data variants.
+Initial use, ignored fit, external target refit and rebinding through a clone
+alias exercise classifiers, regressors, MLP multioutput/multilabel models,
+transformers, nested wrappers and pipelines with frozen stages. The 25,272 required
+groups compare identity, target identity, capabilities, classes, feature names
+and eight exact within-backend operation delegations. Source wrappers are also
+checked against their own bare estimators. Twelve invalid-input diagnostics
+cover missing/unfitted targets, unavailable methods, wrong output kinds and
+malformed queries, names and scores.
+
+The 15,552 direct native-versus-Python endpoint comparisons are separate
+diagnostics, excluded from required group counts. In development, 35 differ,
+all logistic regression probabilities, log probabilities or decisions; they
+reflect the existing optimizer rather than wrapper delegation. Feature counts
+are checked when exposed by the native target; zero denotes unavailable metadata.
+The native test also covers prefit isotonic calibration without base mutation.
+The example preserves the pretrained scaler mean and obtains training R2=1.
+Fortran 2018 is required for ignored assumed-rank fit arguments. MIT licensing
+and retained sklearn BSD notices continue; no dependency or extension was added.
+
+Cumulative inventory: 222 public core types, 138 source modules, 179 native
+programs, 155 core reference suites / 2,539,660 retained required groups, and
+60 invalid-input registries / 4,033 cases. These remain API subsets.
