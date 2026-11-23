@@ -7749,3 +7749,20 @@ No dependency or public extension type was added.
 Cumulative inventory: 221 public core types, 137 source modules, 173 native
 programs, 149 core reference suites / 1,518,124 retained required groups, and 54
 invalid-input registries / 3,942 cases. These remain API subsets.
+
+Final verification passed in both checked (bounds/runtime checks and floating-
+point traps) and optimized release builds: all 173 native programs, 81,648 warm
+result groups, 48,960 retained Adam/SGD groups, 14,688 retained required L-BFGS
+groups and 60 invalid-input diagnostics per build. Both warm suites matched
+5,417 nonfinite source values and used seven checkpoint-response groups. The
+retained stochastic suites kept their twelve checked / thirteen release
+rounding-envelope groups; L-BFGS endpoint diagnostics and return-status outcomes
+were unchanged from the preceding increment.
+
+All three MLP examples ran in both builds. The warm example predicted [0,1,1,0]
+with 82 last-call epochs, 482 total history entries, 1,928 samples seen and final
+loss approximately 0.0030879462. The combined audit verified 320 compiled source
+contents per build, source/optimizer/validator/executable hashes and complete
+required/diagnostic inventories. Unrelated core modules and all existing native
+tests were unchanged, as were activation, query and objective/gradient kernels.
+Reports, source probes and logs remain locally in ignored validation/results.
