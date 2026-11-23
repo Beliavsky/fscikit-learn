@@ -6781,3 +6781,51 @@ covariance. A wrapped native pipeline retains its explicit outer-fit requirement
 For all-data calibration with a frozen classifier, use the existing calibrated
 classifier's `prefit=.true.` control; its logical ensemble API is unchanged.
 See [the frozen pipeline example](../example/frozen_pipeline.f90).
+
+
+## Low-rank matrices and regression generators
+
+`make_low_rank_matrix` and `make_regression` are exported by `sklearn_datasets`
+and the `sklearn` facade. Their implementation is in `sklearn_regression_datasets`.
+The new function returns an allocated real64 matrix:
+
+```fortran
+x = make_low_rank_matrix(n_samples,n_features,effective_rank,tail_strength,random_state)
+```
+
+All arguments are optional: dimensions default to 100, effective rank to 10,
+tail strength to 0.5 and integer seed to 0. The singular profile is
+`(1-tail)*exp(-(i/rank)**2) + tail*exp(-0.1*i/rank)`, with zero-based singular
+index `i`. Independent Gaussian economic-QR bases follow sklearn's draw order
+and LAPACK's zero-tail/length-one reflector convention. Dimensions and effective
+rank must be positive; finite tail strength must lie in `[0,1]`.
+
+The existing regression call remains valid, with new optional arguments appended:
+
+```fortran
+call make_regression(n_samples,n_features,x,y,n_informative,noise,bias,random_state,coef, &
+  n_targets,effective_rank,tail_strength,shuffle)
+```
+
+Declare `y(:)` and optional `coef(:)` for a scalar response, or `y(:,:)` and
+`coef(:,:)` for matrix responses. The matrix overload accepts positive
+`n_targets` (default 1), returning shapes `(samples,targets)` and
+`(features,targets)`. A vector output requires one target. Ranks are preserved
+when any dimension is one, rather than using Python's `squeeze` convention.
+`n_informative` defaults to 10 and is clamped to the feature count; zero gives
+bias-only targets before noise. `effective_rank` absent selects standard-normal
+features; present selects the low-rank generator using the same RNG instance.
+`tail_strength` defaults to 0.5. Noise defaults to zero, bias to zero and shuffle
+to true. Samples and features are permuted independently, with coefficients
+permuted to match the returned feature order. No normal draws occur for zero
+noise. Coefficient output presence does not alter generated data.
+
+Both generators own isolated NumPy-compatible legacy RNG state; omitted seeds
+use zero and calls leave the intrinsic Fortran RNG unchanged. This intentionally
+changes the old regression generator's seeded arrays and default RNG behavior
+to follow sklearn's integer-seeded algorithm. The original positional argument
+order is retained. Finite nonnegative noise, finite bias, nonnegative informative
+counts and valid tail strength are checked even when an option has no effect.
+Very large finite noise can return source-matched infinities without triggering
+floating-point traps. Other existing generators retain their documented RNGs.
+See [the example](../example/low_rank_regression.f90).

@@ -1371,3 +1371,16 @@ sampling without replacement. Scikit-learn BSD terms remain in
 `LICENSES/scikit-learn-COPYING`; the existing NumPy RNG notices continue to
 apply. The native hash table, diagnostics, tests, example and reference harness
 are original MIT contributions. No dependency or extension algorithm was added.
+
+
+## Low-rank matrices and regression samples (BSD contracts; MIT QR)
+
+`src/sklearn_regression_datasets.f90` follows scikit-learn 1.6.1
+`datasets/_samples_generator.py` make_low_rank_matrix and make_regression:
+Gaussian economic-QR bases, singular profiles, informative coefficient draws,
+conditional noise, target ranks and sample/feature permutations. Existing sklearn
+BSD terms remain in `LICENSES/scikit-learn-COPYING`; existing NumPy RNG notices
+continue to apply. The independent native Householder implementation follows
+LAPACK's zero-tail reflector convention; no SciPy/LAPACK routine is linked or
+copied. Typed adapters, quiet IEEE noise composition, tests, example and reference
+harness are original MIT contributions. No dependency or extension was added.

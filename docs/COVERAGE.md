@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and fifty-six reference suites additionally check 2,557,042
+All types have native tests. One hundred and fifty-seven reference suites additionally check 2,572,884
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -71,7 +71,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | gaussian_process | `gaussian_process_regressor`, `gaussian_process_classifier` | Configurable covariance expressions or legacy RBF controls; anisotropy, Matern/RQ/periodic/dot/constant/white kernels and sums/products/powers; scalar/vector-alpha Cholesky regression, independent multiple targets, likelihood gradients and opt-in bounded kernel fitting; Laplace binary/OVR classification with optional independent kernel fitting, binary likelihood gradients and warm starts |
 | covariance | `empirical_covariance`, `shrunk_covariance`, `ledoit_wolf`, `oas`, `graphical_lasso`, `graphical_lasso_cv`, `min_cov_det`, `elliptic_envelope`; `fast_mcd` | Population covariance, pseudoinverse precision, squared Mahalanobis distance, likelihood, Frobenius/spectral covariance error; L1-penalized sparse precision via block coordinate descent and refined cross-validation; FastMCD robust covariance and elliptic outlier detection |
 | calibration | `calibrated_classifier_cv`; `calibration_curve` | Sigmoid/isotonic CV ensembles, out-of-fold calibration and prefit calibration with logistic, Gaussian NB or KNN bases; uniform/quantile reliability bins |
-| datasets | `make_classification`, `make_hastie_10_2`, `make_blobs`, `make_regression`, `make_moons`, `make_circles`, `make_friedman1/2/3`, `make_sparse_uncorrelated`, `make_s_curve`, `make_swiss_roll`, `make_gaussian_quantiles` | Native synthetic generators; new regression/manifold/quantile generators match seeded legacy NumPy draws; no bundled real-world datasets |
+| datasets | `make_classification`, `make_hastie_10_2`, `make_blobs`, `make_regression`, `make_low_rank_matrix`, `make_moons`, `make_circles`, `make_friedman1/2/3`, `make_sparse_uncorrelated`, `make_s_curve`, `make_swiss_roll`, `make_gaussian_quantiles` | Native synthetic generators; new regression/manifold/quantile generators match seeded legacy NumPy draws; no bundled real-world datasets |
 
 ## Metrics and kernels
 
@@ -181,18 +181,21 @@ distances; cosine similarity; linear, RBF, polynomial and sigmoid kernels.
   explicitly requested dimensions may exceed it without a warning. These are
   standard sklearn counterparts, not project extensions.
 
-- Inputs are finite dense `real(dp)` arrays, except NaNs specifically accepted by
-  `simple_imputer`. Strings are accepted only by text vectorizers. Empty feature
-  matrices are generally rejected. No sample weights, sparse storage, multioutput
-  targets, partial fitting, GPU, joblib, model persistence, or Python pipelines.
-- Invalid input terminates with `error stop`; recoverable status objects are not
-  yet implemented. Numerical failures are diagnosed rather than silently hidden.
+- Data support is estimator-specific. Numerical interfaces generally use dense
+  real64 arrays and integer labels, with documented support for NaNs, text and
+  CSR in selected domains. Sample weights, multiple targets and streaming are
+  implemented by the explicitly documented types. GPU execution, joblib,
+  general Python object integration and binary persistence remain outside scope.
+- Validation errors terminate through `error stop`; recoverable status objects
+  are not implemented. Nonfinite mathematical outputs can be returned where
+  required by the documented sklearn contract.
 - Fortran sample/feature/neighbor/leaf indices are **one-based**. Encoded labels
   and cluster IDs are **zero-based**. DBSCAN noise is `-1`. Integer target labels
   may be arbitrary, negative, or noncontiguous; class arrays are sorted.
-- Seeded runs are repeatable for a given Fortran compiler/runtime. They do not
-  reproduce NumPy random streams. Seeding currently uses the process-global
-  Fortran RNG. Concurrent stochastic fits therefore need external coordination.
+- RNG behavior is algorithm-specific. Implementations using `sklearn_legacy_rng`
+  have isolated NumPy-compatible integer-seeded streams. Other algorithms still
+  use the process-global Fortran RNG and require coordination for concurrent
+  calls. Consult domain-specific coverage for seed fidelity and numerical limits.
 - `pca%n_components=0` means all available components, unlike Python's integer
   zero. Both PCA/SVD store components as `(n_components,n_features)`.
 - The pure Fortran SVD/eigensolvers are designed for small/medium dense problems;
@@ -8259,3 +8262,37 @@ fpm 0.14.0 OpenMP executable and successful isolated four-job smoke build are
 retained under ignored `validation/results/tools` for future parallel builds.
 The global fpm installation remains unchanged; the README documents the optional
 upstream parallel-build command and corrects its stale public type count.
+
+
+## Low-rank matrices and seeded regression (sklearn 1.6.1)
+
+`make_low_rank_matrix` adds Gaussian economic-QR bases and the documented
+low-rank/fat-tail singular profile. The regression generator now shares this
+backend and NumPy-compatible legacy RNG, with full-rank or effective-rank
+features, scalar or matrix targets, informative-count clamping, optional
+coefficient outputs, conditional Gaussian noise and sample/feature shuffling.
+The original positional call form is retained. Isolated seed 0 is the native
+default; old intrinsic-RNG regression arrays intentionally change. Singleton
+output dimensions retain their declared Fortran ranks. Quiet IEEE composition
+matches infinities from large finite noise under floating-point traps.
+
+`compare_regression_datasets.py` retains 15,842 required groups across 3,001
+configurations: five seeds including 2147483647, nine tall/wide/square/singleton
+shapes, 720 explicit low-rank matrices plus the default matrix, 2,160 ordinary
+regression configurations and 120 extreme-noise cases. Four effective-rank
+choices and four tail strengths exercise the QR and singular profile; regression
+covers 1/2/4 targets, zero/partial/excess informative counts, noise/bias controls,
+both shuffle states, both coefficient-output states and vector/matrix adapters.
+Independent singular-value profiles supplement direct array comparisons.
+Twenty-two diagnostics cover dimensions, ranks, target layout, seeds and
+nonfinite/out-of-range controls, including unused tail validation.
+Development passed all groups and diagnostics, matching coefficients exactly
+and 4,588 nonfinite source values. Maximum errors were 2.27e-15 for generated
+features, 8.09e-13 for targets and 2.11e-15 for singular profiles. Native tests
+also verify noiseless identities, informative-row counts, intrinsic-RNG
+nonmutation, reproducibility and singleton reflector behavior. MIT licensing
+and retained sklearn/NumPy notices continue; no dependency or extension was added.
+
+Cumulative inventory: 222 public core types, 139 source modules, 181 native
+programs, 157 reference suites / 2,572,884 retained required groups, and 62
+invalid-input registries / 4,069 cases. These remain API subsets.

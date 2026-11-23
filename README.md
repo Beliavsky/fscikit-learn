@@ -363,3 +363,10 @@ Fortran 2018 assumed-rank arguments.
 MeanShift supports frequency-filtered grid seeding and reproducible bandwidth
 subsampling. See [the example](example/mean_shift_bins.f90) and
 [the API contract](docs/API.md#mode-seeking-spectral-methods-and-kernel-density).
+
+
+`make_low_rank_matrix` generates prescribed singular-value profiles.
+`make_regression` now supports NumPy-compatible seeded draws, joint targets,
+low-rank features and sample/feature shuffling. See
+[the example](example/low_rank_regression.f90) and
+[the API contract](docs/API.md#low-rank-matrices-and-regression-generators).

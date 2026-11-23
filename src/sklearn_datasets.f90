@@ -1,12 +1,13 @@
 module sklearn_datasets
   use sklearn_common
+  use sklearn_regression_datasets, only: make_regression,make_low_rank_matrix
   use sklearn_classification_datasets, only: make_classification,make_hastie_10_2,classification_dataset_options
   use sklearn_sample_generators, only: make_friedman1,make_friedman2,make_friedman3,make_sparse_uncorrelated, &
     make_s_curve,make_swiss_roll,make_gaussian_quantiles
   use sklearn_model_selection, only: shuffle_indices
   implicit none
   private
-  public :: make_blobs,make_regression,make_moons,make_circles
+  public :: make_blobs,make_regression,make_low_rank_matrix,make_moons,make_circles
   public :: make_classification,make_hastie_10_2,classification_dataset_options
   public :: make_friedman1,make_friedman2,make_friedman3,make_sparse_uncorrelated
   public :: make_s_curve,make_swiss_roll,make_gaussian_quantiles
@@ -36,28 +37,6 @@ contains
       c=1+mod(i-1,n_centers); y(i)=c-1; x(i,:)=x(i,:)+means(c,:)
     end do
     order=shuffle_indices(n_samples); x=x(order,:); y=y(order)
-  end subroutine
-  subroutine make_regression(n_samples,n_features,x,y,n_informative,noise,bias,random_state,coef)
-    integer, intent(in) :: n_samples,n_features
-    real(dp), allocatable, intent(out) :: x(:,:),y(:)
-    integer, intent(in), optional :: n_informative,random_state
-    real(dp), intent(in), optional :: noise,bias
-    real(dp), allocatable, intent(out), optional :: coef(:)
-    real(dp) :: coefficients(n_features),std,offset
-    real(dp), allocatable :: errors(:,:)
-    integer :: informative
-    call require(n_samples>0.and.n_features>0,'invalid regression sizes')
-    informative=min(10,n_features); if(present(n_informative)) informative=n_informative
-    call require(informative>=0.and.informative<=n_features,'invalid informative feature count')
-    std=0; offset=0
-    if(present(noise)) std=noise
-    if(present(bias)) offset=bias
-    call require(std>=0,'noise must be nonnegative')
-    if(present(random_state)) call seed_rng(random_state)
-    x=normal_random(n_samples,n_features); coefficients=0
-    call random_number(coefficients(:informative)); coefficients=100*coefficients
-    errors=normal_random(n_samples,1); y=matmul(x,coefficients)+offset+std*errors(:,1)
-    if(present(coef)) coef=coefficients
   end subroutine
   subroutine make_moons(n_samples,x,y,noise,random_state,shuffle)
     integer, intent(in) :: n_samples
