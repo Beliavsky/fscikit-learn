@@ -7660,3 +7660,26 @@ outside this interface. No dependency or public extension type was added.
 Cumulative inventory: 221 public core types, 137 source modules, 172 native
 programs, 148 core reference suites / 1,436,476 retained required groups, and 53
 invalid-input registries / 3,934 cases. These remain API subsets.
+
+Final checked (bounds/runtime checks and floating-point traps) and optimized
+release verification passed all 172 native programs, 14,688 required L-BFGS
+groups, 48,960 retained Adam/SGD groups and 52 invalid-input diagnostics per
+build. The stochastic regressions retained their twelve checked / thirteen
+release rounding-envelope groups. Both XOR examples ran successfully in both
+builds. L-BFGS XOR used 122 iterations / 149 evaluations in checked mode and
+121 / 148 in release, with losses approximately 0.001359.
+
+The 2,592 long-fit endpoint diagnostics retain 812 differing comparisons across
+131 checked fixtures and 819 across 134 release fixtures. All pointwise loss,
+gradient, query and stopping/return-status checks passed. Two release ReLU
+cases returned explicit line-search nonconvergence; separate installed-sklearn
+checks also reported ABNORMAL on those same cases, with final losses within
+2.1e-10 of the native values. These outcomes retain converged_=.false.
+Maximum pointwise gradient/loss errors were 1.39e-11 / 1.65e-13 checked and
+2.29e-12 / 1.73e-14 release.
+
+The combined audit verified 317 compiled source contents per build,
+source/optimizer/validator/executable hashes and complete required/diagnostic
+field inventories. Unrelated core modules, existing native tests and the
+stochastic training/prediction kernel were unchanged. Reports, source probes
+and logs are retained locally under ignored validation/results.
