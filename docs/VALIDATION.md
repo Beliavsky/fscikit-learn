@@ -8164,3 +8164,36 @@ Inventory: 222 public core types, 155 source modules, 210 native programs,
 4,946 cases. No public extension algorithm was added. Project integration
 remains MIT licensed; the new pocketfft BSD notice joins retained sklearn,
 NumPy and SciFort notices. Canonical profile verification is recorded below.
+
+Final TensorSketch-CSR verification: checked and optimized release builds each
+passed nine selected native programs: test_polynomial_csr,
+test_polynomial_count_sketch, test_nystroem_csr, test_additive_csr,
+test_nystroem_svd, test_kernel_approximation, test_rbf_features,
+test_seeded_skewed_features and test_chi2_samplers. The other 201 native
+programs were not executed in this batch. Each profile passed nine reference
+suites / 70,101 required groups: 26,496 new TensorSketch CSR, 2,950 retained
+dense TensorSketch, 15,018 CSR Nystroem, 9,460 additive CSR, 5,760 dense Nystroem,
+189 isotonic/kernel, 8,512 RBF, 1,512 skewed and 204 chi-square groups.
+All 290 diagnostics passed: 98 new cases, 36 retained TensorSketch cases and
+156 retained affected kernel-map checks. The pcs_transform_overflow case now
+checks the earlier output-capacity diagnostic; no legacy case was removed.
+
+The new suite retained complete nine-field inventories for all 2,944 fixtures:
+23,552 sklearn groups and 2,944 separately classified native IEEE-environment
+groups. All 63,736 nonfinite source values were checked in each profile,
+including exact NaN/signed-infinity masks. Fitted hashes, cached output metadata,
+input/RNG identities and opposite-representation refit hashes remained exact.
+Prime FFT direct-DFT/round-trip checks and the large sparse fit/query passed in
+both profiles. The new CSR/dense-query example and retained additive-CSR example
+both matched their source outputs.
+
+The combined audit verified 180 compiled source units per profile, stable
+source/executable/validator/report hashes, matching profile configurations,
+field inventories and diagnostic registries, distinct optimized drivers and
+the pinned pocketfft source/license notice. Only the nine reported suites and
+diagnostics were rerun. Unrelated source/test/application paths remained
+unchanged. Four-job builds used the checksum-verified private fpm 0.14.0;
+the global fpm was unchanged. Artifacts remain under ignored
+validation/results/polynomial_csr*, including polynomial_csr_final_audit.json.
+Implementation commit: 08ce53c. Project integration remains MIT licensed with
+retained BSD/SciFort notices; no runtime dependency or extension was added.

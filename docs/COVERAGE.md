@@ -45,7 +45,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | decomposition | `pca`, `incremental_pca`, `truncated_svd`, `nmf`, `mini_batch_nmf`, `sparse_pca`, `mini_batch_sparse_pca`, `dictionary_learning`, `mini_batch_dictionary_learning`, `sparse_coder`, `latent_dirichlet_allocation`; `sparse_encode`, `non_negative_factorization`; re-exports `kernel_pca`, `factor_analysis`, `fast_ica` | Full/randomized/covariance PCA with automatic routing; PCA whitening/inversion, variance/Minka dimension selection and probabilistic scores; streaming stacked-SVD IncrementalPCA; exact dense and randomized dense/CSR TruncatedSVD; regularized NMF coordinate descent and beta-divergence multiplicative updates, with a free function supporting fixed-H solves; sparse dictionary factorization and SparsePCA; five sparse coding methods; nonlinear kernel PCA; full/randomized-SVD factor analysis with orthogonal rotations; parallel/deflation ICA |
 | cross_decomposition | `pls_regression`, `pls_canonical`, `cca`, `pls_svd` | Paired-matrix latent components: NIPALS regression/canonical deflation, CCA pseudoinverse mode, canonical direct SVD and PLSSVD cross-covariance projection; multiple response columns |
 | isotonic | `isotonic_regression`; `isotonic_fit`, `check_increasing` | Weighted pool-adjacent-violators, automatic Spearman direction, bounds, repeated-input aggregation and piecewise linear interpolation |
-| kernel_approximation | `rbf_sampler`, `nystroem`, `additive_chi2_sampler`, `skewed_chi2_sampler`, `polynomial_count_sketch` | NumPy-seeded dense/CSR random Fourier RBF maps with scaled gamma; source-seeded full-SVD Nystroem maps with all built-in kernels, callbacks and precomputed input; additive and skewed chi2 maps; seeded polynomial TensorSketch with arbitrary-length FFTs |
+| kernel_approximation | `rbf_sampler`, `nystroem`, `additive_chi2_sampler`, `skewed_chi2_sampler`, `polynomial_count_sketch` | NumPy-seeded dense/CSR random Fourier RBF maps with scaled gamma; source-seeded full-SVD Nystroem maps with all built-in kernels, callbacks and precomputed input; additive and skewed chi2 maps; seeded dense/CSR polynomial TensorSketch with arbitrary-length FFTs |
 | random_projection | `gaussian_random_projection`, `sparse_random_projection`; `johnson_lindenstrauss_min_dim` | Gaussian/three-point random matrices, dense storage, automatic JL dimension, cached or on-demand pseudoinverse |
 | kernel_pca | `kernel_pca` | Centered linear/RBF/polynomial/sigmoid/cosine/precomputed Gram matrices; dense Jacobi eigensolver; out-of-sample transform and learned kernel-ridge pre-images |
 | manifold | `isomap`, `tsne`; `trustworthiness`; re-exports `spectral_embedding`, `mds`, `locally_linear_embedding` | Isomap radius/fixed-count graphs, dense/CSR precomputed distances and FW/Dijkstra paths; exact and Barnes-Hut t-SNE with sparse affinities, CSR distances, adaptive gains and two-stage momentum; neighborhood rank trustworthiness; spectral embedding; metric/nonmetric SMACOF; dense standard/Hessian/modified LLE and LTSA with barycentric query transforms |
@@ -9981,3 +9981,36 @@ Inventory: 222 public core types, 155 source modules, 210 native programs,
 4,946 cases. No public extension algorithm was added. Project integration
 remains MIT licensed; the new pocketfft BSD notice joins retained sklearn,
 NumPy and SciFort notices. Canonical profile verification is recorded below.
+
+Final TensorSketch-CSR verification: checked and optimized release builds each
+passed nine selected native programs: test_polynomial_csr,
+test_polynomial_count_sketch, test_nystroem_csr, test_additive_csr,
+test_nystroem_svd, test_kernel_approximation, test_rbf_features,
+test_seeded_skewed_features and test_chi2_samplers. The other 201 native
+programs were not executed in this batch. Each profile passed nine reference
+suites / 70,101 required groups: 26,496 new TensorSketch CSR, 2,950 retained
+dense TensorSketch, 15,018 CSR Nystroem, 9,460 additive CSR, 5,760 dense Nystroem,
+189 isotonic/kernel, 8,512 RBF, 1,512 skewed and 204 chi-square groups.
+All 290 diagnostics passed: 98 new cases, 36 retained TensorSketch cases and
+156 retained affected kernel-map checks. The pcs_transform_overflow case now
+checks the earlier output-capacity diagnostic; no legacy case was removed.
+
+The new suite retained complete nine-field inventories for all 2,944 fixtures:
+23,552 sklearn groups and 2,944 separately classified native IEEE-environment
+groups. All 63,736 nonfinite source values were checked in each profile,
+including exact NaN/signed-infinity masks. Fitted hashes, cached output metadata,
+input/RNG identities and opposite-representation refit hashes remained exact.
+Prime FFT direct-DFT/round-trip checks and the large sparse fit/query passed in
+both profiles. The new CSR/dense-query example and retained additive-CSR example
+both matched their source outputs.
+
+The combined audit verified 180 compiled source units per profile, stable
+source/executable/validator/report hashes, matching profile configurations,
+field inventories and diagnostic registries, distinct optimized drivers and
+the pinned pocketfft source/license notice. Only the nine reported suites and
+diagnostics were rerun. Unrelated source/test/application paths remained
+unchanged. Four-job builds used the checksum-verified private fpm 0.14.0;
+the global fpm was unchanged. Artifacts remain under ignored
+validation/results/polynomial_csr*, including polynomial_csr_final_audit.json.
+Implementation commit: 08ce53c. Project integration remains MIT licensed with
+retained BSD/SciFort notices; no runtime dependency or extension was added.

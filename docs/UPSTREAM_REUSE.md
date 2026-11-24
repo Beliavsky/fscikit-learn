@@ -13,6 +13,14 @@ retained SciFort copyright/license, modifications and Bluestein citation are
 recorded in [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md#scifort-fft-helpers-mit).
 It adds no runtime dependency or public algorithm extension.
 
+Subsequent integration, 2026-11-24: the native TensorSketch FFT helper also
+translates small-prime paired butterflies from the pocketfft revision pinned
+by SciPy 1.15.3. This is a Fortran adaptation with retained BSD-3-Clause terms,
+not a linked C++ dependency. The immutable revision, header digest, copyright,
+license and changes are recorded in
+[THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md#polynomialcountsketch-csr-maps-and-prime-fft-butterflies-bsd--mit).
+Original integration remains MIT licensed. It adds no public algorithm extension.
+
 Apply the [scope policy](SCOPE.md) to every selected feature, not just to each
 repository as a whole. Core scikit-learn counterparts have priority; public
 extensions require explicit identification in [EXTENSIONS.md](EXTENSIONS.md)

@@ -2069,12 +2069,13 @@ bucket raises an explicit native diagnostic. Native transform revalidates
 controls, including invalid post-fit changes that source may reject less
 directly. Changing random_state affects the next fit, not existing tables.
 
-Dense finite real64 inputs, scalar seeds and allocated outputs are supported.
-Sparse matrices, Python RNG objects/global RNG state, feature-name methods and
-metadata routing are outside this interface. FFT work is O(degree*D*log(D))
-per sample, plus O(degree*P) hashing, using radix-2 and Bluestein paths; the
-plan is reused within each transform call. Native SciFort FFT helpers are
-vendored under MIT with attribution, without a runtime library dependency.
+Dense finite real64 arrays and native CSR inputs, scalar seeds and allocated
+dense outputs are supported; see the CSR contract below for duplicate storage
+and IEEE behavior. Python RNG objects/global RNG state, feature-name methods
+and metadata routing are outside this interface. Fourier work uses radix-2,
+small-prime and Bluestein paths with a plan reused within each transform call.
+SciFort MIT and pocketfft BSD notices are retained; no FFT runtime dependency
+is needed.
 See `example/polynomial_kernel_features.f90` for a complete program.
 
 ## Label and multilabel binarization
