@@ -8471,3 +8471,28 @@ IEEE noise overflow. Membership masks and seeded partitions match exactly.
 Cumulative inventory: 222 public core types, 141 source modules, 184 native
 programs, 160 reference suites / 2,683,519 retained required groups, and 65
 invalid-input registries / 4,124 cases. These remain API subsets.
+
+Final bicluster-generator verification (2026-11-23): four-job fpm 0.14.0
+builds compiled the package in runtime-checked
+(`-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow`) and optimized
+release profiles. Both executed eight focused native programs: bicluster
+generators, spectral biclustering, multilabel, geometric, regression,
+datasets/Gaussian process, seeded and classification generators. All passed;
+the other 176 native programs were not executed in this batch.
+
+Four reference suites passed 15,372 required groups per profile: 11,100 new
+bicluster-generator groups, 2,992 spectral biclustering groups, 672 seeded
+sample-generator and 608 classification-generator groups. All 68 diagnostics
+passed, including 14 new cases. The new generator's finite data, membership
+masks, dimensions and repeatability matched exactly in both profiles, alongside
+135,816 source nonfinite values checked with matching IEEE semantics.
+
+The facade example generated 60x45 diagonal data and recovered the row
+partition with adjusted Rand score 1, then generated a positive 36x28
+checkerboard with six Cartesian blocks. The combined audit verified 158
+compiled source units per profile through dependency-aware fingerprints,
+complete field inventories, source/executable/validator hashes, the private
+fpm checksum and unchanged unrelated modules/tests. Reports remain local in
+ignored `validation/results/bicluster_*`, including
+`bicluster_datasets_final_audit.json`. MIT licensing and retained sklearn/NumPy
+BSD attribution continue; no dependency or extension algorithm was added.
