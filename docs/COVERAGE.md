@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and ninety-eight reference suites additionally check 4,007,271
+All types have native tests. One hundred and ninety-nine reference suites additionally check 4,009,855
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -10802,4 +10802,30 @@ remains MIT with retained upstream notices.
 
 Inventory: 222 public core types, 162 source modules, 226 native programs,
 198 reference suites / 4,007,271 retained groups and 99 invalid registries /
+5,714 cases. The broader translation remains unfinished.
+## Free label_binarize with integer classes and indicator matrices
+
+The new label_binarize function follows sklearn preprocessing/_label.py for
+dense default-integer vectors and indicator matrices. Explicit class order,
+unknown labels, binary/single-class widths, repeated classes, arbitrary integer
+indicator values and zero positive codes follow the source. The separate
+label_binarize_csr adapter returns owned real64 CSR arrays, retaining source
+column traversal after reordering. Its vector path avoids dense output storage.
+String/object, real-valued and CSR targets remain outside this interface.
+
+The checked reference grid passes 2,632 configurations: 1,028 accepted cases,
+2,584 exact field comparisons and 1,604 expected controlled source rejections.
+This includes minimum/maximum native integers, empty targets/classes, duplicate
+classes, reordered CSR indices, malformed indicators and sparse-code restrictions.
+The existing LabelBinarizer/MultiLabelBinarizer reference suite retains all 6,285
+groups across 555 scenarios, and the core suite retains 192 groups. Three native
+programs and the label_codes example pass. Native tests additionally exercise a
+100,000-by-100,000 sparse result with 100,000 stored entries, caller ownership
+and RNG preservation. Optimized verification is recorded in VALIDATION.md.
+
+This adds a free sklearn function, with no new estimator or extension algorithm.
+The existing label-binarizer implementations are unchanged. Original integration
+remains MIT with retained sklearn and existing numerical-backend attribution.
+Inventory: 222 core public types, 163 source modules, 227 native programs,
+199 reference suites / 4,009,855 retained groups and 99 invalid registries /
 5,714 cases. The broader translation remains unfinished.

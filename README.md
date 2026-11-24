@@ -559,3 +559,8 @@ OneHotEncoder supports numeric category selection, infrequent grouping, dropped
 categories, named fits, owned CSR output and typed dense/CSR inverse results.
 See the [example](example/onehot_categories.f90) and
 [API contract](docs/API.md#numeric-onehotencoder).
+
+The free `label_binarize` function supports explicit integer classes and dense
+indicator matrices, with owned CSR output through `label_binarize_csr`.
+See [the example](example/label_codes.f90) and
+[API contract](docs/API.md#free-label-binarization).

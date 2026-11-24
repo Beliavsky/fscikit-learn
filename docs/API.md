@@ -8306,3 +8306,35 @@ outside the current interface. Feature composition delegates fit and naming
 to this encoder; its graph inverse adapters do not yet expose the typed inverse
 result. Original native integration is MIT; translated sklearn behavior retains
 the BSD attribution in THIRD_PARTY_NOTICES.md.
+
+## Free label binarization
+
+`label_binarize(y,classes,neg_label,pos_label)` encodes a dense default-integer
+target vector or indicator matrix and returns an integer matrix. The last two
+arguments are optional, defaulting to 0 and 1. `label_binarize_csr` has the same
+arguments and returns an owned real64 `csr_matrix`; it requires zero neg_label
+and strictly positive pos_label. Both functions are exported by `sklearn` and
+`sklearn_preprocessing`. See [label_codes.f90](../example/label_codes.f90).
+
+The explicit `classes` array determines output column order. For a target with
+at most two labels and at most two classes, output has one column for the last
+class. A single class produces only negative codes. Three or more target labels
+or classes retain multiclass width. Unknown labels produce negative blocks.
+Empty targets are rejected; an empty class array is accepted for multiclass
+targets with zero output columns, while binary targets reject it as in sklearn.
+Repeated classes follow the source search/slice semantics rather than being
+deduplicated. A one-column matrix uses the vector rules.
+
+Multi-column input must have at most two distinct integer values and a matching
+class count. Source indicator behavior permits values other than 0/1. With
+pos_label=1, existing nonzero integers are retained; otherwise nonzero entries
+are replaced by pos_label. Zeros become neg_label. Reordering classes permutes
+indicator columns according to sorted-class positions, including repeated
+classes. Sparse output preserves the source CSR traversal order, so its column
+indices need not be sorted after reordering. Its arrays own their storage.
+
+The vector CSR path stores only selected labels and handles large class sets
+without a dense output allocation. String/object, real-valued and CSR target
+inputs are not currently exposed by this free-function interface. Native
+integer kinds determine the representable label/code range; extreme default
+integer codes are handled without negating the minimum integer.

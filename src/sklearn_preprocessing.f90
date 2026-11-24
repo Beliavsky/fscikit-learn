@@ -1,4 +1,5 @@
 module sklearn_preprocessing
+  use sklearn_label_binarize,only:label_binarize,label_binarize_csr
   use sklearn_one_hot_encoding,only:one_hot_encoder,onehot_category,onehot_inverse_result,onehot_name_combiner,onehot_name_value
   use sklearn_simple_impute, only: simple_imputer,imputer_statistic
   use sklearn_standard_scaling, only: standard_scaler,scale
@@ -21,6 +22,7 @@ module sklearn_preprocessing
   use sklearn_discretization, only: kbins_discretizer
   implicit none
   private
+  public::label_binarize,label_binarize_csr
   public :: onehot_category,onehot_inverse_result,onehot_name_combiner,onehot_name_value
   public :: imputer_statistic
   public :: function_transformer

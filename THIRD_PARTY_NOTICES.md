@@ -1908,3 +1908,15 @@ uses the already attributed internal NumPy ordering backend. Native owned CSR
 adapters, numeric/None/infrequent result masks, callback interfaces, float-name
 formatting, integration, tests, validation harness and example are original MIT
 contributions. No new dependency or public extension algorithm was introduced.
+
+## Free label_binarize (BSD / MIT)
+
+src/sklearn_label_binarize.f90 follows scikit-learn 1.6.1
+preprocessing/_label.py label_binarize, including binary width, class-order
+search/slicing, repeated classes, indicator values and positive-zero codes:
+https://github.com/scikit-learn/scikit-learn/blob/1.6.1/sklearn/preprocessing/_label.py
+The existing sklearn BSD notice remains under LICENSES/. CSR column traversal
+matches the installed SciPy 1.15.3 CSR column-slicing behavior. Class sorting
+uses the existing attributed internal NumPy ordering backend. Native integer
+interfaces, owned real64 CSR adapters, tests, reference harness and example
+are MIT integration. No dependency or public extension algorithm was added.
