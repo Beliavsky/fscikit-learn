@@ -513,3 +513,8 @@ RobustScaler supports NaNs, CSR maps, optional fitted statistics and normal
 unit-variance adjustment. robust_scale covers vectors/matrices/CSR on both axes.
 See the [example](example/robust_kernel_inputs.f90) and
 [API contract](docs/API.md#robustscaler-sparse-inputs-and-optional-statistics).
+
+StandardScaler supports weighted dense/CSR fitting and incremental batches,
+missing observations, fitted count metadata and sparse-preserving transforms.
+See the [example](example/standard_streaming.f90) and
+[API contract](docs/API.md#standardscaler-weighted-streaming-and-csr-inputs).

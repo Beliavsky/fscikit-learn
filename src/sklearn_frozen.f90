@@ -126,7 +126,7 @@ contains
     class is(decision_tree_regressor);ok=allocated(model%nodes_)
     type is(kernel_ridge);ok=allocated(model%dual_coef_)
     type is(dummy_regressor);ok=model%fitted_
-    type is(standard_scaler);ok=allocated(model%scale_)
+    type is(standard_scaler);ok=model%n_features_in_>0
     type is(minmax_scaler);ok=allocated(model%scale_)
     type is(maxabs_scaler);ok=allocated(model%scale_)
     type is(robust_scaler);ok=model%n_features_in_>0
@@ -184,7 +184,7 @@ contains
     type is(kneighbors_regressor);if(allocated(model%search_%x_)) n=size(model%search_%x_,2)
     type is(kernel_ridge);if(allocated(model%x_fit_)) n=size(model%x_fit_,2)
     type is(function_transformer);n=model%n_features_in_
-    type is(standard_scaler);if(allocated(model%scale_)) n=size(model%scale_)
+    type is(standard_scaler);n=model%n_features_in_
     type is(minmax_scaler);if(allocated(model%scale_)) n=size(model%scale_)
     type is(maxabs_scaler);if(allocated(model%scale_)) n=size(model%scale_)
     type is(robust_scaler);n=model%n_features_in_

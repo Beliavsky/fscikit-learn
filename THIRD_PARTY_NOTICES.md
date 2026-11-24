@@ -1781,3 +1781,14 @@ and reference harness are MIT integration. Source was extracted from the
 preprocessing module and remains re-exported. Frozen fitted-state and width
 adapters were updated for absent robust statistics. No dependency or public
 extension algorithm was added.
+
+## StandardScaler weighted incremental and sparse statistics (BSD / MIT)
+
+src/sklearn_standard_scaling.f90 follows installed scikit-learn 1.6.1
+preprocessing/_data.py StandardScaler, utils/extmath.py incremental mean and
+variance, and utils/sparsefuncs_fast.pyx raw CSR statistics. NumPy pairwise
+summation order is adapted for unweighted contiguous columns. Retained
+scikit-learn and NumPy BSD notices remain under LICENSES/. Native typed
+adapters, metadata representation, quiet arithmetic integration, tests,
+reference harness and example are MIT integration. The extracted type remains
+re-exported from preprocessing. No dependency or extension algorithm was added.

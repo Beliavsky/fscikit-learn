@@ -8009,3 +8009,33 @@ full sparse-input densification occurs. Nullable fitted metadata is supported
 through Pipeline/FrozenEstimator adapters. Inverse broadcast and numeric/median
 dispatch details are recorded in COVERAGE.md. See
 [the example](../example/robust_kernel_inputs.f90).
+
+## StandardScaler weighted streaming and CSR inputs
+
+`standard_scaler` remains re-exported by `sklearn_preprocessing` and `sklearn`.
+Dense and CSR `fit`, `partial_fit`, and `fit_transform` accept optional real64
+`sample_weight` vectors or scalar weights. Negative and zero weights follow
+source behavior. Vector weights must be finite; scalar weights retain source
+IEEE behavior. NaNs are missing observations; infinite input values are rejected.
+CSR fitting requires `with_mean=.false.` and processes stored entries directly,
+including duplicates, explicit zeros and missing entries, without densification.
+Transforms and inverse transforms return owned dense/CSR results.
+
+`mean_`, `var_`, and `scale_` are unallocated when the corresponding source
+attribute is None. `n_features_in_` records fitted width. `n_samples_seen_` is
+always a real64 vector of per-feature counts or weight sums. The logical fields
+`sample_count_scalar_` and `sample_count_real_` describe the source count's
+scalar/vector shape and integer/float dtype. Integer counts above 2**53 cannot
+be represented exactly by this real64 adaptation. Refit resets all learned state.
+The source cast of a previous scalar weighted count on an unweighted update is
+retained, including fractional truncation. Dense no-op counts ignore weights;
+CSR no-op counts use them. All-missing and zero-mass batches retain source
+NaN behavior rather than substituting repaired statistics.
+
+Dense query methods honor live `with_mean`/`with_std`. CSR methods always
+reject centering and use the cached scale whenever it exists, including after
+`with_std` is disabled. Dense inverse supports the source's width-one learned
+statistic broadcasting. Frozen fitted-state detection uses fitted width so a
+scaler with both operations disabled remains usable. Existing dense composition
+adapters continue to dispatch this type; CSR composition and metadata routing
+are outside this change. See [the example](../example/standard_streaming.f90).

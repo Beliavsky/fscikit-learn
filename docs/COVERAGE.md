@@ -10268,3 +10268,26 @@ the global fpm was unchanged. Artifacts remain under ignored validation/results/
 robust*, including robust_final_audit.json. Implementation commit: 9164c4e.
 MIT integration and retained notices continue; no dependency or public extension
 algorithm was added. The broader translation goal remains unfinished.
+
+## StandardScaler weighted incremental and sparse statistics
+
+The former dense-only StandardScaler now accepts weighted dense/CSR fits,
+incremental mixed-representation batches, NaNs, and typed scalar weights.
+Dense/CSR query maps retain source live-control and cached-scale behavior.
+Fitted statistics may be absent; width and count metadata remain available.
+The count representation is a real64 vector with explicit source scalar/dtype
+flags, with an exact-integer limit of 2**53. Sparse statistics use raw stored
+entries without densification. This extends an existing sklearn counterpart;
+it adds no public estimator type or extension algorithm. Free preprocessing.scale,
+sparse composition and Python metadata routing are outside this batch.
+
+The focused reference harness retains 724 configurations / 17,376 groups and
+nine diagnostics, with 2,188 nonfinite source values compared. Metadata and CSR
+layouts compare exactly. Ordinary numerical comparisons use 3e-8 absolute and
+relative tolerances. Large-offset variance fixtures use a relative forward-error
+allowance of max(3e-8,64*epsilon*max(abs(mean)/sqrt(abs(var)))) for variance,
+scale and maps; their means and counts retain ordinary tolerances. This reflects
+rounding differences between NumPy BLAS and portable Fortran weighted sums.
+NaN and signed-infinity outcomes remain required. Native caller/RNG identity
+checks are included in the retained groups. Canonical package validation is
+recorded separately after completion.

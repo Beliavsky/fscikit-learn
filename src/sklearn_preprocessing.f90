@@ -1,4 +1,5 @@
 module sklearn_preprocessing
+  use sklearn_standard_scaling, only: standard_scaler
   use sklearn_robust_scaling, only: robust_scaler,robust_scale
   use sklearn_minmax_scaling, only: minmax_scaler,minmax_scale
   use sklearn_maxabs_scaling, only: maxabs_scaler,maxabs_scale
@@ -34,14 +35,6 @@ module sklearn_preprocessing
   public :: standard_scaler, minmax_scaler, maxabs_scaler, robust_scaler, simple_imputer
   public :: normalize, binarize, polynomial_features, label_encoder, one_hot_encoder
   public :: normalizer,binarizer
-  type :: standard_scaler
-    logical :: with_mean=.true., with_std=.true.
-    real(dp), allocatable :: mean_(:), var_(:), scale_(:)
-  contains
-    procedure :: fit=>standard_fit
-    procedure :: transform=>standard_transform
-    procedure :: inverse_transform=>standard_inverse
-  end type
   type :: simple_imputer
     character(16) :: strategy='mean'
     real(dp) :: fill_value=0
@@ -69,37 +62,6 @@ module sklearn_preprocessing
     procedure :: transform=>onehot_transform
   end type
 contains
-  subroutine standard_fit(self,x)
-    class(standard_scaler), intent(inout) :: self
-    real(dp), intent(in) :: x(:,:)
-    integer :: j
-    call check_x(x)
-    self%mean_=sum(x,dim=1)/size(x,1)
-    self%var_=self%mean_*0
-    do j=1,size(x,2)
-      self%var_(j)=sum((x(:,j)-self%mean_(j))**2)/size(x,1)
-    end do
-    self%scale_=sqrt(self%var_)
-    where(self%scale_<10*epsilon(1._dp)) self%scale_=1
-  end subroutine
-  function standard_transform(self,x) result(z)
-    class(standard_scaler), intent(in) :: self
-    real(dp), intent(in) :: x(:,:)
-    real(dp) :: z(size(x,1),size(x,2))
-    call require(allocated(self%mean_),'standard_scaler is not fitted')
-    call check_xy(transpose(x),size(self%mean_)); z=x
-    if(self%with_mean) z=z-spread(self%mean_,1,size(x,1))
-    if(self%with_std) z=z/spread(self%scale_,1,size(x,1))
-  end function
-  function standard_inverse(self,x) result(z)
-    class(standard_scaler), intent(in) :: self
-    real(dp), intent(in) :: x(:,:)
-    real(dp) :: z(size(x,1),size(x,2))
-    call require(allocated(self%mean_),'standard_scaler is not fitted')
-    call check_xy(transpose(x),size(self%mean_)); z=x
-    if(self%with_std) z=z*spread(self%scale_,1,size(x,1))
-    if(self%with_mean) z=z+spread(self%mean_,1,size(x,1))
-  end function
   real(dp) function percentile(x,p) result(v)
     real(dp), intent(in) :: x(:),p
     integer :: order(size(x)),lo,hi
