@@ -8492,3 +8492,61 @@ labels, weights and random-number state are preserved.
 
 The native implementation adds no dependency or public extension algorithm.
 Original integration remains MIT with retained sklearn/SciPy BSD attribution.
+
+## Weighted categorical classification scores
+
+The existing `balanced_accuracy_score`, `matthews_corrcoef` and
+`cohen_kappa_score` functions now use `sklearn_categorical_scores`, re-exported
+by `sklearn_metrics` and `sklearn`. Their legacy `y,p` calls remain valid.
+All results are real64. See [categorical_scores.f90](../example/categorical_scores.f90).
+
+```fortran
+score=balanced_accuracy_score(y,p,sample_weight,adjusted)
+score=matthews_corrcoef(y,p,sample_weight)
+score=cohen_kappa_score(y,p,labels,weights,sample_weight)
+```
+
+Targets can be default-integer, logical or real64 vectors or nonempty
+single-column matrices, in mixed combinations. Real targets must be finite,
+integral and within int64 range. Binary and multiclass classification are
+supported. Scalar targets, other intrinsic target kinds and ranks above two
+are rejected at compile time. Multilabel matrices, zero-width/empty-column
+matrices, CSR and string/object labels are outside this interface.
+
+Optional `sample_weight` is a real64 vector with one value per sample. Signed,
+zero and nonfinite values follow sklearn: confusion cells accumulate in sample
+order, then NaNs become zero and infinities become signed maximum finite values.
+Scores are not clipped. Confusion storage is dense in the number of classes,
+as in the source. Sorting and binary lookup avoid quadratic class discovery.
+Matrices exceeding default-integer indexing capacity reject before allocation.
+
+`adjusted` defaults to false. Balanced accuracy removes NaN class recalls,
+including zero-support classes, before averaging. Chance adjustment uses
+`1/number_of_retained_recalls`. With no retained recalls, unadjusted accuracy
+is NaN and adjusted accuracy rejects. A single retained class can produce
+NaN or infinity after adjustment, retaining the source arithmetic.
+
+Matthews correlation retains the source zero-covariance-product shortcut to
+zero. Otherwise it uses the original covariance product and square root;
+negative or nonfinite values can yield NaN rather than being clamped.
+
+Kappa's optional `weights` is `'none'` (default), `'linear'` or `'quadratic'`.
+The latter two use ordinal distance in the selected label order. Optional
+`labels` accepts a default-integer/logical/real64 vector, including reordered,
+repeated and unknown classes. It must be nonempty and intersect nonempty `y`.
+Samples outside the selection are dropped; duplicate labels use the last
+index. NaN selectors do not match finite targets. Without explicit labels,
+classes are sorted. Constant-class kappa returns NaN, replacing the former
+native rejection with source behavior.
+
+Empty vectors return NaN for unadjusted balanced accuracy and kappa, and zero
+for Matthews correlation. Adjusted balanced accuracy rejects empty vectors.
+Weight lengths are validated for automatic classes; kappa with empty vectors
+and explicit labels retains the source shortcut before weight validation.
+
+NumPy 2.2.6 pairwise reductions use 8192-element buffers. Matthews dot products
+reconstruct serial OpenBLAS 0.3.29 SkylakeX accumulation with scalar IEEE fused
+multiply-add. Other backends or buffer settings can round differently. No BLAS,
+SIMD or Python runtime is linked. Caller data, RNG state, IEEE flags and halting
+modes are preserved. Python warning emission is not exposed. Original integration
+remains MIT with retained sklearn/NumPy/SciPy/OpenBLAS BSD attribution.

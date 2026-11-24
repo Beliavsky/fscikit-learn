@@ -1,4 +1,5 @@
 module sklearn_metrics
+  use sklearn_categorical_scores,only:balanced_accuracy_score,matthews_corrcoef,cohen_kappa_score
   use sklearn_likelihood_ratios,only:class_likelihood_ratios
   use sklearn_subset_metrics,only:accuracy_score,zero_one_loss
   use sklearn_probability_metrics, only: log_loss,d2_log_loss_score
@@ -138,41 +139,6 @@ contains
   real(dp) function hamming_loss(y,p) result(v)
     integer, intent(in) :: y(:),p(:)
     v=1-accuracy_score(y,p)
-  end function
-  real(dp) function balanced_accuracy_score(y,p) result(v)
-    integer, intent(in) :: y(:),p(:)
-    integer, allocatable :: classes(:)
-    integer :: i,n
-    real(dp) :: r
-    r=accuracy_score(y,p); classes=unique_labels(y); v=0
-    do i=1,size(classes)
-      n=count(y==classes(i)); v=v+real(count(y==classes(i).and.p==classes(i)),dp)/n
-    end do
-    v=v/size(classes)
-  end function
-  real(dp) function matthews_corrcoef(y,p) result(v)
-    integer, intent(in) :: y(:),p(:)
-    integer, allocatable :: cm(:,:)
-    real(dp), allocatable :: a(:),b(:)
-    real(dp) :: n,c,den
-    integer :: i
-    cm=confusion_matrix(y,p); a=real(sum(cm,dim=1),dp); b=real(sum(cm,dim=2),dp)
-    n=sum(a); c=0
-    do i=1,size(a)
-      c=c+cm(i,i)
-    end do
-    den=sqrt(max(0._dp,(n*n-dot_product(a,a))*(n*n-dot_product(b,b))))
-    v=0; if(den>0) v=(c*n-dot_product(a,b))/den
-  end function
-  real(dp) function cohen_kappa_score(y,p) result(v)
-    integer, intent(in) :: y(:),p(:)
-    integer, allocatable :: cm(:,:)
-    real(dp) :: expected,observed,n
-    cm=confusion_matrix(y,p); n=sum(cm)
-    expected=dot_product(real(sum(cm,dim=1),dp),real(sum(cm,dim=2),dp))/(n*n)
-    observed=accuracy_score(y,p)
-    call require(expected<1,'kappa undefined for a single constant class')
-    v=(observed-expected)/(1-expected)
   end function
   function pairwise_distances(x,y,metric,p) result(d)
     real(dp), intent(in) :: x(:,:),y(:,:)

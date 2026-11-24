@@ -2000,3 +2000,26 @@ rank overloads, owned label buffers and quiet IEEE composition. Python warning
 emission is omitted. Native API integration, tests, reference harness and example
 are MIT. Root LICENSE and the fpm MIT declaration are unchanged; no additional
 dependency or public extension algorithm is introduced.
+
+## Weighted categorical classification scores (BSD / MIT)
+
+src/sklearn_categorical_scores.f90 translates sklearn 1.6.1
+metrics/_classification.py balanced_accuracy_score, matthews_corrcoef and
+cohen_kappa_score, including confusion_matrix selection and nan_to_num rules.
+Authors: the scikit-learn developers. Existing sklearn/SciPy BSD licenses remain
+under LICENSES/. The installed reference SHA256 is
+569fff857c6a27025ad6f4fb61a6ebc30cca07b35c786c8ce026af1fc0b7f7dd.
+Source: https://github.com/scikit-learn/scikit-learn/blob/1.6.1/sklearn/metrics/_classification.py
+
+Pairwise/buffered sums follow NumPy 2.2.6. Scalar Matthews dot products adapt
+OpenBLAS 0.3.29 kernel/x86_64/ddot.c and ddot_microk_skylakex-2.c, including
+fused multiply-add accumulation. Copyright (c) 2014, The OpenBLAS Project.
+All rights reserved. The full LICENSES/OpenBLAS-LICENSE and pinned source/license
+hashes in the accuracy/zero-one notice above also apply to this adaptation.
+No external BLAS, SIMD or Python runtime is required.
+
+Changes: transposed owned Fortran confusion storage, stable merge-sorted numeric
+class lookup, explicit typed rank overloads, scalar reduction lanes and complete
+IEEE status/mask save/restore. Native API integration, diagnostics, tests,
+reference harness and example are MIT. Root LICENSE and fpm's MIT declaration
+are unchanged; no dependency or public extension algorithm is added.

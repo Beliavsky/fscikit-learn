@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Two hundred and four reference suites additionally check 4,029,209
+All types have native tests. Two hundred and five reference suites additionally check 4,040,186
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -88,7 +88,9 @@ Regression: mean/root-mean squared error, mean/median/max absolute error,
 mean absolute percentage error, mean squared log error, R2, explained variance,
 Poisson and Gamma deviances.
 
-Classification: weighted accuracy and zero-one loss for numeric vectors and
+Classification: weighted/chance-adjusted balanced accuracy, weighted Matthews
+correlation, Cohen kappa with sample weights and ordinal class weighting;
+weighted accuracy and zero-one loss for numeric vectors and
 dense/CSR multilabel targets; binary class likelihood ratios with class ordering
 and sample weights; confusion matrix, precision, recall, F1, Jaccard,
 Hamming loss, balanced accuracy, Matthews correlation, Cohen kappa, log loss,
@@ -10967,3 +10969,42 @@ added. Original integration remains MIT with retained sklearn/SciPy BSD notices.
 Inventory: 222 public core types, 166 source modules, 231 native programs,
 204 reference suites / 4,029,209 retained groups and 103 invalid registries /
 5,764 cases. The broader translation remains unfinished.
+
+## Weighted balanced accuracy, Matthews correlation and Cohen kappa
+
+The three existing categorical scores now support mixed default-integer,
+logical and real64 vectors/nonempty single-column matrices and optional real64
+sample weights. Balanced accuracy exposes chance adjustment using retained
+non-NaN class recalls. Kappa exposes class selection/order/duplicates and none,
+linear or quadratic ordinal weighting. Source empty/constant-class and weighted
+undefined results replace the former rejection or clipping shortcuts.
+
+The checked grid passes 4,548 configurations: 3,659 accepted cases and
+889 source rejections. Its 10,977 groups contain one direct score comparison,
+caller-data identity and IEEE-state identity for each accepted case. Finite
+scores use rtol=3e-13 with atol=0; NaN/infinity masks and zero signs match,
+including 1,122 nonfinite source scores. All 36 target kind/rank pairs, signed
+and nonfinite weights, empty targets, constant classes, class counts through
+129, NumPy buffer boundaries and selected-label corner cases are exercised.
+An independent sklearn-only inventory pins accepted/rejected IDs and fields.
+
+The checked fpm build passes 15 affected native programs, 22 new diagnostics,
+the existing score-shape diagnostic, 192 core groups and the new example.
+The checked audit verifies 191 compiled source fingerprints and complete field
+and configuration inventories. Optimized reference verification is pending. Native tests also
+verify caller RNG and preservation of IEEE flags and halting masks, including
+inexact flags that Windows clears when exception masks are changed.
+
+Confusion matrices use dense class-by-class storage, as in sklearn; class
+discovery and lookup use merge sorting/binary search. Native indexing-capacity
+guards reject oversized matrices before allocation. NumPy 2.2.6 buffered
+pairwise sums and serial OpenBLAS 0.3.29 SkylakeX fused dot ordering are scalar
+Fortran adaptations without BLAS/SIMD/Python runtime dependencies. Other backends
+or buffer settings can round differently. Original integration remains MIT
+with retained BSD attribution. Other metric bodies are unchanged. Strings,
+CSR/multilabel targets, other intrinsic target kinds and Python warning emission
+remain outside this API. No public estimator or extension algorithm was added.
+
+Inventory: 222 public core types, 167 source modules, 232 native programs,
+205 reference suites / 4,040,186 retained groups and 104 invalid registries /
+5,786 cases. The broader translation remains unfinished.

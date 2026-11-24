@@ -9099,3 +9099,90 @@ No public estimator, dependency or extension algorithm was added.
 Inventory: 222 public core types, 166 source modules, 231 native programs,
 204 reference suites / 4,029,209 retained groups and 103 invalid registries /
 5,764 cases. The broader translation remains unfinished.
+
+## Weighted categorical classification scores (2026-11-24)
+
+Balanced accuracy, Matthews correlation and Cohen kappa now support numeric
+vector/nonempty single-column targets and sample weights. Balanced accuracy
+adds chance adjustment; kappa adds explicit class order/subsets/duplicates and
+linear/quadratic ordinal weights. Existing y,p calls remain valid. Source
+undefined/empty/constant-class results replace native rejection/clipping shortcuts.
+
+The checked reference grid passes 4,548 configurations: 3,659 accepted
+cases and 889 expected source rejections. Its 10,977 retained groups include
+score, caller-data identity and IEEE-state identity for each accepted case.
+Accepted score counts are 491 unadjusted balanced accuracy, 439 adjusted balanced
+accuracy, 491 Matthews and 746 each of unweighted/linear/quadratic kappa.
+An independent sklearn-only inventory pins all accepted and rejected IDs.
+
+Coverage includes all 36 target kind/rank pairs at 0/1/7/131 samples; signed,
+zero, nonfinite, subnormal and extreme/cancelling weights; class counts at
+2/3/4/7/8/15/16/17/31/32/33/63/64/65/127/128/129; selected-label subsets/order,
+duplicates, absent classes and fractional/nonfinite selectors; numeric int64
+boundaries, malformed shapes and empty-vector/column distinctions. Class-pair
+matrices through 129-by-129 cross the 8,192-element NumPy reduction buffer.
+Finite scores use rtol=3e-13 and atol=0. NaN and signed-infinity masks and zero
+signs agree exactly, including 1,122 nonfinite source scores. Hexadecimal actual
+and expected values are retained for every accepted field. No rejected case
+is counted as a passing numerical comparison.
+
+All 22 new native diagnostics pass controlled ERROR STOP checks without floating
+traps, bounds failures or segmentation faults. They include target/weight sizes,
+continuous/nonfinite/out-of-range targets, matrix shapes, labels, kappa mode,
+adjusted balanced accuracy with no retained recalls and pre-allocation indexing
+capacity. The capacity case is a native limit rather than a source oracle case.
+Scalar/rank-three or unsupported intrinsic target kinds reject at compile time.
+
+The checked fpm build passes 15 selected native programs: test_categorical_scores,
+test_likelihood_ratios, test_subset_metrics, test_preprocessing_metrics,
+test_classification_metrics, test_bayes_neighbors, test_discriminant_dummy_kernel,
+test_calibrated, test_gp_classification, test_sgd_classifier, test_svm,
+test_linear_svm, test_weighted_classifiers, test_pipeline_supervised and test_search.
+The categorical_scores example, existing 192 core comparisons and score-shape
+diagnostic pass. Native tests check caller RNG and IEEE flags/halting modes,
+including both initially raised and clear inexact flags. Input and IEEE-state
+identities are checked before result formatting in every accepted driver case.
+The other repository native programs are not executed in this batch.
+Optimized reference verification is pending.
+
+Checked verification passes 11,169 required groups:
+
+| Suite | Groups |
+| --- | ---: |
+| Weighted categorical scores, input and IEEE identities | 10,977 |
+| Existing core comparisons | 192 |
+
+All 889 expected source rejections, 22 new native diagnostics and the existing
+ellenv_score_shape diagnostic pass, for 912 rejection checks in the checked
+profile. Four additional explicit logical-label kappa probes also pass; these
+are supplementary checks outside the retained grid totals.
+
+The checked audit verifies 191 Fortran compilation fingerprints, complete field
+and configuration inventories, independent source accepted/rejected IDs,
+source/driver/validator/executable manifests and report/license hashes. Other
+source modules match revision 4053872. sklearn_metrics differs only by the new
+import and removal of the three replaced function bodies. Root LICENSE and
+fpm.toml match that revision. Artifacts remain under ignored
+validation/results/categorical*, including categorical_partial_audit.json.
+
+Class discovery and lookups use stable merge sorting and binary search. Weighted
+COO accumulation and sanitization retain source order. Scalar sums follow NumPy
+2.2.6 pairwise/buffered reductions; Matthews dot products use IEEE fused multiply-
+add in the serial OpenBLAS 0.3.29 SkylakeX lane order. Reference BLAS uses one
+thread and reports its runtime/backend. Other backends, thread counts or NumPy
+buffer settings can round differently. IEEE flags are saved before any mask
+changes and restored after all mask changes, accounting for Windows status
+clearing. No external BLAS, SIMD or Python runtime is linked.
+
+The original root MIT license and fpm declaration remain unchanged. Existing
+sklearn/NumPy/SciPy/OpenBLAS BSD attribution and licenses are retained. No public
+estimator, dependency or extension algorithm is added. Source reference tools
+are Python 3.13.3, sklearn 1.6.1, NumPy 2.2.6 and SciPy 1.15.3. Builds use the
+verified private fpm 0.14.0, GNU Fortran 17.0.0 20260510 and four jobs. Checked
+flags are -fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow. The global
+fpm is unchanged.
+
+Inventory: 222 public core types, 167 source modules, 232 native programs,
+205 reference suites / 4,040,186 retained groups and 104 invalid registries /
+5,786 cases. String/object labels, CSR/multilabel targets and Python warnings
+remain outside this interface. The broader translation remains unfinished.

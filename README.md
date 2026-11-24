@@ -590,3 +590,9 @@ See [the example](example/subset_accuracy.f90) and
 likelihood ratios, with explicit class ordering and sample weights.
 See [the example](example/likelihood_ratios.f90) and
 [API contract](docs/API.md#binary-class-likelihood-ratios).
+
+Balanced accuracy, Matthews correlation and Cohen kappa support sample weights
+and mixed numeric targets. Balanced accuracy includes chance adjustment;
+kappa includes class selection/order and linear/quadratic ordinal weights.
+See [the example](example/categorical_scores.f90) and
+[API contract](docs/API.md#weighted-categorical-classification-scores).
