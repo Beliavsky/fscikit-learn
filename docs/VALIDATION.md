@@ -8408,3 +8408,46 @@ container API is introduced. Inventory: 222 public core types, 158 source module
 invalid registries / 5,132 cases. No dependency or public extension was added.
 MIT integration and retained upstream notices continue. Canonical verification
 is recorded below.
+
+Final RobustScaler verification: checked and optimized release profiles each
+passed 19 selected native programs: test_robust_scaling, test_robust_integration,
+test_minmax_streaming, test_minmax_integration, test_maxabs_streaming,
+test_maxabs_integration, test_preprocessing_metrics, test_stateless_preprocessing,
+test_stateless_composition, test_pipeline, test_pipeline_supervised, test_frozen,
+test_transformed_target, test_column_transformer, test_feature_union,
+test_function_transformer, test_positive_composition,
+test_polynomial_composition and test_target_encoding. The other 197 native
+programs were not executed in this batch. Dedicated tests cover nullable robust
+statistics through Pipeline/FrozenEstimator and the large sparse fit/map.
+
+Each profile passed 11 comparison runs / 152,278 required groups: 31,944 new
+robust, 25,272 full FrozenEstimator contracts, 9,532 MinMax, 55,644 MaxAbs,
+19,386 Normalizer/Binarizer, 5,328 stateless composition, 192 core, 324 column-
+transformer, 180 feature-union, 1,764 transformed-target and 2,712 pipeline groups.
+The last four are explicit affected-scaler slices: 54/36 column/union fixtures
+with MinMax/MaxAbs/Robust, 252 target-transform fixtures with those scalers, and
+240 pipeline fixtures containing MinMax/Robust stages (kinds 2, 8, 10 and 11).
+Original generator streams remain intact; these are not full integration-suite
+reruns. All 227 diagnostics passed: 69 new robust, 12 FrozenEstimator, 16 MinMax,
+101 MaxAbs and 29 stateless cases. All 32,575 new nonfinite source values remain
+compared, alongside retained suites' nonfinite checks.
+
+FrozenEstimator verifies 486 configurations / 1,944 stages. Its 15,552 underlying
+base endpoint diagnostics remain separate from required wrapper contract groups.
+Thirty-five logistic-regression endpoint differences remain (19 log-probability,
+13 decision and three probability groups; no nonfinite-mask mismatches). The
+largest absolute difference is about 2.95e-4 on these diagnostic endpoints.
+They are not counted as contract passes and no logistic-regression code changed.
+
+The combined audit verifies 197 compiled source units per profile, complete
+conditional inventories for 1,332 new fixtures, exact CSR layouts/metadata and
+caller/RNG identities, stable source/executable/validator/report hashes and
+matching profile inventories. All three scaler examples match source. Other
+preprocessing bodies remain byte-identical after robust extraction/imports;
+frozen changes are exactly the two fitted-state/width clauses. No unrelated
+source/test/application path changed. Optimized driver hashes differ from
+checked binaries. Four-job builds used the checksum-verified private fpm 0.14.0;
+the global fpm was unchanged. Artifacts remain under ignored validation/results/
+robust*, including robust_final_audit.json. Implementation commit: 9164c4e.
+MIT integration and retained notices continue; no dependency or public extension
+algorithm was added. The broader translation goal remains unfinished.
