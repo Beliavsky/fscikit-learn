@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and ninety-three reference suites additionally check 3,951,493
+All types have native tests. One hundred and ninety-four reference suites additionally check 3,951,971
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -10610,3 +10610,57 @@ Inventory: 222 public core types, 160 source modules, 221 native programs,
 193 reference suites / 3,951,493 retained groups and 98 invalid registries /
 5,654 cases. MIT integration and retained notices continue; no dependency or
 public extension algorithm was added. The broader translation remains unfinished.
+
+
+## Source power maps and free power_transform
+
+PowerTransformer now follows sklearn 1.6.1 likelihood/bracketing/Brent behavior,
+SciPy 1.15.3 Box-Cox scalar kernels and maximum-transform constraints, and direct
+Yeo-Johnson arithmetic. The free dense `power_transform` is exported through
+preprocessing and the sklearn facade. Queries use live method/standardization
+controls; unstandardized refits retain the private scaler. Inverse results keep
+source NaN/infinity outcomes, including unusual manually overridden powers.
+See [the API contract](API.md#power-transforms) for dense real64 scope and
+metadata/copy limitations. No new estimator type or extension algorithm was added.
+
+The new source suite retains 288 configurations: 270 accepted and 18 rejected,
+478 required field groups and 346 nonfinite output values per profile. It covers
+three distribution families, missing observations, contiguous/noncontiguous
+columns, limiting and nonfinite powers, scalar forward/inverse domains, constants,
+and finite inputs near 1e300 that exercise SciPy's constrained optimum.
+NaN and signed infinity masks must match exactly. Fitted maps use 3e-6 tolerance;
+overridden scalar maps use 3e-12. The existing 160 power-transform groups remain.
+
+Affected integration slices preserve the complete original fixture generator
+streams: column/union kind 10 (18/12 fixtures; 108/60 groups), transformed-target
+transformer 5 (84 fixtures; 588 groups). These are slices, not full composition
+suite reruns. Core reference checks contribute 192 groups. The total is 1,586
+required groups and 29 diagnostics per profile (18 retained source rejections
+plus all 11 PowerTransformer invalid-input cases). The old inverse-domain
+rejection fixture now verifies enabling standardization without a fitted scaler;
+accepted NaN/infinity inverses have positive regression coverage.
+
+Native regression programs cover fitted/free power maps, live controls, retained
+scaler state, near-zero constant fit_transform shortcuts, caller input ownership,
+and preservation of invalid/divide-by-zero/overflow halting modes and
+previously raised flags. The library
+remains MIT integration with retained sklearn/NumPy/SciPy BSD notices. General
+sparse power maps, Python copy controls and feature names remain outside scope.
+
+
+Both checked and release verification use ten freshly built native programs and
+the power_transforms example. The final audit checks 183 dependency-aware
+compiled source fingerprints per profile, distinct profile binaries, every
+accepted/rejected configuration and field inventory, matching profile cases,
+and stable source/validator/driver/executable/report hashes. Reports remain in
+ignored validation/results/power_batch_* and power_final_audit.json.
+
+Builds use four jobs with the checksum-verified private fpm 0.14.0 and GNU
+Fortran 17.0.0 20260510. Checked flags are -fcheck=all -fbacktrace
+-ffpe-trap=invalid,zero,overflow; optimized builds use --profile release.
+Oracle versions remain Python 3.13, sklearn 1.6.1, NumPy 2.2.6, SciPy 1.15.3.
+The global fpm is unchanged. This does not constitute a full test-suite rerun.
+
+Inventory: 222 public core types, 160 source modules, 222 native programs,
+194 reference suites / 3,951,971 retained groups, and 98 invalid registries /
+5,654 cases. The broader sklearn translation remains unfinished.

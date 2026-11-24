@@ -6862,3 +6862,25 @@ across six comparison runs, 427 diagnostics and 217 compiled source units per
 profile. Scope, refreshed legacy assertions and separate existing logistic
 endpoint differences are recorded in the
 [verification record](../docs/VALIDATION.md#simpleimputer-final-package-verification-2026-11-24).
+
+
+## PowerTransformer source maps and free power_transform
+
+`compare_power_edges.py --executable PATH --profile checked --report REPORT`
+compares dense fits, free maps, direct scalar forward/inverse queries, missing
+observations, constant columns and extreme finite Box-Cox constraints against
+installed sklearn 1.6.1 / SciPy 1.15.3. Seed 4701 fixes the distribution stream.
+Scalar queries include zero/two limiting powers, NaN/infinite powers, negative
+inverse bases, underflow and overflow. NaN and signed infinity masks must match
+exactly; finite fitted maps use 3e-6 tolerance, overridden scalar maps 3e-12.
+Source-rejected configurations remain in the report with native diagnostics.
+Reports retain every configuration, input/query fingerprints, field checks,
+nonfinite counts and stable source/driver/executable/oracle hashes.
+
+The existing `compare_power_transform.py` now supports `--executable`,
+`--profile` and `--report`, keeping profile-specific data/output files and its
+160 established checks. `test_power_edges` additionally checks free-map input
+ownership, retained scaler state, live controls, near-zero constant shortcuts,
+inverse boundaries and preservation of invalid/divide-by-zero/overflow modes
+and flags. The example
+`power_transforms` compares the free and fitted maps.
