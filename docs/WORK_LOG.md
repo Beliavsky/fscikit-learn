@@ -7457,3 +7457,68 @@ checksum was verified; the global fpm installation was unchanged. Only the two
 affected reference suites were rerun. Reports and audit artifacts remain
 local under ignored `validation/results/tree_criteria*`, including
 `tree_criteria_final_audit.json`.
+
+## Weighted source-seeded regression forests (2026-11-24)
+
+Expanded the existing random_forest_regressor and extra_trees_regressor
+subsets with squared-error/Friedman MSE/Poisson criteria, optional fitting
+and score weights, min_impurity_decrease, leaf-index matrices and learned
+feature counts. Random forests accept integer max_samples with zero as
+the unset/all-rows sentinel. Regression forests now use source NumPy tree
+seeds and weighted bootstrap multiplicities instead of native random draws
+and duplicated training rows. Active-row leaf-size rules therefore match
+sklearn. The intrinsic Fortran RNG is preserved. Forest importance excludes
+stumps and returns zeros when every tree is a stump. Search and SelectFromModel
+forward regression-forest fit weights; criterion/max_samples/impurity-decrease
+parameters are available in search.
+
+The new comparison checks 1,210 forest fixtures / 20,538 result groups and
+28 isolated source-matched input diagnostics against sklearn 1.6.1. Sixteen
+mandatory fields include predictions, leaf IDs, forest importance, component
+seeds, tree/forest metadata, every component node's values/impurity/mass/
+threshold/children/feature/active count, criterion forwarding and intrinsic
+RNG preservation. An additional score field covers 1,178 fixtures with valid
+score inputs. Structures and integer fields compare exactly; floating results
+use rtol=2e-10/atol=2e-12 with matching NaN/Inf outcomes. All 294 nonfinite
+source values match. The suite uses direct source comparisons, with no
+alternate-tree certificate. It includes signed/zero/extreme weights, sparse
+count targets, extreme target scales, different bootstrap sizes, constants,
+maximum supported integer seeds and NaN queries after finite training.
+
+The checked build passed five affected native programs: regression forests,
+trees/ensembles, search, model-based selection and cross-validation. It also
+passed 28,494 reference groups: 20,538 new forest groups, 4,068 existing search
+groups / 270 fixtures and 3,888 existing SelectFromModel groups / 432 fixtures.
+The existing search/selector suites retain their documented rank/tree
+certificates. Their separate invalid-input registries were not rerun. The
+facade example matches weighted Poisson forest predictions and R2
+0.88930868288274723, plus Friedman ExtraTrees predictions.
+
+ExtraTrees retains the existing forced non-bootstrap fitting behavior.
+Bootstrap-multiplied weights must remain finite. Fractional sample/feature
+counts, OOB scores, warm starts, pruning, monotonic constraints, sparse input,
+training NaNs, absolute-error criteria and multioutput forests remain outside
+this subset. Classification forests retain their existing fitting algorithm.
+
+Cumulative inventory: 222 public core types, 151 source modules, 197 native
+programs, 173 reference suites / 3,308,657 retained required groups, and
+78 invalid-input registries / 4,471 cases. These are API subsets. MIT licensing
+and retained sklearn/NumPy BSD attribution continue. No dependency or public
+extension algorithm was added.
+
+Final regression-forest verification: four-job fpm 0.14.0 builds compiled
+the package in checked (`-fcheck=all -fbacktrace
+-ffpe-trap=invalid,zero,overflow`) and optimized release profiles. Each passed
+the five focused native programs and 28,494 affected reference groups, plus
+28 new source-matched input diagnostics. The other 192 native programs were
+compiled but not executed in this batch. No other reference or invalid-input
+suite is included in these rerun totals. Both facade examples match sklearn.
+
+The combined audit verifies 164 compiled source units per profile with
+dependency-aware fingerprints, complete 16/17-field forest inventories,
+1,178 scored fixtures, stable source/binary/validator/executable/report hashes,
+matching comparison inventories across profiles and distinct optimized
+reference executables. It verifies unchanged unrelated source/test paths and
+the private fpm checksum. The global fpm installation was unchanged. Reports
+remain under ignored `validation/results/regression_forests*`, including
+`regression_forests_final_audit.json`.

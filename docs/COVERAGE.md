@@ -54,7 +54,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | outlier | `local_outlier_factor` | Training outlier scores and novelty detection, automatic/percentile threshold, Minkowski and other supported pairwise metrics |
 | semi_supervised | `label_propagation`, `label_spreading`, `self_training_classifier` | Dense RBF or directed k-neighbor graph, hard/soft clamping, transductive labels and inductive probabilities; threshold/k-best self-training with logistic, Gaussian NB or KNN bases |
 | tree | `decision_tree_classifier`, `decision_tree_regressor`, `extra_tree_classifier`, `extra_tree_regressor` | Weighted CART and standalone randomized trees; Gini/entropy/log-loss classification, squared-error/Friedman MSE/Poisson regression; depth/leaf/split/feature controls, normalized impurity importance, leaf indices |
-| ensemble | `hist_gradient_boosting_regressor`, `hist_gradient_boosting_classifier`, `stacking_classifier`, `stacking_regressor`, `bagging_classifier`, `bagging_regressor`, `random_forest_classifier`, `random_forest_regressor`, `extra_trees_classifier`, `extra_trees_regressor`, `gradient_boosting_regressor`, `gradient_boosting_classifier`, `adaboost_classifier`, `adaboost_regressor`, `isolation_forest`, `voting_classifier`, `voting_regressor` | Histogram Newton boosting with missing-value routing and five regression losses; heterogeneous hard/soft voting and averaged regression; bootstrap forests, randomized feature subsets, random-threshold Extra Trees, squared-error residual boosting; binary/multiclass classification boosting with Newton leaf updates; seeded SAMME with configurable weighted CART; AdaBoost.R2 with depth-controlled CART; random isolation trees and path-length anomaly scores |
+| ensemble | `hist_gradient_boosting_regressor`, `hist_gradient_boosting_classifier`, `stacking_classifier`, `stacking_regressor`, `bagging_classifier`, `bagging_regressor`, `random_forest_classifier`, `random_forest_regressor`, `extra_trees_classifier`, `extra_trees_regressor`, `gradient_boosting_regressor`, `gradient_boosting_classifier`, `adaboost_classifier`, `adaboost_regressor`, `isolation_forest`, `voting_classifier`, `voting_regressor` | Histogram Newton boosting with missing-value routing and five regression losses; heterogeneous hard/soft voting and averaged regression; source-seeded weighted regression forests with squared-error/Friedman/Poisson criteria; bootstrap forests, randomized feature subsets, random-threshold Extra Trees, squared-error residual boosting; binary/multiclass classification boosting with Newton leaf updates; seeded SAMME with configurable weighted CART; AdaBoost.R2 with depth-controlled CART; random isolation trees and path-length anomaly scores |
 | validation | `cross_validate`, general `cross_val_score`, `cross_val_predict`, typed `cross_val_predict_class` adapter; `learning_curve`, `validation_curve`, `permutation_test_score` | Dense vector targets, multiple/scalar scorers, fit weights, returned fold models/indices, no-target transformer callbacks, partitioned out-of-fold responses, class encoding and missing-class columns |
 | search | `grid_search_cv`, `randomized_search_cv`; typed parameter grids and samplers | Serial dense candidate/fold evaluation, default or explicit folds, single/multiple scorers, callbacks, weighted fits, ranking and refitting; native scalar parameter adapters and nested Pipeline paths |
 | model_selection | `kfold`, `stratified_kfold`, `time_series_split`, `group_kfold`, `leave_one_out`, `leave_one_group_out`, `predefined_split`, `shuffle_split`, `stratified_shuffle_split`, `group_shuffle_split`, `repeated_kfold`, `repeated_stratified_kfold`, `leave_p_out`, `leave_p_groups_out`, `ridge_cv`; `train_test_split`, `shuffle_indices`, `cross_val_score` | Index-based splits; seeded random/group/stratified holdouts; repeated shuffled folds; exhaustive sample/group combinations; fraction/count size controls; optional stratification; time gap/window; CV for linear-regression family and logistic regression; ridge CV selects negative mean squared error |
@@ -9142,3 +9142,68 @@ checksum was verified; the global fpm installation was unchanged. Only the two
 affected reference suites were rerun. Reports and audit artifacts remain
 local under ignored `validation/results/tree_criteria*`, including
 `tree_criteria_final_audit.json`.
+
+## Weighted source-seeded regression forests (2026-11-24)
+
+Expanded the existing random_forest_regressor and extra_trees_regressor
+subsets with squared-error/Friedman MSE/Poisson criteria, optional fitting
+and score weights, min_impurity_decrease, leaf-index matrices and learned
+feature counts. Random forests accept integer max_samples with zero as
+the unset/all-rows sentinel. Regression forests now use source NumPy tree
+seeds and weighted bootstrap multiplicities instead of native random draws
+and duplicated training rows. Active-row leaf-size rules therefore match
+sklearn. The intrinsic Fortran RNG is preserved. Forest importance excludes
+stumps and returns zeros when every tree is a stump. Search and SelectFromModel
+forward regression-forest fit weights; criterion/max_samples/impurity-decrease
+parameters are available in search.
+
+The new comparison checks 1,210 forest fixtures / 20,538 result groups and
+28 isolated source-matched input diagnostics against sklearn 1.6.1. Sixteen
+mandatory fields include predictions, leaf IDs, forest importance, component
+seeds, tree/forest metadata, every component node's values/impurity/mass/
+threshold/children/feature/active count, criterion forwarding and intrinsic
+RNG preservation. An additional score field covers 1,178 fixtures with valid
+score inputs. Structures and integer fields compare exactly; floating results
+use rtol=2e-10/atol=2e-12 with matching NaN/Inf outcomes. All 294 nonfinite
+source values match. The suite uses direct source comparisons, with no
+alternate-tree certificate. It includes signed/zero/extreme weights, sparse
+count targets, extreme target scales, different bootstrap sizes, constants,
+maximum supported integer seeds and NaN queries after finite training.
+
+The checked build passed five affected native programs: regression forests,
+trees/ensembles, search, model-based selection and cross-validation. It also
+passed 28,494 reference groups: 20,538 new forest groups, 4,068 existing search
+groups / 270 fixtures and 3,888 existing SelectFromModel groups / 432 fixtures.
+The existing search/selector suites retain their documented rank/tree
+certificates. Their separate invalid-input registries were not rerun. The
+facade example matches weighted Poisson forest predictions and R2
+0.88930868288274723, plus Friedman ExtraTrees predictions.
+
+ExtraTrees retains the existing forced non-bootstrap fitting behavior.
+Bootstrap-multiplied weights must remain finite. Fractional sample/feature
+counts, OOB scores, warm starts, pruning, monotonic constraints, sparse input,
+training NaNs, absolute-error criteria and multioutput forests remain outside
+this subset. Classification forests retain their existing fitting algorithm.
+
+Cumulative inventory: 222 public core types, 151 source modules, 197 native
+programs, 173 reference suites / 3,308,657 retained required groups, and
+78 invalid-input registries / 4,471 cases. These are API subsets. MIT licensing
+and retained sklearn/NumPy BSD attribution continue. No dependency or public
+extension algorithm was added.
+
+Final regression-forest verification: four-job fpm 0.14.0 builds compiled
+the package in checked (`-fcheck=all -fbacktrace
+-ffpe-trap=invalid,zero,overflow`) and optimized release profiles. Each passed
+the five focused native programs and 28,494 affected reference groups, plus
+28 new source-matched input diagnostics. The other 192 native programs were
+compiled but not executed in this batch. No other reference or invalid-input
+suite is included in these rerun totals. Both facade examples match sklearn.
+
+The combined audit verifies 164 compiled source units per profile with
+dependency-aware fingerprints, complete 16/17-field forest inventories,
+1,178 scored fixtures, stable source/binary/validator/executable/report hashes,
+matching comparison inventories across profiles and distinct optimized
+reference executables. It verifies unchanged unrelated source/test paths and
+the private fpm checksum. The global fpm installation was unchanged. Reports
+remain under ignored `validation/results/regression_forests*`, including
+`regression_forests_final_audit.json`.
