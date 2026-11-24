@@ -8197,3 +8197,51 @@ the global fpm was unchanged. Artifacts remain under ignored
 validation/results/polynomial_csr*, including polynomial_csr_final_audit.json.
 Implementation commit: 08ce53c. Project integration remains MIT licensed with
 retained BSD/SciFort notices; no runtime dependency or extension was added.
+
+## MaxAbsScaler streaming, CSR and NaN handling
+
+MaxAbsScaler now supports dense and CSR fit, partial_fit, fit_transform,
+transform and inverse_transform, with max_abs_, scale_, n_features_in_ and
+int64 n_samples_seen_. Full fit resets learned state; partial_fit accepts
+mixed representations, checks fitted width and accumulates the sample count.
+NaNs are excluded from batch extrema and retained in maps. As in sklearn
+1.6.1, an all-NaN batch statistic propagates through subsequent partial-fit
+maximum updates; a full refit clears that state. Implicit sparse zeros count
+as observed zeros, including columns otherwise containing only stored NaNs.
+
+Sparse fitting reduces coalesced feature coordinates in an owned CSR copy;
+transforms preserve caller storage order, duplicate entries and explicit zeros.
+Source sparse maps multiply by reciprocal scale; dense maps divide directly.
+Inverse mapping uses source multiplication, including quiet 0*Inf outcomes.
+Dense inverse accepts the source length-one learned-scale broadcast; it cannot
+expand a one-column input to multiple fitted columns. CSR inverse requires
+matching width. Infinite inputs are rejected; finite duplicate sums can produce
+infinite learned scales, which retain their source IEEE behavior.
+
+The new maxabs_scale function accepts dense matrices, rank-one vectors and CSR,
+with axis zero or one. Sparse row scaling canonicalizes an owned copy, matching
+the source CSC-transpose reduction's active output storage while preserving
+caller arrays. Source/SciPy can mutate caller CSR storage through that transpose;
+these source mutations are recorded separately. Dense/CSR inputs are never
+converted to a full dense input or output matrix along the sparse path.
+The native count has an explicit int64 overflow guard. In-place copy flags,
+CSC containers, feature names and changes to other scaler classes are outside
+this batch; existing composition wrappers keep their own validation rules.
+
+The direct suite requires 55,644 groups across 2,932 fixtures, covering all
+fit/partial/query representation combinations, both axes, one-dimensional
+functions, NaNs and all-NaN streaming batches, implicit/explicit zeros,
+unsorted/duplicate/cancelling storage, tiny/threshold/huge values, learned-scale
+mutation, inverse broadcasting and refit resets. Numeric fields use 3e-8
+absolute/relative tolerances with exact NaN/signed-infinity masks. Layouts,
+metadata and preservation identities are exact. Native caller/RNG identities
+are classified separately from source comparisons. All 14,272 nonfinite source
+values are compared. The 101 diagnostics comprise 97 sklearn checks, three
+SciPy structural errors and one native int64 counter guard.
+
+The focused sklearn_maxabs_scaling module is re-exported by preprocessing and
+the main facade. Inventory: 222 public core types, 156 source modules, 212
+native programs, 187 reference suites / 3,809,696 retained groups and 92 invalid
+registries / 5,047 cases. No dependency or public extension was added. MIT
+integration and retained sklearn BSD notices continue. Canonical profile
+verification is recorded below.

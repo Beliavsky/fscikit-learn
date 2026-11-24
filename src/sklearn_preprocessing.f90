@@ -1,4 +1,5 @@
 module sklearn_preprocessing
+  use sklearn_maxabs_scaling, only: maxabs_scaler,maxabs_scale
   use sklearn_polynomial, only: polynomial_features
   use sklearn_stateless_preprocessing, only: normalizer,binarizer,normalize,binarize
   use sklearn_function_transformer, only: function_transformer
@@ -25,6 +26,7 @@ module sklearn_preprocessing
   public :: spline_transformer
   public :: knn_imputer,missing_indicator
   public :: power_transformer,kbins_discretizer,quantile_transformer
+  public :: maxabs_scale
   public :: standard_scaler, minmax_scaler, maxabs_scaler, robust_scaler, simple_imputer
   public :: normalize, binarize, polynomial_features, label_encoder, one_hot_encoder
   public :: normalizer,binarizer
@@ -44,13 +46,6 @@ module sklearn_preprocessing
     procedure :: fit=>minmax_fit
     procedure :: transform=>minmax_transform
     procedure :: inverse_transform=>minmax_inverse
-  end type
-  type :: maxabs_scaler
-    real(dp), allocatable :: scale_(:)
-  contains
-    procedure :: fit=>maxabs_fit
-    procedure :: transform=>maxabs_transform
-    procedure :: inverse_transform=>maxabs_inverse
   end type
   type :: robust_scaler
     logical :: with_centering=.true., with_scaling=.true.
@@ -147,28 +142,6 @@ contains
     call require(allocated(self%scale_),'minmax_scaler is not fitted')
     call check_xy(transpose(x),size(self%scale_))
     z=(x-spread(self%min_,1,size(x,1)))/spread(self%scale_,1,size(x,1))
-  end function
-  subroutine maxabs_fit(self,x)
-    class(maxabs_scaler), intent(inout) :: self
-    real(dp), intent(in) :: x(:,:)
-    call check_x(x); self%scale_=maxval(abs(x),dim=1)
-    where(self%scale_<10*epsilon(1._dp)) self%scale_=1
-  end subroutine
-  function maxabs_transform(self,x) result(z)
-    class(maxabs_scaler), intent(in) :: self
-    real(dp), intent(in) :: x(:,:)
-    real(dp) :: z(size(x,1),size(x,2))
-    call require(allocated(self%scale_),'maxabs_scaler is not fitted')
-    call check_xy(transpose(x),size(self%scale_))
-    z=x/spread(self%scale_,1,size(x,1))
-  end function
-  function maxabs_inverse(self,x) result(z)
-    class(maxabs_scaler), intent(in) :: self
-    real(dp), intent(in) :: x(:,:)
-    real(dp) :: z(size(x,1),size(x,2))
-    call require(allocated(self%scale_),'maxabs_scaler is not fitted')
-    call check_xy(transpose(x),size(self%scale_))
-    z=x*spread(self%scale_,1,size(x,1))
   end function
   real(dp) function percentile(x,p) result(v)
     real(dp), intent(in) :: x(:),p

@@ -1743,3 +1743,16 @@ unity/quarter rotations. No C++ code or external FFT dependency is linked.
 Native CSR methods, capacity guards, exception-environment integration,
 example and reference harness are MIT integration. No extension algorithm
 was added.
+
+## MaxAbsScaler streaming and sparse scaling (BSD / MIT)
+
+src/sklearn_maxabs_scaling.f90 follows installed sklearn 1.6.1
+preprocessing/_data.py MaxAbsScaler/maxabs_scale, _handle_zeros_in_scale and
+utils/sparsefuncs.py column-scaling/min-max contracts. SciPy 1.15.3 sparse
+_data.py nanmin/nanmax canonicalization and implicit-zero behavior inform the
+native sparse reductions. No SciPy implementation code was copied. Existing
+sklearn BSD notices remain under LICENSES/. Native overloads, one-based CSR
+adapters, int64 metadata/guards, quiet arithmetic composition, example, tests
+and validation harness are MIT integration. The previous MaxAbsScaler code
+was moved from preprocessing into a focused module and remains re-exported.
+No runtime dependency or public extension algorithm was added.

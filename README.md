@@ -498,3 +498,8 @@ PolynomialCountSketch accepts CSR fitting and mixed dense/CSR queries, with
 seeded hashes, sparse duplicate arithmetic and dense TensorSketch output.
 See the [CSR example](example/polynomial_csr_features.f90) and
 [API contract](docs/API.md#polynomialcountsketch-csr-inputs).
+
+MaxAbsScaler supports dense/CSR streaming batches, NaNs, fitted metadata and
+sparse-preserving maps. The maxabs_scale function covers both axes and vectors.
+See the [streaming example](example/maxabs_streaming.f90) and
+[API contract](docs/API.md#maxabsscaler-streaming-and-sparse-inputs).

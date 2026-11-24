@@ -6732,3 +6732,13 @@ metadata, input/RNG identity and refit hashes are exact; numerical features use
 3e-8 tolerances with exact NaN and signed-infinity masks. Six native exception
 flags/halting checks form a separately labeled environment group per fixture.
 The original dense PolynomialCountSketch reference suite remains in place.
+
+
+`compare_maxabs.py --executable <reference_maxabs_driver.exe>` checks dense/CSR
+MaxAbsScaler fits, mixed streaming batches, transformations/inverses and both
+axes of maxabs_scale, including rank-one arrays. It requires 55,644 groups /
+2,932 fixtures and 101 diagnostics, comparing 14,272 nonfinite source values.
+Numeric fields use 3e-8 tolerances and exact NaN/signed-infinity masks; CSR
+layouts and metadata are exact. Native caller/RNG identities are separately
+labeled; source free-row-scale input mutation is recorded. Sparse inverse
+requires matching width; dense inverse retains source length-one broadcasting.

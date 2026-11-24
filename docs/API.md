@@ -7911,3 +7911,34 @@ the Fourier boundary restores invalid/divide-by-zero/overflow exception flags
 and halting modes. Source nonfinite results depend on NumPy/SciPy arithmetic
 and FFT dispatch; tested lengths and the installed reference versions are
 recorded in COVERAGE.md. See [the CSR example](../example/polynomial_csr_features.f90).
+
+## MaxAbsScaler streaming and sparse inputs
+
+maxabs_scaler retains its preprocessing/facade imports and is also available
+from sklearn_maxabs_scaling. fit, partial_fit, fit_transform, transform and
+inverse_transform accept dense real64 matrices or native csr_matrix. CSR maps
+return CSR; dense maps return dense arrays. The learned max_abs_ and scale_
+vectors, n_features_in_ and int64 n_samples_seen_ are public. fit resets state;
+partial_fit combines batch maxima and sample counts, enforcing feature width.
+NaNs are allowed, infinities rejected, and source all-NaN streaming propagation
+is preserved. A full fit clears that history.
+
+```fortran
+use sklearn, only: dp, maxabs_scaler, maxabs_scale
+use sklearn_sparse, only: csr_matrix, csr_from_arrays
+type(maxabs_scaler) :: scaler
+type(csr_matrix) :: x, z
+x=csr_from_arrays(2,3,[1,3,4],[1,3,2],[2._dp,-4._dp,1._dp])
+call scaler%partial_fit(x)
+z=scaler%transform(x)
+z=maxabs_scale(x,axis=1)
+```
+
+The free function also accepts dense matrices and rank-one vectors; axis
+is zero by default and accepts zero or one. Scalar seeds are irrelevant;
+the intrinsic RNG is unchanged. Caller inputs are preserved. Sparse fitting
+coalesces an owned copy; ordinary maps preserve raw storage, while free row
+scaling returns canonical CSR storage. Dense inverse supports a length-one
+learned scale against wider input, as source in-place broadcasting permits;
+sparse inverse requires equal width. Empty shapes, infinite input and invalid
+axis/width/CSR structures fail explicitly. See [the example](../example/maxabs_streaming.f90).
