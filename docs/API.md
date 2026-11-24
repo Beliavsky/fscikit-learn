@@ -7057,3 +7057,54 @@ from arithmetic on finite extreme inputs under checked execution. Numerical
 comparisons use 3e-11 absolute/relative tolerance; cancellation near singular
 Tweedie power values and null deviances remains subject to floating-point
 rounding. No Array API backend or sparse-target input is provided.
+
+## Classification margins and discounted ranking
+
+`hinge_loss(y, decision, labels, sample_weight)` takes integer class targets
+and real(dp) decisions. Binary decisions can be a vector or one-column matrix.
+The larger of two observed labels is positive; a single observed class is
+encoded negative, including when two labels are supplied, as in the baseline.
+Multiclass decisions are `[n_samples,n_classes]` and use the Crammer-Singer
+margin against the highest competing score. Optional labels are sorted and
+deduplicated before matching score columns. Binary label-binarization follows
+the source's observed targets; labels primarily declares missing multiclass
+categories.
+
+`top_k_accuracy_score(y, scores, k, normalize, sample_weight, labels)` defaults
+to k=2 and normalize=true. Binary scores must be a vector or one-column
+matrix. The threshold is .5 when the entire score vector lies in [0,1],
+otherwise zero; equality predicts the negative class. Multiclass scores need
+at least three columns. Class-score columns correspond to sorted labels,
+inferred from targets or supplied explicitly. Explicit labels must be unique
+and ordered; every target must be included. Equal multiclass scores favor the
+higher class index. k must be positive; k at or above the class count produces
+a perfect score. normalize=false returns a real(dp) count or weighted count,
+and permits a zero total sample weight. The implementation determines the
+true class's rank in linear time per sample without sorting all classes.
+
+`dcg_score(relevance, scores, k, log_base, sample_weight, ignore_ties)` and
+`ndcg_score(relevance, scores, k, sample_weight, ignore_ties)` take matching
+rank-two relevance/score matrices with at least two document columns. Relevance
+can be real(dp), integer or logical. Default k is all documents; explicit k
+must be positive. DCG defaults to log_base=2, with any finite positive base
+allowed. Base one produces zero discounts; bases below one produce negative
+discounts, matching the source. DCG permits signed relevance; NDCG requires
+nonnegative relevance and normalizes by ideal DCG at the same cutoff. Rows with
+zero ideal gain contribute zero NDCG.
+
+By default, every tied score group receives its mean relevance times the sum
+of discounts for its ranks, including when the group straddles k. Private
+merge sorting takes O(documents log(documents)) time and linear workspace per
+row. ignore_ties=true uses individual ranked gains and assumes distinct
+predicted scores. If that assumption is violated, native ties use higher
+column indices; NumPy's unspecified quicksort tie order can differ. Use the
+default averaged ties for equivalent tied rankings.
+
+All four measures are exported through `sklearn_score_ranking`,
+`sklearn_metrics` and `sklearn`. Samples must be nonempty, decisions/relevance
+finite, and shapes consistent. Optional finite sample weights may be signed
+and must have nonzero total for normalized averages. Quiet IEEE composition
+preserves overflowing margin/gain behavior under checked execution. Labels
+are native integers; string labels, sparse inputs and Array API backends are
+unsupported. Top-k saturation returns the source result without a Python
+warning.

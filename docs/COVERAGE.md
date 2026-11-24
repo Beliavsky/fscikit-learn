@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and sixty-three reference suites additionally check 2,753,473
+All types have native tests. One hundred and sixty-four reference suites additionally check 2,789,850
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -8650,3 +8650,25 @@ unrelated modules/tests were also verified. Reports remain local under ignored
 `validation/results/regression_metric*`, including
 `regression_metrics_final_audit.json`. MIT licensing and retained sklearn/NumPy
 BSD attribution continue; no dependency or public extension was introduced.
+
+## Hinge, top-k and discounted ranking scores (2026-11-23)
+
+Added hinge_loss, top_k_accuracy_score, dcg_score and ndcg_score. Binary and
+multiclass margins, observed/declared class conventions, ordered top-k labels,
+score thresholds, weighted counts, relevance cutoffs, log bases and averaged
+tie groups follow the baseline. Relevance supports real/integer/logical input.
+Top-k determines true-class rank in linear time; DCG/NDCG use grouped merge
+sorting. The no-ties assumption and native ordering when ignore_ties is used
+with actual ties are documented in API.md.
+
+Development comparisons against sklearn 1.6.1 passed 36,377 required groups
+over 7,204 fixtures and 29 isolated diagnostics. Cases cover exhaustive small
+class-score/tie patterns, five seeds, inferred/explicit labels, binary single
+observed classes, sorted/unsorted hinge label declarations, signed weights, raw
+zero-total weighted counts, relevance types, empty relevance sets, cutoffs,
+log bases .5/1/2/10/1e300 and wide inputs up to 100,000 classes/documents. Five
+nonfinite source values from extreme finite gains also match.
+
+Cumulative inventory: 222 public core types, 145 source modules, 188 native
+programs, 164 reference suites / 2,789,850 retained required groups, and 69
+invalid-input registries / 4,214 cases. These remain API subsets.

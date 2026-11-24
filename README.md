@@ -402,3 +402,8 @@ Regression scoring now includes weighted pinball loss, Tweedie deviance and D?
 scores, D? absolute-error score, and multioutput RMSLE. See
 [the quantile-model example](example/regression_loss_scores.f90) and
 [the API contract](docs/API.md#quantile-deviance-and-logarithmic-regression-measures).
+
+Classification and relevance ranking include hinge loss, top-k accuracy, DCG
+and NDCG, with weights, class-order rules and tie-averaged cutoffs. See
+[the example](example/classification_rank_scores.f90) and
+[the API contract](docs/API.md#classification-margins-and-discounted-ranking).

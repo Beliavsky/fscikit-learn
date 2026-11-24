@@ -1466,3 +1466,13 @@ retained NumPy terms remain in `LICENSES/numpy-COPYING`. Native merge sorting,
 rank/aggregation adapters, quiet IEEE helpers, diagnostics, tests, example and
 reference harness are original MIT contributions. No dependency or public
 extension algorithm was added.
+
+## Hinge, top-k and discounted gain measures (BSD)
+
+`src/sklearn_score_ranking.f90` adapts sklearn 1.6.1
+`metrics/_classification.py` hinge_loss and `metrics/_ranking.py`
+top_k_accuracy_score, dcg_score, ndcg_score and private tie-averaged gain
+conventions. Sklearn BSD terms remain in `LICENSES/scikit-learn-COPYING`.
+Native grouped merge sorting, linear true-class rank counting, label lookup,
+rank/type adapters, quiet IEEE composition, tests, example and reference harness
+are original MIT contributions. No dependency or public extension was added.
