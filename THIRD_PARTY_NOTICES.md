@@ -107,7 +107,7 @@ Reference paths by module:
 | locally_linear / lle_variants | manifold/_locally_linear.py; local barycentric reconstruction, standard/Hessian/modified/LTSA alignment objectives and query interpolation; native QR, orthogonal completion, Jacobi local SVD/eigensolver and dense global eigensolver |
 | cross_decomposition | cross_decomposition/_pls.py; centering/scaling, NIPALS mode A/B, regression/canonical deflation, rotations, prediction and PLSSVD contracts; native dense SVD/pseudoinverse including historical CCA rank cutoff |
 | isotonic | isotonic.py, _isotonic.pyx; weighted monotonic fitting/interpolation contracts, Spearman direction, near-duplicate aggregation and threshold trimming; native PAVA implementation |
-| kernel_approximation | kernel_approximation.py (including AdditiveChi2Sampler defaults, harmonic map and layout; SkewedChi2Sampler inverse-CDF weights, offsets, shifted-log map and domain); RBFSampler source-seeded dense/CSR Fourier features and Nystroem landmark normalization contracts; SkewedChi2Sampler also uses NumPy-compatible seeded uniforms; Nystroem retains independent Fortran RNG and the native PSD eigensolver |
+| kernel_approximation | kernel_approximation.py (including AdditiveChi2Sampler defaults, harmonic map and layout; SkewedChi2Sampler inverse-CDF weights, offsets, shifted-log map and domain); RBFSampler source-seeded dense/CSR Fourier features and Nystroem landmark normalization contracts; SkewedChi2Sampler also uses NumPy-compatible seeded uniforms; Nystroem uses NumPy-compatible permutations and full SVD normalization |
 | fast_ica | decomposition/_fastica.py; parallel/deflation fixed-point updates, contrasts, whitening and scaling contract; native dense SVD/eigen/pseudoinverse and independent random stream |
 | factor_analysis | decomposition/_factor_analysis.py; full-SVD likelihood iteration, diagonal noise updates and posterior transform |
 | random_projection | random_projection.py; JL dimension bound, Gaussian/three-point distributions and pseudoinverse contract; NumPy-compatible scalar-seeded component generation |
@@ -1676,3 +1676,23 @@ IEEE adapters, the shared dense Fourier dot helper, tests and harnesses are MIT
 integration. The old chi-square harness now compares actual scalar-seeded
 source fits rather than injected random draws. Existing BSD notices remain
 under LICENSES/. No dependency or public extension algorithm was added.
+
+## Nystroem kernels, landmark sampling and full SVD (BSD / MIT)
+
+`src/sklearn_kernel_approximation.f90` follows sklearn 1.6.1
+`kernel_approximation.py` Nystroem, metrics/pairwise.py kernel dispatch,
+precomputed shapes, callback traversal, live parameters and SVD normalization.
+Existing NumPy-compatible integer/permutation draws are reused; sklearn/NumPy
+BSD notices remain under LICENSES/.
+
+`src/sklearn_nystroem_svd.f90` adapts the real square path of
+[SciFort](https://github.com/Beliavsky/scifort) src/linalg_svd.f90, copyright
+(c) 2026 SciFort contributors, MIT. Its complete license is retained in
+LICENSES/scifort-linalg-LICENSE.md and the copyright remains in the source.
+The original local source SHA256 is
+`e6eb666e096b10b1f88ee728457873aa0814e70e45f32a44f670076376a9c766`.
+Changes specialize complex rotations to real arithmetic, integrate native
+kinds/status/quiet scaling, preserve small nonzero singular values and complete
+collapsed null directions before the source's absolute singular-value floor.
+No external LAPACK/BLAS or new fpm dependency was added. Callback/storage
+adapters, tests, example and reference harness are original MIT integration.

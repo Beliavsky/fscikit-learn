@@ -8058,3 +8058,34 @@ application/test sources. Four-job builds used the checksum-verified private
 fpm 0.14.0; the global fpm was unchanged. Artifacts remain under ignored
 validation/results/skewed_features*, including skewed_features_final_audit.json.
 Implementation commit: 1352c70. MIT licensing and retained BSD notices continue.
+
+## Source-seeded Nystroem kernels and full SVD
+
+Replaced intrinsic landmark sampling with NumPy-compatible permutations and
+PSD eigendecomposition with a complete real Jacobi SVD adapted from MIT-licensed
+SciFort. The source floor max(S,1e-12) follows full singular-vector construction;
+null directions are completed and small nonzero values are retained. Added
+sigmoid, laplacian, chi2, additive_chi2, typed callback and precomputed support,
+alongside RBF/linear/poly/cosine. Kernels and parameters are live at query time.
+Negative finite offsets are accepted; integer degrees are positive. The old
+negative-offset invalid case was replaced with zero degree, preserving that
+registry's count. Source precomputed row-only selection/shape behavior is
+explicit, including rejection of smaller-than-sample landmark counts.
+
+The new suite covers 408 fixtures, 5,760 required groups and 29 invalid cases.
+152 regular cases compare normalization and feature coordinates directly;
+256 singular/ill-conditioned cases compare singular values, normalization Gram
+and realized train/query/cross kernel Grams. All cases verify SVD reconstruction
+and both factor orthogonalities. Required inventories contain no unchecked
+coordinate fields. The 5,760 groups include 4,944 direct/source-invariant groups
+and 816 SVD certificates. Cases span five seeds, all kernels, singular/zero/
+constant bases, negative coefficients, live parameters, callback asymmetry,
+nonsymmetric precomputed input and widely separated nonzero singular values.
+Checked and optimized temporary probes pass all affected reference suites.
+
+SciFort's copyright and MIT license are retained; sklearn/NumPy BSD notices
+continue. No fpm dependency or public extension algorithm was added. Dense
+estimator inputs and integer degree are native API subsets. Inventory:
+222 public core types, 155 source modules, 207 native programs, 183 reference
+suites / 3,703,078 retained groups, and 88 invalid registries / 4,779 cases.
+Canonical verification will be recorded below.

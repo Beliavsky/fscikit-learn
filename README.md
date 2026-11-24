@@ -479,3 +479,8 @@ SkewedChi2Sampler also reproduces scikit-learn's seeded weights and phases,
 including shifted-domain and IEEE behavior. See
 [the example](example/seeded_skewed_features.f90) and
 [the API contract](docs/API.md#source-seeded-skewed-chi-square-features).
+
+Nystroem now uses source-seeded landmark rows and full SVD normalization, with
+all built-in kernels, typed callbacks and source precomputed-kernel behavior.
+See [the example](example/nystroem_kernels.f90) and
+[the API contract](docs/API.md#source-seeded-nystroem-kernels-and-full-svd).

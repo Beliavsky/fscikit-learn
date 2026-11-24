@@ -7775,3 +7775,45 @@ normalization while learned array shapes remain fixed; changing finite
 skewedness changes the query log shift. Refit repeats the configured seeded
 stream. See [the example](../example/seeded_skewed_features.f90). No dependency,
 public type or extension algorithm was added.
+
+## Source-seeded Nystroem kernels and full SVD
+
+Nystroem now samples landmark rows with the existing NumPy-compatible scalar
+RandomState permutation and records n_features_in_. Requested counts above the
+sample count are capped, without a Python warning. Dense real64 inputs remain
+the supported estimator representation. Landmark indices are one-based.
+
+Built-in kernels are rbf, linear, poly/polynomial, cosine, laplacian, sigmoid,
+chi2 and additive_chi2. Numeric gamma is finite and nonnegative; -1 represents
+None and resolves to the kernel default (chi2 uses 1, most others 1/n_features).
+coef0 may be any finite real, including negative values; integer degree must be
+at least one. Kernel parameters are live at transform time, as in source;
+landmarks and normalization retain fitted state until refit.
+
+Normalization follows U*diag(1/sqrt(max(S,1e-12)))*V^T from a complete native
+Jacobi SVD, adapted with MIT attribution from SciFort. Indefinite and
+nonsymmetric basis matrices are accepted. Null directions are completed rather
+than dropped; small nonzero singular values are preserved before the absolute
+source floor. Singular SVD null bases can differ from SciPy/LAPACK, so feature
+coordinates and normalization need not match elementwise in those cases;
+normalization Gram and realized kernel Gram identities are verified explicitly.
+
+For kernel='callable', associate kernel_callback with a real64 function of two
+rank-one feature arrays; the nystroem_kernel abstract interface describes it.
+Closure state can provide parameters instead of a Python kernel_params dict.
+For callable or precomputed kernels, gamma/degree/coef0 must retain the native
+unused defaults -1/3/1, corresponding to source None parameters. Callback basis
+construction follows source upper-triangle mirroring and call order; queries
+use the full ordered Cartesian product.
+
+With kernel='precomputed', behavior follows sklearn 1.6.1: source basis selection
+permutes rows, not columns, and requires its resulting basis to be square.
+Consequently the fit only accepts counts at least n_samples on square input;
+smaller landmark counts are rejected as in the source. Query width matches the
+original fitted width. No implicit column reordering is introduced.
+
+The old negative-coef0 invalid case was replaced by zero degree in the existing
+registry. Source-valid negative offsets now fit. No public estimator type or
+extension algorithm was added. SciFort code is included as an attributed native
+helper, without adding an fpm dependency. See
+[the example](../example/nystroem_kernels.f90).

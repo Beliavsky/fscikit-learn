@@ -1,12 +1,12 @@
 ! Dense kernel feature maps following sklearn/kernel_approximation.py.
 ! See THIRD_PARTY_NOTICES.md for upstream BSD-3-Clause attribution.
 module sklearn_kernel_approximation
+  use sklearn_nystroem_svd,only:kernel_svd
   use sklearn_polynomial_count_sketch, only: polynomial_count_sketch
   use sklearn_sparse, only: csr_matrix
   use sklearn_legacy_rng, only: legacy_random_state
   use sklearn_ieee_math, only: ieee_difference,ieee_product,ieee_quotient
   use sklearn_common
-  use sklearn_metrics, only: linear_kernel,rbf_kernel,polynomial_kernel,cosine_similarity
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite,ieee_is_nan,ieee_value,ieee_quiet_nan,ieee_fma,ieee_negative_inf
   implicit none
   private
@@ -46,15 +46,21 @@ module sklearn_kernel_approximation
     procedure, private :: fit_transform_csr=>rbfs_fit_transform_csr
     generic :: fit_transform=>fit_transform_dense,fit_transform_csr
   end type
+  abstract interface
+    function nystroem_kernel(a,b) result(value)
+      import dp
+      real(dp),intent(in)::a(:),b(:)
+      real(dp)::value
+    end function
+  end interface
+  public::nystroem_kernel
   type :: nystroem
-    integer :: n_components=100,random_state=0,degree=3
+    integer :: n_components=100,random_state=0,degree=3,n_features_in_=0
     character(16) :: kernel='rbf'
     real(dp) :: gamma=-1,coef0=1,gamma_=0
     real(dp), allocatable :: components_(:,:),normalization_(:,:)
     integer, allocatable :: component_indices_(:)
-    character(16), private :: kernel_fit_='rbf'
-    integer, private :: degree_fit_=3
-    real(dp), private :: coef0_fit_=1
+    procedure(nystroem_kernel),pointer,nopass::kernel_callback=>null()
   contains
     procedure :: fit=>ny_fit
     procedure :: transform=>ny_transform
@@ -276,62 +282,183 @@ contains
     real(dp),allocatable::z(:,:)
     call self%fit(x);z=self%transform(x)
   end function
-  function kernel_matrix(self,x,y) result(k)
-    class(nystroem), intent(in) :: self
-    real(dp), intent(in) :: x(:,:),y(:,:)
-    real(dp), allocatable :: k(:,:)
-    select case(self%kernel_fit_)
-    case('rbf'); k=rbf_kernel(x,y,self%gamma_)
-    case('linear'); k=linear_kernel(x,y)
-    case('poly','polynomial'); k=polynomial_kernel(x,y,self%degree_fit_,self%gamma_,self%coef0_fit_)
-    case('cosine'); k=cosine_similarity(x,y)
+  subroutine ny_controls(self)
+    class(nystroem),intent(in)::self
+    call require(any(self%kernel==[character(16)::'rbf','linear','poly','polynomial','cosine', &
+      'laplacian','sigmoid','chi2','additive_chi2','precomputed','callable']),'unsupported Nystroem kernel')
+    call require(ieee_is_finite(self%gamma),'invalid Nystroem gamma')
+    call require(self%gamma>=0.or.self%gamma==-1,'invalid Nystroem gamma')
+    call require(self%degree>=1.and.ieee_is_finite(self%coef0),'invalid Nystroem polynomial parameters')
+    if(self%kernel=='callable'.or.self%kernel=='precomputed') then
+      call require(self%gamma==-1.and.self%degree==3.and.self%coef0==1, &
+        'Nystroem callable/precomputed kernels require default gamma, degree and coef0')
+    end if
+    if(self%kernel=='callable') call require(associated(self%kernel_callback),'Nystroem kernel callback is not associated')
+  end subroutine
+  function ny_cosine_input(x) result(z)
+    real(dp),intent(in)::x(:,:)
+    real(dp),allocatable::z(:,:)
+    real(dp)::norm
+    integer::i,j
+    allocate(z(size(x,1),size(x,2)))
+    do i=1,size(x,1)
+      norm=0
+      do j=1,size(x,2)
+        norm=ieee_difference(norm,-ieee_product(x(i,j),x(i,j)))
+      end do
+      norm=sqrt(norm)
+      if(norm<10*epsilon(1._dp)) norm=1
+      do j=1,size(x,2)
+        z(i,j)=ieee_quotient(x(i,j),norm)
+      end do
+    end do
+  end function
+  function kernel_matrix(self,x,y,symmetric) result(k)
+    class(nystroem),intent(in)::self
+    real(dp),intent(in)::x(:,:),y(:,:)
+    logical,intent(in),optional::symmetric
+    real(dp),allocatable::k(:,:),nx(:),ny(:)
+    real(dp)::g,value,base,denom,difference
+    integer::i,j,t
+    logical::sym
+    call ny_controls(self)
+    g=self%gamma
+    if(g==-1) then
+      g=1._dp/size(x,2)
+      if(self%kernel=='chi2') g=1
+    end if
+    sym=.false.;if(present(symmetric)) sym=symmetric
+    select case(self%kernel)
+    case('rbf')
+      k=fourier_dot(x,transpose(y));allocate(nx(size(x,1)),ny(size(y,1)));nx=0;ny=0
+      do i=1,size(x,1)
+        do t=1,size(x,2)
+          nx(i)=ieee_difference(nx(i),-ieee_product(x(i,t),x(i,t)))
+        end do
+      end do
+      do j=1,size(y,1)
+        do t=1,size(y,2)
+          ny(j)=ieee_difference(ny(j),-ieee_product(y(j,t),y(j,t)))
+        end do
+      end do
+      do j=1,size(y,1)
+        do i=1,size(x,1)
+          value=ieee_product(-2._dp,k(i,j));value=ieee_difference(value,-nx(i))
+          value=ieee_difference(value,-ny(j))
+          if(.not.ieee_is_nan(value)) value=max(value,0._dp)
+          if(sym.and.i==j) value=0
+          value=ieee_product(-g,value);k(i,j)=value
+          if(.not.ieee_is_nan(value)) k(i,j)=exp(value)
+        end do
+      end do
+    case('linear');k=fourier_dot(x,transpose(y))
+    case('poly','polynomial')
+      k=fourier_dot(x,transpose(y))
+      do j=1,size(y,1)
+        do i=1,size(x,1)
+          base=ieee_difference(ieee_product(g,k(i,j)),-self%coef0);value=1
+          do t=1,self%degree
+            value=ieee_product(value,base)
+          end do
+          k(i,j)=value
+        end do
+      end do
+    case('cosine');k=fourier_dot(ny_cosine_input(x),transpose(ny_cosine_input(y)))
+    case('laplacian')
+      allocate(k(size(x,1),size(y,1)))
+      do j=1,size(y,1)
+        do i=1,size(x,1)
+          value=0
+          do t=1,size(x,2)
+            value=ieee_difference(value,-abs(ieee_difference(x(i,t),y(j,t))))
+          end do
+          value=ieee_product(-g,value);k(i,j)=value
+          if(.not.ieee_is_nan(value)) k(i,j)=exp(value)
+        end do
+      end do
+    case('sigmoid')
+      k=fourier_dot(x,transpose(y))
+      do j=1,size(y,1)
+        do i=1,size(x,1)
+          value=ieee_difference(ieee_product(g,k(i,j)),-self%coef0);k(i,j)=value
+          if(.not.ieee_is_nan(value)) k(i,j)=tanh(value)
+        end do
+      end do
+    case('chi2','additive_chi2')
+      call require(all(x>=0).and.all(y>=0),'Nystroem chi-squared kernels require nonnegative inputs')
+      allocate(k(size(x,1),size(y,1)))
+      do j=1,size(y,1)
+        do i=1,size(x,1)
+          value=0
+          do t=1,size(x,2)
+            denom=ieee_difference(x(i,t),-y(j,t))
+            if(denom==0) cycle
+            difference=ieee_difference(x(i,t),y(j,t))
+            base=ieee_quotient(ieee_product(difference,difference),denom)
+            value=ieee_difference(value,-base)
+          end do
+          k(i,j)=-value
+          if(self%kernel=='chi2') then
+            value=ieee_product(g,k(i,j));k(i,j)=value
+            if(.not.ieee_is_nan(value)) k(i,j)=exp(value)
+          end if
+        end do
+      end do
+    case('precomputed')
+      call require(size(x,2)==size(y,1),'Nystroem precomputed kernel shape mismatch')
+      k=x
+    case('callable')
+      allocate(k(size(x,1),size(y,1)))
+      do i=1,size(x,1)
+        do j=1,size(y,1)
+          if(sym.and.i>j) cycle
+          k(i,j)=self%kernel_callback(x(i,:),y(j,:))
+          if(sym) k(j,i)=k(i,j)
+        end do
+      end do
     end select
   end function
   subroutine ny_fit(self,x)
-    class(nystroem), intent(inout) :: self
-    real(dp), intent(in) :: x(:,:)
-    real(dp), allocatable :: gram(:,:),values(:),vectors(:,:)
-    integer :: n,k,i,j,tmp
-    integer, allocatable :: order(:)
-    real(dp) :: draw
-    call check_x(x); n=size(x,1)
+    class(nystroem),intent(inout)::self
+    real(dp),intent(in)::x(:,:)
+    type(legacy_random_state)::rng
+    real(dp),allocatable::gram(:,:),values(:),u(:,:),v(:,:)
+    integer,allocatable::order(:)
+    integer::n,k,i,j,tmp,status
+    call check_x(x);n=size(x,1)
     call require(self%n_components>0,'Nystroem n_components must be positive')
-    call require(self%kernel=='rbf'.or.self%kernel=='linear'.or.self%kernel=='poly'.or. &
-      self%kernel=='polynomial'.or.self%kernel=='cosine','unsupported Nystroem kernel')
-    call require(ieee_is_finite(self%gamma).and.(self%gamma>=0.or.self%gamma==-1), &
-      'invalid Nystroem gamma')
-    call require(self%degree>=0.and.ieee_is_finite(self%coef0).and.self%coef0>=0, &
-      'invalid Nystroem polynomial parameters')
-    self%kernel_fit_=self%kernel; self%degree_fit_=self%degree; self%coef0_fit_=self%coef0
+    call require(self%random_state>=0,'Nystroem random_state must be nonnegative')
+    call ny_controls(self);self%n_features_in_=size(x,2)
     self%gamma_=self%gamma
-    if(self%gamma_==-1) self%gamma_=1._dp/size(x,2)
-    k=min(n,self%n_components); allocate(order(n)); order=[(i,i=1,n)]
-    call seed_rng(self%random_state)
+    if(self%gamma_==-1) then
+      self%gamma_=1._dp/size(x,2)
+      if(self%kernel=='chi2') self%gamma_=1
+    end if
+    k=min(n,self%n_components);order=[(i,i=1,n)];call rng%seed(self%random_state)
     do i=n,2,-1
-      call random_number(draw); j=1+int(draw*i); tmp=order(i); order(i)=order(j); order(j)=tmp
+      j=rng%integer_index(i);tmp=order(i);order(i)=order(j);order(j)=tmp
     end do
-    self%component_indices_=order(:k); self%components_=x(order(:k),:)
-    gram=kernel_matrix(self,self%components_,self%components_)
+    self%component_indices_=order(:k);self%components_=x(order(:k),:)
+    gram=kernel_matrix(self,self%components_,self%components_,.true.)
     call require(all(ieee_is_finite(gram)),'Nystroem nonfinite kernel matrix')
-    allocate(values(k),vectors(k,k)); call symmetric_eigen(gram,values,vectors)
-    call require(minval(values)>=-1.e-10_dp*max(1._dp,maxval(abs(values))), &
-      'Nystroem basis kernel must be positive semidefinite')
+    allocate(values(k),u(k,k),v(k,k));call kernel_svd(gram,u,values,v,status,240)
+    call require(status==0,'Nystroem Jacobi SVD did not converge')
     values=1/sqrt(max(values,1.e-12_dp))
-    self%normalization_=matmul(vectors*spread(values,1,k),transpose(vectors))
+    self%normalization_=matmul(u*spread(values,1,k),transpose(v))
   end subroutine
   function ny_transform(self,x) result(z)
-    class(nystroem), intent(in) :: self
-    real(dp), intent(in) :: x(:,:)
-    real(dp), allocatable :: z(:,:)
+    class(nystroem),intent(in)::self
+    real(dp),intent(in)::x(:,:)
+    real(dp),allocatable::z(:,:)
     call require(allocated(self%components_),'Nystroem is not fitted')
-    call check_xy(transpose(x),size(self%components_,2))
-    z=matmul(kernel_matrix(self,x,self%components_),transpose(self%normalization_))
+    call check_xy(transpose(x),self%n_features_in_)
+    z=fourier_dot(kernel_matrix(self,x,self%components_),transpose(self%normalization_))
   end function
   function ny_fit_transform(self,x) result(z)
-    class(nystroem), intent(inout) :: self
-    real(dp), intent(in) :: x(:,:)
-    real(dp), allocatable :: z(:,:)
-    call self%fit(x); z=self%transform(x)
+    class(nystroem),intent(inout)::self
+    real(dp),intent(in)::x(:,:)
+    real(dp),allocatable::z(:,:)
+    call self%fit(x);z=self%transform(x)
   end function
   real(dp) function additive_interval(self) result(h)
     class(additive_chi2_sampler), intent(in) :: self

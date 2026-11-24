@@ -6512,7 +6512,7 @@ program invalid_input_driver
   case('landmark_components'); landmarks%n_components=0; call landmarks%fit(x)
   case('landmark_kernel'); landmarks%kernel='unknown'; call landmarks%fit(x)
   case('landmark_gamma'); landmarks%gamma=-2; call landmarks%fit(x)
-  case('landmark_poly'); landmarks%coef0=-1; call landmarks%fit(x)
+  case('landmark_degree'); landmarks%degree=0; call landmarks%fit(x)
   case('landmark_unfitted'); z=landmarks%transform(x)
   case('landmark_features'); call landmarks%fit(x); z=landmarks%transform(x(:,:1))
   case('unfitted'); z=scaler%transform(x)

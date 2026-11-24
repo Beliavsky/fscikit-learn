@@ -2356,7 +2356,7 @@ CASES = {
     "fourier_components": "RBF sampler n_components", "fourier_gamma": "invalid RBF sampler gamma",
     "fourier_unfitted": "not fitted", "fourier_features": "sample counts differ",
     "landmark_components": "Nystroem n_components", "landmark_kernel": "unsupported Nystroem kernel",
-    "landmark_gamma": "invalid Nystroem gamma", "landmark_poly": "invalid Nystroem polynomial parameters",
+    "landmark_gamma": "invalid Nystroem gamma", "landmark_degree": "invalid Nystroem polynomial parameters",
     "landmark_unfitted": "not fitted", "landmark_features": "sample counts differ",
     "ica_unfitted": "not fitted", "ica_algorithm": "invalid FastICA algorithm",
     "ica_fun": "invalid FastICA contrast", "ica_whiten": "invalid FastICA whitening",

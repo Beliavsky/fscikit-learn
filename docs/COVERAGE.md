@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and eighty-two reference suites additionally check 3,697,318
+All types have native tests. One hundred and eighty-three reference suites additionally check 3,703,078
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -45,7 +45,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | decomposition | `pca`, `incremental_pca`, `truncated_svd`, `nmf`, `mini_batch_nmf`, `sparse_pca`, `mini_batch_sparse_pca`, `dictionary_learning`, `mini_batch_dictionary_learning`, `sparse_coder`, `latent_dirichlet_allocation`; `sparse_encode`, `non_negative_factorization`; re-exports `kernel_pca`, `factor_analysis`, `fast_ica` | Full/randomized/covariance PCA with automatic routing; PCA whitening/inversion, variance/Minka dimension selection and probabilistic scores; streaming stacked-SVD IncrementalPCA; exact dense and randomized dense/CSR TruncatedSVD; regularized NMF coordinate descent and beta-divergence multiplicative updates, with a free function supporting fixed-H solves; sparse dictionary factorization and SparsePCA; five sparse coding methods; nonlinear kernel PCA; full/randomized-SVD factor analysis with orthogonal rotations; parallel/deflation ICA |
 | cross_decomposition | `pls_regression`, `pls_canonical`, `cca`, `pls_svd` | Paired-matrix latent components: NIPALS regression/canonical deflation, CCA pseudoinverse mode, canonical direct SVD and PLSSVD cross-covariance projection; multiple response columns |
 | isotonic | `isotonic_regression`; `isotonic_fit`, `check_increasing` | Weighted pool-adjacent-violators, automatic Spearman direction, bounds, repeated-input aggregation and piecewise linear interpolation |
-| kernel_approximation | `rbf_sampler`, `nystroem`, `additive_chi2_sampler`, `skewed_chi2_sampler`, `polynomial_count_sketch` | NumPy-seeded dense/CSR random Fourier RBF maps with scaled gamma; sampled-landmark inverse-square-root maps for RBF/linear/polynomial/cosine kernels; additive and skewed chi2 maps; seeded polynomial TensorSketch with arbitrary-length FFTs |
+| kernel_approximation | `rbf_sampler`, `nystroem`, `additive_chi2_sampler`, `skewed_chi2_sampler`, `polynomial_count_sketch` | NumPy-seeded dense/CSR random Fourier RBF maps with scaled gamma; source-seeded full-SVD Nystroem maps with all built-in kernels, callbacks and precomputed input; additive and skewed chi2 maps; seeded polynomial TensorSketch with arbitrary-length FFTs |
 | random_projection | `gaussian_random_projection`, `sparse_random_projection`; `johnson_lindenstrauss_min_dim` | Gaussian/three-point random matrices, dense storage, automatic JL dimension, cached or on-demand pseudoinverse |
 | kernel_pca | `kernel_pca` | Centered linear/RBF/polynomial/sigmoid/cosine/precomputed Gram matrices; dense Jacobi eigensolver; out-of-sample transform and learned kernel-ridge pre-images |
 | manifold | `isomap`, `tsne`; `trustworthiness`; re-exports `spectral_embedding`, `mds`, `locally_linear_embedding` | Isomap radius/fixed-count graphs, dense/CSR precomputed distances and FW/Dijkstra paths; exact and Barnes-Hut t-SNE with sparse affinities, CSR distances, adaptive gains and two-stage momentum; neighborhood rank trustworthiness; spectral embedding; metric/nonmetric SMACOF; dense standard/Hessian/modified LLE and LTSA with barycentric query transforms |
@@ -9745,3 +9745,34 @@ application/test sources. Four-job builds used the checksum-verified private
 fpm 0.14.0; the global fpm was unchanged. Artifacts remain under ignored
 validation/results/skewed_features*, including skewed_features_final_audit.json.
 Implementation commit: 1352c70. MIT licensing and retained BSD notices continue.
+
+## Source-seeded Nystroem kernels and full SVD
+
+Replaced intrinsic landmark sampling with NumPy-compatible permutations and
+PSD eigendecomposition with a complete real Jacobi SVD adapted from MIT-licensed
+SciFort. The source floor max(S,1e-12) follows full singular-vector construction;
+null directions are completed and small nonzero values are retained. Added
+sigmoid, laplacian, chi2, additive_chi2, typed callback and precomputed support,
+alongside RBF/linear/poly/cosine. Kernels and parameters are live at query time.
+Negative finite offsets are accepted; integer degrees are positive. The old
+negative-offset invalid case was replaced with zero degree, preserving that
+registry's count. Source precomputed row-only selection/shape behavior is
+explicit, including rejection of smaller-than-sample landmark counts.
+
+The new suite covers 408 fixtures, 5,760 required groups and 29 invalid cases.
+152 regular cases compare normalization and feature coordinates directly;
+256 singular/ill-conditioned cases compare singular values, normalization Gram
+and realized train/query/cross kernel Grams. All cases verify SVD reconstruction
+and both factor orthogonalities. Required inventories contain no unchecked
+coordinate fields. The 5,760 groups include 4,944 direct/source-invariant groups
+and 816 SVD certificates. Cases span five seeds, all kernels, singular/zero/
+constant bases, negative coefficients, live parameters, callback asymmetry,
+nonsymmetric precomputed input and widely separated nonzero singular values.
+Checked and optimized temporary probes pass all affected reference suites.
+
+SciFort's copyright and MIT license are retained; sklearn/NumPy BSD notices
+continue. No fpm dependency or public extension algorithm was added. Dense
+estimator inputs and integer degree are native API subsets. Inventory:
+222 public core types, 155 source modules, 207 native programs, 183 reference
+suites / 3,703,078 retained groups, and 88 invalid registries / 4,779 cases.
+Canonical verification will be recorded below.
