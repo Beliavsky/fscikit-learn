@@ -8706,3 +8706,60 @@ Inventory: 222 public core types, 160 source modules, 221 native programs,
 193 reference suites / 3,951,493 retained groups and 98 invalid registries /
 5,654 cases. MIT integration and retained notices continue; no dependency or
 public extension algorithm was added. The broader translation remains unfinished.
+## Numeric OneHotEncoder: grouping, sparse output and inverse objects
+
+Implementation commit f8a2d3c replaces the former automatic-category dense
+encoder with the numeric sklearn 1.6.1 category/grouping/drop/unknown contracts.
+The original MIT integration and retained upstream licenses remain unchanged.
+The new public helpers carry numeric/None/infrequent inverse results and typed
+name callbacks; they introduce no additional core estimator or extension algorithm.
+
+Both checked and optimized profiles passed 19,605 required result groups:
+
+| Suite | Groups |
+| --- | ---: |
+| Numeric OneHotEncoder | 17,070 |
+| RandomTreesEmbedding, full five-seed grid | 2,175 |
+| Core comparisons | 192 |
+| OneHotEncoder column-transformer slice | 108 |
+| OneHotEncoder feature-union slice | 60 |
+
+The new reference suite retains 1,424 configurations, 912 accepted cases and
+512 expected source rejections. All compared finite values, category maps,
+drop indices, names, metadata, sparse storage slots and typed inverse masks
+match exactly; 3,090 nonfinite source values retain exact NaN/infinity masks.
+It exercises explicit/automatic categories, NaNs, infrequent thresholds/caps,
+all drop/unknown modes, live unknown controls, refits, source callback validation,
+extreme and random floating names, signed/soft/cancelling inverse blocks and
+the source if_binary category-broadcast behavior. CSR inverse inputs include
+descending indices, duplicates and explicit zeros without caller mutation.
+
+Each profile also passed 45 controlled native diagnostics, for 557 expected
+rejections in total, twelve native programs and the onehot_categories example.
+Native programs cover direct encoding, preprocessing metrics, column/union
+composition, tree embeddings, frozen wrappers, supervised/unsupervised pipelines,
+stateless/polynomial composition and ordinal/target encoding. Ownership,
+callback invocation and caller RNG preservation checks pass. The composition
+slices preserve original fixture streams and select kind 6: 18 column-transformer
+and 12 union fixtures. Tree embeddings retain 115 fixtures and 145 fits.
+This is an affected-scope verification, not a rerun of all repository suites.
+
+The combined audit verifies 185 compiled source fingerprints per profile,
+complete accepted/rejected configuration and field inventories, identical
+checked/release results and source boundaries, distinct native executables,
+source/validator/report/executable hashes and retained license hashes.
+The preprocessing label-encoder method bodies are byte-identical to the
+pre-extraction revision. Library changes are confined to the new encoder,
+preprocessing imports and composition fitting/name delegation. Reports and
+the final audit remain under ignored validation/results/onehot*, including
+onehot_final_audit.json.
+
+Four-job builds used the checksum-verified private fpm 0.14.0, GNU Fortran
+17.0.0 20260510, Python 3.13, sklearn 1.6.1, NumPy 2.2.6 and SciPy 1.15.3.
+Checked flags were -fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow;
+optimized verification used --profile release. The global fpm is unchanged.
+
+Inventory: 222 public core types, 162 source modules, 226 native programs,
+198 reference suites / 4,007,271 retained groups and 99 invalid registries /
+5,714 cases. String/mixed categories and graph inverse adapters for the new
+typed result remain outside this batch; the broader translation is unfinished.

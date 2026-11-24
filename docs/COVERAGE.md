@@ -10771,6 +10771,7 @@ and SciPy 1.15.3 remain the oracle versions. The global fpm is unchanged.
 Inventory: 222 public core types, 161 source modules, 225 native programs,
 197 reference suites / 3,990,201 retained groups and 98 invalid registries /
 5,669 cases. The broader translation remains unfinished.
+
 ## Numeric OneHotEncoder category grouping and inverse maps
 
 The earlier automatic-category dense encoder is now a standalone module with
@@ -10791,11 +10792,11 @@ separate invalid cases require controlled native errors. String/mixed category
 inputs, dtype selection, Python warnings and graph adapters for the typed inverse
 result remain outside this interface; see the API for detailed contracts.
 
-Checked builds pass the new suite, all 45 native diagnostics, twelve affected
+Checked and optimized builds pass the new suite, all 45 native diagnostics, twelve affected
 native programs and the onehot_categories example. Existing reference checks
 also pass: core, RandomTreesEmbedding and original-generator OneHotEncoder
-column-transformer/feature-union slices. Optimized-profile verification is
-recorded separately in VALIDATION.md. This extends an existing sklearn type;
+column-transformer/feature-union slices. Final verification is
+recorded in VALIDATION.md. This extends an existing sklearn type;
 no public extension algorithm or dependency is added. Original integration
 remains MIT with retained upstream notices.
 
