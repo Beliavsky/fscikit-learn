@@ -7668,3 +7668,72 @@ optimized reference executables. It verifies unchanged unrelated source/test
 paths and the checksum of private fpm 0.14.0; the global fpm was unchanged.
 Artifacts remain under ignored `validation/results/classification_forests*`,
 including `classification_forests_final_audit.json`.
+
+## Minimal cost-complexity pruning (2026-11-24)
+
+Added finite nonnegative ccp_alpha to all four standalone tree estimators
+and all four random-forest/ExtraTrees classifier/regressor variants. Zero
+skips pruning, preserving existing grown trees. Positive alpha uses sklearn
+1.6.1's weakest-link risk, first-node tie ordering, inclusive stop threshold,
+ancestor updates and preorder rebuilding. Node values/distributions, weighted
+masses and sample counts are retained; leaf IDs and importance reflect the
+pruned structure. Search adapters accept ccp_alpha, with weighted regression
+and classification criterion/class-weight grids in native integration tests.
+
+Standalone trees expose cost_complexity_pruning_path(x,y,sample_weight),
+returning tree_pruning_path storage with ccp_alphas and impurities. A dynamic
+clone refits at alpha zero so requesting a path preserves an unfitted or
+fitted caller and resets its pruning parameter only in the clone. ExtraTree
+dynamic fitting and criterion defaults are preserved. Forest components use
+their existing weights, class weights and bootstrap multiplicities; forests
+do not expose a single public path. This adds one internal module and a
+result storage helper, with no new estimator type or extension algorithm.
+
+The new comparison passes 2,682 fixtures / 53,640 direct-source groups and
+24 source-matched invalid-alpha diagnostics against installed sklearn 1.6.1.
+Twenty fields compare paths, predictions/probabilities, original/encoded
+classes, unchanged caller state, forest/tree metadata, seeds, leaf IDs,
+importance and every node's values, impurity, mass, thresholds, children,
+features and active counts. Integer/structure fields compare exactly;
+floating values use rtol=2e-10/atol=2e-12 with matching nonfinite outcomes
+(312 source values). Cases include all eight estimator variants, seven
+criteria, weighted/zero-weight data, class balancing, bootstrap trees,
+constants and source alpha values immediately below/at/above pruning steps.
+The new suite uses no alternate-tree certificate.
+
+Checked verification passed all 200 native programs, 185,406 affected
+reference/safety groups and 124 diagnostics across six suites. These include
+16,211 existing regression-tree criterion, 11,989 absolute-error, 20,538
+regression-forest, 73,044 classification-forest and 9,984 weighted-tree
+groups. Existing suites retain their documented certificates/safety identities.
+Other invalid-input registries were not rerun. The facade example matches
+sklearn path alphas [0,1/12,1/6], risks [0,1/3,1/2], and an 11-to-3-node
+reduction at alpha 0.1.
+
+Quiet arithmetic preserves defined IEEE outcomes. If no comparable weakest
+link exists, path construction rejects that undefined state rather than
+using the source's uninitialized node index. Existing sparse/training-NaN,
+monotonic, multioutput and fractional-control limits remain.
+
+Cumulative inventory: 222 public core types, 153 source modules, 200 native
+programs, 176 reference suites / 3,447,330 retained required groups, and
+81 invalid-input registries / 4,551 cases. These remain API subsets. MIT
+licensing and retained sklearn BSD attribution continue. No dependency or
+public extension algorithm was added.
+
+Final cost-complexity verification: runtime-checked and optimized release
+builds each passed all 200 native programs, 185,406 affected reference/safety
+groups and 124 diagnostic cases. The new suite contributes 53,640 direct
+source groups and 24 alpha diagnostics; existing absolute-error safety groups
+and weighted-tree certificates remain separately identified. Both facade
+examples match sklearn, including exact-threshold pruning behavior.
+
+The combined audit verifies 363 compiled source units per profile with
+dependency-aware fingerprints, complete 20-field pruning inventories, stable
+source/binary/validator/executable/report hashes, matching comparison
+inventories and distinct optimized reference executables. Unrelated source,
+test and application paths remained unchanged. Four-job builds used the
+checksum-verified private fpm 0.14.0; the global fpm was unchanged. Only the
+six named reference suites and their reported diagnostics were rerun. Reports
+remain under ignored `validation/results/tree_pruning*`, including
+`tree_pruning_final_audit.json`.
