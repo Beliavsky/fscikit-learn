@@ -1598,3 +1598,12 @@ importance. Existing `sklearn_class_weight` implements the corresponding
 remain in `LICENSES/scikit-learn-COPYING`, with existing NumPy RNG attribution.
 Fortran adapters, quiet composition, tests, example and reference harness are
 original MIT contributions. No dependency or public extension was added.
+
+## Minimal cost-complexity pruning (BSD)
+
+`src/sklearn_tree_pruning.f90` follows scikit-learn 1.6.1 `tree/_tree.pyx`
+_cost_complexity_prune, _AlphaPruner and _PathFinder. Tree integration follows
+`tree/_classes.py` cloned path fitting and preorder pruned-tree rebuilding.
+Terms remain in `LICENSES/scikit-learn-COPYING`. Native bounds/undefined-state
+guards, quiet arithmetic, storage adapters, tests, example and reference
+harness are original MIT contributions. No dependency or extension was added.

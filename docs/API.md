@@ -3359,7 +3359,7 @@ float32 range. Except for absolute-error regression, queries may contain
 NaNs: each missing feature follows the
 larger active-row child, with ties going right, matching a source tree trained
 without missing values. Query infinities and float32 overflow are rejected.
-NaN training, sparse input, pruning, monotonic constraints, fractional feature
+NaN training, sparse input, monotonic constraints, fractional feature
 counts and multioutput single-tree fitting
 remain outside this subset. Native max_depth=0 retains its existing root-only
 meaning; sklearn requires a positive depth.
@@ -7512,7 +7512,7 @@ predictions/targets and a nonzero score-weight sum. Fitting weights and their
 bootstrap-multiplied values must be finite. Query NaNs use each component's
 finite-training missing-value routing, except absolute-error models reject
 query NaNs as sklearn does. Training NaNs, sparse inputs,
-fractional max_samples/max_features, OOB scores, warm starts, pruning,
+fractional max_samples/max_features, OOB scores, warm starts,
 monotonic constraints and multioutput forests are not implemented here.
 
 Parameter search accepts regression-forest `criterion`, `max_samples` and
@@ -7586,7 +7586,36 @@ total mass.
 
 Queries may contain NaNs after finite training, using component-tree routing.
 Training NaNs, sparse inputs, fractional sample/feature controls, OOB scores,
-warm starts, pruning, monotonic constraints and multioutput classification
+warm starts, monotonic constraints and multioutput classification
 forests remain unsupported. Parameter search accepts criterion, class_weight,
 max_samples and min_impurity_decrease, and forwards fitting weights.
 SelectFromModel also forwards classification-forest fitting weights.
+
+## Cost-complexity pruning
+
+DecisionTree/ExtraTree classifiers and regressors accept ccp_alpha, a finite
+nonnegative real64 value defaulting to zero. Zero preserves the grown tree,
+including zero-gain splits. A positive value applies sklearn 1.6.1's minimal
+cost-complexity pruning: links with effective alpha at most the requested
+value are pruned, preserving source first-node ordering at ties. Remaining
+nodes are rebuilt in preorder, leaf indices change accordingly, and feature
+importances are recomputed from the pruned tree.
+
+`path = model%cost_complexity_pruning_path(x,y,sample_weight)` returns a
+`tree_pruning_path` with allocatable real64 ccp_alphas and impurities arrays.
+The first entry has alpha zero and the risk of the fully grown leaves. Later
+entries record each weakest-link step through the root-only tree. The method
+refits a dynamic clone with alpha zero and preserves both fitted and unfitted
+caller state. Classification targets are integer vectors; regression targets
+are real64 vectors. The helper type is exported by sklearn_tree and sklearn.
+
+Random-forest and ExtraTrees classifiers/regressors also accept ccp_alpha and
+forward it to each component, with existing weights, class weights, bootstraps
+and criterion controls. Parameter search accepts ccp_alpha on both standalone
+tree and forest families. Forests do not expose a single pruning path.
+
+Risks follow the source operation order (node mass times impurity divided by
+root mass), with source ancestor accumulation and incremental updates. Quiet
+IEEE operations preserve defined NaN/Inf outcomes. A path with no comparable
+weakest link is rejected rather than using the source's uninitialized node
+index in that undefined case. Existing criterion and input limits still apply.

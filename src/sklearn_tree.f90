@@ -1,4 +1,5 @@
 module sklearn_tree
+  use sklearn_tree_pruning, only: tree_pruning_path,weakest_link_pruning
   use sklearn_tree_median, only: tree_median_queue
   use sklearn_legacy_rng, only: legacy_random_state
   use sklearn_ieee_math, only: ieee_difference,ieee_product,ieee_quotient,ieee_total,ieee_mean,ieee_argmax
@@ -9,6 +10,7 @@ module sklearn_tree
   use sklearn_metrics, only: accuracy_score,r2_score
   implicit none
   private
+  public :: tree_pruning_path
   public :: decision_tree_classifier,decision_tree_regressor,extra_tree_classifier,extra_tree_regressor
   type :: tree_node
     integer :: left=0,right=0,feature=0,n_samples=0,depth=0
@@ -22,7 +24,7 @@ module sklearn_tree
     logical :: random_thresholds=.false.
     logical, private :: weighted_fit_=.false.
     integer :: max_features_=0
-    real(dp) :: min_impurity_decrease=0
+    real(dp) :: min_impurity_decrease=0,ccp_alpha=0
     real(dp), allocatable :: feature_importances_(:)
     type(tree_node), allocatable :: nodes_(:)
   contains
@@ -34,6 +36,7 @@ module sklearn_tree
     character(16) :: criterion='gini'
     integer, allocatable :: classes_(:)
   contains
+    procedure :: cost_complexity_pruning_path=>classifier_pruning_path
     procedure :: fit=>classifier_fit
     procedure :: predict_proba=>classifier_proba
     procedure :: predict=>classifier_predict
@@ -42,6 +45,7 @@ module sklearn_tree
   type, extends(tree_storage) :: decision_tree_regressor
     character(16) :: criterion='squared_error'
   contains
+    procedure :: cost_complexity_pruning_path=>regressor_pruning_path
     procedure :: fit=>regressor_fit
     procedure :: predict=>regressor_predict
     procedure :: score=>regressor_score
@@ -90,6 +94,8 @@ contains
     call require(self%max_features>=0.and.self%max_features<=size(x,2),'invalid tree max_features')
     call require(ieee_is_finite(self%min_impurity_decrease),'tree impurity decrease must be finite')
     call require(self%min_impurity_decrease>=0,'negative impurity decrease')
+    call require(ieee_is_finite(self%ccp_alpha),'tree ccp_alpha must be finite')
+    call require(self%ccp_alpha>=0,'tree ccp_alpha must be nonnegative')
     call require(self%random_state>=0,'weighted tree random_state must be nonnegative')
     nf=self%max_features; if(nf==0) nf=size(x,2)
     if(present(max_features)) nf=max_features
@@ -105,6 +111,7 @@ contains
       call median_left%init(size(y));call median_right%init(size(y))
     end if
     root=grow(active,0,0,0._dp)
+    if(self%ccp_alpha/=0) call prune_fitted_tree(self)
     do i=1,self%node_count_
       associate(node=>self%nodes_(i))
         if(node%left==0) cycle
@@ -668,6 +675,69 @@ contains
     end if
     call build_weighted_tree(self,x,y,[integer::],self%criterion,weights)
   end subroutine
+  subroutine pruning_mask(self,leaves,path,alpha)
+    class(tree_storage), intent(in) :: self
+    logical, allocatable, intent(out) :: leaves(:)
+    type(tree_pruning_path), intent(out) :: path
+    real(dp), optional, intent(in) :: alpha
+    integer :: left(self%node_count_),right(self%node_count_),i
+    real(dp) :: mass(self%node_count_),impurity(self%node_count_)
+    do i=1,self%node_count_
+      left(i)=self%nodes_(i)%left;right(i)=self%nodes_(i)%right
+      mass(i)=self%nodes_(i)%weighted_n_samples;impurity(i)=self%nodes_(i)%impurity
+    end do
+    call weakest_link_pruning(left,right,mass,impurity,leaves,path,alpha)
+  end subroutine
+  function fitted_pruning_path(self) result(path)
+    class(tree_storage), intent(in) :: self
+    type(tree_pruning_path) :: path
+    logical, allocatable :: leaves(:)
+    call pruning_mask(self,leaves,path)
+  end function
+  subroutine prune_fitted_tree(self)
+    class(tree_storage), intent(inout) :: self
+    type(tree_pruning_path) :: path
+    type(tree_node), allocatable :: original(:)
+    logical, allocatable :: leaves(:)
+    integer :: root
+    call pruning_mask(self,leaves,path,self%ccp_alpha)
+    call move_alloc(self%nodes_,original)
+    allocate(self%nodes_(2*count(leaves)-1));self%node_count_=0
+    root=copy_branch(1,0)
+  contains
+    recursive integer function copy_branch(old,depth) result(node)
+      integer, intent(in) :: old,depth
+      integer :: left,right
+      self%node_count_=self%node_count_+1;node=self%node_count_
+      self%nodes_(node)=original(old);self%nodes_(node)%depth=depth
+      if(leaves(old)) then
+        self%nodes_(node)%left=0;self%nodes_(node)%right=0
+        self%nodes_(node)%feature=0;self%nodes_(node)%threshold=0
+      else
+        left=copy_branch(original(old)%left,depth+1);right=copy_branch(original(old)%right,depth+1)
+        self%nodes_(node)%left=left;self%nodes_(node)%right=right
+      end if
+    end function
+  end subroutine
+  function classifier_pruning_path(self,x,y,sample_weight) result(path)
+    class(decision_tree_classifier), intent(in) :: self
+    real(dp), intent(in) :: x(:,:)
+    integer, intent(in) :: y(:)
+    real(dp), optional, intent(in) :: sample_weight(:)
+    type(tree_pruning_path) :: path
+    class(decision_tree_classifier), allocatable :: copied
+    allocate(copied,source=self);copied%ccp_alpha=0
+    call copied%fit(x,y,sample_weight);path=fitted_pruning_path(copied)
+  end function
+  function regressor_pruning_path(self,x,y,sample_weight) result(path)
+    class(decision_tree_regressor), intent(in) :: self
+    real(dp), intent(in) :: x(:,:),y(:)
+    real(dp), optional, intent(in) :: sample_weight(:)
+    type(tree_pruning_path) :: path
+    class(decision_tree_regressor), allocatable :: copied
+    allocate(copied,source=self);copied%ccp_alpha=0
+    call copied%fit(x,y,sample_weight);path=fitted_pruning_path(copied)
+  end function
   function tree_apply(self,x) result(leaves)
     class(tree_storage), intent(in) :: self
     real(dp), intent(in) :: x(:,:)

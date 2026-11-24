@@ -57,7 +57,7 @@ module sklearn_ensemble
     character(16) :: criterion='gini'
     character(20) :: class_weight='none'
     type(class_weight_map), allocatable :: class_weight_values
-    real(dp) :: min_impurity_decrease=0
+    real(dp) :: min_impurity_decrease=0,ccp_alpha=0
     logical :: bootstrap=.true.,random_thresholds=.false.
     integer, allocatable :: classes_(:)
     type(decision_tree_classifier), allocatable :: estimators_(:)
@@ -79,7 +79,7 @@ module sklearn_ensemble
     integer :: max_features=0,random_state=0
     integer :: max_samples=0,n_features_in_=0
     character(16) :: criterion='squared_error'
-    real(dp) :: min_impurity_decrease=0
+    real(dp) :: min_impurity_decrease=0,ccp_alpha=0
     logical :: bootstrap=.true.,random_thresholds=.false.
     type(decision_tree_regressor), allocatable :: estimators_(:)
     real(dp), allocatable :: feature_importances_(:)
@@ -167,6 +167,7 @@ contains
       self%estimators_(i)%min_samples_leaf=self%min_samples_leaf
       self%estimators_(i)%min_samples_split=self%min_samples_split
       self%estimators_(i)%max_features=features
+      self%estimators_(i)%ccp_alpha=self%ccp_alpha
       self%estimators_(i)%min_impurity_decrease=self%min_impurity_decrease
       self%estimators_(i)%random_thresholds=self%random_thresholds
       self%estimators_(i)%random_state=seed
@@ -313,6 +314,7 @@ contains
       self%estimators_(i)%min_samples_leaf=self%min_samples_leaf
       self%estimators_(i)%min_samples_split=self%min_samples_split
       self%estimators_(i)%max_features=self%max_features
+      self%estimators_(i)%ccp_alpha=self%ccp_alpha
       self%estimators_(i)%min_impurity_decrease=self%min_impurity_decrease
       self%estimators_(i)%random_thresholds=self%random_thresholds
       self%estimators_(i)%random_state=seed
