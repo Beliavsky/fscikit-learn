@@ -51,6 +51,12 @@ contains
     value=ieee_value(0._dp,ieee_quiet_nan)
     if(i>=1.and.i<=self%watermark) value=self%values(i)
   end function
+  real(dp) function weight_at(self,i) result(value)
+    class(tree_median_queue), intent(in) :: self
+    integer, intent(in) :: i
+    value=ieee_value(0._dp,ieee_quiet_nan)
+    if(i>=1.and.i<=self%watermark) value=self%weights(i)
+  end function
   real(dp) function median(self) result(value)
     class(tree_median_queue), intent(in) :: self
     real(dp) :: half
@@ -82,13 +88,13 @@ contains
     if(below(data,original)) then
       self%k=self%k+1;self%prefix=ieee_difference(self%prefix,-weight)
       do while(self%k>1)
-        if(.not.at_least(ieee_difference(self%prefix,self%weights(self%k)),ieee_quotient(self%total,2._dp))) exit
-        self%k=self%k-1;self%prefix=ieee_difference(self%prefix,self%weights(self%k+1))
+        if(.not.at_least(ieee_difference(self%prefix,weight_at(self,self%k)),ieee_quotient(self%total,2._dp))) exit
+        self%k=self%k-1;self%prefix=ieee_difference(self%prefix,weight_at(self,self%k+1))
       end do
     else if(at_least(data,original)) then
       do while(self%k<self%n)
         if(.not.below(self%prefix,ieee_quotient(self%total,2._dp))) exit
-        self%k=self%k+1;self%prefix=ieee_difference(self%prefix,-self%weights(self%k))
+        self%k=self%k+1;self%prefix=ieee_difference(self%prefix,-weight_at(self,self%k))
       end do
     end if
   end subroutine
@@ -106,12 +112,12 @@ contains
       self%k=self%k-1;self%prefix=ieee_difference(self%prefix,weight)
       do while(self%k<self%n)
         if(.not.below(self%prefix,ieee_quotient(self%total,2._dp))) exit
-        self%k=self%k+1;self%prefix=ieee_difference(self%prefix,-self%weights(self%k))
+        self%k=self%k+1;self%prefix=ieee_difference(self%prefix,-weight_at(self,self%k))
       end do
     else if(at_least(data,original)) then
       do while(self%k>1)
-        if(.not.at_least(ieee_difference(self%prefix,self%weights(self%k)),ieee_quotient(self%total,2._dp))) exit
-        self%k=self%k-1;self%prefix=ieee_difference(self%prefix,self%weights(self%k+1))
+        if(.not.at_least(ieee_difference(self%prefix,weight_at(self,self%k)),ieee_quotient(self%total,2._dp))) exit
+        self%k=self%k-1;self%prefix=ieee_difference(self%prefix,weight_at(self,self%k+1))
       end do
     end if
   end subroutine

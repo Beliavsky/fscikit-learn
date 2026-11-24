@@ -69,6 +69,7 @@ contains
     integer :: all_features(size(x,2)),constants(size(x,2)),i,root,nf
     integer(int64) :: state
     real(dp) :: root_weight,min_weight,normalizer,contribution
+    type(tree_median_queue) :: median_left,median_right
     logical :: source_regression,work_splitter
     call check_xy(x,size(y)); call check_x(reshape(y,[size(y),1]))
     if(size(classes)==0) then
@@ -99,6 +100,10 @@ contains
     root_weight=ieee_total(w); min_weight=ieee_product(0._dp,root_weight)
     all_features=[(i,i=1,size(x,2))]; constants=0
     call rng%seed(self%random_state); state=int(rng%integer_index(2147483647)-1,int64)
+    ! MAE keeps its initialized queue storage across every node reset.
+    if(criterion=='absolute_error') then
+      call median_left%init(size(y));call median_right%init(size(y))
+    end if
     root=grow(active,0,0,0._dp)
     do i=1,self%node_count_
       associate(node=>self%nodes_(i))
@@ -417,7 +422,6 @@ contains
     recursive integer function grow(ids,depth,known,inherited) result(node)
       integer, intent(in) :: ids(:),depth,known
       real(dp), intent(in) :: inherited
-      type(tree_median_queue) :: median_left,median_right
       real(dp) :: node_median
       integer, allocatable :: ordered(:),left(:),right(:),work(:)
       real(dp), allocatable :: feature_values(:)
@@ -429,7 +433,7 @@ contains
       n=size(ids);call moments(ids,mass,sums,squares)
       node_median=0
       if(criterion=='absolute_error') then
-        call median_left%init(n);call median_right%init(n)
+        call median_left%clear();call median_right%clear()
         do j=1,n
           call median_right%push(y(ids(j)),w(ids(j)))
         end do
