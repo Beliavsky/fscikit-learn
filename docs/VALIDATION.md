@@ -7743,4 +7743,24 @@ Inventory: 222 public core types, 154 source modules, 203 native programs,
 4,654 cases. Existing dense real64 projection storage and native SVD limits
 remain. Earlier native seeds produce different matrices after this correction.
 MIT licensing and BSD attribution remain; no dependency or extension is added.
-Canonical checked/release verification will be recorded below.
+Canonical checked/release verification is recorded below.
+
+Final seeded-projection verification: checked and optimized release builds
+both passed test_seeded_projections, test_factor_projection and
+test_bicluster_datasets. These three native programs were run; the other 200
+native programs were not executed in this batch. The three affected reference
+suites each passed 17,768 total required groups and 57 diagnostics per profile:
+6,464 new seeded-projection groups / 43 diagnostics, 11,100 retained bicluster
+groups / 14 diagnostics, and 204 regression/factor/projection algebra groups.
+Both facade examples match source components and transformed coordinates.
+
+The combined audit verifies 165 compiled source units per profile, the unchanged
+extracted binomial body, exact component arrays, all eight result fields for
+all 808 new fixtures, stable sources/executables/validators/reports and matching
+profile inventories. Source fixtures include 25 nontrivial tracking rows,
+26 reservoir rows and 416 permutation rows, plus both inversion and BTPE
+binomial branches. Native inverse/SVD comparisons retain explicit numerical
+tolerances. No unrelated source/test/application path changed. Four-job builds
+used the checksum-verified private fpm 0.14.0; the global fpm was unchanged.
+Artifacts are under ignored validation/results/seeded_projections*, including
+seeded_projections_final_audit.json. Implementation commit: 87923d7.
