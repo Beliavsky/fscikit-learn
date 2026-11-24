@@ -10979,7 +10979,7 @@ non-NaN class recalls. Kappa exposes class selection/order/duplicates and none,
 linear or quadratic ordinal weighting. Source empty/constant-class and weighted
 undefined results replace the former rejection or clipping shortcuts.
 
-The checked grid passes 4,548 configurations: 3,659 accepted cases and
+Both checked and optimized grids pass 4,548 configurations: 3,659 accepted cases and
 889 source rejections. Its 10,977 groups contain one direct score comparison,
 caller-data identity and IEEE-state identity for each accepted case. Finite
 scores use rtol=3e-13 with atol=0; NaN/infinity masks and zero signs match,
@@ -10988,10 +10988,11 @@ and nonfinite weights, empty targets, constant classes, class counts through
 129, NumPy buffer boundaries and selected-label corner cases are exercised.
 An independent sklearn-only inventory pins accepted/rejected IDs and fields.
 
-The checked fpm build passes 15 affected native programs, 22 new diagnostics,
+Both fpm builds pass 15 affected native programs, 22 new diagnostics,
 the existing score-shape diagnostic, 192 core groups and the new example.
-The checked audit verifies 191 compiled source fingerprints and complete field
-and configuration inventories. Optimized reference verification is pending. Native tests also
+The final audit verifies 191 compiled source fingerprints per profile, complete
+field/configuration inventories and matching checked/release records, including
+exact hexadecimal score agreement. Native tests also
 verify caller RNG and preservation of IEEE flags and halting masks, including
 inexact flags that Windows clears when exception masks are changed.
 

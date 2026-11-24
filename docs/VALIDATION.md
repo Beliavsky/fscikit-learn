@@ -9102,13 +9102,15 @@ Inventory: 222 public core types, 166 source modules, 231 native programs,
 
 ## Weighted categorical classification scores (2026-11-24)
 
+Implementation revision: 57cb1e0.
+
 Balanced accuracy, Matthews correlation and Cohen kappa now support numeric
 vector/nonempty single-column targets and sample weights. Balanced accuracy
 adds chance adjustment; kappa adds explicit class order/subsets/duplicates and
 linear/quadratic ordinal weights. Existing y,p calls remain valid. Source
 undefined/empty/constant-class results replace native rejection/clipping shortcuts.
 
-The checked reference grid passes 4,548 configurations: 3,659 accepted
+Both checked and optimized reference grids pass 4,548 configurations: 3,659 accepted
 cases and 889 expected source rejections. Its 10,977 retained groups include
 score, caller-data identity and IEEE-state identity for each accepted case.
 Accepted score counts are 491 unadjusted balanced accuracy, 439 adjusted balanced
@@ -9133,19 +9135,18 @@ adjusted balanced accuracy with no retained recalls and pre-allocation indexing
 capacity. The capacity case is a native limit rather than a source oracle case.
 Scalar/rank-three or unsupported intrinsic target kinds reject at compile time.
 
-The checked fpm build passes 15 selected native programs: test_categorical_scores,
+Both fpm builds pass 15 selected native programs: test_categorical_scores,
 test_likelihood_ratios, test_subset_metrics, test_preprocessing_metrics,
 test_classification_metrics, test_bayes_neighbors, test_discriminant_dummy_kernel,
 test_calibrated, test_gp_classification, test_sgd_classifier, test_svm,
 test_linear_svm, test_weighted_classifiers, test_pipeline_supervised and test_search.
 The categorical_scores example, existing 192 core comparisons and score-shape
-diagnostic pass. Native tests check caller RNG and IEEE flags/halting modes,
+diagnostic pass in each profile. Native tests check caller RNG and IEEE flags/halting modes,
 including both initially raised and clear inexact flags. Input and IEEE-state
 identities are checked before result formatting in every accepted driver case.
 The other repository native programs are not executed in this batch.
-Optimized reference verification is pending.
 
-Checked verification passes 11,169 required groups:
+Checked and optimized verification each pass 11,169 required groups:
 
 | Suite | Groups |
 | --- | ---: |
@@ -9153,17 +9154,19 @@ Checked verification passes 11,169 required groups:
 | Existing core comparisons | 192 |
 
 All 889 expected source rejections, 22 new native diagnostics and the existing
-ellenv_score_shape diagnostic pass, for 912 rejection checks in the checked
-profile. Four additional explicit logical-label kappa probes also pass; these
+ellenv_score_shape diagnostic pass, for 912 rejection checks per profile.
+Four additional explicit logical-label kappa probes also pass per profile; these
 are supplementary checks outside the retained grid totals.
 
-The checked audit verifies 191 Fortran compilation fingerprints, complete field
+The final audit verifies 191 Fortran compilation fingerprints per profile, complete field
 and configuration inventories, independent source accepted/rejected IDs,
 source/driver/validator/executable manifests and report/license hashes. Other
 source modules match revision 4053872. sklearn_metrics differs only by the new
 import and removal of the three replaced function bodies. Root LICENSE and
-fpm.toml match that revision. Artifacts remain under ignored
-validation/results/categorical*, including categorical_partial_audit.json.
+fpm.toml match that revision. Checked/release configuration, comparison and
+rejection records match, including exact hexadecimal actual-score records.
+Native executable hashes differ between profiles. Artifacts remain under ignored
+validation/results/categorical*, including categorical_final_audit.json.
 
 Class discovery and lookups use stable merge sorting and binary search. Weighted
 COO accumulation and sanitization retain source order. Scalar sums follow NumPy
@@ -9179,8 +9182,9 @@ sklearn/NumPy/SciPy/OpenBLAS BSD attribution and licenses are retained. No publi
 estimator, dependency or extension algorithm is added. Source reference tools
 are Python 3.13.3, sklearn 1.6.1, NumPy 2.2.6 and SciPy 1.15.3. Builds use the
 verified private fpm 0.14.0, GNU Fortran 17.0.0 20260510 and four jobs. Checked
-flags are -fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow. The global
-fpm is unchanged.
+flags are -fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow; optimized
+verification uses --profile release. Both builds include --tests to refresh
+native binaries. The global fpm is unchanged.
 
 Inventory: 222 public core types, 167 source modules, 232 native programs,
 205 reference suites / 4,040,186 retained groups and 104 invalid registries /
