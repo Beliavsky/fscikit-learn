@@ -7367,3 +7367,54 @@ seed sequences from certified alternatives. A certificate replays every
 source random draw and admits a different seed only when it is among the
 source candidates and its complete finite updated-distance vector is exactly
 equal to the source-best vector. No tolerance on distinct objectives is used.
+
+## Probability log loss and D2 scoring
+
+`value = log_loss(y,prob,labels,sample_weight,normalize)` is exported by
+`sklearn_probability_metrics`, `sklearn_metrics` and `sklearn`. The existing
+leading `(y,prob,labels)` arguments are preserved. Targets may be integer or
+logical vectors, or dense integer/logical indicator matrices. Probabilities
+are real(dp) vectors or matrices. A probability vector or one-column matrix
+represents the positive-class probability and is expanded to `[1-p,p]`.
+A one-column target matrix is treated as a class vector.
+
+`labels(:)` is an optional integer class list. Classes are sorted and
+deduplicated, matching LabelBinarizer, rather than defining probability-column
+order from argument order. Without labels, classes are inferred from targets.
+At least two fitted classes are required even for single-class observed data.
+Unknown targets follow the baseline's LabelBinarizer behavior: binary queries
+map unknown labels to the negative class, while multiclass queries produce
+all-zero class rows. Dense indicator targets infer classes from their column
+count and do not accept a separate vector of labels. Matrices with more than
+two distinct integer values are multiclass multioutput and are rejected.
+The baseline's nonbinary two-valued indicator coefficients are retained.
+
+Finite predicted values are clipped to `[epsilon(1._dp),1-epsilon(1._dp)]`.
+Rows are not renormalized. This corrects the former native row-normalization
+behavior; probabilities outside [0,1] and rows whose sums differ from one
+follow baseline clipping. Python warning emission is not reproduced.
+Indicator loss sums all coefficient-weighted log probabilities in each row.
+All-zero indicator rows contribute zero, including the source's reduction
+sign convention. `normalize` defaults to true and returns a weighted or
+unweighted mean; false returns the corresponding sum. Normalized zero-total
+weights are rejected. Signed, zero and nonfinite sample weights follow
+source log-loss arithmetic through quiet IEEE composition.
+
+`value = d2_log_loss_score(y,prob,labels,sample_weight)` returns one minus
+the ratio of summed model log loss to summed empirical-frequency null loss.
+It supports the same probability shapes and integer/logical vector targets.
+The null frequencies use original observed classes and weighted counts.
+Scores can be negative; no force-finite replacement is applied. One sample
+returns NaN before class validation (after prediction/length checks); an empty
+prediction array is rejected. For at least two samples, sample weights must
+be finite. Zero null loss is rejected, and absent explicit classes can cause
+the baseline's null-probability width mismatch. Constant-class behavior with
+explicit binary labels follows the baseline's single-column null expansion.
+
+Installed sklearn 1.6.1 with NumPy 2.2.6 rejects multidimensional D2 targets
+in its bincount stage; the native matrix overload reproduces that diagnostic
+after model-loss validation, while retaining the one-sample NaN result.
+Both public sklearn functions reject sparse targets during parameter
+validation. Native CSR overloads reproduce that rejection. String labels,
+real-valued targets, alternate probability precisions and Array API backends
+are outside this binding. All accepted input arrays are preserved.

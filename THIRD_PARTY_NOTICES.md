@@ -1489,6 +1489,17 @@ canonical CSR adapters, callback adaptation, quiet IEEE composition, tests,
 example and reference harness are original MIT contributions. No dependency or
 public extension algorithm was added.
 
+## Probability log loss and D2 scoring (BSD)
+
+`src/sklearn_probability_metrics.f90` follows sklearn 1.6.1
+`metrics/_classification.py` log_loss and d2_log_loss_score, with class
+binarization conventions from `preprocessing/_label.py` and weighted reduction
+dispatch from `utils/_array_api.py`. Terms remain in
+`LICENSES/scikit-learn-COPYING`. Private pairwise sums follow NumPy 2.2.6
+reductions, with terms retained in `LICENSES/numpy-COPYING`. Native adapters,
+quiet IEEE arithmetic, tests, example and reference harness are original MIT
+contributions. No dependency or public extension algorithm was added.
+
 ## Weighted classification and multilabel summaries (BSD)
 
 `src/sklearn_classification_metrics.f90` adapts sklearn 1.6.1

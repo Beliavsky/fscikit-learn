@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and sixty-nine reference suites additionally check 3,254,641
+All types have native tests. One hundred and seventy reference suites additionally check 3,262,617
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -8977,3 +8977,26 @@ unrelated modules/tests were verified. Reports remain local under ignored
 `validation/results/kmeans_seeding*`, including
 `kmeans_seeding_final_audit.json`. MIT licensing and retained sklearn/NumPy
 BSD attribution continue; no dependency or public extension algorithm was added.
+
+## Probability log loss and D2 scoring (2026-11-24)
+
+Expanded `log_loss` with weights, unnormalized sums, binary probability
+vectors, one-column adapters and dense integer/logical indicators. Class
+ordering, unknown-label binarization, finite-value clipping and IEEE weighted
+reductions follow the installed baseline. The former unconditional native
+probability-row renormalization is removed. Added `d2_log_loss_score` for
+fraction of summed log loss explained by the empirical class-frequency null
+model, including weighting, single-sample NaN and baseline class/null quirks.
+
+Development validation passed 7,976 groups across 3,988 fixtures, plus 38
+source-matched diagnostics and 161 nonfinite source results. Coverage includes
+exhaustive small binary targets, five seeds, dense integer/logical vectors and
+indicators, sorted/deduplicated labels, unknown labels, zero/one/out-of-range
+probabilities, nonunit rows, signed/zero/nonfinite weights, overflow, signed
+zero reductions and wide indicator arrays. Matrix D2 and sparse-target
+rejections reproduce installed sklearn/NumPy behavior rather than silently
+flattening or accepting unsupported source inputs. Binding details are in API.md.
+
+Cumulative inventory: 222 public core types, 151 source modules, 194 native
+programs, 170 reference suites / 3,262,617 retained required groups, and 75
+invalid-input registries / 4,403 cases. These remain API subsets.

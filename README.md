@@ -33,6 +33,7 @@ fpm run --example synthetic_sample_generators
 fpm run --example bicluster_consensus
 fpm run --example balanced_class_weights
 fpm run --example weighted_kmeans_seeds
+fpm run --example probability_loss_scores
 fpm run --example model_learning_curves
 fpm run --example out_of_fold_predictions
 fpm run --example parameter_search
@@ -436,3 +437,8 @@ Public `kmeans_plusplus` supports weighted dense/CSR initialization, supplied
 squared norms and local trial controls. See
 [the initialization example](example/weighted_kmeans_seeds.f90) and
 [the API contract](docs/API.md#public-k-means-initialization).
+
+Probability scoring includes weighted/summed `log_loss` and
+`d2_log_loss_score`, with binary probability vectors and dense indicator
+targets. See [the example](example/probability_loss_scores.f90) and
+[the API contract](docs/API.md#probability-log-loss-and-d2-scoring).

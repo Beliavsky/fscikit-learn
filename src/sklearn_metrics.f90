@@ -1,4 +1,5 @@
 module sklearn_metrics
+  use sklearn_probability_metrics, only: log_loss,d2_log_loss_score
   use sklearn_bicluster_metrics, only: consensus_score,bicluster_similarity
   use sklearn_classification_metrics, only: precision_score,recall_score,f1_score,jaccard_score, &
     fbeta_score,precision_recall_fscore_support,multilabel_confusion_matrix
@@ -17,6 +18,7 @@ module sklearn_metrics
     average_precision_score,brier_score_loss
   implicit none
   private
+  public :: d2_log_loss_score
   public :: consensus_score,bicluster_similarity
   public :: normalized_mutual_info_score,adjusted_mutual_info_score,fowlkes_mallows_score,contingency_matrix
   public :: pair_confusion_matrix,entropy,expected_mutual_information,homogeneity_completeness_v_measure
@@ -172,24 +174,6 @@ contains
     observed=accuracy_score(y,p)
     call require(expected<1,'kappa undefined for a single constant class')
     v=(observed-expected)/(1-expected)
-  end function
-  real(dp) function log_loss(y,prob,labels) result(v)
-    integer, intent(in) :: y(:)
-    real(dp), intent(in) :: prob(:,:)
-    integer, intent(in), optional :: labels(:)
-    integer, allocatable :: classes(:)
-    integer :: i,k
-    real(dp) :: row(size(prob,2))
-    call check_xy(prob,size(y)); call require(all(prob>=0).and.all(prob<=1),'invalid probability')
-    classes=unique_labels(y); if(present(labels)) classes=labels
-    call require(size(classes)==size(prob,2),'probability class count mismatch')
-    v=0
-    do i=1,size(y)
-      k=label_index(classes,y(i)); call require(k>0,'unknown log_loss target label')
-      row=max(epsilon(1._dp),min(1-epsilon(1._dp),prob(i,:)))
-      row=row/sum(row); v=v-log(row(k))
-    end do
-    v=v/size(y)
   end function
   function pairwise_distances(x,y,metric,p) result(d)
     real(dp), intent(in) :: x(:,:),y(:,:)
