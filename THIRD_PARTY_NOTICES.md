@@ -1718,3 +1718,28 @@ as a reference; no SciPy source was copied. Existing sklearn/NumPy BSD notices
 and the SciFort SVD MIT notice remain under LICENSES/. Native CSR selection,
 row callback adapters, tests and reference harness are MIT integration.
 No dependency or public extension algorithm was added.
+
+## PolynomialCountSketch CSR maps and prime FFT butterflies (BSD / MIT)
+
+src/sklearn_polynomial_count_sketch.f90 follows sklearn 1.6.1
+kernel_approximation.py PolynomialCountSketch sparse CSC column traversal,
+hash initialization and live controls. The native CSR adapter groups rows
+without a full input/count-tensor dense copy. Fused complex products follow
+NumPy 2.2.6 numpy/_core/src/umath/loops_arithm_fp.dispatch.c.src simd_cmul_f64;
+existing NumPy/sklearn BSD notices remain under LICENSES/.
+
+The small-prime paired butterflies in src/sklearn_count_sketch_fft.f90 adapt
+pocketfft cfftp pass3/pass5/pass7/pass11/passg single-factor formulas to real
+and imaginary Fortran arrays. Source revision:
+[scipy/pocketfft 9367142748fcc9696a1c9e5a99b76ed9897c9daa](https://github.com/scipy/pocketfft/blob/9367142748fcc9696a1c9e5a99b76ed9897c9daa/pocketfft_hdronly.h),
+as pinned by SciPy v1.15.3. Original header SHA256:
+50f4ddbe60432325f560c706b6f1c49f9e0949fc7f20ae6499f2299e37d9790c.
+Copyright (C) 2010-2022 Max-Planck-Society; (C) 2019-2020 Peter Bell.
+The complete upstream notice is LICENSES/pocketfft-BSD-3-Clause.txt; source
+copyright and combined MIT AND BSD-3-Clause identifier are retained. Existing
+SciFort FFT MIT attribution remains. Changes specialize small-prime single
+stages, explicit component arithmetic, scalar inverse scaling and exact
+unity/quarter rotations. No C++ code or external FFT dependency is linked.
+Native CSR methods, capacity guards, exception-environment integration,
+example and reference harness are MIT integration. No extension algorithm
+was added.

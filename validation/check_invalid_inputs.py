@@ -943,7 +943,7 @@ CASES = {
     "pcs_hash_shape": "PolynomialCountSketch hash shape mismatch",
     "pcs_fft_zero": "CountSketch FFT length must be positive",
     "pcs_fft_overflow": "CountSketch FFT work size overflow",
-    "pcs_transform_overflow": "CountSketch FFT work size overflow",
+    "pcs_transform_overflow": "PolynomialCountSketch output size overflow",
     "pcs_fft_uninitialized": "CountSketch FFT plan length mismatch",
     "pcs_fft_forward_width": "CountSketch FFT plan length mismatch",
     "pcs_fft_inverse_width": "CountSketch FFT plan length mismatch",

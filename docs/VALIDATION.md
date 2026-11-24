@@ -8114,3 +8114,53 @@ checksum-verified private fpm 0.14.0; the global fpm was unchanged. Artifacts
 remain under ignored validation/results/nystroem_csr*, including
 nystroem_csr_final_audit.json. Implementation commit: 64046a8. MIT licensing
 and retained upstream notices continue; no dependency or extension was added.
+
+## PolynomialCountSketch CSR maps and IEEE Fourier products
+
+PolynomialCountSketch now accepts csr_matrix in fit, transform and
+fit_transform; any dense/CSR fit-query combination produces dense features.
+Fits share the existing NumPy-compatible seeded hash initialization. Sparse
+transforms stably group each row by feature, scale/sign stored entries before
+summing duplicates, and add feature columns to hash bins in source order.
+Neither the input matrix nor the full count-sketch tensor is densified: output
+storage is n_samples*n_components, with a per-row degree*n_components scratch
+matrix plus a sorted CSR copy. Input CSR arrays and the intrinsic RNG remain
+unchanged. Dense and CSR refits replace both hash arrays and fitted dimensions.
+
+The source live gamma, nonzero coef0, reduced degree and enlarged output-width
+paths remain supported, while n_features_out_ retains fitted metadata. Existing
+native finite/nonnegative gamma, finite coef0, positive integer controls and
+fitted hash dimension/range guards remain in force. Source accepts negative
+coef0 and returns NaNs; the native map preserves that result. Integer capacity
+guards now check output and per-row scratch sizes before allocation. The old
+pcs_transform_overflow diagnostic now identifies the earlier output-size guard.
+
+Finite inputs can overflow count sums or Fourier products. The transform
+quietly evaluates those Fourier operations and restores the caller's invalid,
+divide-by-zero and overflow flags and halting modes. Complex products use the
+installed NumPy 2.2.6 contiguous fused arithmetic. Inverse scaling separates
+real and imaginary components; radix-2 unity/quarter rotations avoid spurious
+0*Inf contamination. Small prime transforms through length 31 use paired
+butterflies adapted to Fortran from the pocketfft revision shipped with SciPy
+1.15.3, with retained BSD licensing. Larger lengths retain the existing
+SciFort-derived radix-2/Bluestein path. No C++ or runtime dependency was added.
+
+The new reference suite covers 2,944 fixtures / 26,496 required groups and
+98 diagnostics: 92 sklearn estimator errors, three SciPy CSR structural checks
+and three native integer-capacity guards. It checks five seeds, all four
+fit/query representations, canonical/unsorted/duplicate/cancelling storage,
+empty stored rows, constant/zero/tiny/huge maps, live controls, power-of-two and
+prime lengths, refits, and all 63,736 nonfinite source values. Component counts
+include 1, 2, 3, 4, 5, 7, 8, 11, 13, 16, 17, 19, 23, 29, 31, 67, 128, 257
+and 1009; nonfinite fixtures cover degrees one and two at counts through 31. Active hashes,
+metadata, input identities and refit hashes compare exactly; finite features
+use rtol=atol=3e-8, with exact NaN/signed-infinity masks. Native IEEE environment
+checks are classified separately from sklearn comparisons. Native tests also
+compare small-prime FFTs with an independent direct DFT and fit a
+100,000-by-100,000 sparse matrix whose dense input would require 80 GB.
+
+Inventory: 222 public core types, 155 source modules, 210 native programs,
+186 reference suites / 3,754,052 retained groups and 91 invalid registries /
+4,946 cases. No public extension algorithm was added. Project integration
+remains MIT licensed; the new pocketfft BSD notice joins retained sklearn,
+NumPy and SciFort notices. Canonical profile verification is recorded below.

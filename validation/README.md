@@ -6723,3 +6723,12 @@ matrix-norm-scaled roundoff bound to handle null-space cancellation. Active CSR
 storage is exact; source trailing unused capacity is excluded. Native immutable
 inputs and refit identity checks are labeled separately; source Laplacian input
 mutation is recorded. See docs/VALIDATION.md for the precise scope and profiles.
+
+
+Run `compare_polynomial_csr.py --executable <reference_polynomial_csr_driver.exe>`
+for the dense/CSR TensorSketch suite. It requires 26,496 groups / 2,944 fixtures
+and 98 diagnostics, including 63,736 nonfinite source values. Hashes, shape,
+metadata, input/RNG identity and refit hashes are exact; numerical features use
+3e-8 tolerances with exact NaN and signed-infinity masks. Six native exception
+flags/halting checks form a separately labeled environment group per fixture.
+The original dense PolynomialCountSketch reference suite remains in place.

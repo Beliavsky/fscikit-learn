@@ -7879,3 +7879,34 @@ precomputed fit/query is explicitly rejected: source fitting rejects sparse
 SVD input, while source sparse queries after a dense precomputed fit return
 object arrays outside this numeric API. Canonicalization and duplicate/tiny
 norm details are documented in COVERAGE.md.
+
+## PolynomialCountSketch CSR inputs
+
+fit, transform and fit_transform now overload dense real64 arrays and
+csr_matrix. Transform returns dense arrays for either representation. Fitting
+only records feature width and seeded hashes; neither fit nor transform makes
+a dense copy of the full CSR input. A stable CSR copy preserves source feature
+order while grouping duplicates. Scaling and sign multiplication precede
+duplicate summation, which can differ from scaling a pre-densified row.
+
+```fortran
+use sklearn, only: dp, polynomial_count_sketch
+use sklearn_sparse, only: csr_matrix, csr_from_arrays
+type(polynomial_count_sketch) :: model
+type(csr_matrix) :: x
+real(dp), allocatable :: z(:,:)
+x=csr_from_arrays(2,3,[1,3,4],[1,3,2],[1._dp,2._dp,-1._dp])
+model%degree=3;model%n_components=17;model%random_state=42
+z=model%fit_transform(x)
+```
+
+The existing positive integer controls, finite nonnegative gamma and finite
+coef0 guards apply to both representations. Transform uses live controls with
+fitted hashes: degree cannot exceed fitted rows, constant-column presence must
+match the fitted hash width, and hash buckets must fit the current component
+count. n_features_out_ remains the fitted count. Negative coef0 maps to NaNs as
+in source. Overflowing finite input maps can contain NaNs or signed infinities;
+the Fourier boundary restores invalid/divide-by-zero/overflow exception flags
+and halting modes. Source nonfinite results depend on NumPy/SciPy arithmetic
+and FFT dispatch; tested lengths and the installed reference versions are
+recorded in COVERAGE.md. See [the CSR example](../example/polynomial_csr_features.f90).

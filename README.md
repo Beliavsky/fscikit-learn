@@ -493,3 +493,8 @@ See [the example](example/additive_csr_features.f90) and
 Nystroem also accepts CSR fits and mixed dense/CSR queries, retaining sparse
 landmarks while emitting dense features. See the [CSR API](docs/API.md#nystroem-csr-inputs)
 and [coverage details](docs/COVERAGE.md#nystroem-csr-landmarks-and-mixed-queries).
+
+PolynomialCountSketch accepts CSR fitting and mixed dense/CSR queries, with
+seeded hashes, sparse duplicate arithmetic and dense TensorSketch output.
+See the [CSR example](example/polynomial_csr_features.f90) and
+[API contract](docs/API.md#polynomialcountsketch-csr-inputs).
