@@ -7108,3 +7108,61 @@ preserves overflowing margin/gain behavior under checked execution. Labels
 are native integers; string labels, sparse inputs and Array API backends are
 unsupported. Top-k saturation returns the source result without a Python
 warning.
+
+## Additional pairwise distances and kernels
+
+`cosine_distances(x, y)`, `haversine_distances(x, y)` and
+`laplacian_kernel(x, y, gamma)` return allocatable real(dp) cross matrices
+`[size(x,1),size(y,1)]`. Omit y for self measures. Dense real(dp) and canonical
+native CSR inputs can be combined. Explicit y is treated as cross data even
+when it aliases x; use omitted y for self-diagonal semantics. Cosine distances
+are clipped to [0,2]. Zero cross vectors have cosine distance one, while
+omitted-y self diagonals are zero. Haversine takes latitude/longitude in
+radians, requires exactly two features and returns angular distances; no Earth
+radius scaling or antipodal clipping is applied, as in the source.
+
+Laplacian gamma defaults to 1/n_features and must be finite and strictly
+positive. `additive_chi2_kernel(x, y)` and `chi2_kernel(x, y, gamma)` accept dense
+nonnegative matrices only. Additive chi-squared returns the negative sum of
+squared feature differences divided by feature sums, skipping zero sums.
+Chi-squared exponentiates this value with gamma, default 1, finite and strictly
+positive. Their y arguments are optional for self kernels.
+
+`paired_euclidean_distances(x,y)`, `paired_manhattan_distances(x,y)` and
+`paired_cosine_distances(x,y)` return one distance per aligned row. Both
+matrices must have the same shape. Dense/CSR combinations are supported.
+Paired cosine is half the squared Euclidean distance between normalized rows,
+so a zero row paired with a unit row has distance .5. Dense tiny norms below
+10*epsilon are left unscaled, while CSR norms only skip exactly zero, preserving
+the source's different normalization paths. The same distinction applies to
+cosine_distances for mixed representations.
+
+`paired_distances(x,y,metric)` supports dense arrays and metric names
+'euclidean'/'l2', 'manhattan'/'cityblock'/'l1', and 'cosine'; the default is
+'euclidean'. A Fortran procedure argument can instead compute a scalar real(dp)
+distance from two real(dp) row vectors. The dispatcher is dense-only, matching
+the baseline's public parameter validation; use the standalone paired functions
+for CSR inputs. CSR adapters require sorted, unique column indices and finite
+data, allow explicit zeros, and currently use dense workspaces. Noncanonical
+CSR and Array API backends are unsupported.
+
+`nan_euclidean_distances(x, y, squared, missing_values)` accepts dense arrays.
+Squared defaults false and missing_values defaults to quiet NaN. A NaN marker
+allows NaN entries but rejects infinities. Other real markers require finite
+input, including when the marker itself is infinity. Missing coordinates are
+excluded and the squared distance is weighted by n_features/observed_overlap;
+no overlap returns quiet NaN, including an entirely missing self row. Inputs
+are preserved; Python's mutating copy=false option is not exposed.
+
+NaN-aware distances follow the source's norm/dot-product and missing-mask
+correction algebra. Large common offsets can cause cancellation, and different
+reduction orders can differ numerically from NumPy/BLAS. Four large-offset
+fixtures are separately certified against direct observed-coordinate distances
+using explicit floating-point roundoff bounds; they do not claim tight source
+value parity. All other reference groups use 3e-12 absolute/relative tolerance.
+Quiet IEEE composition preserves source arithmetic NaNs/infinities from finite
+extreme values under checked execution.
+
+All functions are exported by `sklearn_pairwise_measures`, `sklearn_metrics`
+and `sklearn`. Inputs must be nonempty and feature-compatible, and finite
+except for the permitted missing-data entries.

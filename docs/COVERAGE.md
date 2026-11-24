@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and sixty-four reference suites additionally check 2,789,850
+All types have native tests. One hundred and sixty-five reference suites additionally check 2,806,579
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -8705,3 +8705,28 @@ were verified as well. Reports remain local under ignored
 `validation/results/score_rank*`, including `score_ranking_final_audit.json`.
 MIT licensing and retained sklearn BSD attribution continue; no dependency or
 public extension algorithm was introduced.
+
+## Missing-aware, paired and angular distances and kernels (2026-11-23)
+
+Added cosine_distances, nan_euclidean_distances, haversine_distances,
+paired_euclidean_distances, paired_manhattan_distances, paired_cosine_distances,
+paired_distances, laplacian_kernel, additive_chi2_kernel and chi2_kernel.
+Supported dense/CSR combinations preserve type-specific normalization; the
+paired dispatcher and callback use dense inputs as in the baseline. Dense
+workspaces, canonical CSR guards, self/cross adaptation, missing markers,
+scalar gamma controls and numerical limitations are documented in API.md.
+
+Development verification passed 16,729 required groups over 1,159 fixtures
+and 26 isolated diagnostics. Of these, 16,709 groups use direct sklearn
+comparisons with 3e-12 tolerances; 20 groups from four large-offset NaN-distance
+fixtures instead check both source and native algebra against direct-coordinate
+roundoff bounds. The maximum bound ratio was about .00278; source/native
+squared distances can differ substantially in these ill-conditioned cases.
+The fixture set covers five seeds, dense/CSR/mixed inputs, zero/tiny/huge norms,
+missing/no-overlap rows, NaN/finite/infinite marker arguments, paired aliases
+and callbacks, antipodal/polar coordinates, histogram zeros and widths up to
+100,000 features. All 33,902 nonfinite source values match.
+
+Cumulative inventory: 222 public core types, 146 source modules, 189 native
+programs, 165 reference suites / 2,806,579 retained required groups, and 70
+invalid-input registries / 4,240 cases. These remain API subsets.

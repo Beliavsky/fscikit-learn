@@ -1476,3 +1476,15 @@ conventions. Sklearn BSD terms remain in `LICENSES/scikit-learn-COPYING`.
 Native grouped merge sorting, linear true-class rank counting, label lookup,
 rank/type adapters, quiet IEEE composition, tests, example and reference harness
 are original MIT contributions. No dependency or public extension was added.
+
+## Additional pairwise measures and kernels (BSD)
+
+`src/sklearn_pairwise_measures.f90` follows sklearn 1.6.1
+`metrics/pairwise.py` cosine, missing-aware and paired distances, Laplacian and
+chi-squared kernels, plus `metrics/_pairwise_fast.pyx` chi-squared accumulation
+and `metrics/_dist_metrics.pyx.tp` haversine formulas. Dense and CSR normalization
+conventions follow sklearn preprocessing's normalize and sparse row-normalization
+paths. Terms remain in `LICENSES/scikit-learn-COPYING`. Native interfaces,
+canonical CSR adapters, callback adaptation, quiet IEEE composition, tests,
+example and reference harness are original MIT contributions. No dependency or
+public extension algorithm was added.
