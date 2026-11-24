@@ -578,7 +578,7 @@ See `COVERAGE.md` for supported kernels, weights and nu restrictions. Run the
 ## Power transforms
 
 ```fortran
-use sklearn_preprocessing, only: power_transformer
+use sklearn_preprocessing, only: power_transformer, power_transform
 use sklearn_common, only: dp
 implicit none
 type(power_transformer) :: power
@@ -594,8 +594,27 @@ restored=power%inverse_transform(z)
 
 Fit only on training rows, then call `transform` for new rows. NaNs pass through;
 all-missing columns fail. Box-Cox also rejects nonpositive and constant training
-columns. `mean_` and `scale_` hold transformed training moments when
-standardizing, or zero/one otherwise. See `example/power_transforms.f90`.
+columns. The free `power_transform(x, method, standardize)` returns an owned
+real64 matrix and defaults to Yeo-Johnson with standardization. Both APIs accept
+dense matrices; sparse input, Python copy/in-place controls and feature names
+are outside this interface.
+
+Queries use the live `method` and `standardize` options. A standardized fit
+caches a StandardScaler; a later unstandardized fit retains that cache, matching
+sklearn. Enabling standardization without a cached scaler raises a diagnostic.
+`mean_` and `scale_` expose copies of the cached scaler moments: initially
+unallocated with standardize=false, retained across such refits, and replaced
+by standardized fits. Editing these copies does not alter the private scaler.
+`n_features_in_` records the latest fit width.
+
+Inverse maps retain source NaN/infinity outcomes outside the real domain or at
+overflow boundaries. Forward standardized maps reject infinities through the
+scaler. Fitting a constant Yeo-Johnson column skips the power operation in
+fit_transform; a subsequent transform still evaluates the power formula, so
+very small constants can round differently. Box-Cox likelihood uses a stable
+log-variance calculation and Brent optimization; extreme fitted-power bounds
+use a native bisection equivalent of SciPy's maximum-transform constraint.
+See `example/power_transforms.f90`.
 
 ## Discretization
 

@@ -533,3 +533,9 @@ SimpleImputer supports numeric missing markers, empty-feature rules, dense/CSR
 maps, callable statistics, indicators, names and dense inverse reconstruction.
 See the [example](example/simple_imputer.f90) and
 [API contract](docs/API.md#simpleimputer-numeric-missing-values-csr-and-indicators).
+
+
+PowerTransformer and the free `power_transform` provide dense Yeo-Johnson and
+Box-Cox maps with source likelihood optimization, live query controls and
+inverse NaN/infinity boundaries. See the
+[example](example/power_transforms.f90) and [API contract](docs/API.md#power-transforms).

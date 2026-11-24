@@ -44,12 +44,21 @@ program test_power_transform
       call require(abs(missing(i,j)-back(i,j))<1.e-10_dp,'observed value roundtrip')
     end do
   end do
-  ! Fitted settings stay attached to the learned state until another fit.
-  model%method='box-cox'; model%standardize=.false.; again=model%transform(missing)
+  ! Source queries use the live standardize/method options, not fitted copies.
+  model%standardize=.false.;again=model%transform(missing)
   do j=1,3
     do i=1,80
       if(ieee_is_nan(z(i,j))) cycle
-      call require(z(i,j)==again(i,j),'power fitted state retained')
+      call require(abs(again(i,j)-(z(i,j)*model%scale_(j)+model%mean_(j)))<1.e-10_dp, &
+        'power live standardization toggle')
+    end do
+  end do
+  model%method='box-cox';model%lambdas_=1
+  again=model%transform(abs(missing)+1)
+  do j=1,3
+    do i=1,80
+      if(ieee_is_nan(missing(i,j))) cycle
+      call require(abs(again(i,j)-abs(missing(i,j)))<1.e-10_dp,'power live method toggle')
     end do
   end do
   print *, 'PowerTransformer tests passed'

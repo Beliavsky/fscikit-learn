@@ -1,5 +1,6 @@
 """PowerTransformer reference checks against the installed sklearn baseline."""
 from pathlib import Path
+import argparse,hashlib
 import json
 import subprocess
 import numpy as np
@@ -11,6 +12,10 @@ RESULTS = ROOT / "validation" / "results"
 
 
 def main():
+    ap=argparse.ArgumentParser();ap.add_argument('--executable',type=Path);ap.add_argument('--profile',default='development');ap.add_argument('--report',type=Path);args=ap.parse_args()
+    paths=[Path(__file__),ROOT/'src/sklearn_power_transform.f90',ROOT/'app/reference_power_transform_driver.f90']
+    if args.executable:paths.append(args.executable)
+    sha=lambda p:hashlib.sha256(p.read_bytes()).hexdigest();hashes={str(p):sha(p) for p in paths}
     RESULTS.mkdir(exist_ok=True)
     checks = []
     for seed, n, p in ((7, 45, 3), (42, 60, 4), (2026, 80, 5), (91, 70, 3), (92, 70, 3)):
@@ -20,12 +25,12 @@ def main():
             x = rng.lognormal(mean=-.3, sigma=.9, size=(n, p))
             if seed == 92:
                 x = -x
-        data, output = RESULTS/f"power_{seed}.txt", RESULTS/f"power_actual_{seed}.txt"
+        data, output = RESULTS/f"power_{args.profile}_{seed}.txt", RESULTS/f"power_actual_{args.profile}_{seed}.txt"
         with data.open("w") as stream:
             stream.write(f"{n} {p}\n")
             np.savetxt(stream, x, fmt="%.17g")
-        subprocess.run(["fpm", "run", "--target", "reference_power_transform_driver", "--", str(data), str(output)],
-                       cwd=ROOT, check=True)
+        command=([str(args.executable)] if args.executable else ["fpm","run","--target","reference_power_transform_driver","--"])
+        subprocess.run(command+[str(data),str(output)],cwd=ROOT,check=True)
         actual = {}
         for line in output.read_text().splitlines():
             name, *values = line.split()
@@ -51,8 +56,9 @@ def main():
                                        atol=3e-6, rtol=3e-6, equal_nan=True, err_msg=f"{seed} {name}")
             checks.append(dict(seed=seed, api=name, passed=True))
         print(f"PASS PowerTransformer seed={seed}", flush=True)
-    (RESULTS/"power_transform_report.json").write_text(json.dumps(
-        dict(sklearn_version=sklearn.__version__, checks=checks), indent=2)+"\n")
+    assert hashes=={str(p):sha(p) for p in paths}
+    (args.report or RESULTS/"power_transform_report.json").write_text(json.dumps(
+        dict(profile=args.profile,hashes=hashes,sklearn_version=sklearn.__version__, checks=checks), indent=2)+"\n")
     print(f"{len(checks)} power-transform comparisons passed against sklearn {sklearn.__version__}")
 
 

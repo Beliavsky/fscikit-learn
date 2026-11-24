@@ -16,7 +16,7 @@ module sklearn_preprocessing
   use sklearn_knn_impute, only: knn_imputer,missing_indicator
   use sklearn_common
   use sklearn_quantile_transform, only: quantile_transformer,quantile_transform
-  use sklearn_power_transform, only: power_transformer
+  use sklearn_power_transform, only: power_transformer,power_transform
   use sklearn_discretization, only: kbins_discretizer
   use, intrinsic :: ieee_arithmetic, only: ieee_is_nan
   implicit none
@@ -30,6 +30,7 @@ module sklearn_preprocessing
   public :: label_binarizer,multi_label_binarizer,label_set
   public :: spline_transformer
   public :: knn_imputer,missing_indicator
+  public :: power_transform
   public :: quantile_transform
   public :: power_transformer,kbins_discretizer,quantile_transformer
   public :: robust_scale

@@ -1830,3 +1830,17 @@ LICENSES/. Original native typed callbacks, owned CSR slot adapters, compact
 zero statistics, metadata/feature names, quiet arithmetic integration and graph
 adapters, tests and examples are MIT integration. No dependency or public
 extension algorithm was added.
+
+
+## PowerTransformer, free power_transform and scalar boundaries (BSD / MIT)
+
+src/sklearn_power_transform.f90 follows installed sklearn 1.6.1
+preprocessing/_data.py PowerTransformer/power_transform, SciPy 1.15.3
+stats/_morestats.py likelihood/log-variance and optimize/_optimize.py
+bracket/Brent routines, and NumPy 2.2.6 pairwise reduction behavior.
+Box-Cox scalar kernels follow SciPy 1.15.3 special/_boxcox.pxd:
+https://github.com/scipy/scipy/blob/v1.15.3/scipy/special/_boxcox.pxd
+Existing sklearn, SciPy and NumPy BSD notices remain under LICENSES/.
+Native owned interfaces, C math/IEEE policy preservation, scaler adapters,
+maximum-transform bisection, reference harness and tests are MIT integration.
+No dependency or extension algorithm was added.

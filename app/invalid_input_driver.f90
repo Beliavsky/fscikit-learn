@@ -6420,7 +6420,7 @@ program invalid_input_driver
   case('power_features'); call power%fit(x); z=power%transform(x(:,1:1))
   case('power_inverse_features'); call power%fit(x); z=power%inverse_transform(x(:,1:1))
   case('power_domain')
-    power%standardize=.false.; call power%fit(x); power%lambdas_=-1; z=power%inverse_transform(x)
+    power%standardize=.false.; call power%fit(x); power%standardize=.true.; z=power%transform(x)
   case('power_query_positive')
     power%method='box-cox'; x(:,1)=[1._dp,2._dp,3._dp,4._dp]; x(:,2)=x(:,1)
     call power%fit(x); x(1,1)=-1; z=power%transform(x)
