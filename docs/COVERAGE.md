@@ -8515,3 +8515,32 @@ diagonal normalization and population-count rounding ties.
 Cumulative inventory: 222 public core types, 142 source modules, 185 native
 programs, 161 reference suites / 2,691,864 retained required groups, and 66
 invalid-input registries / 4,141 cases. These remain API subsets.
+
+Final structured-generator verification (2026-11-23): four-job fpm 0.14.0
+builds compiled the package in runtime-checked
+(`-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow`) and optimized
+release profiles. Each executed eight focused native programs: structured
+generators, dictionary/SparsePCA, mini-batch dictionary/SparsePCA, covariance,
+bicluster generators, datasets/Gaussian process, seeded and classification
+generators. All passed; the other 177 native programs were not executed in
+this batch. Three reference suites passed 9,625 required groups per profile:
+8,345 new structured-generator, 672 seeded sample-generator and 608
+classification-generator groups. All 71 diagnostics passed, including 17 new
+cases.
+
+Sparse codes, support counts, dimensions, repeatability and dense/CSR
+consistency matched exactly. Maximum numerical errors by profile are recorded
+in the local audit; signals, dictionary normalization and SPD arithmetic stay
+within the documented reference tolerance of 3e-13. The facade example
+generated 40x30 signals from 12 dictionary atoms and three active coefficients
+per sample. Existing sparse-coder reconstruction error was 1.39e-15 in both
+profiles; generated 12x12 CSR precision matrices had unit diagonals.
+
+The combined audit verified 158 compiled source units per profile through
+dependency-aware fingerprints, complete reference field inventories, installed
+sklearn/SciPy and native source hashes, executable/validator hashes, the private
+fpm checksum and unchanged unrelated modules/tests. Reports remain local in
+ignored `validation/results/structured_*`, including
+`structured_datasets_final_audit.json`. MIT licensing and retained
+sklearn/SciPy/NumPy BSD attribution continue; no dependency or public extension
+was introduced.
