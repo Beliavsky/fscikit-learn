@@ -6,6 +6,7 @@ module sklearn_datasets
   use sklearn_ieee_math, only: ieee_product,ieee_difference
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite,ieee_is_nan
   use, intrinsic :: iso_fortran_env, only: int64
+  use sklearn_structured_datasets, only: make_sparse_coded_signal,make_sparse_spd_matrix
   use sklearn_bicluster_datasets, only: make_biclusters,make_checkerboard
   use sklearn_multilabel_datasets, only: make_multilabel_classification
   use sklearn_regression_datasets, only: make_regression,make_low_rank_matrix
@@ -15,6 +16,7 @@ module sklearn_datasets
   implicit none
   private
   public :: make_blobs,make_regression,make_low_rank_matrix,make_moons,make_circles
+  public :: make_sparse_coded_signal,make_sparse_spd_matrix
   public :: make_biclusters,make_checkerboard
   public :: make_multilabel_classification
   public :: make_classification,make_hastie_10_2,classification_dataset_options

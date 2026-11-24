@@ -1429,3 +1429,16 @@ and its legacy random conventions. Existing terms in
 and `LICENSES/numpy-COPYING` apply. Native interfaces, guards, logical masks,
 tests, example and reference harness are original MIT contributions.
 No dependency or extension algorithm was added.
+
+## Dictionary signals and sparse SPD generation (BSD)
+
+`src/sklearn_structured_datasets.f90` follows sklearn 1.6.1
+`datasets/_samples_generator.py` make_sparse_coded_signal and
+make_sparse_spd_matrix, including source draw/transposition ordering. It follows
+SciPy 1.15.3 `sparse/_construct.py` _random for population selection,
+round-half-to-even counts and Fortran-order sparse coordinates, and the existing
+NumPy RandomState permutation/uniform/normal contracts. Terms remain in
+`LICENSES/scikit-learn-COPYING`, `LICENSES/scipy-COPYING` and the retained
+`LICENSES/numpy-*` files. Native interfaces, guards, dense/CSR adapters, tests,
+example and reference harness are original MIT contributions. No new dependency
+or public extension was introduced.

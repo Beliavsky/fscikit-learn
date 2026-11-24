@@ -6944,3 +6944,33 @@ Dimensions must be nonnegative and cluster counts positive. Bounds and noise
 must be finite, noise nonnegative and maxval at least minval, with a finite
 range. Checkerboard block counts must fit default integer indexing.
 Large finite noise may produce quiet IEEE infinities, matching source output.
+
+## Dictionary signal and sparse SPD generators
+
+`call make_sparse_coded_signal(n_samples, n_components, n_features,
+n_nonzero_coefs, data, dictionary, code, random_state)` returns allocatable
+real(dp) matrices of shape `[n_samples,n_features]`,
+`[n_components,n_features]` and `[n_samples,n_components]`. Dictionary rows
+have unit norm, each code row has the requested number of nonzero coefficients,
+and `data=matmul(code,dictionary)`. All dimensions must be positive, with
+`1 <= n_nonzero_coefs <= n_components`. Unlike Python's squeeze return, all
+singleton axes retain rank two.
+
+`call make_sparse_spd_matrix(matrix, n_dim, alpha, norm_diag, smallest_coef,
+largest_coef, random_state)` accepts an allocatable real(dp) matrix or
+`csr_matrix` output. Defaults are n_dim=1, alpha=.95, norm_diag=false,
+smallest_coef=.1, largest_coef=.9. Dimensions must be positive and n_dim squared
+must fit default integer indexing. Alpha and both coefficients must be finite
+and in [0,1]; reversed coefficient bounds follow the source uniform draw.
+Alpha controls factor sparsity, not final matrix sparsity. Norm_diag scales
+the diagonal to one. Dense workspaces and a full population permutation are
+used, including for CSR output. CSR stores numerical nonzeros and omits explicit
+zeros; other Python sparse formats are unsupported. Extreme dense factors can
+produce matrices too ill-conditioned for numerical positive-definiteness
+certificates, as in the source.
+
+Both routines are exported through `sklearn_datasets` and `sklearn`. Integer
+random_state defaults to zero and reproduces the sklearn 1.6.1 / NumPy 2.2.6
+legacy stream, with SciPy 1.15.3 sparse-random selection for SPD generation.
+Python None and RandomState objects are unsupported. The intrinsic Fortran
+random stream is untouched.

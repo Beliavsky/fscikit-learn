@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and fifty-nine reference suites additionally check 2,672,419
+All types have native tests. One hundred and sixty-one reference suites additionally check 2,691,864
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -71,7 +71,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | gaussian_process | `gaussian_process_regressor`, `gaussian_process_classifier` | Configurable covariance expressions or legacy RBF controls; anisotropy, Matern/RQ/periodic/dot/constant/white kernels and sums/products/powers; scalar/vector-alpha Cholesky regression, independent multiple targets, likelihood gradients and opt-in bounded kernel fitting; Laplace binary/OVR classification with optional independent kernel fitting, binary likelihood gradients and warm starts |
 | covariance | `empirical_covariance`, `shrunk_covariance`, `ledoit_wolf`, `oas`, `graphical_lasso`, `graphical_lasso_cv`, `min_cov_det`, `elliptic_envelope`; `fast_mcd` | Population covariance, pseudoinverse precision, squared Mahalanobis distance, likelihood, Frobenius/spectral covariance error; L1-penalized sparse precision via block coordinate descent and refined cross-validation; FastMCD robust covariance and elliptic outlier detection |
 | calibration | `calibrated_classifier_cv`; `calibration_curve` | Sigmoid/isotonic CV ensembles, out-of-fold calibration and prefit calibration with logistic, Gaussian NB or KNN bases; uniform/quantile reliability bins |
-| datasets | `make_classification`, `make_multilabel_classification`, `make_hastie_10_2`, `make_blobs`, `make_regression`, `make_low_rank_matrix`, `make_moons`, `make_circles`, `make_friedman1/2/3`, `make_sparse_uncorrelated`, `make_s_curve`, `make_swiss_roll`, `make_gaussian_quantiles` | Native synthetic generators with seeded legacy NumPy draws; scalar/joint regression, low-rank profiles, unequal blob/curve counts, per-cluster blob scales and center outputs; no bundled real-world datasets |
+| datasets | `make_classification`, `make_multilabel_classification`, `make_sparse_coded_signal`, `make_sparse_spd_matrix`, `make_biclusters`, `make_checkerboard`, `make_hastie_10_2`, `make_blobs`, `make_regression`, `make_low_rank_matrix`, `make_moons`, `make_circles`, `make_friedman1/2/3`, `make_sparse_uncorrelated`, `make_s_curve`, `make_swiss_roll`, `make_gaussian_quantiles` | Native synthetic generators with seeded legacy NumPy draws; scalar/joint regression, low-rank profiles, unequal blob/curve counts, per-cluster blob scales and center outputs; no bundled real-world datasets |
 
 ## Metrics and kernels
 
@@ -8496,3 +8496,22 @@ fpm checksum and unchanged unrelated modules/tests. Reports remain local in
 ignored `validation/results/bicluster_*`, including
 `bicluster_datasets_final_audit.json`. MIT licensing and retained sklearn/NumPy
 BSD attribution continue; no dependency or extension algorithm was added.
+
+## Sparse coded signal and sparse SPD generators (2026-11-23)
+
+Added sklearn make_sparse_coded_signal with normalized dictionaries, exact
+code supports and seeded Gaussian draws; make_sparse_spd_matrix supports dense
+and CSR output, factor sparsity, coefficient intervals and diagonal
+normalization. Uses source-compatible full population permutations and
+round-half-to-even selected counts. Rank-two singleton outputs, dense workspace
+requirements, supported sparse format and integer-seed limits are in API.md.
+
+Development comparisons against installed sklearn 1.6.1 / NumPy 2.2.6 /
+SciPy 1.15.3 passed 8,345 required groups over 1,625 fixtures and 17 diagnostic
+cases. Cases cover five seeds, singleton axes, full/sparse code supports,
+long dictionary atoms, endpoint densities, reversed/equal coefficient bounds,
+diagonal normalization and population-count rounding ties.
+
+Cumulative inventory: 222 public core types, 142 source modules, 185 native
+programs, 161 reference suites / 2,691,864 retained required groups, and 66
+invalid-input registries / 4,141 cases. These remain API subsets.

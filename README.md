@@ -387,3 +387,8 @@ See [the training example](example/multilabel_samples.f90) and
 `make_biclusters` and `make_checkerboard` produce seeded block matrices with
 logical membership masks. See [the example](example/bicluster_samples.f90)
 and [the API contract](docs/API.md#bicluster-sample-generators).
+
+`make_sparse_coded_signal` generates normalized dictionaries, sparse codes and
+their signals. `make_sparse_spd_matrix` provides seeded dense/CSR matrices with
+sparse factors. See [the example](example/structured_samples.f90) and
+[the API contract](docs/API.md#dictionary-signal-and-sparse-spd-generators).
