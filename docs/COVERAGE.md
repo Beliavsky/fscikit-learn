@@ -8790,3 +8790,34 @@ pos_label silent-zero behavior is corrected to source validation.
 Cumulative inventory: 222 public core types, 147 source modules, 190 native
 programs, 166 reference suites / 3,240,460 retained required groups, and 71
 invalid-input registries / 4,264 cases. These remain API subsets.
+
+Final weighted-classification verification (2026-11-24): four-job fpm 0.14.0
+builds compiled the package in runtime-checked
+(`-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow`) and optimized
+release profiles. Each executed twelve focused native programs: classification
+summaries, preprocessing/metrics, multiclass, multioutput, MLP targets,
+threshold classifiers, search, cross-validation, pipelines, supervised
+pipelines, score ranking and ranking/calibration. All passed; the other 178
+native programs were not executed in this batch.
+
+Three reference suites passed 448,484 required groups per profile: 433,881
+classification-summary, 4,068 existing search and 10,535 existing threshold
+groups. The new suite passed all 24 isolated diagnostics, matched all 156
+source Jaccard rejection outcomes through 150 distinct probes, and matched
+101,317 nonfinite source values. Existing search and threshold invalid-input
+registries were not run in this batch.
+
+Both profiles ran the facade example: weighted multilabel macro F1 about
+.47392951, weighted sample Jaccard about .48550725, three per-label results,
+agreement between F-beta and summary results and between dense and CSR F1,
+and a 3-by-2-by-2 confusion tensor.
+
+The combined audit verified 167 compiled source units per profile using
+dependency-aware fingerprints, complete typed field inventories, and source,
+executable, validator and report hashes. Installed sklearn classification and
+extmath sources and the NumPy compiled binary stayed unchanged before and
+after each reference run. The private fpm checksum and unchanged unrelated
+modules/tests were verified. Reports remain local under ignored
+`validation/results/classification_metric*`, including
+`classification_metrics_final_audit.json`. MIT licensing and retained sklearn
+BSD attribution continue; no dependency or extension algorithm was added.
