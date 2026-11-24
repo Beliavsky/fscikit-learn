@@ -7699,4 +7699,21 @@ Inventory after this batch: 222 public core types, 153 source modules,
 202 native programs, 178 reference suites / 3,667,230 retained required groups,
 and 83 invalid-input registries / 4,611 cases. Types remain API subsets.
 MIT licensing and retained sklearn/NumPy BSD attribution continue; no dependency
-or public extension algorithm was added. Full canonical verification follows.
+or public extension algorithm was added. Canonical verification is recorded below.
+
+Final best-first verification: checked and optimized release builds each
+passed all 202 native programs, 405,306 affected reference/safety groups and
+184 diagnostic cases. The new suite contributes 114,600 direct-source groups
+and 16 diagnostics. Both best-first example executables match sklearn's leaf
+count, predictions and one-based apply indices.
+
+The combined audit verifies 367 compiled source units per profile using
+dependency-aware fingerprints, complete 25-field best-first inventories,
+stable source/binary/validator/executable/report hashes, matching comparison
+inventories and distinct optimized reference executables. Existing MAE safety
+identities remain separately identified. Unrelated source/test/application
+paths remained unchanged. Four-job builds used the checksum-verified private
+fpm 0.14.0; the global fpm was unchanged. Only the eight named affected tree
+reference suites and their reported diagnostics were rerun. Artifacts remain
+under ignored validation/results/best_first*, including
+best_first_final_audit.json. Implementation commit: a13efc7.
