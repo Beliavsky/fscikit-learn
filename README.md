@@ -585,3 +585,8 @@ See [the example](example/multilabel_sparse.f90) and
 multilabel subset matching. `zero_one_loss` provides the corresponding loss.
 See [the example](example/subset_accuracy.f90) and
 [API contract](docs/API.md#accuracy-and-zero-one-subset-metrics).
+
+`class_likelihood_ratios` returns positive and negative binary classification
+likelihood ratios, with explicit class ordering and sample weights.
+See [the example](example/likelihood_ratios.f90) and
+[API contract](docs/API.md#binary-class-likelihood-ratios).

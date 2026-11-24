@@ -1,4 +1,5 @@
 module sklearn_metrics
+  use sklearn_likelihood_ratios,only:class_likelihood_ratios
   use sklearn_subset_metrics,only:accuracy_score,zero_one_loss
   use sklearn_probability_metrics, only: log_loss,d2_log_loss_score
   use sklearn_bicluster_metrics, only: consensus_score,bicluster_similarity
@@ -19,6 +20,7 @@ module sklearn_metrics
     average_precision_score,brier_score_loss
   implicit none
   private
+  public::class_likelihood_ratios
   public::zero_one_loss
   public :: d2_log_loss_score
   public :: consensus_score,bicluster_similarity

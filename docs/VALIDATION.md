@@ -9021,3 +9021,74 @@ sklearn/SciPy/NumPy attribution. No public estimator or extension was added.
 Inventory: 222 public core types, 165 source modules, 230 native programs,
 203 reference suites / 4,024,085 retained groups and 102 invalid registries /
 5,750 cases. The broader translation remains unfinished.
+
+## Binary class likelihood ratios (2026-11-24)
+
+class_likelihood_ratios adds positive/negative binary classification likelihood
+ratios with numeric vector/single-column targets, explicit class order/subsets
+and optional sample weights. The existing sklearn_metrics bodies are unchanged
+relative to 10af5f3; only the new import and public declaration are added.
+
+The checked suite passes 5,124 required groups across 2,237
+configurations: 1,708 accepted cases and 529 source rejections. Each accepted
+case retains the positive ratio, negative ratio and caller-identity comparison.
+All confusion-cell count combinations from 0 through 2 are exercised. Other
+fixtures cover 36 target kind/rank pairs, integer/real64/logical explicit labels,
+reordering, subsets, duplicate labels, fractional/nonfinite selected labels,
+one-class and empty-target shortcuts, invalid target values/shapes and
+weight lengths. Weight fixtures include ordinary/signed values, zero sums,
+NaN/infinities, signed zeros, subnormals, extreme cancellation and overflow at
+lengths through 8,193. No source rejection is counted as a numerical pass.
+
+Finite values use rtol=3e-14 and atol=0. NaN and signed-infinity masks and zero
+signs agree exactly, including 2,449 nonfinite source values. Reports retain
+actual and expected float.hex values for all accepted fields. All 14 native
+input diagnostics require controlled ERROR STOP without floating traps, bounds
+errors or segmentation faults. Scalar/rank-three and unsupported intrinsic
+target kinds are rejected at compile time. The separate unsupported explicit
+label-kind case is a controlled runtime diagnostic.
+
+The checked fpm build and 14 selected native programs pass: test_likelihood_ratios,
+test_subset_metrics, test_preprocessing_metrics, test_classification_metrics,
+test_bayes_neighbors, test_discriminant_dummy_kernel, test_calibrated,
+test_gp_classification, test_sgd_classifier, test_svm, test_linear_svm,
+test_weighted_classifiers, test_pipeline_supervised and test_search. Both
+likelihood_ratios and subset_accuracy examples pass. Native tests include
+caller RNG preservation, reordered/weighted/undefined likelihood ratios and
+the previous compact wide sparse inputs. The other repository native programs
+are not executed in this batch. Optimized verification is pending.
+
+Checked reference verification passes 11,058 required groups:
+
+| Suite | Groups |
+| --- | ---: |
+| Binary class likelihood ratios | 5,124 |
+| Existing accuracy / zero-one subset metrics | 5,742 |
+| Existing core comparisons | 192 |
+
+The retained subset grid has 2,294 configurations, 380 expected source
+rejections and 775 nonfinite source values. Its 21 native diagnostics and the
+existing ellenv_score_shape diagnostic pass alongside the 14 new cases. Thus
+the checked profile passes 909 expected source rejections plus 36 native
+diagnostics, or 945 rejection checks in total. Source rejections require
+controlled ERROR STOP, excluding floating traps and runtime failures.
+
+The checked audit verifies 192 Fortran compilation fingerprints, complete
+accepted/rejected configuration and field inventories, source/driver/validator/
+executable manifests and report/license hashes. Artifacts remain under ignored
+validation/results/ratios*, including ratios_partial_audit.json.
+
+The reference is installed sklearn 1.6.1 with Python 3.13.3, NumPy 2.2.6 and
+SciPy 1.15.3. Builds use the checksum-verified private fpm 0.14.0, four jobs and
+GNU Fortran 17.0.0 20260510. Checked flags are -fcheck=all -fbacktrace
+-ffpe-trap=invalid,zero,overflow. The global fpm is unchanged.
+
+Root LICENSE and the fpm MIT declaration remain unchanged. Source attribution
+and its installed file hash are recorded in THIRD_PARTY_NOTICES.md; existing
+sklearn/SciPy BSD licenses are retained. String/object labels, general multiclass
+or multilabel targets and Python warning emission remain outside this API.
+No public estimator, dependency or extension algorithm was added.
+
+Inventory: 222 public core types, 166 source modules, 231 native programs,
+204 reference suites / 4,029,209 retained groups and 103 invalid registries /
+5,764 cases. The broader translation remains unfinished.

@@ -1984,3 +1984,19 @@ buffered pairwise sums are preserved. No external BLAS, Python or SIMD runtime
 is required. Typed rank adapters, owned targets, diagnostics, tests, reference
 harness and example are MIT integration. Root LICENSE remains MIT; upstream
 terms apply to their respective translated portions.
+
+## Binary class likelihood ratios (BSD / MIT)
+
+src/sklearn_likelihood_ratios.f90 translates class_likelihood_ratios from
+sklearn 1.6.1 metrics/_classification.py and follows its confusion_matrix
+label selection, sequential weighted COO accumulation and nan_to_num behavior.
+Source: https://github.com/scikit-learn/scikit-learn/blob/1.6.1/sklearn/metrics/_classification.py
+Authors: the scikit-learn developers. Existing BSD-3-Clause copyright/license
+terms are retained in LICENSES/scikit-learn-COPYING and LICENSES/scipy-COPYING.
+The installed reference file SHA256 is
+569fff857c6a27025ad6f4fb61a6ebc30cca07b35c786c8ce026af1fc0b7f7dd.
+Changes: scalar Fortran numeric adapters, at-most-two-class discovery, explicit
+rank overloads, owned label buffers and quiet IEEE composition. Python warning
+emission is omitted. Native API integration, tests, reference harness and example
+are MIT. Root LICENSE and the fpm MIT declaration are unchanged; no additional
+dependency or public extension algorithm is introduced.

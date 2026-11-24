@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Two hundred and three reference suites additionally check 4,024,085
+All types have native tests. Two hundred and four reference suites additionally check 4,029,209
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -89,7 +89,8 @@ mean absolute percentage error, mean squared log error, R2, explained variance,
 Poisson and Gamma deviances.
 
 Classification: weighted accuracy and zero-one loss for numeric vectors and
-dense/CSR multilabel targets; confusion matrix, precision, recall, F1, Jaccard,
+dense/CSR multilabel targets; binary class likelihood ratios with class ordering
+and sample weights; confusion matrix, precision, recall, F1, Jaccard,
 Hamming loss, balanced accuracy, Matthews correlation, Cohen kappa, log loss,
 binary ROC AUC and average precision with sample weights; standardized partial ROC AUC;
 ROC, precision-recall and DET threshold curves; generic trapezoidal AUC; binary
@@ -10931,3 +10932,37 @@ kinds remain outside this interface. No public estimator or extension was added.
 Inventory: 222 public core types, 165 source modules, 230 native programs,
 203 reference suites / 4,024,085 retained groups and 102 invalid registries /
 5,750 cases. The broader translation remains unfinished.
+
+## Binary class likelihood ratios
+
+class_likelihood_ratios returns the positive and negative likelihood ratios
+from binary classification targets, optional class order/subset selection and
+sample weights. Default-integer/logical/real64 vectors and nonempty single-column
+matrices may be mixed. It retains sorted automatic class order, one-class NaNs,
+duplicate selected-label mapping, selected-out samples and the empty-vector
+explicit-label shortcut. Weighted confusion cells accumulate in input order,
+then apply the source nan_to_num behavior before ratio products and divisions.
+Signed, zero and nonfinite weights are supported with quiet IEEE results.
+
+The checked reference grid passes 2,237 configurations: 1,708 accepted
+cases with 5,124 comparison groups and 529 expected source rejections. It
+exercises all 0..2 counts per confusion cell, mixed kinds/ranks, explicit label
+types/order/subsets/duplicates, empty targets, numeric and shape boundaries,
+signed/nonfinite/extreme weights and reductions through 8,193 samples.
+Finite results use rtol=3e-14 and atol=0; NaN/infinity masks and zero signs match
+exactly, including 2,449 nonfinite source values. Each accepted case verifies
+caller target/label/weight identity. All 14 new native diagnostics, 21 retained
+subset diagnostics and the existing score-shape diagnostic pass. Fourteen
+affected native programs, two examples, the previous 5,742-group subset metric
+grid and 192 core groups pass. The checked audit verifies 192 compiled source
+fingerprints. Optimized verification is pending; see VALIDATION.md.
+
+Targets must be finite integral labels with at most two distinct values across
+both inputs. String/object labels, other intrinsic target kinds, multilabel
+targets and Python warning emission are outside this interface. Other existing
+metric bodies are unchanged. No public estimator, extension or dependency was
+added. Original integration remains MIT with retained sklearn/SciPy BSD notices.
+
+Inventory: 222 public core types, 166 source modules, 231 native programs,
+204 reference suites / 4,029,209 retained groups and 103 invalid registries /
+5,764 cases. The broader translation remains unfinished.

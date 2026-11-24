@@ -8453,3 +8453,42 @@ Fortran; no BLAS/SIMD runtime is linked. Different NumPy buffer settings, BLAS
 architectures or thread counts can use different floating summation orders.
 The reference suite records the actual one-thread backend. Original integration
 remains MIT with retained sklearn, NumPy, SciPy and OpenBLAS BSD notices.
+
+## Binary class likelihood ratios
+
+`ratios=class_likelihood_ratios(y,p,labels,sample_weight)` returns a real64
+two-element array `[positive_likelihood_ratio,negative_likelihood_ratio]`.
+It is exported by `sklearn_likelihood_ratios`, `sklearn_metrics` and `sklearn`.
+See [likelihood_ratios.f90](../example/likelihood_ratios.f90).
+
+Targets may be default-integer, logical or real64 vectors or nonempty
+single-column matrices, in mixed combinations. Real targets must be finite
+integral values within int64 range. The combined target vocabulary must contain
+at most two classes even when explicit labels select a subset. Scalar targets,
+other intrinsic target kinds and ranks are rejected at compile time; multilabel
+and multiclass targets are unsupported.
+
+Without `labels`, classes are sorted, with the lower class negative and the
+higher class positive. Optional `labels` is a vector of default integers,
+logical values or real64 values ordered `[negative_class,positive_class]`.
+One selected class returns two NaNs. Empty selections, more than two selections
+and selections having no intersection with nonempty `y` are rejected. Samples
+outside the selected classes are dropped. Duplicate labels retain source
+last-index mapping. Real64 selections may contain fractional/nonfinite values;
+these do not match integral finite targets. Empty target vectors require
+explicit labels and return two NaNs, retaining sklearn's shortcut before weight
+length validation. Empty single-column matrices are rejected.
+
+Optional `sample_weight` is a real64 vector with one element per sample.
+Signed, zero and nonfinite weights follow sklearn's confusion-matrix semantics:
+cells accumulate in input order, then NaNs become zero and signed infinities
+become signed maximum finite real64 values. The ratios use the source product
+and quotient order, with quiet NaN/infinity results on undefined divisions or
+overflow. There is no positivity guard or clipping. In particular, perfect
+classification has an undefined positive likelihood ratio, rather than an
+infinite reported score. Python's `raise_warning` switch and warning emission
+are not exposed; numerical results retain the source behavior. Caller targets,
+labels, weights and random-number state are preserved.
+
+The native implementation adds no dependency or public extension algorithm.
+Original integration remains MIT with retained sklearn/SciPy BSD attribution.
