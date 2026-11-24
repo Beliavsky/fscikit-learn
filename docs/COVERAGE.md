@@ -10812,7 +10812,8 @@ unknown labels, binary/single-class widths, repeated classes, arbitrary integer
 indicator values and zero positive codes follow the source. The separate
 label_binarize_csr adapter returns owned real64 CSR arrays, retaining source
 column traversal after reordering. Its vector path avoids dense output storage.
-String/object, real-valued and CSR targets remain outside this interface.
+String/object and real-valued dense targets remain outside this interface.
+CSR target support was added in the following section.
 
 Both checked and optimized reference grids pass 2,632 configurations: 1,028 accepted cases,
 2,584 exact field comparisons and 1,604 expected controlled source rejections.
@@ -10830,6 +10831,7 @@ remains MIT with retained sklearn and existing numerical-backend attribution.
 Inventory: 222 core public types, 163 source modules, 227 native programs,
 199 reference suites / 4,009,855 retained groups and 99 invalid registries /
 5,714 cases. The broader translation remains unfinished.
+
 ## CSR targets for free label binarization
 
 label_binarize and label_binarize_csr now accept native CSR targets. Stored
@@ -10841,7 +10843,7 @@ Sparse results remain the package's owned real64 CSR type; their arithmetic
 uses real64 rather than NumPy integer overflow. This dtype boundary is explicit
 in the API and in separately labelled storage checks.
 
-The checked CSR grid passes 1,800 configurations: 476 accepted cases and 1,324
+Both checked and optimized CSR grids pass 1,800 configurations: 476 accepted cases and 1,324
 expected source rejections. Its 2,908 retained groups contain 1,304 direct
 sklearn checks, 1,428 caller identities and 176 real64 storage-view certificates.
 These compare raw pointers/indices/data, exact int64 dense results, signed zeros,
@@ -10850,7 +10852,7 @@ boundaries and source binary shortcuts. Four malformed native CSR diagnostics
 pass independently of the source grid. Existing dense-function (2,584 groups),
 label-estimator (6,285) and core (192) suites pass. Four native programs and two
 examples pass, including a compact 100,000-by-100,000 CSR target and RNG checks.
-Optimized-profile verification is recorded in VALIDATION.md.
+Final verification is recorded in VALIDATION.md.
 
 Existing dense overload bodies are byte-identical after interface/import
 additions. There is no new estimator, extension algorithm or dependency.

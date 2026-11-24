@@ -8817,3 +8817,68 @@ Inventory: 222 public core types, 163 source modules, 227 native programs,
 199 reference suites / 4,009,855 retained groups and 99 invalid registries /
 5,714 cases. New source rejections are retained in the reference grid and do
 not add a standalone invalid registry. The broader translation is unfinished.
+## CSR targets for free label binarization
+
+Implementation commit b701954 extends both label-binarization functions to CSR
+targets. Dense results use integer(int64); sparse results use the existing
+real64 CSR container. Stored-value indicator recognition, explicit-zero recoding,
+duplicate traversal, source sparse-length/flattening errors, positive-zero
+substitution and int64 conversion boundaries are retained. The real64 CSR
+arithmetic adapter is documented explicitly in the API.
+
+Both checked and optimized profiles pass 11,969 retained comparison/certificate
+groups and 2,932 expected rejection cases:
+
+| Suite | Groups | Expected rejections |
+| --- | ---: | ---: |
+| New CSR targets | 2,908 | 1,324 |
+| Existing dense free function | 2,584 | 1,604 |
+| Existing LabelBinarizer/MultiLabelBinarizer | 6,285 | 0 |
+| Core comparisons | 192 | 0 |
+| Malformed native CSR diagnostics | separate | 4 |
+
+The new suite retains 1,800 configurations: 476 accepted cases (300 dense and
+176 CSR) and 1,324 controlled source boundaries. Its groups are explicitly split
+into 1,304 direct sklearn comparisons, 1,428 caller-array identities and 176
+native real64 storage-view certificates. The latter compare source integer CSR
+slots converted to real64 before coalescing; they do not claim NumPy int64
+overflow semantics for the native CSR container. The dense overload is compared
+directly with source int64 results, parsed as integers without float rounding.
+All fields and relevant floating sign bits match exactly. No endpoint diagnostic
+is accepted as a passing source comparison.
+
+Fixtures retain unsorted indices, repeated slots, explicit positive/negative
+zeros, empty shapes, one-column targets, arbitrary integral indicators, nonfinite
+and fractional inputs, repeated/reordered/mismatched classes, source binary
+shortcuts, positive-zero duplicate sums, the largest float below 2**63 and
+out-of-range int64 conversion boundaries. Source rejections require controlled
+ERROR STOP and exclude bounds errors, floating traps and segmentation faults.
+Four separately registered format cases reject unallocated arrays, negative
+shapes, malformed pointer endpoints and out-of-bounds column indices.
+
+Four native programs and two examples pass per profile: direct CSR and dense
+free functions, existing label-binarizer estimators and preprocessing/metrics,
+plus label_codes and label_codes_sparse_targets. Native tests cover owned
+storage, input preservation, negative-zero normalization, caller RNG state and
+a 100,000-by-100,000 CSR target retaining only 100,000 entries. Existing dense
+fixtures retain all 2,632 configurations, and estimator fixtures retain all 555
+scenarios/five seeds. This is an affected-scope rerun, not a full repository run.
+
+The final audit verifies 177 Fortran compilation fingerprints per profile,
+complete accepted/rejected configuration and field inventories, identical
+checked/release records, distinct native binaries, stable source/driver/validator/
+executable manifests, report hashes and retained license hashes. Existing dense
+function bodies are byte-identical after new imports/interface entries; no
+other library module changed. Reports and the audit remain under ignored
+validation/results/label_sparse*, including label_sparse_final_audit.json.
+
+Four-job builds used the checksum-verified private fpm 0.14.0, GNU Fortran
+17.0.0 20260510 and Python 3.13.3, with sklearn 1.6.1, NumPy 2.2.6 and SciPy
+1.15.3. Checked flags were -fcheck=all -fbacktrace
+-ffpe-trap=invalid,zero,overflow; optimized verification used --profile release.
+The global fpm is unchanged. No dependency or extension algorithm was added;
+original integration remains MIT with retained upstream notices.
+
+Inventory: 222 public core types, 163 source modules, 228 native programs,
+200 reference suites / 4,012,763 retained groups and 100 invalid registries /
+5,718 cases. The broader translation remains unfinished.
