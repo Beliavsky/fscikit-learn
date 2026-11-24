@@ -1929,3 +1929,28 @@ semantics. Native compact row buffers, controlled int64 casts and real64 CSR
 storage adapters are MIT integration. Existing sklearn, SciPy and NumPy BSD
 notices and numerical-backend attribution continue to apply. The real64 CSR
 arithmetic boundary is documented in the API and validation report.
+## Sparse MultiLabelBinarizer and integer-set order (BSD / PSF / MIT)
+
+src/sklearn_label_binarization.f90 follows sklearn 1.6.1
+preprocessing/_label.py MultiLabelBinarizer transform, fit_transform encounter
+mapping/reindexing and sparse inverse semantics, including stored zeros and
+duplicate indices. Existing sklearn BSD notices remain under LICENSES/.
+Native ragged integer interfaces, owned CSR arrays, sorted lookup, fast class
+discovery, tests, validation harness and example are MIT integration.
+
+src/sklearn_integer_sets.f90 adapts the nonnegative integer-index subset of
+CPython 3.13.3 Objects/setobject.c, written/maintained by Raymond D. Hettinger,
+derived from dictobject.c:
+https://github.com/python/cpython/blob/v3.13.3/Objects/setobject.c
+Copyright (c) 2001-2024 Python Software Foundation; All Rights Reserved.
+The complete upstream LICENSE is retained in LICENSES/Python-3.13.3-LICENSE
+(SHA256 78b12c3a81360b357002334f0e70ea0e92eebf7a9b358805c03c48484945f3bb).
+Pinned setobject.c SHA256:
+c40b455b021fa3828bddd86f237167cb82066a55c718a58257c221ed59e67fe3.
+Changes: scalar Fortran integer arrays, identity hashes for nonnegative native
+column indices, checked capacities, owned output; Python objects, callbacks,
+reference counts and deletion/dummy handling are omitted. Linear probes,
+perturbation, insertion-triggered resizing and table iteration retain source
+order. The modification summary also appears in the source header. No Python
+runtime or new public extension algorithm is introduced. Root LICENSE and the
+original integration remain MIT; PSF terms apply to the translated helper.

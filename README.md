@@ -204,6 +204,10 @@ Apache-2.0 with LLVM-exception terms; see
 [third-party notices](THIRD_PARTY_NOTICES.md). Recommended external Fortran code
 and its attribution requirements are reviewed in [UPSTREAM_REUSE.md](docs/UPSTREAM_REUSE.md).
 
+The internal sparse-multilabel ordering shim retains the
+[Python Software Foundation license](LICENSES/Python-3.13.3-LICENSE).
+It is native Fortran and adds no Python runtime dependency.
+
 Learning/validation curves and permutation significance tests are available through
 `sklearn_validation` and the facade; see [API details](docs/API.md) and
 [the example](example/model_learning_curves.f90).
@@ -568,3 +572,8 @@ See [the example](example/label_codes.f90) and
 The label-binarization functions also accept CSR targets, preserving duplicate
 slots and explicit-zero recoding. See the [CSR target example](example/label_codes_sparse_targets.f90)
 and [dtype/API contract](docs/API.md#csr-targets-for-label_binarize).
+
+MultiLabelBinarizer supports owned CSR output and CSR inverse indicators,
+including source raw-index order, duplicate slots and stored zeros.
+See [the example](example/multilabel_sparse.f90) and
+[API contract](docs/API.md#sparse-multilabelbinarizer).

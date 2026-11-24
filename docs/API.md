@@ -2223,8 +2223,9 @@ are fitted. Both integer and real64 inverse indicators are accepted, but every
 entry must be exactly zero or one. Inverse returns allocated label_set rows
 in fitted class order, including allocated zero-length values for empty sets.
 Unallocated input values and allocated zero-length values both represent an
-empty set. Inputs are preserved. Generic Python iterables/object labels,
-sparse matrices and feature-name integration are outside this interface.
+empty set. Inputs are preserved. Generic Python iterables/object labels
+and feature-name integration are outside this interface. CSR methods are
+described in the sparse MultiLabelBinarizer section below.
 See `example/label_encoding.f90` for a complete program.
 
 ## Mutual-information and correlation scores
@@ -8375,3 +8376,38 @@ Dense output rejects them. Sparse output permits its binary/single-class
 shortcut when the first row has at most one stored entry, yielding an all-zero
 one-column result; other such targets are rejected. No warning interface or
 string/object category support is added.
+
+## Sparse MultiLabelBinarizer
+
+`multi_label_binarizer%transform_csr(samples)` and
+`%fit_transform_csr(samples)` return owned real64 `csr_matrix` objects for the
+same ragged default-integer `label_set` inputs as the dense methods. Choose
+these explicit return methods in place of Python's sparse_output option.
+Empty datasets and empty/unallocated per-row values are supported. Explicit
+constructor `classes` preserve their unique requested order; unallocated classes
+select sorted discovery. Automatic discovery uses native index sorting and
+does not allocate a dense indicator matrix.
+
+Raw CSR indices follow the installed sklearn 1.6.1 / CPython 3.13.3 protocol.
+Each row is deduplicated through the integer-index set insertion/iteration order.
+Automatic fit_transform first assigns class indices in encounter order and
+then reindexes them to sorted classes, whereas transform uses fitted class
+indices directly. These methods can therefore have different raw slot orders
+with identical dense values. Constructor classes make fit_transform follow
+fit plus transform. Unknown query labels are ignored without Python warnings.
+
+`inverse_transform(csr)` returns allocated label_set rows in stored column
+order, retaining duplicate indices and **including explicitly stored zeros**,
+as in sklearn's sparse inverse. This differs from dense inverse, which selects
+only one-valued entries in fitted class order. All stored values must be finite
+0 or 1 and the width must match fitted classes. The method preserves caller
+arrays; returned rows own their data. The CSR storage dtype is real64, but all
+forward values are exactly 1, so there is no integer arithmetic adapter gap.
+
+See [multilabel_sparse.f90](../example/multilabel_sparse.f90). The internal
+sklearn_integer_sets module is a nonnegative integer-only reconstruction of
+CPython 3.13.3 set.add probing, resizing and iteration. It includes no Python
+objects, deletion support or runtime linkage. Its PSF license and change summary
+are retained alongside the project's MIT integration. Other Python versions
+or implementations need not use the same internal set order. Manually editing
+fitted classes_ is outside the supported estimator contract; refit using classes.

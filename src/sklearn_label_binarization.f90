@@ -2,6 +2,9 @@
 ! Adapted under BSD-3-Clause; see THIRD_PARTY_NOTICES.md and LICENSES/.
 module sklearn_label_binarization
   use sklearn_common, only: dp,require,unique_labels,label_index
+  use sklearn_sparse,only:csr_matrix
+  use sklearn_numpy_ordering,only:numpy_argsort
+  use sklearn_integer_sets,only:integer_set_order
   use, intrinsic :: iso_fortran_env, only: int64
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
   implicit none
@@ -29,8 +32,11 @@ module sklearn_label_binarization
     procedure :: fit=>mlb_fit
     procedure :: transform=>mlb_transform
     procedure :: fit_transform=>mlb_fit_transform
+    procedure :: transform_csr=>mlb_transform_csr
+    procedure :: fit_transform_csr=>mlb_fit_transform_csr
     procedure, private :: mlb_inverse_real,mlb_inverse_integer
-    generic :: inverse_transform=>mlb_inverse_real,mlb_inverse_integer
+    procedure,private::mlb_inverse_csr
+    generic :: inverse_transform=>mlb_inverse_real,mlb_inverse_integer,mlb_inverse_csr
   end type
 contains
   subroutine lb_parameters(self)
@@ -126,7 +132,7 @@ contains
     integer(int64) :: total,first
     if(allocated(self%classes)) then
       if(size(self%classes)>0) then
-        distinct=unique_labels(self%classes)
+        distinct=sorted_unique(self%classes)
         call require(size(distinct)==size(self%classes),'MultiLabelBinarizer classes contain duplicates')
       end if
       self%classes_=self%classes
@@ -142,7 +148,7 @@ contains
         n=size(y(i)%values); flat(first:first+n-1)=y(i)%values; first=first+n
       end do
       if(total>0) then
-        self%classes_=unique_labels(flat)
+        self%classes_=sorted_unique(flat)
       else
         self%classes_=[integer ::]
       end if
@@ -189,5 +195,107 @@ contains
     integer, intent(in) :: z(:,:)
     type(label_set), allocatable :: y(:)
     y=mlb_inverse_real(self,real(z,dp))
+  end function
+  function sorted_unique(labels) result(classes)
+    integer,intent(in)::labels(:)
+    integer,allocatable::classes(:),order(:),work(:)
+    integer::i,n
+    order=numpy_argsort(real(labels,dp));allocate(work(size(labels)));n=0
+    do i=1,size(order)
+      if(i>1) then
+        if(labels(order(i))==labels(order(i-1))) cycle
+      end if
+      n=n+1;work(n)=labels(order(i))
+    end do
+    classes=work(:n)
+  end function
+  integer function mapped_column(sorted,order,label) result(column)
+    integer,intent(in)::sorted(:),order(:),label
+    integer::left,right,middle
+    column=0;left=1;right=size(sorted)
+    do while(left<=right)
+      middle=left+(right-left)/2
+      if(sorted(middle)==label) then
+        column=order(middle);return
+      else if(sorted(middle)<label) then
+        left=middle+1
+      else
+        right=middle-1
+      end if
+    end do
+  end function
+  function sparse_map(self,y,discover) result(z)
+    class(multi_label_binarizer),intent(in)::self
+    type(label_set),intent(in)::y(:)
+    logical,intent(in)::discover
+    type(csr_matrix)::z
+    integer,allocatable::order(:),sorted(:),work(:),row(:),keys(:),encounter(:),reverse(:)
+    integer::i,j,n,column,seen,pos
+    integer(int64)::total
+    call require(allocated(self%classes_),'MultiLabelBinarizer is not fitted')
+    order=numpy_argsort(real(self%classes_,dp));sorted=self%classes_(order)
+    total=0
+    do i=1,size(y)
+      if(allocated(y(i)%values)) total=total+int(size(y(i)%values),int64)
+    end do
+    call require(total<huge(1),'MultiLabelBinarizer sparse stored count overflow')
+    allocate(work(int(total)),encounter(size(sorted)),reverse(size(sorted)));encounter=0;seen=0;pos=1
+    z%n_rows=size(y);z%n_cols=size(sorted);allocate(z%indptr(size(y)+1))
+    do i=1,size(y)
+      z%indptr(i)=pos;n=0
+      if(allocated(y(i)%values)) then
+        allocate(row(size(y(i)%values)))
+        do j=1,size(y(i)%values)
+          column=mapped_column(sorted,order,y(i)%values(j))
+          if(column==0) cycle
+          n=n+1
+          if(discover) then
+            if(encounter(column)==0) then
+              seen=seen+1;encounter(column)=seen;reverse(seen)=column
+            end if
+            row(n)=encounter(column)-1
+          else
+            row(n)=column-1
+          end if
+        end do
+        keys=integer_set_order(row(:n));deallocate(row)
+        if(discover) then
+          work(pos:pos+size(keys)-1)=reverse(keys+1)
+        else
+          work(pos:pos+size(keys)-1)=keys+1
+        end if
+        pos=pos+size(keys)
+      end if
+    end do
+    z%indptr(size(y)+1)=pos;z%indices=work(:pos-1);allocate(z%data(pos-1));z%data=1
+    call z%validate()
+  end function
+  function mlb_transform_csr(self,y) result(z)
+    class(multi_label_binarizer),intent(in)::self
+    type(label_set),intent(in)::y(:)
+    type(csr_matrix)::z
+    z=sparse_map(self,y,.false.)
+  end function
+  function mlb_fit_transform_csr(self,y) result(z)
+    class(multi_label_binarizer),intent(inout)::self
+    type(label_set),intent(in)::y(:)
+    type(csr_matrix)::z
+    call self%fit(y);z=sparse_map(self,y,.not.allocated(self%classes))
+  end function
+  function mlb_inverse_csr(self,z) result(y)
+    class(multi_label_binarizer),intent(in)::self
+    type(csr_matrix),intent(in)::z
+    type(label_set),allocatable::y(:)
+    integer::i
+    call require(allocated(self%classes_),'MultiLabelBinarizer is not fitted')
+    call z%validate()
+    call require(z%n_cols==size(self%classes_),'MultiLabelBinarizer inverse class count mismatch')
+    call require(all(ieee_is_finite(z%data)),'MultiLabelBinarizer indicators must be finite')
+    call require(all(z%data==0.or.z%data==1),'MultiLabelBinarizer indicators must be zero or one')
+    allocate(y(z%n_rows))
+    do i=1,z%n_rows
+      ! Source sparse inverse includes stored zeros and duplicate indices.
+      y(i)%values=self%classes_(z%indices(z%indptr(i):z%indptr(i+1)-1))
+    end do
   end function
 end module
