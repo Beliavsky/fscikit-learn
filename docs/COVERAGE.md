@@ -8425,3 +8425,31 @@ extension algorithm was introduced.
 Cumulative inventory: 222 public core types, 140 source modules, 183 native
 programs, 159 reference suites / 2,672,419 retained required groups, and 64
 invalid-input registries / 4,110 cases. These remain API subsets.
+
+
+Final multilabel-generator verification (2026-11-23): four-job fpm
+0.14.0 builds compiled the project in runtime-checked
+(`-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow`) and optimized release
+profiles. Each executed seven focused native programs: multilabel, geometric,
+regression, datasets/Gaussian process, seeded and classification generators,
+and MLP joint-target tests. All passed; the other 176 native programs were not
+executed in this batch. Five reference suites passed 116,657 required groups
+per profile: 50,815 new multilabel, 48,720 geometric, 15,842 regression/low-rank,
+672 sample-generator and 608 classification-generator groups. All 117
+invalid-input diagnostics passed, including eight new cases.
+
+Document counts, indicators, CSR arrays, canonical sets, dimensions and
+representation/output-presence consistency matched exactly in both profiles.
+Maximum class-prior errors were 0 checked /
+0 release; maximum conditional-word probability
+errors were 0 /
+0. The facade example generated
+80x12 data with three label columns, nonempty documents/labels and normalized
+class priors, then trained a native MLP producing finite 80x3 probabilities.
+The combined audit verified 157 compiled source units per profile through
+dependency-aware fingerprints, complete reference inventories,
+source/executable/validator hashes and unchanged unrelated modules and existing
+native tests. Reports are retained locally under ignored
+`validation/results/multilabel_datasets_*`, including
+`multilabel_datasets_final_audit.json`. MIT licensing and retained sklearn/NumPy
+BSD attribution continue; no dependency or public extension was introduced.
