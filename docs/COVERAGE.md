@@ -323,19 +323,18 @@ Numerical scaling and ill-conditioned fixed points can still limit convergence.
   across all training entries and falls back to gamma=1 for constant data.
   Fitted `random_weights_` are (features, components), `random_offset_` contains
   uniform phases, and `gamma_` records the effective kernel parameter.
-- `nystroem` supplies the same three methods, with kernels `rbf` (default),
-  `linear`, `poly`/`polynomial`, or `cosine`. Numeric `gamma=-1` requests 1/features.
-  Nonnegative polynomial coefficients and integer degrees ensure a PSD kernel.
-  Landmarks are sampled without replacement; requests larger than the sample
-  count are capped. `components_`, one-based `component_indices_`,
-  `normalization_`, and `gamma_` expose fitted state. A native symmetric
-  eigensolver constructs the PSD inverse square root with a 1e-12 floor.
-  With rank-deficient bases, compare reconstructed kernels rather than the
-  null-space entries of normalization against an SVD implementation.
-  Callable, precomputed, indefinite, sparse and other kernels are unsupported.
+- `nystroem` supplies fit/transform/fit_transform with all built-in kernels,
+  typed callbacks and source-compatible precomputed input. NumPy-compatible
+  permutations select one-based landmark rows. Full real Jacobi SVD normalization
+  applies the source 1e-12 singular floor and supports indefinite/nonsymmetric
+  bases, completing null directions. Finite negative offsets are accepted;
+  native polynomial degrees are positive integers. Parameters are live at query
+  time. Singular SVD null coordinates may differ from LAPACK, so validation
+  checks kernel Grams and SVD certificates explicitly in those cases.
 
-Both randomized maps use the package's Fortran RNG and `random_state`; draws
-differ from NumPy. No sparse input/output path or threaded backend is included.
+Both randomized maps now use NumPy-compatible scalar-seeded draws. RBFSampler
+accepts dense/CSR data; Nystroem inputs remain dense real64. No threaded backend
+is included. See the current API contracts and validation record.
 
 ## Cross-decomposition
 
@@ -9759,7 +9758,7 @@ negative-offset invalid case was replaced with zero degree, preserving that
 registry's count. Source precomputed row-only selection/shape behavior is
 explicit, including rejection of smaller-than-sample landmark counts.
 
-The new suite covers 408 fixtures, 5,760 required groups and 29 invalid cases.
+The new suite covers 408 fixtures, 5,760 required groups and 30 invalid cases.
 152 regular cases compare normalization and feature coordinates directly;
 256 singular/ill-conditioned cases compare singular values, normalization Gram
 and realized train/query/cross kernel Grams. All cases verify SVD reconstruction
@@ -9774,5 +9773,30 @@ SciFort's copyright and MIT license are retained; sklearn/NumPy BSD notices
 continue. No fpm dependency or public extension algorithm was added. Dense
 estimator inputs and integer degree are native API subsets. Inventory:
 222 public core types, 155 source modules, 207 native programs, 183 reference
-suites / 3,703,078 retained groups, and 88 invalid registries / 4,779 cases.
-Canonical verification will be recorded below.
+suites / 3,703,078 retained groups, and 88 invalid registries / 4,780 cases.
+Canonical verification is recorded below.
+
+Final Nystroem verification: checked and optimized release builds each passed
+test_nystroem_svd, test_kernel_approximation, test_rbf_features,
+test_seeded_skewed_features and test_chi2_samplers. These five native programs
+were run; the other 202 native programs were not executed in this batch.
+Five affected reference suites each passed 16,177 required groups: 5,760 new
+Nystroem groups, 189 isotonic/kernel groups, 8,512 RBF groups, 1,512 skewed groups
+and 204 direct chi-square groups. Diagnostics total 88 per profile: 30 new
+Nystroem, 33 RBF, 19 skewed and six retained legacy Nystroem diagnostics. The
+new square-precomputed/smaller-landmark rejection is observed in both profiles.
+
+The combined audit verifies 171 compiled source units per profile, conditional
+complete required inventories, source/executable/validator/report hashes,
+matching profile inventories, SciFort source provenance and retained MIT
+license/copyright. New required groups remain separated into 2,128 direct
+regular-case comparisons, 2,816 singular-case source invariants and 816 SVD
+certificates. Singular coordinates are explicitly not counted as direct
+comparisons. Both examples match source landmark indices, normalization and
+mapped values, including live gamma. Unrelated source/test/application paths
+remain unchanged apart from the named new helper, driver/test and existing
+legacy invalid driver. Only the five affected suites and reported diagnostics
+were rerun. Four-job builds used the checksum-verified private fpm 0.14.0;
+the global fpm was unchanged. Artifacts remain under ignored
+validation/results/nystroem*, including nystroem_final_audit.json.
+Implementation commit: d560ee6. MIT licensing and retained BSD notices continue.
