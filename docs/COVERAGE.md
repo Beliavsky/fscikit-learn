@@ -8892,3 +8892,29 @@ uses computed sample weights to fit logistic regression.
 Cumulative inventory: 222 public core types, 149 source modules, 192 native
 programs, 168 reference suites / 3,245,013 retained required groups, and 73
 invalid-input registries / 4,325 cases. These remain API subsets.
+
+Final class/sample-weight verification (2026-11-24): four-job fpm 0.14.0
+builds compiled the package in runtime-checked
+(`-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow`) and optimized
+release profiles. Each ran four focused native programs: class/sample weights,
+weighted/streaming classifiers, weighted/standalone extra trees and logistic
+cross-validation. All passed; the other 188 native programs were not executed
+in this batch.
+
+Both profiles passed 19,884 reference groups: 3,348 new weight-utility
+comparisons and 16,536 existing weighted-classifier groups across 681 fixtures.
+Each new suite also passed all 32 source-matched diagnostics and 276 balanced
+class-mass certificates, and matched all 6,772 nonfinite source values and
+signed zeros. Existing estimator invalid-input registries were not run here.
+
+Both facade examples produced class weights [1.5,.75], class masses [3,3]
+and six correct weighted-logistic training predictions. The combined audit
+verified 160 compiled source units per profile using dependency-aware
+fingerprints, complete fixture inventories and source/executable/validator/
+report hashes. Installed sklearn class-weight, label/encoding, logistic and
+Naive Bayes Python sources, the SciPy optimizer binary and the NumPy compiled
+binary stayed unchanged before and after each reference run. The private fpm
+checksum and unchanged unrelated modules/tests were verified. Reports remain
+local under ignored `validation/results/class_weight*`, including
+`class_weight_final_audit.json`. MIT licensing and retained sklearn BSD
+attribution continue; no dependency or public extension algorithm was added.
