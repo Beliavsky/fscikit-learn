@@ -804,9 +804,9 @@ uniform endpoint retains the source inverse-CDF outcome.
 
 Both expose fit, transform and fit_transform. Fitted skewed-map arrays are
 random_weights_(n_features,n_components) and random_offset_(n_components).
-Native random draws repeat for a fixed seed/compiler and differ from NumPy;
-reference checks supply identical native uniform draws to sklearn's full
-fit, independently checking its sampling formula and feature algebra.
+Scalar-seeded uniforms and offsets now match NumPy, with direct seeded source
+fit comparisons of the weights and feature algebra. Fitting preserves the
+intrinsic Fortran RNG.
 Dense real64 input only: no sparse arrays, NaN/infinity, feature names or
 incremental updates. No public extensions or dependencies were added. The
 package now has 104 core types in 42 source modules.
@@ -9722,4 +9722,26 @@ map implementation is unchanged. Native finite-control guards remain.
 Inventory: 222 public core types, 154 source modules, 206 native programs,
 182 reference suites / 3,697,318 retained groups and 87 invalid registries /
 4,750 cases. MIT licensing and retained sklearn/NumPy BSD attribution continue.
-Canonical verification will be recorded below.
+Canonical verification is recorded below.
+
+Final skewed-feature verification: checked and optimized release builds each
+passed test_seeded_skewed_features, test_chi2_samplers, test_rbf_features and
+test_kernel_approximation. These four native programs were executed; the other
+202 native programs were not run in this batch. Three affected reference suites
+each passed 10,228 groups and 52 diagnostics per profile: 1,512 new skewed groups /
+19 diagnostics, 204 upgraded direct-source chi-square groups, and 8,512 retained
+RBF groups / 33 diagnostics. The new suite retains all 275 nonfinite source
+values; the RBF suite retains its 522. Both examples match source weights,
+offsets, mapped values and live-normalization changes.
+
+The combined audit verifies 166 compiled source units per profile, complete
+seven-field inventories for 216 new fixtures, exact weights/offsets, stable
+source/executable/validator/report hashes and matching checked/release
+inventories. Shared Fourier helper changes preserve the existing RBF corpus,
+including fused finite phases. Only the three named affected suites and their
+diagnostics were rerun. The module's unrelated algorithm bodies remain unchanged;
+only the named chi-square reference driver and new driver/test were changed in
+application/test sources. Four-job builds used the checksum-verified private
+fpm 0.14.0; the global fpm was unchanged. Artifacts remain under ignored
+validation/results/skewed_features*, including skewed_features_final_audit.json.
+Implementation commit: 1352c70. MIT licensing and retained BSD notices continue.
