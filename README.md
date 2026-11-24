@@ -34,6 +34,7 @@ fpm run --example bicluster_consensus
 fpm run --example balanced_class_weights
 fpm run --example weighted_kmeans_seeds
 fpm run --example probability_loss_scores
+fpm run --example bootstrap_samples
 fpm run --example model_learning_curves
 fpm run --example out_of_fold_predictions
 fpm run --example parameter_search
@@ -442,3 +443,8 @@ Probability scoring includes weighted/summed `log_loss` and
 `d2_log_loss_score`, with binary probability vectors and dense indicator
 targets. See [the example](example/probability_loss_scores.f90) and
 [the API contract](docs/API.md#probability-log-loss-and-d2-scoring).
+
+`resample` and `shuffle` support bootstrap/subsample indices and dense or CSR
+row copies, including stratified resampling. See
+[the example](example/bootstrap_samples.f90) and
+[the API contract](docs/API.md#array-bootstrap-and-shuffle).

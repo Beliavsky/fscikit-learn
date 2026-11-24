@@ -7418,3 +7418,56 @@ Both public sklearn functions reject sparse targets during parameter
 validation. Native CSR overloads reproduce that rejection. String labels,
 real-valued targets, alternate probability precisions and Array API backends
 are outside this binding. All accepted input arrays are preserved.
+
+## Array bootstrap and shuffle
+
+`sample = resample(x,n_samples,replace,random_state,stratify)` and
+`sample = shuffle(x,n_samples,random_state)` are exported by
+`sklearn_resampling` and the `sklearn` facade. They return allocatable copies
+of selected rows. Supported data include real(dp), default integer, int64,
+logical and character vectors/matrices, and real64 `csr_matrix` data.
+Character outputs preserve their Fortran element length. Data values,
+including nonfinite values, are copied without numerical validation.
+
+The scalar integer overload `ids = resample(n_population,...)` returns
+one-based selected indices, adapting `resample(arange(n_population))`.
+`shuffle(n_population,...)` provides the same index interface without
+replacement. A shared index array resamples multiple associated inputs:
+
+```fortran
+ids=resample(size(x,1),n_samples=5,random_state=7,stratify=y)
+sample_x=x(ids,:)
+sample_y=y(ids)
+```
+
+`replace` defaults to true. Optional positive `n_samples` defaults to the
+original row count; without replacement it cannot exceed that count.
+Default empty inputs produce empty outputs; an explicit zero draw count is
+rejected. `random_state` is a nonnegative default integer, defaulting to zero,
+and uses a local legacy NumPy-compatible generator. Inputs and the intrinsic
+Fortran RNG are preserved. Python random-state objects are outside this binding.
+
+Optional `stratify` accepts integer/int64, real(dp), logical or character
+vectors and matrices. Floating strata must be finite. Vector categories use
+numeric or character sorting. Matrix rows are joined into text categories,
+following the source's lexical ordering, including one-column matrices.
+Integer signs, Boolean words, shortest round-trip float64 formatting and
+scientific-notation thresholds are preserved. Character strata retain their
+Fortran padding. Proportional class allocations use the source approximate
+mode and randomized remainder ties, followed by per-class sampling and a
+final permutation. Rare and single-member classes are allowed.
+
+The baseline does not check stratification length against input length.
+This implementation follows its selected-index behavior: shorter strata can
+sample a prefix of the data, while class overdraw and selected indices beyond
+the data are rejected. Empty stratification and empty stratified results are
+rejected. Sparse stratification is rejected by the baseline's check_array
+despite appearing in its parameter annotation; the native guard matches.
+
+CSR outputs preserve selected rows' stored order, explicit zeros and duplicate
+entries, without densifying, sorting or combining them. Index and stored-count
+limits follow the package CSR type. Dense matrices can have zero columns.
+Population sampling uses O(n_samples) workspace with replacement; permutations
+use O(n_population), and stratified grouping uses O(n_strata log n_strata)
+sorting plus row-key storage for matrix strata. The index overload represents
+Python's multiple-array use; data overloads accept one array per call.

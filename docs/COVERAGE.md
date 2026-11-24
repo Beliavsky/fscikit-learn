@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and seventy reference suites additionally check 3,262,617
+All types have native tests. One hundred and seventy-one reference suites additionally check 3,271,904
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -9029,3 +9029,27 @@ Reports remain local under ignored `validation/results/probability_metric*`,
 including `probability_metrics_final_audit.json`. MIT licensing and retained
 sklearn/NumPy BSD attribution continue; no dependency or public extension
 algorithm was added.
+
+## Array bootstrap and shuffle (2026-11-24)
+
+Added public `resample` and `shuffle` in the existing resampling module.
+Population-index and dense/CSR adapters cover default integer, int64, real64,
+logical and character arrays. Stratified sampling accepts numeric, Boolean
+and character vectors or joint-label matrices, preserving source numeric vs
+lexical grouping and legacy seeded choices. CSR row copies retain explicit
+zeros, duplicates, stored ordering and nonfinite data. Existing splitter
+implementations remain unchanged. The facade example uses shared indices
+for paired feature/target rows.
+
+Development validation passed 9,287 groups across 1,876 fixtures, including
+369 typed-data fixtures and 24 source-matched diagnostics. All comparisons
+are exact, including sampled indices and signed CSR zeros. Coverage includes
+five seeds, bootstrap and no-replacement controls, shuffle, empty inputs,
+rare classes, integer limits, float64 boundary/exponent text ordering,
+one-column joint labels, long/wide strata, storage-preserving CSR sampling
+and the baseline's stratification-length quirks. API.md documents the index
+adaptation and sparse-stratification guard.
+
+Cumulative inventory: 222 public core types, 151 source modules, 195 native
+programs, 171 reference suites / 3,271,904 retained required groups, and 76
+invalid-input registries / 4,427 cases. These remain API subsets.

@@ -1500,6 +1500,17 @@ reductions, with terms retained in `LICENSES/numpy-COPYING`. Native adapters,
 quiet IEEE arithmetic, tests, example and reference harness are original MIT
 contributions. No dependency or public extension algorithm was added.
 
+## Array bootstrap and shuffle utilities (BSD)
+
+Public `resample` and `shuffle` in `src/sklearn_resampling.f90` follow sklearn
+1.6.1 `utils/_indexing.py`, reusing the existing native adaptation of
+`utils/extmath.py` _approximate_mode and legacy NumPy random-state behavior.
+Terms remain in `LICENSES/scikit-learn-COPYING` and the existing retained
+NumPy licenses. Stable label grouping, native joint-label text formatting,
+typed row-copy adapters, CSR storage copies, tests, example and reference
+harness are original MIT contributions. The existing splitter algorithms are
+unchanged. No dependency or public extension algorithm was added.
+
 ## Weighted classification and multilabel summaries (BSD)
 
 `src/sklearn_classification_metrics.f90` adapts sklearn 1.6.1
