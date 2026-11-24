@@ -6875,3 +6875,46 @@ including normal draws for an explicitly provided zero noise. Omitted noise
 adds no draws. `shuffle` defaults to true. Large finite scales/noise can return
 source-matched infinities without floating-point traps. All calls leave the
 intrinsic Fortran RNG unchanged. See [the example](../example/geometric_samples.f90).
+
+
+## Multilabel classification samples
+
+`make_multilabel_classification` is exported by `sklearn_datasets` and the
+`sklearn` facade. It implements sklearn 1.6.1's Poisson document/label generator
+using isolated legacy NumPy RNG state:
+
+```fortran
+call make_multilabel_classification(n_samples,n_features,x,y,n_classes,n_labels,length, &
+  allow_unlabeled,random_state,p_c,p_w_c)
+```
+
+Samples/features are positive integers. Optional defaults are five classes,
+mean label count two, mean document length 50, `allow_unlabeled=.true.` and
+integer seed 0. Classes and length must be positive; mean label count is
+nonnegative. Rejection sampling limits label counts to the class population,
+requires nonempty labels when requested, and always requires nonempty documents.
+The combination zero `n_labels` and false `allow_unlabeled` is rejected as
+unsatisfiable; the source rejection loop does not terminate for that combination.
+
+The six output overloads select representation through declared Fortran types:
+
+- `x(:,:)` real64 or `type(csr_matrix)` for features;
+- `y(:,:)` integer indicators, `type(csr_matrix)` indicators, or an allocated
+  vector of existing `type(label_set)` values for class sets.
+
+This replaces Python's `sparse` and `return_indicator` controls. Indicator
+columns retain all declared classes. Label sets are canonical sorted zero-based
+class IDs; Python set iteration order is not reproduced as a public ordering
+contract. CSR pointers/column indices are one-based and sorted, with duplicates
+summed and only positive feature counts stored. CSR indicator data use the
+package's real64 storage with values one, while dense indicators are integers.
+Feature counts are nonnegative integers represented as real64.
+
+Optional allocated `p_c(:)` and `p_w_c(:,:)` return class priors and conditional
+feature probabilities, shapes `(classes)` and `(features,classes)`. Output
+representation and probability-output presence do not alter random draws.
+Sparse generation uses per-row word counts and dynamically grown CSR buffers;
+it does not allocate the dense sample-by-feature matrix. The conditional
+probability matrix still requires features-by-classes storage. CSR/document
+sizes must fit the package's integer indexing limits. Integer seeds leave the
+intrinsic Fortran RNG unchanged. See [the example](../example/multilabel_samples.f90).

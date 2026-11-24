@@ -1396,3 +1396,23 @@ remain in `LICENSES/scikit-learn-COPYING`; existing NumPy RNG notices continue
 to apply. Native rank adapters, count guards, quiet IEEE composition, tests,
 example and reference harness are original MIT contributions. No dependency or
 extension algorithm was added.
+
+
+## Multilabel sample generation and Poisson draws (BSD)
+
+`src/sklearn_multilabel_datasets.f90` follows scikit-learn 1.6.1
+`datasets/_samples_generator.py` make_multilabel_classification: class/feature
+probabilities, bounded label and positive length rejection, weighted distinct
+class selection, unlabeled noise words, bag-of-words counts and indicators.
+Sklearn BSD terms remain in `LICENSES/scikit-learn-COPYING`.
+
+The private multiplicative/PTRS Poisson samplers and log-gamma approximation
+adapt NumPy 2.2.6
+[random/src/distributions/distributions.c](https://github.com/numpy/numpy/blob/v2.2.6/numpy/random/src/distributions/distributions.c).
+Existing terms in `LICENSES/numpy-DISTRIBUTIONS-LICENSE.md`,
+`LICENSES/numpy-RANDOM-LICENSE.md` and `LICENSES/numpy-COPYING` apply. The PTRS
+method is attributed there to W. Hoermann, Insurance: Mathematics and Economics
+12, 39-45 (1993). The implementation uses the existing legacy NumPy RNG and
+reduction conventions. Native CSR growth, output overloads, canonical label sets,
+diagnostics, tests, example and reference harness are original MIT contributions.
+No dependency or public extension estimator was added.

@@ -377,3 +377,9 @@ unequal class counts, including empty classes and singleton curves. Blobs also
 accept per-cluster scales and return center locations. See
 [the example](example/geometric_samples.f90) and
 [the API contract](docs/API.md#seeded-blobs-moons-and-circles).
+
+
+`make_multilabel_classification` generates seeded document counts and binary or
+label-set targets, with dense/CSR output and optional generating distributions.
+See [the training example](example/multilabel_samples.f90) and
+[the API contract](docs/API.md#multilabel-classification-samples).

@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and fifty-eight reference suites additionally check 2,621,604
+All types have native tests. One hundred and fifty-nine reference suites additionally check 2,672,419
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -71,7 +71,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | gaussian_process | `gaussian_process_regressor`, `gaussian_process_classifier` | Configurable covariance expressions or legacy RBF controls; anisotropy, Matern/RQ/periodic/dot/constant/white kernels and sums/products/powers; scalar/vector-alpha Cholesky regression, independent multiple targets, likelihood gradients and opt-in bounded kernel fitting; Laplace binary/OVR classification with optional independent kernel fitting, binary likelihood gradients and warm starts |
 | covariance | `empirical_covariance`, `shrunk_covariance`, `ledoit_wolf`, `oas`, `graphical_lasso`, `graphical_lasso_cv`, `min_cov_det`, `elliptic_envelope`; `fast_mcd` | Population covariance, pseudoinverse precision, squared Mahalanobis distance, likelihood, Frobenius/spectral covariance error; L1-penalized sparse precision via block coordinate descent and refined cross-validation; FastMCD robust covariance and elliptic outlier detection |
 | calibration | `calibrated_classifier_cv`; `calibration_curve` | Sigmoid/isotonic CV ensembles, out-of-fold calibration and prefit calibration with logistic, Gaussian NB or KNN bases; uniform/quantile reliability bins |
-| datasets | `make_classification`, `make_hastie_10_2`, `make_blobs`, `make_regression`, `make_low_rank_matrix`, `make_moons`, `make_circles`, `make_friedman1/2/3`, `make_sparse_uncorrelated`, `make_s_curve`, `make_swiss_roll`, `make_gaussian_quantiles` | Native synthetic generators with seeded legacy NumPy draws; scalar/joint regression, low-rank profiles, unequal blob/curve counts, per-cluster blob scales and center outputs; no bundled real-world datasets |
+| datasets | `make_classification`, `make_multilabel_classification`, `make_hastie_10_2`, `make_blobs`, `make_regression`, `make_low_rank_matrix`, `make_moons`, `make_circles`, `make_friedman1/2/3`, `make_sparse_uncorrelated`, `make_s_curve`, `make_swiss_roll`, `make_gaussian_quantiles` | Native synthetic generators with seeded legacy NumPy draws; scalar/joint regression, low-rank profiles, unequal blob/curve counts, per-cluster blob scales and center outputs; no bundled real-world datasets |
 
 ## Metrics and kernels
 
@@ -8389,3 +8389,39 @@ and existing native tests. Reports are retained locally under ignored
 `validation/results/geometric_datasets_*`, including
 `geometric_datasets_final_audit.json`. MIT licensing and retained upstream BSD
 attribution continue; no dependency or public extension was introduced.
+
+
+## Multilabel document generation (sklearn 1.6.1)
+
+`make_multilabel_classification` generates Poisson document lengths and bounded
+label counts, weighted distinct class sets, conditional word draws and unlabeled
+noise. Six typed overloads cover dense/CSR features with dense integer/CSR
+indicators or existing label_set vectors. Optional class/conditional-word
+probabilities share the same stream. CSR buffers grow dynamically and avoid a
+dense samples-by-features allocation; feature/class probabilities and per-row
+word counts remain dense. Canonical label sets are sorted zero-based class IDs;
+CSR indices/pointers are one-based and CSR indicator values are real64 ones.
+Zero expected labels with nonempty labels required is diagnosed as unsatisfiable.
+Native default seed 0 is isolated. Python RandomState objects and set iteration
+ordering are outside this native interface.
+
+`compare_multilabel_datasets.py` retains 50,815 required groups across 3,635
+configurations: five seeds including 2147483647, four main shapes, 1/5/9/33
+classes, expected label counts 0/1/2/9/10, document lengths 1/9/10/50/250 and
+both unlabeled controls where feasible. Additional 129-class and 131-feature
+cases exercise reduction boundaries; fifteen 100,000-feature cases exercise
+CSR-only output. Each regular configuration checks all six representations,
+optional-output independence, exact counts/indicators/storage, canonical sets,
+probabilities and dimensions. Eight diagnostics cover malformed dimensions,
+index limits, means, seed and the unsatisfiable label controls. All development
+groups and diagnostics passed; feature counts, indicators, CSR storage and
+returned probabilities matched exactly. Native tests also verify normalized
+probabilities, positive document lengths, label-set identities, unlabeled noise,
+nonempty-label rejection, wide sparse storage and intrinsic-RNG isolation.
+The example trains a native multilabel MLP on generated data. MIT licensing
+and retained sklearn/NumPy BSD attribution continue; no dependency or public
+extension algorithm was introduced.
+
+Cumulative inventory: 222 public core types, 140 source modules, 183 native
+programs, 159 reference suites / 2,672,419 retained required groups, and 64
+invalid-input registries / 4,110 cases. These remain API subsets.
