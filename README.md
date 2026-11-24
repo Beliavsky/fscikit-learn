@@ -484,3 +484,8 @@ Nystroem now uses source-seeded landmark rows and full SVD normalization, with
 all built-in kernels, typed callbacks and source precomputed-kernel behavior.
 See [the example](example/nystroem_kernels.f90) and
 [the API contract](docs/API.md#source-seeded-nystroem-kernels-and-full-svd).
+
+AdditiveChi2Sampler accepts CSR input and returns CSR feature maps while
+preserving source storage order, duplicates, explicit zeros and IEEE outcomes.
+See [the example](example/additive_csr_features.f90) and
+[the API contract](docs/API.md#additive-chi-square-csr-feature-maps).

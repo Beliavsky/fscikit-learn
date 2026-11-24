@@ -1696,3 +1696,14 @@ kinds/status/quiet scaling, preserve small nonzero singular values and complete
 collapsed null directions before the source's absolute singular-value floor.
 No external LAPACK/BLAS or new fpm dependency was added. Callback/storage
 adapters, tests, example and reference harness are original MIT integration.
+
+## Dense and CSR additive chi-square feature maps (BSD)
+
+`src/sklearn_kernel_approximation.f90` follows sklearn 1.6.1
+`kernel_approximation.py` AdditiveChi2Sampler dense/sparse evaluation,
+intermediate operation order, stateless/fitted width rules and harmonic block
+layout. CSR concatenation follows the public SciPy hstack storage contract;
+no SciPy implementation code was copied. Existing sklearn BSD notices remain
+under LICENSES/. Native typed overloads, one-based CSR assembly, quiet IEEE
+composition and index guards, tests, example and reference harness are MIT
+integration. No dependency or public extension algorithm was added.

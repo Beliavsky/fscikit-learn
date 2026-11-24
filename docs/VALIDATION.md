@@ -7986,3 +7986,29 @@ were rerun. Four-job builds used the checksum-verified private fpm 0.14.0;
 the global fpm was unchanged. Artifacts remain under ignored
 validation/results/nystroem*, including nystroem_final_audit.json.
 Implementation commit: d560ee6. MIT licensing and retained BSD notices continue.
+
+## Dense and CSR additive chi-square feature maps
+
+AdditiveChi2Sampler now accepts CSR fit/transform/fit_transform and returns a
+CSR harmonic map, preserving raw stored-entry order, duplicates and zeros.
+Stateless transforms keep width unfitted; fitted maps validate query width.
+Both dense and sparse branches follow source intermediate arithmetic, replacing
+the stabilized dense expression/zero-interval shortcut with quiet IEEE source
+outcomes. Explicit CSR zeros retain NaN harmonic entries, unlike masked dense
+zeros. CSR shape and stored counts use checked int64 totals before allocation.
+
+The new suite covers 860 fixtures / 9,460 required groups and 39 diagnostics:
+34 sklearn estimator checks, three SciPy CSR structural checks and two native
+index-limit guards. Dense/CSR fit/query combinations, stateless/fitted maps,
+default/custom/live intervals, duplicates, unsorted/explicit zeros, empty rows,
+tiny/huge values and input/RNG preservation are checked. All 14,652 nonfinite
+source values are compared. Raw CSR pointers/columns and controls compare
+exactly; data use numerical tolerances. Native tests include a 100,000-by-10,000
+sparse input whose 100,000-by-30,000 output would require 24 GB if densified.
+Checked and optimized temporary probes pass all affected suites.
+
+Inventory: 222 public core types, 155 source modules, 208 native programs,
+184 reference suites / 3,712,538 retained groups and 89 invalid registries /
+4,819 cases. No dependency, public type or extension algorithm was added.
+MIT licensing and retained BSD attribution continue. Canonical verification
+will be recorded below.

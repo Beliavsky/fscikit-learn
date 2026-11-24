@@ -7,7 +7,8 @@ module sklearn_kernel_approximation
   use sklearn_legacy_rng, only: legacy_random_state
   use sklearn_ieee_math, only: ieee_difference,ieee_product,ieee_quotient
   use sklearn_common
-  use, intrinsic :: ieee_arithmetic, only: ieee_is_finite,ieee_is_nan,ieee_value,ieee_quiet_nan,ieee_fma,ieee_negative_inf
+  use, intrinsic :: ieee_arithmetic, only: ieee_is_finite,ieee_is_nan,ieee_value,ieee_quiet_nan,ieee_fma, &
+    ieee_negative_inf,ieee_positive_inf
   implicit none
   private
   public :: polynomial_count_sketch
@@ -17,9 +18,15 @@ module sklearn_kernel_approximation
     integer :: sample_steps=2,n_features_in_=0
     real(dp) :: sample_interval=-1
   contains
-    procedure :: fit=>additive_fit
-    procedure :: transform=>additive_transform
-    procedure :: fit_transform=>additive_fit_transform
+    procedure,private::fit_dense=>additive_fit
+    procedure,private::fit_csr=>additive_fit_csr
+    generic::fit=>fit_dense,fit_csr
+    procedure,private::transform_dense=>additive_transform
+    procedure,private::transform_csr=>additive_transform_csr
+    generic::transform=>transform_dense,transform_csr
+    procedure,private::fit_transform_dense=>additive_fit_transform
+    procedure,private::fit_transform_csr=>additive_fit_transform_csr
+    generic::fit_transform=>fit_transform_dense,fit_transform_csr
   end type
   type :: skewed_chi2_sampler
     integer :: n_components=100,random_state=0,n_features_in_=0
@@ -485,39 +492,123 @@ contains
     self%n_features_in_=size(x,2)
   end subroutine
 
+  real(dp) function additive_sqrt(value) result(result_)
+    real(dp),intent(in)::value
+    result_=ieee_value(0._dp,ieee_quiet_nan)
+    if(ieee_is_nan(value)) return
+    if(value>=0) result_=sqrt(value)
+  end function
+  real(dp) function additive_cosh(value) result(result_)
+    real(dp),intent(in)::value
+    real(dp)::half
+    result_=ieee_value(0._dp,ieee_quiet_nan)
+    if(ieee_is_nan(value)) return
+    if(.not.ieee_is_finite(value)) then
+      result_=ieee_value(0._dp,ieee_positive_inf)
+    else if(abs(value)<=log(huge(1._dp))) then
+      result_=cosh(value)
+    else if(abs(value)>2*log(huge(1._dp))) then
+      result_=ieee_value(0._dp,ieee_positive_inf)
+    else
+      half=exp(abs(value)/2)
+      result_=ieee_difference(ieee_product(.5_dp*half,half),-.5_dp*exp(-abs(value)))
+    end if
+  end function
+  subroutine additive_harmonic(value,h,k,c,s)
+    real(dp),intent(in)::value,h
+    integer,intent(in)::k
+    real(dp),intent(out)::c,s
+    real(dp)::factor,phase,argument,step
+    argument=ieee_product(ieee_product(acos(-1._dp),real(k,dp)),h)
+    step=ieee_product(ieee_product(2._dp,value),h)
+    factor=additive_sqrt(ieee_quotient(step,additive_cosh(argument)))
+    phase=ieee_product(real(k,dp),ieee_product(h,skewed_log(value)))
+    c=ieee_value(0._dp,ieee_quiet_nan);s=c
+    if(ieee_is_finite(phase)) then
+      c=ieee_product(factor,cos(phase));s=ieee_product(factor,sin(phase))
+    end if
+  end subroutine
   function additive_transform(self,x) result(z)
-    use, intrinsic :: iso_fortran_env, only: int64
-    class(additive_chi2_sampler), intent(in) :: self
-    real(dp), intent(in) :: x(:,:)
-    real(dp), allocatable :: z(:,:)
-    real(dp) :: h,a,amplitude,phase,pi,log_amplitude
-    integer :: n,p,i,j,k,offset,width
-    integer(int64) :: wide
-    h=additive_interval(self); call check_x(x)
+    use,intrinsic::iso_fortran_env,only:int64
+    class(additive_chi2_sampler),intent(in)::self
+    real(dp),intent(in)::x(:,:)
+    real(dp),allocatable::z(:,:)
+    real(dp)::h,c,s
+    integer::n,p,i,j,k,offset,width
+    integer(int64)::wide
+    h=additive_interval(self);call check_x(x)
     call require(all(x>=0),'AdditiveChi2 requires nonnegative input')
-    n=size(x,1); p=size(x,2)
+    n=size(x,1);p=size(x,2)
     if(self%n_features_in_>0) call require(p==self%n_features_in_,'AdditiveChi2 feature count mismatch')
     wide=(2_int64*self%sample_steps-1)*int(p,int64)
     call require(wide<=huge(1),'AdditiveChi2 output width overflow')
-    width=int(wide); allocate(z(n,width)); z=0
-    if(h==0) return
-    pi=acos(-1._dp)
+    width=int(wide);allocate(z(n,width));z=0
     do j=1,p
       do i=1,n
         if(x(i,j)==0) cycle
-        z(i,j)=sqrt(x(i,j))*sqrt(h)
+        z(i,j)=additive_sqrt(ieee_product(x(i,j),h))
         do k=1,self%sample_steps-1
-          ! Beyond this limit all harmonics underflow for any finite input.
-          if(h>3000._dp/(pi*real(k,dp))) cycle
-          a=pi*real(k,dp)*h
-          log_amplitude=.5_dp*(log(4._dp)+log(x(i,j))+log(h)-a-log(1+exp(-2*a)))
-          amplitude=exp(log_amplitude); phase=real(k,dp)*h*log(x(i,j))
-          offset=(2*k-1)*p
-          z(i,offset+j)=amplitude*cos(phase)
-          z(i,offset+p+j)=amplitude*sin(phase)
+          call additive_harmonic(x(i,j),h,k,c,s)
+          offset=(2*k-1)*p;z(i,offset+j)=c;z(i,offset+p+j)=s
         end do
       end do
     end do
+  end function
+  subroutine additive_csr_input(self,x)
+    class(additive_chi2_sampler),intent(in)::self
+    type(csr_matrix),intent(in)::x
+    call x%validate()
+    call require(x%n_rows>0.and.x%n_cols>0,'AdditiveChi2 CSR input must be nonempty')
+    call require(all(ieee_is_finite(x%data)),'AdditiveChi2 CSR input contains NaN or infinity')
+    call require(all(x%data>=0),'AdditiveChi2 requires nonnegative input')
+  end subroutine
+  subroutine additive_fit_csr(self,x)
+    class(additive_chi2_sampler),intent(inout)::self
+    type(csr_matrix),intent(in)::x
+    real(dp)::h
+    h=additive_interval(self);call additive_csr_input(self,x)
+    self%n_features_in_=x%n_cols
+  end subroutine
+  function additive_transform_csr(self,x) result(z)
+    use,intrinsic::iso_fortran_env,only:int64
+    class(additive_chi2_sampler),intent(in)::self
+    type(csr_matrix),intent(in)::x
+    type(csr_matrix)::z
+    real(dp)::h,c,s
+    integer(int64)::factor,width,count
+    integer::i,k,j,start,nrow,entry,slot,cos_slot,sin_slot,p
+    h=additive_interval(self);call additive_csr_input(self,x);p=x%n_cols
+    if(self%n_features_in_>0) call require(p==self%n_features_in_,'AdditiveChi2 feature count mismatch')
+    factor=2_int64*self%sample_steps-1;width=factor*p;count=factor*size(x%data,kind=int64)
+    call require(width<=huge(1),'AdditiveChi2 output width overflow')
+    call require(count<huge(1),'AdditiveChi2 CSR stored count overflow')
+    z%n_rows=x%n_rows;z%n_cols=int(width)
+    allocate(z%indptr(z%n_rows+1),z%indices(int(count)),z%data(int(count)))
+    z%indptr(1)=1;start=1
+    do i=1,x%n_rows
+      nrow=x%indptr(i+1)-x%indptr(i)
+      do j=1,nrow
+        entry=x%indptr(i)+j-1;slot=start+j-1
+        z%indices(slot)=x%indices(entry);z%data(slot)=additive_sqrt(ieee_product(x%data(entry),h))
+      end do
+      if(nrow>0) then
+        do k=1,self%sample_steps-1
+          do j=1,nrow
+            entry=x%indptr(i)+j-1;cos_slot=start+(2*k-1)*nrow+j-1;sin_slot=cos_slot+nrow
+            call additive_harmonic(x%data(entry),h,k,c,s)
+            z%indices(cos_slot)=x%indices(entry)+(2*k-1)*p;z%data(cos_slot)=c
+            z%indices(sin_slot)=x%indices(entry)+2*k*p;z%data(sin_slot)=s
+          end do
+        end do
+      end if
+      start=start+int(factor*nrow);z%indptr(i+1)=start
+    end do
+  end function
+  function additive_fit_transform_csr(self,x) result(z)
+    class(additive_chi2_sampler),intent(inout)::self
+    type(csr_matrix),intent(in)::x
+    type(csr_matrix)::z
+    call self%fit(x);z=self%transform(x)
   end function
 
   function additive_fit_transform(self,x) result(z)

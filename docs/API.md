@@ -7817,3 +7817,34 @@ registry. Source-valid negative offsets now fit. No public estimator type or
 extension algorithm was added. SciFort code is included as an attributed native
 helper, without adding an fpm dependency. See
 [the example](../example/nystroem_kernels.f90).
+
+## Additive chi-square CSR feature maps
+
+AdditiveChi2Sampler accepts dense real64 matrices or csr_matrix in fit,
+transform and fit_transform. Dense inputs return dense arrays; CSR inputs
+return CSR features. Transform remains stateless when called before fit and
+then accepts changing feature widths. After fit, feature width is checked.
+The live sample_steps/sample_interval controls determine query maps, with the
+same default interval rules and validation as the source.
+
+Output columns concatenate sqrt components, then cosine/sine blocks for each
+harmonic. CSR output horizontally stacks the original row segments, preserving
+unsorted columns, duplicate entries and explicitly stored zeros. It neither
+coalesces duplicates nor removes stored zeros. Each stored input entry produces
+2*sample_steps-1 stored output entries. Empty rows and implicit zeros stay empty.
+No sample-by-feature dense input or output copy is made.
+
+Source intermediate operation order is now used for both representations.
+Quiet products, division, square root, cosh and phase handling preserve defined
+NaN/Inf results without checked traps. In particular, explicitly stored CSR
+zeros have NaN harmonic entries because log(0) enters the phase; dense zeros
+are masked by the source and remain zero. Zero interval and extreme finite
+inputs can also have nonfinite source intermediates. This corrects the earlier
+native stabilized dense formula and early zero-interval shortcut.
+
+Input data and controls remain finite/nonnegative within the documented
+sentinel convention (-1 interval represents None). CSR structural and native
+integer width/stored-count bounds are checked before allocation. Native output
+limits are identified separately from source validation in the reference
+registry. See [the example](../example/additive_csr_features.f90). No public
+estimator type, dependency or extension algorithm was added.
