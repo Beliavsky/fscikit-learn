@@ -1,4 +1,5 @@
 module sklearn_preprocessing
+  use sklearn_robust_scaling, only: robust_scaler,robust_scale
   use sklearn_minmax_scaling, only: minmax_scaler,minmax_scale
   use sklearn_maxabs_scaling, only: maxabs_scaler,maxabs_scale
   use sklearn_polynomial, only: polynomial_features
@@ -27,6 +28,7 @@ module sklearn_preprocessing
   public :: spline_transformer
   public :: knn_imputer,missing_indicator
   public :: power_transformer,kbins_discretizer,quantile_transformer
+  public :: robust_scale
   public :: minmax_scale
   public :: maxabs_scale
   public :: standard_scaler, minmax_scaler, maxabs_scaler, robust_scaler, simple_imputer
@@ -39,15 +41,6 @@ module sklearn_preprocessing
     procedure :: fit=>standard_fit
     procedure :: transform=>standard_transform
     procedure :: inverse_transform=>standard_inverse
-  end type
-  type :: robust_scaler
-    logical :: with_centering=.true., with_scaling=.true.
-    real(dp) :: quantile_low=25, quantile_high=75
-    real(dp), allocatable :: center_(:), scale_(:)
-  contains
-    procedure :: fit=>robust_fit
-    procedure :: transform=>robust_transform
-    procedure :: inverse_transform=>robust_inverse
   end type
   type :: simple_imputer
     character(16) :: strategy='mean'
@@ -114,37 +107,6 @@ contains
     order=argsort(x); position=1+(size(x)-1)*p/100
     lo=floor(position); hi=ceiling(position)
     v=x(order(lo))+(position-lo)*(x(order(hi))-x(order(lo)))
-  end function
-  subroutine robust_fit(self,x)
-    class(robust_scaler), intent(inout) :: self
-    real(dp), intent(in) :: x(:,:)
-    integer :: j
-    call check_x(x)
-    call require(self%quantile_low>=0.and.self%quantile_high<=100.and. &
-      self%quantile_low<self%quantile_high,'invalid quantile range')
-    self%center_=sum(x,dim=1)*0; self%scale_=self%center_+1
-    do j=1,size(x,2)
-      if(self%with_centering) self%center_(j)=percentile(x(:,j),50._dp)
-      if(self%with_scaling) self%scale_(j)=percentile(x(:,j),self%quantile_high)- &
-        percentile(x(:,j),self%quantile_low)
-    end do
-    where(self%scale_<10*epsilon(1._dp)) self%scale_=1
-  end subroutine
-  function robust_transform(self,x) result(z)
-    class(robust_scaler), intent(in) :: self
-    real(dp), intent(in) :: x(:,:)
-    real(dp) :: z(size(x,1),size(x,2))
-    call require(allocated(self%center_),'robust_scaler is not fitted')
-    call check_xy(transpose(x),size(self%center_))
-    z=(x-spread(self%center_,1,size(x,1)))/spread(self%scale_,1,size(x,1))
-  end function
-  function robust_inverse(self,x) result(z)
-    class(robust_scaler), intent(in) :: self
-    real(dp), intent(in) :: x(:,:)
-    real(dp) :: z(size(x,1),size(x,2))
-    call require(allocated(self%center_),'robust_scaler is not fitted')
-    call check_xy(transpose(x),size(self%center_))
-    z=x*spread(self%scale_,1,size(x,1))+spread(self%center_,1,size(x,1))
   end function
   subroutine imputer_fit(self,x)
     class(simple_imputer), intent(inout) :: self

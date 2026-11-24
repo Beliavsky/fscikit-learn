@@ -6751,3 +6751,14 @@ signed-infinity masks. Numerical fields use 3e-8 tolerances; metadata and native
 caller/RNG identities compare exactly. Streaming all-NaN propagation, refit
 reset, source nonfinite range endpoints, live reversed clip bounds, inverse
 broadcasting and vector/matrix free functions are explicitly represented.
+
+
+`compare_robust.py --executable <reference_robust_driver.exe>` checks 1,332
+RobustScaler/robust_scale configurations / 31,944 groups and 69 diagnostics.
+All 32,575 nonfinite source values are compared. Numeric fields use 3e-8
+absolute/relative tolerances and exact NaN/signed-infinity masks; layouts and
+metadata are exact. Native caller/RNG identities are separately classified.
+Fixtures include nullable statistics, raw CSR duplicates/count constraints,
+normal-unit adjustment, subnormal quantile probabilities and NumPy median
+599/600/601-row dispatch. Sparse fit quantiles intentionally preserve the
+source raw stored-entry contract without densifying input or padded columns.

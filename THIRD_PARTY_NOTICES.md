@@ -1767,3 +1767,17 @@ Native overloads, int64 metadata/guard, quiet arithmetic integration, example,
 tests and reference harness are MIT integration. The old MinMaxScaler type and
 methods were extracted from preprocessing and remain re-exported. No dependency
 or public extension algorithm was added.
+
+## RobustScaler quantiles and sparse scaling (BSD / MIT)
+
+src/sklearn_robust_scaling.f90 follows sklearn 1.6.1 preprocessing/_data.py
+RobustScaler/robust_scale: optional statistics, NaN quantiles, unit variance,
+raw sparse-column padding and live mapping controls. Interpolation follows
+NumPy 2.2.6 lib/_function_base_impl.py _lerp; median dispatch follows
+lib/_nanfunctions_impl.py and ma/extras.py. Existing sklearn/NumPy BSD notices
+remain under LICENSES/. Native compact zero-multiplicity quantiles, log-tail
+normal inversion, typed adapters, quiet arithmetic composition, example, tests
+and reference harness are MIT integration. Source was extracted from the
+preprocessing module and remains re-exported. Frozen fitted-state and width
+adapters were updated for absent robust statistics. No dependency or public
+extension algorithm was added.

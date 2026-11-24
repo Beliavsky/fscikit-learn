@@ -7974,3 +7974,38 @@ Inverse applies source in-place broadcasting rules: a scalar learned scale can
 act on wider data; a one-column input cannot expand to multiple fitted columns.
 Inputs and intrinsic RNG are unchanged. See
 [the streaming example](../example/minmax_streaming.f90).
+
+## RobustScaler sparse inputs and optional statistics
+
+robust_scaler remains available through preprocessing/the facade, with its
+focused implementation in sklearn_robust_scaling. Dense/CSR fit, fit_transform,
+transform and inverse_transform support NaNs and reject infinite input. Public
+n_features_in_ records fitted width. center_ is unallocated when with_centering
+is false, and scale_ is unallocated when with_scaling is false, matching None.
+Fit quantiles satisfy 0 <= quantile_low <= quantile_high <= 100; equal endpoints
+are accepted. unit_variance defaults false and applies the source normal-IQR
+adjustment. Query flags are live; enabling a statistic absent at fit fails
+explicitly on paths that require it. No partial_fit exists in the source class.
+
+```fortran
+use sklearn, only: dp, robust_scaler, robust_scale
+use sklearn_sparse, only: csr_matrix, csr_from_arrays
+type(robust_scaler) :: model
+type(csr_matrix) :: x, z
+x=csr_from_arrays(5,3,[1,3,4,5,5,5],[1,3,2,1],[1._dp,10._dp,2._dp,3._dp])
+model%with_centering=.false.
+model%unit_variance=.true.
+z=model%fit_transform(x)
+z=robust_scale(x,with_centering=.false.,axis=1)
+```
+
+The free function supports vectors/matrices/CSR, axis zero by default, and the
+same centering/scaling, quantile_low/quantile_high and unit_variance controls.
+Sparse fit requires centering false. Sparse queries ignore centering as source
+while scaling raw stored entries by reciprocal scale. Sparse quantiles retain
+source raw stored-entry counts and implicit-zero padding; excess raw counts
+raise an explicit error. Inputs and the intrinsic RNG are unchanged, and no
+full sparse-input densification occurs. Nullable fitted metadata is supported
+through Pipeline/FrozenEstimator adapters. Inverse broadcast and numeric/median
+dispatch details are recorded in COVERAGE.md. See
+[the example](../example/robust_kernel_inputs.f90).

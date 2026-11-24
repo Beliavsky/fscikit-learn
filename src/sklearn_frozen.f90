@@ -129,7 +129,7 @@ contains
     type is(standard_scaler);ok=allocated(model%scale_)
     type is(minmax_scaler);ok=allocated(model%scale_)
     type is(maxabs_scaler);ok=allocated(model%scale_)
-    type is(robust_scaler);ok=allocated(model%scale_)
+    type is(robust_scaler);ok=model%n_features_in_>0
     type is(simple_imputer);ok=allocated(model%statistics_)
     type is(one_hot_encoder);ok=allocated(model%categories_)
     type is(ordinal_encoder);ok=allocated(model%categories_)
@@ -187,7 +187,7 @@ contains
     type is(standard_scaler);if(allocated(model%scale_)) n=size(model%scale_)
     type is(minmax_scaler);if(allocated(model%scale_)) n=size(model%scale_)
     type is(maxabs_scaler);if(allocated(model%scale_)) n=size(model%scale_)
-    type is(robust_scaler);if(allocated(model%scale_)) n=size(model%scale_)
+    type is(robust_scaler);n=model%n_features_in_
     type is(simple_imputer);if(allocated(model%statistics_)) n=size(model%statistics_)
     type is(one_hot_encoder);if(allocated(model%categories_)) n=size(model%categories_)
     type is(ordinal_encoder);n=model%n_features_in_

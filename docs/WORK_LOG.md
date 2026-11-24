@@ -8486,3 +8486,53 @@ the global fpm was unchanged. Artifacts remain under ignored validation/results/
 minmax*, including minmax_final_audit.json. Implementation commit: 7f5c285.
 MIT integration and retained upstream notices continue; no dependency or public
 extension algorithm was added.
+
+## RobustScaler nullable statistics, NaNs, CSR and unit variance
+
+RobustScaler now fits and maps dense matrices and native CSR, with NaN-aware
+medians/linear quantiles, source-equal quantile endpoints, unit_variance,
+fit_transform and n_features_in_. Disabled center_/scale_ statistics are
+unallocated, representing source None. Dense transforms use live centering and
+scaling flags and reject absent required fitted statistics. CSR fitting rejects
+centering, while CSR queries/inverses ignore the centering flag as source does.
+Raw CSR order, duplicates and explicit zeros are preserved during mapping.
+Dense inverse permits learned scalar statistics to broadcast; disabled operations
+allow changing inverse width. Sparse inverse checks width only when scaling.
+
+Sparse fitting follows sklearn's raw CSC-column contract: stored entries form
+the quantile sample and padding zeros fill the remaining row count. Duplicate
+coordinates are not coalesced, and a raw column count above n_rows is rejected
+by source. The native implementation groups stored values and represents padding
+zeros by multiplicity, avoiding a dense column or full matrix allocation.
+Free row scaling applies the same contract to raw CSR rows. The robust_scale
+function also accepts dense matrices/rank-one vectors and both axes, with native
+centering/scaling, quantile endpoint and unit-variance controls.
+
+Median behavior follows the installed NumPy 2.2.6 dispatch: short 2-D axes below
+600 rows average two middle values even for odd valid counts; larger axes use
+1-D medians. Extreme finite median/quantile overflow and source zero-IQR/unit
+adjustment NaNs/infinities are preserved with floating traps enabled. Quantile
+interpolation uses source lower/upper-half operation order. Normal-reference
+quantiles are computed natively by monotone log-tail inversion, including
+subnormal probabilities and endpoint infinities, without a SciPy runtime.
+
+The direct suite covers 1,332 fixtures / 31,944 required groups and 69 diagnostics:
+65 sklearn checks, three SciPy CSR structural checks and one native integer
+capacity guard. Cases cover three seeds, dense/CSR fit/query combinations,
+optional statistics, both free-function axes, default/custom/equal/endpoint and
+tail quantiles, missing/all-missing/zero/tiny/huge data, raw duplicates, live
+flags, inverse broadcasting, refit replacement and the 599/600/601-row median
+boundary. All 32,575 nonfinite source values are compared. Numerical fields use
+3e-8 tolerances with exact NaN/signed-infinity masks; CSR layouts, metadata and
+caller/RNG identities are exact, with identities classified separately.
+
+The focused sklearn_robust_scaling module remains exported by preprocessing and
+the facade. Frozen fitted-state/feature-width adapters now use robust metadata
+so models without a scale vector remain supported. Other preprocessing methods
+are unchanged. Native tests fit a 100,000-by-100,000 sparse matrix whose dense
+storage would require 80 GB. No sparse centering, in-place copy flags or CSC
+container API is introduced. Inventory: 222 public core types, 158 source modules,
+216 native programs, 189 reference suites / 3,851,172 retained groups and 94
+invalid registries / 5,132 cases. No dependency or public extension was added.
+MIT integration and retained upstream notices continue. Canonical verification
+is recorded below.

@@ -508,3 +508,8 @@ MinMaxScaler supports streaming dense batches, NaNs, fitted range metadata and
 live clipping controls. minmax_scale handles matrices/vectors on either axis.
 See the [example](example/minmax_streaming.f90) and
 [API contract](docs/API.md#minmaxscaler-streaming-and-free-maps).
+
+RobustScaler supports NaNs, CSR maps, optional fitted statistics and normal
+unit-variance adjustment. robust_scale covers vectors/matrices/CSR on both axes.
+See the [example](example/robust_kernel_inputs.f90) and
+[API contract](docs/API.md#robustscaler-sparse-inputs-and-optional-statistics).
