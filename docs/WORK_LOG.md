@@ -7522,3 +7522,75 @@ reference executables. It verifies unchanged unrelated source/test paths and
 the private fpm checksum. The global fpm installation was unchanged. Reports
 remain under ignored `validation/results/regression_forests*`, including
 `regression_forests_final_audit.json`.
+
+## Absolute-error trees and regression forests (2026-11-24)
+
+Added criterion='absolute_error' to decision_tree_regressor,
+extra_tree_regressor, random_forest_regressor and extra_trees_regressor.
+Leaves use the sklearn weighted-median convention; split proxies and node
+impurities use weighted absolute deviations. The existing size/feature/
+impurity-decrease controls, fitting weights, forest bootstrap multiplicities
+and criterion search grids apply. This adds one internal source module and
+no public estimator type or extension algorithm.
+
+The internal queue translation follows sklearn 1.6.1 tree/_utils.pyx and
+tree/_criterion.pyx: stable sorted records, insert/remove/pop updates,
+forward/reverse movement, and reset order. Initialized removed records are
+retained, and the two buffers are reused across node resets for the entire
+fit. Invalid accesses outside initialized storage return quiet NaN. Large
+finite target averages can produce source Inf/NaN outcomes; tree importance
+normalization now uses quiet scalar IEEE division to preserve those outcomes
+under floating-point traps. Absolute-error predict/apply reject query NaNs,
+as the source does. Training NaNs remain unsupported.
+
+The new suite contains 400 single-tree and 400 forest fixtures / 11,989
+required groups, plus 28 isolated source-matched input diagnostics. Of these,
+795 fixtures / 11,915 groups compare directly against installed sklearn,
+including exact structures, leaf IDs, component seeds, metadata and active-row
+counts, plus floating predictions/values/impurity/mass/threshold/importance
+fields at rtol=2e-10/atol=2e-12. All 96 nonfinite direct-source values match.
+The 389 valid forest-score fixtures include weighted R2 comparisons.
+
+Five fixtures / 74 groups separately verify empty-queue safety. Source
+WeightedMedianCalculator.get_median reads indices k and k-1 when k=0; the
+all-zero effective-weight case therefore reads invalid storage. The native
+rule is a quiet-NaN root value/impurity, zero active rows and one leaf.
+Forest averages containing that tree return NaN predictions; stump trees do
+not contribute to importance. Nonempty components in a partially empty
+bootstrap fixture still compare to source component trees. The new suite
+labels these identities explicitly and makes no source-equivalence claim
+for an invalid memory read. Other nonempty MAE fixtures use direct source
+comparisons rather than alternate-tree certificates.
+
+Checked verification passed all 198 native programs, 58,722 affected reference
+groups and 72 diagnostics. These include 16,211 existing regression-tree
+criterion groups, 20,538 existing regression-forest groups and 9,984 existing
+weighted-tree groups. The weighted-tree suite retains its earlier documented
+source-conditioned/pure-subtree certificates. Its separate input registries
+were not rerun. The example matches median leaf 4 versus mean leaf 27 and
+weighted median-forest predictions [0.5,1,2.5,76.75]. A separate private
+128-tree storage probe also matched the source; it is excluded from retained
+group totals.
+
+Cumulative inventory: 222 public core types, 152 source modules, 198 native
+programs, 174 reference suites / 3,320,646 retained required groups, and
+79 invalid-input registries / 4,499 cases. These remain API subsets.
+MIT licensing and retained sklearn BSD attribution continue. No dependency
+or public extension algorithm was added.
+
+Final absolute-error verification: checked and optimized release builds each
+passed all 198 native programs, 58,722 affected reference/safety groups and
+72 diagnostic cases. The new-suite totals are 11,915 direct-source groups
+and 74 separately labeled safety/composed-component groups. Both examples
+match sklearn, including [0.5,1,2.5,76.75] forest predictions. Four-job builds
+used the checksum-verified private fpm 0.14.0; the global fpm was unchanged.
+
+The combined audit verifies 358 compiled source units per profile using
+dependency-aware fingerprints, complete single-tree/forest field inventories,
+source/safety separation, source/binary/validator/executable/report hashes,
+matching comparison inventories and distinct optimized reference executables.
+Unrelated source/test/application paths remained unchanged. Only the four
+affected reference suites and their reported diagnostic cases were rerun;
+other retained suites/registries are excluded from these rerun totals.
+Reports remain under ignored `validation/results/tree_absolute_error*`,
+including `tree_absolute_error_final_audit.json`.
