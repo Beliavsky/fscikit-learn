@@ -4,8 +4,12 @@ program test_search
   use sklearn_linear_model, only: ridge,logistic_regression
   use sklearn_pipeline, only: pipeline
   use sklearn_preprocessing, only: standard_scaler
+  use sklearn_tree, only: decision_tree_regressor,extra_tree_regressor
   implicit none
   type(grid_search_cv) :: search,copied,multi
+  type(grid_search_cv) :: criterion_search
+  type(decision_tree_regressor) :: count_tree
+  type(extra_tree_regressor) :: count_extra
   type(randomized_search_cv) :: random
   type(ridge) :: base
   type(logistic_regression) :: classifier
@@ -61,6 +65,23 @@ program test_search
   search%param_grid(1)%axes(1)%name='model__alpha';search%param_grid(1)%axes(1)%values=[param(.01_dp),param(1._dp)]
   call search%fit(x,labels);predicted=search%predict(x)
   call require(size(predicted)==40.and.search%best_index_>0,'nested Pipeline parameters with integer regression target')
+  count_tree%max_depth=2
+  allocate(criterion_search%estimator,source=count_tree);allocate(criterion_search%param_grid(1))
+  allocate(criterion_search%param_grid(1)%axes(1));criterion_search%param_grid(1)%axes(1)%name='criterion'
+  criterion_search%param_grid(1)%axes(1)%values=[param('squared_error'),param('friedman_mse'),param('poisson')]
+  criterion_search%cv=3;criterion_search%scoring='neg_mean_squared_error'
+  call criterion_search%fit(x,1+abs(y),weights)
+  value=criterion_search%best_params_%get('criterion')
+  select type(fitted=>criterion_search%best_estimator_)
+  class is(decision_tree_regressor)
+    call require(fitted%criterion==value%as_text(),'Refitted regression tree retains searched criterion')
+  class default
+    call require(.false.,'Criterion search returns a tree regressor')
+  end select
+  count_extra%max_depth=2;deallocate(criterion_search%estimator)
+  allocate(criterion_search%estimator,source=count_extra)
+  call criterion_search%fit(x,1+abs(y),weights)
+  call require(size(criterion_search%cv_results_%params)==3,'ExtraTree criterion parameter adapter')
   print *, 'GridSearchCV and RandomizedSearchCV: PASS'
 contains
   integer function last_candidate(results) result(index)

@@ -2,7 +2,8 @@ module sklearn_tree
   use sklearn_legacy_rng, only: legacy_random_state
   use sklearn_ieee_math, only: ieee_difference,ieee_product,ieee_quotient,ieee_total,ieee_mean,ieee_argmax
   use, intrinsic :: iso_fortran_env, only: int64,real32
-  use, intrinsic :: ieee_arithmetic, only: ieee_is_finite,ieee_is_nan,ieee_value,ieee_quiet_nan,ieee_negative_inf
+  use, intrinsic :: ieee_arithmetic, only: ieee_is_finite,ieee_is_nan,ieee_value,ieee_quiet_nan,ieee_negative_inf, &
+    ieee_positive_inf
   use sklearn_common
   use sklearn_metrics, only: accuracy_score,r2_score
   implicit none
@@ -38,6 +39,7 @@ module sklearn_tree
     procedure :: score=>classifier_score
   end type
   type, extends(tree_storage) :: decision_tree_regressor
+    character(16) :: criterion='squared_error'
   contains
     procedure :: fit=>regressor_fit
     procedure :: predict=>regressor_predict
@@ -66,7 +68,17 @@ contains
     integer :: all_features(size(x,2)),constants(size(x,2)),i,root,nf
     integer(int64) :: state
     real(dp) :: root_weight,min_weight,normalizer,contribution
+    logical :: source_regression,work_splitter
     call check_xy(x,size(y)); call check_x(reshape(y,[size(y),1]))
+    if(size(classes)==0) then
+      call require(any(criterion==[character(16)::'squared_error','friedman_mse','poisson']),'unknown regression tree criterion')
+      if(criterion=='poisson') then
+        call require(all(y>=0),'Poisson tree targets must be nonnegative')
+        call require(ieee_total(y)>0,'Poisson tree target sum must be positive')
+      end if
+    end if
+    source_regression=size(classes)==0
+    work_splitter=size(classes)>0.or.source_regression
     call require(size(w)==size(y),'tree sample weight length mismatch')
     call require(all(ieee_is_finite(w)),'tree sample weights must be finite')
     call require(size(y)<=huge(1)/2,'tree node capacity exceeds integer range')
@@ -142,11 +154,45 @@ contains
         end if
       end do
     end subroutine
-    real(dp) function impurity(mass,sums,squares) result(value)
+    real(dp) function tree_log(x) result(value)
+      real(dp), intent(in) :: x
+      value=ieee_value(0._dp,ieee_quiet_nan)
+      if(ieee_is_nan(x)) return
+      if(x==0) then
+        value=ieee_value(0._dp,ieee_negative_inf)
+      else if(x>0) then
+        value=log(x)
+      end if
+    end function
+    real(dp) function regression_squares(ids) result(value)
+      integer, intent(in) :: ids(:)
+      integer :: i,index_
+      value=0
+      do i=1,size(ids)
+        index_=ids(i)
+        value=ieee_difference(value,-ieee_product(ieee_product(w(index_),y(index_)),y(index_)))
+      end do
+    end function
+    real(dp) function impurity(mass,sums,squares,ids) result(value)
       real(dp), intent(in) :: mass,sums(:),squares
-      real(dp) :: probability,term,total
-      integer :: c
+      integer, optional, intent(in) :: ids(:)
+      real(dp) :: probability,term,total,ratio
+      integer :: c,i,index_
       if(size(classes)==0) then
+        if(criterion=='poisson') then
+          value=ieee_value(0._dp,ieee_positive_inf)
+          if(.not.ieee_is_nan(sums(1))) then
+            if(sums(1)<=10*epsilon(1._dp)) return
+          end if
+          probability=ieee_quotient(sums(1),mass);total=0
+          do i=1,size(ids)
+            index_=ids(i);ratio=ieee_quotient(y(index_),probability)
+            term=0
+            if(ieee_is_nan(ratio).or.y(index_)/=0) term=ieee_product(y(index_),tree_log(ratio))
+            total=ieee_difference(total,-ieee_product(w(index_),term))
+          end do
+          value=ieee_quotient(total,mass);return
+        end if
         probability=ieee_quotient(sums(1),mass)
         value=ieee_difference(ieee_quotient(squares,mass),ieee_product(probability,probability))
       else if(criterion=='gini') then
@@ -274,14 +320,24 @@ contains
       integer :: j,c,index
       if(cut-pos<=size(ids)-cut) then
         do j=pos+1,cut
-          index=ids(j);c=label_index(classes,int(y(index)))
-          sl(c)=ieee_difference(sl(c),-w(index));wl=ieee_difference(wl,-w(index))
+          index=ids(j)
+          if(size(classes)==0) then
+            sl(1)=ieee_difference(sl(1),-ieee_product(w(index),y(index)))
+          else
+            c=label_index(classes,int(y(index)));sl(c)=ieee_difference(sl(c),-w(index))
+          end if
+          wl=ieee_difference(wl,-w(index))
         end do
       else
         sl=sums;wl=mass
         do j=size(ids),cut+1,-1
-          index=ids(j);c=label_index(classes,int(y(index)))
-          sl(c)=ieee_difference(sl(c),w(index));wl=ieee_difference(wl,w(index))
+          index=ids(j)
+          if(size(classes)==0) then
+            sl(1)=ieee_difference(sl(1),ieee_product(w(index),y(index)))
+          else
+            c=label_index(classes,int(y(index)));sl(c)=ieee_difference(sl(c),w(index))
+          end if
+          wl=ieee_difference(wl,w(index))
         end do
       end if
       wr=ieee_difference(mass,wl)
@@ -311,17 +367,17 @@ contains
       real(dp), allocatable :: feature_values(:)
       real(dp) :: sums(max(1,size(classes))),sl(max(1,size(classes))),sr(max(1,size(classes)))
       real(dp) :: mass,squares,parent,wl,wr,sql,sqr,il,ir,proxy,best,low,high,threshold,best_threshold
-      real(dp) :: best_left,best_right,best_wl,best_wr,improvement
+      real(dp) :: best_left,best_right,best_wl,best_wr,improvement,difference
       integer :: n,fi,fj,drawn,found,visited,nconstant,f,cut,j,c,best_feature,left_node,right_node,first,last
       integer :: pos,best_pos,at,partition_end
       n=size(ids);call moments(ids,mass,sums,squares)
-      if(size(classes)>0) then
+      if(work_splitter) then
         work=ids;allocate(feature_values(n))
       end if
       self%node_count_=self%node_count_+1; node=self%node_count_
       self%nodes_(node)%n_samples=n; self%nodes_(node)%weighted_n_samples=mass; self%nodes_(node)%depth=depth
       parent=inherited
-      if(depth==0) parent=impurity(mass,sums,squares)
+      if(depth==0) parent=impurity(mass,sums,squares,ids)
       self%nodes_(node)%impurity=parent
       if(size(classes)==0) then
         self%nodes_(node)%value=ieee_quotient(sums(1),mass)
@@ -345,7 +401,7 @@ contains
           call swap(all_features(drawn+1),all_features(fj+1)); drawn=drawn+1; cycle
         end if
         fj=fj+found; f=all_features(fj+1)
-        if(size(classes)>0) then
+        if(work_splitter) then
           feature_values=z(work,f)
           if(.not.self%random_thresholds) call sample_sort(feature_values,work)
           ordered=work;low=minval(feature_values);high=maxval(feature_values)
@@ -363,7 +419,7 @@ contains
         if(self%random_thresholds) then
           threshold=(high-low)*real(next_random(),dp)/2147483647._dp+low
           if(threshold==high) threshold=low
-          if(size(classes)>0) then
+          if(work_splitter) then
             at=1;partition_end=n+1
             do while(at<partition_end)
               if(feature_values(at)<=threshold) then
@@ -388,6 +444,9 @@ contains
           end if
           if(size(classes)>0) then
             call classification_update(ordered,cut,pos,mass,sums,wl,sl,wr,sr);sql=0;sqr=0
+          else if(source_regression) then
+            call classification_update(ordered,cut,pos,mass,sums,wl,sl,wr,sr)
+            sql=regression_squares(ordered(:cut));sqr=ieee_difference(squares,sql)
           else
             call moments(ordered(:cut),wl,sl,sql);wr=ieee_difference(mass,wl)
             do c=1,size(sums)
@@ -396,10 +455,27 @@ contains
             sqr=ieee_difference(squares,sql)
           end if
           if(less(wl,min_weight).or.less(wr,min_weight)) cycle
-          il=impurity(wl,sl,sql);ir=impurity(wr,sr,sqr)
+          il=impurity(wl,sl,sql,ordered(:cut));ir=impurity(wr,sr,sqr,ordered(cut+1:))
           if(size(classes)==0) then
-            proxy=ieee_difference(ieee_quotient(ieee_product(sl(1),sl(1)),wl), &
-              -ieee_quotient(ieee_product(sr(1),sr(1)),wr))
+            select case(criterion)
+            case('friedman_mse')
+              difference=ieee_difference(ieee_product(wr,sl(1)),ieee_product(wl,sr(1)))
+              proxy=ieee_quotient(ieee_product(difference,difference),ieee_product(wl,wr))
+            case('poisson')
+              ! sklearn.tree._utils.log uses base two for the split proxy.
+              ! The deviance itself uses the natural logarithm (scipy xlogy).
+              if(.not.ieee_is_nan(sl(1))) then
+                if(sl(1)<=10*epsilon(1._dp)) cycle
+              end if
+              if(.not.ieee_is_nan(sr(1))) then
+                if(sr(1)<=10*epsilon(1._dp)) cycle
+              end if
+              proxy=ieee_difference(ieee_product(sl(1),ieee_quotient(tree_log(ieee_quotient(sl(1),wl)),log(2._dp))), &
+                -ieee_product(sr(1),ieee_quotient(tree_log(ieee_quotient(sr(1),wr)),log(2._dp))))
+            case default
+              proxy=ieee_difference(ieee_quotient(ieee_product(sl(1),sl(1)),wl), &
+                -ieee_quotient(ieee_product(sr(1),sr(1)),wr))
+            end select
           else
             proxy=ieee_difference(-ieee_product(wr,ir),ieee_product(wl,il))
           end if
@@ -412,19 +488,28 @@ contains
       end do
       all_features(:known)=constants(:known); constants(known+1:nconstant)=all_features(known+1:nconstant)
       if(best_feature==0) return
-      if(size(classes)>0) then
+      if(work_splitter) then
         if(.not.self%random_thresholds.or.f/=best_feature) call partition_final(work,best_feature,best_threshold)
         pos=0;wl=0;sl=0
         call classification_update(work,best_pos,pos,mass,sums,wl,sl,wr,sr)
-        best_left=impurity(wl,sl,0._dp);best_right=impurity(wr,sr,0._dp);best_wl=wl;best_wr=wr
+        sql=0;sqr=0
+        if(source_regression) then
+          sql=regression_squares(work(:best_pos));sqr=ieee_difference(squares,sql)
+        end if
+        best_left=impurity(wl,sl,sql,work(:best_pos))
+        best_right=impurity(wr,sr,sqr,work(best_pos+1:));best_wl=wl;best_wr=wr
       end if
       improvement=ieee_difference(parent,ieee_product(ieee_quotient(best_wr,mass),best_right))
       improvement=ieee_difference(improvement,ieee_product(ieee_quotient(best_wl,mass),best_left))
       improvement=ieee_product(ieee_quotient(mass,root_weight),improvement)
+      if(criterion=='friedman_mse') then
+        difference=ieee_difference(ieee_product(wr,sl(1)),ieee_product(wl,sr(1)))
+        improvement=ieee_quotient(ieee_product(difference,difference),ieee_product(ieee_product(wl,wr),mass))
+      end if
       if(.not.ieee_is_nan(improvement)) then
         if(ieee_difference(improvement,-epsilon(1._dp))<self%min_impurity_decrease) return
       end if
-      if(size(classes)>0) then
+      if(work_splitter) then
         left=work(:best_pos);right=work(best_pos+1:)
       else
         left=pack(ids,z(ids,best_feature)<=best_threshold);right=pack(ids,z(ids,best_feature)>best_threshold)
@@ -455,9 +540,9 @@ contains
     real(dp), intent(in) :: x(:,:),y(:)
     real(dp), intent(in), optional :: sample_weight(:)
     if(present(sample_weight)) then
-      call build_weighted_tree(self,x,y,[integer::],'squared_error',sample_weight)
+      call build_weighted_tree(self,x,y,[integer::],self%criterion,sample_weight)
     else
-      call build_weighted_tree(self,x,y,[integer::],'squared_error',spread(1._dp,1,size(y)))
+      call build_weighted_tree(self,x,y,[integer::],self%criterion,spread(1._dp,1,size(y)))
     end if
   end subroutine
   subroutine extra_classifier_fit(self,x,y,sample_weight)
@@ -485,7 +570,7 @@ contains
     if(present(sample_weight)) then
       call require(size(sample_weight)==size(y),'tree sample weight length mismatch'); weights=sample_weight
     end if
-    call build_weighted_tree(self,x,y,[integer::],'squared_error',weights)
+    call build_weighted_tree(self,x,y,[integer::],self%criterion,weights)
   end subroutine
   function tree_apply(self,x) result(leaves)
     class(tree_storage), intent(in) :: self

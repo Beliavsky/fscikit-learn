@@ -1558,3 +1558,12 @@ Native CSR row workspaces, quiet IEEE composition, Fortran interfaces, tests,
 example and exact-distance replay certificates are original MIT contributions.
 The prior private estimator seeding helpers are unchanged. No dependency or
 public extension algorithm was added.
+
+## Regression-tree Friedman MSE and Poisson criteria (BSD)
+
+`src/sklearn_tree.f90` follows scikit-learn 1.6.1 `tree/_criterion.pyx`,
+`tree/_splitter.pyx` and `tree/_utils.pyx` for weighted criterion updates,
+Friedman improvement and Poisson deviance/proxy conventions. Terms remain in
+`LICENSES/scikit-learn-COPYING`. The Fortran adapters, quiet arithmetic, tests,
+example and reference harness are original MIT contributions. No dependency
+or public extension algorithm was added.

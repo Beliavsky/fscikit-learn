@@ -3328,8 +3328,13 @@ ExtraTreeClassifier/ExtraTreeRegressor counterparts. They expose the inherited
 single-tree controls and methods: `fit`, `predict`, `apply`, `score`,
 `get_depth`, `get_n_leaves`, classifier `predict_proba`, and learned
 `nodes_`, `feature_importances_`, `n_features_in_` and `max_features_`.
-The classifier supports Gini, entropy and log-loss; regression supports squared
-error. With configured `max_features=0`, ExtraTree classification uses
+The classifier supports Gini, entropy and log-loss. Regression accepts
+`criterion='squared_error'` (default), `'friedman_mse'` or `'poisson'`.
+Friedman uses its source-specific improvement scale for min_impurity_decrease.
+Poisson requires nonnegative targets with a strictly positive raw target sum,
+and rejects candidate children whose weighted target sum is at most ten
+machine epsilons. Poisson node impurity is half the mean deviance.
+The regression criterion is also available through search parameter grids. With configured `max_features=0`, ExtraTree classification uses
 floor(sqrt(n_features)), while ExtraTree regression uses all features. Positive
 integer feature counts override these defaults. These single estimators are
 separate from the existing `extra_trees_classifier`/`extra_trees_regressor`
@@ -3353,7 +3358,7 @@ float32 range. Queries may contain NaNs: each missing feature follows the
 larger active-row child, with ties going right, matching a source tree trained
 without missing values. Query infinities and float32 overflow are rejected.
 NaN training, sparse input, pruning, monotonic constraints, fractional feature
-counts, alternate regression criteria, and multioutput single-tree fitting
+counts, absolute-error regression, and multioutput single-tree fitting
 remain outside this subset. Native max_depth=0 retains its existing root-only
 meaning; sklearn requires a positive depth.
 

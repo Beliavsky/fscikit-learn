@@ -148,6 +148,7 @@ contains
       end select
     class is(decision_tree_regressor)
       select case(name)
+      case('criterion');model%criterion=value%as_text()
       case('max_depth');model%max_depth=value%as_integer()
       case('min_samples_leaf');model%min_samples_leaf=value%as_integer()
       case('min_samples_split');model%min_samples_split=value%as_integer()

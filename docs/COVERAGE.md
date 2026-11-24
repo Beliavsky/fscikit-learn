@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and seventy-one reference suites additionally check 3,271,908
+All types have native tests. One hundred and seventy-two reference suites additionally check 3,288,119
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -53,7 +53,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | density | `kernel_density` | KD/Ball-tree log densities with six kernels; Minkowski-family metrics and feature weights; query tolerances/traversal controls; sample weights and bandwidth rules; NumPy-compatible Gaussian/tophat draws |
 | outlier | `local_outlier_factor` | Training outlier scores and novelty detection, automatic/percentile threshold, Minkowski and other supported pairwise metrics |
 | semi_supervised | `label_propagation`, `label_spreading`, `self_training_classifier` | Dense RBF or directed k-neighbor graph, hard/soft clamping, transductive labels and inductive probabilities; threshold/k-best self-training with logistic, Gaussian NB or KNN bases |
-| tree | `decision_tree_classifier`, `decision_tree_regressor`, `extra_tree_classifier`, `extra_tree_regressor` | Weighted CART and standalone randomized trees; Gini/entropy/log-loss classification, squared-error regression; depth/leaf/split/feature controls, normalized impurity importance, leaf indices |
+| tree | `decision_tree_classifier`, `decision_tree_regressor`, `extra_tree_classifier`, `extra_tree_regressor` | Weighted CART and standalone randomized trees; Gini/entropy/log-loss classification, squared-error/Friedman MSE/Poisson regression; depth/leaf/split/feature controls, normalized impurity importance, leaf indices |
 | ensemble | `hist_gradient_boosting_regressor`, `hist_gradient_boosting_classifier`, `stacking_classifier`, `stacking_regressor`, `bagging_classifier`, `bagging_regressor`, `random_forest_classifier`, `random_forest_regressor`, `extra_trees_classifier`, `extra_trees_regressor`, `gradient_boosting_regressor`, `gradient_boosting_classifier`, `adaboost_classifier`, `adaboost_regressor`, `isolation_forest`, `voting_classifier`, `voting_regressor` | Histogram Newton boosting with missing-value routing and five regression losses; heterogeneous hard/soft voting and averaged regression; bootstrap forests, randomized feature subsets, random-threshold Extra Trees, squared-error residual boosting; binary/multiclass classification boosting with Newton leaf updates; seeded SAMME with configurable weighted CART; AdaBoost.R2 with depth-controlled CART; random isolation trees and path-length anomaly scores |
 | validation | `cross_validate`, general `cross_val_score`, `cross_val_predict`, typed `cross_val_predict_class` adapter; `learning_curve`, `validation_curve`, `permutation_test_score` | Dense vector targets, multiple/scalar scorers, fit weights, returned fold models/indices, no-target transformer callbacks, partitioned out-of-fold responses, class encoding and missing-class columns |
 | search | `grid_search_cv`, `randomized_search_cv`; typed parameter grids and samplers | Serial dense candidate/fold evaluation, default or explicit folds, single/multiple scorers, callbacks, weighted fits, ranking and refitting; native scalar parameter adapters and nested Pipeline paths |
