@@ -10860,6 +10860,7 @@ Original integration remains MIT with retained sklearn/SciPy/NumPy attribution.
 Inventory: 222 public core types, 163 source modules, 228 native programs,
 200 reference suites / 4,012,763 retained groups and 100 invalid registries /
 5,718 cases. The broader translation remains unfinished.
+
 ## Sparse MultiLabelBinarizer and source integer-set ordering
 
 MultiLabelBinarizer now exposes transform_csr, fit_transform_csr and CSR
@@ -10870,7 +10871,7 @@ ordinary transform uses fitted class indices. Sparse inverse retains stored
 zeros, duplicate indices and raw row order, while dense inverse remains unchanged.
 Class discovery now uses native index sorting rather than quadratic uniqueness.
 
-The checked sparse grid passes 560 configurations: 304 accepted cases with
+Both checked and optimized sparse grids pass 560 configurations: 304 accepted cases with
 5,040 exact field comparisons and 256 expected source rejections. All raw CSR
 slots, classes, dense values, inverse tuples, legacy dense maps and refits match.
 The internal CPython index-set protocol passes 540 configurations across lengths
@@ -10879,7 +10880,7 @@ keys and the large-set growth change. Existing label-estimator and core suites
 retain 6,285 and 192 passing groups. Eleven native diagnostics, four native
 programs and two examples pass. The new native test also checks caller RNG,
 owned storage and a compact 100,000-by-100,000 automatically discovered result.
-Optimized-profile verification is recorded in VALIDATION.md.
+Final verification is recorded in VALIDATION.md.
 
 The original MIT license is unchanged. The internal integer-set shim retains
 CPython 3.13.3's full PSF license, copyright and modification summary. It adds

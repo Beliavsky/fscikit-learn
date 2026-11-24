@@ -8882,3 +8882,74 @@ original integration remains MIT with retained upstream notices.
 Inventory: 222 public core types, 163 source modules, 228 native programs,
 200 reference suites / 4,012,763 retained groups and 100 invalid registries /
 5,718 cases. The broader translation remains unfinished.
+## Sparse MultiLabelBinarizer and CPython index-set protocol
+
+Implementation commit e675f44 adds owned CSR fit_transform/transform methods
+and CSR inverse indicators to MultiLabelBinarizer. Automatic fit_transform
+preserves encounter-index set order before class reindexing; transform uses
+fitted class indices. Sparse inverse retains stored zeros, duplicate indices
+and row order. Fast sorted uniqueness replaces the former insertion-sort calls
+during class discovery. LabelBinarizer and existing dense multilabel method
+bodies are unchanged.
+
+Both checked and optimized profiles pass 12,057 required comparison groups:
+
+| Suite | Groups |
+| --- | ---: |
+| Sparse MultiLabelBinarizer | 5,040 |
+| CPython integer-set protocol | 540 |
+| Existing label-binarizer estimators | 6,285 |
+| Core comparisons | 192 |
+
+The sparse grid retains 560 configurations, 304 accepted cases and 256 expected
+source rejections. Constructor/sorted classes, raw pointers/indices/data, dense
+values, legacy dense maps, inverse tuple lengths/contents and refits all match
+exactly. Cases include empty datasets/rows/classes, default-integer extremes,
+duplicate labels/classes, constructor order, unknown query labels, automatic
+encounter mapping, stored zeros/duplicates, inverse width, nonbinary data and
+NaN/infinity boundaries. Eleven separate native diagnostics cover unfitted
+entry points, duplicate constructor classes, inverse controls and malformed
+CSR storage. All 267 expected rejection cases per profile use controlled
+ERROR STOP, excluding floating traps, bounds failures and segmentation faults.
+
+The internal integer-set suite compares nonnegative index insertion/iteration
+directly with CPython 3.13.3 set.add. Its 540 configurations cover lengths 0..79
+and larger boundaries through 100000, including 1228/1229, 4914/4915,
+19660/19661 and 78642/78643, with ascending/reversed/shuffled inputs, high
+collision strides, duplicates and random keys through 2147483647. Table
+resizing, linear/perturbation probing and iteration arrays match exactly.
+This is a pinned runtime-protocol reference, separate from the sklearn oracle.
+
+Four native programs and two examples pass per profile: test_multilabel_sparse,
+test_label_binarization, test_preprocessing_metrics, test_label_binarize_sparse,
+multilabel_sparse and label_codes_sparse_targets. Tests include owned CSR and
+inverse storage, caller input/RNG preservation and an automatically discovered
+100,000-by-100,000 result with only 100,000 stored entries. Existing estimator
+fixtures retain all 555 scenarios/five seeds. This is affected-scope validation,
+not a rerun of every repository suite; no endpoint diagnostic is counted as a
+passing comparison.
+
+The final audit verifies 179 Fortran compilation fingerprints per profile,
+complete accepted/rejected configuration and field inventories, identical
+checked/release records, distinct native binaries, source/driver/validator/
+executable manifests, report hashes and retained license hashes. LabelBinarizer
+bodies and existing dense multilabel transform/inverse methods are byte-identical
+to revision 9aaf1f5. The fit body differs only in its two uniqueness calls.
+Reports remain under ignored validation/results/multilabel*, including
+multilabel_final_audit.json.
+
+The original root MIT license and fpm MIT declaration are unchanged. The
+integer-only set shim retains CPython 3.13.3's full PSF license, copyright and
+modification summary, with pinned source/license hashes in THIRD_PARTY_NOTICES.md.
+It has no Python runtime dependency. Existing sklearn/NumPy/SciPy and index-
+ordering notices remain. No estimator or public extension algorithm was added.
+
+Four-job builds used the checksum-verified private fpm 0.14.0, GNU Fortran
+17.0.0 20260510, Python 3.13.3, sklearn 1.6.1, NumPy 2.2.6 and SciPy 1.15.3.
+Checked flags were -fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow;
+optimized verification used --profile release. The global fpm is unchanged.
+
+Inventory: 222 public core types, 164 source modules, 229 native programs,
+202 reference suites / 4,018,343 retained groups and 101 invalid registries /
+5,729 cases. String/object labels, generic Python iterators and manual fitted-
+class mutation remain outside this interface. The broader translation is unfinished.
