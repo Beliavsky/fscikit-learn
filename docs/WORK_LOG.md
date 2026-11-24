@@ -8373,3 +8373,38 @@ native programs, 187 reference suites / 3,809,696 retained groups and 92 invalid
 registries / 5,047 cases. No dependency or public extension was added. MIT
 integration and retained sklearn BSD notices continue. Canonical profile
 verification is recorded below.
+
+Final MaxAbs verification: checked and optimized release profiles each passed
+15 selected native programs: test_maxabs_streaming, test_maxabs_integration,
+test_preprocessing_metrics, test_stateless_preprocessing,
+test_stateless_composition, test_pipeline, test_pipeline_supervised,
+test_frozen, test_transformed_target, test_column_transformer,
+test_feature_union, test_function_transformer, test_positive_composition,
+test_polynomial_composition and test_target_encoding. The other 197 native
+programs were not executed in this batch. Dedicated tests verify MaxAbs type
+dispatch through Pipeline/FrozenEstimator, inverse delegation, feature width,
+prototype preservation and the large sparse fit/query.
+
+Each profile passed seven comparison runs / 81,306 groups: 55,644 new MaxAbs,
+19,386 retained Normalizer/Binarizer, 5,328 stateless composition, 192 core,
+108 MaxAbs column-transformer, 60 MaxAbs feature-union and 588 MaxAbs
+transformed-target groups. The latter three are explicitly MaxAbs-only slices
+of the original generators: 18, 12 and 84 fixtures, preserving their original
+random-stream advancement. They are not full reruns of those integration suites.
+All 130 diagnostics passed: 101 new cases and 29 retained stateless checks.
+All 14,272 new nonfinite source values remain compared. Source free-row-scale
+caller mutation occurred in 488 fixtures and is recorded separately from the
+native immutable-input/RNG identity checks.
+
+The combined audit verified 184 compiled source units per profile, complete
+conditional field inventories for 2,932 new fixtures, exact CSR layouts and
+metadata, stable source/executable/validator/report hashes and matching profile
+configuration/check inventories. Optimized driver hashes differ from checked
+drivers. Both example outputs matched source. It also verifies byte-identical
+other preprocessing procedure bodies after removing the old MaxAbs type/methods
+and adding the focused-module imports/exports. No unrelated source/test/app path
+changed. Four-job builds used the checksum-verified private fpm 0.14.0; the
+global fpm was unchanged. Artifacts remain under ignored validation/results/
+maxabs*, including maxabs_final_audit.json. Implementation commit: 8c0157d.
+MIT integration and retained upstream notices continue; no dependency or public
+extension algorithm was added.
