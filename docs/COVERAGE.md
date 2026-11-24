@@ -8730,3 +8730,38 @@ and callbacks, antipodal/polar coordinates, histogram zeros and widths up to
 Cumulative inventory: 222 public core types, 146 source modules, 189 native
 programs, 165 reference suites / 2,806,579 retained required groups, and 70
 invalid-input registries / 4,240 cases. These remain API subsets.
+
+Final additional-pairwise verification (2026-11-23): four-job fpm 0.14.0
+builds compiled the package in runtime-checked
+(`-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow`) and optimized
+release profiles. Each executed eight focused native programs: new pairwise
+measures, preprocessing/metrics, KNN imputation, Bayes/neighbors, kernel
+approximation, kernel centering, GP covariance kernels and GP kernel-model
+integration. All passed; the other 181 native programs were not executed in
+this batch.
+
+Two reference suites passed 25,861 required groups per profile: 16,729 new
+pairwise and 9,132 existing GP-kernel groups. The new suite separates 16,709
+strict sklearn comparisons from 20 explicit roundoff-bound checks over four
+large-offset NaN-distance fixtures. Both source and native values satisfy
+those independent coordinate-distance bounds; tight source parity is not
+claimed there. All 33,902 nonfinite source values match. All 53 diagnostics
+passed, comprising 26 new cases and 27 existing GP-kernel cases.
+
+Both profiles ran the facade example: quarter-equator angle pi/2, missing-aware
+distance sqrt(13.5), KNN-imputed coordinate 8, unit chi-squared self similarities,
+Laplacian cross similarity about .1888756, additive chi-squared cross similarity
+-13/3, and zero cosine/paired self distances. Dense/CSR/mixed paths, tiny-norm
+normalization differences, callback/alias dispatch and wide feature arrays
+were checked against their supported baseline counterparts.
+
+The combined audit verified 161 compiled source units per profile through
+dependency-aware fingerprints, complete field inventories, native and retained
+Cython source hashes, and executable/validator/report hashes. Installed sklearn
+pairwise/normalization Python sources and compiled distance/normalization
+binaries stayed unchanged before and after each reference run. The private
+fpm checksum and unchanged unrelated modules/tests were verified as well.
+Reports remain local under ignored `validation/results/pairwise_measure*`,
+including `pairwise_measures_final_audit.json`. MIT licensing and retained
+sklearn BSD attribution continue; no dependency or public extension algorithm
+was introduced.
