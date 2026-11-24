@@ -489,3 +489,7 @@ AdditiveChi2Sampler accepts CSR input and returns CSR feature maps while
 preserving source storage order, duplicates, explicit zeros and IEEE outcomes.
 See [the example](example/additive_csr_features.f90) and
 [the API contract](docs/API.md#additive-chi-square-csr-feature-maps).
+
+Nystroem also accepts CSR fits and mixed dense/CSR queries, retaining sparse
+landmarks while emitting dense features. See the [CSR API](docs/API.md#nystroem-csr-inputs)
+and [coverage details](docs/COVERAGE.md#nystroem-csr-landmarks-and-mixed-queries).

@@ -6712,3 +6712,14 @@ inventories, graph-mask outcomes, exact subtraction bits, pinned hashes, distinc
 optimized executables and unchanged surrounding procedure bodies. Both examples
 match source. Reports/pre-fix logs remain in ignored `validation/results`,
 including `image_graph_final_audit.json`.
+
+
+Nystroem CSR coverage can be run with
+`python validation/compare_nystroem_csr.py --executable <reference_nystroem_csr_driver.exe>`.
+It checks 870 configurations / 15,018 field groups and 29 diagnostics. Regular
+basis coordinates compare directly; singular normalization/feature Grams and
+complete SVD certificates compare separately. The normalization Gram uses a
+matrix-norm-scaled roundoff bound to handle null-space cancellation. Active CSR
+storage is exact; source trailing unused capacity is excluded. Native immutable
+inputs and refit identity checks are labeled separately; source Laplacian input
+mutation is recorded. See docs/VALIDATION.md for the precise scope and profiles.

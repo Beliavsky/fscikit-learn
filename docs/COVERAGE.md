@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and eighty-four reference suites additionally check 3,712,538
+All types have native tests. One hundred and eighty-five reference suites additionally check 3,727,556
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -19,7 +19,7 @@ per sample; cross-decomposition, multi-task regression, joint MLP regression and
 metadata routing, parallel backends and binary model persistence are outside the
 initial translation. The neighbor graph transformers provide CSR graph outputs and
 accept CSR precomputed distances, as do Isomap and Barnes-Hut TSNE. Randomized TruncatedSVD and direct Multinomial/
-Bernoulli/Complement Naive Bayes, SGD and MLP regression/classification, random projections, RBFSampler, AdditiveChi2Sampler, Normalizer/Binarizer and PolynomialFeatures also accept CSR matrices. Other estimator and
+Bernoulli/Complement Naive Bayes, SGD and MLP regression/classification, random projections, RBFSampler, Nystroem, AdditiveChi2Sampler, Normalizer/Binarizer and PolynomialFeatures also accept CSR matrices. Other estimator and
 meta-estimator inputs remain dense.
 Fortran identifiers use snake_case rather than CamelCase.
 
@@ -333,7 +333,7 @@ Numerical scaling and ill-conditioned fixed points can still limit convergence.
   checks kernel Grams and SVD certificates explicitly in those cases.
 
 Both randomized maps now use NumPy-compatible scalar-seeded draws. RBFSampler
-accepts dense/CSR data; Nystroem inputs remain dense real64. No threaded backend
+and Nystroem accept dense/CSR data; their feature maps are dense real64. No threaded backend
 is included. See the current API contracts and validation record.
 
 ## Cross-decomposition
@@ -9854,3 +9854,52 @@ Four-job builds used the checksum-verified private fpm 0.14.0; the global fpm
 was unchanged. Artifacts remain under ignored validation/results/additive_csr*,
 including additive_csr_final_audit.json. Implementation commit: 8492c2f.
 MIT licensing and retained BSD notices continue; no dependency was added.
+
+## Nystroem CSR landmarks and mixed queries
+
+Nystroem now accepts csr_matrix in fit, transform and fit_transform. CSR fits
+retain selected rows in components_csr_; dense fits retain components_. Refit
+clears the inactive representation. Both query representations produce dense
+feature maps, using sparse products without copying the full input or landmark
+matrix to dense storage. Callback kernels bridge one feature row at a time to
+the existing real64 rank-one callback interface.
+
+Sparse-supported kernels are rbf, linear, poly/polynomial, cosine, laplacian,
+sigmoid and callbacks. Source chi2/additive_chi2 kernels require dense inputs.
+Precomputed CSR fitting is rejected by the source SVD; source dense-precomputed
+fit followed by CSR query yields an object array, which this numeric Fortran API
+explicitly rejects. Dense precomputed behavior remains available.
+
+Raw CSR duplicates, unsorted entries and explicit zeros are retained for dot
+products and RBF/cosine norms, following source representation-sensitive
+arithmetic. CSR cosine normalization treats only exact zero norms as zero;
+the dense branch retains the source small-norm threshold. Laplacian evaluation
+canonicalizes copies of caller inputs and persistently canonicalizes fitted
+CSR landmarks. Caller-owned CSR arrays remain unchanged; sklearn/SciPy can
+mutate caller CSR arrays in this path. Source unused trailing storage after
+canonicalization is excluded from landmark comparisons using indptr(end).
+Transform therefore takes the model with intent(inout), including dense
+queries against a sparse basis; subsequent live kernel changes see the
+canonicalized fitted basis.
+
+The reference suite covers 870 fixtures / 15,018 required groups: five seeds,
+nine kernel spellings/callbacks, three dense/CSR fit-query combinations,
+canonical/unsorted/duplicate storage, zero/tiny values, capped components and
+live gamma/kernel changes. The 366 regular bases compare feature coordinates
+directly. Singular bases compare normalization and feature Grams, with separate
+SVD orthogonality/reconstruction certificates. The normalization-Gram absolute
+roundoff bound is 512*n*epsilon*max(1, spectral_norm(expected)); this handles
+cancellation in the source 1e12 null-space projector. Other numerical fields
+use rtol=atol=3e-8. Raw active CSR storage, landmarks and metadata compare
+exactly. Native input/RNG preservation and deterministic refit are explicitly
+classified separately from source comparisons. Source input mutations are
+recorded rather than asserted to be absent.
+
+The 29 diagnostics comprise 25 sklearn estimator errors, three SciPy CSR
+structural errors and one explicit numeric-output guard for source object
+arrays. Native tests include dense/CSR refits and a 100,000-by-100,000 CSR fit
+whose dense input would require 80 GB. Inventory: 222 public core types,
+155 source modules, 209 native programs, 185 reference suites / 3,727,556
+retained groups, and 90 invalid registries / 4,848 cases. No public type,
+extension algorithm or dependency was added. MIT licensing and retained BSD
+attribution continue. Canonical build results are recorded below.

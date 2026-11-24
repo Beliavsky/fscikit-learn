@@ -4,6 +4,7 @@ module sklearn_kernel_approximation
   use sklearn_nystroem_svd,only:kernel_svd
   use sklearn_polynomial_count_sketch, only: polynomial_count_sketch
   use sklearn_sparse, only: csr_matrix
+  use sklearn_stateless_preprocessing,only:sorted_sparse
   use sklearn_legacy_rng, only: legacy_random_state
   use sklearn_ieee_math, only: ieee_difference,ieee_product,ieee_quotient
   use sklearn_common
@@ -67,11 +68,18 @@ module sklearn_kernel_approximation
     real(dp) :: gamma=-1,coef0=1,gamma_=0
     real(dp), allocatable :: components_(:,:),normalization_(:,:)
     integer, allocatable :: component_indices_(:)
+    type(csr_matrix),allocatable::components_csr_
     procedure(nystroem_kernel),pointer,nopass::kernel_callback=>null()
   contains
-    procedure :: fit=>ny_fit
-    procedure :: transform=>ny_transform
-    procedure :: fit_transform=>ny_fit_transform
+    procedure,private::fit_dense=>ny_fit
+    procedure,private::fit_csr=>ny_fit_csr
+    generic::fit=>fit_dense,fit_csr
+    procedure,private::transform_dense=>ny_transform
+    procedure,private::transform_csr=>ny_transform_csr
+    generic::transform=>transform_dense,transform_csr
+    procedure,private::fit_transform_dense=>ny_fit_transform
+    procedure,private::fit_transform_csr=>ny_fit_transform_csr
+    generic::fit_transform=>fit_transform_dense,fit_transform_csr
   end type
 contains
   recursive real(dp) function rbf_numpy_sum(a) result(total)
@@ -425,13 +433,237 @@ contains
       end do
     end select
   end function
+  subroutine ny_csr_input(x)
+    type(csr_matrix),intent(in)::x
+    call x%validate()
+    call require(x%n_rows>0.and.x%n_cols>0,'Nystroem CSR input must be nonempty')
+    call require(all(ieee_is_finite(x%data)),'Nystroem CSR input contains NaN or infinity')
+  end subroutine
+  function ny_select_csr(x,rows) result(basis)
+    use,intrinsic::iso_fortran_env,only:int64
+    type(csr_matrix),intent(in)::x
+    integer,intent(in)::rows(:)
+    type(csr_matrix)::basis
+    integer(int64)::total
+    integer::i,k,last,first,count
+    total=0
+    do i=1,size(rows)
+      total=total+x%indptr(rows(i)+1)-x%indptr(rows(i))
+    end do
+    call require(total<huge(1),'Nystroem CSR landmark stored count overflow')
+    basis%n_rows=size(rows);basis%n_cols=x%n_cols
+    allocate(basis%indptr(size(rows)+1),basis%indices(int(total)),basis%data(int(total)))
+    basis%indptr(1)=1;k=1
+    do i=1,size(rows)
+      first=x%indptr(rows(i));last=x%indptr(rows(i)+1)-1;count=last-first+1
+      basis%indices(k:k+count-1)=x%indices(first:last);basis%data(k:k+count-1)=x%data(first:last)
+      k=k+count;basis%indptr(i+1)=k
+    end do
+  end function
+  function ny_sparse_row(a,row) result(values)
+    type(csr_matrix),intent(in)::a
+    integer,intent(in)::row
+    real(dp),allocatable::values(:)
+    integer::k,j
+    allocate(values(a%n_cols));values=0
+    do k=a%indptr(row),a%indptr(row+1)-1
+      j=a%indices(k);values(j)=ieee_difference(values(j),-a%data(k))
+    end do
+  end function
+  function ny_sparse_norms(a) result(norms)
+    type(csr_matrix),intent(in)::a
+    real(dp)::norms(a%n_rows)
+    integer::i,k
+    norms=0
+    do i=1,a%n_rows
+      do k=a%indptr(i),a%indptr(i+1)-1
+        norms(i)=ieee_difference(norms(i),-ieee_product(a%data(k),a%data(k)))
+      end do
+    end do
+  end function
+  function ny_dense_norms(a) result(norms)
+    real(dp),intent(in)::a(:,:)
+    real(dp)::norms(size(a,1))
+    integer::i,j
+    norms=0
+    do i=1,size(a,1)
+      do j=1,size(a,2)
+        norms(i)=ieee_difference(norms(i),-ieee_product(a(i,j),a(i,j)))
+      end do
+    end do
+  end function
+  function ny_sparse_kernel(self,sx,sy,dx,dy,symmetric) result(k)
+    class(nystroem),intent(in)::self
+    type(csr_matrix),intent(in),optional::sx,sy
+    real(dp),intent(in),optional::dx(:,:),dy(:,:)
+    logical,intent(in),optional::symmetric
+    real(dp),allocatable::k(:,:),nx(:),ny(:),rowx(:),rowy(:)
+    type(csr_matrix)::cx,cy
+    real(dp)::g,value,a,b,base
+    integer::n,m,p,i,j,ix,iy,col,lx,ly,rx,ry,t
+    logical::sym,cosine
+    call ny_controls(self)
+    call require(self%kernel/='chi2'.and.self%kernel/='additive_chi2', &
+      'Nystroem chi-squared kernels require dense inputs in sklearn')
+    call require(self%kernel/='precomputed','Nystroem precomputed CSR output is not a source numeric array')
+    if(present(sx)) then
+      n=sx%n_rows;p=sx%n_cols
+    else
+      n=size(dx,1);p=size(dx,2)
+    end if
+    if(present(sy)) then
+      m=sy%n_rows
+    else
+      m=size(dy,1)
+    end if
+    g=self%gamma;if(g==-1) g=1._dp/p
+    sym=.false.;if(present(symmetric)) sym=symmetric
+    allocate(k(n,m));cosine=self%kernel=='cosine'
+    allocate(nx(n),ny(m));nx=1;ny=1
+    if(self%kernel=='rbf'.or.cosine) then
+      if(present(sx)) then
+        nx=ny_sparse_norms(sx)
+      else
+        nx=ny_dense_norms(dx)
+      end if
+      if(present(sy)) then
+        ny=ny_sparse_norms(sy)
+      else
+        ny=ny_dense_norms(dy)
+      end if
+      if(cosine) then
+        nx=sqrt(nx);ny=sqrt(ny)
+        if(present(sx)) then
+          where(nx==0) nx=1
+        else
+          where(nx<10*epsilon(1._dp)) nx=1
+        end if
+        if(present(sy)) then
+          where(ny==0) ny=1
+        else
+          where(ny<10*epsilon(1._dp)) ny=1
+        end if
+      end if
+    end if
+    if(self%kernel=='laplacian') then
+      if(present(sx)) cx=sorted_sparse(sx,.true.)
+      if(present(sy)) cy=sorted_sparse(sy,.true.)
+    end if
+    do i=1,n
+      if(self%kernel=='callable') then
+        if(present(sx)) then
+          rowx=ny_sparse_row(sx,i)
+        else
+          rowx=dx(i,:)
+        end if
+      end if
+      do j=1,m
+        if(sym.and.self%kernel=='callable'.and.i>j) cycle
+        if(self%kernel=='callable') then
+          if(present(sy)) then
+            rowy=ny_sparse_row(sy,j)
+          else
+            rowy=dy(j,:)
+          end if
+          k(i,j)=self%kernel_callback(rowx,rowy)
+          if(sym) k(j,i)=k(i,j)
+          cycle
+        end if
+        value=0
+        if(self%kernel=='laplacian') then
+          if(present(sx).and.present(sy)) then
+            ix=cx%indptr(i);rx=cx%indptr(i+1);iy=cy%indptr(j);ry=cy%indptr(j+1)
+            do while(ix<rx.or.iy<ry)
+              if(ix==rx) then
+                value=ieee_difference(value,-abs(cy%data(iy)));iy=iy+1
+              else if(iy==ry) then
+                value=ieee_difference(value,-abs(cx%data(ix)));ix=ix+1
+              else if(cx%indices(ix)<cy%indices(iy)) then
+                value=ieee_difference(value,-abs(cx%data(ix)));ix=ix+1
+              else if(cx%indices(ix)>cy%indices(iy)) then
+                value=ieee_difference(value,-abs(cy%data(iy)));iy=iy+1
+              else
+                value=ieee_difference(value,-abs(ieee_difference(cx%data(ix),cy%data(iy))))
+                ix=ix+1;iy=iy+1
+              end if
+            end do
+          else
+            if(present(sx)) then
+              rowx=ny_sparse_row(cx,i);rowy=dy(j,:)
+            else
+              rowx=dx(i,:);rowy=ny_sparse_row(cy,j)
+            end if
+            do col=1,p
+              value=ieee_difference(value,-abs(ieee_difference(rowx(col),rowy(col))))
+            end do
+          end if
+          value=ieee_product(-g,value);k(i,j)=value
+          if(.not.ieee_is_nan(value)) k(i,j)=exp(value)
+          cycle
+        end if
+        if(present(sx)) then
+          do ix=sx%indptr(i),sx%indptr(i+1)-1
+            col=sx%indices(ix);a=sx%data(ix)
+            if(cosine) a=ieee_quotient(a,nx(i))
+            if(present(sy)) then
+              do iy=sy%indptr(j),sy%indptr(j+1)-1
+                if(sy%indices(iy)/=col) cycle
+                b=sy%data(iy);if(cosine) b=ieee_quotient(b,ny(j))
+                value=ieee_difference(value,-ieee_product(a,b))
+              end do
+            else
+              b=dy(j,col);if(cosine) b=ieee_quotient(b,ny(j))
+              value=ieee_difference(value,-ieee_product(a,b))
+            end if
+          end do
+        else
+          do iy=sy%indptr(j),sy%indptr(j+1)-1
+            col=sy%indices(iy);a=dx(i,col);b=sy%data(iy)
+            if(cosine) then
+              a=ieee_quotient(a,nx(i));b=ieee_quotient(b,ny(j))
+            end if
+            value=ieee_difference(value,-ieee_product(a,b))
+          end do
+        end if
+        select case(self%kernel)
+        case('linear','cosine');k(i,j)=value
+        case('rbf')
+          value=ieee_product(-2._dp,value);value=ieee_difference(value,-nx(i));value=ieee_difference(value,-ny(j))
+          if(.not.ieee_is_nan(value)) value=max(value,0._dp)
+          if(sym.and.i==j) value=0
+          value=ieee_product(-g,value);k(i,j)=value
+          if(.not.ieee_is_nan(value)) k(i,j)=exp(value)
+        case('poly','polynomial')
+          base=ieee_difference(ieee_product(g,value),-self%coef0);value=1
+          do t=1,self%degree
+            value=ieee_product(value,base)
+          end do
+          k(i,j)=value
+        case('sigmoid')
+          value=ieee_difference(ieee_product(g,value),-self%coef0);k(i,j)=value
+          if(.not.ieee_is_nan(value)) k(i,j)=tanh(value)
+        end select
+      end do
+    end do
+  end function
+  subroutine ny_normalization(self,gram)
+    class(nystroem),intent(inout)::self
+    real(dp),intent(in)::gram(:,:)
+    real(dp),allocatable::values(:),u(:,:),v(:,:)
+    integer::k,status
+    call require(all(ieee_is_finite(gram)),'Nystroem nonfinite kernel matrix')
+    k=size(gram,1);allocate(values(k),u(k,k),v(k,k));call kernel_svd(gram,u,values,v,status,240)
+    call require(status==0,'Nystroem Jacobi SVD did not converge')
+    values=1/sqrt(max(values,1.e-12_dp))
+    self%normalization_=matmul(u*spread(values,1,k),transpose(v))
+  end subroutine
   subroutine ny_fit(self,x)
     class(nystroem),intent(inout)::self
     real(dp),intent(in)::x(:,:)
     type(legacy_random_state)::rng
-    real(dp),allocatable::gram(:,:),values(:),u(:,:),v(:,:)
+    real(dp),allocatable::gram(:,:)
     integer,allocatable::order(:)
-    integer::n,k,i,j,tmp,status
+    integer::n,k,i,j,tmp
     call check_x(x);n=size(x,1)
     call require(self%n_components>0,'Nystroem n_components must be positive')
     call require(self%random_state>=0,'Nystroem random_state must be nonnegative')
@@ -446,24 +678,68 @@ contains
       j=rng%integer_index(i);tmp=order(i);order(i)=order(j);order(j)=tmp
     end do
     self%component_indices_=order(:k);self%components_=x(order(:k),:)
+    if(allocated(self%components_csr_)) deallocate(self%components_csr_)
     gram=kernel_matrix(self,self%components_,self%components_,.true.)
-    call require(all(ieee_is_finite(gram)),'Nystroem nonfinite kernel matrix')
-    allocate(values(k),u(k,k),v(k,k));call kernel_svd(gram,u,values,v,status,240)
-    call require(status==0,'Nystroem Jacobi SVD did not converge')
-    values=1/sqrt(max(values,1.e-12_dp))
-    self%normalization_=matmul(u*spread(values,1,k),transpose(v))
+    call ny_normalization(self,gram)
   end subroutine
   function ny_transform(self,x) result(z)
-    class(nystroem),intent(in)::self
+    class(nystroem),intent(inout)::self
     real(dp),intent(in)::x(:,:)
     real(dp),allocatable::z(:,:)
-    call require(allocated(self%components_),'Nystroem is not fitted')
+    call require(allocated(self%normalization_),'Nystroem is not fitted')
     call check_xy(transpose(x),self%n_features_in_)
-    z=fourier_dot(kernel_matrix(self,x,self%components_),transpose(self%normalization_))
+    if(allocated(self%components_csr_)) then
+      if(self%kernel=='laplacian') self%components_csr_=sorted_sparse(self%components_csr_,.true.)
+      z=fourier_dot(ny_sparse_kernel(self,dx=x,sy=self%components_csr_),transpose(self%normalization_))
+    else
+      z=fourier_dot(kernel_matrix(self,x,self%components_),transpose(self%normalization_))
+    end if
   end function
   function ny_fit_transform(self,x) result(z)
     class(nystroem),intent(inout)::self
     real(dp),intent(in)::x(:,:)
+    real(dp),allocatable::z(:,:)
+    call self%fit(x);z=self%transform(x)
+  end function
+  subroutine ny_fit_csr(self,x)
+    class(nystroem),intent(inout)::self
+    type(csr_matrix),intent(in)::x
+    type(legacy_random_state)::rng
+    integer,allocatable::order(:)
+    real(dp),allocatable::gram(:,:)
+    integer::n,k,i,j,tmp
+    call ny_csr_input(x);call ny_controls(self)
+    call require(self%n_components>0,'Nystroem n_components must be positive')
+    call require(self%random_state>=0,'Nystroem random_state must be nonnegative')
+    call require(self%kernel/='precomputed','Nystroem source SVD rejects precomputed CSR input')
+    self%n_features_in_=x%n_cols;n=x%n_rows;k=min(n,self%n_components);order=[(i,i=1,n)]
+    self%gamma_=self%gamma;if(self%gamma_==-1) self%gamma_=1._dp/x%n_cols
+    call rng%seed(self%random_state)
+    do i=n,2,-1
+      j=rng%integer_index(i);tmp=order(i);order(i)=order(j);order(j)=tmp
+    end do
+    self%component_indices_=order(:k);self%components_csr_=ny_select_csr(x,order(:k))
+    if(allocated(self%components_)) deallocate(self%components_)
+    if(self%kernel=='laplacian') self%components_csr_=sorted_sparse(self%components_csr_,.true.)
+    gram=ny_sparse_kernel(self,sx=self%components_csr_,sy=self%components_csr_,symmetric=.true.)
+    call ny_normalization(self,gram)
+  end subroutine
+  function ny_transform_csr(self,x) result(z)
+    class(nystroem),intent(inout)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),allocatable::z(:,:)
+    call require(allocated(self%normalization_),'Nystroem is not fitted')
+    call ny_csr_input(x);call require(x%n_cols==self%n_features_in_,'Nystroem CSR feature count mismatch')
+    if(allocated(self%components_csr_)) then
+      if(self%kernel=='laplacian') self%components_csr_=sorted_sparse(self%components_csr_,.true.)
+      z=fourier_dot(ny_sparse_kernel(self,sx=x,sy=self%components_csr_),transpose(self%normalization_))
+    else
+      z=fourier_dot(ny_sparse_kernel(self,sx=x,dy=self%components_),transpose(self%normalization_))
+    end if
+  end function
+  function ny_fit_transform_csr(self,x) result(z)
+    class(nystroem),intent(inout)::self
+    type(csr_matrix),intent(in)::x
     real(dp),allocatable::z(:,:)
     call self%fit(x);z=self%transform(x)
   end function

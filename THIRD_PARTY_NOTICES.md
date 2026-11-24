@@ -1707,3 +1707,14 @@ no SciPy implementation code was copied. Existing sklearn BSD notices remain
 under LICENSES/. Native typed overloads, one-based CSR assembly, quiet IEEE
 composition and index guards, tests, example and reference harness are MIT
 integration. No dependency or public extension algorithm was added.
+
+## Nystroem CSR dispatch and normalization (BSD)
+
+The CSR overloads in src/sklearn_kernel_approximation.f90 follow scikit-learn
+1.6.1 kernel_approximation.py Nystroem, metrics/pairwise.py sparse/mixed kernel
+dispatch and preprocessing/_data.py normalization, including raw-entry CSR
+norms and Laplacian canonicalization. SciPy sparse storage behavior was used
+as a reference; no SciPy source was copied. Existing sklearn/NumPy BSD notices
+and the SciFort SVD MIT notice remain under LICENSES/. Native CSR selection,
+row callback adapters, tests and reference harness are MIT integration.
+No dependency or public extension algorithm was added.

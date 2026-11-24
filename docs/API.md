@@ -7780,8 +7780,8 @@ public type or extension algorithm was added.
 
 Nystroem now samples landmark rows with the existing NumPy-compatible scalar
 RandomState permutation and records n_features_in_. Requested counts above the
-sample count are capped, without a Python warning. Dense real64 inputs remain
-the supported estimator representation. Landmark indices are one-based.
+sample count are capped, without a Python warning. Dense real64 and CSR inputs
+are supported, as detailed below. Landmark indices are one-based.
 
 Built-in kernels are rbf, linear, poly/polynomial, cosine, laplacian, sigmoid,
 chi2 and additive_chi2. Numeric gamma is finite and nonnegative; -1 represents
@@ -7848,3 +7848,32 @@ integer width/stored-count bounds are checked before allocation. Native output
 limits are identified separately from source validation in the reference
 registry. See [the example](../example/additive_csr_features.f90). No public
 estimator type, dependency or extension algorithm was added.
+
+## Nystroem CSR inputs
+
+All three methods accept csr_matrix, and transform accepts either query
+representation regardless of fitted representation. Outputs are dense real64.
+CSR fits allocate components_csr_ and deallocate components_; dense fits do
+the reverse. The owned CSR basis preserves raw selected rows except that
+Laplacian evaluation canonicalizes it. Transform has intent(inout) so live
+kernel changes retain that fitted state. Caller inputs remain unchanged.
+
+```fortran
+use sklearn, only: dp, csr_matrix, csr_from_dense, nystroem
+type(nystroem) :: model
+type(csr_matrix) :: sparse_x
+real(dp), allocatable :: x(:,:), z(:,:)
+! Populate x, or construct sparse_x directly from one-based CSR arrays.
+sparse_x = csr_from_dense(x)
+model%n_components = 3
+z = model%fit_transform(sparse_x)
+z = model%transform(x)  ! Dense query against CSR landmarks.
+```
+
+The supported sparse kernels are rbf, linear, poly/polynomial, cosine,
+laplacian, sigmoid and typed callbacks. Callbacks receive temporary dense
+feature rows. chi2/additive_chi2 require dense inputs as in sklearn. CSR
+precomputed fit/query is explicitly rejected: source fitting rejects sparse
+SVD input, while source sparse queries after a dense precomputed fit return
+object arrays outside this numeric API. Canonicalization and duplicate/tiny
+norm details are documented in COVERAGE.md.
