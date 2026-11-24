@@ -8763,3 +8763,57 @@ Inventory: 222 public core types, 162 source modules, 226 native programs,
 198 reference suites / 4,007,271 retained groups and 99 invalid registries /
 5,714 cases. String/mixed categories and graph inverse adapters for the new
 typed result remain outside this batch; the broader translation is unfinished.
+## Free label_binarize: explicit classes and dense/CSR output
+
+Implementation commit 192a8a7 adds the free sklearn preprocessing function for
+default-integer target vectors and indicator matrices. Native integer dense
+results and owned real64 CSR results share the source class-order, binary-width,
+unknown-label, duplicate-class and positive-zero rules. Existing LabelBinarizer
+and MultiLabelBinarizer implementations are unchanged. String/object, real-valued
+and CSR target inputs remain outside this interface; see the API contract.
+
+Both checked and optimized profiles pass 9,061 required comparison groups:
+
+| Suite | Groups |
+| --- | ---: |
+| New free label_binarize | 2,584 |
+| Existing label-binarizer estimators | 6,285 |
+| Core comparisons | 192 |
+
+The new grid retains 2,632 configurations: 1,028 accepted cases (852 dense and
+176 CSR), with two or five exact output fields respectively, and 1,604 expected
+source rejections. All dimensions, dense values and raw CSR pointers/indices/data
+match exactly. Cases include sorted/reordered/repeated/empty classes, binary
+and multiclass target cardinality, unknown labels, single-column matrices,
+empty/multioutput indicators, arbitrary two-valued integer indicators, minimum
+and maximum default integers, zero positive codes and sparse-code restrictions.
+Expected failures require controlled ERROR STOP rather than a native bounds
+failure, floating trap or segmentation fault. There are no endpoint diagnostics.
+
+Each profile passes three native programs (test_label_binarize,
+test_label_binarization and test_preprocessing_metrics) and the label_codes
+example. The direct native test also checks input/result ownership, caller RNG
+preservation and a 100,000-by-100,000 CSR result with only 100,000 stored entries.
+The existing estimator reference suite covers 555 scenarios and five seeds.
+This is an affected-scope verification, not a rerun of every repository suite.
+
+The combined audit verifies 174 compiled source fingerprints per profile,
+complete accepted/rejected configuration and field inventories, identical
+checked/release comparison records, distinct native binaries, stable source/
+driver/validator/executable hash manifests, report hashes and retained license
+hashes. Existing estimator source is byte-identical to revision a590f93;
+preprocessing changes are exactly the new function imports and public exports.
+Reports and the audit remain under ignored validation/results/label_binarize*,
+including label_binarize_final_audit.json.
+
+Four-job builds used the checksum-verified private fpm 0.14.0 and GNU Fortran
+17.0.0 20260510. Checked flags were -fcheck=all -fbacktrace
+-ffpe-trap=invalid,zero,overflow; optimized checks used --profile release.
+Python 3.13, sklearn 1.6.1, NumPy 2.2.6 and SciPy 1.15.3 remain the oracle
+versions. The global fpm is unchanged. Original integration remains MIT, with
+retained sklearn and numerical-backend attribution; no dependency was added.
+
+Inventory: 222 public core types, 163 source modules, 227 native programs,
+199 reference suites / 4,009,855 retained groups and 99 invalid registries /
+5,714 cases. New source rejections are retained in the reference grid and do
+not add a standalone invalid registry. The broader translation is unfinished.
