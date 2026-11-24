@@ -392,3 +392,8 @@ and [the API contract](docs/API.md#bicluster-sample-generators).
 their signals. `make_sparse_spd_matrix` provides seeded dense/CSR matrices with
 sparse factors. See [the example](example/structured_samples.f90) and
 [the API contract](docs/API.md#dictionary-signal-and-sparse-spd-generators).
+
+Multilabel ranking metrics now include coverage error, label-ranking average
+precision and label-ranking loss, with tied scores and sample weights. See
+[the MLP scoring example](example/multilabel_rank_scores.f90) and
+[the API contract](docs/API.md#multilabel-ranking-measures).

@@ -6974,3 +6974,36 @@ random_state defaults to zero and reproduces the sklearn 1.6.1 / NumPy 2.2.6
 legacy stream, with SciPy 1.15.3 sparse-random selection for SPD generation.
 Python None and RandomState objects are unsupported. The intrinsic Fortran
 random stream is untouched.
+
+## Multilabel ranking measures
+
+`coverage_error(y, scores, sample_weight)`,
+`label_ranking_average_precision_score(y, scores, sample_weight)` and
+`label_ranking_loss(y, scores, sample_weight)` return real(dp) scalar scores.
+They are exported through `sklearn_metrics`, `sklearn_multilabel_ranking` and
+`sklearn`. Targets can be rank-two integer or logical indicators; integer
+indicators may contain at most two distinct values, with nonzero values
+relevant as in the source. Scores are finite real(dp) matrices of matching
+shape, with larger scores indicating greater relevance.
+
+Coverage gives each relevant label the maximal rank of its tie group, and
+returns the maximum relevant-label rank per row. Empty relevant sets contribute
+zero. Ranking average precision averages relevant/total label ratios at maximal
+tie ranks; empty or full relevant sets contribute one. Ranking loss counts
+incorrectly ordered relevant/irrelevant pairs, including all tied pairs, divided
+by the number of such pairs. Empty or full relevant sets contribute zero.
+
+Samples must be nonempty. Coverage and loss require at least two labels;
+ranking average precision also accepts a single label. Optional finite
+sample_weight is a vector of matching sample count. Signed weights are accepted.
+Zero total weight is diagnosed consistently, including for average precision,
+where Python can instead warn and return NaN. Quiet IEEE accumulation avoids
+trapping on overflowing finite weight arithmetic.
+
+Average precision and loss also accept native `csr_matrix` targets. CSR must
+be canonical: sorted unique column indices, all stored values one, and no
+explicit zeros. Scores remain dense; only one target row is expanded at a time.
+Coverage uses dense indicators, matching the source's accepted input. Native
+CSR diagnostics are stricter than Python's handling of noncanonical storage.
+Private merge sorting takes O(n_labels log(n_labels)) time per nondegenerate
+row and O(n_labels) workspace.

@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and sixty-one reference suites additionally check 2,691,864
+All types have native tests. One hundred and sixty-two reference suites additionally check 2,720,353
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -8544,3 +8544,24 @@ ignored `validation/results/structured_*`, including
 `structured_datasets_final_audit.json`. MIT licensing and retained
 sklearn/SciPy/NumPy BSD attribution continue; no dependency or public extension
 was introduced.
+
+## Multilabel ranking metrics (2026-11-23)
+
+Added sklearn coverage_error, label_ranking_average_precision_score and
+label_ranking_loss for dense integer/logical indicators and optional signed
+sample weights. Average precision/loss also accept canonical CSR indicators
+with one-row target expansion. Maximal-rank tie groups, tied pair errors,
+empty/full relevant sets and single-label average precision follow the source.
+Private O(labels log(labels)) merge sorting avoids quadratic wide-label work.
+Native finite-weight/nonzero-total and canonical CSR requirements are in API.md.
+
+Development comparisons against sklearn 1.6.1 passed 28,489 required groups
+over 3,163 fixtures and 18 isolated invalid-input diagnostics. The fixture set
+contains 1,548 exhaustive binary-indicator/ternary-score combinations for two
+through four labels; 1,600 weighted/degenerate/extreme-score cases; and 15
+wide-label cases reaching 100,000 labels. Integer/logical, row-level and CSR
+results are checked against source outputs with 3e-13 tolerances.
+
+Cumulative inventory: 222 public core types, 143 source modules, 186 native
+programs, 162 reference suites / 2,720,353 retained required groups, and 67
+invalid-input registries / 4,159 cases. These remain API subsets.

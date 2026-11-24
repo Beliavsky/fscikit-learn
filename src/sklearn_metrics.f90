@@ -1,4 +1,5 @@
 module sklearn_metrics
+  use sklearn_multilabel_ranking, only: coverage_error,label_ranking_average_precision_score,label_ranking_loss
   use sklearn_cluster_information, only: normalized_mutual_info_score,adjusted_mutual_info_score,fowlkes_mallows_score, &
     contingency_matrix,pair_confusion_matrix,entropy,expected_mutual_information,homogeneity_completeness_v_measure
   use sklearn_mutual_info, only: mutual_info_score
@@ -9,6 +10,7 @@ module sklearn_metrics
   private
   public :: normalized_mutual_info_score,adjusted_mutual_info_score,fowlkes_mallows_score,contingency_matrix
   public :: pair_confusion_matrix,entropy,expected_mutual_information,homogeneity_completeness_v_measure
+  public :: coverage_error,label_ranking_average_precision_score,label_ranking_loss
   public :: mutual_info_score
   public :: mean_squared_error, root_mean_squared_error, mean_absolute_error
   public :: median_absolute_error, mean_absolute_percentage_error, r2_score, explained_variance_score

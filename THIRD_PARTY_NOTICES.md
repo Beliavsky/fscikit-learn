@@ -1442,3 +1442,14 @@ NumPy RandomState permutation/uniform/normal contracts. Terms remain in
 `LICENSES/numpy-*` files. Native interfaces, guards, dense/CSR adapters, tests,
 example and reference harness are original MIT contributions. No new dependency
 or public extension was introduced.
+
+## Multilabel ranking metrics (BSD)
+
+`src/sklearn_multilabel_ranking.f90` adapts sklearn 1.6.1
+`metrics/_ranking.py` coverage_error, label_ranking_average_precision_score and
+label_ranking_loss, including maximal-rank ties, degenerate-row conventions
+and signed weighted averages. Terms remain in
+`LICENSES/scikit-learn-COPYING`. Native grouped merge sorting, Fortran
+interfaces, canonical CSR guards, quiet IEEE integration, tests, example and
+reference harness are original MIT contributions. No dependency or public
+extension algorithm was added.
