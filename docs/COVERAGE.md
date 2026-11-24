@@ -781,12 +781,14 @@ when both entries are zero. This differs from the negative chi-squared
 distance returned by sklearn's pairwise `additive_chi2_kernel`. Input must be
 finite and nonnegative. Output columns are the entire square-root block,
 then each frequency's cosine block followed by its sine block; width is
-n_features*(2*sample_steps-1). Zero inputs map to zero. Log-scaled harmonic
-amplitudes avoid cosh overflow for large intervals.
+n_features*(2*sample_steps-1). Dense zeros map to zero; explicitly stored CSR
+zeros retain source NaN harmonic entries. Quiet IEEE evaluation follows source
+intermediate products, cosh and phase behavior, including defined nonfinite outputs.
 
 `sample_interval=-1` selects sklearn's defaults: .8, .5 and .4 for one, two
 and three sample steps. Other step counts require an explicit nonnegative
-interval; zero gives an all-zero map. `transform` is stateless and can run
+interval; zero preserves source intermediate behavior rather than bypassing
+evaluation. `transform` is stateless and can run
 before `fit`. `fit` records n_features_in_ and subsequent transforms enforce
 that feature count. Current sampling controls are checked on every call.
 
@@ -806,8 +808,9 @@ random_weights_(n_features,n_components) and random_offset_(n_components).
 Scalar-seeded uniforms and offsets now match NumPy, with direct seeded source
 fit comparisons of the weights and feature algebra. Fitting preserves the
 intrinsic Fortran RNG.
-Dense real64 input only: no sparse arrays, NaN/infinity, feature names or
-incremental updates. No public extensions or dependencies were added. The
+Additive maps accept dense/CSR input; skewed maps remain dense. Inputs are
+finite real64; feature names and incremental updates remain absent. No public
+extensions or dependencies were added. The
 package now has 104 core types in 42 source modules.
 
 
@@ -9825,4 +9828,29 @@ Inventory: 222 public core types, 155 source modules, 208 native programs,
 184 reference suites / 3,712,538 retained groups and 89 invalid registries /
 4,819 cases. No dependency, public type or extension algorithm was added.
 MIT licensing and retained BSD attribution continue. Canonical verification
-will be recorded below.
+is recorded below.
+
+Final additive-CSR verification: checked and optimized release builds each
+passed test_additive_csr, test_nystroem_svd, test_kernel_approximation,
+test_rbf_features, test_seeded_skewed_features and test_chi2_samplers. These six
+native programs were executed; the other 202 native programs were not run in
+this batch. Six affected suites each passed 25,637 groups per profile:
+9,460 new additive groups, 5,760 Nystroem, 189 isotonic/kernel, 8,512 RBF,
+1,512 skewed and 204 direct chi-square groups. All 14,652 new nonfinite source
+values remain compared. Diagnostics total 127: 39 new cases, 30 Nystroem,
+33 RBF, 19 skewed and six retained legacy Nystroem checks. The new registry
+separates 34 sklearn checks, three SciPy structural checks and two native
+CSR index-limit guards; Source numeric kernels are not invoked for the latter.
+
+The combined audit verifies 173 compiled source units per profile, complete
+11-field inventories for 860 new fixtures, exact CSR layouts/controls and
+input/RNG identities, stable source/executable/validator/report hashes and
+matching profile inventories. Both examples match source shape, pointer/index
+arrays and stored values. Large sparse input/output tests passed in both
+profiles. Existing Nystroem singular-case invariants and SVD certificates remain
+separately classified. Only the six affected suites and reported diagnostics
+were rerun. Unrelated source/test/application paths remained unchanged.
+Four-job builds used the checksum-verified private fpm 0.14.0; the global fpm
+was unchanged. Artifacts remain under ignored validation/results/additive_csr*,
+including additive_csr_final_audit.json. Implementation commit: 8492c2f.
+MIT licensing and retained BSD notices continue; no dependency was added.
