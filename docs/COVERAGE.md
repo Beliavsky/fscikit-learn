@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and ninety-four reference suites additionally check 3,951,971
+All types have native tests. One hundred and ninety-five reference suites additionally check 3,962,177
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -1092,49 +1092,27 @@ Original contributions remain MIT with sklearn BSD attribution retained.
 
 ## B-spline features
 
-`spline_transformer` implements dense SplineTransformer with native Cox-de Boor
-basis evaluation. Controls are n_knots=5, degree=3, knots='uniform',
-extrapolation='constant' and include_bias=true. fit, transform and
-fit_transform accept dense finite real64 arrays. Fit requires at least two
-samples, at least two base knots and positive degree. Degree zero is outside
-this initial port. Automatic knots use uniformly spaced extrema or linearly
-interpolated empirical quantiles (knots='quantile'). Optional real knots(:,:)
-in fit/fit_transform supplies explicit (n_base_knots,n_features) positions,
-overriding automatic placement. Every feature's base knots must be strictly
-increasing: constant features and repeated quantile knots are rejected.
-Sample-weighted placement is not implemented.
+`spline_transformer` accepts dense finite real64 input, with owned dense or
+CSR feature output. It supports nonnegative degrees, uniform/quantile/explicit
+knots, sample-weighted placement, all five extrapolation modes, feature names,
+and source live query controls. Explicit knots must be strictly increasing;
+automatically generated knots may repeat. Native compact local evaluation
+follows SciPy 1.15.3 FITPACK and preserves CSR active-support zero slots.
+See [the API contract](API.md#b-spline-features) and the later verification
+section for typed interfaces, source edge cases and the negative-weight tie
+ordering compatibility gap.
 
-Nonperiodic knot vectors extend degree positions on either side using the
-first/last base-knot spacing. There are n_base_knots+degree-1 basis columns
-per feature. Periodic vectors continue spacings across the period, folding
-the final degree basis functions onto the first ones. They have
-n_base_knots-1 columns per feature and require degree<n_base_knots.
-include_bias=false drops the last basis separately for each feature;
-this avoids the implicit intercept from a complete partition of unity.
-Features are concatenated in input-column order. Dropping the only periodic
-basis is allowed and produces a zero-width output.
+Nonperiodic fits have n_base_knots+degree-1 basis columns per input feature;
+periodic fits have n_base_knots-1 and require degree<n_base_knots. The default
+includes every basis; include_bias=false removes the last basis per feature.
+Fitted fields include n_features_in_, n_features_out_, base_knots_, extended
+knots_ and optional feature_names_in_. No Python/SciPy runtime is required.
 
-All five extrapolation modes are supported: 'error' rejects points outside
-the base-knot interval; 'constant' uses boundary basis values; 'linear' uses
-boundary values and analytic derivatives; 'continue' continues the first/last
-polynomial segment; 'periodic' wraps into the base interval. Linear and
-polynomial continuation may produce negative basis values outside the range.
-Endpoints are evaluated from the valid base interval. Periodic right endpoints
-map to the left endpoint. Transform uses the fitted degree/extrapolation/bias
-settings and preserves input arrays.
-
-Fitted fields are n_features_in_, n_features_out_, base_knots_ and knots_.
-The latter is the extended knot matrix; its row count is n_base_knots+2*degree.
-No SciPy BSpline objects or coefficient matrices are required at runtime.
-Sparse output, sample weights, degree zero, repeated knots, string/feature-name
-APIs and inverse transforms are not implemented. Positive higher degrees are
-supported, with integer output-dimension guards; very high degrees or distant
-polynomial continuation can amplify floating-point error. This is a feature
-transformer, not a fitted smoothing/regression model.
-
-The type is re-exported through sklearn_preprocessing and sklearn. Inventory:
-114 core types in 48 source modules. No dependency or public algorithm extension
-was added. Original contributions remain MIT with sklearn BSD attribution.
+This remains a feature transformer, not a fitted smoothing/regression model.
+Inverse maps and Python memory-order/in-place controls are outside the native
+interface; very high degrees or distant polynomial continuation can amplify
+floating-point error. The existing 180-group reference suite remains, now with
+profile-specific files and explicit executable/report arguments.
 
 
 ## Primal linear support-vector models
@@ -10664,3 +10642,65 @@ The global fpm is unchanged. This does not constitute a full test-suite rerun.
 Inventory: 222 public core types, 160 source modules, 222 native programs,
 194 reference suites / 3,951,971 retained groups, and 98 invalid registries /
 5,654 cases. The broader sklearn translation remains unfinished.
+
+
+## Weighted and sparse spline verification
+
+SplineTransformer now supports source weighted knot placement, degree zero,
+repeated automatically generated knots, feature names, owned CSR output and
+live degree/extrapolation/include_bias queries. Compact local basis and derivative
+recurrences follow SciPy 1.15.3 FITPACK, including carried interval searches.
+Sparse maps retain source active-support indices and explicit zero slots;
+per-row work avoids allocating a dense sample-by-output matrix. Explicit-knot
+validation and source dense/sparse rejection boundaries are retained. Native
+fit names and get_feature_names_out are shared with ColumnTransformer/FeatureUnion.
+
+The ordinary new suite retains 1,068 configurations: 918 required cases and
+150 signed-weight/tied-value endpoint diagnostics. Required cases have 765
+accepted configurations, 153 source rejections, 9,081 field groups and 1,105
+nonfinite output values. Tests cover one to three features, degrees zero through
+five, three knot modes, every extrapolation mode, weights, named fits, raw CSR
+slots, repeated/constant knots and live query controls. NaN and signed infinity
+masks and CSR indices/pointers/shapes/name encodings match exactly; other finite
+fields use 3e-8 tolerance. Existing legacy checks additionally include degree ten.
+
+Known compatibility gap: negative weights can make a cumulative weight sequence
+nonmonotone. With tied feature values, NumPy's CPU-specific unstable argsort can
+then change selected quantiles. The native sort is stable. All 150 such
+configurations remain visible as 1,128 endpoint diagnostics, with 275 differences
+(including six acceptance differences). These
+are not required comparison passes. A separate controlled-oracle certificate
+runs the same 150 cases with NumPy argsort forced to kind=stable only during
+sklearn fitting. Its 1,125 required groups and 45 rejections pass, isolating the
+observed gap to tie ordering. This certificate is explicitly labelled in reports
+and does not claim agreement with the unmodified CPU backend.
+
+Per profile, the total is 9,621 unmodified-reference groups (9,081 new, 180
+legacy spline, 192 core, 108 column-transformer and 60 feature-union), plus the
+1,125 controlled stable-tie certificate groups. There are 227 diagnostics:
+153 unmodified-source rejections, 45 controlled-source rejections and all 29
+native spl_* input-error cases. Six new invalid cases cover sparse periodic
+and dense constant degree-zero rejection and feature-name controls. Three old
+fixtures now check invalid weights because degree-zero/constant fits are valid.
+
+The affected integration slices retain original generator streams: composition
+kind 13, 18 column-transformer and 12 feature-union fixtures. Ten native programs
+and the spline_sparse example pass in each profile. This is an affected-scope
+run, not a rerun of the entire repository's test suites. The audit verifies 181
+compiled source fingerprints per profile, complete accepted/rejected/diagnosed
+configuration coverage and field inventories, matching profile cases and
+endpoint failure identities, distinct profile binaries and stable source,
+validator, driver, executable and report hashes. Reports remain under ignored
+validation/results/spline_batch_* and spline_final_audit.json.
+
+Four-job builds use the checksum-verified private fpm 0.14.0 and GNU Fortran
+17.0.0 20260510. Checked flags are -fcheck=all -fbacktrace
+-ffpe-trap=invalid,zero,overflow; optimized verification uses --profile release.
+Python 3.13, sklearn 1.6.1, NumPy 2.2.6 and SciPy 1.15.3 remain the baseline.
+The global fpm is unchanged. No runtime dependency or public extension algorithm
+was added; MIT integration and retained BSD notices continue.
+
+Inventory: 222 public core types, 160 source modules, 223 native programs,
+195 reference suites / 3,962,177 retained required groups, and 98 invalid
+registries / 5,660 cases. Diagnostic differences are excluded from required-group
+counts. The broader translation remains unfinished.

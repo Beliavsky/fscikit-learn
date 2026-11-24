@@ -6884,3 +6884,31 @@ ownership, retained scaler state, live controls, near-zero constant shortcuts,
 inverse boundaries and preservation of invalid/divide-by-zero/overflow modes
 and flags. The example
 `power_transforms` compares the free and fitted maps.
+
+
+## Weighted, degree-zero and sparse SplineTransformer
+
+`compare_spline_extended.py --executable PATH --profile checked --report REPORT`
+uses the unmodified installed sklearn 1.6.1 / SciPy 1.15.3 reference. It retains
+all 1,068 configurations: 918 required fits/queries, and 150 endpoint cases for
+mixed negative weights with ties. Required fields include base/extended knots,
+fitted metadata, dense maps, raw CSR pointers/indices/data and name encodings.
+Finite data tolerances are 3e-8; masks, metadata, indices, shapes and names are
+exact. Seed 7231 fixes the ordinary stream, seed 931 the signed tied stream.
+Every configuration and data fingerprint is retained with source/driver/
+validator/executable/oracle-source hashes. Source rejections remain in reports.
+
+The same command with `--stable-ties` runs a controlled-oracle certificate:
+NumPy argsort uses kind=stable only during sklearn weighted-percentile fitting.
+It checks the same 150 signed-tie configurations and labels the changed oracle
+policy explicitly. Its 1,125 groups and 45 rejections validate native stable-tie
+behavior. The ordinary report separately retains 275 differences among 1,128
+endpoint diagnostics from the installed CPU backend; they are not counted as
+required passes. See COVERAGE.md for the compatibility gap.
+
+`compare_spline.py` retains its existing 180-group suite, adding --executable,
+--profile and --report with profile-specific files. Native test_spline_extended
+covers weighted extrema/quantiles, degree-zero bases, repeated knots, sparse
+zero-slot retention, input/output ownership, RNG preservation, names/refitting
+and live controls. example/spline_sparse.f90 demonstrates weighted named CSR
+feature output. Both build profiles use fresh binaries.
