@@ -8843,3 +8843,30 @@ The API documents callback adaptation and dense numeric membership semantics.
 Cumulative inventory: 222 public core types, 148 source modules, 191 native
 programs, 167 reference suites / 3,241,665 retained required groups, and 72
 invalid-input registries / 4,293 cases. These remain API subsets.
+
+Final bicluster-consensus verification (2026-11-24): four-job fpm 0.14.0
+builds compiled the package in runtime-checked
+(`-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow`) and optimized
+release profiles. Each ran five focused native programs: bicluster consensus,
+spectral co-/biclustering, bicluster generators, clustering information metrics
+and preprocessing/metrics. All passed; the other 186 native programs were not
+executed in this batch.
+
+Both profiles passed 4,197 reference groups: 1,205 new consensus comparisons
+and 2,992 existing spectral co-/biclustering groups across all 80 estimator
+fixtures. Each consensus run also passed 29 source-matched rejection cases
+and 151 exhaustive small-assignment certificates. Existing bicluster-generator
+and clustering-information reference suites and invalid-input registries were
+not run in this batch.
+
+Both facade examples returned self-consensus 1 and consensus .25 when only
+one of four generated checkerboard biclusters was recovered. The combined
+audit verified 160 compiled source units per profile using dependency-aware
+fingerprints, complete fixture inventories and source/executable/validator/
+report hashes. Installed sklearn metric and estimator biclustering sources,
+the SciPy assignment binary and the NumPy compiled binary stayed unchanged
+before and after each reference run. The private fpm checksum and unchanged
+unrelated modules/tests were verified. Reports remain local under ignored
+`validation/results/bicluster_consensus*`, including
+`bicluster_consensus_final_audit.json`. MIT licensing and retained sklearn BSD
+attribution continue; no dependency or public extension algorithm was added.
