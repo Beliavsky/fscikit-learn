@@ -7229,3 +7229,38 @@ allocatable real(dp) tensor `[n_selected_labels,2,2]` by default. Entries are
 the sample index on the first axis and is available only for multilabel input.
 Weighted counts can be fractional or signed. String/real-valued class labels,
 noncanonical CSR targets and Array API backends are unsupported.
+
+## Bicluster consensus
+
+`value = consensus_score(a_rows,a_columns,b_rows,b_columns,similarity)`
+is exported by `sklearn_bicluster_metrics`, `sklearn_metrics` and `sklearn`.
+Each input is a dense two-dimensional membership array: biclusters on the
+first axis, original data rows or columns on the second. Logical, default
+integer, int64 and real(dp) arrays can be mixed. Each array must be finite
+and have nonempty axes; each set's row/column arrays must have equal first
+dimensions. Numeric arrays are converted to real(dp) before arithmetic;
+integer membership masks should use zeros and ones.
+
+The default similarity is Jaccard overlap on the biclusters' Cartesian
+products. Corresponding membership widths must agree or have a singleton
+axis, following source broadcasting. Two empty biclusters produce an invalid
+Jaccard assignment cost and are rejected. A single empty bicluster compared
+with nonempty biclusters has zero similarity.
+
+Optional `similarity` is a procedure with interface `bicluster_similarity`:
+four real(dp) input vectors `(a_rows,a_columns,b_rows,b_columns)` and a
+real(dp) scalar result. Logical masks reach callbacks as zeros and ones.
+Callbacks are invoked in first-set then second-set order, once per pair;
+they may handle unequal membership widths. Scores may be negative or exceed
+one. NaN and positive-infinity scores are invalid; negative infinity marks a
+forbidden match, provided a complete matching of the smaller set remains
+possible. The callback replaces the default rather than postprocessing it.
+
+An optimal rectangular assignment minimizes `1-similarity`, matching every
+member of the smaller set to a distinct member of the larger set. The result
+is the sum of selected similarities divided by the larger number of
+biclusters. The native Hungarian solver uses O(min(n,m)**2*max(n,m)) time and
+O(n*m) score/cost storage. Input arrays are preserved. SciPy is not a runtime
+dependency. Python tuples are represented by the four array arguments;
+the optional procedure represents sklearn's callable similarity, and omission
+represents its `'jaccard'` default.

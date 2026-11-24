@@ -1501,3 +1501,13 @@ follows the existing NumPy 2.2.6 reduction contract, with retained terms in
 adapters, quiet IEEE composition, tests, example and reference harness are
 original MIT contributions. No dependency or public extension algorithm was
 added.
+
+## Bicluster consensus metric (BSD)
+
+`src/sklearn_bicluster_metrics.f90` follows sklearn 1.6.1
+`metrics/cluster/_bicluster.py` consensus_score and Jaccard conventions.
+The scikit-learn BSD terms remain in `LICENSES/scikit-learn-COPYING`.
+The rectangular Hungarian shortest-augmenting-path implementation, Fortran
+indicator and callback adapters, tests, example and reference harness are
+original MIT contributions. No SciPy assignment implementation was copied,
+and no dependency or public extension algorithm was added.

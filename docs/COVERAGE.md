@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and sixty-six reference suites additionally check 3,240,460
+All types have native tests. One hundred and sixty-seven reference suites additionally check 3,241,665
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -81,6 +81,8 @@ Normalized/adjusted MI, expected MI, Fowlkes-Mallows, entropy, dense contingency
 tables, int64 ordered pair confusion and weighted homogeneity/completeness/
 V-measure are also available. The three individual H/C/V scorers now share the
 source-compatible implementation, including empty inputs and V-measure beta.
+`consensus_score` compares bicluster sets using rectangular optimal matching,
+Jaccard overlap or a real64 callback similarity, and larger-set normalization.
 
 Regression: mean/root-mean squared error, mean/median/max absolute error,
 mean absolute percentage error, mean squared log error, R2, explained variance,
@@ -8821,3 +8823,23 @@ modules/tests were verified. Reports remain local under ignored
 `validation/results/classification_metric*`, including
 `classification_metrics_final_audit.json`. MIT licensing and retained sklearn
 BSD attribution continue; no dependency or extension algorithm was added.
+
+## Bicluster consensus (2026-11-24)
+
+Added `consensus_score` for dense logical, default-integer, int64, real64 and
+mixed bicluster masks. Default Jaccard overlaps and real64 callback similarities
+feed a native optimal rectangular assignment, normalized by the larger set.
+The implementation handles reordered and unequal sets, singleton-width
+broadcasting, empty memberships, signed callback scores and feasible forbidden
+matches. Invalid costs and infeasible assignments produce diagnostics.
+
+Development validation passed 1,205 source comparisons and 29 source-matched
+diagnostics. There are 151 independent exhaustive assignment certificates.
+Fixtures cover five seeds, rectangular sets in both orientations, ties,
+negative and near-one similarities, non-greedy optima, generated bicluster and
+checkerboard masks, mixed representations and invalid indicator shapes/values.
+The API documents callback adaptation and dense numeric membership semantics.
+
+Cumulative inventory: 222 public core types, 148 source modules, 191 native
+programs, 167 reference suites / 3,241,665 retained required groups, and 72
+invalid-input registries / 4,293 cases. These remain API subsets.

@@ -30,6 +30,7 @@ fpm run --example gaussian_process_regression
 fpm run --example gaussian_process_kernels
 fpm run --example classification_sample_generators
 fpm run --example synthetic_sample_generators
+fpm run --example bicluster_consensus
 fpm run --example model_learning_curves
 fpm run --example out_of_fold_predictions
 fpm run --example parameter_search
@@ -418,3 +419,8 @@ F-beta and Jaccard scores, raw support summaries and multilabel confusion
 tensors, including CSR targets. See
 [the example](example/classification_summary_scores.f90) and
 [the API contract](docs/API.md#weighted-classification-and-multilabel-summaries).
+
+Bicluster sets can be compared with `consensus_score`, using Jaccard overlap
+or a callback and optimal rectangular matching. See
+[the example](example/bicluster_consensus.f90) and
+[the API contract](docs/API.md#bicluster-consensus).

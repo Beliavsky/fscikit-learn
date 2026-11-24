@@ -1,4 +1,5 @@
 module sklearn_metrics
+  use sklearn_bicluster_metrics, only: consensus_score,bicluster_similarity
   use sklearn_classification_metrics, only: precision_score,recall_score,f1_score,jaccard_score, &
     fbeta_score,precision_recall_fscore_support,multilabel_confusion_matrix
   use sklearn_pairwise_measures, only: cosine_distances,nan_euclidean_distances,haversine_distances, &
@@ -16,6 +17,7 @@ module sklearn_metrics
     average_precision_score,brier_score_loss
   implicit none
   private
+  public :: consensus_score,bicluster_similarity
   public :: normalized_mutual_info_score,adjusted_mutual_info_score,fowlkes_mallows_score,contingency_matrix
   public :: pair_confusion_matrix,entropy,expected_mutual_information,homogeneity_completeness_v_measure
   public :: fbeta_score,precision_recall_fscore_support,multilabel_confusion_matrix
