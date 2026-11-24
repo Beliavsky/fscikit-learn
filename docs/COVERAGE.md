@@ -9000,3 +9000,32 @@ flattening or accepting unsupported source inputs. Binding details are in API.md
 Cumulative inventory: 222 public core types, 151 source modules, 194 native
 programs, 170 reference suites / 3,262,617 retained required groups, and 75
 invalid-input registries / 4,403 cases. These remain API subsets.
+
+Final probability-metric verification (2026-11-24): four-job fpm 0.14.0
+builds compiled the package in runtime-checked
+(`-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow`) and optimized
+release profiles. Each ran ten focused native programs: probability metrics,
+preprocessing/metrics, cross-validation, search, logistic cross-validation,
+MLP targets, multioutput, multiclass, supervised pipelines and threshold
+classifiers. All passed; the other 184 native programs were not executed in
+this batch.
+
+Both profiles passed 22,579 reference groups: 7,976 new probability-metric,
+4,068 existing search and 10,535 existing threshold groups. Each new suite
+passed all 38 source-matched diagnostics and matched 161 nonfinite source
+results, including signed-zero checks on finite zero results. All 3,988 new
+fixtures verified input preservation. Existing estimator invalid-input
+registries were not run in this batch.
+
+Both facade examples matched sklearn: mean binary log loss about .22708064,
+weighted summed log loss about 1.13146611 and D2 about .67239189. The combined
+audit verified 169 compiled source units per profile using dependency-aware
+fingerprints, complete field inventories and source/executable/validator/
+report hashes. Installed sklearn classification, label-binarization and
+weighted-average sources, the NumPy compiled binary and the SciPy
+special-function binary stayed unchanged before and after each reference run.
+The private fpm checksum and unchanged unrelated modules/tests were verified.
+Reports remain local under ignored `validation/results/probability_metric*`,
+including `probability_metrics_final_audit.json`. MIT licensing and retained
+sklearn/NumPy BSD attribution continue; no dependency or public extension
+algorithm was added.
