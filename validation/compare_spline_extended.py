@@ -1,8 +1,6 @@
 """Source SplineTransformer weighted knots, degree zero, CSR slots and live controls."""
 from pathlib import Path
 import argparse,hashlib,io,json,subprocess,warnings
-from contextlib import nullcontext
-from unittest.mock import patch
 import numpy as np
 import pandas as pd
 import scipy,sklearn
@@ -57,20 +55,14 @@ def negative_tie_fixtures():
   q=np.arange(-1,9,dtype=float).reshape(-1,1)
   for degree in [0,1,3]:
    for sparse in [False,True]:
-    c=dict(p=1,n=33,m=10,nk=5,degree=degree,mode='quantile',extra='continue',sparse=sparse,bias=True,weighted=True,named=False,live_degree=degree,live_bias=True,live_extra='continue',case=case,endpoint_diagnostic=True)
+    c=dict(p=1,n=33,m=10,nk=5,degree=degree,mode='quantile',extra='continue',sparse=sparse,bias=True,weighted=True,named=False,live_degree=degree,live_bias=True,live_extra='continue',case=case)
     yield c,x.copy(),q.copy(),w.copy()
 def main():
- ap=argparse.ArgumentParser();ap.add_argument('--executable',type=Path,required=True);ap.add_argument('--profile',required=True);ap.add_argument('--report',type=Path,required=True);ap.add_argument('--stable-ties',action='store_true');ap.add_argument('--limit',type=int);ap.add_argument('--start',type=int,default=0);a=ap.parse_args()
- sha=lambda p:hashlib.sha256(p.read_bytes()).hexdigest();paths=[Path(__file__),ROOT/'src/sklearn_spline.f90',ROOT/'app/reference_spline_extended_driver.f90',a.executable,Path(sklearn.__file__).parent/'preprocessing/_polynomial.py',Path(sklearn.__file__).parent/'utils/stats.py',Path(scipy.__file__).parent/'interpolate/_bsplines.py'];hashes={str(p):sha(p) for p in paths}
+ ap=argparse.ArgumentParser();ap.add_argument('--executable',type=Path,required=True);ap.add_argument('--profile',required=True);ap.add_argument('--report',type=Path,required=True);ap.add_argument('--limit',type=int);ap.add_argument('--start',type=int,default=0);a=ap.parse_args()
+ sha=lambda p:hashlib.sha256(p.read_bytes()).hexdigest();paths=[Path(__file__),ROOT/'src/sklearn_spline.f90',ROOT/'src/sklearn_numpy_ordering.f90',ROOT/'app/reference_spline_extended_driver.f90',a.executable,Path(sklearn.__file__).parent/'preprocessing/_polynomial.py',Path(sklearn.__file__).parent/'utils/stats.py',Path(scipy.__file__).parent/'interpolate/_bsplines.py'];hashes={str(p):sha(p) for p in paths}
  checks=[];rejects=[];configs=[];nonfinite=0;endpoints=[]
  from itertools import chain
- def stable_fixtures():
-  for c,x,q,w in negative_tie_fixtures():
-   c=dict(c);c.pop('endpoint_diagnostic');yield c,x,q,w
- argsort=np.argsort
- def stable_argsort(x,*args,**kwargs):
-  kwargs['kind']='stable';return argsort(x,*args,**kwargs)
- selected=stable_fixtures() if a.stable_ties else chain(fixtures(),negative_tie_fixtures())
+ selected=chain(fixtures(),negative_tie_fixtures())
  for fixture,(c,x,q,w) in enumerate(selected):
   if fixture<a.start:continue
   if a.limit is not None and len(configs)>=a.limit:break
@@ -91,8 +83,7 @@ def main():
     model=SplineTransformer(n_knots=c['nk'],degree=c['degree'],knots=knots if explicit else c['mode'],extrapolation=c['extra'],include_bias=c['bias'],sparse_output=c['sparse'])
     if c['named']:xfit=pd.DataFrame(x,columns=[f'feature_{i}' for i in range(x.shape[1])])
     else:xfit=x.copy()
-    with patch.object(np,'argsort',side_effect=stable_argsort) if a.stable_ties else nullcontext():
-     model.fit(xfit,sample_weight=w.copy() if c['weighted'] else None)
+    model.fit(xfit,sample_weight=w.copy() if c['weighted'] else None)
     extended=np.column_stack([b.t for b in model.bsplines_]);expected['base']=extended[c['degree']:c['degree']+c['nk']];expected['knots']=extended;expected['meta']=np.array([model.n_features_in_,model.n_features_out_])
     mapped('train',model.transform(xfit))
     model.degree=c['live_degree'];model.include_bias=c['live_bias'];model.extrapolation=c['live_extra']
@@ -125,7 +116,7 @@ def main():
    checks.append(dict(configuration=c['id'],field=k,max_abs_error=float(np.max(np.abs(got[finite]-want[finite]),initial=0)),passed=True))
   if len(configs)%100==0:print(len(configs),'fixtures checked',flush=True)
  assert hashes=={str(p):sha(p) for p in paths}
- a.report.write_text(json.dumps(dict(profile=a.profile,oracle_policy='sklearn with NumPy argsort kind=stable during fit' if a.stable_ties else 'unmodified installed sklearn',sklearn=sklearn.__version__,numpy=np.__version__,scipy=scipy.__version__,hashes=hashes,configurations=configs,checks=checks,rejections=rejects,endpoint_diagnostics=endpoints,source_nonfinite_values=nonfinite),indent=2,allow_nan=False)+'\n')
+ a.report.write_text(json.dumps(dict(profile=a.profile,oracle_policy='unmodified installed sklearn',sklearn=sklearn.__version__,numpy=np.__version__,scipy=scipy.__version__,hashes=hashes,configurations=configs,checks=checks,rejections=rejects,endpoint_diagnostics=endpoints,source_nonfinite_values=nonfinite),indent=2,allow_nan=False)+'\n')
  print('Endpoint diagnostics:',len(endpoints),'differences:',sum(not d['passed'] for d in endpoints))
  print(len(configs),'configurations',len(checks),'groups',len(rejects),'rejections',nonfinite,'nonfinite PASS')
 if __name__=='__main__':main()

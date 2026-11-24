@@ -294,7 +294,7 @@ contains
     type is(quantile_transformer)
       call model%fit(x)
     type is(kbins_discretizer)
-      call model%fit(x)
+      call model%fit(x,feature_names=names)
     type is(spline_transformer)
       call model%fit(x,feature_names=names)
     type is(pca)
@@ -407,16 +407,7 @@ contains
         end do
       end do
     type is(kbins_discretizer)
-      if(model%encode=='ordinal') then
-        names=input
-      else
-        allocate(names(model%n_features_out_));k=0
-        do i=1,size(input)
-          do j=1,model%n_bins_(i)
-            k=k+1;names(k)%text=input(i)%text//'_'//real_text(real(j-1,dp))
-          end do
-        end do
-      end if
+      names=model%get_feature_names_out(input)
     type is(spline_transformer)
       names=model%get_feature_names_out(input)
     type is(variance_threshold)

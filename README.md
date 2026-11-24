@@ -198,7 +198,9 @@ a vendored, statically linked L-BFGS-B kernel under BSD-3-Clause; its pinned
 source and license are in `vendor/lbfgsb`. No network fetch is needed to build.
 
 Original project contributions use the [MIT License](LICENSE).
-Scikit-learn-, LIBSVM- and L-BFGS-B-derived portions retain their BSD-3-Clause notices; see
+Scikit-learn-, LIBSVM- and L-BFGS-B-derived portions retain their BSD-3-Clause notices.
+The private index-ordering backend retains Intel BSD terms and Microsoft STL
+Apache-2.0 with LLVM-exception terms; see
 [third-party notices](THIRD_PARTY_NOTICES.md). Recommended external Fortran code
 and its attribution requirements are reviewed in [UPSTREAM_REUSE.md](docs/UPSTREAM_REUSE.md).
 
@@ -544,5 +546,11 @@ inverse NaN/infinity boundaries. See the
 SplineTransformer supports weighted knot placement, degree-zero and repeated
 basis knots, feature names and owned CSR output with source zero slots.
 See the [sparse example](example/spline_sparse.f90) and
-[API contract](docs/API.md#b-spline-features), including the signed-weight tie
-ordering compatibility gap.
+[API contract](docs/API.md#b-spline-features). Portable native index ordering
+now resolves the previously reported signed-weight tie differences.
+
+
+KBinsDiscretizer supports seeded subsampling, named fits, owned CSR one-hot
+maps and source inverse semantics for soft, signed and fractional inputs.
+See the [example](example/kbins_sparse.f90) and
+[API contract](docs/API.md#discretization).

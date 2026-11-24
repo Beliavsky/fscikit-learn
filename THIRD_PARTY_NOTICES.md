@@ -1860,3 +1860,38 @@ interfaces, reference harness, tests and example are MIT integration. No new
 runtime dependency or public extension algorithm was added. Native weighted
 percentile ties use stable ordering; signed-weight differences from NumPy's
 CPU-specific unstable argsort are documented and retained as diagnostics.
+
+
+## KBinsDiscretizer sampling, cached encoders and inverse maps (BSD / MIT)
+
+src/sklearn_discretization.f90 follows sklearn 1.6.1
+preprocessing/_discretization.py, preprocessing/_encoders.py OneHotEncoder
+inverse semantics, utils/_indexing.py resample, utils/stats.py weighted
+percentiles, and cluster/_k_means_common.pyx empty-cluster relocation/ordered
+center averaging:
+https://github.com/scikit-learn/scikit-learn/blob/1.6.1/sklearn/cluster/_k_means_common.pyx
+Existing sklearn/NumPy/SciPy BSD notices remain under LICENSES/. Native owned
+CSR maps and raw inverse adapters, typed names/RNG interfaces, quiet arithmetic,
+metadata, tests, reference harness and example are MIT integration.
+
+## Portable NumPy index-ordering backend (Intel BSD / Microsoft Apache-LLVM)
+
+src/sklearn_numpy_ordering.f90 is a scalar Fortran translation of the real64
+AVX512 index sorting/selection paths in Intel x86-simd-sort revision
+9a1b616d5cd4eaf49f7664fb86ccc1d18bad2b8d, the NumPy 2.2.6 submodule revision:
+https://github.com/intel/x86-simd-sort/tree/9a1b616d5cd4eaf49f7664fb86ccc1d18bad2b8d
+Adapted files are xss-network-keyvaluesort.hpp, xss-common-argsort.h and
+avx512-64bit-common.h. Copyright (c) 2022 Intel. BSD-3-Clause terms are retained
+in LICENSES/x86-simd-sort-BSD. Vector operations are replaced by scalar real64
+and integer buffers; no SIMD instructions or external C++ runtime are required.
+
+The depth-limit fallback's partition, median and sorting order is translated
+from Microsoft STL algorithm, revision 8eca13a3bfd44300c848bb93153cded88168aea4
+(vs-2019-16.10), matching the tested NumPy MSVC backend:
+https://github.com/microsoft/STL/blob/8eca13a3bfd44300c848bb93153cded88168aea4/stl/inc/algorithm
+Copyright (c) Microsoft Corporation. Its Apache-2.0 WITH LLVM-exception license
+and NOTICE are retained in LICENSES/Microsoft-STL-Apache-LLVM.txt and
+LICENSES/Microsoft-STL-NOTICE.txt. The translated block has an explicit notice
+in the Fortran source. Original native integration remains MIT; upstream terms
+continue to apply to their respective portions. The backend is internal to
+source algorithm implementations and is not a public extension algorithm.

@@ -49,6 +49,7 @@ program test_discretization
   call require(bins%converged_.and.bins%n_bins_(1)>=1,'duplicate kmeans observations')
   z=bins%transform(x); call require(all(z>=0),'duplicate bins are valid')
   bins%strategy='uniform'; bins%encode='onehot-dense'
-  again=bins%transform(x); call require(all(again==z),'fitted encoding retained until refit')
+  again=bins%transform(x)
+  call require(size(again,2)==7.and.all(sum(again,dim=2)==2),'live encoding uses retained fitted encoder')
   print *, 'KBinsDiscretizer tests passed'
 end program

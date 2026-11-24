@@ -1,6 +1,7 @@
 """Dense KBinsDiscretizer reference checks against sklearn 1.6.1."""
 from pathlib import Path
 import json
+import argparse,hashlib
 import os
 import subprocess
 import warnings
@@ -14,6 +15,10 @@ RESULTS = ROOT / "validation" / "results"
 
 
 def main():
+    ap=argparse.ArgumentParser();ap.add_argument('--executable',type=Path);ap.add_argument('--profile',default='development');ap.add_argument('--report',type=Path);args=ap.parse_args()
+    sha=lambda p:hashlib.sha256(p.read_bytes()).hexdigest();paths=[Path(__file__),ROOT/'src/sklearn_discretization.f90',ROOT/'app/reference_discretization_driver.f90']
+    if args.executable:paths.append(args.executable)
+    hashes={str(p):sha(p) for p in paths}
     RESULTS.mkdir(exist_ok=True)
     checks = []
     for seed, n, p in ((7, 70, 3), (42, 80, 4), (2026, 90, 5)):
@@ -21,13 +26,12 @@ def main():
         x = rng.normal(size=(n, p))*np.linspace(.8, 2.2, p)+np.linspace(-2, 2, p)
         w = rng.uniform(.2, 2, size=n)
         w[::11] = 0
-        data, output = RESULTS/f"bins_{seed}.txt", RESULTS/f"bins_actual_{seed}.txt"
+        data, output = RESULTS/f"bins_{args.profile}_{seed}.txt", RESULTS/f"bins_actual_{args.profile}_{seed}.txt"
         with data.open("w") as stream:
             stream.write(f"{n} {p}\n")
             np.savetxt(stream, np.column_stack([x, w]), fmt="%.17g")
-        subprocess.run(["fpm", "run", "--flag", "-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow",
-                        "--target", "reference_discretization_driver", "--", str(data), str(output)],
-                       cwd=ROOT, check=True)
+        command=[str(args.executable)] if args.executable else ['fpm','run','--target','reference_discretization_driver','--']
+        subprocess.run(command+[str(data),str(output)],cwd=ROOT,check=True)
         actual = {}
         for line in output.read_text().splitlines():
             name, *values = line.split()
@@ -63,8 +67,9 @@ def main():
                                        atol=2e-10, rtol=2e-10, equal_nan=True, err_msg=f"{seed} {name}")
             checks.append(dict(seed=seed, api=name, passed=True))
         print(f"PASS KBinsDiscretizer seed={seed}", flush=True)
-    (RESULTS/"discretization_report.json").write_text(json.dumps(
-        dict(sklearn_version=sklearn.__version__, checks=checks), indent=2)+"\n")
+    assert hashes=={str(p):sha(p) for p in paths}
+    (args.report or RESULTS/"discretization_report.json").write_text(json.dumps(
+        dict(profile=args.profile,hashes=hashes,sklearn_version=sklearn.__version__, checks=checks), indent=2)+"\n")
     print(f"{len(checks)} discretization comparisons passed against sklearn {sklearn.__version__}")
 
 

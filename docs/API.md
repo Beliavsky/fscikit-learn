@@ -641,6 +641,40 @@ accept weights; uniform binning does not. Ordinal codes start at zero and use
 real64 storage. The inverse returns bin midpoints; constant columns return NaN.
 Dense one-hot outputs concatenate feature blocks in input-feature order.
 
+`subsample=200000` and integer(int64) `random_state=0` control seeded row
+sampling. Set subsample=0 for Python subsample=None. Sampling uses a complete
+NumPy-compatible permutation without replacement and leaves caller data and the
+global Fortran RNG unchanged. Optional `rng=` in fit/fit_transform accepts a
+mutable legacy_random_state; it advances only when sampling actually occurs.
+As in sklearn 1.6.1, sample weights are validated against the sampled row count
+and are not resampled alongside X. A full-length weight vector is therefore
+rejected when rows were subsampled.
+
+`transform_csr` and `fit_transform_csr` return owned CSR one-hot maps with one
+stored 1 per input feature per row. Both onehot encodings are accepted. The
+native default remains encode='onehot-dense'; transform always returns a dense
+real64 representation, including when encode='onehot'. Select the explicit CSR
+method when sparse storage is wanted. Ordinal maps remain dense. inverse_transform
+accepts dense or CSR one-hot input, including raw duplicates/unsorted indices,
+soft/signed entries and implicit zeros. It follows source argmax and rejects
+feature blocks whose sum is zero. Ordinal inverse truncates toward zero and
+supports Python-style negative indices, then uses source midpoint arithmetic.
+
+Fit accepts optional feature_names= vectors of feature_string and records
+feature_names_in_. Unnamed refits clear those input names. get_feature_names_out
+checks optional input_features and uses the cached encoder categories when one
+exists; otherwise it returns input names. Generated names are x0_0.0, x0_1.0, etc.
+Queries use live encode. An ordinal refit retains an earlier one-hot encoder,
+including its categories and names; a later onehot query can therefore raise an
+unknown-bin or cached-width diagnostic. Enabling onehot without an encoder
+raises a diagnostic. Native n_features_out_ describes the latest fitted encoding
+request; live output or cached name widths can differ.
+
+Automatically pruned ordinal fits may have zero bins: forward codes remain
+zero, while inverse indexing fails. One-hot fitting with zero categories fails.
+Numeric dtype/memory-order controls and Python warnings are outside this real64
+interface. See [the sparse example](../example/kbins_sparse.f90).
+
 ## Sparse inverse covariance
 
 ```fortran
@@ -1031,9 +1065,9 @@ explicit knots must be strictly increasing.
 
 `sample_weight=` in fit/fit_transform selects lower weighted quantiles, or
 ignores nonpositive-weight samples when locating uniform extrema. Nonnegative
-weights are the usual statistical case. Mixed negative weights with tied values
-can differ from the installed NumPy CPU backend because the native percentile
-sort is stable; the reference report retains these differences separately.
+weights are the usual statistical case. Signed-weight ties use the portable native reconstruction of the installed
+NumPy 2.2.6 AVX512 index order. The previously reported tie differences are
+resolved against that baseline.
 
 `transform_csr(x)` and `fit_transform_csr(x, knots, sample_weight, feature_names)`
 return owned `csr_matrix` output from dense input. They retain the reference

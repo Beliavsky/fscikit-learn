@@ -265,6 +265,7 @@ program invalid_input_driver
   type(theil_sen_regressor) :: theil
   type(graphical_lasso) :: graphical
   type(kbins_discretizer) :: bins
+  type(csr_matrix)::bin_sparse
   type(power_transformer) :: power
   type(standard_scaler) :: scaler
   type(logistic_regression) :: logistic
@@ -6411,24 +6412,48 @@ program invalid_input_driver
     call graphical%fit(x(:2,:)); pred=graphical%mahalanobis(x(:,1:1))
   case('graphical_empty'); call graphical%fit(x(:0,:))
   case('bins_strategy'); bins%strategy='invalid'; call bins%fit(x)
-  case('bins_encode'); bins%encode='onehot'; call bins%fit(x)
+  case('bins_encode'); bins%encode='bad'; call bins%fit(x)
   case('bins_count'); bins%n_bins=1; call bins%fit(x)
   case('bins_count_shape'); call bins%fit(x,n_bins=[3])
   case('bins_count_vector'); call bins%fit(x,n_bins=[3,1])
   case('bins_weight_uniform'); bins%strategy='uniform'; call bins%fit(x,sample_weight=y)
   case('bins_weight_shape'); call bins%fit(x,sample_weight=y(:3))
-  case('bins_weight_negative'); y(1)=-1; call bins%fit(x,sample_weight=y)
-  case('bins_weight_zero'); y=0; call bins%fit(x,sample_weight=y)
+  case('bins_seed_negative'); bins%random_state=-1; call bins%fit(x)
+  case('bins_subsample'); bins%subsample=-1; call bins%fit(x)
   case('bins_weight_nan'); y(1)=ieee_value(0._dp,ieee_quiet_nan); call bins%fit(x,sample_weight=y)
   case('bins_unfitted'); z=bins%transform(x)
   case('bins_inverse_unfitted'); z=bins%inverse_transform(x)
   case('bins_features'); call bins%fit(x); z=bins%transform(x(:,1:1))
   case('bins_inverse_width'); call bins%fit(x); z=bins%inverse_transform(x(:,1:1))
   case('bins_inverse_range'); bins%encode='ordinal'; call bins%fit(x); z=bins%inverse_transform(x)
-  case('bins_inverse_fraction'); bins%encode='ordinal'; call bins%fit(x); x=0.5_dp; z=bins%inverse_transform(x)
+  case('bins_encoder_absent'); bins%encode='ordinal'; call bins%fit(x); bins%encode='onehot'; z=bins%transform(x)
   case('bins_inverse_zero'); call bins%fit(x); x=0; z=bins%inverse_transform(x)
-  case('bins_inverse_dense_fraction'); call bins%fit(x); x=0.5_dp; z=bins%inverse_transform(x)
+  case('bins_inverse_csr_ordinal')
+    bins%encode='ordinal';call bins%fit(x);z=bins%inverse_transform(bin_sparse)
   case('bins_no_width'); x(:,1)=[0._dp,1.e-10_dp,2.e-10_dp,3.e-10_dp]; call bins%fit(x)
+  case('bins_csr_ordinal')
+    bins%encode='ordinal';call bins%fit(x);bin_sparse=bins%transform_csr(x)
+  case('bins_inverse_encoder')
+    bins%encode='ordinal';call bins%fit(x);bins%encode='onehot';z=bins%inverse_transform(x)
+  case('bins_seed_large')
+    bins%random_state=int(z'100000000',kind(bins%random_state));call bins%fit(x)
+  case('bins_sample_weight_shape')
+    bins%subsample=2;call bins%fit(x,sample_weight=y)
+  case('bins_names_count')
+    allocate(spline_names(1));spline_names(1)%text='one';call bins%fit(x,feature_names=spline_names)
+  case('bins_names_missing')
+    allocate(spline_names(2));call bins%fit(x,feature_names=spline_names)
+  case('bins_query_name_count')
+    call bins%fit(x);allocate(spline_names(1));spline_names(1)%text='one'
+    spline_names=bins%get_feature_names_out(spline_names)
+  case('bins_query_name_difference')
+    allocate(spline_names(2));spline_names(1)%text='one';spline_names(2)%text='two'
+    call bins%fit(x,feature_names=spline_names);spline_names(2)%text='bad'
+    spline_names=bins%get_feature_names_out(spline_names)
+  case('bins_unknown_cached')
+    x(:,1)=[0._dp,1._dp,2._dp,3._dp];x(:,2)=x(:,1);bins%strategy='uniform';bins%n_bins=2
+    call bins%fit(x);bins%encode='ordinal';bins%n_bins=4;call bins%fit(x)
+    bins%encode='onehot-dense';z=bins%transform(x)
   case('bins_kmeans_size'); bins%strategy='kmeans'; x(:,1)=[0._dp,1._dp,2._dp,3._dp]; call bins%fit(x)
   case('power_method'); power%method='invalid'; call power%fit(x)
   case('power_positive'); power%method='box-cox'; x(1,1)=0; call power%fit(x)

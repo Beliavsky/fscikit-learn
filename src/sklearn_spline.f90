@@ -2,7 +2,8 @@
 ! BSD-3-Clause attribution retained in LICENSES/scikit-learn-COPYING.
 ! Native Cox-de Boor evaluation and derivative recurrence replace scipy BSpline.
 module sklearn_spline
-  use sklearn_common, only: dp,require,check_x,argsort
+  use sklearn_common, only: dp,require,check_x
+  use sklearn_numpy_ordering,only:argsort=>numpy_argsort
   use sklearn_sparse,only:csr_matrix
   use sklearn_feature_extraction,only:feature_string
   use sklearn_ieee_math,only:sub=>ieee_difference,mul=>ieee_product,div=>ieee_quotient
