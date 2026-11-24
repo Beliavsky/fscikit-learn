@@ -218,6 +218,7 @@ contains
     select type(model=>self%estimator)
     class is(dense_transformer);ok=model%can_inverse()
     type is(function_transformer);ok=.true.
+    type is(simple_imputer);ok=.true.
     type is(standard_scaler);ok=.true.
     type is(minmax_scaler);ok=.true.
     type is(maxabs_scaler);ok=.true.
@@ -500,6 +501,7 @@ contains
     select type(model=>self%estimator)
     class is(dense_transformer);z=model%inverse_data(x)
     type is(function_transformer);z=model%inverse_transform(x)
+    type is(simple_imputer);z=model%inverse_transform(x)
     type is(standard_scaler);z=model%inverse_transform(x)
     type is(minmax_scaler);z=model%inverse_transform(x)
     type is(maxabs_scaler);z=model%inverse_transform(x)

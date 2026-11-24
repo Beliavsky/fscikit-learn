@@ -67,7 +67,9 @@ program reference_pipeline_driver
   else
     names=prefix%get_feature_names_out()
   end if
-  if(prefix%can_inverse()) then
+  ! The reference fixture suite only requests inverse calls for these kinds.
+  ! SimpleImputer has the method, but requires add_indicator=True to call it.
+  if(prefix%can_inverse().and.any(kind==[0,2,3,4,8,9,10,11,13,14])) then
     inverse=prefix%inverse_transform(train)
   else
     allocate(inverse(0,0))

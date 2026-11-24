@@ -1818,3 +1818,15 @@ Existing sklearn/NumPy BSD notices remain under LICENSES/. Native compact zero
 multiplicity buffers, typed CSR/free interfaces, quiet arithmetic integration,
 caller/RNG-preserving adapters, examples and test harnesses are MIT integration.
 No dependency or public extension algorithm was added.
+
+## SimpleImputer numeric dense/CSR extension (BSD / MIT)
+
+src/sklearn_simple_impute.f90 follows installed sklearn 1.6.1 impute/_base.py
+SimpleImputer and indicator handling, utils/sparsefuncs.py _get_median and numeric
+mode/zero-count contracts. Dense masked arithmetic/median behavior follows
+NumPy 2.2.6 ma/core.py and ma/extras.py, including masked-division domains and
+odd matrix-median overflow. Existing sklearn/NumPy/SciPy BSD notices remain under
+LICENSES/. Original native typed callbacks, owned CSR slot adapters, compact
+zero statistics, metadata/feature names, quiet arithmetic integration and graph
+adapters, tests and examples are MIT integration. No dependency or public
+extension algorithm was added.

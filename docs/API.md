@@ -8111,3 +8111,55 @@ Rank-one inputs are outside the source estimator/free-function interface.
 All outputs are owned; Python copy=False and Python warning emissions are not
 exposed. Capped quantile counts remain visible in fitted metadata. See the
 [example](../example/quantile_sparse.f90).
+
+## SimpleImputer numeric missing values, CSR and indicators
+
+`simple_imputer` remains exported by `sklearn_preprocessing` and `sklearn`,
+with implementation in `sklearn_simple_impute`. Existing strategy, fill_value
+and statistics_ components retain their order. Dense/CSR fit, fit_transform and
+transform accept real64 arrays. `missing_values` defaults to NaN and may be a
+numeric marker; finite markers reject NaNs in the input. Input infinity is
+always rejected. Sparse missing_values=0 is rejected to avoid densification.
+Every transform returns an owned result. Python object/string data and
+copy=False are outside this interface.
+
+`keep_empty_features` controls dropping NaN statistics for mean/median/mode;
+retained empty built-in features receive zero. In sklearn 1.6.1 constant
+imputation retains all features even with keep_empty_features false. Learned
+statistics can contain NaN/Inf from callbacks, fill values or source arithmetic.
+Dense masked means retain NumPy's masked-division safety domain; sparse means
+use plain stored-column sums and implicit zeros. Dense medians use the masked
+matrix two-middle-value path even for odd counts; sparse medians use the source
+compact-zero rule. Most-frequent ties choose the smallest value.
+
+Set `strategy='callable'` and associate `statistic` with a function matching the
+public `imputer_statistic` interface: real(dp) function of an intent(in) real(dp)
+vector. Dense calls pass every nonmissing observed value, including zeros;
+sparse calls exclude explicit and implicit zeros. Dense empty columns still
+invoke the callback. Sparse columns with no observed nonzero values use zero
+without invoking it when keep_empty_features is true, following source behavior.
+
+`add_indicator` appends indicators learned at fit time; new query-only missing
+features do not gain indicator columns. Native indicator_ is a metadata holder:
+its features_ indices are one-based and unallocated when no indicator was fitted.
+CSR maps retain original retained slots, duplicates and explicit zeros, then
+append raw missing-indicator slots per row. Source CSC output is adapted to CSR
+without coalescing. Sparse fitting uses per-column compact statistics rather
+than dense sample-by-feature buffers.
+
+Dense `inverse_transform` requires add_indicator true. It follows the source's
+indicator-based column mapping, including source failures when all query rows
+mark a retained feature as missing. It accepts dense transformed data; convert
+CSR output explicitly before inversion. Query strategy, missing_values,
+keep_empty_features and add_indicator remain live; statistics and indicator
+feature selections remain fitted. Enabling an unfitted indicator produces a
+controlled diagnostic.
+
+Optional feature_names on fit/transform use feature_string arrays. Fitted names
+are checked when supplied; get_feature_names_out filters NaN statistics and
+appends missingindicator_ names. That source naming rule is retained even when
+constant/keep-empty query behavior yields a different output width. Pipeline,
+column/union naming and FrozenEstimator inverse delegation recognize the new
+methods. Method presence makes pipeline/frozen inverse capability available;
+calling inverse still requires the add_indicator option. Python warning emissions
+are not exposed. See [the example](../example/simple_imputer.f90).

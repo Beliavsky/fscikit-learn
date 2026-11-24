@@ -10514,3 +10514,26 @@ Inventory: 222 public core types, 159 source modules, 220 native programs,
 5,298 cases. MIT integration and retained sklearn/NumPy notices continue.
 No dependency or extension algorithm was added. The broader translation remains
 unfinished.
+
+## SimpleImputer markers, empty features, callbacks and sparse maps
+
+SimpleImputer supports numeric missing markers, dense/CSR fits and maps,
+keep-empty rules, fitted missing indicators, callable scalar statistics,
+feature names and dense inverse maps. The prior dense type and its private
+median helper were extracted into sklearn_simple_impute and remain re-exported.
+Composition name adapters and pipeline/frozen inverse dispatch were extended.
+The default NaN marker and one-based native indicator feature indices are
+explicit; Python CSC output is adapted to owned raw CSR output. String/object
+imputation, in-place copy=False and a full nested indicator estimator are outside
+the native interface. No new core estimator type was added.
+
+The new reference grid retains 2,183 configurations: 1,843 accepted fixtures /
+42,389 groups and 340 expected source boundaries (240 sparse zero-marker
+rejections, 80 input/conversion overflows, 20 inverse-mapping IndexErrors).
+Sixteen additional validation/format cases bring diagnostics to 356. All 4,237
+nonfinite source outcomes are compared. Names, metadata, CSR layouts and
+caller/RNG identities are exact; numeric comparisons use 3e-8 relative tolerance
+and a magnitude-scaled absolute cap to retain tiny/subnormal results. Source
+masked-mean domains, odd dense-median overflow, sparse zero counts, callable
+empty-column asymmetry and source inverse column-mapping quirks are retained.
+Canonical package verification is recorded separately.

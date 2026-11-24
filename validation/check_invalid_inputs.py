@@ -2368,7 +2368,7 @@ CASES = {
     "neighbors": "exceeds training size", "clusters": "number of kmeans clusters",
     "components": "PCA n_components", "svm_c": "SVC controls", "tree_depth": "tree size controls",
     "mixture_reg": "mixture controls", "gp_length": "Gaussian process kernel parameters",
-    "variance": "no feature", "missing": "all-missing feature", "empty_text": "empty text vocabulary",
+    "variance": "no feature", "missing": "NaN or infinity", "empty_text": "empty text vocabulary",
     "folds": "KFold n_splits",
     "radius_empty": "no neighbors within radius", "centroid_metric": "unknown centroid metric",
     "lof_mode": "novelty=true", "lof_contamination": "LOF contamination",

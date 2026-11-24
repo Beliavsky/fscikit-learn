@@ -6528,7 +6528,7 @@ program invalid_input_driver
   case('mixture_reg'); gm%reg_covar=-1; call gm%fit(x)
   case('gp_length'); gp%length_scale=0; call gp%fit(x,y)
   case('variance'); call vt%fit(x)
-  case('missing'); x=ieee_value(0._dp,ieee_quiet_nan); call im%fit(x)
+  case('missing'); im%missing_values=0; x=ieee_value(0._dp,ieee_quiet_nan); call im%fit(x)
   case('empty_text'); call text%fit([character(4)::'a !','x ?'])
   case('folds'); splitter%n_splits=5; folds=splitter%split(4)
   case('radius_empty'); call radius%fit(x,[0,0,1,1]); labels=radius%predict(x+100)

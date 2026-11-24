@@ -13,7 +13,7 @@ module sklearn_pipeline
     composition_transform=>transform_model,composition_names=>model_names,input_names,integer_text,real_text
   use sklearn_function_transformer, only: function_transformer
   use sklearn_preprocessing, only: standard_scaler,minmax_scaler,maxabs_scaler,robust_scaler,power_transformer, &
-    quantile_transformer,kbins_discretizer,ordinal_encoder
+    quantile_transformer,kbins_discretizer,ordinal_encoder,simple_imputer
   use sklearn_decomposition, only: pca,truncated_svd
   use sklearn_feature_selection, only: select_k_best,variance_threshold,generic_univariate_select,select_from_model
   use sklearn_target_encoding, only: target_encoder
@@ -671,6 +671,7 @@ contains
     available=.true.
     select type(model)
     type is(function_transformer)
+    type is(simple_imputer)
     type is(standard_scaler)
     type is(minmax_scaler)
     type is(maxabs_scaler)
@@ -710,6 +711,8 @@ contains
     real(dp), allocatable :: z(:,:)
     select type(model)
     type is(function_transformer)
+      z=model%inverse_transform(x)
+    type is(simple_imputer)
       z=model%inverse_transform(x)
     type is(standard_scaler)
       z=model%inverse_transform(x)

@@ -1,4 +1,5 @@
 module sklearn_preprocessing
+  use sklearn_simple_impute, only: simple_imputer,imputer_statistic
   use sklearn_standard_scaling, only: standard_scaler,scale
   use sklearn_robust_scaling, only: robust_scaler,robust_scale
   use sklearn_minmax_scaling, only: minmax_scaler,minmax_scale
@@ -20,6 +21,7 @@ module sklearn_preprocessing
   use, intrinsic :: ieee_arithmetic, only: ieee_is_nan
   implicit none
   private
+  public :: imputer_statistic
   public :: function_transformer
   public :: iterative_imputer,imputer_triplet
   public :: kernel_centerer
@@ -37,14 +39,6 @@ module sklearn_preprocessing
   public :: standard_scaler, minmax_scaler, maxabs_scaler, robust_scaler, simple_imputer
   public :: normalize, binarize, polynomial_features, label_encoder, one_hot_encoder
   public :: normalizer,binarizer
-  type :: simple_imputer
-    character(16) :: strategy='mean'
-    real(dp) :: fill_value=0
-    real(dp), allocatable :: statistics_(:)
-  contains
-    procedure :: fit=>imputer_fit
-    procedure :: transform=>imputer_transform
-  end type
   type :: label_encoder
     integer, allocatable :: classes_(:)
   contains
@@ -64,58 +58,6 @@ module sklearn_preprocessing
     procedure :: transform=>onehot_transform
   end type
 contains
-  real(dp) function percentile(x,p) result(v)
-    real(dp), intent(in) :: x(:),p
-    integer :: order(size(x)),lo,hi
-    real(dp) :: position
-    order=argsort(x); position=1+(size(x)-1)*p/100
-    lo=floor(position); hi=ceiling(position)
-    v=x(order(lo))+(position-lo)*(x(order(hi))-x(order(lo)))
-  end function
-  subroutine imputer_fit(self,x)
-    class(simple_imputer), intent(inout) :: self
-    real(dp), intent(in) :: x(:,:)
-    real(dp), allocatable :: col(:)
-    integer :: j,i,k,best,n
-    call require(size(x,1)>0.and.size(x,2)>0,'imputer X is empty')
-    self%statistics_=spread(0._dp,1,size(x,2))
-    do j=1,size(x,2)
-      col=pack(x(:,j),.not.ieee_is_nan(x(:,j)))
-      if(trim(self%strategy)=='constant') then
-        self%statistics_(j)=self%fill_value; cycle
-      end if
-      call require(size(col)>0,'all-missing feature requires constant imputation')
-      select case(trim(self%strategy))
-      case('mean')
-        self%statistics_(j)=sum(col)/size(col)
-      case('median')
-        self%statistics_(j)=percentile(col,50._dp)
-      case('most_frequent')
-        best=0; self%statistics_(j)=minval(col)
-        do i=1,size(col)
-          n=count(col==col(i))
-          if(n>best.or.(n==best.and.col(i)<self%statistics_(j))) then
-            best=n; self%statistics_(j)=col(i)
-          end if
-        end do
-      case default
-        call require(.false.,'unknown imputer strategy')
-      end select
-    end do
-  end subroutine
-  function imputer_transform(self,x) result(z)
-    class(simple_imputer), intent(in) :: self
-    real(dp), intent(in) :: x(:,:)
-    real(dp) :: z(size(x,1),size(x,2))
-    integer :: j
-    call require(allocated(self%statistics_),'simple_imputer is not fitted')
-    call require(size(x,2)==size(self%statistics_),'imputer feature count mismatch')
-    z=x
-    do j=1,size(x,2)
-      where(ieee_is_nan(z(:,j))) z(:,j)=self%statistics_(j)
-    end do
-    call check_x(z)
-  end function
   subroutine label_fit(self,y)
     class(label_encoder), intent(inout) :: self
     integer, intent(in) :: y(:)

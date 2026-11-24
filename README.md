@@ -528,3 +528,8 @@ QuantileTransformer supports source-seeded dense/CSR sampling and sparse maps.
 The free `quantile_transform` covers both matrix axes. See the
 [example](example/quantile_sparse.f90) and
 [API contract](docs/API.md#source-seeded-quantile-transforms-and-csr-inputs).
+
+SimpleImputer supports numeric missing markers, empty-feature rules, dense/CSR
+maps, callable statistics, indicators, names and dense inverse reconstruction.
+See the [example](example/simple_imputer.f90) and
+[API contract](docs/API.md#simpleimputer-numeric-missing-values-csr-and-indicators).
