@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and sixty-seven reference suites additionally check 3,241,665
+All types have native tests. One hundred and sixty-eight reference suites additionally check 3,245,013
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -8870,3 +8870,25 @@ unrelated modules/tests were verified. Reports remain local under ignored
 `validation/results/bicluster_consensus*`, including
 `bicluster_consensus_final_audit.json`. MIT licensing and retained sklearn BSD
 attribution continue; no dependency or public extension algorithm was added.
+
+## Class and sample weight utilities (2026-11-24)
+
+Added `compute_class_weight` and `compute_sample_weight`, plus the
+`class_weight_map` storage helper (excluded from estimator-type counts).
+Balanced and explicit maps support integer/logical labels, repeated class
+selectors, dictionary omissions/extras, bootstrap/subsample expansion and
+multioutput products. CSR sample targets use one-column workspaces and sum
+unsorted duplicate entries before class counting. Quiet IEEE arithmetic
+preserves negative, zero and nonfinite map-weight behavior.
+
+Development validation passed 3,348 comparisons and 32 source-matched
+diagnostics, 276 balanced class-mass certificates and 6,772 nonfinite source
+values. Coverage includes exhaustive binary vectors up to length five, five
+seeds, empty/zero-output targets, signed and nonfinite maps, missing subsample
+classes, positive and negative indices, integer-range extremes, 10,000 distinct
+classes and 10,000-column sparse/dense multilabel targets. The facade example
+uses computed sample weights to fit logistic regression.
+
+Cumulative inventory: 222 public core types, 149 source modules, 192 native
+programs, 168 reference suites / 3,245,013 retained required groups, and 73
+invalid-input registries / 4,325 cases. These remain API subsets.

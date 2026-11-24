@@ -1,6 +1,7 @@
 ! Convenience facade; individual sklearn_* modules may also be imported.
 module sklearn
   use sklearn_common, only: dp
+  use sklearn_class_weight, only: class_weight_map,compute_class_weight,compute_sample_weight
   use sklearn_preprocessing
   use sklearn_metrics
   use sklearn_image

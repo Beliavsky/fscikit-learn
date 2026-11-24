@@ -7264,3 +7264,55 @@ O(n*m) score/cost storage. Input arrays are preserved. SciPy is not a runtime
 dependency. Python tuples are represented by the four array arguments;
 the optional procedure represents sklearn's callable similarity, and omission
 represents its `'jaccard'` default.
+
+## Class and sample weight utilities
+
+`compute_class_weight(classes,y,mode,class_weight)` returns an allocatable
+real(dp) vector in the requested class order. Classes and targets are default
+integer vectors or both logical vectors. `mode` defaults to `'none'`, meaning
+uniform weights, and accepts `'balanced'` for
+`n_samples / (n_observed_classes * class_count)`. Requested classes must cover
+every target label. Balanced mode also requires every requested class to occur
+in the target. Unsorted and repeated class selectors are preserved; the
+denominator uses the number of distinct observed classes.
+
+Optional `class_weight` is a `class_weight_map`, a storage helper with
+allocatable integer `labels(:)` and real(dp) `weights(:)` components. For
+example, `class_weight_map([0,1],[1._dp,4._dp])` represents `{0:1,1:4}`.
+Keys must be unique and component lengths must agree. Both unallocated or
+both empty components represent an empty dictionary. A map replaces uniform
+weights; it cannot accompany balanced mode. Missing map keys receive one.
+As in the source, unknown keys are accepted when all requested classes are
+mapped; with omitted requested classes, the number of mapped requested
+entries must equal the dictionary size. This includes the source's repeated
+class-selector behavior. Map weights may be negative, zero, NaN or infinite.
+
+`compute_sample_weight(y,mode,class_weight,indices)` returns a real(dp)
+vector over all original samples. Integer or logical target vectors accept
+a scalar map; target matrices accept a map array with one entry per output.
+A one-column matrix uses a one-element map array, adapting the source's
+single dictionary. Multioutput targets require balanced mode or explicit
+per-output maps, including empty maps for uniform weights. Per-output
+factors are multiplied in column order with quiet IEEE handling. This does
+not change estimators' own restrictions on valid fit weights.
+
+Optional `indices(:)` selects the data used to estimate balanced frequencies,
+with repetitions allowed for bootstrap samples. Positive indices are
+one-based; negative indices count from the end (`-1` is the last sample).
+Zero and out-of-range indices are invalid. Only balanced mode accepts
+indices. The result still covers every original sample; classes absent from
+the subsample get zero weight. Empty balanced targets or subsamples are
+rejected, matching the baseline. Empty unweighted vectors return empty
+weights. A target with zero output columns returns `[1._dp]`, representing
+the source's scalar product identity.
+
+The sample utility also accepts `csr_matrix` targets with the matrix map
+interface. Implicit zeros, explicit zeros and unsorted duplicate entries are
+supported. Duplicate values are summed before labels are determined;
+aggregated labels must be finite, integral and within the default integer
+range. Fractional stored fragments are allowed if their sum is integral.
+A column index uses O(nnz+n_samples+n_outputs) storage and only one dense
+target column at a time. Label counting uses merge-sort unique labels and
+binary lookup. All inputs are preserved. String, real-valued dense and
+int64 target labels are outside this binding. The utilities and map helper
+are exported by `sklearn_class_weight` and the `sklearn` facade.

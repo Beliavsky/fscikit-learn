@@ -31,6 +31,7 @@ fpm run --example gaussian_process_kernels
 fpm run --example classification_sample_generators
 fpm run --example synthetic_sample_generators
 fpm run --example bicluster_consensus
+fpm run --example balanced_class_weights
 fpm run --example model_learning_curves
 fpm run --example out_of_fold_predictions
 fpm run --example parameter_search
@@ -424,3 +425,8 @@ Bicluster sets can be compared with `consensus_score`, using Jaccard overlap
 or a callback and optimal rectangular matching. See
 [the example](example/bicluster_consensus.f90) and
 [the API contract](docs/API.md#bicluster-consensus).
+
+`compute_class_weight` and `compute_sample_weight` provide balanced and mapped
+class weights, with subsample and multioutput support and sparse targets.
+See [the weighted-fit example](example/balanced_class_weights.f90) and
+[the API contract](docs/API.md#class-and-sample-weight-utilities).

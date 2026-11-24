@@ -1511,3 +1511,14 @@ The rectangular Hungarian shortest-augmenting-path implementation, Fortran
 indicator and callback adapters, tests, example and reference harness are
 original MIT contributions. No SciPy assignment implementation was copied,
 and no dependency or public extension algorithm was added.
+
+## Class and sample weight utilities (BSD)
+
+`src/sklearn_class_weight.f90` follows sklearn 1.6.1
+`utils/class_weight.py` compute_class_weight and compute_sample_weight,
+including balanced frequencies, dictionary defaults, subsample expansion and
+multioutput products. The scikit-learn BSD terms remain in
+`LICENSES/scikit-learn-COPYING`. Native map storage, merge-sort label lookup,
+CSR column workspaces, quiet IEEE products, tests, example and reference
+harness are original MIT contributions. No dependency or extension algorithm
+was added.
