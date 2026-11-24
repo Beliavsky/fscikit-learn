@@ -8672,3 +8672,36 @@ nonfinite source values from extreme finite gains also match.
 Cumulative inventory: 222 public core types, 145 source modules, 188 native
 programs, 164 reference suites / 2,789,850 retained required groups, and 69
 invalid-input registries / 4,214 cases. These remain API subsets.
+
+Final classification/relevance-ranking verification (2026-11-23): four-job
+fpm 0.14.0 builds compiled the package in runtime-checked
+(`-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow`) and optimized
+release profiles. Each executed eight focused native programs: new score
+ranking, existing ranking/calibration, multilabel ranking, preprocessing/metrics,
+multiclass reductions, multioutput reductions, SVM and MLP joint-target tests.
+All passed; the other 180 native programs were not executed in this batch.
+
+Two reference suites passed 41,961 required groups per profile: 36,377 new
+hinge/top-k/DCG/NDCG and 5,584 existing ranking/calibration groups. All 29 new
+isolated diagnostics passed, alongside four existing matched source-rejection
+cases. Top-k decisions, fractions and raw weighted counts matched exactly.
+Other measures matched within 3e-12 absolute/relative tolerance, including five
+nonfinite source values. Both profiles checked inferred/explicit class pairs,
+exhaustive ties, signed weights, raw zero-total counts and widths reaching
+100,000 classes/documents.
+
+The facade example trained a native multiclass logistic regressor and scored
+90x3 decisions with zero hinge loss and perfect top-two accuracy in both
+profiles. A tied retrieval example produced DCG@1=7.5, NDCG@1=.75 and ideal
+NDCG=1. The documented ignore_ties=true assumption remains distinct from the
+default source-compatible averaged-tie behavior.
+
+The combined audit verified 160 compiled source units per profile through
+dependency-aware fingerprints, complete per-fixture field inventories, native
+source hashes and executable/validator/report hashes. Installed sklearn
+classification/ranking source hashes stayed unchanged before and after each
+reference run. The private fpm checksum and unchanged unrelated modules/tests
+were verified as well. Reports remain local under ignored
+`validation/results/score_rank*`, including `score_ranking_final_audit.json`.
+MIT licensing and retained sklearn BSD attribution continue; no dependency or
+public extension algorithm was introduced.
