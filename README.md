@@ -53,6 +53,7 @@ fpm run --example ordinal_encoding
 fpm run --example target_encoding
 fpm run --example stacking_ensembles
 fpm run --example bagging_ensembles
+fpm run --example median_regression_trees
 fpm run --example count_regression_forests
 fpm run --example count_regression_trees
 fpm run --example weighted_extra_trees

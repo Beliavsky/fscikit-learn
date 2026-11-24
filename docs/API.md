@@ -3329,7 +3329,8 @@ single-tree controls and methods: `fit`, `predict`, `apply`, `score`,
 `get_depth`, `get_n_leaves`, classifier `predict_proba`, and learned
 `nodes_`, `feature_importances_`, `n_features_in_` and `max_features_`.
 The classifier supports Gini, entropy and log-loss. Regression accepts
-`criterion='squared_error'` (default), `'friedman_mse'` or `'poisson'`.
+`criterion='squared_error'` (default), `'friedman_mse'`, `'poisson'` or
+`'absolute_error'`.
 Friedman uses its source-specific improvement scale for min_impurity_decrease.
 Poisson requires nonnegative targets with a strictly positive raw target sum,
 and rejects candidate children whose weighted target sum is at most ten
@@ -3354,11 +3355,12 @@ Decision trees and standalone ExtraTrees use float32 feature
 geometry, the observed zero split tolerance of the installed sklearn 1.6.1
 binary, and seeded legacy NumPy /
 xorshift feature selection. Training features must be finite and within
-float32 range. Queries may contain NaNs: each missing feature follows the
+float32 range. Except for absolute-error regression, queries may contain
+NaNs: each missing feature follows the
 larger active-row child, with ties going right, matching a source tree trained
 without missing values. Query infinities and float32 overflow are rejected.
 NaN training, sparse input, pruning, monotonic constraints, fractional feature
-counts, absolute-error regression, and multioutput single-tree fitting
+counts and multioutput single-tree fitting
 remain outside this subset. Native max_depth=0 retains its existing root-only
 meaning; sklearn requires a positive depth.
 
@@ -7486,7 +7488,8 @@ intermediate in Fortran formatted input. This adds no package dependency.
 
 `random_forest_regressor` and `extra_trees_regressor` accept optional
 `sample_weight` in `fit` and `score`. Both support `criterion='squared_error'`
-(default), `'friedman_mse'` and `'poisson'`, plus `min_impurity_decrease`.
+(default), `'friedman_mse'`, `'poisson'` and `'absolute_error'`, plus
+`min_impurity_decrease`.
 `apply(x)` returns one-based leaf indices with shape `(n_queries,n_estimators)`;
 `n_features_in_` records the fitted input width. Component trees remain
 accessible through `estimators_`.
@@ -7507,10 +7510,37 @@ matching sklearn. All-stump forests return zero importances. Signed/zero
 weights retain source NaN/Inf prediction behavior; score requires finite
 predictions/targets and a nonzero score-weight sum. Fitting weights and their
 bootstrap-multiplied values must be finite. Query NaNs use each component's
-finite-training missing-value routing. Training NaNs, sparse inputs,
+finite-training missing-value routing, except absolute-error models reject
+query NaNs as sklearn does. Training NaNs, sparse inputs,
 fractional max_samples/max_features, OOB scores, warm starts, pruning,
 monotonic constraints and multioutput forests are not implemented here.
 
 Parameter search accepts regression-forest `criterion`, `max_samples` and
 `min_impurity_decrease` alongside existing size/seed controls, and forwards
 fit weights. SelectFromModel also forwards regression-forest fit weights.
+
+## Absolute-error regression trees
+
+Set `criterion='absolute_error'` on decision_tree_regressor,
+extra_tree_regressor, random_forest_regressor or extra_trees_regressor.
+Leaves predict the source weighted-median convention rather than a mean.
+The split proxy and node impurity use weighted absolute deviations, with
+the existing depth, leaf, split, feature and min_impurity_decrease controls.
+Fit weights, search grids and forest bootstrap multiplicities are supported.
+
+The internal median queues follow sklearn 1.6.1's insertion, removal,
+forward/reverse updates and reset order. They retain initialized removed
+records that the source accesses during subsequent updates. This preserves
+source node impurities and importance values in addition to predictions.
+Queries containing NaNs are rejected for this criterion, including apply.
+Training NaNs remain unsupported. Source median averaging can overflow for
+very large finite targets; quiet IEEE composition preserves Inf/NaN results
+and normalizes importance without triggering floating-point traps.
+
+When no fitting row has a nonzero effective weight, sklearn's median getter
+reads invalid storage. The Fortran implementation instead returns a quiet
+NaN leaf, zero active-row count and NaN impurity. A forest containing such
+a tree returns NaN predictions; its importance excludes stump trees and is
+zero if all trees are stumps. Those outcomes are explicit safety identities,
+not claims of equivalence with an invalid source memory read. Accesses
+outside initialized median storage also yield quiet NaN.

@@ -71,7 +71,7 @@ program test_search
   count_tree%max_depth=2
   allocate(criterion_search%estimator,source=count_tree);allocate(criterion_search%param_grid(1))
   allocate(criterion_search%param_grid(1)%axes(1));criterion_search%param_grid(1)%axes(1)%name='criterion'
-  criterion_search%param_grid(1)%axes(1)%values=[param('squared_error'),param('friedman_mse'),param('poisson')]
+  criterion_search%param_grid(1)%axes(1)%values=[param('squared_error'),param('friedman_mse'),param('poisson'),param('absolute_error')]
   criterion_search%cv=3;criterion_search%scoring='neg_mean_squared_error'
   call criterion_search%fit(x,1+abs(y),weights)
   value=criterion_search%best_params_%get('criterion')
@@ -84,7 +84,7 @@ program test_search
   count_extra%max_depth=2;deallocate(criterion_search%estimator)
   allocate(criterion_search%estimator,source=count_extra)
   call criterion_search%fit(x,1+abs(y),weights)
-  call require(size(criterion_search%cv_results_%params)==3,'ExtraTree criterion parameter adapter')
+  call require(size(criterion_search%cv_results_%params)==4,'ExtraTree criterion parameter adapter')
   count_forest%n_estimators=3;count_forest%max_depth=2
   deallocate(criterion_search%estimator);allocate(criterion_search%estimator,source=count_forest)
   call criterion_search%fit(x,1+abs(y),weights)
@@ -98,7 +98,7 @@ program test_search
   count_forest_extra%n_estimators=3;count_forest_extra%max_depth=2
   deallocate(criterion_search%estimator);allocate(criterion_search%estimator,source=count_forest_extra)
   call criterion_search%fit(x,1+abs(y),weights)
-  call require(size(criterion_search%cv_results_%params)==3,'Weighted ExtraTrees criterion parameter adapter')
+  call require(size(criterion_search%cv_results_%params)==4,'Weighted ExtraTrees criterion parameter adapter')
   print *, 'GridSearchCV and RandomizedSearchCV: PASS'
 contains
   integer function last_candidate(results) result(index)

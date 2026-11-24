@@ -13,7 +13,7 @@ program reference_regression_forests_driver
   integer(int64), allocatable :: bits(:)
   real(dp), allocatable :: x(:,:),query(:,:),y(:),weights(:),prediction(:),values(:),impurities(:),mass(:),threshold(:)
   integer, allocatable :: left(:),right(:),features(:),count_(:)
-  character(16), parameter :: criteria(4)=[character(16)::'squared_error','friedman_mse','poisson','unknown']
+  character(16), parameter :: criteria(5)=[character(16)::'squared_error','friedman_mse','poisson','unknown','absolute_error']
   read(*,*) cases
   do c=1,cases
     read(*,*) mode,n,p,m,criterion,depth,leaf,split,nf,seed,nw,decrease_bits,nt,boot,ns

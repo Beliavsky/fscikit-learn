@@ -1577,3 +1577,13 @@ and nontrivial-tree importance aggregation. sklearn terms remain in
 NumPy RandomState-compatible draws, with retained NumPy BSD terms. Fortran
 interfaces, quiet reductions, tests, example and reference harness are original
 MIT contributions. No dependency or public extension algorithm was added.
+
+## Absolute-error tree criterion and median streams (BSD)
+
+`src/sklearn_tree_median.f90` translates scikit-learn 1.6.1
+`tree/_utils.pyx` WeightedPQueue/WeightedMedianCalculator conventions,
+and `src/sklearn_tree.f90` follows `tree/_criterion.pyx` MAE initialization,
+reset, forward/reverse updates and absolute-deviation impurity. Terms remain
+in `LICENSES/scikit-learn-COPYING`. Native bounds guards, quiet arithmetic,
+Fortran integration, tests, example and the reference/safety harness are
+original MIT contributions. No dependency or public extension was added.
