@@ -1756,3 +1756,14 @@ adapters, int64 metadata/guards, quiet arithmetic composition, example, tests
 and validation harness are MIT integration. The previous MaxAbsScaler code
 was moved from preprocessing into a focused module and remains re-exported.
 No runtime dependency or public extension algorithm was added.
+
+## MinMaxScaler streaming and free range scaling (BSD / MIT)
+
+src/sklearn_minmax_scaling.f90 follows installed sklearn 1.6.1
+preprocessing/_data.py MinMaxScaler/minmax_scale, zero-range handling, NaN batch
+extrema and incremental updates, cached affine parameters, live clipping and
+inverse broadcasting. Existing sklearn BSD notices remain under LICENSES/.
+Native overloads, int64 metadata/guard, quiet arithmetic integration, example,
+tests and reference harness are MIT integration. The old MinMaxScaler type and
+methods were extracted from preprocessing and remain re-exported. No dependency
+or public extension algorithm was added.

@@ -6742,3 +6742,12 @@ Numeric fields use 3e-8 tolerances and exact NaN/signed-infinity masks; CSR
 layouts and metadata are exact. Native caller/RNG identities are separately
 labeled; source free-row-scale input mutation is recorded. Sparse inverse
 requires matching width; dense inverse retains source length-one broadcasting.
+
+
+`compare_minmax.py --executable <reference_minmax_driver.exe>` checks 596
+MinMaxScaler/minmax_scale configurations / 9,532 required groups and 16
+diagnostics. It compares 8,544 nonfinite source values with exact NaN and
+signed-infinity masks. Numerical fields use 3e-8 tolerances; metadata and native
+caller/RNG identities compare exactly. Streaming all-NaN propagation, refit
+reset, source nonfinite range endpoints, live reversed clip bounds, inverse
+broadcasting and vector/matrix free functions are explicitly represented.

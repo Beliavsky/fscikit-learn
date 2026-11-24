@@ -503,3 +503,8 @@ MaxAbsScaler supports dense/CSR streaming batches, NaNs, fitted metadata and
 sparse-preserving maps. The maxabs_scale function covers both axes and vectors.
 See the [streaming example](example/maxabs_streaming.f90) and
 [API contract](docs/API.md#maxabsscaler-streaming-and-sparse-inputs).
+
+MinMaxScaler supports streaming dense batches, NaNs, fitted range metadata and
+live clipping controls. minmax_scale handles matrices/vectors on either axis.
+See the [example](example/minmax_streaming.f90) and
+[API contract](docs/API.md#minmaxscaler-streaming-and-free-maps).

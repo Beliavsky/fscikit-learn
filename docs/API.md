@@ -7942,3 +7942,35 @@ scaling returns canonical CSR storage. Dense inverse supports a length-one
 learned scale against wider input, as source in-place broadcasting permits;
 sparse inverse requires equal width. Empty shapes, infinite input and invalid
 axis/width/CSR structures fail explicitly. See [the example](../example/maxabs_streaming.f90).
+
+## MinMaxScaler streaming and free maps
+
+minmax_scaler remains available from preprocessing/the main facade and is also
+exported by sklearn_minmax_scaling. Dense fit, partial_fit, fit_transform,
+transform and inverse_transform accept NaNs and reject infinite input. The
+public data_min_, data_max_, data_range_, scale_, min_, n_features_in_ and int64
+n_samples_seen_ describe fitted state. Full fit resets state; partial_fit checks
+width and combines extrema/counts. Source all-NaN incremental propagation is
+retained. Sparse input is unsupported by both the source class and this API.
+
+```fortran
+use sklearn, only: dp, minmax_scaler, minmax_scale
+type(minmax_scaler) :: model
+real(dp), allocatable :: x(:,:), batch(:,:), z(:,:)
+! Populate nonempty x and batch with equal feature widths.
+call model%partial_fit(x)
+call model%partial_fit(batch)
+model%clip=.true.
+z=model%transform(x)
+z=minmax_scale(x,feature_min=-1._dp,feature_max=1._dp,axis=1)
+```
+
+The free function also accepts rank-one vectors; its default axis is zero and
+default endpoints are zero and one. Fit endpoints must be ordered unless NaN,
+matching source acceptance of NaN/infinite endpoints. Floating overflow results
+are preserved quietly. Transform uses cached scale/offset and live clip and
+feature_min/feature_max controls, including source post-fit reversed bounds.
+Inverse applies source in-place broadcasting rules: a scalar learned scale can
+act on wider data; a one-column input cannot expand to multiple fitted columns.
+Inputs and intrinsic RNG are unchanged. See
+[the streaming example](../example/minmax_streaming.f90).

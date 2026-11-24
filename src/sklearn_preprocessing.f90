@@ -1,4 +1,5 @@
 module sklearn_preprocessing
+  use sklearn_minmax_scaling, only: minmax_scaler,minmax_scale
   use sklearn_maxabs_scaling, only: maxabs_scaler,maxabs_scale
   use sklearn_polynomial, only: polynomial_features
   use sklearn_stateless_preprocessing, only: normalizer,binarizer,normalize,binarize
@@ -26,6 +27,7 @@ module sklearn_preprocessing
   public :: spline_transformer
   public :: knn_imputer,missing_indicator
   public :: power_transformer,kbins_discretizer,quantile_transformer
+  public :: minmax_scale
   public :: maxabs_scale
   public :: standard_scaler, minmax_scaler, maxabs_scaler, robust_scaler, simple_imputer
   public :: normalize, binarize, polynomial_features, label_encoder, one_hot_encoder
@@ -37,15 +39,6 @@ module sklearn_preprocessing
     procedure :: fit=>standard_fit
     procedure :: transform=>standard_transform
     procedure :: inverse_transform=>standard_inverse
-  end type
-  type :: minmax_scaler
-    real(dp) :: feature_min=0, feature_max=1
-    logical :: clip=.false.
-    real(dp), allocatable :: data_min_(:), data_max_(:), scale_(:), min_(:)
-  contains
-    procedure :: fit=>minmax_fit
-    procedure :: transform=>minmax_transform
-    procedure :: inverse_transform=>minmax_inverse
   end type
   type :: robust_scaler
     logical :: with_centering=.true., with_scaling=.true.
@@ -113,35 +106,6 @@ contains
     call check_xy(transpose(x),size(self%mean_)); z=x
     if(self%with_std) z=z*spread(self%scale_,1,size(x,1))
     if(self%with_mean) z=z+spread(self%mean_,1,size(x,1))
-  end function
-  subroutine minmax_fit(self,x)
-    class(minmax_scaler), intent(inout) :: self
-    real(dp), intent(in) :: x(:,:)
-    real(dp) :: range(size(x,2))
-    call check_x(x)
-    call require(self%feature_max>self%feature_min,'invalid feature range')
-    self%data_min_=minval(x,dim=1); self%data_max_=maxval(x,dim=1)
-    range=self%data_max_-self%data_min_
-    where(range<10*epsilon(1._dp)) range=1
-    self%scale_=(self%feature_max-self%feature_min)/range
-    self%min_=self%feature_min-self%data_min_*self%scale_
-  end subroutine
-  function minmax_transform(self,x) result(z)
-    class(minmax_scaler), intent(in) :: self
-    real(dp), intent(in) :: x(:,:)
-    real(dp) :: z(size(x,1),size(x,2))
-    call require(allocated(self%scale_),'minmax_scaler is not fitted')
-    call check_xy(transpose(x),size(self%scale_))
-    z=x*spread(self%scale_,1,size(x,1))+spread(self%min_,1,size(x,1))
-    if(self%clip) z=max(self%feature_min,min(self%feature_max,z))
-  end function
-  function minmax_inverse(self,x) result(z)
-    class(minmax_scaler), intent(in) :: self
-    real(dp), intent(in) :: x(:,:)
-    real(dp) :: z(size(x,1),size(x,2))
-    call require(allocated(self%scale_),'minmax_scaler is not fitted')
-    call check_xy(transpose(x),size(self%scale_))
-    z=(x-spread(self%min_,1,size(x,1)))/spread(self%scale_,1,size(x,1))
   end function
   real(dp) function percentile(x,p) result(v)
     real(dp), intent(in) :: x(:),p

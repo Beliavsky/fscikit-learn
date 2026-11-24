@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and eighty-seven reference suites additionally check 3,809,696
+All types have native tests. One hundred and eighty-eight reference suites additionally check 3,819,228
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -10097,3 +10097,45 @@ global fpm was unchanged. Artifacts remain under ignored validation/results/
 maxabs*, including maxabs_final_audit.json. Implementation commit: 8c0157d.
 MIT integration and retained upstream notices continue; no dependency or public
 extension algorithm was added.
+
+## MinMaxScaler streaming, NaNs and live clip bounds
+
+MinMaxScaler now provides dense partial_fit and fit_transform, fitted
+n_features_in_/int64 n_samples_seen_, and data_range_ alongside its existing
+extrema, scale and offset. Full fit clears learned state; partial_fit combines
+batch extrema and counts. NaNs are excluded from batch reductions and retained
+in maps. Source all-NaN batch propagation through incremental minimum/maximum
+updates is preserved. A full refit clears that history. Sparse inputs remain
+unsupported, as in scikit-learn.
+
+Mapping follows the source's separate multiply/add and subtract/divide steps
+with quiet IEEE intermediate results. Finite ranges and endpoint spans can
+overflow; their source infinities/NaNs are preserved with floating traps
+enabled. Equal or reversed endpoints are rejected at fit/partial_fit; source
+NaN/infinite endpoints are accepted. Query clip and range controls are live,
+while scale/offset remain fitted. Clipping uses minimum(maximum(x,lower),upper),
+including source behavior for post-fit reversed/NaN bounds. NaN mapped values
+remain NaN. Inverse mapping supports a learned length-one scale/offset against
+wider input, following source in-place broadcasting; input width cannot expand.
+
+The new minmax_scale function supports dense matrices and rank-one vectors on
+axis zero or one, with native optional feature_min/feature_max endpoints. Caller
+arrays and intrinsic RNG state are preserved. In-place copy flags, sparse
+containers and feature-name methods are outside the direct interface. Existing
+composition wrappers retain their own validation rules. The focused
+sklearn_minmax_scaling module is re-exported through preprocessing and the main
+facade; other preprocessing procedure bodies remain unchanged.
+
+The suite checks 596 fixtures / 9,532 required groups and 16 diagnostics (15
+sklearn checks plus one native int64 counter-capacity guard). Fixtures include
+five datasets seeds, three widths, streaming/refits, both free-function axes,
+NaNs/all-NaN batches, constants, tiny/threshold/huge values, finite/nonfinite
+endpoint ranges, live/reversed clip bounds, learned-scale mutation and inverse
+broadcasting. All 8,544 nonfinite source values are compared. Numerical fields
+use rtol=atol=3e-8 with exact NaN/signed-infinity masks; metadata and caller/RNG
+identity checks are exact and identities are separately classified.
+
+Inventory: 222 public core types, 157 source modules, 214 native programs,
+188 reference suites / 3,819,228 retained groups and 93 invalid registries /
+5,063 cases. No dependency or public extension was added. MIT integration and
+retained sklearn BSD attribution continue. Canonical verification follows below.
