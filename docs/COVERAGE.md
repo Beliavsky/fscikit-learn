@@ -10944,7 +10944,7 @@ explicit-label shortcut. Weighted confusion cells accumulate in input order,
 then apply the source nan_to_num behavior before ratio products and divisions.
 Signed, zero and nonfinite weights are supported with quiet IEEE results.
 
-The checked reference grid passes 2,237 configurations: 1,708 accepted
+Both checked and optimized reference grids pass 2,237 configurations: 1,708 accepted
 cases with 5,124 comparison groups and 529 expected source rejections. It
 exercises all 0..2 counts per confusion cell, mixed kinds/ranks, explicit label
 types/order/subsets/duplicates, empty targets, numeric and shape boundaries,
@@ -10954,8 +10954,9 @@ exactly, including 2,449 nonfinite source values. Each accepted case verifies
 caller target/label/weight identity. All 14 new native diagnostics, 21 retained
 subset diagnostics and the existing score-shape diagnostic pass. Fourteen
 affected native programs, two examples, the previous 5,742-group subset metric
-grid and 192 core groups pass. The checked audit verifies 192 compiled source
-fingerprints. Optimized verification is pending; see VALIDATION.md.
+grid and 192 core groups pass in each profile. The final audit verifies 192
+compiled source fingerprints per profile and matching checked/release records,
+including exact float.hex agreement for the new ratio values. See VALIDATION.md.
 
 Targets must be finite integral labels with at most two distinct values across
 both inputs. String/object labels, other intrinsic target kinds, multilabel
