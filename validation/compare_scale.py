@@ -126,8 +126,13 @@ def main():
    field=p[0];assert field not in fields;fields.add(field);got=np.fromstring(next(lines),sep=' ');want=np.asarray(expected[index][field]).ravel(order='F');assert len(got)==int(p[1]) and got.shape==want.shape,(index,field)
    exact=field in ['corrections','vector_corrections','preserved'] or field.endswith(('_shape','_ptr','_idx'))
    if exact:np.testing.assert_array_equal(got,want,err_msg=str((index,cases[index],field)))
-   else:np.testing.assert_allclose(got,want,rtol=3e-8,atol=3e-8,equal_nan=True,err_msg=str((index,cases[index],field)))
-   finite=np.isfinite(want);nonfinite+=int(np.count_nonzero(~finite));checks.append(dict(fixture=index,field=field,passed=True,oracle='native_input_rng_identity' if field=='preserved' else 'sklearn',max_abs_error=float(np.max(np.abs(got[finite]-want[finite]),initial=0))))
+   else:
+    # Retain tiny outputs: a fixed 3e-8 absolute tolerance could accept zero
+    # for every subnormal/near-constant value. Scale it down with the data.
+    finite_want=want[np.isfinite(want)]
+    atol=min(3e-8,max(64*np.finfo(float).smallest_subnormal,3e-8*float(np.max(np.abs(finite_want),initial=0))))
+    np.testing.assert_allclose(got,want,rtol=3e-8,atol=atol,equal_nan=True,err_msg=str((index,cases[index],field)))
+   finite=np.isfinite(want);nonfinite+=int(np.count_nonzero(~finite));checks.append(dict(fixture=index,field=field,passed=True,oracle='native_input_rng_identity' if field=='preserved' else 'sklearn',atol=0. if exact else atol,max_abs_error=float(np.max(np.abs(got[finite]-want[finite]),initial=0))))
  assert index+1==len(cases) and hashes=={str(p):sha(p) for p in paths}
  d=dict(profile=args.profile,fixtures=len(cases),checks=checks,inventories=inventories,configurations=cases,source_rejected_configurations=source_rejected,total_configurations=len(all_cases),rejections=rejections(args.executable)+source_rejected,source_nonfinite_values=nonfinite,hashes=hashes,sklearn=sklearn.__version__)
  (args.report or ROOT/'validation/results'/f'scale_{args.profile}.json').write_text(json.dumps(d,indent=2,allow_nan=False)+'\n');print(len(cases),len(checks),len(d['rejections']),nonfinite,'PASS')

@@ -6782,3 +6782,27 @@ profiles: 21 selected native tests, four scaler examples, 54,420 groups across
 seven affected comparison runs, 21 diagnostics, and 202 compiled units per
 profile. Full scope and the separate existing logistic endpoint differences
 are recorded in [the validation record](../docs/VALIDATION.md#standardscaler-final-package-verification-2026-11-24).
+
+
+`compare_scale.py --executable <reference_scale_driver.exe>` checks the free
+preprocessing.scale algorithm on dense matrices, vectors and raw CSR input.
+It retains 420 generated configurations: 412 accepted fixtures / 3,296 groups
+and eight expected rejections after duplicate-heavy dense input conversion
+overflows. Sixteen further input/format cases bring diagnostics to 24. All
+6,074 nonfinite source outcomes remain compared. Scalar-vector zero handling,
+matrix standard-deviation thresholding, sparse variance thresholding, global
+precision corrections, both dense axes, pairwise-sum size boundaries and
+caller/RNG identities are represented. Source CSC output is permuted back to
+original CSR slots without coalescing. Corrections, layouts and identities are
+exact. Numeric relative tolerance is 3e-8; absolute tolerance is
+min(3e-8,max(64*smallest_subnormal,3e-8*max(abs(finite_expected)))). This protects
+tiny and subnormal outputs against replacement with zero. NaN and signed
+infinity outcomes remain required. Reports pin source/driver/validator/executable hashes,
+including installed NumPy nan-statistic sources.
+
+The final package audit passed in checked and optimized release profiles:
+23 selected native tests, five examples, 20,864 groups across three comparison
+runs, 33 diagnostics and 206 compiled source units per profile. See the
+[verification record](../docs/VALIDATION.md#free-scale-final-package-verification-2026-11-24)
+for scope and limitations. Shared-file core comparisons must run sequentially
+across profiles; the two modern scale validators have profile-specific reports.

@@ -19,7 +19,8 @@ program test_free_scale
  tiny=[1.e-17_dp,2.e-17_dp,3.e-17_dp];v=scale(tiny)
  call require(maxval(abs(v-[-sqrt(1.5_dp),0._dp,sqrt(1.5_dp)]))<1.e-14_dp,'vector scalar zero handling')
  a(:,1)=tiny;a(:,2)=0;mapped=scale(a)
- call require(maxval(abs(mapped(:,1)))<2.e-17_dp,'matrix standard deviation threshold differs from vector')
+ call require(maxval(abs(mapped(:,1)-[-tiny(1),0._dp,tiny(1)]))<1.e-32_dp, &
+  'matrix threshold retains tiny centered values')
  x=csr_from_arrays(3,1,[1,2,3,4],[1,1,1],tiny);z=scale(x,with_mean=.false.)
  call require(all(z%data==tiny),'sparse thresholds variance before sqrt')
  model%with_mean=.false.;call model%fit(x);z=model%transform(x)

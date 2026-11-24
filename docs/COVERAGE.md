@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and ninety reference suites additionally check 3,868,548
+All types have native tests. One hundred and ninety-one reference suites additionally check 3,871,844
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -37,7 +37,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | multiclass | `one_vs_rest_classifier`, `one_vs_one_classifier`, `output_code_classifier` | Dense independent binary reductions; supported native classifier and regressor bases; constant heads; weighted fitting where the base supports it; Gaussian NB/SGD classification streaming for OVR/OVO; seeded legacy NumPy codebooks |
 | inspection | `permutation_importance`, `permutation_importance_multi`, `partial_dependence` | Dense callback-based permutation importance and brute partial dependence/ICE; seeded subsampling/shuffles; weighted averages; categorical and Cunnane percentile grids; numeric multiple-output responses |
 | multioutput | `multi_output_regressor`, `multi_output_classifier`, `regressor_chain`, `classifier_chain` | Independent fitted base models per response column; supported native linear/SGD, NB, neighbors and tree families; ragged class probabilities; SGD/Gaussian NB streaming; native base weighting limits apply |
-| preprocessing | `kernel_centerer`, `ordinal_encoder`, `target_encoder`, `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `iterative_imputer`, `knn_imputer`, `missing_indicator`, `spline_transformer`, `label_encoder`, `one_hot_encoder`, `label_binarizer`, `multi_label_binarizer`, `power_transformer`, `kbins_discretizer`, `quantile_transformer`, `normalizer`, `binarizer`, `polynomial_features`; `normalize`, `binarize`, retained `polynomial_features(x,...)` | Ordinal category codes and infrequent grouping; cross-fitted target means; population variance; linear percentile interpolation; NaN imputation with mean/median/most-frequent/constant; numeric categories; empirical uniform/normal quantile transforms; dense/CSR polynomial estimator and retained array call with degree ranges, interactions and lazy powers/names; B-spline features and extrapolation; dense/CSR row normalization and thresholding, both-axis free normalization with returned norms |
+| preprocessing | `kernel_centerer`, `ordinal_encoder`, `target_encoder`, `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `iterative_imputer`, `knn_imputer`, `missing_indicator`, `spline_transformer`, `label_encoder`, `one_hot_encoder`, `label_binarizer`, `multi_label_binarizer`, `power_transformer`, `kbins_discretizer`, `quantile_transformer`, `normalizer`, `binarizer`, `polynomial_features`; `normalize`, `binarize`, `scale`, `minmax_scale`, `maxabs_scale`, `robust_scale`, retained `polynomial_features(x,...)` | Ordinal category codes and infrequent grouping; cross-fitted target means; population variance; linear percentile interpolation; NaN imputation with mean/median/most-frequent/constant; numeric categories; empirical uniform/normal quantile transforms; dense/CSR polynomial estimator and retained array call with degree ranges, interactions and lazy powers/names; B-spline features and extrapolation; dense/CSR row normalization and thresholding, both-axis free normalization with returned norms |
 | linear_model | `linear_regression`, `lars`, `lasso_lars`, `lars_cv`, `lasso_lars_cv`, `lasso_lars_ic`, `ridge`, `ridge_classifier`, `ridge_classifier_cv`, `multi_task_elastic_net`, `multi_task_lasso`, `multi_task_elastic_net_cv`, `multi_task_lasso_cv`, `lasso`, `elastic_net`, `lasso_cv`, `elastic_net_cv`, `logistic_regression`, `logistic_regression_cv`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `sgd_regressor`, `sgd_classifier`, `sgd_one_class_svm`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `orthogonal_matching_pursuit_cv`, `huber_regressor`, `quantile_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; least-angle/Lasso homotopy paths with CV and AIC/BIC selection; coordinate descent with K-fold alpha/l1-ratio selection; weighted logistic Newton solver with raw-score prediction; perceptron; PA-I/II classification/regression with averaging; streaming stochastic-gradient regression/classification and one-class detection; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; weighted L1-regularized quantile regression; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb`, `categorical_nb` | Weighted/streaming Gaussian moments, empirical/fixed priors and variance smoothing; dense/CSR weighted and streaming discrete event counts and fixed/empirical priors; nonnegative scalar alpha and force_alpha flooring, plus feature-wise Multinomial/Complement smoothing; Bernoulli threshold; optional complement normalization |
 | neighbors | `neighborhood_components_analysis`, `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Supervised NCA metric learning; brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with shrinkage, uniform/empirical/custom priors and Euclidean discriminant probabilities; tree-based kernel density |
@@ -10360,8 +10360,64 @@ warnings. No in-place/copy flag, CSC container or new estimator type is added.
 The focused suite retains 420 generated configurations: 412 accepted cases /
 3,296 groups and eight expected input-overflow rejections. Together with 16
 explicit invalid/CSR-format cases it requires 24 diagnostics. All 6,074
-nonfinite source values are compared. Numeric tolerances are 3e-8 absolute and
-relative; CSR layouts, correction flags and native caller/RNG identities are
-exact. Sparse Source CSC results are mapped back to original CSR slots using
+nonfinite source values are compared. Numeric relative tolerance is 3e-8. Absolute tolerance is capped at 3e-8
+and scaled down for small output magnitudes, with a floor of 64 smallest
+subnormals, so tiny values cannot silently become zero. CSR layouts, correction
+flags and native caller/RNG identities are exact. Sparse Source CSC results are mapped back to original CSR slots using
 the source conversion's stable permutation, without coalescing duplicates.
 Canonical package validation is recorded after completion.
+
+## Free scale final package verification (2026-11-24)
+
+Implementation commit: efd224f. Checked and optimized release builds passed
+23 selected native programs and ran five scaler examples. The native scope
+includes the new free-scaling test, all four stateful scalers and their graph
+integration tests, stateless preprocessing, pipeline/supervised pipeline,
+FrozenEstimator, column/union/target composition, function transformers,
+positive/polynomial composition, target encoding and robust regression.
+The robust-regression test now imports only its required facade names, avoiding
+its local `scale` variable's collision with the new public function. Its assertion
+bodies remain unchanged. The new native test verifies retained tiny centered
+values directly, alongside vector/matrix/CSR threshold differences, correction
+flags, raw sparse layout and a 100,000-by-100,000 sparse shape.
+
+Each profile passed three comparison runs / 20,864 required groups: 3,296 new
+free-scale groups, 17,376 full StandardScaler groups and 192 core groups. All
+33 diagnostics passed (24 free-scale and nine StandardScaler). The free suite
+retains 420 generated configurations: 412 accepted fixtures with eight fields
+each, and eight expected source input-overflow rejections. Sixteen explicit
+invalid-input/CSR-format checks complete its diagnostic inventory. There are
+2,884 source groups and 412 native caller/RNG identities. All 6,074 nonfinite
+free-scale source outcomes and 2,188 StandardScaler outcomes remain compared.
+StandardScaler coverage is the same 724-fixture suite used in the prior batch.
+This is an affected-scope regression run, not a rerun of every existing suite.
+
+Free-scale metadata, CSR storage, correction flags and identities compare
+exactly. Numeric relative tolerance is 3e-8; absolute tolerance is capped at
+3e-8 and scaled down with the expected field magnitude, with a floor of
+64*smallest_subnormal. This explicitly protects tiny/subnormal results from
+being replaced by zero. StandardScaler retains its documented condition-based
+large-offset variance tolerance. The legacy core validator uses shared output
+files, so the final two profile runs were executed sequentially.
+
+The combined audit verified 206 compiled source units per profile, exact free
+field inventories, all accepted/rejected configurations, profile-matched cases,
+distinct checked/release native binaries, and stable source, driver, executable,
+validator and report hashes. Existing StandardScaler methods and helpers remain
+byte-identical after the export/interface addition. Preprocessing changes are
+exactly the free-function import and export; no other library source changed.
+The audit also checks the regression test's import-only edit and all five
+example logs. Artifacts are under ignored validation/results/scale*, including
+scale_final_audit.json. No existing diagnostic endpoint discrepancies were
+reclassified or counted as new passes.
+
+Four-job builds used the private checksum-verified fpm 0.14.0 (SHA256
+D6028F732093E64FC8D16939ED5D9EC71ADF25EA89A74DFE2540238366F3769E), GNU Fortran
+17.0.0 20260510, Python 3.13, sklearn 1.6.1, NumPy 2.2.6 and SciPy 1.15.3.
+Checked flags were -fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow;
+optimized tests used the fpm release profile. The global fpm was unchanged.
+
+Inventory: 222 public core types, 159 source modules, 219 native programs,
+191 reference suites / 3,871,844 retained groups and 96 invalid registries /
+5,165 cases. MIT integration and retained BSD notices continue. No dependency
+or extension algorithm was added. The broader translation remains unfinished.

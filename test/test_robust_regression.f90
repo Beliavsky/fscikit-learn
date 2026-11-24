@@ -1,5 +1,5 @@
 program test_robust_regression
-  use sklearn
+  use sklearn, only: dp,huber_regressor,ransac_regressor,linear_regression
   use sklearn_common, only: require,normal_random,seed_rng
   implicit none
   type(huber_regressor) :: huber

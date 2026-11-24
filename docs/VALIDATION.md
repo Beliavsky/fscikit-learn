@@ -8506,3 +8506,58 @@ Inventory: 222 public core types, 159 source modules, 218 native programs,
 190 reference suites / 3,868,548 retained groups and 95 invalid registries /
 5,141 cases. MIT integration and retained BSD notices continue. No dependency
 or public extension was added. The broader translation remains unfinished.
+
+## Free scale final package verification (2026-11-24)
+
+Implementation commit: efd224f. Checked and optimized release builds passed
+23 selected native programs and ran five scaler examples. The native scope
+includes the new free-scaling test, all four stateful scalers and their graph
+integration tests, stateless preprocessing, pipeline/supervised pipeline,
+FrozenEstimator, column/union/target composition, function transformers,
+positive/polynomial composition, target encoding and robust regression.
+The robust-regression test now imports only its required facade names, avoiding
+its local `scale` variable's collision with the new public function. Its assertion
+bodies remain unchanged. The new native test verifies retained tiny centered
+values directly, alongside vector/matrix/CSR threshold differences, correction
+flags, raw sparse layout and a 100,000-by-100,000 sparse shape.
+
+Each profile passed three comparison runs / 20,864 required groups: 3,296 new
+free-scale groups, 17,376 full StandardScaler groups and 192 core groups. All
+33 diagnostics passed (24 free-scale and nine StandardScaler). The free suite
+retains 420 generated configurations: 412 accepted fixtures with eight fields
+each, and eight expected source input-overflow rejections. Sixteen explicit
+invalid-input/CSR-format checks complete its diagnostic inventory. There are
+2,884 source groups and 412 native caller/RNG identities. All 6,074 nonfinite
+free-scale source outcomes and 2,188 StandardScaler outcomes remain compared.
+StandardScaler coverage is the same 724-fixture suite used in the prior batch.
+This is an affected-scope regression run, not a rerun of every existing suite.
+
+Free-scale metadata, CSR storage, correction flags and identities compare
+exactly. Numeric relative tolerance is 3e-8; absolute tolerance is capped at
+3e-8 and scaled down with the expected field magnitude, with a floor of
+64*smallest_subnormal. This explicitly protects tiny/subnormal results from
+being replaced by zero. StandardScaler retains its documented condition-based
+large-offset variance tolerance. The legacy core validator uses shared output
+files, so the final two profile runs were executed sequentially.
+
+The combined audit verified 206 compiled source units per profile, exact free
+field inventories, all accepted/rejected configurations, profile-matched cases,
+distinct checked/release native binaries, and stable source, driver, executable,
+validator and report hashes. Existing StandardScaler methods and helpers remain
+byte-identical after the export/interface addition. Preprocessing changes are
+exactly the free-function import and export; no other library source changed.
+The audit also checks the regression test's import-only edit and all five
+example logs. Artifacts are under ignored validation/results/scale*, including
+scale_final_audit.json. No existing diagnostic endpoint discrepancies were
+reclassified or counted as new passes.
+
+Four-job builds used the private checksum-verified fpm 0.14.0 (SHA256
+D6028F732093E64FC8D16939ED5D9EC71ADF25EA89A74DFE2540238366F3769E), GNU Fortran
+17.0.0 20260510, Python 3.13, sklearn 1.6.1, NumPy 2.2.6 and SciPy 1.15.3.
+Checked flags were -fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow;
+optimized tests used the fpm release profile. The global fpm was unchanged.
+
+Inventory: 222 public core types, 159 source modules, 219 native programs,
+191 reference suites / 3,871,844 retained groups and 96 invalid registries /
+5,165 cases. MIT integration and retained BSD notices continue. No dependency
+or extension algorithm was added. The broader translation remains unfinished.

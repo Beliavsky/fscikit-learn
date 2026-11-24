@@ -8051,7 +8051,9 @@ matrices accept axis 0 (columns) or 1 (rows); vectors accept only axis 0, matchi
 the source's rank-one restriction. NaNs are missing observations and are retained
 in mapped data. Empty inputs and infinity are rejected even when both operations
 are disabled. Every overload returns an owned result and preserves its caller.
-Python's optional in-place `copy=False` behavior is not exposed.
+Python's optional in-place `copy=False` behavior is not exposed. If a caller
+uses a local variable named `scale`, it can import the function under another
+name, for example `use sklearn, only: standardize => scale`.
 
 Dense maps use NumPy-style population nanstd and the source's two global
 centering corrections. Optional logical outputs `centering_corrected` and
