@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Two hundred and two reference suites additionally check 4,018,343
+All types have native tests. Two hundred and three reference suites additionally check 4,024,085
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -10892,3 +10892,40 @@ generic Python iterators and manual fitted-class mutation remain outside scope.
 Inventory: 222 public core types, 164 source modules, 229 native programs,
 202 reference suites / 4,018,343 retained groups and 101 invalid registries /
 5,729 cases. The broader translation remains unfinished.
+
+## Weighted accuracy and zero-one subset loss
+
+The free accuracy_score function now supports optional normalization and sample
+weights, default-integer/logical/real64 vectors and matrices, and mixed dense/CSR
+multilabel targets. The new zero_one_loss function follows sklearn's subtraction
+and weighted-count semantics. Explicit typed rank interfaces preserve existing
+classifier score calls, predictor-result expressions and empty constructors.
+Unsupported kinds and ranks are rejected at compile time.
+
+The checked reference grid passes 2,294 configurations: 1,914 accepted cases
+with 5,742 retained comparison groups and 380 expected source rejections.
+It covers categorical and multilabel targets, raw CSR duplicates/zeros/order,
+empty and single-column targets, signed/nonfinite weights, positive/negative
+weight strides, and cancellation/overflow at reduction boundaries through
+16,385 samples. Finite values use rtol=2e-13 with no absolute tolerance;
+NaN/infinity masks and zero signs match exactly. Caller storage is checked in
+every accepted case. All 21 native diagnostics, the existing 192 core groups,
+13 affected native programs and the new example pass in the checked profile.
+Optimized verification is pending; final results are recorded in VALIDATION.md.
+
+Canonical sparse pairs use a merge without column-sized scratch storage;
+noncanonical pairs use O(columns) accumulation buffers without densifying the
+sample-by-column matrix. Native tests include 100,000-by-100,000 and
+3-by-100,000,000 compact CSR targets and caller RNG preservation.
+
+NumPy's 8,192-element buffered reductions and serial OpenBLAS 0.3.29 SkylakeX
+masked-dot ordering are reconstructed in scalar Fortran. Other backend/thread
+configurations may round differently. There is no BLAS runtime dependency.
+Original contributions remain MIT; retained sklearn/SciPy/NumPy/OpenBLAS
+portions keep their BSD notices and licenses. Other metric bodies are unchanged.
+String/object labels, general multiclass-multioutput targets and other intrinsic
+kinds remain outside this interface. No public estimator or extension was added.
+
+Inventory: 222 public core types, 165 source modules, 230 native programs,
+203 reference suites / 4,024,085 retained groups and 102 invalid registries /
+5,750 cases. The broader translation remains unfinished.

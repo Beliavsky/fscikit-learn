@@ -1,4 +1,5 @@
 module sklearn_metrics
+  use sklearn_subset_metrics,only:accuracy_score,zero_one_loss
   use sklearn_probability_metrics, only: log_loss,d2_log_loss_score
   use sklearn_bicluster_metrics, only: consensus_score,bicluster_similarity
   use sklearn_classification_metrics, only: precision_score,recall_score,f1_score,jaccard_score, &
@@ -18,6 +19,7 @@ module sklearn_metrics
     average_precision_score,brier_score_loss
   implicit none
   private
+  public::zero_one_loss
   public :: d2_log_loss_score
   public :: consensus_score,bicluster_similarity
   public :: normalized_mutual_info_score,adjusted_mutual_info_score,fowlkes_mallows_score,contingency_matrix
@@ -117,11 +119,6 @@ contains
     real(dp), intent(in) :: y(:),p(:)
     call check_targets(y,p); call require(all(y>0).and.all(p>0),'invalid Gamma targets')
     v=2*sum(log(p/y)+y/p-1)/size(y)
-  end function
-  real(dp) function accuracy_score(y,p) result(v)
-    integer, intent(in) :: y(:),p(:)
-    call require(size(y)>0.and.size(y)==size(p),'invalid label sizes')
-    v=real(count(y==p),dp)/size(y)
   end function
   function confusion_matrix(y,p,labels) result(cm)
     integer, intent(in) :: y(:),p(:)

@@ -1954,3 +1954,33 @@ perturbation, insertion-triggered resizing and table iteration retain source
 order. The modification summary also appears in the source header. No Python
 runtime or new public extension algorithm is introduced. Root LICENSE and the
 original integration remain MIT; PSF terms apply to the translated helper.
+## Accuracy / zero-one subset metrics (BSD / MIT)
+
+src/sklearn_subset_metrics.f90 follows sklearn 1.6.1
+metrics/_classification.py accuracy_score/zero_one_loss and utils/_array_api.py
+_average. Numeric target recognition follows utils/multiclass.py. CSR matching
+adapts SciPy 1.15.3 scipy/sparse/sparsetools/csr.h canonical merge and general
+row accumulation, with direct equality checks on finite integral values:
+https://github.com/scipy/scipy/blob/v1.15.3/scipy/sparse/sparsetools/csr.h
+Pinned csr.h SHA256:
+2064bcb579658d0a94ce04e8f4955f307f985a63ec15db293f2cd6018a2b0e7a.
+Existing sklearn, SciPy and NumPy BSD notices remain under LICENSES/.
+
+The masked boolean-dot reduction reconstructs the serial contiguous and
+nonunit-stride accumulation order in OpenBLAS 0.3.29 kernel/x86_64/ddot.c and
+ddot_microk_skylakex-2.c:
+https://github.com/OpenMathLib/OpenBLAS/tree/v0.3.29/kernel/x86_64
+Copyright (c) 2014, The OpenBLAS Project. All rights reserved.
+The full upstream BSD-3-Clause license is retained in LICENSES/OpenBLAS-LICENSE
+(SHA256 190b5a9c8d9723fe958ad33916bd7346d96fab3c5ea90832bb02d854f620fcff).
+Pinned source hashes:
+- ddot.c: b51f4e012e2793bcb983f9599462ebc4c663d6210d12a44c6fa6f9dcc1e7c243
+- ddot_microk_skylakex-2.c: c1b487deedcaf34e47c265c3bb941e7f5fe105e5fa707e1e0aac22981efc57ba
+
+Changes: scalar owned Fortran buffers replace SIMD lanes; input products are
+masked by 0/1 scores, making finite multiplication exact; quiet IEEE arithmetic
+retains source exceptional results. NumPy's singleton dot shortcut and default
+buffered pairwise sums are preserved. No external BLAS, Python or SIMD runtime
+is required. Typed rank adapters, owned targets, diagnostics, tests, reference
+harness and example are MIT integration. Root LICENSE remains MIT; upstream
+terms apply to their respective translated portions.

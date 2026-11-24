@@ -208,6 +208,9 @@ The internal sparse-multilabel ordering shim retains the
 [Python Software Foundation license](LICENSES/Python-3.13.3-LICENSE).
 It is native Fortran and adds no Python runtime dependency.
 
+The scalar masked-dot reduction retains [OpenBLAS BSD terms](LICENSES/OpenBLAS-LICENSE)
+and adds no BLAS runtime dependency.
+
 Learning/validation curves and permutation significance tests are available through
 `sklearn_validation` and the facade; see [API details](docs/API.md) and
 [the example](example/model_learning_curves.f90).
@@ -577,3 +580,8 @@ MultiLabelBinarizer supports owned CSR output and CSR inverse indicators,
 including source raw-index order, duplicate slots and stored zeros.
 See [the example](example/multilabel_sparse.f90) and
 [API contract](docs/API.md#sparse-multilabelbinarizer).
+
+`accuracy_score` supports normalization controls, sample weights and dense/CSR
+multilabel subset matching. `zero_one_loss` provides the corresponding loss.
+See [the example](example/subset_accuracy.f90) and
+[API contract](docs/API.md#accuracy-and-zero-one-subset-metrics).

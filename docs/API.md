@@ -8411,3 +8411,45 @@ objects, deletion support or runtime linkage. Its PSF license and change summary
 are retained alongside the project's MIT integration. Other Python versions
 or implementations need not use the same internal set order. Manually editing
 fitted classes_ is outside the supported estimator contract; refit using classes.
+## Accuracy and zero-one subset metrics
+
+`accuracy_score(y,p,normalize,sample_weight)` and
+`zero_one_loss(y,p,normalize,sample_weight)` are exported by `sklearn_metrics`
+and `sklearn`. Normalization defaults to true; sample_weight is an optional
+real64 vector with one value per sample. False normalization returns the
+weighted correct/incorrect count. Results are real64 in every mode.
+See [subset_accuracy.f90](../example/subset_accuracy.f90).
+
+Targets can be default-integer, real64 or logical vectors/matrices, or scalar
+`csr_matrix` containers, in mixed combinations. Explicit typed rank interfaces
+support array expressions and predictor function results. Other intrinsic kinds,
+scalar labels and tensors are rejected at compile time. Internal target helpers
+use Fortran 2018. Real-valued targets must contain finite integral int64 values;
+continuous labels are rejected. Nonempty single-column matrices are squeezed
+to vectors. Other dense matrices require at most two distinct integer values.
+Values are preserved rather than converted to nonzero/zero presence.
+
+For multilabel targets, a sample is correct only if its entire row matches.
+CSR targets require at least two columns and integral stored values: one distinct
+value, or two values including zero. Stored zeros, duplicates and unsorted
+indices are supported. Duplicates coalesce independently in each input before
+row comparison, without mutating caller storage. Canonical CSR pairs use a
+merge path with no column-sized scratch arrays; noncanonical pairs use the
+source's O(n_columns) accumulation buffers. No full dense indicator is allocated
+for CSR inputs. Vector/indicator mixtures and unequal shapes are rejected.
+
+Empty vectors and zero-row indicators have NaN normalized scores/losses and
+zero unnormalized counts. Zero-width matrices and empty single-column matrices
+are rejected. Signed and nonfinite weights follow source arithmetic; there is
+no clipping or nonnegative-weight guard. A zero weight sum rejects normalized
+scores, while unnormalized counts remain valid. Python warning emission is not
+exposed. Quiet IEEE composition avoids trapping on source NaN/infinity results.
+
+Normalized weights use the installed NumPy 2.2.6 pairwise/buffered reduction
+order (8192-element buffers). Unnormalized weights follow the serial OpenBLAS
+0.3.29 SkylakeX masked-dot order, including its one-element fast path, positive
+nonunit strides and contiguous copies of negative-stride views. This is scalar
+Fortran; no BLAS/SIMD runtime is linked. Different NumPy buffer settings, BLAS
+architectures or thread counts can use different floating summation orders.
+The reference suite records the actual one-thread backend. Original integration
+remains MIT with retained sklearn, NumPy, SciPy and OpenBLAS BSD notices.
