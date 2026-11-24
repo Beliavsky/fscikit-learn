@@ -7947,3 +7947,33 @@ remained unchanged. Four-job builds used the checksum-verified private fpm
 0.14.0; the global fpm was unchanged. Artifacts remain under ignored
 validation/results/csr_projections*, including csr_projections_final_audit.json.
 Implementation commit: ce1fdee.
+
+## Source-seeded dense and CSR RBF features
+
+RBFSampler now draws source-compatible row-major normals followed by uniform
+phases, accepts CSR inputs and records n_features_in_. The scale branch follows
+NumPy centered dense variance and SciPy CSR E[X^2]-E[X]^2, including implicit
+zeros, unsorted duplicates, explicit zeros, row reduction order and the
+zero-variance fallback. Existing scalar-seeded NumPy RNG and quiet IEEE helpers
+are reused. Fits preserve the intrinsic RNG; native old seeded matrices change.
+Transform normalization follows live n_components, matching source mutation.
+
+The new suite contains 1,064 fixtures / 8,512 result groups and 33 diagnostics.
+Weights, offsets and fitted gamma compare exactly to sklearn 1.6.1; transformed
+features use numerical tolerances. Dense/CSR fit/query combinations cover five
+seeds, multiple shapes/components, numeric/scaled gamma, zero/constant/near-
+constant/tiny/huge data, duplicate cancellation, post-fit normalization changes,
+refits and input/RNG preservation. The source returns 522 retained nonfinite
+values; the native checked path preserves those outcomes without traps.
+Three malformed-structure diagnostics use SciPy check_format; 30 use sklearn
+validation. Native tests include large shape-only/variance CSR fits and queries
+without allocating an 8 GB dense input. Existing kernel-approximation and chi2
+native programs are rerun because they share the module.
+
+Inventory: 222 public core types, 154 source modules, 205 native programs,
+181 reference suites / 3,695,806 retained groups and 86 invalid registries /
+4,731 cases. Dense output storage remains explicit. The old combined isotonic/
+kernel algebra suite now accepts an explicit executable and retains its
+separately injected-map checks. No new public type, dependency or extension
+algorithm was added. MIT licensing and retained BSD attribution continue.
+Canonical verification will be recorded below.

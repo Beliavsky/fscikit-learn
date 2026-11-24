@@ -2,9 +2,12 @@
 ! See THIRD_PARTY_NOTICES.md for upstream BSD-3-Clause attribution.
 module sklearn_kernel_approximation
   use sklearn_polynomial_count_sketch, only: polynomial_count_sketch
+  use sklearn_sparse, only: csr_matrix
+  use sklearn_legacy_rng, only: legacy_random_state
+  use sklearn_ieee_math, only: ieee_difference,ieee_product,ieee_quotient
   use sklearn_common
   use sklearn_metrics, only: linear_kernel,rbf_kernel,polynomial_kernel,cosine_similarity
-  use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
+  use, intrinsic :: ieee_arithmetic, only: ieee_is_finite,ieee_is_nan,ieee_value,ieee_quiet_nan
   implicit none
   private
   public :: polynomial_count_sketch
@@ -28,14 +31,20 @@ module sklearn_kernel_approximation
     procedure :: fit_transform=>skewed_fit_transform
   end type
   type :: rbf_sampler
-    integer :: n_components=100,random_state=0
+    integer :: n_components=100,random_state=0,n_features_in_=0
     real(dp) :: gamma=1,gamma_=1
     logical :: gamma_scale=.false.
     real(dp), allocatable :: random_weights_(:,:),random_offset_(:)
   contains
-    procedure :: fit=>rbfs_fit
-    procedure :: transform=>rbfs_transform
-    procedure :: fit_transform=>rbfs_fit_transform
+    procedure, private :: fit_dense=>rbfs_fit
+    procedure, private :: fit_csr=>rbfs_fit_csr
+    generic :: fit=>fit_dense,fit_csr
+    procedure, private :: transform_dense=>rbfs_transform
+    procedure, private :: transform_csr=>rbfs_transform_csr
+    generic :: transform=>transform_dense,transform_csr
+    procedure, private :: fit_transform_dense=>rbfs_fit_transform
+    procedure, private :: fit_transform_csr=>rbfs_fit_transform_csr
+    generic :: fit_transform=>fit_transform_dense,fit_transform_csr
   end type
   type :: nystroem
     integer :: n_components=100,random_state=0,degree=3
@@ -52,38 +61,206 @@ module sklearn_kernel_approximation
     procedure :: fit_transform=>ny_fit_transform
   end type
 contains
-  subroutine rbfs_fit(self,x)
-    class(rbf_sampler), intent(inout) :: self
-    real(dp), intent(in) :: x(:,:)
-    real(dp) :: variance,mean
-    call check_x(x)
-    call require(self%n_components>0,'RBF sampler n_components must be positive')
-    call require(ieee_is_finite(self%gamma).and.self%gamma>=0,'invalid RBF sampler gamma')
-    self%gamma_=self%gamma
-    if(self%gamma_scale) then
-      mean=sum(x)/size(x); variance=sum((x-mean)**2)/size(x); self%gamma_=1
-      if(variance>0) self%gamma_=1/(size(x,2)*variance)
+  recursive real(dp) function rbf_numpy_sum(a) result(total)
+    real(dp), intent(in) :: a(:)
+    real(dp) :: partial(8),left,right
+    integer :: n,i,j,whole,split
+    n=size(a);total=-0._dp
+    if(n<8) then
+      do i=1,n
+        total=ieee_difference(total,-a(i))
+      end do
+    else if(n<=128) then
+      partial=a(:8);whole=n-mod(n,8)
+      do i=9,whole,8
+        do j=1,8
+          partial(j)=ieee_difference(partial(j),-a(i+j-1))
+        end do
+      end do
+      left=ieee_difference(ieee_difference(partial(1),-partial(2)),-ieee_difference(partial(3),-partial(4)))
+      right=ieee_difference(ieee_difference(partial(5),-partial(6)),-ieee_difference(partial(7),-partial(8)))
+      total=ieee_difference(left,-right)
+      do i=whole+1,n
+        total=ieee_difference(total,-a(i))
+      end do
+    else
+      split=n/2;split=split-mod(split,8)
+      total=ieee_difference(rbf_numpy_sum(a(:split)),-rbf_numpy_sum(a(split+1:)))
     end if
-    call seed_rng(self%random_state)
-    self%random_weights_=sqrt(2*self%gamma_)*normal_random(size(x,2),self%n_components)
+  end function
+  subroutine rbf_controls(self)
+    class(rbf_sampler),intent(in)::self
+    call require(self%n_components>0,'RBF sampler n_components must be positive')
+    if(.not.self%gamma_scale) then
+      call require(ieee_is_finite(self%gamma),'RBF sampler gamma must be finite')
+      call require(self%gamma>=0,'invalid RBF sampler gamma')
+    end if
+    call require(self%random_state>=0,'RBF sampler random_state must be nonnegative')
+  end subroutine
+  subroutine rbf_csr_input(x)
+    type(csr_matrix),intent(in)::x
+    call x%validate()
+    call require(x%n_rows>0.and.x%n_cols>0,'RBF sampler CSR input must be nonempty')
+    call require(all(ieee_is_finite(x%data)),'RBF sampler CSR input contains NaN or infinity')
+  end subroutine
+  subroutine rbf_generate(self,p,variance)
+    class(rbf_sampler),intent(inout)::self
+    integer,intent(in)::p
+    real(dp),intent(in)::variance
+    type(legacy_random_state)::rng
+    real(dp)::scale,square
+    integer::i,j
+    self%n_features_in_=p;self%gamma_=self%gamma
+    if(self%gamma_scale) then
+      self%gamma_=1
+      if(ieee_is_nan(variance)) then
+        self%gamma_=variance
+      else if(variance/=0) then
+        self%gamma_=ieee_quotient(1._dp,ieee_product(real(p,dp),variance))
+      end if
+    end if
+    square=ieee_product(2._dp,self%gamma_);scale=ieee_value(0._dp,ieee_quiet_nan)
+    if(.not.ieee_is_nan(square)) then
+      if(square>=0) scale=sqrt(square)
+    end if
+    if(allocated(self%random_weights_)) deallocate(self%random_weights_)
     if(allocated(self%random_offset_)) deallocate(self%random_offset_)
-    allocate(self%random_offset_(self%n_components)); call random_number(self%random_offset_)
-    self%random_offset_=self%random_offset_*2*acos(-1._dp)
+    allocate(self%random_weights_(p,self%n_components),self%random_offset_(self%n_components))
+    call rng%seed(self%random_state)
+    do i=1,p
+      do j=1,self%n_components
+        self%random_weights_(i,j)=ieee_product(scale,rng%normal())
+      end do
+    end do
+    do j=1,self%n_components
+      self%random_offset_(j)=rng%uniform()*(2*acos(-1._dp))
+    end do
+  end subroutine
+  subroutine rbfs_fit(self,x)
+    class(rbf_sampler),intent(inout)::self
+    real(dp),intent(in)::x(:,:)
+    real(dp),allocatable::values(:)
+    real(dp)::variance,mean,total
+    integer::i
+    call check_x(x);call rbf_controls(self);variance=0
+    if(self%gamma_scale) then
+      values=reshape(transpose(x),[size(x)]);total=real(size(values),dp)
+      mean=ieee_quotient(rbf_numpy_sum(values),total)
+      do i=1,size(values)
+        values(i)=ieee_difference(values(i),mean)
+        values(i)=ieee_product(values(i),values(i))
+      end do
+      variance=ieee_quotient(rbf_numpy_sum(values),total)
+    end if
+    call rbf_generate(self,size(x,2),variance)
+  end subroutine
+  subroutine rbfs_fit_csr(self,x)
+    class(rbf_sampler),intent(inout)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),allocatable::row_values(:),means(:),squares(:)
+    integer,allocatable::seen(:),columns(:)
+    real(dp)::factor,mean,variance,value
+    integer::i,k,j,n,previous,index_,first,last,step
+    logical::canonical
+    call rbf_csr_input(x);call rbf_controls(self);variance=0
+    if(self%gamma_scale) then
+      factor=1/(real(x%n_rows,dp)*real(x%n_cols,dp))
+      allocate(row_values(x%n_cols),seen(x%n_cols),columns(x%n_cols),means(x%n_rows),squares(x%n_rows))
+      seen=0;canonical=.true.
+      do i=1,x%n_rows
+        previous=0
+        do k=x%indptr(i),x%indptr(i+1)-1
+          if(x%indices(k)<=previous) canonical=.false.
+          previous=x%indices(k)
+        end do
+      end do
+      do i=1,x%n_rows
+        n=0;means(i)=0;squares(i)=0
+        do k=x%indptr(i),x%indptr(i+1)-1
+          j=x%indices(k)
+          if(seen(j)/=i) then
+            n=n+1;columns(n)=j;seen(j)=i;row_values(j)=0
+          end if
+          row_values(j)=ieee_difference(row_values(j),-x%data(k))
+          means(i)=ieee_difference(means(i),-ieee_product(x%data(k),factor))
+        end do
+        first=1;last=n;step=1
+        if(.not.canonical) then
+          first=n;last=1;step=-1
+        end if
+        do index_=first,last,step
+          value=row_values(columns(index_));value=ieee_product(value,value)
+          squares(i)=ieee_difference(squares(i),-ieee_product(value,factor))
+        end do
+      end do
+      mean=rbf_numpy_sum(means)
+      variance=ieee_difference(rbf_numpy_sum(squares),ieee_product(mean,mean))
+    end if
+    call rbf_generate(self,x%n_cols,variance)
+  end subroutine
+  subroutine rbf_finish(self,z)
+    class(rbf_sampler),intent(in)::self
+    real(dp),intent(inout)::z(:,:)
+    real(dp)::phase,scale
+    integer::i,j
+    call require(self%n_components>0,'RBF sampler transform n_components must be positive')
+    scale=sqrt(2._dp/self%n_components)
+    do j=1,size(z,2)
+      do i=1,size(z,1)
+        phase=ieee_difference(z(i,j),-self%random_offset_(j))
+        z(i,j)=ieee_value(0._dp,ieee_quiet_nan)
+        if(ieee_is_finite(phase)) z(i,j)=cos(phase)*scale
+      end do
+    end do
   end subroutine
   function rbfs_transform(self,x) result(z)
-    class(rbf_sampler), intent(in) :: self
-    real(dp), intent(in) :: x(:,:)
-    real(dp), allocatable :: z(:,:)
+    class(rbf_sampler),intent(in)::self
+    real(dp),intent(in)::x(:,:)
+    real(dp),allocatable::z(:,:)
+    real(dp)::bound
+    integer::i,j,k
+    logical::fast
     call require(allocated(self%random_weights_),'RBF sampler is not fitted')
     call check_xy(transpose(x),size(self%random_weights_,1))
-    z=cos(matmul(x,self%random_weights_)+spread(self%random_offset_,1,size(x,1)))* &
-      sqrt(2._dp/size(self%random_weights_,2))
+    fast=.false.
+    if(all(ieee_is_finite(self%random_weights_))) then
+      bound=ieee_product(ieee_product(maxval(abs(x)),maxval(abs(self%random_weights_))),real(size(x,2),dp))
+      fast=ieee_is_finite(bound)
+    end if
+    if(fast) then
+      z=matmul(x,self%random_weights_)
+    else
+      allocate(z(size(x,1),size(self%random_weights_,2)));z=0
+      do j=1,size(z,2)
+        do i=1,size(z,1)
+          do k=1,size(x,2)
+            z(i,j)=ieee_difference(z(i,j),-ieee_product(x(i,k),self%random_weights_(k,j)))
+          end do
+        end do
+      end do
+    end if
+    call rbf_finish(self,z)
+  end function
+  function rbfs_transform_csr(self,x) result(z)
+    class(rbf_sampler),intent(in)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),allocatable::z(:,:)
+    call require(allocated(self%random_weights_),'RBF sampler is not fitted')
+    call rbf_csr_input(x)
+    call require(x%n_cols==size(self%random_weights_,1),'RBF sampler CSR feature count mismatch')
+    z=x%matmul(self%random_weights_);call rbf_finish(self,z)
   end function
   function rbfs_fit_transform(self,x) result(z)
-    class(rbf_sampler), intent(inout) :: self
-    real(dp), intent(in) :: x(:,:)
-    real(dp), allocatable :: z(:,:)
-    call self%fit(x); z=self%transform(x)
+    class(rbf_sampler),intent(inout)::self
+    real(dp),intent(in)::x(:,:)
+    real(dp),allocatable::z(:,:)
+    call self%fit(x);z=self%transform(x)
+  end function
+  function rbfs_fit_transform_csr(self,x) result(z)
+    class(rbf_sampler),intent(inout)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),allocatable::z(:,:)
+    call self%fit(x);z=self%transform(x)
   end function
   function kernel_matrix(self,x,y) result(k)
     class(nystroem), intent(in) :: self

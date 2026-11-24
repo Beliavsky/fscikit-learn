@@ -7721,3 +7721,28 @@ array. Stored-count/index limits follow the package's native integer CSR
 contract. The inverse backend and existing parameter/seed contracts remain.
 See [the example](../example/csr_projections.f90). No new public algorithm,
 project extension or dependency was introduced.
+
+## Source-seeded dense and CSR RBF features
+
+RBFSampler uses the existing scalar-seeded NumPy RandomState stream for its
+row-major normal weights and subsequent uniform offsets. Nonnegative native
+integer seeds are supported. Fits preserve the intrinsic Fortran RNG and
+record n_features_in_. Existing native seeded matrices change to match sklearn
+1.6.1. Other kernel-map generators retain their existing random-stream contracts.
+
+fit, fit_transform and transform accept dense real64 matrices or csr_matrix.
+CSR arrays are validated, with finite stored values, nonempty shape and matching
+query width. Implicit zeros, explicit zeros, empty rows and unsorted duplicates
+are supported; no dense training/query copy is made. Outputs are dense Fourier
+features. Numeric gamma is finite and nonnegative. gamma_scale=true selects
+sklearn's scale rule: centered population variance for dense input, E[X^2]-E[X]^2
+for CSR, with the source zero-variance fallback. CSR duplicate coalescing is
+used for squared values; the original stored-entry mean is retained. Native
+quiet IEEE operations preserve defined derived NaN/Inf behavior.
+
+Changing n_components after fitting changes transform normalization as in the
+source, while learned weight/offset arrays retain their fitted shapes. Other
+fit controls take effect on refit. Refit repeats the scalar-seeded stream.
+The native numerical/CSR index limits remain. See
+[the example](../example/seeded_rbf_features.f90). No new dependency or public
+extension algorithm was added.

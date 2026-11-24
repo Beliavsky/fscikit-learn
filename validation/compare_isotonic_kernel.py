@@ -2,6 +2,7 @@
 from pathlib import Path
 from unittest.mock import patch
 import json
+import argparse
 import os
 import subprocess
 import warnings
@@ -40,7 +41,7 @@ def reference(x, y, w, actual):
         expected["pava_"+name] = isotonic_regression(y, **options)
     for j in range(1, 4):
         # Feed the actual Fortran draws through sklearn's transform to check
-        # feature algebra independently of the intentionally different RNG.
+        # feature algebra independently of generation, now checked by compare_rbf_features.py.
         m = RBFSampler(n_components=150, gamma="scale" if j == 3 else (0 if j == 2 else .7)).fit(x)
         expected[f"rbf{j}_gamma"] = [m._gamma]
         m.random_weights_ = actual[f"rbf{j}_weights"].reshape((p, 150), order="F")
@@ -68,6 +69,7 @@ def reference(x, y, w, actual):
 
 
 def main():
+    parser=argparse.ArgumentParser();parser.add_argument('--executable',type=Path);parser.add_argument('--report',type=Path);parser.add_argument('--profile',default='development');args=parser.parse_args()
     RESULTS.mkdir(exist_ok=True)
     checks = []
     for seed, n, p in ((7, 60, 3), (42, 72, 4), (2026, 84, 5)):
@@ -81,8 +83,8 @@ def main():
         with data.open("w") as stream:
             stream.write(f"{n} {p}\n")
             np.savetxt(stream, np.column_stack([x, y, w]), fmt="%.17g")
-        subprocess.run(["fpm", "run", "--target", "reference_isotonic_kernel_driver", "--", str(data), str(output)],
-                       cwd=ROOT, check=True)
+        command=[str(args.executable),str(data),str(output)] if args.executable else ['fpm','run','--target','reference_isotonic_kernel_driver','--',str(data),str(output)]
+        subprocess.run(command,cwd=ROOT,check=True)
         actual = {}
         for line in output.read_text().splitlines():
             name, *values = line.split()
@@ -95,7 +97,7 @@ def main():
                                        atol=2e-8, rtol=2e-8, equal_nan=True, err_msg=f"{seed} {name}")
             checks.append(dict(seed=seed, api=name, passed=True))
         print(f"PASS isotonic/kernel maps seed={seed}", flush=True)
-    (RESULTS/"isotonic_kernel_report.json").write_text(json.dumps(dict(sklearn_version=sklearn.__version__, checks=checks),
+    (args.report or RESULTS/"isotonic_kernel_report.json").write_text(json.dumps(dict(sklearn_version=sklearn.__version__,profile=args.profile,checks=checks),
                                                                indent=2)+"\n")
     print(f"{len(checks)} isotonic/kernel reference comparisons passed against sklearn {sklearn.__version__}")
 

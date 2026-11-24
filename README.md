@@ -469,3 +469,8 @@ Random projections also accept CSR inputs. SparseRandomProjection offers
 explicit CSR-returning fit/transform methods that avoid dense projected data.
 See [the example](example/csr_projections.f90) and
 [the API contract](docs/API.md#csr-inputs-and-sparse-projection-outputs).
+
+RBFSampler reproduces scikit-learn's seeded Fourier weights and offsets and
+accepts CSR inputs, including scaled gamma. See
+[the example](example/seeded_rbf_features.f90) and
+[the API contract](docs/API.md#source-seeded-dense-and-csr-rbf-features).

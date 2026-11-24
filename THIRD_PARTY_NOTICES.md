@@ -1652,3 +1652,16 @@ canonical two-pass CSR output builder are original MIT integration; no SciPy
 implementation code was copied. Existing sklearn/NumPy notices remain under
 LICENSES/. Method names distinguish statically typed dense and CSR outputs.
 No dependency or public extension algorithm was introduced.
+
+## Source-seeded dense and CSR RBF features (BSD)
+
+`src/sklearn_kernel_approximation.f90` follows sklearn 1.6.1
+`kernel_approximation.py` RBFSampler generation, gamma scaling, sparse dot
+and Fourier normalization. Existing attributed NumPy 2.2.6 scalar-seeded
+MT19937/normal/uniform kernels are reused; pairwise dense reductions follow
+the same NumPy reduction contract already used by native trees. Sparse mean,
+duplicate product accumulation and row reduction conventions follow SciPy
+1.15.3 sparse/_base.py and sparse/_compressed.py; no SciPy implementation
+code was copied. Existing BSD notices remain under LICENSES/. Native quiet
+arithmetic, CSR integration, tests, example and reference harnesses are MIT
+contributions. No dependency or public extension algorithm was added.
