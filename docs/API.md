@@ -7544,3 +7544,49 @@ a tree returns NaN predictions; its importance excludes stump trees and is
 zero if all trees are stumps. Those outcomes are explicit safety identities,
 not claims of equivalence with an invalid source memory read. Accesses
 outside initialized median storage also yield quiet NaN.
+
+## Weighted classification forests
+
+`random_forest_classifier` and `extra_trees_classifier` now fit with optional
+`sample_weight`. Both accept criterion='gini' (default), 'entropy' or
+'log_loss', plus min_impurity_decrease. `predict_proba`, `predict_log_proba`,
+`predict`, `apply` and weighted `score` are available. `apply` returns
+one-based leaves with shape (n_queries,n_estimators). Learned attributes
+include classes_, n_classes_, n_features_in_, estimators_ and
+feature_importances_.
+
+Set class_weight='none', 'balanced' or 'balanced_subsample'. Balanced factors
+use label frequencies before applying sample weights, following sklearn 1.6.1.
+Balanced-subsample factors use each random-forest bootstrap's label counts;
+without bootstrap the preset is equivalent to balanced. To supply a dictionary,
+allocate class_weight_values and assign a class_weight_map with original
+integer label keys and real64 factors. Leave class_weight='none' when using
+the map. Missing map labels receive factor one when the source dictionary
+contract permits it; an omitted class combined with an unknown key is rejected.
+
+Tree seeds follow the NumPy legacy RandomState contract. Bootstrap row counts
+multiply fitting weights while the full training matrix and class space are
+preserved. The intrinsic Fortran RNG is unchanged. Random-forest max_samples=0
+means all training rows per draw; a positive integer selects a smaller count.
+Nonzero max_samples requires bootstrap. ExtraTrees retains the existing forced
+non-bootstrap behavior. max_features=0 selects floor(sqrt(n_features)), with
+a minimum of one; a positive integer selects an explicit feature count.
+
+Forest classes_ retains the original sorted integer labels. Component tree
+classes_ now contains zero-based encoded class indices, matching sklearn
+forest storage. This changes the former native component-label representation
+and seeded classifier-forest results. Forest probabilities and predictions
+map through the original class space even when a bootstrap omits a class.
+Signed or zero weights preserve source nonfinite probabilities; prediction
+uses NumPy-compatible argmax, including the first NaN. Log probabilities
+preserve negative infinities for zero probability and quiet NaNs for negative
+probability. All-stump forests have zero importance. Fitting and effective
+class/bootstrap-multiplied weights must be finite. Score weights need nonzero
+total mass.
+
+Queries may contain NaNs after finite training, using component-tree routing.
+Training NaNs, sparse inputs, fractional sample/feature controls, OOB scores,
+warm starts, pruning, monotonic constraints and multioutput classification
+forests remain unsupported. Parameter search accepts criterion, class_weight,
+max_samples and min_impurity_decrease, and forwards fitting weights.
+SelectFromModel also forwards classification-forest fitting weights.

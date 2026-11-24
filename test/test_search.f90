@@ -4,7 +4,7 @@ program test_search
   use sklearn_linear_model, only: ridge,logistic_regression
   use sklearn_pipeline, only: pipeline
   use sklearn_preprocessing, only: standard_scaler
-  use sklearn_ensemble, only: random_forest_regressor,extra_trees_regressor
+  use sklearn_ensemble, only: random_forest_regressor,extra_trees_regressor,random_forest_classifier,extra_trees_classifier
   use sklearn_tree, only: decision_tree_regressor,extra_tree_regressor
   implicit none
   type(grid_search_cv) :: search,copied,multi
@@ -13,6 +13,8 @@ program test_search
   type(extra_tree_regressor) :: count_extra
   type(random_forest_regressor) :: count_forest
   type(extra_trees_regressor) :: count_forest_extra
+  type(random_forest_classifier) :: class_forest
+  type(extra_trees_classifier) :: class_extra
   type(randomized_search_cv) :: random
   type(ridge) :: base
   type(logistic_regression) :: classifier
@@ -99,6 +101,25 @@ program test_search
   deallocate(criterion_search%estimator);allocate(criterion_search%estimator,source=count_forest_extra)
   call criterion_search%fit(x,1+abs(y),weights)
   call require(size(criterion_search%cv_results_%params)==4,'Weighted ExtraTrees criterion parameter adapter')
+  class_forest%n_estimators=3;class_forest%max_depth=2
+  deallocate(criterion_search%estimator);allocate(criterion_search%estimator,source=class_forest)
+  deallocate(criterion_search%param_grid(1)%axes);allocate(criterion_search%param_grid(1)%axes(2))
+  criterion_search%param_grid(1)%axes(1)%name='criterion'
+  criterion_search%param_grid(1)%axes(1)%values=[param('gini'),param('entropy'),param('log_loss')]
+  criterion_search%param_grid(1)%axes(2)%name='class_weight'
+  criterion_search%param_grid(1)%axes(2)%values=[param('none'),param('balanced'),param('balanced_subsample')]
+  criterion_search%scoring='accuracy';call criterion_search%fit(x,labels,weights)
+  value=criterion_search%best_params_%get('criterion')
+  select type(fitted=>criterion_search%best_estimator_)
+  class is(random_forest_classifier)
+    call require(fitted%criterion==value%as_text(),'Weighted classifier forest criterion search')
+  class default
+    call require(.false.,'Classification criterion search returns a forest')
+  end select
+  class_extra%n_estimators=3;class_extra%max_depth=2
+  deallocate(criterion_search%estimator);allocate(criterion_search%estimator,source=class_extra)
+  call criterion_search%fit(x,labels,weights)
+  call require(size(criterion_search%cv_results_%params)==9,'Weighted ExtraTrees classifier criterion and class-weight grid')
   print *, 'GridSearchCV and RandomizedSearchCV: PASS'
 contains
   integer function last_candidate(results) result(index)

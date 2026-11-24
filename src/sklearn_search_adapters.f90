@@ -210,6 +210,10 @@ contains
       end select
     class is(random_forest_classifier)
       select case(name)
+      case('criterion');model%criterion=value%as_text()
+      case('class_weight');model%class_weight=value%as_text()
+      case('max_samples');model%max_samples=value%as_integer()
+      case('min_impurity_decrease');model%min_impurity_decrease=value%as_real()
       case('n_estimators');model%n_estimators=value%as_integer()
       case('max_depth');model%max_depth=value%as_integer()
       case('min_samples_leaf');model%min_samples_leaf=value%as_integer()
@@ -337,7 +341,7 @@ contains
       type is(pipeline)
         call model%fit(x,yi,sample_weight)
       class is(random_forest_classifier)
-        call require(.not.present(sample_weight),'search forest has no native weighted fit');call model%fit(x,yi)
+        call model%fit(x,yi,sample_weight)
       type is(gradient_boosting_classifier)
         call require(.not.present(sample_weight),'search boosting has no native weighted fit');call model%fit(x,yi)
       class default

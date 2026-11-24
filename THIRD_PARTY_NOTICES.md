@@ -1587,3 +1587,14 @@ reset, forward/reverse updates and absolute-deviation impurity. Terms remain
 in `LICENSES/scikit-learn-COPYING`. Native bounds guards, quiet arithmetic,
 Fortran integration, tests, example and the reference/safety harness are
 original MIT contributions. No dependency or public extension was added.
+
+## Weighted classification forests (BSD)
+
+`src/sklearn_ensemble.f90` follows scikit-learn 1.6.1 `ensemble/_forest.py`
+and `ensemble/_base.py` class encoding, component seeds, weighted bootstrap
+fitting, balanced class presets, probability aggregation and impurity
+importance. Existing `sklearn_class_weight` implements the corresponding
+`utils/class_weight.py` dictionary and balanced-subsample contracts. Terms
+remain in `LICENSES/scikit-learn-COPYING`, with existing NumPy RNG attribution.
+Fortran adapters, quiet composition, tests, example and reference harness are
+original MIT contributions. No dependency or public extension was added.
