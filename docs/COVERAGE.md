@@ -88,7 +88,8 @@ Regression: mean/root-mean squared error, mean/median/max absolute error,
 mean absolute percentage error, mean squared log error, R2, explained variance,
 Poisson and Gamma deviances.
 
-Classification: accuracy, confusion matrix, precision, recall, F1, Jaccard,
+Classification: weighted accuracy and zero-one loss for numeric vectors and
+dense/CSR multilabel targets; confusion matrix, precision, recall, F1, Jaccard,
 Hamming loss, balanced accuracy, Matthews correlation, Cohen kappa, log loss,
 binary ROC AUC and average precision with sample weights; standardized partial ROC AUC;
 ROC, precision-recall and DET threshold curves; generic trapezoidal AUC; binary
@@ -10902,7 +10903,7 @@ and weighted-count semantics. Explicit typed rank interfaces preserve existing
 classifier score calls, predictor-result expressions and empty constructors.
 Unsupported kinds and ranks are rejected at compile time.
 
-The checked reference grid passes 2,294 configurations: 1,914 accepted cases
+Both checked and optimized reference grids pass 2,294 configurations: 1,914 accepted cases
 with 5,742 retained comparison groups and 380 expected source rejections.
 It covers categorical and multilabel targets, raw CSR duplicates/zeros/order,
 empty and single-column targets, signed/nonfinite weights, positive/negative
@@ -10910,8 +10911,9 @@ weight strides, and cancellation/overflow at reduction boundaries through
 16,385 samples. Finite values use rtol=2e-13 with no absolute tolerance;
 NaN/infinity masks and zero signs match exactly. Caller storage is checked in
 every accepted case. All 21 native diagnostics, the existing 192 core groups,
-13 affected native programs and the new example pass in the checked profile.
-Optimized verification is pending; final results are recorded in VALIDATION.md.
+13 affected native programs and the new example pass in each profile.
+The final audit confirms matching profile records and 187 compiled source
+fingerprints per profile. Final results are recorded in VALIDATION.md.
 
 Canonical sparse pairs use a merge without column-sized scratch storage;
 noncanonical pairs use O(columns) accumulation buffers without densifying the

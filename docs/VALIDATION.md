@@ -8953,3 +8953,71 @@ Inventory: 222 public core types, 164 source modules, 229 native programs,
 202 reference suites / 4,018,343 retained groups and 101 invalid registries /
 5,729 cases. String/object labels, generic Python iterators and manual fitted-
 class mutation remain outside this interface. The broader translation is unfinished.
+
+## Weighted accuracy and zero-one loss (2026-11-24)
+
+Implementation revision: 8fbadaf. accuracy_score now supports normalization,
+sample weights and mixed numeric vector/matrix/CSR targets; zero_one_loss is
+new. Typed explicit-rank public interfaces retain predictor-result expressions
+and empty array constructors. Other metric bodies are byte-identical to 1466469.
+
+Both checked and optimized verification pass 5,934 required comparison groups
+per profile:
+
+| Suite | Groups |
+| --- | ---: |
+| Accuracy / zero-one subset metrics | 5,742 |
+| Existing core comparisons | 192 |
+
+The new grid retains 2,294 configurations: 1,914 accepted cases, each with
+accuracy, loss and caller-identity checks, and 380 source rejections. Coverage
+includes default integer/logical/real64 vectors, single-column and indicator
+matrices, mixed dense/CSR pairs, stored zeros, duplicates, unsorted indices,
+nonbinary values and numeric/shape boundaries. Weights include signed values,
+zero sums, NaN/infinities, subnormals, signed zeros, extreme cancellation and
+overflow. Reduction lengths reach 16,385, crossing the NumPy 8,192-element
+buffer boundary. Positive nonunit and negative weight strides are exercised.
+
+Finite results use rtol=2e-13 and atol=0. NaN and signed-infinity masks and
+zero signs match exactly; the source produces 775 nonfinite values. Normalized
+zero-weight sums reject as in sklearn. Unnormalized zero sums remain valid.
+All 380 expected source rejections, 21 native input diagnostics and the existing
+ellenv_score_shape diagnostic pass: 402 rejection checks per profile. These
+require controlled ERROR STOP without floating traps, bounds failures or
+segmentation faults. Unsupported intrinsic kinds, scalar labels and rank-three
+targets are rejected by generic resolution at compile time.
+
+Thirteen affected native programs pass in each profile: test_subset_metrics,
+test_preprocessing_metrics, test_classification_metrics, test_bayes_neighbors,
+test_discriminant_dummy_kernel, test_calibrated, test_gp_classification,
+test_sgd_classifier, test_svm, test_linear_svm, test_weighted_classifiers,
+test_pipeline_supervised and test_search. The subset_accuracy example passes
+in both profiles.
+Native checks include caller RNG preservation, owned sparse storage, compact
+100,000-by-100,000 inputs and a 3-by-100,000,000 canonical CSR pair without
+column-sized scratch allocation. This is affected-scope verification rather
+than execution of every repository test.
+
+The final audit verifies 187 Fortran compilation fingerprints per profile,
+complete configuration/field inventories, source/driver/validator/executable
+manifests and report/license hashes. All checked/release configuration,
+comparison and rejection records match; the native binaries have distinct
+hashes. Reports are retained under ignored validation/results/subset*,
+including subset_final_audit.json.
+
+Reference tools are Python 3.13.3, sklearn 1.6.1, NumPy 2.2.6 and SciPy 1.15.3.
+The NumPy backend is pinned to serial OpenBLAS 0.3.29 SkylakeX and its default
+8,192-element reduction buffer. Scalar Fortran reproduces these reduction
+orders without an external BLAS dependency; other BLAS architectures, thread
+counts or NumPy buffer settings can round differently. Builds use the verified
+private fpm 0.14.0 and GNU Fortran 17.0.0 20260510, with four jobs. Checked
+flags are -fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow; optimized
+verification uses --profile release. Both fpm builds include --tests so that
+native test binaries are rebuilt. The global fpm is unchanged.
+
+Root LICENSE and the fpm MIT declaration are unchanged. OpenBLAS's full BSD
+license and pinned source/license hashes are retained alongside existing
+sklearn/SciPy/NumPy attribution. No public estimator or extension was added.
+Inventory: 222 public core types, 165 source modules, 230 native programs,
+203 reference suites / 4,024,085 retained groups and 102 invalid registries /
+5,750 cases. The broader translation remains unfinished.
