@@ -155,7 +155,7 @@ def main():
             assert parts[0] not in actual;actual[parts[0]]=np.array(list(map(float,parts[1:])))
     assert index+1==len(records)
     invalid=dict(unbound='not fitted',unfitted='not fitted',missing_predict='has no predict',missing_transform='has no transform',
-       wrong_regression_kind='use predict_class',wrong_classifier_kind='use predict',query_width='sample counts differ',query_nan='NaN or infinity',
+       wrong_regression_kind='use predict_class',wrong_classifier_kind='use predict',query_width='StandardScaler feature count mismatch',query_nan='NaN or infinity',
        names_width='feature',score_count='label sizes',wrong_classes='not a classifier',unsupported='not fitted')
     rejections=[]
     for mode,message in invalid.items():

@@ -6762,3 +6762,23 @@ Fixtures include nullable statistics, raw CSR duplicates/count constraints,
 normal-unit adjustment, subnormal quantile probabilities and NumPy median
 599/600/601-row dispatch. Sparse fit quantiles intentionally preserve the
 source raw stored-entry contract without densifying input or padded columns.
+
+
+`compare_standard.py --executable <reference_standard_driver.exe>` checks
+724 configurations / 17,376 groups and nine isolated diagnostics. It exercises
+weighted dense/CSR fitting, mixed incremental batches, missing values, negative
+and zero weights, scalar NaN/Inf source behavior, refit resets, live query flags,
+raw sparse storage, absent statistics and scalar/vector count dtype metadata.
+All 2,188 nonfinite source outcomes are compared. CSR layout, fitted metadata
+and native caller/RNG identities are exact. Numerical fields use 3e-8 absolute
+and relative tolerances, except large-offset variance/scale/map fixtures whose
+relative allowance is max(3e-8,64*epsilon*max(abs(mean)/sqrt(abs(var)))). Means
+and counts retain ordinary tolerances; NaN and signed-infinity masks remain
+required. Each report records field inventories, configurations, tolerances,
+source/executable/validator hashes, errors and rejection outcomes.
+
+The final StandardScaler package audit passed in checked and optimized release
+profiles: 21 selected native tests, four scaler examples, 54,420 groups across
+seven affected comparison runs, 21 diagnostics, and 202 compiled units per
+profile. Full scope and the separate existing logistic endpoint differences
+are recorded in [the validation record](../docs/VALIDATION.md#standardscaler-final-package-verification-2026-11-24).

@@ -8016,7 +8016,9 @@ dispatch details are recorded in COVERAGE.md. See
 Dense and CSR `fit`, `partial_fit`, and `fit_transform` accept optional real64
 `sample_weight` vectors or scalar weights. Negative and zero weights follow
 source behavior. Vector weights must be finite; scalar weights retain source
-IEEE behavior. NaNs are missing observations; infinite input values are rejected.
+IEEE behavior; the CSR branch with `with_std=.false.` revalidates the expanded
+scalar and rejects nonfinite values. NaNs are missing observations; infinite
+input values are rejected.
 CSR fitting requires `with_mean=.false.` and processes stored entries directly,
 including duplicates, explicit zeros and missing entries, without densification.
 Transforms and inverse transforms return owned dense/CSR results.

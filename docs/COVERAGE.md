@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and eighty-nine reference suites additionally check 3,851,172
+All types have native tests. One hundred and ninety reference suites additionally check 3,868,548
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -19,7 +19,7 @@ per sample; cross-decomposition, multi-task regression, joint MLP regression and
 metadata routing, parallel backends and binary model persistence are outside the
 initial translation. The neighbor graph transformers provide CSR graph outputs and
 accept CSR precomputed distances, as do Isomap and Barnes-Hut TSNE. Randomized TruncatedSVD and direct Multinomial/
-Bernoulli/Complement Naive Bayes, SGD and MLP regression/classification, random projections, RBFSampler, Nystroem, AdditiveChi2Sampler, PolynomialCountSketch, MaxAbsScaler, RobustScaler, Normalizer/Binarizer and PolynomialFeatures also accept CSR matrices. Other estimator and
+Bernoulli/Complement Naive Bayes, SGD and MLP regression/classification, random projections, RBFSampler, Nystroem, AdditiveChi2Sampler, PolynomialCountSketch, StandardScaler, MaxAbsScaler, RobustScaler, Normalizer/Binarizer and PolynomialFeatures also accept CSR matrices. Other estimator and
 meta-estimator inputs remain dense.
 Fortran identifiers use snake_case rather than CamelCase.
 
@@ -10291,3 +10291,58 @@ rounding differences between NumPy BLAS and portable Fortran weighted sums.
 NaN and signed-infinity outcomes remain required. Native caller/RNG identity
 checks are included in the retained groups. Canonical package validation is
 recorded separately after completion.
+
+## StandardScaler final package verification (2026-11-24)
+
+Implementation commit: f7007f6. The final checked and optimized release builds
+passed 21 selected native programs and ran four scaler examples. Native scope
+covers all four stateful scalers, stateless preprocessing, pipeline/supervised
+pipeline, FrozenEstimator, column transformers, feature unions, transformed
+targets, function transformers, positive/polynomial composition and target
+encoding. The new tests additionally cover weighted fit_transform overloads,
+nonpositive CSR update mass and a 100,000-by-100,000 sparse fit without dense
+allocation. This is a selected regression run, not a rerun of all native tests.
+
+Each profile passed seven reference runs / 54,420 required groups:
+
+| Suite | Required groups |
+| --- | ---: |
+| StandardScaler | 17,376 |
+| FrozenEstimator contracts | 25,272 |
+| Core comparisons | 192 |
+| Column transformers | 432 |
+| Feature unions | 240 |
+| Transformed targets | 2,352 |
+| Full pipeline suite | 8,556 |
+
+StandardScaler retains 724 configurations, nine diagnostic cases and 2,188
+nonfinite source values. All 21 diagnostics per profile passed (nine new and
+12 FrozenEstimator). Column/union/target comparisons select the four stateful
+scalers using the existing generator streams; their scope is 72, 48 and 336
+fixtures respectively. Pipeline comparisons use all 756 fixtures. FrozenEstimator
+uses all 486 configurations / 1,944 stages. Its 15,552 underlying endpoint
+diagnostics remain separate: the same 35 logistic-regression differences persist
+(19 log-probability, 13 decision, three probability; maximum absolute error
+0.0002948945589480445, no nonfinite-mask mismatches). They are not counted as
+contract passes. No logistic implementation changed.
+
+The final audit verified 202 compiled source units per profile, the full new
+field inventories, matching profile configurations and inventories, distinct
+checked/release native binaries, and stable source, executable, validator and
+report hashes. Other preprocessing method bodies remain byte-identical after
+StandardScaler extraction/import; FrozenEstimator changes are exactly its two
+StandardScaler fitted-state/width clauses. Its public reference validator now
+expects the scaler's specific feature-count diagnostic. Standard numerical
+comparisons use 3e-8 tolerances, with the documented condition-based allowance
+for large-offset variance/scale/maps. NaN/signed-infinity outcomes are retained.
+
+Four-job builds used the private checksum-verified fpm 0.14.0, GNU Fortran 17,
+Python 3.13, sklearn 1.6.1, NumPy 2.2.6 and SciPy 1.15.3. Checked flags were
+-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow; release used the fpm
+release profile. Audit and reports are under ignored validation/results/standard*,
+including standard_final_audit.json. The global fpm installation is unchanged.
+
+Inventory: 222 public core types, 159 source modules, 218 native programs,
+190 reference suites / 3,868,548 retained groups and 95 invalid registries /
+5,141 cases. MIT integration and retained BSD notices continue. No dependency
+or public extension was added. The broader translation remains unfinished.

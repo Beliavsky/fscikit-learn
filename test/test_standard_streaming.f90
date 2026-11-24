@@ -10,7 +10,7 @@ program test_standard_streaming
  real(dp),allocatable::mapped(:,:)
  nan=ieee_value(0._dp,ieee_quiet_nan)
  a(:,1)=[1._dp,2._dp,3._dp,4._dp];a(:,2)=2*a(:,1);w=[1._dp,2._dp,3._dp,4._dp]
- call model%fit(a,w)
+ mapped=model%fit_transform(a,w)
  call require(maxval(abs(model%mean_-[3._dp,6._dp]))<1.e-14_dp,'weighted mean')
  call require(maxval(abs(model%var_-[1._dp,4._dp]))<1.e-14_dp,'weighted population variance')
  call require(all(model%n_samples_seen_==10).and.model%sample_count_scalar_.and.model%sample_count_real_, &
@@ -30,10 +30,12 @@ program test_standard_streaming
  call require(all(model%n_samples_seen_==[4._dp,0._dp]),'disabled dense counts ignore weights as source')
  mapped=model%transform(a);call require(all(mapped(:,1)==a(:,1)),'disabled transform')
  x=csr_from_arrays(4,2,[1,3,4,5,5],[1,1,2,1],[1._dp,2._dp,4._dp,3._dp])
- model=standard_scaler();model%with_mean=.false.;call model%fit(x)
+ model=standard_scaler();model%with_mean=.false.;z=model%fit_transform(x,1._dp)
  call require(all(abs(model%mean_-[1.5_dp,1._dp])<1.e-14_dp),'raw duplicate sparse mean')
  call require(all(abs(model%var_-[1.25_dp,3._dp])<1.e-14_dp),'raw duplicate sparse variance')
  z=model%transform(x);call require(all(z%indices==x%indices).and.all(z%indptr==x%indptr),'CSR storage retained')
+ call model%partial_fit(x,-1._dp)
+ call require(all(model%n_samples_seen_==4),'sparse nonpositive new mass preserves prior counts')
  model%with_std=.false.;z=model%transform(x)
  call require(abs(z%data(1)-1/sqrt(1.25_dp))<1.e-14_dp,'CSR queries use retained scale')
  big%n_rows=100000;big%n_cols=100000
