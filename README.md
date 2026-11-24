@@ -464,3 +464,8 @@ Gaussian and sparse random projections reproduce scikit-learn's seeded
 component matrices using NumPy-compatible draws. See
 [the example](example/seeded_projections.f90) and
 [the API contract](docs/API.md#numpy-compatible-seeded-random-projections).
+
+Random projections also accept CSR inputs. SparseRandomProjection offers
+explicit CSR-returning fit/transform methods that avoid dense projected data.
+See [the example](example/csr_projections.f90) and
+[the API contract](docs/API.md#csr-inputs-and-sparse-projection-outputs).

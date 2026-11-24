@@ -1641,3 +1641,14 @@ legacy-distributions.c. Existing sklearn and NumPy notices remain under
 LICENSES/. Native interfaces, dense storage, cache management, tests and
 validation harnesses are MIT contributions. No dependency or public extension
 was added.
+
+## CSR random projection interfaces (BSD reference; MIT integration)
+
+`src/sklearn_random_projection.f90` follows sklearn 1.6.1
+`random_projection.py` sparse input validation, shared component generation,
+projection and inverse contracts. Existing attributed scalar-seeded NumPy
+kernels and native SVD remain. The existing native CSR multiply and new
+canonical two-pass CSR output builder are original MIT integration; no SciPy
+implementation code was copied. Existing sklearn/NumPy notices remain under
+LICENSES/. Method names distinguish statically typed dense and CSR outputs.
+No dependency or public extension algorithm was introduced.

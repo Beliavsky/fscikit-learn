@@ -7691,3 +7691,33 @@ native SVD backend. Refit clears the inverse cache when caching is disabled.
 See [the seeded example](../example/seeded_projections.f90). The binomial
 kernel was moved unchanged from bicluster generation into a shared internal
 module. No new public type, dependency or extension algorithm was added.
+
+## CSR inputs and sparse projection outputs
+
+Both GaussianRandomProjection and SparseRandomProjection accept csr_matrix
+inputs to fit, fit_transform, transform and inverse_transform. Fitting checks
+the CSR structure and finite stored values, then uses its shape directly;
+training data are never expanded to dense storage. Component matrices and
+learned dimensions are identical to a dense fit with the same shape and seed.
+Queries and latent inputs multiply stored entries directly against components
+or their native SVD pseudoinverse. Duplicate columns, unsorted indices,
+explicit zeros and empty rows are supported. Inputs must have nonempty shapes,
+finite stored values, and matching feature/latent widths. Inputs are preserved.
+
+Existing transform and fit_transform bindings return dense real64 matrices
+for either input representation. For statically typed CSR results, the sparse
+projection type additionally provides `transform_sparse(x)` and
+`fit_transform_sparse(x)`, both taking CSR input and returning csr_matrix.
+These correspond to the sparse-output projection values, with canonical
+one-based CSR storage: sorted columns, omitted exact zeros and retained
+nonfinite derived values. Density one also permits explicit CSR conversion of
+its logically dense projection. Method choice expresses output storage instead
+of Python's runtime dense_output switch. Inverse transforms always return dense
+matrices. Components remain stored densely, even for SparseRandomProjection.
+
+CSR output uses sparse component-column products and a single projected-row
+workspace in two passes; it never allocates the full sample-by-component dense
+array. Stored-count/index limits follow the package's native integer CSR
+contract. The inverse backend and existing parameter/seed contracts remain.
+See [the example](../example/csr_projections.f90). No new public algorithm,
+project extension or dependency was introduced.

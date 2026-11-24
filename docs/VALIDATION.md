@@ -7764,3 +7764,34 @@ tolerances. No unrelated source/test/application path changed. Four-job builds
 used the checksum-verified private fpm 0.14.0; the global fpm was unchanged.
 Artifacts are under ignored validation/results/seeded_projections*, including
 seeded_projections_final_audit.json. Implementation commit: 87923d7.
+
+## CSR random projections and explicit sparse outputs
+
+Both random projection types now accept CSR inputs for fitting, transforming
+and inverse transforms. Shape-only fitting shares the unchanged seeded
+component generators with dense fitting. CSR query/latent values multiply
+directly without densifying inputs. SparseRandomProjection adds explicit
+transform_sparse and fit_transform_sparse methods returning canonical CSR,
+with one projected-row workspace and two-pass storage construction. Existing
+methods keep dense outputs; inverse transforms always remain dense.
+
+The direct reference suite covers 800 fixtures / 13,600 groups and 44
+invalid-input cases. Cases include five seeds, narrow/square/wide geometry,
+automatic JL dimensions, dense/sparse component branches, inverse caching,
+empty rows, explicit zeros, unsorted duplicates, severe cancellation and CSR
+preservation. Component arrays and all training/query projection values compare
+exactly; sparse outputs compare after canonicalizing source storage. Native
+SVD inverse tolerances remain numerical, with a cancellation-specific absolute
+bound for 1e8 / -1e8 duplicate latent entries. The refit field separately labels
+source repeatability plus the native inverse-cache-clearing contract.
+
+Six structural diagnostics use SciPy CSR check_format as their source oracle;
+38 use sklearn estimator validation. No malformed arrays enter source numeric
+kernels. Native tests include a 100,000-by-10,000 zero CSR matrix (8 GB if
+densified) and large sparse projected output. No dependency, public type or
+extension algorithm was added. Dense component storage remains explicit.
+
+Inventory: 222 public core types, 154 source modules, 204 native programs,
+180 reference suites / 3,687,294 retained groups and 85 invalid registries /
+4,698 cases. MIT licensing and retained sklearn/NumPy BSD attribution continue.
+Canonical verification will be recorded below.
