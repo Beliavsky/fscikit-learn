@@ -1453,3 +1453,16 @@ and signed weighted averages. Terms remain in
 interfaces, canonical CSR guards, quiet IEEE integration, tests, example and
 reference harness are original MIT contributions. No dependency or public
 extension algorithm was added.
+
+## Quantile and deviance regression measures (BSD)
+
+`src/sklearn_regression_metrics.f90` adapts sklearn 1.6.1
+`metrics/_regression.py` mean_pinball_loss, mean_tweedie_deviance,
+d2_tweedie_score, d2_pinball_score, d2_absolute_error_score and
+root_mean_squared_log_error, plus `utils/stats.py` _weighted_percentile.
+Sklearn terms remain in `LICENSES/scikit-learn-COPYING`. Linear percentile
+interpolation follows NumPy 2.2.6 `_function_base_impl.py` _lerp conventions;
+retained NumPy terms remain in `LICENSES/numpy-COPYING`. Native merge sorting,
+rank/aggregation adapters, quiet IEEE helpers, diagnostics, tests, example and
+reference harness are original MIT contributions. No dependency or public
+extension algorithm was added.

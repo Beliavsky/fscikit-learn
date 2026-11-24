@@ -397,3 +397,8 @@ Multilabel ranking metrics now include coverage error, label-ranking average
 precision and label-ranking loss, with tied scores and sample weights. See
 [the MLP scoring example](example/multilabel_rank_scores.f90) and
 [the API contract](docs/API.md#multilabel-ranking-measures).
+
+Regression scoring now includes weighted pinball loss, Tweedie deviance and D?
+scores, D? absolute-error score, and multioutput RMSLE. See
+[the quantile-model example](example/regression_loss_scores.f90) and
+[the API contract](docs/API.md#quantile-deviance-and-logarithmic-regression-measures).

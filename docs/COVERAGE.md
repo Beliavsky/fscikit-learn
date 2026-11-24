@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and sixty-two reference suites additionally check 2,720,353
+All types have native tests. One hundred and sixty-three reference suites additionally check 2,753,473
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -8595,3 +8595,25 @@ unchanged unrelated modules/tests. Reports remain local under ignored
 `validation/results/multilabel_rank*`, including
 `multilabel_ranking_final_audit.json`. MIT licensing and retained sklearn BSD
 attribution continue; no dependency or public extension was introduced.
+
+## Quantile, Tweedie and RMSLE regression metrics (2026-11-23)
+
+Added mean_pinball_loss, mean_tweedie_deviance, d2_tweedie_score,
+d2_pinball_score, d2_absolute_error_score and root_mean_squared_log_error.
+All support sample weights, including signed weights. Pinball/D? absolute/RMSLE
+accept vector or joint targets with uniform/custom output averaging and
+optional raw values; Tweedie stays single-output as in the baseline. Weighted
+percentiles, endpoint quantiles, singleton scores, constant-target finite
+forcing and source arithmetic/rejection behavior are documented in API.md.
+
+Development reference comparisons passed 33,120 required groups over 4,507
+fixtures and 26 isolated diagnostics against sklearn 1.6.1. These include 9,051
+nonfinite source values and 929 source-rejection outcomes checked through 254
+distinct probes. The latter cover zero D? Tweedie null deviance and overflowing
+D? pinball quantile baselines. Five seeds cover multiple response columns,
+quantiles 0/.1/.5/.9/1, eight distribution powers, signed/zero sample weights,
+custom output weights, constants, ties, long inputs and extreme finite values.
+
+Cumulative inventory: 222 public core types, 144 source modules, 187 native
+programs, 163 reference suites / 2,753,473 retained required groups, and 68
+invalid-input registries / 4,185 cases. These remain API subsets.

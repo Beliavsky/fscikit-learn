@@ -7007,3 +7007,53 @@ Coverage uses dense indicators, matching the source's accepted input. Native
 CSR diagnostics are stricter than Python's handling of noncanonical storage.
 Private merge sorting takes O(n_labels log(n_labels)) time per nondegenerate
 row and O(n_labels) workspace.
+
+## Quantile, deviance and logarithmic regression measures
+
+`mean_pinball_loss(y, predicted, sample_weight, alpha, output_weights, raw_values)`
+and `d2_pinball_score` with the same arguments support rank-one or rank-two
+real(dp) targets and predictions. Alpha defaults to .5 and must be finite in
+[0,1]. `d2_absolute_error_score(y, predicted, sample_weight, output_weights,
+raw_values)` delegates to D? pinball at alpha=.5.
+`root_mean_squared_log_error` has the same arguments as D? absolute error.
+These functions are available in `sklearn_regression_metrics`,
+`sklearn_metrics` and the `sklearn` facade.
+
+All functions return a scalar, uniformly averaged over response columns by
+default. Optional finite `output_weights` supplies a nonzero-total weighted
+response average. Optional allocatable real(dp) `raw_values(:)` returns each
+response's measure before aggregation; this adapts Python's raw_values return
+mode while preserving a fixed Fortran function rank. RMSLE takes the square
+root per response before averaging. It accepts targets/predictions strictly
+greater than -1, matching sklearn 1.6.1, and uses a compensated log1p calculation
+for small magnitudes. A negative weighted mean square returns quiet NaN.
+
+D? pinball uses a linearly interpolated empirical quantile without weights,
+or sklearn's lower weighted percentile with sample weights, including alpha=0
+zero-weight skipping. Constant-response scores are 1 for zero numerator and
+0 for nonzero numerator with zero denominator. D? pinball and absolute scores
+return quiet NaN for fewer than two samples. In that case raw_values contains
+one NaN per response; Python instead returns a scalar NaN even in raw mode.
+Nonfinite quantile baselines from finite-target interpolation overflow are
+diagnosed, matching the source's rejection.
+
+`mean_tweedie_deviance(y, predicted, sample_weight, power)` and
+`d2_tweedie_score` accept rank-one real(dp) targets only, matching source
+single-output scope. Power defaults to zero and must be finite, either <=0 or
+>=1. Power zero is squared-error deviance; one is Poisson, two is Gamma, three
+is inverse Gaussian. All nonzero powers require strictly positive predictions.
+Powers in [1,2) require nonnegative targets; powers >=2 require strictly positive
+targets; powers <0 allow arbitrary real targets. D? uses the weighted mean
+null predictor, returns quiet NaN for singleton inputs, and diagnoses exactly
+zero computed null deviance, matching the baseline's ZeroDivisionError.
+Nonzero null deviances close to zero can produce very large scores, including
+for constant targets, as in the source formula.
+
+All inputs must be finite, nonempty and shape-compatible. Optional finite
+sample weights must match the sample count and have nonzero total for defined
+reductions; signed weights are accepted. Singleton D? results skip the
+nonzero-total check. Quiet IEEE composition preserves source NaNs/infinities
+from arithmetic on finite extreme inputs under checked execution. Numerical
+comparisons use 3e-11 absolute/relative tolerance; cancellation near singular
+Tweedie power values and null deviances remains subject to floating-point
+rounding. No Array API backend or sparse-target input is provided.
