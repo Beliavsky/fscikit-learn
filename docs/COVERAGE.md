@@ -8453,3 +8453,21 @@ native tests. Reports are retained locally under ignored
 `validation/results/multilabel_datasets_*`, including
 `multilabel_datasets_final_audit.json`. MIT licensing and retained sklearn/NumPy
 BSD attribution continue; no dependency or public extension was introduced.
+
+## Bicluster sample generators (2026-11-23)
+
+Added sklearn make_biclusters and make_checkerboard with scalar/pair cluster
+counts, multinomial axis partitions, block amplitudes, Gaussian noise and
+integer-seeded shuffling. Empty axes/clusters and Cartesian membership masks
+are supported. Private NumPy-compatible binomial inversion and BTPE sampling
+cover small and large populations. API limitations are documented in API.md.
+
+The development reference passed 11,100 required groups over 2,220 fixtures
+and 14 invalid-input diagnostics against installed sklearn 1.6.1/NumPy 2.2.6.
+Fixtures exercise five seeds, empty/singleton and rectangular shapes, unequal
+cluster counts, equal bounds, shuffling, inversion/BTPE boundaries and quiet
+IEEE noise overflow. Membership masks and seeded partitions match exactly.
+
+Cumulative inventory: 222 public core types, 141 source modules, 184 native
+programs, 160 reference suites / 2,683,519 retained required groups, and 65
+invalid-input registries / 4,124 cases. These remain API subsets.

@@ -1416,3 +1416,16 @@ method is attributed there to W. Hoermann, Insurance: Mathematics and Economics
 reduction conventions. Native CSR growth, output overloads, canonical label sets,
 diagnostics, tests, example and reference harness are original MIT contributions.
 No dependency or public extension estimator was added.
+
+## Bicluster generators and binomial draws (BSD)
+
+`src/sklearn_bicluster_datasets.f90` follows scikit-learn 1.6.1
+`datasets/_samples_generator.py` make_biclusters and make_checkerboard.
+Sklearn BSD terms remain in `LICENSES/scikit-learn-COPYING`.
+The private binomial inversion/BTPE and multinomial partition sampling adapt
+[NumPy 2.2.6 distributions.c](https://github.com/numpy/numpy/blob/v2.2.6/numpy/random/src/distributions/distributions.c)
+and its legacy random conventions. Existing terms in
+`LICENSES/numpy-DISTRIBUTIONS-LICENSE.md`, `LICENSES/numpy-RANDOM-LICENSE.md`
+and `LICENSES/numpy-COPYING` apply. Native interfaces, guards, logical masks,
+tests, example and reference harness are original MIT contributions.
+No dependency or extension algorithm was added.

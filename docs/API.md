@@ -6918,3 +6918,29 @@ it does not allocate the dense sample-by-feature matrix. The conditional
 probability matrix still requires features-by-classes storage. CSR/document
 sizes must fit the package's integer indexing limits. Integer seeds leave the
 intrinsic Fortran RNG unchanged. See [the example](../example/multilabel_samples.f90).
+
+## Bicluster sample generators
+
+`call make_biclusters(shape, n_clusters, data, rows, cols, noise, minval,
+maxval, shuffle, random_state)` creates a block diagonal matrix.
+`make_checkerboard` takes the same arguments and creates every Cartesian block;
+its `n_clusters` can be a scalar or a two-element row/column cluster vector.
+These routines are exported by `sklearn` and `sklearn_datasets`.
+
+`shape` is an integer vector `[n_samples,n_features]`, including empty axes.
+`data` is allocatable real(dp); `rows` and `cols` are allocatable logical
+matrices of shape `[n_blocks,n_samples]` and `[n_blocks,n_features]`. Diagonal
+data has `n_clusters` blocks, checkerboards have the product of the two
+cluster counts. Empty clusters retain their mask rows.
+
+Defaults are noise 0, minval 10, maxval 100, shuffle true and random_state 0.
+Cluster amplitudes are uniform, axis populations are multinomial, and positive
+noise adds independent Gaussian samples. Integer-seeded output follows sklearn
+1.6.1/NumPy RandomState draw ordering, including draws for empty blocks and
+shuffle's fresh stream at the original seed. Calls do not alter the Fortran
+intrinsic random stream. Python None and RandomState objects are unsupported.
+
+Dimensions must be nonnegative and cluster counts positive. Bounds and noise
+must be finite, noise nonnegative and maxval at least minval, with a finite
+range. Checkerboard block counts must fit default integer indexing.
+Large finite noise may produce quiet IEEE infinities, matching source output.

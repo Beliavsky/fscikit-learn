@@ -383,3 +383,7 @@ accept per-cluster scales and return center locations. See
 label-set targets, with dense/CSR output and optional generating distributions.
 See [the training example](example/multilabel_samples.f90) and
 [the API contract](docs/API.md#multilabel-classification-samples).
+
+`make_biclusters` and `make_checkerboard` produce seeded block matrices with
+logical membership masks. See [the example](example/bicluster_samples.f90)
+and [the API contract](docs/API.md#bicluster-sample-generators).
