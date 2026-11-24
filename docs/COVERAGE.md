@@ -10346,3 +10346,22 @@ Inventory: 222 public core types, 159 source modules, 218 native programs,
 190 reference suites / 3,868,548 retained groups and 95 invalid registries /
 5,141 cases. MIT integration and retained BSD notices continue. No dependency
 or public extension was added. The broader translation remains unfinished.
+
+## Free preprocessing.scale
+
+`scale` adds the missing free standardization algorithm for dense matrices,
+vectors and CSR matrices. It follows source population nanstd, both dense axes,
+two global centering corrections and the separate vector/matrix/sparse near-zero
+rules. Source sparse inputs return CSC; the native overload returns owned CSR
+with original raw slots retained. Both sparse centering and sparse row scaling
+are rejected. Optional logical correction outputs represent source precision
+warnings. No in-place/copy flag, CSC container or new estimator type is added.
+
+The focused suite retains 420 generated configurations: 412 accepted cases /
+3,296 groups and eight expected input-overflow rejections. Together with 16
+explicit invalid/CSR-format cases it requires 24 diagnostics. All 6,074
+nonfinite source values are compared. Numeric tolerances are 3e-8 absolute and
+relative; CSR layouts, correction flags and native caller/RNG identities are
+exact. Sparse Source CSC results are mapped back to original CSR slots using
+the source conversion's stable permutation, without coalescing duplicates.
+Canonical package validation is recorded after completion.

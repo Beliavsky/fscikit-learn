@@ -1792,3 +1792,14 @@ scikit-learn and NumPy BSD notices remain under LICENSES/. Native typed
 adapters, metadata representation, quiet arithmetic integration, tests,
 reference harness and example are MIT integration. The extracted type remains
 re-exported from preprocessing. No dependency or extension algorithm was added.
+
+## Free preprocessing.scale (BSD / MIT)
+
+The scale overloads in src/sklearn_standard_scaling.f90 follow installed
+scikit-learn 1.6.1 preprocessing/_data.py scale, including both dense centering
+corrections and sparse variance thresholding. Dense nanmean/nanstd behavior
+follows NumPy 2.2.6 lib/_nanfunctions_impl.py; sparse statistics follow sklearn
+utils/sparsefuncs_fast.pyx. Existing sklearn and NumPy BSD notices remain under
+LICENSES/. Original native typed interfaces, correction flags, CSR storage
+adapter, quiet arithmetic integration, tests, reference driver and example are
+MIT integration. No third-party dependency or extension algorithm was added.

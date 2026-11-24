@@ -8,7 +8,10 @@ module sklearn_standard_scaling
  use,intrinsic::ieee_arithmetic,only:ieee_is_nan,ieee_is_finite,ieee_value,ieee_quiet_nan
  implicit none
  private
- public::standard_scaler
+ public::standard_scaler,scale
+ interface scale
+  module procedure free_scale_dense,free_scale_vector,free_scale_csr
+ end interface
  type::standard_scaler
   logical::with_mean=.true.,with_std=.true.
   real(dp),allocatable::mean_(:),var_(:),scale_(:)
@@ -477,5 +480,193 @@ contains
   real(dp),intent(in)::sample_weight
   type(csr_matrix)::z
   call self%fit(x,sample_weight);z=self%transform(x)
+ end function
+
+ ! Free preprocessing.scale follows its own NumPy nanstd/two-correction path.
+ ! It deliberately differs from StandardScaler's incremental constant mask.
+ real(dp) function free_mean(a,pairwise) result(value)
+  real(dp),intent(in)::a(:)
+  logical,intent(in)::pairwise
+  value=ieee_quotient(total(a,.true.,pairwise),real(count(.not.ieee_is_nan(a)),dp))
+ end function
+ real(dp) function free_std(a,pairwise) result(value)
+  real(dp),intent(in)::a(:)
+  logical,intent(in)::pairwise
+  real(dp)::m,terms(size(a)),v
+  integer::i
+  m=free_mean(a,pairwise)
+  do i=1,size(a)
+   terms(i)=0
+   if(.not.ieee_is_nan(a(i))) terms(i)=square(ieee_difference(a(i),m))
+  end do
+  v=ieee_quotient(total(terms,.false.,pairwise),real(count(.not.ieee_is_nan(a)),dp))
+  value=ieee_value(0._dp,ieee_quiet_nan)
+  if(.not.ieee_is_nan(v)) then
+   if(v>=0) value=sqrt(v)
+  end if
+ end function
+ logical function free_close_zero(a) result(close)
+  real(dp),intent(in)::a(:)
+  integer::i
+  close=.false.
+  do i=1,size(a)
+   if(.not.ieee_is_finite(a(i))) return
+   if(abs(a(i))>1.e-8_dp) return
+  end do
+  close=.true.
+ end function
+ function free_scale_dense(x,axis,with_mean,with_std,centering_corrected,scaling_corrected) result(z)
+  real(dp),intent(in)::x(:,:)
+  integer,intent(in),optional::axis
+  logical,intent(in),optional::with_mean,with_std
+  logical,intent(out),optional::centering_corrected,scaling_corrected
+  real(dp)::z(size(x,1),size(x,2))
+  real(dp),allocatable::a(:,:),mean(:),std(:),residual(:)
+  logical::center,standardize,first,second,pairwise
+  integer::ax,i,j
+  call dense_input(x);ax=0;if(present(axis)) ax=axis
+  call require(ax==0.or.ax==1,'scale axis must be 0 or 1')
+  center=.true.;if(present(with_mean)) center=with_mean
+  standardize=.true.;if(present(with_std)) standardize=with_std
+  if(ax==0) then
+   a=x;pairwise=size(x,2)==1
+  else
+   a=transpose(x);pairwise=.true.
+  end if
+  allocate(mean(size(a,2)),std(size(a,2)),residual(size(a,2)))
+  do j=1,size(a,2)
+   if(center) mean(j)=free_mean(a(:,j),pairwise)
+   if(standardize) std(j)=free_std(a(:,j),pairwise)
+  end do
+  first=.false.;second=.false.
+  if(center) then
+   do j=1,size(a,2)
+    do i=1,size(a,1)
+     a(i,j)=ieee_difference(a(i,j),mean(j))
+    end do
+    residual(j)=free_mean(a(:,j),pairwise)
+   end do
+   first=.not.free_close_zero(residual)
+   if(first) then
+    do j=1,size(a,2)
+     do i=1,size(a,1)
+      a(i,j)=ieee_difference(a(i,j),residual(j))
+     end do
+    end do
+   end if
+  end if
+  if(standardize) then
+   do j=1,size(a,2)
+    if(.not.ieee_is_nan(std(j))) then
+     if(std(j)<10*epsilon(1._dp)) std(j)=1
+    end if
+    do i=1,size(a,1)
+     a(i,j)=ieee_quotient(a(i,j),std(j))
+    end do
+   end do
+   if(center) then
+    do j=1,size(a,2)
+     residual(j)=free_mean(a(:,j),pairwise)
+    end do
+    second=.not.free_close_zero(residual)
+    if(second) then
+     do j=1,size(a,2)
+      do i=1,size(a,1)
+       a(i,j)=ieee_difference(a(i,j),residual(j))
+      end do
+     end do
+    end if
+   end if
+  end if
+  if(ax==0) then
+   z=a
+  else
+   z=transpose(a)
+  end if
+  if(present(centering_corrected)) centering_corrected=first
+  if(present(scaling_corrected)) scaling_corrected=second
+ end function
+ function free_scale_vector(x,axis,with_mean,with_std,centering_corrected,scaling_corrected) result(z)
+  real(dp),intent(in)::x(:)
+  integer,intent(in),optional::axis
+  logical,intent(in),optional::with_mean,with_std
+  logical,intent(out),optional::centering_corrected,scaling_corrected
+  real(dp)::z(size(x)),mean,std,residual
+  logical::center,standardize,first,second
+  integer::ax,i
+  call require(size(x)>0,'scale vector must be nonempty')
+  call require(all(ieee_is_finite(x).or.ieee_is_nan(x)),'scale input contains infinity')
+  ax=0;if(present(axis)) ax=axis
+  call require(ax==0,'scale vector axis must be 0')
+  center=.true.;if(present(with_mean)) center=with_mean
+  standardize=.true.;if(present(with_std)) standardize=with_std
+  if(center) mean=free_mean(x,.true.)
+  if(standardize) std=free_std(x,.true.)
+  z=x;first=.false.;second=.false.
+  if(center) then
+   do i=1,size(x)
+    z(i)=ieee_difference(z(i),mean)
+   end do
+   residual=free_mean(z,.true.);first=.not.free_close_zero([residual])
+   if(first) then
+    do i=1,size(x)
+     z(i)=ieee_difference(z(i),residual)
+    end do
+   end if
+  end if
+  if(standardize) then
+   ! NumPy returns a scalar here: the source helper replaces only exact zero.
+   if(.not.ieee_is_nan(std)) then
+    if(std==0) std=1
+   end if
+   do i=1,size(x)
+    z(i)=ieee_quotient(z(i),std)
+   end do
+   if(center) then
+    residual=free_mean(z,.true.);second=.not.free_close_zero([residual])
+    if(second) then
+     do i=1,size(x)
+      z(i)=ieee_difference(z(i),residual)
+     end do
+    end if
+   end if
+  end if
+  if(present(centering_corrected)) centering_corrected=first
+  if(present(scaling_corrected)) scaling_corrected=second
+ end function
+ function free_scale_csr(x,axis,with_mean,with_std,centering_corrected,scaling_corrected) result(z)
+  type(csr_matrix),intent(in)::x
+  integer,intent(in),optional::axis
+  logical,intent(in),optional::with_mean,with_std
+  logical,intent(out),optional::centering_corrected,scaling_corrected
+  type(csr_matrix)::z
+  real(dp)::mean(x%n_cols),var(x%n_cols),n(x%n_cols),weights(x%n_rows),factor
+  logical::center,standardize
+  integer::ax,j,k
+  call sparse_input(x);ax=0;if(present(axis)) ax=axis
+  center=.true.;if(present(with_mean)) center=with_mean
+  standardize=.true.;if(present(with_std)) standardize=with_std
+  call require(.not.center,'scale cannot center sparse matrices')
+  call require(ax==0,'scale sparse axis must be 0')
+  z=x
+  if(standardize) then
+   weights=1;call sparse_batch(x,weights,mean,var,n)
+   do j=1,x%n_cols
+    if(.not.ieee_is_nan(var(j))) then
+     ! The source free sparse function thresholds variance before sqrt.
+     if(var(j)<10*epsilon(1._dp)) var(j)=1
+    end if
+    factor=ieee_value(0._dp,ieee_quiet_nan)
+    if(.not.ieee_is_nan(var(j))) then
+     if(var(j)>=0) factor=ieee_quotient(1._dp,sqrt(var(j)))
+    end if
+    var(j)=factor
+   end do
+   do k=1,size(z%data)
+    z%data(k)=ieee_product(z%data(k),var(z%indices(k)))
+   end do
+  end if
+  if(present(centering_corrected)) centering_corrected=.false.
+  if(present(scaling_corrected)) scaling_corrected=.false.
  end function
 end module

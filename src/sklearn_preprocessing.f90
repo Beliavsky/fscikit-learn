@@ -1,5 +1,5 @@
 module sklearn_preprocessing
-  use sklearn_standard_scaling, only: standard_scaler
+  use sklearn_standard_scaling, only: standard_scaler,scale
   use sklearn_robust_scaling, only: robust_scaler,robust_scale
   use sklearn_minmax_scaling, only: minmax_scaler,minmax_scale
   use sklearn_maxabs_scaling, only: maxabs_scaler,maxabs_scale
@@ -32,6 +32,7 @@ module sklearn_preprocessing
   public :: robust_scale
   public :: minmax_scale
   public :: maxabs_scale
+  public :: scale
   public :: standard_scaler, minmax_scaler, maxabs_scaler, robust_scaler, simple_imputer
   public :: normalize, binarize, polynomial_features, label_encoder, one_hot_encoder
   public :: normalizer,binarizer

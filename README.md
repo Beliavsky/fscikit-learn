@@ -518,3 +518,8 @@ StandardScaler supports weighted dense/CSR fitting and incremental batches,
 missing observations, fitted count metadata and sparse-preserving transforms.
 See the [example](example/standard_streaming.f90) and
 [API contract](docs/API.md#standardscaler-weighted-streaming-and-csr-inputs).
+
+The free `scale` function supports matrix axes, vectors and CSR input, including
+source centering corrections and distinct near-zero rules. See the
+[example](example/scale_axes.f90) and
+[API contract](docs/API.md#free-standard-scaling-on-matrices-vectors-and-csr).

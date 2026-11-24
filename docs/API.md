@@ -8041,3 +8041,31 @@ statistic broadcasting. Frozen fitted-state detection uses fitted width so a
 scaler with both operations disabled remains usable. Existing dense composition
 adapters continue to dispatch this type; CSR composition and metadata routing
 are outside this change. See [the example](../example/standard_streaming.f90).
+
+## Free standard scaling on matrices, vectors and CSR
+
+`scale(x, axis=0, with_mean=.true., with_std=.true.)` is exported by
+`sklearn_standard_scaling`, `sklearn_preprocessing` and `sklearn`. It translates
+`sklearn.preprocessing.scale`, independently of StandardScaler fitting. Dense
+matrices accept axis 0 (columns) or 1 (rows); vectors accept only axis 0, matching
+the source's rank-one restriction. NaNs are missing observations and are retained
+in mapped data. Empty inputs and infinity are rejected even when both operations
+are disabled. Every overload returns an owned result and preserves its caller.
+Python's optional in-place `copy=False` behavior is not exposed.
+
+Dense maps use NumPy-style population nanstd and the source's two global
+centering corrections. Optional logical outputs `centering_corrected` and
+`scaling_corrected` report whether each correction was applied; these correspond
+to the source's two numerical-issue UserWarnings. Native code does not emit
+Python warnings. A missing feature can trigger a correction for the entire
+matrix, including its finite features. Matrix near-zero handling replaces a
+standard deviation below 10*epsilon with one, whereas vector scalar statistics
+replace only exact zero.
+
+CSR input requires `with_mean=.false.` and axis 0, including no-op calls. Source
+Python converts to CSC; the native overload retains owned CSR storage, raw
+entry order, duplicate entries and explicit zeros. Statistics follow the source's
+raw stored-entry/implicit-zero computation. Its near-zero rule thresholds the
+variance before taking a square root, intentionally differing from both dense
+free scaling and StandardScaler. Sparse maps do not materialize dense matrices.
+See [the example](../example/scale_axes.f90).
