@@ -1803,3 +1803,18 @@ utils/sparsefuncs_fast.pyx. Existing sklearn and NumPy BSD notices remain under
 LICENSES/. Original native typed interfaces, correction flags, CSR storage
 adapter, quiet arithmetic integration, tests, reference driver and example are
 MIT integration. No third-party dependency or extension algorithm was added.
+
+## Seeded QuantileTransformer and free quantile transforms (BSD / MIT)
+
+src/sklearn_quantile_transform.f90 follows installed sklearn 1.6.1
+preprocessing/_data.py QuantileTransformer/quantile_transform and
+utils/_indexing.py resample; seeded permutations use the existing NumPy-compatible
+legacy RNG. Percentile interpolation/reference rounding follows NumPy 2.2.6
+lib/_function_base_impl.py. Interpolation search guesses and nonfinite fallbacks
+follow NumPy 2.2.6 numpy/_core/src/multiarray/compiled_base.c arr_interp and
+binary_search_with_guess:
+https://github.com/numpy/numpy/blob/v2.2.6/numpy/_core/src/multiarray/compiled_base.c
+Existing sklearn/NumPy BSD notices remain under LICENSES/. Native compact zero
+multiplicity buffers, typed CSR/free interfaces, quiet arithmetic integration,
+caller/RNG-preserving adapters, examples and test harnesses are MIT integration.
+No dependency or public extension algorithm was added.

@@ -10421,3 +10421,24 @@ Inventory: 222 public core types, 159 source modules, 219 native programs,
 191 reference suites / 3,871,844 retained groups and 96 invalid registries /
 5,165 cases. MIT integration and retained BSD notices continue. No dependency
 or extension algorithm was added. The broader translation remains unfinished.
+
+## QuantileTransformer seeded sampling and sparse/free maps
+
+QuantileTransformer now uses source-seeded row and per-column sparse sampling,
+without changing the global RNG. CSR fits/queries, ignored implicit zeros,
+raw duplicates, signed sparse inverse queries and compact zero padding are
+supported. The free quantile_transform covers both dense/CSR axes and preserves
+raw row ordering during sparse row-wise sampling. NumPy percentile/reference
+rounding, interpolation guesses/nonfinite fallbacks, singleton missing tables
+and source live query controls are retained. Existing generic dense composition
+adapters continue to use the same type. No estimator type or external dependency
+was added; CSC output is adapted to owned CSR storage.
+
+The focused reference grid retains all 1,732 configurations: 1,620 accepted
+fixtures / 37,260 groups and 112 expected source rejections. The latter include
+64 dense conversion/input overflows and 48 negative-sparse-input rejections.
+Twenty-one explicit validation/format cases bring diagnostics to 133. Numeric
+fields compare at 3e-8 relative tolerance and a magnitude-scaled absolute cap
+of 3e-8, retaining tiny values, NaNs and signed infinity. Layouts, reference grids,
+metadata and native caller/RNG identities are exact. All 27,904 nonfinite source
+outcomes remain compared. Canonical package verification is recorded separately.

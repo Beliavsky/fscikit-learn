@@ -8071,3 +8071,43 @@ raw stored-entry/implicit-zero computation. Its near-zero rule thresholds the
 variance before taking a square root, intentionally differing from both dense
 free scaling and StandardScaler. Sparse maps do not materialize dense matrices.
 See [the example](../example/scale_axes.f90).
+
+## Source-seeded quantile transforms and CSR inputs
+
+`quantile_transformer` accepts dense and CSR `fit`, `fit_transform`, `transform`
+and `inverse_transform`. `ignore_implicit_zeros` defaults to false. Sparse fits
+and forward queries must then have nonnegative stored values; setting it true
+permits signed stored data and excludes implicit zeros from fitted percentiles.
+Sparse inverse queries permit negative data regardless of that flag. Dense
+input ignores the flag. All inputs permit NaNs and reject infinity/empty shapes.
+Source Python uses CSC; native results retain owned CSR storage, including entry
+order, duplicates, explicit zeros and implicit-zero locations. Only stored
+values are mapped, so a stored zero can map to a nonzero normal score while an
+implicit zero stays implicit. Oversized raw columns and impossible sample draws
+are rejected where the source rejects them.
+
+Scalar integer seeds use NumPy RandomState-compatible MT19937/Fisher-Yates
+sampling. Dense fits select shared rows; sparse fits sample stored columns with
+the source's per-column counts and RNG consumption, including zero-length draws.
+Native seed values are nonnegative default integers and default to zero.
+`subsample=0` represents Python None; class default is 10000 and the free-function
+default is 100000. Fits preserve Fortran's global RNG. NumPy random-state objects
+and the Python global/None stream are outside this typed seed interface.
+
+Percentiles follow NumPy linear interpolation, reference-grid rounding and
+monotone accumulation. Sparse padding uses compact zero multiplicities rather
+than allocating one sample-length array per feature. Query interpolation retains
+NumPy's search guesses and nonfinite fallbacks, including overflow-produced knot
+tables. A single all-missing fitted quantile maps finite uniform queries to zero,
+matching source behavior. Normal output retains source tail clipping. Queries
+honor live output_distribution and sparse ignore_implicit_zeros; fit-only count,
+subsample and seed controls do not invalidate an already fitted query.
+
+`quantile_transform(x, axis=0, n_quantiles=1000, output_distribution='uniform',
+ignore_implicit_zeros=.false., subsample=100000, random_state=0)` is re-exported by
+`sklearn_preprocessing` and `sklearn`. It supports both axes for dense matrices
+and CSR. Sparse row-wise sampling preserves the original row storage order.
+Rank-one inputs are outside the source estimator/free-function interface.
+All outputs are owned; Python copy=False and Python warning emissions are not
+exposed. Capped quantile counts remain visible in fitted metadata. See the
+[example](../example/quantile_sparse.f90).

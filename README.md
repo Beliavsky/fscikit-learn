@@ -523,3 +523,8 @@ The free `scale` function supports matrix axes, vectors and CSR input, including
 source centering corrections and distinct near-zero rules. See the
 [example](example/scale_axes.f90) and
 [API contract](docs/API.md#free-standard-scaling-on-matrices-vectors-and-csr).
+
+QuantileTransformer supports source-seeded dense/CSR sampling and sparse maps.
+The free `quantile_transform` covers both matrix axes. See the
+[example](example/quantile_sparse.f90) and
+[API contract](docs/API.md#source-seeded-quantile-transforms-and-csr-inputs).

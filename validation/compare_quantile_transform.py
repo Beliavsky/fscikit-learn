@@ -1,5 +1,6 @@
 """QuantileTransformer percentiles, duplicate interpolation and tail conventions."""
 from pathlib import Path
+import argparse,hashlib
 import json
 import subprocess
 import warnings
@@ -11,6 +12,10 @@ ROOT = Path(__file__).resolve().parents[1]
 RESULTS = ROOT / "validation" / "results"
 
 def main():
+    ap=argparse.ArgumentParser();ap.add_argument('--executable',type=Path);ap.add_argument('--profile',default='development');ap.add_argument('--report',type=Path);args=ap.parse_args()
+    paths=[Path(__file__),ROOT/'src/sklearn_quantile_transform.f90',ROOT/'app/reference_quantile_transform_driver.f90']
+    if args.executable:paths.append(args.executable)
+    sha=lambda p:hashlib.sha256(p.read_bytes()).hexdigest();hashes={str(p):sha(p) for p in paths}
     RESULTS.mkdir(exist_ok=True)
     checks = []
     for seed, n, p in ((7, 45, 2), (42, 54, 3), (2026, 63, 4)):
@@ -37,14 +42,14 @@ def main():
             if j in (9, 10): probe[4, 0] = np.nan
             nq = n+10 if j == 3 else n if j == 4 else 1 if j in (5, 6) else 3 if j == 7 else 9
             cases.append((x, query, probe, nq, "normal" if normal else "uniform"))
-        data, output = RESULTS/f"quantile_{seed}.txt", RESULTS/f"quantile_actual_{seed}.txt"
+        data, output = RESULTS/f"quantile_{args.profile}_{seed}.txt", RESULTS/f"quantile_actual_{args.profile}_{seed}.txt"
         with data.open("w") as stream:
             stream.write(f"{n} {p}\n")
             for x, query, probe, _, _ in cases:
                 for matrix in (x, query, probe): np.savetxt(stream, matrix, fmt="%.17g")
-        subprocess.run(["fpm", "run", "--flag", "-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow",
-                        "--target", "reference_quantile_transform_driver", "--", str(data), str(output)],
-                       cwd=ROOT, check=True)
+        command=([str(args.executable)] if args.executable else ["fpm", "run", "--flag",
+            "-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow", "--target", "reference_quantile_transform_driver", "--"])
+        subprocess.run(command+[str(data),str(output)],cwd=ROOT,check=True)
         actual = {}
         for line in output.read_text().splitlines():
             name, *values = line.split()
@@ -66,7 +71,8 @@ def main():
             assert got.shape == want.shape, (seed, name, got.shape, want.shape)
             np.testing.assert_allclose(got, want, atol=2e-10, rtol=2e-11, equal_nan=True, err_msg=f"{seed} {name}")
             checks.append(dict(seed=seed, name=name, passed=True))
-    (RESULTS/"quantile_transform.json").write_text(json.dumps(dict(sklearn=sklearn.__version__, checks=checks),
+    assert hashes=={str(p):sha(p) for p in paths}
+    (args.report or RESULTS/"quantile_transform.json").write_text(json.dumps(dict(profile=args.profile,hashes=hashes,sklearn=sklearn.__version__, checks=checks),
                                                            indent=2)+"\n")
     print(f"{len(checks)} QuantileTransformer result groups passed")
 
