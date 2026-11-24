@@ -8439,7 +8439,7 @@ facade; other preprocessing procedure bodies remain unchanged.
 
 The suite checks 596 fixtures / 9,532 required groups and 16 diagnostics (15
 sklearn checks plus one native int64 counter-capacity guard). Fixtures include
-five datasets seeds, three widths, streaming/refits, both free-function axes,
+five dataset seeds, three widths, streaming/refits, both free-function axes,
 NaNs/all-NaN batches, constants, tiny/threshold/huge values, finite/nonfinite
 endpoint ranges, live/reversed clip bounds, learned-scale mutation and inverse
 broadcasting. All 8,544 nonfinite source values are compared. Numerical fields
@@ -8450,3 +8450,39 @@ Inventory: 222 public core types, 157 source modules, 214 native programs,
 188 reference suites / 3,819,228 retained groups and 93 invalid registries /
 5,063 cases. No dependency or public extension was added. MIT integration and
 retained sklearn BSD attribution continue. Canonical verification follows below.
+
+Final MinMax verification: checked and optimized release profiles each passed
+17 selected native programs: test_minmax_streaming, test_minmax_integration,
+test_maxabs_streaming, test_maxabs_integration, test_preprocessing_metrics,
+test_stateless_preprocessing, test_stateless_composition, test_pipeline,
+test_pipeline_supervised, test_frozen, test_transformed_target,
+test_column_transformer, test_feature_union, test_function_transformer,
+test_positive_composition, test_polynomial_composition and test_target_encoding.
+The other 197 native programs were not executed in this batch. Dedicated tests
+verify MinMax/MaxAbs type dispatch through Pipeline/FrozenEstimator, inverse
+maps, feature width and prototype preservation.
+
+Each profile passed nine comparison runs / 93,628 groups: 9,532 new MinMax,
+55,644 MaxAbs, 19,386 Normalizer/Binarizer, 5,328 stateless composition, 192 core,
+216 column-transformer, 120 feature-union, 1,176 transformed-target and 2,034
+pipeline groups. The last four are explicit integration slices: 36/24 column/
+union fixtures with MinMax or MaxAbs, 168 target-transform fixtures with those
+scalers, and 180 pipeline fixtures with MinMax stages (kinds 2, 8 and 11).
+Original generator random streams are preserved; these are not full reruns of
+the original integration suites. All 146 diagnostics passed: 16 new MinMax,
+101 MaxAbs and 29 retained stateless checks. All 8,544 new nonfinite source
+values remain compared, along with retained suites' nonfinite inventories.
+
+The combined audit verifies 191 compiled source units per profile, complete
+conditional inventories for 596 new fixtures, exact metadata and caller/RNG
+identities, stable source/executable/validator/report hashes and matching
+profile configuration/check inventories. New reports use strict JSON with
+explicit string tags for NaN/infinite range endpoints. Both scaler examples
+match source. The audit proves unchanged other preprocessing procedure bodies
+after the focused MinMax extraction/imports/exports, and unchanged unrelated
+source/test/application paths. Optimized driver hashes differ from checked
+binaries. Four-job builds used the checksum-verified private fpm 0.14.0;
+the global fpm was unchanged. Artifacts remain under ignored validation/results/
+minmax*, including minmax_final_audit.json. Implementation commit: 7f5c285.
+MIT integration and retained upstream notices continue; no dependency or public
+extension algorithm was added.
