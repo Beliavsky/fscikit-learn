@@ -7848,7 +7848,7 @@ Inventory: 222 public core types, 154 source modules, 205 native programs,
 kernel algebra suite now accepts an explicit executable and retains its
 separately injected-map checks. No new public type, dependency or extension
 algorithm was added. MIT licensing and retained BSD attribution continue.
-Canonical verification will be recorded below.
+Canonical verification is recorded below.
 
 A release comparison exposed a dense large-phase accumulation difference:
 for 1e154 inputs, separate product rounding changed a phase bit and its cosine.
@@ -7858,3 +7858,27 @@ ordinary bounded phases retain MATMUL, and nonfinite bounds retain quiet IEEE
 composition. A native regression checks this finite phase case. The unchanged
 1,064-fixture optimized probe passes all 8,512 groups, 33 diagnostics and 522
 nonfinite reference values. No fixture or tolerance was relaxed or removed.
+
+Final RBF-feature verification: checked and optimized release builds both
+passed test_rbf_features, test_kernel_approximation and test_chi2_samplers,
+including the fused finite-phase regression. These three native programs were
+run; the other 202 native programs were not executed in this batch. The two
+affected reference suites each passed 8,701 groups and 33 diagnostics per
+profile: 8,512 new RBF groups / 33 diagnostics and 189 retained isotonic/kernel
+algebra groups. Weights, offsets and gamma compare elementwise exactly, with
+matching NaN/Inf semantics. All 522 source nonfinite values remain covered.
+Both facade examples match source gamma, weights, offsets and mapped values.
+
+The combined audit verifies 164 compiled source units per profile, complete
+eight-field inventories for 1,064 new fixtures, stable source/executable/
+validator/report hashes and matching checked/release inventories. Source CSR
+preservation, seeded refits and global-RNG isolation identities are observed
+alongside native counterparts. Three structural diagnostics use SciPy
+check_format; 30 use sklearn estimator validation. The unchanged corpus and
+tolerances passed after the phase fix; no failing case was removed or relaxed.
+Only the two named affected reference suites and their diagnostics were rerun.
+Unrelated source/test/application paths remained unchanged. Four-job builds
+used the checksum-verified private fpm 0.14.0; the global fpm was unchanged.
+Artifacts remain under ignored validation/results/rbf_features*, including
+rbf_features_final_audit.json. Implementation commits: ad9019e, 1e49021 and
+cf8d7b7. IEEE_FMA compiler support is documented in API.md.
