@@ -7751,3 +7751,27 @@ Large finite dense RBF phases use explicit Fortran ieee_fma accumulation to
 preserve the reference phase under compiler optimization. Small bounded
 phases retain MATMUL; nonfinite phases use the quiet-IEEE path. This requires
 a compiler implementing the standard IEEE fused multiply-add intrinsic.
+
+## Source-seeded skewed chi-square features
+
+SkewedChi2Sampler now draws its row-major uniforms and subsequent phase offsets
+with the existing NumPy-compatible scalar-seeded stream. The inverse sech CDF
+follows sklearn 1.6.1 operation order, including its zero endpoint. Fits validate
+finite dense data, positive n_components and nonnegative native integer seeds;
+training values need not satisfy the shifted transform domain when calling fit
+alone. Fitting preserves the intrinsic Fortran RNG. Earlier native seeded
+weights change to match the source.
+
+Transform checks X > -skewedness and uses the source rounded X+skewedness before
+log, rather than a stabilized positive log-sum. Finite input additions can thus
+produce infinity; quiet logarithm, dot and phase composition preserve the
+source's defined NaN/Inf outcomes without checked floating-point traps. The
+dense Fourier dot helper is shared with RBFSampler, including its fused finite
+large-phase path. No sparse input is added: sklearn's skewed sampler is dense.
+Native finite skewedness and positive component controls remain required.
+
+As in source, changing positive n_components after fitting changes feature
+normalization while learned array shapes remain fixed; changing finite
+skewedness changes the query log shift. Refit repeats the configured seeded
+stream. See [the example](../example/seeded_skewed_features.f90). No dependency,
+public type or extension algorithm was added.

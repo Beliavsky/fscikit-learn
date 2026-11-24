@@ -474,3 +474,8 @@ RBFSampler reproduces scikit-learn's seeded Fourier weights and offsets and
 accepts CSR inputs, including scaled gamma. See
 [the example](example/seeded_rbf_features.f90) and
 [the API contract](docs/API.md#source-seeded-dense-and-csr-rbf-features).
+
+SkewedChi2Sampler also reproduces scikit-learn's seeded weights and phases,
+including shifted-domain and IEEE behavior. See
+[the example](example/seeded_skewed_features.f90) and
+[the API contract](docs/API.md#source-seeded-skewed-chi-square-features).

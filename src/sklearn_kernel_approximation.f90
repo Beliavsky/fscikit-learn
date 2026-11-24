@@ -7,7 +7,7 @@ module sklearn_kernel_approximation
   use sklearn_ieee_math, only: ieee_difference,ieee_product,ieee_quotient
   use sklearn_common
   use sklearn_metrics, only: linear_kernel,rbf_kernel,polynomial_kernel,cosine_similarity
-  use, intrinsic :: ieee_arithmetic, only: ieee_is_finite,ieee_is_nan,ieee_value,ieee_quiet_nan,ieee_fma
+  use, intrinsic :: ieee_arithmetic, only: ieee_is_finite,ieee_is_nan,ieee_value,ieee_quiet_nan,ieee_fma,ieee_negative_inf
   implicit none
   private
   public :: polynomial_count_sketch
@@ -213,18 +213,15 @@ contains
       end do
     end do
   end subroutine
-  function rbfs_transform(self,x) result(z)
-    class(rbf_sampler),intent(in)::self
-    real(dp),intent(in)::x(:,:)
+  function fourier_dot(x,weights) result(z)
+    real(dp),intent(in)::x(:,:),weights(:,:)
     real(dp),allocatable::z(:,:)
     real(dp)::bound
     integer::i,j,k
     logical::fast,fused
-    call require(allocated(self%random_weights_),'RBF sampler is not fitted')
-    call check_xy(transpose(x),size(self%random_weights_,1))
     fast=.false.;fused=.false.
-    if(all(ieee_is_finite(self%random_weights_))) then
-      bound=ieee_product(ieee_product(maxval(abs(x)),maxval(abs(self%random_weights_))),real(size(x,2),dp))
+    if(all(ieee_is_finite(weights)).and.all(ieee_is_finite(x))) then
+      bound=ieee_product(ieee_product(maxval(abs(x)),maxval(abs(weights))),real(size(x,2),dp))
       ! Large phases amplify last-bit reassociation into different cosine values.
       ! Keep ordinary maps on MATMUL and control summation for sensitive phases.
       fast=.false.
@@ -233,21 +230,29 @@ contains
       end if
     end if
     if(fast) then
-      z=matmul(x,self%random_weights_)
+      z=matmul(x,weights)
     else
-      allocate(z(size(x,1),size(self%random_weights_,2)));z=0
+      allocate(z(size(x,1),size(weights,2)));z=0
       do j=1,size(z,2)
         do i=1,size(z,1)
           do k=1,size(x,2)
             if(fused) then
-              z(i,j)=ieee_fma(x(i,k),self%random_weights_(k,j),z(i,j))
+              z(i,j)=ieee_fma(x(i,k),weights(k,j),z(i,j))
             else
-              z(i,j)=ieee_difference(z(i,j),-ieee_product(x(i,k),self%random_weights_(k,j)))
+              z(i,j)=ieee_difference(z(i,j),-ieee_product(x(i,k),weights(k,j)))
             end if
           end do
         end do
       end do
     end if
+  end function
+  function rbfs_transform(self,x) result(z)
+    class(rbf_sampler),intent(in)::self
+    real(dp),intent(in)::x(:,:)
+    real(dp),allocatable::z(:,:)
+    call require(allocated(self%random_weights_),'RBF sampler is not fitted')
+    call check_xy(transpose(x),size(self%random_weights_,1))
+    z=fourier_dot(x,self%random_weights_)
     call rbf_finish(self,z)
   end function
   function rbfs_transform_csr(self,x) result(z)
@@ -395,45 +400,67 @@ contains
     call self%fit(x); z=self%transform(x)
   end function
 
+  real(dp) function skewed_log(value) result(result_)
+    real(dp),intent(in)::value
+    result_=ieee_value(0._dp,ieee_quiet_nan)
+    if(ieee_is_nan(value)) return
+    if(value==0) then
+      result_=ieee_value(0._dp,ieee_negative_inf)
+    else if(value>0) then
+      result_=log(value)
+    end if
+  end function
   subroutine skewed_fit(self,x)
-    class(skewed_chi2_sampler), intent(inout) :: self
-    real(dp), intent(in) :: x(:,:)
-    real(dp) :: pi
+    class(skewed_chi2_sampler),intent(inout)::self
+    real(dp),intent(in)::x(:,:)
+    type(legacy_random_state)::rng
+    real(dp)::pi,u
+    integer::i,j
     call check_x(x)
     call require(self%n_components>=1,'SkewedChi2 n_components must be positive')
     call require(ieee_is_finite(self%skewedness),'nonfinite SkewedChi2 skewedness')
-    self%n_features_in_=size(x,2); pi=acos(-1._dp)
-    if(allocated(self%random_weights_)) deallocate(self%random_weights_,self%random_offset_)
+    call require(self%random_state>=0,'SkewedChi2 random_state must be nonnegative')
+    self%n_features_in_=size(x,2);pi=acos(-1._dp)
+    if(allocated(self%random_weights_)) deallocate(self%random_weights_)
+    if(allocated(self%random_offset_)) deallocate(self%random_offset_)
     allocate(self%random_weights_(size(x,2),self%n_components),self%random_offset_(self%n_components))
-    call seed_rng(self%random_state); call random_number(self%random_weights_)
-    ! Exclude the possible zero endpoint before inverse-CDF sampling.
-    self%random_weights_=max(tiny(1._dp),self%random_weights_)
-    self%random_weights_=log(tan(.5_dp*pi*self%random_weights_))/pi
-    call random_number(self%random_offset_); self%random_offset_=self%random_offset_*2*pi
+    call rng%seed(self%random_state)
+    do i=1,size(x,2)
+      do j=1,self%n_components
+        u=rng%uniform()
+        self%random_weights_(i,j)=(1/pi)*skewed_log(tan((pi/2)*u))
+      end do
+    end do
+    do j=1,self%n_components
+      self%random_offset_(j)=rng%uniform()*(2*pi)
+    end do
   end subroutine
-
   function skewed_transform(self,x) result(z)
-    class(skewed_chi2_sampler), intent(in) :: self
-    real(dp), intent(in) :: x(:,:)
-    real(dp), allocatable :: z(:,:),shifted(:,:)
-    integer :: i,j
+    class(skewed_chi2_sampler),intent(in)::self
+    real(dp),intent(in)::x(:,:)
+    real(dp),allocatable::z(:,:),shifted(:,:)
+    real(dp)::phase,scale
+    integer::i,j
     call require(allocated(self%random_weights_),'SkewedChi2 is not fitted')
     call require(ieee_is_finite(self%skewedness),'nonfinite SkewedChi2 skewedness')
     call check_xy(transpose(x),self%n_features_in_)
     call require(all(x>-self%skewedness),'SkewedChi2 input must exceed -skewedness')
+    call require(self%n_components>0,'SkewedChi2 transform n_components must be positive')
     allocate(shifted(size(x,1),size(x,2)))
     do j=1,size(x,2)
       do i=1,size(x,1)
-        if(x(i,j)>0.and.self%skewedness>0) then
-          shifted(i,j)=log(max(x(i,j),self%skewedness))+ &
-            log(1+min(x(i,j),self%skewedness)/max(x(i,j),self%skewedness))
-        else
-          shifted(i,j)=log(x(i,j)+self%skewedness)
-        end if
+        shifted(i,j)=skewed_log(ieee_difference(x(i,j),-self%skewedness))
       end do
     end do
-    z=cos(matmul(shifted,self%random_weights_)+spread(self%random_offset_,1,size(x,1)))* &
-      (sqrt(2._dp)/sqrt(real(size(self%random_offset_),dp)))
+    z=fourier_dot(shifted,self%random_weights_)
+    scale=sqrt(2._dp)/sqrt(real(self%n_components,dp))
+    do j=1,size(z,2)
+      do i=1,size(z,1)
+        phase=ieee_difference(z(i,j),-self%random_offset_(j))
+        z(i,j)=ieee_value(0._dp,ieee_quiet_nan)
+        if(ieee_is_finite(phase)) z(i,j)=cos(phase)*scale
+      end do
+    end do
   end function
 
   function skewed_fit_transform(self,x) result(z)

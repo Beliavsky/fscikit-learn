@@ -107,7 +107,7 @@ Reference paths by module:
 | locally_linear / lle_variants | manifold/_locally_linear.py; local barycentric reconstruction, standard/Hessian/modified/LTSA alignment objectives and query interpolation; native QR, orthogonal completion, Jacobi local SVD/eigensolver and dense global eigensolver |
 | cross_decomposition | cross_decomposition/_pls.py; centering/scaling, NIPALS mode A/B, regression/canonical deflation, rotations, prediction and PLSSVD contracts; native dense SVD/pseudoinverse including historical CCA rank cutoff |
 | isotonic | isotonic.py, _isotonic.pyx; weighted monotonic fitting/interpolation contracts, Spearman direction, near-duplicate aggregation and threshold trimming; native PAVA implementation |
-| kernel_approximation | kernel_approximation.py (including AdditiveChi2Sampler defaults, harmonic map and layout; SkewedChi2Sampler inverse-CDF weights, offsets, shifted-log map and domain); RBFSampler source-seeded dense/CSR Fourier features and Nystroem landmark normalization contracts; other maps retain independent Fortran RNG and the native PSD eigensolver |
+| kernel_approximation | kernel_approximation.py (including AdditiveChi2Sampler defaults, harmonic map and layout; SkewedChi2Sampler inverse-CDF weights, offsets, shifted-log map and domain); RBFSampler source-seeded dense/CSR Fourier features and Nystroem landmark normalization contracts; SkewedChi2Sampler also uses NumPy-compatible seeded uniforms; Nystroem retains independent Fortran RNG and the native PSD eigensolver |
 | fast_ica | decomposition/_fastica.py; parallel/deflation fixed-point updates, contrasts, whitening and scaling contract; native dense SVD/eigen/pseudoinverse and independent random stream |
 | factor_analysis | decomposition/_factor_analysis.py; full-SVD likelihood iteration, diagonal noise updates and posterior transform |
 | random_projection | random_projection.py; JL dimension bound, Gaussian/three-point distributions and pseudoinverse contract; NumPy-compatible scalar-seeded component generation |
@@ -1665,3 +1665,14 @@ duplicate product accumulation and row reduction conventions follow SciPy
 code was copied. Existing BSD notices remain under LICENSES/. Native quiet
 arithmetic, CSR integration, tests, example and reference harnesses are MIT
 contributions. No dependency or public extension algorithm was added.
+
+## Source-seeded skewed chi-square features (BSD)
+
+`src/sklearn_kernel_approximation.f90` follows sklearn 1.6.1
+`kernel_approximation.py` SkewedChi2Sampler uniform ordering, inverse-sech CDF,
+phase draws, rounded shifted logarithm, domain and live normalization contracts.
+Existing attributed NumPy 2.2.6 MT19937/uniform kernels are reused. Native quiet
+IEEE adapters, the shared dense Fourier dot helper, tests and harnesses are MIT
+integration. The old chi-square harness now compares actual scalar-seeded
+source fits rather than injected random draws. Existing BSD notices remain
+under LICENSES/. No dependency or public extension algorithm was added.

@@ -7882,3 +7882,29 @@ used the checksum-verified private fpm 0.14.0; the global fpm was unchanged.
 Artifacts remain under ignored validation/results/rbf_features*, including
 rbf_features_final_audit.json. Implementation commits: ad9019e, 1e49021 and
 cf8d7b7. IEEE_FMA compiler support is documented in API.md.
+
+## Source-seeded skewed chi-square features
+
+SkewedChi2Sampler now uses NumPy-compatible scalar-seeded row-major uniforms,
+source inverse-CDF operation order and subsequent phase offsets. The transform
+uses rounded X+skewedness followed by log, preserving source overflow outcomes
+rather than stabilizing the sum. Source-valid finite skew controls, transform
+domains, fit-only negative data, live component/shift mutation, seeded refits
+and intrinsic-RNG/input preservation are covered. RBF and skewed samplers share
+the existing controlled dense Fourier dot implementation. Skewed input remains
+dense, matching sklearn; no public type, dependency or extension was added.
+
+The new direct-source suite contains 216 fixtures / 1,512 groups and 19 invalid
+cases across five seeds, multiple shapes, positive/zero/negative shifts,
+near-boundary/tiny/large/overflow inputs, mutations and fit-only domain cases.
+Weights and offsets compare exactly; mapped values use numerical tolerances.
+All 275 source nonfinite values remain compared. Temporary checked and optimized
+probes pass the new suite, retained RBF suite and upgraded legacy chi-square
+suite. The legacy suite's 204 groups now use real scalar-seeded source skewed
+fits; its injected-draw shim and driver draw exports were removed. The additive
+map implementation is unchanged. Native finite-control guards remain.
+
+Inventory: 222 public core types, 154 source modules, 206 native programs,
+182 reference suites / 3,697,318 retained groups and 87 invalid registries /
+4,750 cases. MIT licensing and retained sklearn/NumPy BSD attribution continue.
+Canonical verification will be recorded below.

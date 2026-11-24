@@ -1,10 +1,9 @@
 program reference_chi2_samplers_driver
   use sklearn
-  use sklearn_common, only: seed_rng
   implicit none
   type(additive_chi2_sampler) :: additive
   type(skewed_chi2_sampler) :: skewed
-  real(dp), allocatable :: x(:,:),train(:,:),query(:,:),z(:,:),u(:,:),v(:)
+  real(dp), allocatable :: x(:,:),train(:,:),query(:,:),z(:,:)
   integer :: n,p,i,j,input,output,k
   character(1024) :: path
   character(32) :: prefix
@@ -40,11 +39,7 @@ program reference_chi2_samplers_driver
     case(6); skewed%skewedness=.5_dp; skewed%n_components=256; query=x-.1_dp
     end select
     k=skewed%n_components
-    if(allocated(u)) deallocate(u,v)
-    allocate(u(p,k),v(k)); call seed_rng(skewed%random_state)
-    call random_number(u); call random_number(v)
     write(prefix,'(a,i0)') 'skewed',j
-    call matrix('_draws_u',u); call vector('_draws_v',v)
     z=skewed%fit_transform(train)
     call matrix('_weights',skewed%random_weights_); call vector('_offset',skewed%random_offset_)
     call matrix('_train',z); call matrix('_query',skewed%transform(query)); call matrix('_gram',matmul(z,transpose(z)))
