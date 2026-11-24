@@ -8565,3 +8565,33 @@ results are checked against source outputs with 3e-13 tolerances.
 Cumulative inventory: 222 public core types, 143 source modules, 186 native
 programs, 162 reference suites / 2,720,353 retained required groups, and 67
 invalid-input registries / 4,159 cases. These remain API subsets.
+
+Final multilabel-ranking verification (2026-11-23): four-job fpm 0.14.0
+builds compiled the package in runtime-checked
+(`-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow`) and optimized
+release profiles. Each executed eight focused native programs: multilabel
+ranking, existing ranking/calibration, preprocessing/metrics, cluster
+information, MLP joint targets, multilabel generators, multiclass and
+multioutput reductions. All passed; the other 178 native programs were not
+executed in this batch.
+
+Two reference suites passed 34,073 required groups per profile: 28,489 new
+multilabel-ranking and 5,584 existing ranking/calibration groups. All 18 new
+isolated diagnostics passed, alongside four existing matched source-rejection
+cases. Exhaustive ties, weighted averages, single-label LRAP, empty/full label
+sets, integer/logical indicators and canonical CSR outputs matched the source
+within 3e-13. Both builds checked wide-label cases up to 100,000 labels.
+
+The facade example trained an existing multilabel MLP and scored 80x3
+probabilities: coverage 1.9875, ranking average precision approximately
+0.8135416667 and ranking loss 0.28125 in both profiles. CSR/dense precision
+agreed, and perfect indicator scores had zero ranking loss.
+
+The combined audit verified 158 compiled source units per profile through
+dependency-aware fingerprints, complete per-fixture field inventories,
+installed sklearn and native source hashes, executable/validator/report hashes
+recorded before and after reference runs, the private fpm checksum and
+unchanged unrelated modules/tests. Reports remain local under ignored
+`validation/results/multilabel_rank*`, including
+`multilabel_ranking_final_audit.json`. MIT licensing and retained sklearn BSD
+attribution continue; no dependency or public extension was introduced.
