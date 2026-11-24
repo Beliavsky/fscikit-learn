@@ -8633,3 +8633,76 @@ Inventory: 222 public core types, 159 source modules, 220 native programs,
 5,298 cases. MIT integration and retained sklearn/NumPy notices continue.
 No dependency or extension algorithm was added. The broader translation remains
 unfinished.
+
+## SimpleImputer final package verification (2026-11-24)
+
+Implementation commit: b6bba2d. Checked and optimized release builds passed
+26 selected native programs and ran the simple_imputer and quantile_sparse
+examples. Native scope adds the new imputer program to the prior quantile,
+scaler, preprocessing and graph-regression selection. The new program covers
+dropped/kept empty features, marker replacement, indicator names/indices,
+raw CSR duplicates, callbacks on empty dense/sparse columns, pipeline/frozen
+inverse delegation and compact fitting of a 100,000-by-100,000 sparse shape.
+It retains source behavior rather than repairing inverse or numerical quirks.
+
+Each profile passed six comparison runs / 69,377 required groups:
+
+| Suite | Required groups |
+| --- | ---: |
+| New numeric dense/CSR SimpleImputer | 42,389 |
+| Full FrozenEstimator contracts | 25,272 |
+| Core comparisons | 192 |
+| SimpleImputer column-transformer slice | 108 |
+| SimpleImputer feature-union slice | 60 |
+| Imputer-containing pipeline slice | 1,356 |
+
+The imputer grid retains 2,183 configurations: 1,843 accepted fixtures with
+23 fields each and 340 expected source boundaries (240 sparse zero-marker
+rejections, 80 input/conversion overflows and 20 source inverse IndexErrors).
+Sixteen explicit invalid/format cases complete its 356 diagnostics. There are
+40,546 source/adapted-storage groups and 1,843 native caller/RNG identities;
+all 4,237 nonfinite source outcomes remain compared. Names, metadata, layouts
+and identities are exact; numeric relative tolerance is 3e-8, with absolute
+min(3e-8,max(64*smallest_subnormal,3e-8*max(abs(finite_expected)))). This includes
+NumPy masked-division safety domains, odd dense-median overflow and sparse
+zero/callback distinctions. Named dense cases use installed pandas DataFrames.
+
+All 427 diagnostics per profile passed: 356 new, 12 FrozenEstimator, one updated
+original missing-input case and all 58 pipeline cases. All-missing features
+are now valid SimpleImputer input; the old missing diagnostic now tests NaN
+input with a finite marker instead, while positive native tests verify empty
+feature behavior. Pipeline's imputer-without-indicator inverse case now reaches
+the imputer's option diagnostic. The existing reference driver skips inverse
+calls for its no-indicator imputer fixture, matching its Python oracle's
+existing eligibility list. The full pipeline diagnostic run also refreshed the
+graph-classifier assertion: the composition guard rejects that invalid transformer
+before reaching the pipeline guard. No source acceptance was relaxed.
+
+Composition fixtures preserve original generator streams: column/union kind 5
+(18/12 fixtures) and pipeline kinds 1 and 6 (120 fixtures). These are explicitly
+affected slices, not full integration reruns. FrozenEstimator retains all 486
+configurations / 1,944 stages. Its 15,552 underlying endpoint diagnostics remain
+separate from wrapper contract passes; the same 35 logistic differences remain
+(19 log-probability, 13 decision, three probability, no nonfinite-mask mismatches;
+maximum absolute error 0.0002948945589480445). No logistic code changed.
+
+The combined audit verified 217 compiled source units per profile, complete
+accepted/rejected configurations and field inventories, profile-matched cases,
+distinct checked/release native binaries, stable source/validator/driver/
+executable/report hashes and both example logs. Preprocessing's remaining
+method bodies are byte-identical after imputer/median extraction and import.
+Composition edits are exactly imputer fitting/names; pipeline and frozen edits
+are exactly imputer inverse dispatch/capability additions. Other library source
+files are unchanged. Reports and audits remain under ignored
+validation/results/imputer*, including imputer_final_audit.json.
+
+Four-job builds used the checksum-verified private fpm 0.14.0, GNU Fortran
+17.0.0 20260510, Python 3.13, sklearn 1.6.1, NumPy 2.2.6 and SciPy 1.15.3.
+Checked flags were -fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow;
+optimized tests used the release profile. The global fpm is unchanged. The
+scope above does not constitute a rerun of every suite or a full sklearn port.
+
+Inventory: 222 public core types, 160 source modules, 221 native programs,
+193 reference suites / 3,951,493 retained groups and 98 invalid registries /
+5,654 cases. MIT integration and retained notices continue; no dependency or
+public extension algorithm was added. The broader translation remains unfinished.

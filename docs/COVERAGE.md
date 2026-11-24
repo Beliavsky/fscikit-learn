@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and ninety-two reference suites additionally check 3,909,104
+All types have native tests. One hundred and ninety-three reference suites additionally check 3,951,493
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -19,7 +19,7 @@ per sample; cross-decomposition, multi-task regression, joint MLP regression and
 metadata routing, parallel backends and binary model persistence are outside the
 initial translation. The neighbor graph transformers provide CSR graph outputs and
 accept CSR precomputed distances, as do Isomap and Barnes-Hut TSNE. Randomized TruncatedSVD and direct Multinomial/
-Bernoulli/Complement Naive Bayes, SGD and MLP regression/classification, random projections, RBFSampler, Nystroem, AdditiveChi2Sampler, PolynomialCountSketch, StandardScaler, MaxAbsScaler, RobustScaler, QuantileTransformer, Normalizer/Binarizer and PolynomialFeatures also accept CSR matrices. Other estimator and
+Bernoulli/Complement Naive Bayes, SGD and MLP regression/classification, random projections, RBFSampler, Nystroem, AdditiveChi2Sampler, PolynomialCountSketch, StandardScaler, MaxAbsScaler, RobustScaler, QuantileTransformer, SimpleImputer, Normalizer/Binarizer and PolynomialFeatures also accept CSR matrices. Other estimator and
 meta-estimator inputs remain dense.
 Fortran identifiers use snake_case rather than CamelCase.
 
@@ -37,7 +37,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | multiclass | `one_vs_rest_classifier`, `one_vs_one_classifier`, `output_code_classifier` | Dense independent binary reductions; supported native classifier and regressor bases; constant heads; weighted fitting where the base supports it; Gaussian NB/SGD classification streaming for OVR/OVO; seeded legacy NumPy codebooks |
 | inspection | `permutation_importance`, `permutation_importance_multi`, `partial_dependence` | Dense callback-based permutation importance and brute partial dependence/ICE; seeded subsampling/shuffles; weighted averages; categorical and Cunnane percentile grids; numeric multiple-output responses |
 | multioutput | `multi_output_regressor`, `multi_output_classifier`, `regressor_chain`, `classifier_chain` | Independent fitted base models per response column; supported native linear/SGD, NB, neighbors and tree families; ragged class probabilities; SGD/Gaussian NB streaming; native base weighting limits apply |
-| preprocessing | `kernel_centerer`, `ordinal_encoder`, `target_encoder`, `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `iterative_imputer`, `knn_imputer`, `missing_indicator`, `spline_transformer`, `label_encoder`, `one_hot_encoder`, `label_binarizer`, `multi_label_binarizer`, `power_transformer`, `kbins_discretizer`, `quantile_transformer`, `normalizer`, `binarizer`, `polynomial_features`; `normalize`, `binarize`, `scale`, `minmax_scale`, `maxabs_scale`, `robust_scale`, `quantile_transform`, retained `polynomial_features(x,...)` | Ordinal category codes and infrequent grouping; cross-fitted target means; population variance; linear percentile interpolation; NaN imputation with mean/median/most-frequent/constant; numeric categories; empirical uniform/normal quantile transforms; dense/CSR polynomial estimator and retained array call with degree ranges, interactions and lazy powers/names; B-spline features and extrapolation; dense/CSR row normalization and thresholding, both-axis free normalization with returned norms |
+| preprocessing | `kernel_centerer`, `ordinal_encoder`, `target_encoder`, `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `iterative_imputer`, `knn_imputer`, `missing_indicator`, `spline_transformer`, `label_encoder`, `one_hot_encoder`, `label_binarizer`, `multi_label_binarizer`, `power_transformer`, `kbins_discretizer`, `quantile_transformer`, `normalizer`, `binarizer`, `polynomial_features`; `normalize`, `binarize`, `scale`, `minmax_scale`, `maxabs_scale`, `robust_scale`, `quantile_transform`, retained `polynomial_features(x,...)` | Ordinal category codes and infrequent grouping; cross-fitted target means; population variance; linear percentile interpolation; numeric dense/CSR imputation with mean/median/most-frequent/constant/callable statistics, empty-feature rules, indicators and dense inverse maps; numeric categories; empirical uniform/normal quantile transforms; dense/CSR polynomial estimator and retained array call with degree ranges, interactions and lazy powers/names; B-spline features and extrapolation; dense/CSR row normalization and thresholding, both-axis free normalization with returned norms |
 | linear_model | `linear_regression`, `lars`, `lasso_lars`, `lars_cv`, `lasso_lars_cv`, `lasso_lars_ic`, `ridge`, `ridge_classifier`, `ridge_classifier_cv`, `multi_task_elastic_net`, `multi_task_lasso`, `multi_task_elastic_net_cv`, `multi_task_lasso_cv`, `lasso`, `elastic_net`, `lasso_cv`, `elastic_net_cv`, `logistic_regression`, `logistic_regression_cv`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `sgd_regressor`, `sgd_classifier`, `sgd_one_class_svm`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `orthogonal_matching_pursuit_cv`, `huber_regressor`, `quantile_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; least-angle/Lasso homotopy paths with CV and AIC/BIC selection; coordinate descent with K-fold alpha/l1-ratio selection; weighted logistic Newton solver with raw-score prediction; perceptron; PA-I/II classification/regression with averaging; streaming stochastic-gradient regression/classification and one-class detection; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; weighted L1-regularized quantile regression; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb`, `categorical_nb` | Weighted/streaming Gaussian moments, empirical/fixed priors and variance smoothing; dense/CSR weighted and streaming discrete event counts and fixed/empirical priors; nonnegative scalar alpha and force_alpha flooring, plus feature-wise Multinomial/Complement smoothing; Bernoulli threshold; optional complement normalization |
 | neighbors | `neighborhood_components_analysis`, `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Supervised NCA metric learning; brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with shrinkage, uniform/empirical/custom priors and Euclidean discriminant probabilities; tree-based kernel density |
@@ -10537,3 +10537,76 @@ and a magnitude-scaled absolute cap to retain tiny/subnormal results. Source
 masked-mean domains, odd dense-median overflow, sparse zero counts, callable
 empty-column asymmetry and source inverse column-mapping quirks are retained.
 Canonical package verification is recorded separately.
+
+## SimpleImputer final package verification (2026-11-24)
+
+Implementation commit: b6bba2d. Checked and optimized release builds passed
+26 selected native programs and ran the simple_imputer and quantile_sparse
+examples. Native scope adds the new imputer program to the prior quantile,
+scaler, preprocessing and graph-regression selection. The new program covers
+dropped/kept empty features, marker replacement, indicator names/indices,
+raw CSR duplicates, callbacks on empty dense/sparse columns, pipeline/frozen
+inverse delegation and compact fitting of a 100,000-by-100,000 sparse shape.
+It retains source behavior rather than repairing inverse or numerical quirks.
+
+Each profile passed six comparison runs / 69,377 required groups:
+
+| Suite | Required groups |
+| --- | ---: |
+| New numeric dense/CSR SimpleImputer | 42,389 |
+| Full FrozenEstimator contracts | 25,272 |
+| Core comparisons | 192 |
+| SimpleImputer column-transformer slice | 108 |
+| SimpleImputer feature-union slice | 60 |
+| Imputer-containing pipeline slice | 1,356 |
+
+The imputer grid retains 2,183 configurations: 1,843 accepted fixtures with
+23 fields each and 340 expected source boundaries (240 sparse zero-marker
+rejections, 80 input/conversion overflows and 20 source inverse IndexErrors).
+Sixteen explicit invalid/format cases complete its 356 diagnostics. There are
+40,546 source/adapted-storage groups and 1,843 native caller/RNG identities;
+all 4,237 nonfinite source outcomes remain compared. Names, metadata, layouts
+and identities are exact; numeric relative tolerance is 3e-8, with absolute
+min(3e-8,max(64*smallest_subnormal,3e-8*max(abs(finite_expected)))). This includes
+NumPy masked-division safety domains, odd dense-median overflow and sparse
+zero/callback distinctions. Named dense cases use installed pandas DataFrames.
+
+All 427 diagnostics per profile passed: 356 new, 12 FrozenEstimator, one updated
+original missing-input case and all 58 pipeline cases. All-missing features
+are now valid SimpleImputer input; the old missing diagnostic now tests NaN
+input with a finite marker instead, while positive native tests verify empty
+feature behavior. Pipeline's imputer-without-indicator inverse case now reaches
+the imputer's option diagnostic. The existing reference driver skips inverse
+calls for its no-indicator imputer fixture, matching its Python oracle's
+existing eligibility list. The full pipeline diagnostic run also refreshed the
+graph-classifier assertion: the composition guard rejects that invalid transformer
+before reaching the pipeline guard. No source acceptance was relaxed.
+
+Composition fixtures preserve original generator streams: column/union kind 5
+(18/12 fixtures) and pipeline kinds 1 and 6 (120 fixtures). These are explicitly
+affected slices, not full integration reruns. FrozenEstimator retains all 486
+configurations / 1,944 stages. Its 15,552 underlying endpoint diagnostics remain
+separate from wrapper contract passes; the same 35 logistic differences remain
+(19 log-probability, 13 decision, three probability, no nonfinite-mask mismatches;
+maximum absolute error 0.0002948945589480445). No logistic code changed.
+
+The combined audit verified 217 compiled source units per profile, complete
+accepted/rejected configurations and field inventories, profile-matched cases,
+distinct checked/release native binaries, stable source/validator/driver/
+executable/report hashes and both example logs. Preprocessing's remaining
+method bodies are byte-identical after imputer/median extraction and import.
+Composition edits are exactly imputer fitting/names; pipeline and frozen edits
+are exactly imputer inverse dispatch/capability additions. Other library source
+files are unchanged. Reports and audits remain under ignored
+validation/results/imputer*, including imputer_final_audit.json.
+
+Four-job builds used the checksum-verified private fpm 0.14.0, GNU Fortran
+17.0.0 20260510, Python 3.13, sklearn 1.6.1, NumPy 2.2.6 and SciPy 1.15.3.
+Checked flags were -fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow;
+optimized tests used the release profile. The global fpm is unchanged. The
+scope above does not constitute a rerun of every suite or a full sklearn port.
+
+Inventory: 222 public core types, 160 source modules, 221 native programs,
+193 reference suites / 3,951,493 retained groups and 98 invalid registries /
+5,654 cases. MIT integration and retained notices continue; no dependency or
+public extension algorithm was added. The broader translation remains unfinished.

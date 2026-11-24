@@ -6833,3 +6833,32 @@ profiles: 25 selected native programs, two examples, 39,138 required groups
 across seven comparison runs, 147 diagnostics and 212 compiled source units per
 profile. Full scope and the corrected native rounding fixture are recorded in
 [the verification record](../docs/VALIDATION.md#source-seeded-quantile-final-verification-2026-11-24).
+
+
+`compare_simple_imputer.py --executable <reference_simple_imputer_driver.exe>`
+checks numeric SimpleImputer dense/CSR fits, mixed queries, missing markers,
+empty-feature rules, indicators, callbacks, feature names, live controls,
+inverse mapping and refit reset. It retains 2,183 configurations: 1,843 accepted
+fixtures / 42,389 groups and 340 expected source boundaries (240 zero-marker
+sparse inputs/queries, 80 input/conversion overflows and 20 source inverse
+IndexErrors). Sixteen explicit cases bring diagnostics to 356. There are 40,546
+source/adapted-storage groups and 1,843 native caller/RNG identities. All 4,237
+nonfinite source values are compared. Metadata, names, indicator indices and
+raw CSR layout are exact. Numeric tolerance is 3e-8 relative, with absolute
+min(3e-8,max(64*smallest_subnormal,3e-8*max(abs(finite_expected)))). Source sparse
+results are rearranged to native row-owned slots without coalescing duplicates.
+
+The validator checks NumPy masked-mean safe-division domains, odd matrix-median
+overflow, source sparse zero multiplicities, callable empty-column shortcuts,
+constant NaN/Inf fills, and the source inverse routine's indicator-based mapping.
+Source failures are retained as required diagnostics rather than repaired or
+silently discarded. Reports include full accepted/rejected inventories, fields,
+versions and source/validator/driver/executable hashes. Named dense cases use the
+installed pandas DataFrame interface; native feature names use feature_string.
+
+The final imputer package audit passed in checked and optimized release
+profiles: 26 selected native programs, two examples, 69,377 required groups
+across six comparison runs, 427 diagnostics and 217 compiled source units per
+profile. Scope, refreshed legacy assertions and separate existing logistic
+endpoint differences are recorded in the
+[verification record](../docs/VALIDATION.md#simpleimputer-final-package-verification-2026-11-24).

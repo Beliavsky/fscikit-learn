@@ -64,7 +64,7 @@ CASES={
     'passthrough_score':'final passthrough has no score',
     'unsupported_inverse':'requires add_indicator=True',
     'transformer_fit_weights':'final transformer has no native fit weights',
-    'graph_classifier':'step must support transform',
+    'graph_classifier':'composition unsupported transformer',
 }
 
 
