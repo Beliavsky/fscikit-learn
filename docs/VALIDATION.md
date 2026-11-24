@@ -7794,4 +7794,28 @@ extension algorithm was added. Dense component storage remains explicit.
 Inventory: 222 public core types, 154 source modules, 204 native programs,
 180 reference suites / 3,687,294 retained groups and 85 invalid registries /
 4,698 cases. MIT licensing and retained sklearn/NumPy BSD attribution continue.
-Canonical verification will be recorded below.
+Canonical verification is recorded below.
+
+Final CSR-projection verification: checked and optimized release builds each
+passed test_csr_projections, test_seeded_projections and test_factor_projection.
+These three native programs were run; the other 201 native programs were not
+executed in this batch. Three affected reference suites each passed 20,268
+required groups and 87 diagnostics per profile: 13,600 new CSR groups /
+44 diagnostics, 6,464 retained seeded-projection groups / 43 diagnostics,
+and 204 regression/factor/projection algebra groups. Both facade examples
+match source projection/inverse values and canonical CSR pointer/index/data
+arrays. Large sparse fits and sparse output tests passed in both profiles.
+
+The combined audit verifies 165 compiled source units per profile, complete
+17-field inventories for 800 new fixtures, exact component/transform/CSR values,
+stable source/executable/validator/report hashes, matching profile inventories
+and distinct optimized executables. Six new malformed-structure diagnostics
+use SciPy check_format; 38 use sklearn validation. The 800 mixed refit/cache
+contract groups remain separately labeled from 12,800 direct source groups.
+Native SVD inverse comparisons use the documented numerical tolerances,
+including cancellation-specific amplification. Only the three affected suites
+and their diagnostics were rerun. Unrelated source/test/application paths
+remained unchanged. Four-job builds used the checksum-verified private fpm
+0.14.0; the global fpm was unchanged. Artifacts remain under ignored
+validation/results/csr_projections*, including csr_projections_final_audit.json.
+Implementation commit: ce1fdee.
