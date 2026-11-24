@@ -8561,3 +8561,75 @@ Inventory: 222 public core types, 159 source modules, 219 native programs,
 191 reference suites / 3,871,844 retained groups and 96 invalid registries /
 5,165 cases. MIT integration and retained BSD notices continue. No dependency
 or extension algorithm was added. The broader translation remains unfinished.
+
+## Source-seeded quantile final verification (2026-11-24)
+
+Implementation commit: d0ba5ef. Checked and optimized release builds passed
+25 selected native programs and ran the quantile_sparse and scale_axes examples.
+Native scope extends the preceding scaler/preprocessing/composition selection
+with the existing QuantileTransformer program and the new seeded/CSR/free-map
+program. The old native four-observation fixture expected 0.5 for repeated
+observations; installed sklearn 1.6.1 actually yields 2/3 after percentile-grid
+rounding, and its corresponding normal score is about 0.4307272993. Those
+expected values were corrected. A separate nine-observation fixture retains
+exact repeated interior knots and verifies their 0.5/normal-zero averages.
+The new program also checks global RNG identity, seeded row selections, raw CSR
+statistics, explicit/implicit zeros, row-storage-sensitive sampling, live query
+flags, negative sparse inverse input, singleton missing tables and a compact
+100,000-by-100,000 sparse fit/map.
+
+Each profile passed seven comparison runs / 39,138 required groups:
+
+| Suite | Required groups |
+| --- | ---: |
+| Seeded dense/CSR and free quantile transforms | 37,260 |
+| Existing quantile-transform suite | 252 |
+| Core comparisons | 192 |
+| Quantile column-transformer slice | 108 |
+| Quantile feature-union slice | 60 |
+| Quantile transformed-target slice | 588 |
+| Quantile pipeline slice | 678 |
+
+The new suite retains all 1,732 generated configurations: 1,620 accepted
+fixtures with 23 fields each and 112 expected source rejections (64 input/dense
+conversion overflows and 48 negative sparse inputs). There are 21 explicit
+validation/format cases, yielding 133 new diagnostics. All 14 original
+quantile_* registry cases also passed, for 147 diagnostics per profile.
+There are 35,640 source/adapted-storage groups and 1,620 native caller/RNG
+identities. All 27,904 nonfinite source outcomes remain compared. Numeric
+relative tolerance is 3e-8, with a magnitude-scaled absolute cap of 3e-8 and a
+64*smallest_subnormal floor; reference grids, layouts and metadata are exact.
+The existing 252 groups retain their stricter 2e-10 absolute / 2e-11 relative
+checks. Its updated validator uses provided binaries and profile-specific data
+paths; no validator-triggered fpm build was needed.
+
+Composition fixtures preserve the original generators and their RNG streams:
+column/union kind 11 (18/12 fixtures), transformed-target transformer 6 (84
+fixtures), and pipeline kind 10 (60 fixtures). These are explicit affected-type
+slices rather than full integration-suite reruns. Core comparisons were run
+sequentially across profiles because their legacy output files are shared.
+
+The combined audit verified 212 compiled source units per profile, the complete
+new accepted/rejected inventories and field sets, identical profile cases,
+distinct optimized/checked native binaries, stable source/driver/validator/
+executable/report hashes, and both example logs. Other library files are
+unchanged; preprocessing edits are exactly the free-function import/export.
+QuantileTransformer fit methods now own their legacy RNG and sparse handling;
+query methods follow live distribution/implicit-zero controls while ignoring
+fit-only controls. NumPy interpolation search guesses, nonfinite fallback paths
+and percentile/reference rounding are retained rather than repaired away.
+The source-specific sparse row representation avoids reordering raw row samples.
+
+Four-job builds used the checksum-verified private fpm 0.14.0, GNU Fortran
+17.0.0 20260510, Python 3.13, sklearn 1.6.1, NumPy 2.2.6 and SciPy 1.15.3.
+Checked flags were -fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow;
+optimized tests used the fpm release profile. The global fpm is unchanged.
+Reports and fingerprint audits are under ignored validation/results/quantile*,
+including quantile_final_audit.json. This verifies the affected scope, not every
+existing suite or the entire scikit-learn API.
+
+Inventory: 222 public core types, 159 source modules, 220 native programs,
+192 reference suites / 3,909,104 retained groups and 97 invalid registries /
+5,298 cases. MIT integration and retained sklearn/NumPy notices continue.
+No dependency or extension algorithm was added. The broader translation remains
+unfinished.

@@ -34,6 +34,12 @@ program test_quantile_sparse_seeded
  model=quantile_transformer();model%n_quantiles=1;model%subsample=0;call model%fit(dense)
  dense=1;a=model%transform(dense)
  call require(all(a==0).and.all(ieee_is_nan(model%quantiles_)),'singleton missing-table source interpolation')
+ model=quantile_transformer();model%n_quantiles=3;model%subsample=0
+ dense(:,1)=[(real(i,dp),i=1,10)];call model%fit(dense)
+ x=csr_from_arrays(1,1,[1,2],[1],[-1._dp]);model%ignore_implicit_zeros=.true.;z=model%transform(x)
+ call require(z%data(1)==0,'live ignore flag permits signed sparse query after dense fit')
+ model%ignore_implicit_zeros=.false.;z=model%inverse_transform(x)
+ call require(z%data(1)==1,'sparse inverse permits negatives with implicit zeros included')
  big%n_rows=100000;big%n_cols=100000
  allocate(big%indptr(100001),big%indices(1),big%data(1));big%indptr=2;big%indptr(1)=1
  big%indices=100000;big%data=2;model%n_quantiles=3;call model%fit(big);z=model%transform(big)

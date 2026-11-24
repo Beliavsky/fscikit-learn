@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and ninety-one reference suites additionally check 3,871,844
+All types have native tests. One hundred and ninety-two reference suites additionally check 3,909,104
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -19,7 +19,7 @@ per sample; cross-decomposition, multi-task regression, joint MLP regression and
 metadata routing, parallel backends and binary model persistence are outside the
 initial translation. The neighbor graph transformers provide CSR graph outputs and
 accept CSR precomputed distances, as do Isomap and Barnes-Hut TSNE. Randomized TruncatedSVD and direct Multinomial/
-Bernoulli/Complement Naive Bayes, SGD and MLP regression/classification, random projections, RBFSampler, Nystroem, AdditiveChi2Sampler, PolynomialCountSketch, StandardScaler, MaxAbsScaler, RobustScaler, Normalizer/Binarizer and PolynomialFeatures also accept CSR matrices. Other estimator and
+Bernoulli/Complement Naive Bayes, SGD and MLP regression/classification, random projections, RBFSampler, Nystroem, AdditiveChi2Sampler, PolynomialCountSketch, StandardScaler, MaxAbsScaler, RobustScaler, QuantileTransformer, Normalizer/Binarizer and PolynomialFeatures also accept CSR matrices. Other estimator and
 meta-estimator inputs remain dense.
 Fortran identifiers use snake_case rather than CamelCase.
 
@@ -37,7 +37,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | multiclass | `one_vs_rest_classifier`, `one_vs_one_classifier`, `output_code_classifier` | Dense independent binary reductions; supported native classifier and regressor bases; constant heads; weighted fitting where the base supports it; Gaussian NB/SGD classification streaming for OVR/OVO; seeded legacy NumPy codebooks |
 | inspection | `permutation_importance`, `permutation_importance_multi`, `partial_dependence` | Dense callback-based permutation importance and brute partial dependence/ICE; seeded subsampling/shuffles; weighted averages; categorical and Cunnane percentile grids; numeric multiple-output responses |
 | multioutput | `multi_output_regressor`, `multi_output_classifier`, `regressor_chain`, `classifier_chain` | Independent fitted base models per response column; supported native linear/SGD, NB, neighbors and tree families; ragged class probabilities; SGD/Gaussian NB streaming; native base weighting limits apply |
-| preprocessing | `kernel_centerer`, `ordinal_encoder`, `target_encoder`, `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `iterative_imputer`, `knn_imputer`, `missing_indicator`, `spline_transformer`, `label_encoder`, `one_hot_encoder`, `label_binarizer`, `multi_label_binarizer`, `power_transformer`, `kbins_discretizer`, `quantile_transformer`, `normalizer`, `binarizer`, `polynomial_features`; `normalize`, `binarize`, `scale`, `minmax_scale`, `maxabs_scale`, `robust_scale`, retained `polynomial_features(x,...)` | Ordinal category codes and infrequent grouping; cross-fitted target means; population variance; linear percentile interpolation; NaN imputation with mean/median/most-frequent/constant; numeric categories; empirical uniform/normal quantile transforms; dense/CSR polynomial estimator and retained array call with degree ranges, interactions and lazy powers/names; B-spline features and extrapolation; dense/CSR row normalization and thresholding, both-axis free normalization with returned norms |
+| preprocessing | `kernel_centerer`, `ordinal_encoder`, `target_encoder`, `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `iterative_imputer`, `knn_imputer`, `missing_indicator`, `spline_transformer`, `label_encoder`, `one_hot_encoder`, `label_binarizer`, `multi_label_binarizer`, `power_transformer`, `kbins_discretizer`, `quantile_transformer`, `normalizer`, `binarizer`, `polynomial_features`; `normalize`, `binarize`, `scale`, `minmax_scale`, `maxabs_scale`, `robust_scale`, `quantile_transform`, retained `polynomial_features(x,...)` | Ordinal category codes and infrequent grouping; cross-fitted target means; population variance; linear percentile interpolation; NaN imputation with mean/median/most-frequent/constant; numeric categories; empirical uniform/normal quantile transforms; dense/CSR polynomial estimator and retained array call with degree ranges, interactions and lazy powers/names; B-spline features and extrapolation; dense/CSR row normalization and thresholding, both-axis free normalization with returned norms |
 | linear_model | `linear_regression`, `lars`, `lasso_lars`, `lars_cv`, `lasso_lars_cv`, `lasso_lars_ic`, `ridge`, `ridge_classifier`, `ridge_classifier_cv`, `multi_task_elastic_net`, `multi_task_lasso`, `multi_task_elastic_net_cv`, `multi_task_lasso_cv`, `lasso`, `elastic_net`, `lasso_cv`, `elastic_net_cv`, `logistic_regression`, `logistic_regression_cv`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `sgd_regressor`, `sgd_classifier`, `sgd_one_class_svm`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `orthogonal_matching_pursuit_cv`, `huber_regressor`, `quantile_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; least-angle/Lasso homotopy paths with CV and AIC/BIC selection; coordinate descent with K-fold alpha/l1-ratio selection; weighted logistic Newton solver with raw-score prediction; perceptron; PA-I/II classification/regression with averaging; streaming stochastic-gradient regression/classification and one-class detection; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; weighted L1-regularized quantile regression; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb`, `categorical_nb` | Weighted/streaming Gaussian moments, empirical/fixed priors and variance smoothing; dense/CSR weighted and streaming discrete event counts and fixed/empirical priors; nonnegative scalar alpha and force_alpha flooring, plus feature-wise Multinomial/Complement smoothing; Bernoulli threshold; optional complement normalization |
 | neighbors | `neighborhood_components_analysis`, `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Supervised NCA metric learning; brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with shrinkage, uniform/empirical/custom priors and Euclidean discriminant probabilities; tree-based kernel density |
@@ -10442,3 +10442,75 @@ fields compare at 3e-8 relative tolerance and a magnitude-scaled absolute cap
 of 3e-8, retaining tiny values, NaNs and signed infinity. Layouts, reference grids,
 metadata and native caller/RNG identities are exact. All 27,904 nonfinite source
 outcomes remain compared. Canonical package verification is recorded separately.
+
+## Source-seeded quantile final verification (2026-11-24)
+
+Implementation commit: d0ba5ef. Checked and optimized release builds passed
+25 selected native programs and ran the quantile_sparse and scale_axes examples.
+Native scope extends the preceding scaler/preprocessing/composition selection
+with the existing QuantileTransformer program and the new seeded/CSR/free-map
+program. The old native four-observation fixture expected 0.5 for repeated
+observations; installed sklearn 1.6.1 actually yields 2/3 after percentile-grid
+rounding, and its corresponding normal score is about 0.4307272993. Those
+expected values were corrected. A separate nine-observation fixture retains
+exact repeated interior knots and verifies their 0.5/normal-zero averages.
+The new program also checks global RNG identity, seeded row selections, raw CSR
+statistics, explicit/implicit zeros, row-storage-sensitive sampling, live query
+flags, negative sparse inverse input, singleton missing tables and a compact
+100,000-by-100,000 sparse fit/map.
+
+Each profile passed seven comparison runs / 39,138 required groups:
+
+| Suite | Required groups |
+| --- | ---: |
+| Seeded dense/CSR and free quantile transforms | 37,260 |
+| Existing quantile-transform suite | 252 |
+| Core comparisons | 192 |
+| Quantile column-transformer slice | 108 |
+| Quantile feature-union slice | 60 |
+| Quantile transformed-target slice | 588 |
+| Quantile pipeline slice | 678 |
+
+The new suite retains all 1,732 generated configurations: 1,620 accepted
+fixtures with 23 fields each and 112 expected source rejections (64 input/dense
+conversion overflows and 48 negative sparse inputs). There are 21 explicit
+validation/format cases, yielding 133 new diagnostics. All 14 original
+quantile_* registry cases also passed, for 147 diagnostics per profile.
+There are 35,640 source/adapted-storage groups and 1,620 native caller/RNG
+identities. All 27,904 nonfinite source outcomes remain compared. Numeric
+relative tolerance is 3e-8, with a magnitude-scaled absolute cap of 3e-8 and a
+64*smallest_subnormal floor; reference grids, layouts and metadata are exact.
+The existing 252 groups retain their stricter 2e-10 absolute / 2e-11 relative
+checks. Its updated validator uses provided binaries and profile-specific data
+paths; no validator-triggered fpm build was needed.
+
+Composition fixtures preserve the original generators and their RNG streams:
+column/union kind 11 (18/12 fixtures), transformed-target transformer 6 (84
+fixtures), and pipeline kind 10 (60 fixtures). These are explicit affected-type
+slices rather than full integration-suite reruns. Core comparisons were run
+sequentially across profiles because their legacy output files are shared.
+
+The combined audit verified 212 compiled source units per profile, the complete
+new accepted/rejected inventories and field sets, identical profile cases,
+distinct optimized/checked native binaries, stable source/driver/validator/
+executable/report hashes, and both example logs. Other library files are
+unchanged; preprocessing edits are exactly the free-function import/export.
+QuantileTransformer fit methods now own their legacy RNG and sparse handling;
+query methods follow live distribution/implicit-zero controls while ignoring
+fit-only controls. NumPy interpolation search guesses, nonfinite fallback paths
+and percentile/reference rounding are retained rather than repaired away.
+The source-specific sparse row representation avoids reordering raw row samples.
+
+Four-job builds used the checksum-verified private fpm 0.14.0, GNU Fortran
+17.0.0 20260510, Python 3.13, sklearn 1.6.1, NumPy 2.2.6 and SciPy 1.15.3.
+Checked flags were -fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow;
+optimized tests used the fpm release profile. The global fpm is unchanged.
+Reports and fingerprint audits are under ignored validation/results/quantile*,
+including quantile_final_audit.json. This verifies the affected scope, not every
+existing suite or the entire scikit-learn API.
+
+Inventory: 222 public core types, 159 source modules, 220 native programs,
+192 reference suites / 3,909,104 retained groups and 97 invalid registries /
+5,298 cases. MIT integration and retained sklearn/NumPy notices continue.
+No dependency or extension algorithm was added. The broader translation remains
+unfinished.

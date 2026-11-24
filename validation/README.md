@@ -6806,3 +6806,30 @@ runs, 33 diagnostics and 206 compiled source units per profile. See the
 [verification record](../docs/VALIDATION.md#free-scale-final-package-verification-2026-11-24)
 for scope and limitations. Shared-file core comparisons must run sequentially
 across profiles; the two modern scale validators have profile-specific reports.
+
+
+`compare_quantile_seeded.py --executable <reference_quantile_seeded_driver.exe>`
+checks seeded QuantileTransformer dense/CSR fits and both-axis free quantile maps.
+Its 1,732 generated configurations retain 1,620 accepted fixtures / 37,260 groups
+and 112 expected source boundaries (64 input/conversion overflows, 48 negative
+sparse inputs). Twenty-one explicit fit/query/format checks bring diagnostics
+to 133. Reference grids, metadata, layouts and 1,620 caller/RNG identities are
+exact; 35,640 other groups use sklearn. All 27,904 nonfinite source outcomes
+remain compared. Numeric relative tolerance is 3e-8, with absolute tolerance
+min(3e-8,max(64*smallest_subnormal,3e-8*max(abs(finite_expected)))). Fixtures cover
+source RNG consumption, zero-length sparse samples, CSR row-order-sensitive
+sampling, query-only live parameters, duplicate/all-missing quantile tables,
+normal clipping, percentile overflow and stateful interpolation search guesses.
+
+`compare_quantile_transform.py` now accepts --executable/--profile/--report to
+run its existing 252 groups against an already built driver. Its no-argument
+fpm workflow is retained. Data/output paths are profile-specific and reports pin
+the source, driver, validator and executable hashes. New canonical verification
+also runs the 14 original quantile_* diagnostic cases and directly affected
+composition slices without changing the original fixture-generator streams.
+
+The final quantile package audit passed in checked and optimized release
+profiles: 25 selected native programs, two examples, 39,138 required groups
+across seven comparison runs, 147 diagnostics and 212 compiled source units per
+profile. Full scope and the corrected native rounding fixture are recorded in
+[the verification record](../docs/VALIDATION.md#source-seeded-quantile-final-verification-2026-11-24).
