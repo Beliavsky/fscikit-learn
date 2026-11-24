@@ -54,6 +54,7 @@ module sklearn_ensemble
   type :: random_forest_classifier
     integer :: n_estimators=100,max_depth=100,min_samples_leaf=1,min_samples_split=2
     integer :: max_features=0,random_state=0
+    integer :: max_leaf_nodes=0
     integer :: max_samples=0,n_features_in_=0,n_classes_=0
     character(16) :: criterion='gini'
     character(20) :: class_weight='none'
@@ -79,6 +80,7 @@ module sklearn_ensemble
   type :: random_forest_regressor
     integer :: n_estimators=100,max_depth=100,min_samples_leaf=1,min_samples_split=2
     integer :: max_features=0,random_state=0
+    integer :: max_leaf_nodes=0
     integer :: max_samples=0,n_features_in_=0
     character(16) :: criterion='squared_error'
     real(dp) :: min_impurity_decrease=0,ccp_alpha=0,min_weight_fraction_leaf=0
@@ -170,6 +172,7 @@ contains
       self%estimators_(i)%min_samples_leaf=self%min_samples_leaf
       self%estimators_(i)%min_samples_split=self%min_samples_split
       self%estimators_(i)%max_features=features
+      self%estimators_(i)%max_leaf_nodes=self%max_leaf_nodes
       self%estimators_(i)%min_weight_fraction_leaf=self%min_weight_fraction_leaf
       self%estimators_(i)%ccp_alpha=self%ccp_alpha
       self%estimators_(i)%min_impurity_decrease=self%min_impurity_decrease
@@ -373,6 +376,7 @@ contains
       self%estimators_(i)%min_samples_leaf=self%min_samples_leaf
       self%estimators_(i)%min_samples_split=self%min_samples_split
       self%estimators_(i)%max_features=self%max_features
+      self%estimators_(i)%max_leaf_nodes=self%max_leaf_nodes
       self%estimators_(i)%min_weight_fraction_leaf=self%min_weight_fraction_leaf
       self%estimators_(i)%ccp_alpha=self%ccp_alpha
       self%estimators_(i)%min_impurity_decrease=self%min_impurity_decrease

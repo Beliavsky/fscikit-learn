@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and seventy-seven reference suites additionally check 3,552,630
+All types have native tests. One hundred and seventy-eight reference suites additionally check 3,667,230
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -9489,3 +9489,28 @@ checksum-verified private fpm 0.14.0; the global fpm was unchanged. Only the
 seven named reference suites and their reported diagnostics were rerun.
 Artifacts remain under ignored `validation/results/tree_paths*`, including
 `tree_paths_final_audit.json`.
+
+## Best-first tree growth and maximum leaf count
+
+Added integer max_leaf_nodes to all eight standalone/forest tree families,
+with zero representing sklearn None and values >=2 selecting best-first growth.
+Source-priority heap ties, leaf records, child creation order and per-node
+constant-feature discovery follow sklearn 1.6.1 BestFirstTreeBuilder.
+Existing weighted criteria, bootstrap/class factors, minimum weighted leaves,
+pruning, importance and sparse paths compose with the budget. Search grids
+cover the new control. See docs/API.md and example/best_first_trees.f90.
+
+The new direct-source reference suite compares 25 fields per fixture, including
+complete structures, paths, pruning and caller state: 4,584 fixtures / 114,600
+groups and 16 invalid-input diagnostics. It includes parity/zero-gain heaps,
+equal priorities, all criteria, signed/zero/extreme weights and growth-only
+nonfinite derived gains. Forty-four extreme-label cases skip pruning-path
+construction, whose source kernel can enter undefined state; their growth
+outputs still compare directly to source. Existing MAE undefined-empty-queue
+safety identities remain separately recorded in the retained regression suite.
+
+Inventory after this batch: 222 public core types, 153 source modules,
+202 native programs, 178 reference suites / 3,667,230 retained required groups,
+and 83 invalid-input registries / 4,611 cases. Types remain API subsets.
+MIT licensing and retained sklearn/NumPy BSD attribution continue; no dependency
+or public extension algorithm was added. Full canonical verification follows.

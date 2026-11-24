@@ -137,6 +137,7 @@ contains
       end select
     class is(decision_tree_classifier)
       select case(name)
+      case('max_leaf_nodes');model%max_leaf_nodes=value%as_integer()
       case('min_weight_fraction_leaf');model%min_weight_fraction_leaf=value%as_real()
       case('ccp_alpha');model%ccp_alpha=value%as_real()
       case('max_depth');model%max_depth=value%as_integer()
@@ -150,6 +151,7 @@ contains
       end select
     class is(decision_tree_regressor)
       select case(name)
+      case('max_leaf_nodes');model%max_leaf_nodes=value%as_integer()
       case('min_weight_fraction_leaf');model%min_weight_fraction_leaf=value%as_real()
       case('ccp_alpha');model%ccp_alpha=value%as_real()
       case('criterion');model%criterion=value%as_text()
@@ -214,6 +216,7 @@ contains
       end select
     class is(random_forest_classifier)
       select case(name)
+      case('max_leaf_nodes');model%max_leaf_nodes=value%as_integer()
       case('min_weight_fraction_leaf');model%min_weight_fraction_leaf=value%as_real()
       case('ccp_alpha');model%ccp_alpha=value%as_real()
       case('criterion');model%criterion=value%as_text()
@@ -230,6 +233,7 @@ contains
       end select
     class is(random_forest_regressor)
       select case(name)
+      case('max_leaf_nodes');model%max_leaf_nodes=value%as_integer()
       case('min_weight_fraction_leaf');model%min_weight_fraction_leaf=value%as_real()
       case('ccp_alpha');model%ccp_alpha=value%as_real()
       case('criterion');model%criterion=value%as_text()

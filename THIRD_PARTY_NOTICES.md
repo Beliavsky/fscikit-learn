@@ -1618,3 +1618,13 @@ concatenation/offset conventions. sklearn terms remain in
 the existing NumPy 2.2.6 contract with retained `LICENSES/numpy-COPYING`.
 Native CSR composition, bounds guards, adapters, tests, example and reference
 harness are original MIT contributions. No dependency or extension was added.
+
+## Best-first tree growth (BSD)
+
+`src/sklearn_tree.f90` follows scikit-learn 1.6.1 `tree/_tree.pyx`
+BestFirstTreeBuilder, FrontierRecord and split-priority heap conventions,
+with existing attributed splitters and criteria. Forest forwarding follows
+`ensemble/_forest.py`; parameter semantics follow `tree/_classes.py`.
+Terms remain in `LICENSES/scikit-learn-COPYING`. Native storage integration,
+quiet comparisons, adapters, tests, example and reference harness are original
+MIT contributions. No dependency or public extension was added.

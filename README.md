@@ -454,3 +454,8 @@ targets. See [the example](example/probability_loss_scores.f90) and
 row copies, including stratified resampling. See
 [the example](example/bootstrap_samples.f90) and
 [the API contract](docs/API.md#array-bootstrap-and-shuffle).
+
+CART, ExtraTree, random-forest and ExtraTrees models support best-first growth
+with `max_leaf_nodes`, alongside pruning and sparse decision paths. See
+[the example](example/best_first_trees.f90) and
+[the API contract](docs/API.md#best-first-trees-and-leaf-budgets).

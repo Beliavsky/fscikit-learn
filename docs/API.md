@@ -7650,3 +7650,25 @@ summation, separately from splitter accumulation, preserving source rounding
 at constraints. Pruning paths, component fits and parameter search forward
 the control. Existing sparse-input/training-NaN and other estimator limits
 are unchanged.
+
+## Best-first trees and leaf budgets
+
+All four standalone CART/ExtraTree models and four random-forest/ExtraTrees
+models accept integer `max_leaf_nodes`. Zero (default) represents sklearn's
+`None` and retains depth-first growth. Values of at least two enable best-first
+growth; one and negative values are rejected. Each tree has at most the
+requested number of leaves, subject to its other stopping constraints.
+
+Best-first growth expands the available split with greatest impurity improvement.
+The frontier follows sklearn 1.6.1's heap comparison, including tied priorities
+and zero-improvement leaf records. Feature-constant discovery restarts for each
+candidate node. Child nodes are created together when their parent expands, so
+unpruned node indices follow creation order rather than depth-first preorder.
+`apply`, CSR `decision_path`, importance and pruning use those indices correctly.
+Positive `ccp_alpha` still prunes afterward and rebuilds preorder storage.
+
+Forests forward the budget independently to each component; weighted fits,
+class weights, bootstrap multiplicities, supported criteria, feature sampling
+and minimum weighted leaf fractions compose with it. Parameter search accepts
+`max_leaf_nodes` for tree and forest families. Existing estimator API limits
+remain. See [the example](../example/best_first_trees.f90).

@@ -20,7 +20,7 @@ module sklearn_tree
     real(dp), allocatable :: probability(:)
   end type
   type :: tree_storage
-    integer :: max_depth=100,min_samples_split=2,min_samples_leaf=1,max_features=0
+    integer :: max_depth=100,min_samples_split=2,min_samples_leaf=1,max_features=0,max_leaf_nodes=0
     integer :: random_state=0,node_count_=0,n_features_in_=0
     logical :: random_thresholds=.false.
     logical, private :: weighted_fit_=.false.
@@ -91,6 +91,11 @@ contains
   end function
   ! Weighted/randomized splitter follows sklearn 1.6.1 tree/_splitter.pyx and _criterion.pyx.
   subroutine build_weighted_tree(self,x,y,classes,criterion,w,max_features)
+    type :: frontier_record
+      integer :: node=0,first=0,last=0,pos=0,depth=0
+      logical :: is_leaf=.true.
+      real(dp) :: improvement=0,left_impurity=0,right_impurity=0
+    end type
     class(tree_storage), intent(inout) :: self
     real(dp), intent(in) :: x(:,:),y(:),w(:)
     integer, intent(in) :: classes(:)
@@ -98,7 +103,7 @@ contains
     integer, intent(in), optional :: max_features
     type(legacy_random_state) :: rng
     real(dp), allocatable :: z(:,:)
-    integer, allocatable :: active(:)
+    integer, allocatable :: active(:),frontier_samples(:)
     integer :: all_features(size(x,2)),constants(size(x,2)),i,root,nf
     integer(int64) :: state
     real(dp) :: root_weight,min_weight,normalizer,contribution
@@ -120,6 +125,7 @@ contains
     call require(maxval(abs(x))<=real(huge(0._real32),dp),'tree training features exceed float32 range')
     call require(self%max_depth>=0.and.self%min_samples_split>=2.and.self%min_samples_leaf>=1, &
       'invalid tree size controls')
+    call require(self%max_leaf_nodes>=0.and.self%max_leaf_nodes/=1,'tree max_leaf_nodes must be zero or at least two')
     call require(self%max_features>=0.and.self%max_features<=size(x,2),'invalid tree max_features')
     call require(ieee_is_finite(self%min_impurity_decrease),'tree impurity decrease must be finite')
     call require(self%min_impurity_decrease>=0,'negative impurity decrease')
@@ -142,7 +148,11 @@ contains
     if(criterion=='absolute_error') then
       call median_left%init(size(y));call median_right%init(size(y))
     end if
-    root=grow(active,0,0,0._dp)
+    if(self%max_leaf_nodes==0) then
+      root=grow(active,0,0,0._dp)
+    else
+      frontier_samples=active;call grow_best_first()
+    end if
     if(self%ccp_alpha/=0) call prune_fitted_tree(self)
     do i=1,self%node_count_
       associate(node=>self%nodes_(i))
@@ -458,9 +468,72 @@ contains
         end if
       end do
     end subroutine
-    recursive integer function grow(ids,depth,known,inherited) result(node)
+    subroutine grow_best_first()
+      type(frontier_record), allocatable :: heap(:)
+      type(frontier_record) :: current,left_record,right_record
+      integer :: used,budget,left_node,right_node,node
+      integer, allocatable :: left_ids(:),right_ids(:)
+      allocate(heap(2*size(y)));used=0;budget=self%max_leaf_nodes-1
+      node=grow(active,0,0,0._dp,left_record,1)
+      call heap_push(heap,used,left_record)
+      do while(used>0)
+        call heap_pop(heap,used,current);node=current%node
+        if(current%is_leaf.or.budget<=0) then
+          self%nodes_(node)%left=0;self%nodes_(node)%right=0
+          self%nodes_(node)%feature=0;self%nodes_(node)%threshold=0
+        else
+          budget=budget-1
+          left_ids=frontier_samples(current%first:current%pos-1);right_ids=frontier_samples(current%pos:current%last)
+          left_node=grow(left_ids,current%depth+1,0, &
+            current%left_impurity,left_record,current%first)
+          right_node=grow(right_ids,current%depth+1,0, &
+            current%right_impurity,right_record,current%pos)
+          self%nodes_(node)%left=left_node;self%nodes_(node)%right=right_node
+          call heap_push(heap,used,left_record);call heap_push(heap,used,right_record)
+        end if
+      end do
+    end subroutine
+    subroutine heap_push(heap,used,value)
+        type(frontier_record), intent(inout) :: heap(:)
+        integer, intent(inout) :: used
+        type(frontier_record), intent(in) :: value
+        integer :: hole,parent
+        used=used+1;hole=used
+        do while(hole>1)
+          parent=hole/2
+          if(.not.less(heap(parent)%improvement,value%improvement)) exit
+          heap(hole)=heap(parent);hole=parent
+        end do
+        heap(hole)=value
+      end subroutine
+    subroutine heap_pop(heap,used,result)
+        type(frontier_record), intent(inout) :: heap(:)
+        integer, intent(inout) :: used
+        type(frontier_record), intent(out) :: result
+        type(frontier_record) :: value
+        integer :: hole,child,parent
+        result=heap(1);value=heap(used);used=used-1
+        if(used==0) return
+        hole=1;child=3
+        do while(child<=used)
+          if(less(heap(child)%improvement,heap(child-1)%improvement)) child=child-1
+          heap(hole)=heap(child);hole=child;child=2*hole+1
+        end do
+        if(child-1==used) then
+          heap(hole)=heap(used);hole=used
+        end if
+        do while(hole>1)
+          parent=hole/2
+          if(.not.less(heap(parent)%improvement,value%improvement)) exit
+          heap(hole)=heap(parent);hole=parent
+        end do
+        heap(hole)=value
+      end subroutine
+    recursive integer function grow(ids,depth,known,inherited,record,range_start) result(node)
       integer, intent(in) :: ids(:),depth,known
       real(dp), intent(in) :: inherited
+      type(frontier_record), optional, intent(out) :: record
+      integer, optional, intent(in) :: range_start
       real(dp) :: node_median
       integer, allocatable :: ordered(:),left(:),right(:),work(:)
       real(dp), allocatable :: feature_values(:)
@@ -482,6 +555,9 @@ contains
         work=ids;allocate(feature_values(n))
       end if
       self%node_count_=self%node_count_+1; node=self%node_count_
+      if(present(record)) then
+        record%node=node;record%depth=depth;record%first=range_start;record%last=range_start+n-1
+      end if
       self%nodes_(node)%n_samples=n; self%nodes_(node)%weighted_n_samples=mass; self%nodes_(node)%depth=depth
       parent=inherited
       if(depth==0) then
@@ -644,13 +720,19 @@ contains
       if(.not.ieee_is_nan(improvement)) then
         if(ieee_difference(improvement,-epsilon(1._dp))<self%min_impurity_decrease) return
       end if
+      self%nodes_(node)%feature=best_feature;self%nodes_(node)%threshold=best_threshold
+      self%nodes_(node)%missing_go_left=best_pos>n-best_pos
+      if(present(record)) then
+        frontier_samples(range_start:range_start+n-1)=work
+        record%is_leaf=.false.;record%pos=range_start+best_pos
+        record%improvement=improvement;record%left_impurity=best_left;record%right_impurity=best_right
+        return
+      end if
       if(work_splitter) then
         left=work(:best_pos);right=work(best_pos+1:)
       else
         left=pack(ids,z(ids,best_feature)<=best_threshold);right=pack(ids,z(ids,best_feature)>best_threshold)
       end if
-      self%nodes_(node)%feature=best_feature; self%nodes_(node)%threshold=best_threshold
-      self%nodes_(node)%missing_go_left=size(left)>size(right)
       left_node=grow(left,depth+1,nconstant,best_left); right_node=grow(right,depth+1,nconstant,best_right)
       self%nodes_(node)%left=left_node; self%nodes_(node)%right=right_node
     end function
