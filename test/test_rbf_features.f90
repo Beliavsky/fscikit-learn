@@ -27,6 +27,9 @@ program test_rbf_features
   call sparse%fit(large);call require(sparse%gamma_==1,'large CSR zero variance fallback')
   q=csr_from_arrays(2,10000,[1,2,2],[10000],[1._dp]);expected=sparse%transform(q)
   call require(all(shape(expected)==[2,2]),'large CSR query shape without dense input copy')
+  dense=rbf_sampler();dense%n_components=5;dense%gamma=.7_dp
+  z=dense%fit_transform(spread(spread(1.e154_dp,1,7),2,3))
+  call require(maxval(abs(z(:,2)-np.float64(0.2848542851068746)_dp))<1.e-14_dp,'RBF source fused large finite phases')
   dense=rbf_sampler();dense%n_components=2;dense%gamma=1.e308_dp
   z=dense%fit_transform(reshape([1._dp,2._dp,3._dp,4._dp],[2,2]))
   call require(all(ieee_is_nan(z)),'RBF quiet nonfinite source phases')

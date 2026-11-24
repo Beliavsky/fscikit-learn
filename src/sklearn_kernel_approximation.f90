@@ -7,7 +7,7 @@ module sklearn_kernel_approximation
   use sklearn_ieee_math, only: ieee_difference,ieee_product,ieee_quotient
   use sklearn_common
   use sklearn_metrics, only: linear_kernel,rbf_kernel,polynomial_kernel,cosine_similarity
-  use, intrinsic :: ieee_arithmetic, only: ieee_is_finite,ieee_is_nan,ieee_value,ieee_quiet_nan
+  use, intrinsic :: ieee_arithmetic, only: ieee_is_finite,ieee_is_nan,ieee_value,ieee_quiet_nan,ieee_fma
   implicit none
   private
   public :: polynomial_count_sketch
@@ -219,13 +219,18 @@ contains
     real(dp),allocatable::z(:,:)
     real(dp)::bound
     integer::i,j,k
-    logical::fast
+    logical::fast,fused
     call require(allocated(self%random_weights_),'RBF sampler is not fitted')
     call check_xy(transpose(x),size(self%random_weights_,1))
-    fast=.false.
+    fast=.false.;fused=.false.
     if(all(ieee_is_finite(self%random_weights_))) then
       bound=ieee_product(ieee_product(maxval(abs(x)),maxval(abs(self%random_weights_))),real(size(x,2),dp))
-      fast=ieee_is_finite(bound)
+      ! Large phases amplify last-bit reassociation into different cosine values.
+      ! Keep ordinary maps on MATMUL and control summation for sensitive phases.
+      fast=.false.
+      if(ieee_is_finite(bound)) then
+        fast=bound<=1024._dp;fused=.not.fast
+      end if
     end if
     if(fast) then
       z=matmul(x,self%random_weights_)
@@ -234,7 +239,11 @@ contains
       do j=1,size(z,2)
         do i=1,size(z,1)
           do k=1,size(x,2)
-            z(i,j)=ieee_difference(z(i,j),-ieee_product(x(i,k),self%random_weights_(k,j)))
+            if(fused) then
+              z(i,j)=ieee_fma(x(i,k),self%random_weights_(k,j),z(i,j))
+            else
+              z(i,j)=ieee_difference(z(i,j),-ieee_product(x(i,k),self%random_weights_(k,j)))
+            end if
           end do
         end do
       end do

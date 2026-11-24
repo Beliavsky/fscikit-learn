@@ -7977,3 +7977,12 @@ kernel algebra suite now accepts an explicit executable and retains its
 separately injected-map checks. No new public type, dependency or extension
 algorithm was added. MIT licensing and retained BSD attribution continue.
 Canonical verification will be recorded below.
+
+A release comparison exposed a dense large-phase accumulation difference:
+for 1e154 inputs, separate product rounding changed a phase bit and its cosine.
+A phase-level probe identified fused accumulation matching the installed BLAS
+reference. Large finite dense phases now use explicit standard ieee_fma;
+ordinary bounded phases retain MATMUL, and nonfinite bounds retain quiet IEEE
+composition. A native regression checks this finite phase case. The unchanged
+1,064-fixture optimized probe passes all 8,512 groups, 33 diagnostics and 522
+nonfinite reference values. No fixture or tolerance was relaxed or removed.

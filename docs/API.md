@@ -7746,3 +7746,8 @@ fit controls take effect on refit. Refit repeats the scalar-seeded stream.
 The native numerical/CSR index limits remain. See
 [the example](../example/seeded_rbf_features.f90). No new dependency or public
 extension algorithm was added.
+
+Large finite dense RBF phases use explicit Fortran ieee_fma accumulation to
+preserve the reference phase under compiler optimization. Small bounded
+phases retain MATMUL; nonfinite phases use the quiet-IEEE path. This requires
+a compiler implementing the standard IEEE fused multiply-add intrinsic.
