@@ -539,3 +539,10 @@ PowerTransformer and the free `power_transform` provide dense Yeo-Johnson and
 Box-Cox maps with source likelihood optimization, live query controls and
 inverse NaN/infinity boundaries. See the
 [example](example/power_transforms.f90) and [API contract](docs/API.md#power-transforms).
+
+
+SplineTransformer supports weighted knot placement, degree-zero and repeated
+basis knots, feature names and owned CSR output with source zero slots.
+See the [sparse example](example/spline_sparse.f90) and
+[API contract](docs/API.md#b-spline-features), including the signed-weight tie
+ordering compatibility gap.

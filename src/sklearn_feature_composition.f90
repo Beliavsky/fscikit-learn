@@ -296,7 +296,7 @@ contains
     type is(kbins_discretizer)
       call model%fit(x)
     type is(spline_transformer)
-      call model%fit(x)
+      call model%fit(x,feature_names=names)
     type is(pca)
       call model%fit(x)
     type is(truncated_svd)
@@ -418,13 +418,7 @@ contains
         end do
       end if
     type is(spline_transformer)
-      allocate(names(model%n_features_out_));k=0
-      n=model%n_features_out_/size(input)
-      do i=1,size(input)
-        do j=1,n
-          k=k+1;names(k)%text=input(i)%text//'_sp_'//integer_text(j-1)
-        end do
-      end do
+      names=model%get_feature_names_out(input)
     type is(variance_threshold)
       names=pack(input,model%support_)
     type is(missing_indicator)

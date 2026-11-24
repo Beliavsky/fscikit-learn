@@ -1,6 +1,7 @@
 """Native B-spline basis and extrapolation comparisons."""
 from pathlib import Path
 import json
+import argparse,hashlib
 import subprocess
 import numpy as np
 import sklearn
@@ -9,17 +10,21 @@ ROOT = Path(__file__).resolve().parents[1]
 RESULTS = ROOT / "validation/results"
 
 def main():
+    ap=argparse.ArgumentParser();ap.add_argument('--executable',type=Path);ap.add_argument('--profile',default='development');ap.add_argument('--report',type=Path);args=ap.parse_args()
+    sha=lambda p:hashlib.sha256(p.read_bytes()).hexdigest();paths=[Path(__file__),ROOT/'src/sklearn_spline.f90',ROOT/'app/reference_spline_driver.f90']
+    if args.executable:paths.append(args.executable)
+    hashes={str(p):sha(p) for p in paths}
     RESULTS.mkdir(exist_ok=True)
     checks = []
     for seed, n, p in ((7, 45, 2), (42, 60, 3), (2026, 24, 4)):
         rng = np.random.default_rng(seed)
         x = rng.normal(size=(n, p))
-        data, output = RESULTS/f"spline_{seed}.txt", RESULTS/f"spline_actual_{seed}.txt"
+        data, output = RESULTS/f"spline_{args.profile}_{seed}.txt", RESULTS/f"spline_actual_{args.profile}_{seed}.txt"
         with data.open("w") as stream:
             stream.write(f"{n} {p}\n")
             np.savetxt(stream, x, fmt="%.17g")
-        subprocess.run(["fpm", "run", "--flag", "-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow",
-                        "--target", "reference_spline_driver", "--", str(data), str(output)], cwd=ROOT, check=True)
+        command=[str(args.executable)] if args.executable else ['fpm','run','--target','reference_spline_driver','--']
+        subprocess.run(command+[str(data),str(output)],cwd=ROOT,check=True)
         actual, expected = {}, {}
         for line in output.read_text().splitlines():
             name, *values = line.split(); actual[name] = np.array(values, dtype=float)
@@ -52,7 +57,8 @@ def main():
             assert actual[name].shape == want.shape, (seed, name, actual[name].shape, want.shape)
             np.testing.assert_allclose(actual[name], want, atol=3e-8, rtol=3e-8, err_msg=f"{seed} {name}")
             checks.append(dict(seed=seed, name=name, passed=True))
-    (RESULTS/"spline.json").write_text(json.dumps(dict(sklearn=sklearn.__version__, checks=checks), indent=2)+"\n")
+    assert hashes=={str(p):sha(p) for p in paths}
+    (args.report or RESULTS/"spline.json").write_text(json.dumps(dict(profile=args.profile,hashes=hashes,sklearn=sklearn.__version__, checks=checks), indent=2)+"\n")
     print(f"{len(checks)} spline result groups passed")
 
 if __name__ == "__main__":

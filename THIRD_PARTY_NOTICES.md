@@ -1844,3 +1844,19 @@ Existing sklearn, SciPy and NumPy BSD notices remain under LICENSES/.
 Native owned interfaces, C math/IEEE policy preservation, scaler adapters,
 maximum-transform bisection, reference harness and tests are MIT integration.
 No dependency or extension algorithm was added.
+
+
+## Weighted spline maps, names and CSR output (BSD / MIT)
+
+src/sklearn_spline.f90 follows sklearn 1.6.1 preprocessing/_polynomial.py
+SplineTransformer and utils/stats.py weighted percentiles. Compact local basis,
+derivative and carried-interval evaluation follow SciPy 1.15.3
+interpolate/src/__fitpack.cc _deBoor_D/_find_interval:
+https://github.com/scipy/scipy/blob/v1.15.3/scipy/interpolate/src/__fitpack.cc
+CSR slot/edit semantics follow the installed SciPy 1.15.3 BSpline.design_matrix
+and sparse LIL/CSR operations. Existing sklearn/SciPy/NumPy BSD notices remain
+under LICENSES/. Native owned CSR adapters, feature_string names, quiet arithmetic,
+interfaces, reference harness, tests and example are MIT integration. No new
+runtime dependency or public extension algorithm was added. Native weighted
+percentile ties use stable ordering; signed-weight differences from NumPy's
+CPU-specific unstable argsort are documented and retained as diagnostics.

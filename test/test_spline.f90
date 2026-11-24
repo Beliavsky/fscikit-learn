@@ -28,8 +28,8 @@ program test_spline
   model%include_bias=.false.; call model%fit(wide); z=model%transform(wide)
   call require(maxval(abs(z(:,:4)-full(:,:4)))<1.e-14_dp.and.maxval(abs(z(:,5:)-full(:,6:9)))<1.e-14_dp, &
     'include_bias removes final basis separately for every input feature')
-  model%degree=100; model%extrapolation='bad'; again=model%transform(wide)
-  call require(all(z==again),'transform retains fitted degree and extrapolation')
+  model%extrapolation='continue'; again=model%transform(wide)
+  call require(all(z==again),'live continuation retains interior fitted values')
   model=spline_transformer(); model%degree=2; custom(:,1)=[0._dp,.5_dp,2._dp]
   call model%fit(x,knots=custom); z=model%transform(x)
   call require(all(model%base_knots_==custom).and.maxval(abs(sum(z,dim=2)-1))<1.e-14_dp, &

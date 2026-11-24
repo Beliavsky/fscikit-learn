@@ -227,6 +227,8 @@ program invalid_input_driver
   type(linear_svc) :: lsvc
   type(linear_svr) :: lsvr
   type(spline_transformer) :: spl
+  type(csr_matrix)::spline_sparse
+  type(feature_string),allocatable::spline_names(:)
   type(gaussian_process_classifier) :: gpc
   type(knn_imputer) :: ki
   type(missing_indicator) :: mi
@@ -5766,8 +5768,8 @@ program invalid_input_driver
     labels=[-3,-3,9,9]
     call lsvr%fit(x(:0,:),y(:0))
 
-  case('spl_degree')
-    spl%degree=0; call spl%fit(x)
+  case('spl_weight_count')
+    call spl%fit(x,sample_weight=[1._dp])
   case('spl_negative_degree')
     spl%degree=-1; call spl%fit(x)
   case('spl_knots_count')
@@ -5776,10 +5778,10 @@ program invalid_input_driver
     spl%knots="bad"; call spl%fit(x)
   case('spl_extrapolation')
     spl%extrapolation="bad"; call spl%fit(x)
-  case('spl_constant')
-    call spl%fit(x)
-  case('spl_quantile_constant')
-    spl%knots="quantile"; call spl%fit(x)
+  case('spl_weight_nan')
+    call spl%fit(x,sample_weight=spread(ieee_value(0._dp,ieee_quiet_nan),1,size(x,1)))
+  case('spl_zero_uniform')
+    call spl%fit(x,sample_weight=spread(0._dp,1,size(x,1)))
   case('spl_explicit_rows')
     call spl%fit(x,knots=x(:1,:))
   case('spl_explicit_features')
@@ -5810,6 +5812,23 @@ program invalid_input_driver
     x(2,:)=2; call spl%fit(x); z=spl%transform(x(:0,:))
   case('spl_query_nan')
     x(2,:)=2; call spl%fit(x); x(1,1)=ieee_value(0._dp,ieee_quiet_nan); z=spl%transform(x)
+  case('spl_sparse_periodic_zero')
+    x(:,1)=[0._dp,1._dp,2._dp,3._dp];x(:,2)=x(:,1)
+    spl%degree=0;spl%extrapolation='periodic';call spl%fit(x);spline_sparse=spl%transform_csr(x)
+  case('spl_dense_zero_right')
+    x(:,1)=[0._dp,1._dp,2._dp,3._dp];x(:,2)=x(:,1)
+    spl%degree=0;call spl%fit(x);z=spl%transform(x+10)
+  case('spl_names_count')
+    allocate(spline_names(1));spline_names(1)%text='one';call spl%fit(x,feature_names=spline_names)
+  case('spl_names_unallocated')
+    allocate(spline_names(2));call spl%fit(x,feature_names=spline_names)
+  case('spl_query_name_count')
+    call spl%fit(x);allocate(spline_names(1));spline_names(1)%text='one'
+    spline_names=spl%get_feature_names_out(spline_names)
+  case('spl_query_name_difference')
+    allocate(spline_names(2));spline_names(1)%text='one';spline_names(2)%text='two'
+    call spl%fit(x,feature_names=spline_names);spline_names(2)%text='bad'
+    spline_names=spl%get_feature_names_out(spline_names)
   case('spl_query_range')
     x(2,:)=2; spl%extrapolation="error"; call spl%fit(x); x=3; z=spl%transform(x)
 

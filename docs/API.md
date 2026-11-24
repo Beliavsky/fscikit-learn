@@ -1026,7 +1026,36 @@ extrapolation is 'constant', 'linear', 'continue', 'periodic' or 'error'.
 Periodic fits require degree<n_base_knots. include_bias=false removes the
 last basis per feature. Inspect base_knots_, extended knots_, n_features_in_
 and n_features_out_. Transform returns real(dp) columns grouped by input
-feature. See COVERAGE.md for knot, endpoint and supported-degree conventions.
+feature. Degree zero and repeated automatically generated knots are supported;
+explicit knots must be strictly increasing.
+
+`sample_weight=` in fit/fit_transform selects lower weighted quantiles, or
+ignores nonpositive-weight samples when locating uniform extrema. Nonnegative
+weights are the usual statistical case. Mixed negative weights with tied values
+can differ from the installed NumPy CPU backend because the native percentile
+sort is stable; the reference report retains these differences separately.
+
+`transform_csr(x)` and `fit_transform_csr(x, knots, sample_weight, feature_names)`
+return owned `csr_matrix` output from dense input. They retain the reference
+active-support slots and explicit zeros, using compact per-row work buffers
+without allocating a dense sample-by-output matrix. Dense transform methods
+continue to return real64 arrays. Python sparse_output/order/copy flags are
+represented by these typed return methods and native owned storage.
+
+Fit accepts optional `feature_names=` as feature_string vectors. Names are
+recorded in feature_names_in_; unnamed refits clear it. get_feature_names_out
+accepts optional input_features, checks fitted names, and otherwise generates
+x0_sp_0, x0_sp_1, etc. ColumnTransformer/FeatureUnion use the same names method.
+
+Queries read the live degree, extrapolation and include_bias controls while
+retaining the fitted spline degree, knots and coefficients. This preserves
+source quirks when those controls change: output widths can differ from fitted
+metadata or name counts, and some changes raise shape/index diagnostics.
+Degree-zero dense constant right extrapolation and sparse periodic maps retain
+the baseline's rejected configurations. Constant/repeated generated knots can
+produce zeros or NaNs as in the baseline. These behaviors are covered by retained
+source acceptance/rejection checks. See COVERAGE.md for numerical scope and the
+[sparse example](../example/spline_sparse.f90).
 
 
 ## Primal linear support-vector models
