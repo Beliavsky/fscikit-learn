@@ -1,4 +1,5 @@
 module sklearn_cluster
+  use sklearn_kmeans_seeding, only: kmeans_plusplus
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
   use sklearn_bisecting_kmeans, only: bisecting_kmeans
   use sklearn_minibatch_kmeans, only: mini_batch_kmeans
@@ -12,6 +13,7 @@ module sklearn_cluster
   use sklearn_optics, only: optics,cluster_optics_dbscan,cluster_optics_xi
   implicit none
   private
+  public :: kmeans_plusplus
   public :: bisecting_kmeans,mini_batch_kmeans
   public :: spectral_coclustering,spectral_biclustering
   public :: hdbscan

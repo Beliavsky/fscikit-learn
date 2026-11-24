@@ -1522,3 +1522,17 @@ multioutput products. The scikit-learn BSD terms remain in
 CSR column workspaces, quiet IEEE products, tests, example and reference
 harness are original MIT contributions. No dependency or extension algorithm
 was added.
+
+## Public k-means++ initialization (BSD)
+
+`src/sklearn_kmeans_seeding.f90` follows sklearn 1.6.1
+`cluster/_kmeans.py` kmeans_plusplus and _kmeans_plusplus, with Euclidean
+distance composition from `metrics/pairwise.py`. The sklearn BSD terms remain
+in `LICENSES/scikit-learn-COPYING`. Private pairwise summation and batched
+binary-search bounds follow NumPy 2.2.6 reduction and
+[`numpy/_core/src/npysort/binsearch.cpp`](https://github.com/numpy/numpy/blob/v2.2.6/numpy/_core/src/npysort/binsearch.cpp)
+conventions; NumPy terms remain in `LICENSES/numpy-COPYING`.
+Native CSR row workspaces, quiet IEEE composition, Fortran interfaces, tests,
+example and exact-distance replay certificates are original MIT contributions.
+The prior private estimator seeding helpers are unchanged. No dependency or
+public extension algorithm was added.

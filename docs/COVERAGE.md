@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and sixty-eight reference suites additionally check 3,245,013
+All types have native tests. One hundred and sixty-nine reference suites additionally check 3,254,641
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -8918,3 +8918,30 @@ checksum and unchanged unrelated modules/tests were verified. Reports remain
 local under ignored `validation/results/class_weight*`, including
 `class_weight_final_audit.json`. MIT licensing and retained sklearn BSD
 attribution continue; no dependency or public extension algorithm was added.
+
+## Public k-means++ initialization (2026-11-24)
+
+Added public `kmeans_plusplus` for real64 dense and CSR arrays, sample weights,
+supplied squared norms, scalar integer seeds and local trial controls. The
+native implementation preserves NumPy-compatible first-center selection and
+batched cumulative searches, including source all-negative-weight behavior.
+CSR inputs support explicit zeros and unsorted duplicates with source stored
+row-norm semantics. Per-candidate workspaces avoid a dense input matrix or
+trial-by-sample distance allocation. Existing private estimator seeders remain
+unchanged. The facade example feeds public seeds to KMeans explicit fitting.
+
+Development validation passed 9,628 groups across 2,407 fixtures, plus 40
+source-matched diagnostics. Of these, 2,399 seed sequences match the public
+source indices and centers exactly. Eight alternatives have full source-draw
+replay certificates: every alternate greedy choice has an exactly identical
+finite updated-distance vector to the source-best candidate. BLAS can assign
+slightly different rounded potentials to such identical vectors. These are
+identified separately and are not counted as exact seed-index parity.
+All fixtures check selected-row identity and preserved inputs/intrinsic RNG.
+Coverage includes five seeds, multiple trial counts, zero/constant/duplicate
+data, norm overrides, signed/zero weights, overflow/underflow, 10,000 samples
+and 100,000 features. Binding and tie details are in API.md.
+
+Cumulative inventory: 222 public core types, 150 source modules, 193 native
+programs, 169 reference suites / 3,254,641 retained required groups, and 74
+invalid-input registries / 4,365 cases. These remain API subsets.

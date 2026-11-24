@@ -7316,3 +7316,54 @@ target column at a time. Label counting uses merge-sort unique labels and
 binary lookup. All inputs are preserved. String, real-valued dense and
 int64 target labels are outside this binding. The utilities and map helper
 are exported by `sklearn_class_weight` and the `sklearn` facade.
+
+## Public k-means++ initialization
+
+`call kmeans_plusplus(x,n_clusters,centers,indices,sample_weight, &
+x_squared_norms,random_state,n_local_trials)` is exported by
+`sklearn_kmeans_seeding`, `sklearn_cluster` and `sklearn`. Input `x` is a
+nonempty finite real(dp) matrix or `csr_matrix`. Output `centers(:,:)` and
+`indices(:)` are allocatable, with shapes `[n_clusters,n_features]` and
+`[n_clusters]`; indices are one-based input-row positions. The number of
+clusters must be positive and at most the number of samples.
+
+The first center uses probabilities proportional to `sample_weight(:)`
+(uniform by default). Later candidates are drawn from the cumulative
+weighted squared distance to the nearest selected center. Each iteration
+retains the candidate with lowest weighted potential. Optional
+`n_local_trials` is positive and defaults to `2+int(log(n_clusters))`;
+one trial gives vanilla k-means++. Zero potential can repeat centers,
+including input rows with zero weight, following the source.
+
+Optional `x_squared_norms(:)` supplies one finite value per input row.
+As in the baseline, supplied values need not be nonnegative or agree with
+the actual row norms. Candidate-side norms are still calculated from the
+input. Sample weights must be finite and normalize to a valid first-center
+probability vector. All-negative weights can therefore be accepted by the
+baseline; mixed signs, all-zero weights and overflowing normalization totals
+are rejected. These controls affect initialization and do not set an
+estimator's fit weights. Computed overflow/underflow and nonfinite potentials
+use quiet IEEE composition consistent with source arithmetic.
+
+`random_state` is a nonnegative default integer, defaulting to zero, and
+uses the package's local legacy NumPy-compatible generator. The intrinsic
+Fortran random state and all inputs are preserved. This binding accepts
+real64 arrays and scalar integer seeds; float32 arrays and Python random-state
+objects are outside its interface.
+
+CSR inputs may contain explicit zeros and unsorted duplicates. Selected rows
+are summed into dense center vectors. Squared row norms follow the source's
+stored-entry arithmetic rather than canonicalizing duplicate entries; the
+first selected center is densified before its norm is calculated. Only one
+center-sized work vector is needed, plus O(n_samples+n_local_trials) work and
+the required dense output centers. Candidate distance matrices are processed
+one candidate at a time. Public seeds can be passed directly to
+`kmeans%fit(x,init_centers=centers)`.
+
+Native seeded results are reproducible. Exact Python index parity is not
+claimed for numerical ties: a BLAS matrix-vector product can round identical
+candidate distance vectors differently. Reference validation separates exact
+seed sequences from certified alternatives. A certificate replays every
+source random draw and admits a different seed only when it is among the
+source candidates and its complete finite updated-distance vector is exactly
+equal to the source-best vector. No tolerance on distinct objectives is used.

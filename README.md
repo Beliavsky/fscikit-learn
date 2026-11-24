@@ -32,6 +32,7 @@ fpm run --example classification_sample_generators
 fpm run --example synthetic_sample_generators
 fpm run --example bicluster_consensus
 fpm run --example balanced_class_weights
+fpm run --example weighted_kmeans_seeds
 fpm run --example model_learning_curves
 fpm run --example out_of_fold_predictions
 fpm run --example parameter_search
@@ -430,3 +431,8 @@ or a callback and optimal rectangular matching. See
 class weights, with subsample and multioutput support and sparse targets.
 See [the weighted-fit example](example/balanced_class_weights.f90) and
 [the API contract](docs/API.md#class-and-sample-weight-utilities).
+
+Public `kmeans_plusplus` supports weighted dense/CSR initialization, supplied
+squared norms and local trial controls. See
+[the initialization example](example/weighted_kmeans_seeds.f90) and
+[the API contract](docs/API.md#public-k-means-initialization).
