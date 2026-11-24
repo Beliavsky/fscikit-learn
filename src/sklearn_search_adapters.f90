@@ -220,6 +220,9 @@ contains
       end select
     class is(random_forest_regressor)
       select case(name)
+      case('criterion');model%criterion=value%as_text()
+      case('max_samples');model%max_samples=value%as_integer()
+      case('min_impurity_decrease');model%min_impurity_decrease=value%as_real()
       case('n_estimators');model%n_estimators=value%as_integer()
       case('max_depth');model%max_depth=value%as_integer()
       case('min_samples_leaf');model%min_samples_leaf=value%as_integer()
@@ -354,7 +357,7 @@ contains
         w=1;if(present(sample_weight)) w=sample_weight
         call weighted_linear(model,x,yr,w,model%alpha)
       class is(random_forest_regressor)
-        call require(.not.present(sample_weight),'search forest has no native weighted fit');call model%fit(x,yr)
+        call model%fit(x,yr,sample_weight)
       type is(gradient_boosting_regressor)
         call require(.not.present(sample_weight),'search boosting has no native weighted fit');call model%fit(x,yr)
       class default

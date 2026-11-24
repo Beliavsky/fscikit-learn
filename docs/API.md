@@ -3367,8 +3367,7 @@ kernel. This replaces the former real64/native RNG path and also changes the
 underlying trees in existing unweighted ensembles. Zero-gain splits allow a
 later split to learn XOR. Regression uses source-style mutable feature ordering
 and forward/reverse incremental target sums. Floating-point ties can still
-produce platform-dependent optimal splits. Forest-level criterion controls
-remain outside this addition.
+produce platform-dependent optimal splits. Forest regression criterion and weighting controls are documented below.
 
 Voting, independent multioutput estimators, regressor/classifier chains, and
 multiclass reductions accept ExtraTree bases through their decision-tree
@@ -7482,3 +7481,36 @@ Float-key round-trip checks also test adjacent decimal candidates at
 asymmetric binary rounding intervals. They use standard C `strtod` through
 ISO_C_BINDING in the default C numeric locale, avoiding an extended
 intermediate in Fortran formatted input. This adds no package dependency.
+
+## Weighted regression forests
+
+`random_forest_regressor` and `extra_trees_regressor` accept optional
+`sample_weight` in `fit` and `score`. Both support `criterion='squared_error'`
+(default), `'friedman_mse'` and `'poisson'`, plus `min_impurity_decrease`.
+`apply(x)` returns one-based leaf indices with shape `(n_queries,n_estimators)`;
+`n_features_in_` records the fitted input width. Component trees remain
+accessible through `estimators_`.
+
+Regression forests now draw component seeds using NumPy's legacy RandomState
+contract. Bootstraps draw row indices with replacement and multiply training
+weights by their counts, preserving the full training matrix and counting
+unique nonzero-weight rows for leaf-size limits. The intrinsic Fortran RNG
+is unchanged. This corrects the former native-RNG/duplicated-row behavior,
+and changes seeded regression-forest predictions to their sklearn counterparts.
+Random-forest `max_samples=0` means all training rows per bootstrap draw;
+a positive integer selects a bootstrap sample count no larger than the input.
+Nonzero max_samples requires bootstrap. ExtraTrees retains this package's
+existing forced non-bootstrap fitting behavior.
+
+Only trees with more than one node contribute to forest impurity importance,
+matching sklearn. All-stump forests return zero importances. Signed/zero
+weights retain source NaN/Inf prediction behavior; score requires finite
+predictions/targets and a nonzero score-weight sum. Fitting weights and their
+bootstrap-multiplied values must be finite. Query NaNs use each component's
+finite-training missing-value routing. Training NaNs, sparse inputs,
+fractional max_samples/max_features, OOB scores, warm starts, pruning,
+monotonic constraints and multioutput forests are not implemented here.
+
+Parameter search accepts regression-forest `criterion`, `max_samples` and
+`min_impurity_decrease` alongside existing size/seed controls, and forwards
+fit weights. SelectFromModel also forwards regression-forest fit weights.

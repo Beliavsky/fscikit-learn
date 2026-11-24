@@ -4,12 +4,15 @@ program test_search
   use sklearn_linear_model, only: ridge,logistic_regression
   use sklearn_pipeline, only: pipeline
   use sklearn_preprocessing, only: standard_scaler
+  use sklearn_ensemble, only: random_forest_regressor,extra_trees_regressor
   use sklearn_tree, only: decision_tree_regressor,extra_tree_regressor
   implicit none
   type(grid_search_cv) :: search,copied,multi
   type(grid_search_cv) :: criterion_search
   type(decision_tree_regressor) :: count_tree
   type(extra_tree_regressor) :: count_extra
+  type(random_forest_regressor) :: count_forest
+  type(extra_trees_regressor) :: count_forest_extra
   type(randomized_search_cv) :: random
   type(ridge) :: base
   type(logistic_regression) :: classifier
@@ -82,6 +85,20 @@ program test_search
   allocate(criterion_search%estimator,source=count_extra)
   call criterion_search%fit(x,1+abs(y),weights)
   call require(size(criterion_search%cv_results_%params)==3,'ExtraTree criterion parameter adapter')
+  count_forest%n_estimators=3;count_forest%max_depth=2
+  deallocate(criterion_search%estimator);allocate(criterion_search%estimator,source=count_forest)
+  call criterion_search%fit(x,1+abs(y),weights)
+  value=criterion_search%best_params_%get('criterion')
+  select type(fitted=>criterion_search%best_estimator_)
+  class is(random_forest_regressor)
+    call require(fitted%criterion==value%as_text(),'Weighted forest criterion search refits best parameters')
+  class default
+    call require(.false.,'Criterion search returns a forest regressor')
+  end select
+  count_forest_extra%n_estimators=3;count_forest_extra%max_depth=2
+  deallocate(criterion_search%estimator);allocate(criterion_search%estimator,source=count_forest_extra)
+  call criterion_search%fit(x,1+abs(y),weights)
+  call require(size(criterion_search%cv_results_%params)==3,'Weighted ExtraTrees criterion parameter adapter')
   print *, 'GridSearchCV and RandomizedSearchCV: PASS'
 contains
   integer function last_candidate(results) result(index)

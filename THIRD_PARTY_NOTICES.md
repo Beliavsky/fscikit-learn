@@ -1567,3 +1567,13 @@ Friedman improvement and Poisson deviance/proxy conventions. Terms remain in
 `LICENSES/scikit-learn-COPYING`. The Fortran adapters, quiet arithmetic, tests,
 example and reference harness are original MIT contributions. No dependency
 or public extension algorithm was added.
+
+## Weighted regression forests (BSD)
+
+`src/sklearn_ensemble.f90` adapts scikit-learn 1.6.1 `ensemble/_forest.py`
+and `ensemble/_base.py` component seed generation, weighted bootstrap fitting
+and nontrivial-tree importance aggregation. sklearn terms remain in
+`LICENSES/scikit-learn-COPYING`. Existing `sklearn_legacy_rng` supplies
+NumPy RandomState-compatible draws, with retained NumPy BSD terms. Fortran
+interfaces, quiet reductions, tests, example and reference harness are original
+MIT contributions. No dependency or public extension algorithm was added.

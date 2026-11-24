@@ -1,9 +1,11 @@
 module sklearn_ensemble
+  use sklearn_legacy_rng, only: legacy_random_state
+  use sklearn_ieee_math, only: ieee_difference,ieee_product,ieee_quotient,ieee_total,ieee_mean
   use sklearn_hist_gradient_boosting, only: hist_gradient_boosting_regressor,hist_gradient_boosting_classifier
   use sklearn_tree_embedding, only: random_trees_embedding
   use sklearn_stacking, only: stacking_classifier,stacking_regressor,stacking_estimator
   use sklearn_bagging, only: bagging_classifier,bagging_regressor
-  use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
+  use, intrinsic :: ieee_arithmetic, only: ieee_is_finite,ieee_is_nan,ieee_value,ieee_quiet_nan
   use, intrinsic :: iso_fortran_env, only: real32
   use sklearn_voting, only: voting_classifier,voting_regressor,voting_estimator
   use sklearn_isolation_forest, only: isolation_forest
@@ -67,11 +69,15 @@ module sklearn_ensemble
   type :: random_forest_regressor
     integer :: n_estimators=100,max_depth=100,min_samples_leaf=1,min_samples_split=2
     integer :: max_features=0,random_state=0
+    integer :: max_samples=0,n_features_in_=0
+    character(16) :: criterion='squared_error'
+    real(dp) :: min_impurity_decrease=0
     logical :: bootstrap=.true.,random_thresholds=.false.
     type(decision_tree_regressor), allocatable :: estimators_(:)
     real(dp), allocatable :: feature_importances_(:)
   contains
     procedure :: fit=>forest_regressor_fit
+    procedure :: apply=>forest_regressor_apply
     procedure :: predict=>forest_regressor_predict
     procedure :: score=>forest_regressor_score
   end type
@@ -163,49 +169,135 @@ contains
     integer, intent(in) :: y(:)
     v=accuracy_score(y,self%predict(x))
   end function
-  subroutine forest_regressor_fit(self,x,y)
+  subroutine forest_regressor_fit(self,x,y,sample_weight)
     class(random_forest_regressor), intent(inout) :: self
     real(dp), intent(in) :: x(:,:),y(:)
-    integer :: i,n,p,ids(size(y))
-    call check_xy(x,size(y)); call require(self%n_estimators>0,'forest needs positive n_estimators')
-    n=size(y); p=size(x,2)
+    real(dp), optional, intent(in) :: sample_weight(:)
+    type(legacy_random_state) :: seeds,draws
+    real(dp) :: w(size(y)),tree_weights(size(y)),normalizer
+    integer :: i,j,n,p,seed,ns,nontrivial,at,counts(size(y))
+    call check_xy(x,size(y));call check_x(reshape(y,[size(y),1]))
+    call require(self%n_estimators>0,'forest needs positive n_estimators')
+    call require(self%max_samples>=0.and.self%max_samples<=size(y),'invalid forest max_samples')
+    call require(self%bootstrap.or.self%max_samples==0,'forest max_samples requires bootstrap')
+    w=1
+    if(present(sample_weight)) then
+      call require(size(sample_weight)==size(y),'forest sample weight length mismatch')
+      call require(all(ieee_is_finite(sample_weight)),'forest sample weights must be finite')
+      w=sample_weight
+    end if
+    n=size(y);p=size(x,2);self%n_features_in_=p
+    ns=n;if(self%max_samples>0) ns=self%max_samples
+    call seeds%seed(self%random_state)
     if(allocated(self%estimators_)) deallocate(self%estimators_)
-    allocate(self%estimators_(self%n_estimators)); self%feature_importances_=spread(0._dp,1,p)
+    allocate(self%estimators_(self%n_estimators));self%feature_importances_=spread(0._dp,1,p);nontrivial=0
     do i=1,self%n_estimators
-      ids=sample_indices(n,self%bootstrap,self%random_state+104729*i)
+      seed=seeds%integer_index(2147483647)-1
+      tree_weights=w
+      if(self%bootstrap) then
+        call draws%seed(seed);counts=0
+        do j=1,ns
+          at=draws%integer_index(n);counts(at)=counts(at)+1
+        end do
+        do j=1,n
+          tree_weights(j)=ieee_product(w(j),real(counts(j),dp))
+        end do
+      end if
+      self%estimators_(i)%criterion=self%criterion
       self%estimators_(i)%max_depth=self%max_depth
       self%estimators_(i)%min_samples_leaf=self%min_samples_leaf
       self%estimators_(i)%min_samples_split=self%min_samples_split
       self%estimators_(i)%max_features=self%max_features
+      self%estimators_(i)%min_impurity_decrease=self%min_impurity_decrease
       self%estimators_(i)%random_thresholds=self%random_thresholds
-      self%estimators_(i)%random_state=self%random_state+7919*i
-      call self%estimators_(i)%fit(x(ids,:),y(ids))
-      self%feature_importances_=self%feature_importances_+self%estimators_(i)%feature_importances_
+      self%estimators_(i)%random_state=seed
+      call self%estimators_(i)%fit(x,y,sample_weight=tree_weights)
+      if(self%estimators_(i)%node_count_>1) then
+        nontrivial=nontrivial+1
+        do j=1,p
+          self%feature_importances_(j)=ieee_difference(self%feature_importances_(j), &
+            -self%estimators_(i)%feature_importances_(j))
+        end do
+      end if
     end do
-    if(sum(self%feature_importances_)>0) &
-      self%feature_importances_=self%feature_importances_/sum(self%feature_importances_)
+    if(nontrivial==0) return
+    do j=1,p
+      self%feature_importances_(j)=ieee_quotient(self%feature_importances_(j),real(nontrivial,dp))
+    end do
+    normalizer=ieee_total(self%feature_importances_)
+    do j=1,p
+      self%feature_importances_(j)=ieee_quotient(self%feature_importances_(j),normalizer)
+    end do
   end subroutine
-  subroutine extra_regressor_fit(self,x,y)
+  subroutine extra_regressor_fit(self,x,y,sample_weight)
     class(extra_trees_regressor), intent(inout) :: self
     real(dp), intent(in) :: x(:,:),y(:)
-    self%bootstrap=.false.; self%random_thresholds=.true.
-    call forest_regressor_fit(self,x,y)
+    real(dp), optional, intent(in) :: sample_weight(:)
+    self%bootstrap=.false.;self%random_thresholds=.true.
+    call forest_regressor_fit(self,x,y,sample_weight)
   end subroutine
   function forest_regressor_predict(self,x) result(y)
     class(random_forest_regressor), intent(in) :: self
     real(dp), intent(in) :: x(:,:)
-    real(dp) :: y(size(x,1))
-    integer :: i
-    call require(allocated(self%estimators_),'forest is not fitted'); y=0
+    real(dp) :: y(size(x,1)),values(size(x,1))
+    integer :: i,j
+    call require(allocated(self%estimators_),'forest is not fitted');y=0
     do i=1,size(self%estimators_)
-      y=y+self%estimators_(i)%predict(x)
+      values=self%estimators_(i)%predict(x)
+      do j=1,size(y)
+        y(j)=ieee_difference(y(j),-values(j))
+      end do
     end do
-    y=y/size(self%estimators_)
+    do j=1,size(y)
+      y(j)=ieee_quotient(y(j),real(size(self%estimators_),dp))
+    end do
   end function
-  real(dp) function forest_regressor_score(self,x,y) result(v)
+  function forest_regressor_apply(self,x) result(leaves)
+    class(random_forest_regressor), intent(in) :: self
+    real(dp), intent(in) :: x(:,:)
+    integer, allocatable :: leaves(:,:)
+    integer :: i
+    call require(allocated(self%estimators_),'forest is not fitted')
+    allocate(leaves(size(x,1),size(self%estimators_)))
+    do i=1,size(self%estimators_)
+      leaves(:,i)=self%estimators_(i)%apply(x)
+    end do
+  end function
+  real(dp) function forest_regressor_score(self,x,y,sample_weight) result(v)
     class(random_forest_regressor), intent(in) :: self
     real(dp), intent(in) :: x(:,:),y(:)
-    v=r2_score(y,self%predict(x))
+    real(dp), optional, intent(in) :: sample_weight(:)
+    real(dp), allocatable :: predicted(:),numerators(:),denominators(:)
+    real(dp) :: center,num,den,mass
+    integer :: i
+    predicted=self%predict(x)
+    call require(size(y)==size(predicted),'forest score target length mismatch')
+    call require(all(ieee_is_finite(y)),'forest regression score targets must be finite')
+    call require(all(ieee_is_finite(predicted)),'forest regression score predictions must be finite')
+    if(present(sample_weight)) then
+      call require(size(sample_weight)==size(y),'forest score weight length mismatch')
+      call require(all(ieee_is_finite(sample_weight)),'forest score weights must be finite')
+    end if
+    if(size(y)<2) then
+      v=ieee_value(0._dp,ieee_quiet_nan); return
+    end if
+    if(present(sample_weight)) then
+      mass=ieee_total(sample_weight)
+      if(.not.ieee_is_nan(mass)) call require(mass/=0,'forest score weights must have a nonzero sum')
+    end if
+    center=ieee_mean(y,sample_weight); allocate(numerators(size(y)),denominators(size(y)))
+    do i=1,size(y)
+      num=ieee_difference(y(i),predicted(i)); numerators(i)=ieee_product(num,num)
+      den=ieee_difference(y(i),center); denominators(i)=ieee_product(den,den)
+    end do
+    num=ieee_mean(numerators,sample_weight); den=ieee_mean(denominators,sample_weight)
+    v=ieee_value(0._dp,ieee_quiet_nan)
+    if(ieee_is_nan(num).or.ieee_is_nan(den)) return
+    v=1
+    if(num/=0) then
+      v=0
+      if(den/=0) v=ieee_difference(1._dp,ieee_quotient(num,den))
+    end if
   end function
   subroutine boost_fit(self,x,y)
     class(gradient_boosting_regressor), intent(inout) :: self
