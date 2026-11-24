@@ -6898,10 +6898,10 @@ exact. Seed 7231 fixes the ordinary stream, seed 931 the signed tied stream.
 Every configuration and data fingerprint is retained with source/driver/
 validator/executable/oracle-source hashes. Source rejections remain in reports.
 
-The same command with `--stable-ties` runs a controlled-oracle certificate:
+Historical note: the former `--stable-ties` mode ran a controlled-oracle certificate:
 NumPy argsort uses kind=stable only during sklearn weighted-percentile fitting.
 It checks the same 150 signed-tie configurations and labels the changed oracle
-policy explicitly. Its 1,125 groups and 45 rejections validate native stable-tie
+policy explicitly. Its 1,125 groups and 45 rejections validated the previous native stable-tie
 behavior. The ordinary report separately retains 275 differences among 1,128
 endpoint diagnostics from the installed CPU backend; they are not counted as
 required passes. See COVERAGE.md for the compatibility gap.
@@ -6912,3 +6912,39 @@ covers weighted extrema/quantiles, degree-zero bases, repeated knots, sparse
 zero-slot retention, input/output ownership, RNG preservation, names/refitting
 and live controls. example/spline_sparse.f90 demonstrates weighted named CSR
 feature output. Both build profiles use fresh binaries.
+
+
+## Seeded KBinsDiscretizer and native NumPy ordering
+
+`compare_kbins.py --executable PATH --profile checked --report REPORT` retains
+597 configurations / 5,976 required groups, 175 source rejections and 588
+nonfinite output values. It tests all strategies/encodings, per-feature bins,
+integer and mutable-object RNG sampling, full uint32 seeds, named fits,
+post-sampling weight shapes, signed/zero weights, refits/live encoding, soft and
+signed one-hot inverse data, fractional/negative ordinal indexing, raw inverse
+CSR duplicates/unsorted columns/zeros, and 200,003-row data crossing the default
+sampling threshold. Seed 5201 fixes ordinary fixtures; seed 931 fixes signed ties.
+Discrete maps, metadata, shapes, indices, names and RNG draws compare exactly;
+finite edge/midpoint fields use 2e-10 tolerance. Nonfinite masks match exactly.
+
+`compare_numpy_ordering.py` takes the same executable/profile/report options.
+It compares 11,024 configurations / 22,048 exact argsort and argpartition arrays
+against the installed NumPy 2.2.6 AVX512/MSVC backend. Cases cover lengths 1..269
+and larger boundaries through 10,000, random continuous/tied data, constants,
+ascending/descending/peaked arrays, signed zeros/infinities, and first/middle/
+last-three partition positions. CPU feature metadata is retained in the report.
+The native routines use scalar Fortran buffers and require non-NaN keys.
+
+`compare_spline_extended.py` now checks all 1,068 configurations against
+unmodified sklearn: 10,206 required groups and 198 source rejections, with
+1,105 nonfinite values. The prior 275 differences are resolved. Endpoint
+diagnostics are empty; the controlled stable-tie mode is retired. Its 1,125
+previous certificate groups are replaced by unmodified-source checks of the
+same cases, with no duplicate coverage-count inflation.
+
+The legacy compare_discretization.py supports explicit --executable, --profile
+and --report and profile-specific input/output files, preserving its 324 groups.
+Native programs test_kbins_extended and test_numpy_ordering complement the
+existing tests; example/kbins_sparse.f90 shows named seeded CSR bins and inverse
+midpoints. Attribution and full Intel BSD/Microsoft Apache-LLVM notices are
+retained under THIRD_PARTY_NOTICES.md and LICENSES/.

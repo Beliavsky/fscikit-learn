@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and ninety-five reference suites additionally check 3,962,177
+All types have native tests. One hundred and ninety-seven reference suites additionally check 3,990,201
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -518,39 +518,29 @@ This batch brings the package to 94 core types and 39 source modules.
 
 ## KBinsDiscretizer
 
-`kbins_discretizer` lives in `sklearn_discretization` and is re-exported through
-`sklearn_preprocessing`. Its strategies are `uniform`, `quantile` (default) and
-`kmeans`; encodings are `ordinal` and `onehot-dense` (default). All arrays are
-dense real64. `n_bins=5` sets a scalar requested count; optional `n_bins(:)` in
-`fit`/`fit_transform` overrides it per feature. Each requested count must be at
-least two. Fitted `n_bins_` contains the counts after removing narrow bins;
-`bin_edges_(j)%values` stores each feature's edge vector. `n_features_out_`
-records transformed width. Ordinal codes are real64, zero-based integers.
+`kbins_discretizer` supports uniform, quantile and one-dimensional k-means
+strategies, seeded subsampling, per-feature bin counts, numeric sample weights,
+ordinal/dense-one-hot/CSR-one-hot maps, feature names and dense/CSR inverse maps.
+The native default encoding is onehot-dense; explicit CSR return methods select
+sparse storage. All numerical input/output uses real64. subsample defaults to
+200000; zero represents Python None. random_state accepts uint32 scalar seeds,
+or fit can consume an optional native legacy_random_state object.
 
-Quantiles use linear interpolation without weights and lower inverse-CDF
-percentiles with weights, following sklearn 1.6.1. Quantile and k-means fits
-accept optional nonnegative finite `sample_weight(:)` with positive total;
-uniform fits reject weights. K-means uses weighted one-dimensional Lloyd
-iterations, deterministic uniform-midpoint starts, at most 300 updates and
-variance-scaled tolerance 1e-4. `n_iter_(:)` is zero outside k-means;
-`converged_` reports whether all fitted k-means columns stopped within that cap.
-Empty clusters are relocated to farthest observations; tied relocations can
-differ from NumPy's partition ordering. Full data are always used (the Python
-reference sets `subsample=None`). No random sampling, sparse encoding, dtype
-controls, Python warnings or feature-name APIs are provided.
+The inverse follows sklearn integer truncation/negative indexing and one-hot
+argmax/zero-sum behavior. Queries read live encode while ordinal refits retain
+an existing one-hot encoder and its categories/names. Constant features have
+one bin and midpoint NaN; width pruning may leave zero bins for ordinal fits.
+Sample weights are validated after X subsampling, matching the baseline's
+post-sampling shape behavior. Generated feature names include the float-valued
+category suffix, such as x0_0.0.
 
-Transform ignores the outer endpoints, clips out-of-range observations into
-extreme bins and assigns values exactly at an interior edge to its upper bin.
-For quantile/k-means, original adjacent widths <=1e-8 are removed, as in sklearn;
-if no bins survive, fitting fails explicitly. Constant columns become one bin
-with edges (-infinity,+infinity). Its code is zero and its inverse is NaN,
-matching sklearn 1.6.1's midpoint convention. Other inverses return bin
-midpoints, so they approximate input values. Inverse ordinal codes must be
-integers within range; dense inputs must contain exactly one active 1 per
-feature and otherwise zeros. These inverse checks are stricter than Python's
-integer casting and argmax behavior. Inputs reject NaN/infinity. Fitted encoding
-is retained until refit. Choose inputs/weights for finite moment and distance
-arithmetic. The package now contains 95 core types in 40 source modules.
+K-means retains uniform-midpoint initialization, 300 updates and variance-scaled
+1e-4 tolerance. Empty-cluster relocation uses the reference NumPy index selection
+order; signed cluster masses follow the source's ordered averaging. Native
+n_iter_/converged_ are diagnostic additions. Choose data/weights with finite
+moment and distance arithmetic; dtype/memory-order switches and Python warning
+objects remain outside the interface. See [the API](API.md#discretization),
+[example](../example/kbins_sparse.f90) and later verification section.
 
 ## GraphicalLasso
 
@@ -1099,8 +1089,8 @@ and source live query controls. Explicit knots must be strictly increasing;
 automatically generated knots may repeat. Native compact local evaluation
 follows SciPy 1.15.3 FITPACK and preserves CSR active-support zero slots.
 See [the API contract](API.md#b-spline-features) and the later verification
-section for typed interfaces, source edge cases and the negative-weight tie
-ordering compatibility gap.
+section for typed interfaces, source edge cases and the reference index-ordering
+policy.
 
 Nonperiodic fits have n_base_knots+degree-1 basis columns per input feature;
 periodic fits have n_base_knots-1 and require degree<n_base_knots. The default
@@ -10664,9 +10654,10 @@ slots, repeated/constant knots and live query controls. NaN and signed infinity
 masks and CSR indices/pointers/shapes/name encodings match exactly; other finite
 fields use 3e-8 tolerance. Existing legacy checks additionally include degree ten.
 
-Known compatibility gap: negative weights can make a cumulative weight sequence
+Previous compatibility gap (resolved by the later index-ordering batch):
+negative weights can make a cumulative weight sequence
 nonmonotone. With tied feature values, NumPy's CPU-specific unstable argsort can
-then change selected quantiles. The native sort is stable. All 150 such
+then change selected quantiles. The previous native sort was stable. All 150 such
 configurations remain visible as 1,128 endpoint diagnostics, with 275 differences
 (including six acceptance differences). These
 are not required comparison passes. A separate controlled-oracle certificate
@@ -10704,3 +10695,79 @@ Inventory: 222 public core types, 160 source modules, 223 native programs,
 195 reference suites / 3,962,177 retained required groups, and 98 invalid
 registries / 5,660 cases. Diagnostic differences are excluded from required-group
 counts. The broader translation remains unfinished.
+
+
+## Seeded KBinsDiscretizer and portable NumPy index ordering
+
+KBinsDiscretizer adds seeded sampling, explicit dense/CSR one-hot return methods,
+raw CSR inverse input, numeric inverse casting/argmax semantics, named fitting
+and live encoder controls. The default sample cap is 200000; zero means None.
+Scalar uint32 seeds restart a local NumPy-compatible permutation; optional mutable
+legacy RNGs consume the same draws only when sampling occurs. Caller/global RNG
+and input ownership checks pass. Weight validation follows the source after
+X-only subsampling. Ordinal refits retain one-hot categories and names; source
+unknown-bin/cache errors remain visible. Narrow ordinal fits may have zero bins.
+
+The one-dimensional Lloyd helper now follows exact-zero empty-cluster detection,
+source ordered signed-mass averaging and reference farthest-index selection.
+Source midpoint overflow/constant NaNs, fractional ordinal truncation, Python
+negative indices and one-hot soft/signed/zero-sum behavior replace the former
+stricter checks. Feature graphs fit and name KBins branches through the same
+feature_string interface. Native dtype/storage adapters and finite k-means
+working-range limits remain described in the API.
+
+The new internal sklearn_numpy_ordering module is scalar Fortran, reconstructing
+the installed NumPy 2.2.6 real64 AVX512 sorting/selection order and MSVC depth-limit
+fallback. It serves KBinsDiscretizer and SplineTransformer, introduces no public
+extension algorithm and requires no SIMD instructions, C++ toolchain or C++
+runtime. Its reference ordering is deterministic on other Fortran targets;
+other NumPy CPU/compiler backends need not use the same unstable tie order.
+Non-NaN real64 keys are its internal input contract. Full Intel BSD and Microsoft
+Apache-2.0 WITH LLVM-exception license/NOTICE texts and pinned provenance are
+retained; the project license for original contributions remains MIT.
+
+The previous spline signed-weight gap is resolved for the installed baseline.
+All 1,068 spline configurations now use unmodified sklearn: 10,206 required
+groups, 198 source rejections and 1,105 nonfinite values. No endpoint diagnostics
+remain. The former 1,125 controlled stable-tie certificate groups have been
+replaced by unmodified-source checks of the same cases, so they are not counted
+twice. The earlier stable-tie description is historical.
+
+Per profile, the new KBins suite has 597 configurations, 422 accepted cases,
+175 source rejections, 5,976 groups and 588 nonfinite outputs. It covers all
+strategies/encodings, sampled/full/equal-row caps, full uint32 seeds, external RNG
+state, named fits, signed/zero weights, refits/live encoding, inverse fractions/
+negative indices/soft/signed rows, raw CSR duplicates/unsorted indices/zeros and
+200,003-row data crossing the default cap. Metadata, categorical maps, shapes,
+CSR storage, names and RNG draws match exactly; finite edges/midpoints use
+2e-10 tolerance and nonfinite masks match exactly.
+
+The index-ordering conformance suite checks 11,024 configurations / 22,048 exact
+argsort/argpartition arrays, lengths 1..269 and larger boundaries through 10000,
+continuous/tied/constant/sorted/reversed/peaked keys, signed zeros/infinities,
+and first/middle/last-three partition positions. Reports retain the NumPy CPU
+feature set. The existing discretization suite retains 324 groups. Core checks
+add 192; original composition-generator slices for kinds 12 and 13 add 216
+column-transformer groups (36 fixtures) and 120 union groups (24 fixtures).
+
+Total required checks are 39,082 groups and 402 diagnostics per profile: 175
+KBins source rejections, 198 spline source rejections and all 29 bins_* native
+invalid cases. Nine new invalid cases cover sampling/seed, typed CSR, cached
+encoder and feature-name guards. Five old fixtures now exercise different invalid
+controls because onehot, negative/zero weights and permissive inverse inputs are
+accepted source configurations. Thirteen native programs and kbins_sparse pass
+per profile. This is an affected-scope rerun, not a full repository suite rerun.
+
+The final audit verifies 187 compiled source fingerprints per profile, all
+accepted/rejected configurations and field inventories, profile-matched cases,
+distinct profile binaries, stable source/driver/validator/executable/report
+hashes, and retained license hashes. Reports are under ignored
+validation/results/kbins_batch_* and kbins_final_audit.json. Four-job builds use
+the checksum-verified private fpm 0.14.0 and GNU Fortran 17.0.0 20260510.
+Checked flags are -fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow;
+optimized checks use --profile release. Python 3.13, sklearn 1.6.1, NumPy 2.2.6
+and SciPy 1.15.3 remain the oracle versions. The global fpm is unchanged.
+
+Inventory: 222 public core types, 161 source modules, 225 native programs,
+197 reference suites / 3,990,201 retained groups and 98 invalid registries /
+5,669 cases. The broader translation remains unfinished.
