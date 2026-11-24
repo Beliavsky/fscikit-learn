@@ -8617,3 +8617,36 @@ custom output weights, constants, ties, long inputs and extreme finite values.
 Cumulative inventory: 222 public core types, 144 source modules, 187 native
 programs, 163 reference suites / 2,753,473 retained required groups, and 68
 invalid-input registries / 4,185 cases. These remain API subsets.
+
+Final regression-metric verification (2026-11-23): four-job fpm 0.14.0
+builds compiled the package in runtime-checked
+(`-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow`) and optimized
+release profiles. Each executed eight focused native programs: new regression
+metrics, quantile regression, generalized linear models, preprocessing/metrics,
+MLP joint targets, regression generators, multilabel ranking and existing
+ranking/calibration. All passed; the other 179 native programs were not
+executed in this batch.
+
+Two reference suites passed 35,209 required groups per profile: 33,120 new
+regression-metric and 2,089 existing QuantileRegressor groups. All 26 isolated
+diagnostics passed. Both profiles matched 929 source-rejection outcomes using
+254 distinct probes and checked 9,051 nonfinite source values. The audit
+verified every expected successful field and every expected rejected metric
+per fixture. Raw response values, vector/matrix adapters, weighted aggregates,
+weighted percentiles, constants and extreme-value semantics passed within
+3e-11 absolute/relative tolerance; scaled errors are retained in the audit.
+
+The facade example fitted a converged native 0.9-quantile regressor. Both
+profiles produced pinball loss about 0.0565333, D? pinball 0.8595584, D? absolute
+error 0.7291927, Poisson deviance 0.0751045, D? Poisson 0.9214098 and RMSLE
+0.0949112. Two-response raw values agreed with custom weighted aggregation.
+
+The combined audit verified 159 compiled source units per profile through
+dependency-aware fingerprints, complete success/rejection inventories, native
+source hashes and executable/validator/report hashes. Installed sklearn
+regression/statistics and NumPy percentile source hashes stayed unchanged
+before and after each reference run. The private fpm checksum and unchanged
+unrelated modules/tests were also verified. Reports remain local under ignored
+`validation/results/regression_metric*`, including
+`regression_metrics_final_audit.json`. MIT licensing and retained sklearn/NumPy
+BSD attribution continue; no dependency or public extension was introduced.
