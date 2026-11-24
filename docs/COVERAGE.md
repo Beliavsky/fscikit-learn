@@ -9903,3 +9903,31 @@ whose dense input would require 80 GB. Inventory: 222 public core types,
 retained groups, and 90 invalid registries / 4,848 cases. No public type,
 extension algorithm or dependency was added. MIT licensing and retained BSD
 attribution continue. Canonical build results are recorded below.
+
+Final Nystroem-CSR verification: checked and optimized release profiles each
+passed seven selected native programs: test_nystroem_csr, test_additive_csr,
+test_nystroem_svd, test_kernel_approximation, test_rbf_features,
+test_seeded_skewed_features and test_chi2_samplers. The other 202 native
+programs were not executed in this batch. Each profile passed seven suites /
+40,655 required groups: 15,018 new CSR Nystroem, 9,460 additive CSR, 5,760 dense
+Nystroem, 189 isotonic/kernel, 8,512 RBF, 1,512 skewed and 204 chi-square groups.
+All 156 diagnostics passed: 29 new cases plus 127 retained affected checks.
+
+The new suite separates 5,490 direct source groups, 6,048 singular source
+invariants, 1,740 SVD certificate groups, 870 native input/RNG identities and
+870 native deterministic-refit identities. Source caller CSR mutation was
+observed in 68 fixtures and recorded separately. The native caller inputs
+remain unchanged. Callback fixtures use functions of their argument values;
+stateful Python callback invocation order is outside the native contract.
+
+The combined audit verified 175 compiled source units per profile, complete
+conditional field inventories, stable source/executable/validator/report hashes,
+matching checked/release configurations and distinct optimized executables.
+The large sparse fit/query native tests passed in both profiles. The retained
+additive-CSR example also matched source storage and values in both profiles.
+Only the seven reported suites and diagnostics were rerun. Unrelated source,
+test and application files remained unchanged. Four-job builds used the
+checksum-verified private fpm 0.14.0; the global fpm was unchanged. Artifacts
+remain under ignored validation/results/nystroem_csr*, including
+nystroem_csr_final_audit.json. Implementation commit: 64046a8. MIT licensing
+and retained upstream notices continue; no dependency or extension was added.

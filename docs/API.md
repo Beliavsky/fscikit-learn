@@ -7803,8 +7803,9 @@ rank-one feature arrays; the nystroem_kernel abstract interface describes it.
 Closure state can provide parameters instead of a Python kernel_params dict.
 For callable or precomputed kernels, gamma/degree/coef0 must retain the native
 unused defaults -1/3/1, corresponding to source None parameters. Callback basis
-construction follows source upper-triangle mirroring and call order; queries
-use the full ordered Cartesian product.
+construction follows source upper-triangle mirroring; queries use the full
+ordered Cartesian product. Callbacks must depend only on argument values:
+native invocation order is not guaranteed to match Python.
 
 With kernel='precomputed', behavior follows sklearn 1.6.1: source basis selection
 permutes rows, not columns, and requires its resulting basis to be square.
@@ -7859,7 +7860,8 @@ Laplacian evaluation canonicalizes it. Transform has intent(inout) so live
 kernel changes retain that fitted state. Caller inputs remain unchanged.
 
 ```fortran
-use sklearn, only: dp, csr_matrix, csr_from_dense, nystroem
+use sklearn, only: dp, nystroem
+use sklearn_sparse, only: csr_matrix, csr_from_dense
 type(nystroem) :: model
 type(csr_matrix) :: sparse_x
 real(dp), allocatable :: x(:,:), z(:,:)
