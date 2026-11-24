@@ -8945,3 +8945,35 @@ and 100,000 features. Binding and tie details are in API.md.
 Cumulative inventory: 222 public core types, 150 source modules, 193 native
 programs, 169 reference suites / 3,254,641 retained required groups, and 74
 invalid-input registries / 4,365 cases. These remain API subsets.
+
+Final public-seeding verification (2026-11-24): four-job fpm 0.14.0 builds
+compiled the package in runtime-checked
+(`-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow`) and optimized
+release profiles. Each ran five focused native programs: public k-means++,
+clustering/decomposition, MiniBatchKMeans, BisectingKMeans and spectral
+co-/biclustering. All passed; the other 188 native programs were not executed
+in this batch.
+
+Both profiles passed 10,780 reference groups: 9,628 new public-seeding groups
+and 1,152 existing BisectingKMeans groups. Each new suite passed 40
+source-matched diagnostics. Both profiles matched 2,399 public source seed
+sequences exactly and certified eight alternatives by replaying every draw
+and proving exact equality of the complete finite updated-distance vectors
+for alternate greedy choices. The latter are separately labeled certificate
+groups; exact Python seed-index parity is not claimed for those eight cases.
+All 2,407 fixtures also verified selected-row identity and preservation of
+input data and the intrinsic RNG. Existing estimator invalid-input registries
+were not run here.
+
+Both facade examples produced one-based rows [4,3], matching sparse seeds,
+weighted rows [1,6], and KMeans inertia 16 after explicit initialization.
+The combined audit verified 162 compiled source units per profile using
+dependency-aware fingerprints, complete exact/certified field inventories,
+and source/executable/validator/report hashes. Installed sklearn k-means,
+bisecting, pairwise and extmath sources, NumPy and SciPy sparse binaries,
+NumPy DLLs and the retained NumPy 2.2.6 binary-search source stayed unchanged
+before and after each reference run. The private fpm checksum and unchanged
+unrelated modules/tests were verified. Reports remain local under ignored
+`validation/results/kmeans_seeding*`, including
+`kmeans_seeding_final_audit.json`. MIT licensing and retained sklearn/NumPy
+BSD attribution continue; no dependency or public extension algorithm was added.
