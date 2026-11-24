@@ -9060,3 +9060,36 @@ diagnostic probe. Two public resampling fixtures verify that full grid.
 Cumulative inventory: 222 public core types, 151 source modules, 195 native
 programs, 171 reference suites / 3,271,908 retained required groups, and 76
 invalid-input registries / 4,427 cases. These remain API subsets.
+
+Final array-resampling verification (2026-11-24): four-job fpm 0.14.0 builds
+compiled the package in runtime-checked
+(`-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow`) and optimized
+release profiles. Each ran five focused native programs: array resampling,
+resampling splitters, group splitters, cross-validation and search. All passed;
+the other 190 native programs were not executed in this batch.
+
+Both profiles passed 32,571 exact reference groups: 9,291 new array-resampling
+and 23,280 existing splitter groups across 820 splitter fixtures. Each new
+suite passed 24 source-matched diagnostics and all 1,878 fixtures, including
+369 typed-data fixtures. The common index stream, dense integer/int64/real64/
+logical/character results, CSR pointers/indices/data, signed zeros, character
+lengths and intrinsic-RNG preservation matched their source counterparts.
+Existing splitter invalid-input registries were not run in this batch.
+
+Both facade examples produced bootstrap rows [4,1,2,6,5], class counts [2,3],
+consistent paired feature/target rows and shuffled holdout rows [4,6,1]. The
+combined audit verified 163 compiled source units per profile using
+dependency-aware fingerprints, complete typed-field inventories and
+source/executable/validator/report hashes. It separately verified zero bit
+or text differences across the 12,588-value float-format probe and retained
+its generated-source and executable hashes. Public exact-bit power-grid
+fixtures passed in both profiles.
+
+Installed sklearn indexing, approximate-mode and splitter Python sources,
+the NumPy compiled binary and the SciPy sparse binary stayed unchanged before
+and after each reference run. The private fpm checksum and unchanged unrelated
+modules/tests were verified. Reports remain local under ignored
+`validation/results/array_resampling*`, including
+`array_resampling_final_audit.json`. MIT licensing and retained sklearn/NumPy
+BSD attribution continue. Standard C double parsing uses the compiler runtime;
+no package dependency or public extension algorithm was added.
