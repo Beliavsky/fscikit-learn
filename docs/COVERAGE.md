@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and sixty-five reference suites additionally check 2,806,579
+All types have native tests. One hundred and sixty-six reference suites additionally check 3,240,460
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -8765,3 +8765,28 @@ Reports remain local under ignored `validation/results/pairwise_measure*`,
 including `pairwise_measures_final_audit.json`. MIT licensing and retained
 sklearn BSD attribution continue; no dependency or public extension algorithm
 was introduced.
+
+## Weighted classification summaries and sparse indicators (2026-11-23)
+
+Extended precision_score, recall_score, f1_score and jaccard_score with
+weights, label selection, zero-division controls, indicator/mixed/CSR forms and
+multilabel averages. Added fbeta_score, precision_recall_fscore_support and
+multilabel_confusion_matrix. Binary/multiclass label semantics, repeated and
+absent selected labels, samplewise confusion counts, NaN-aware averages and
+Jaccard zero-weight rejection follow the baseline. CSR counting uses sparse
+intersections and per-label accumulation. Binding details, strict canonical
+CSR input and zero-based indicator-label selectors are in API.md.
+
+Development runs passed 433,881 required groups across 6,998 fixtures (a
+6,941-fixture baseline and 57 added edge fixtures), plus 24 isolated diagnostics.
+They matched 156 source Jaccard zero-weight rejection outcomes through 150
+distinct probes and checked 101,317 nonfinite source values. Coverage includes
+exhaustive small binary pairs, five seeds, sparse/mixed/logical representations,
+all averages, beta 0/.3/.5/1/2/infinity, zero_division 0/1/NaN, repeated/subset/empty
+labels, empty vectors, one-column class arrays, signed/zero/nonfinite weights,
+fractional cancellation and up to 100,000 label columns. The former invalid
+pos_label silent-zero behavior is corrected to source validation.
+
+Cumulative inventory: 222 public core types, 147 source modules, 190 native
+programs, 166 reference suites / 3,240,460 retained required groups, and 71
+invalid-input registries / 4,264 cases. These remain API subsets.

@@ -1,4 +1,6 @@
 module sklearn_metrics
+  use sklearn_classification_metrics, only: precision_score,recall_score,f1_score,jaccard_score, &
+    fbeta_score,precision_recall_fscore_support,multilabel_confusion_matrix
   use sklearn_pairwise_measures, only: cosine_distances,nan_euclidean_distances,haversine_distances, &
     paired_euclidean_distances,paired_manhattan_distances,paired_cosine_distances,paired_distances, &
     laplacian_kernel,additive_chi2_kernel,chi2_kernel
@@ -16,6 +18,7 @@ module sklearn_metrics
   private
   public :: normalized_mutual_info_score,adjusted_mutual_info_score,fowlkes_mallows_score,contingency_matrix
   public :: pair_confusion_matrix,entropy,expected_mutual_information,homogeneity_completeness_v_measure
+  public :: fbeta_score,precision_recall_fscore_support,multilabel_confusion_matrix
   public :: cosine_distances,nan_euclidean_distances,haversine_distances,paired_euclidean_distances
   public :: paired_manhattan_distances,paired_cosine_distances,paired_distances
   public :: laplacian_kernel,additive_chi2_kernel,chi2_kernel
@@ -128,78 +131,6 @@ contains
       a=label_index(classes,y(i)); b=label_index(classes,p(i))
       if(a>0.and.b>0) cm(a,b)=cm(a,b)+1
     end do
-  end function
-  real(dp) function prf(y,p,kind,average,pos_label) result(v)
-    integer, intent(in) :: y(:),p(:),kind
-    character(*), intent(in), optional :: average
-    integer, intent(in), optional :: pos_label
-    integer, allocatable :: cm(:,:),classes(:)
-    real(dp), allocatable :: tp(:),fp(:),fn(:),support(:),scores(:)
-    real(dp) :: a,b,c
-    integer :: pos,k
-    character(16) :: avg
-    avg='binary'; if(present(average)) avg=average
-    pos=1; if(present(pos_label)) pos=pos_label
-    classes=unique_labels([y,p]); cm=confusion_matrix(y,p); k=size(classes)
-    allocate(tp(k)); tp=[(real(cm(pos,pos),dp),pos=1,k)]
-    fp=real(sum(cm,dim=1),dp)-tp; fn=real(sum(cm,dim=2),dp)-tp; support=tp+fn
-    pos=1; if(present(pos_label)) pos=pos_label
-    if(trim(avg)=='micro') then
-      a=sum(tp); b=sum(fp); c=sum(fn); v=score(a,b,c); return
-    end if
-    allocate(scores(k))
-    do k=1,size(classes)
-      scores(k)=score(tp(k),fp(k),fn(k))
-    end do
-    select case(trim(avg))
-    case('binary')
-      call require(size(classes)<=2,'binary average requires at most two classes')
-      k=label_index(classes,pos); v=0
-      if(k>0) v=scores(k)
-    case('macro'); v=sum(scores)/size(scores)
-    case('weighted'); v=dot_product(scores,support)/sum(support)
-    case default; call require(.false.,'unknown metric average')
-    end select
-  contains
-    real(dp) function score(tp,fp,fn) result(s)
-      real(dp), intent(in) :: tp,fp,fn
-      real(dp) :: den
-      select case(kind)
-      case(1); den=tp+fp; s=tp
-      case(2); den=tp+fn; s=tp
-      case(3); den=2*tp+fp+fn; s=2*tp
-      case(4); den=tp+fp+fn; s=tp
-      end select
-      if(den>0) then
-        s=s/den
-      else
-        s=0
-      end if
-    end function
-  end function
-  real(dp) function precision_score(y,p,average,pos_label) result(v)
-    integer, intent(in) :: y(:),p(:)
-    character(*), intent(in), optional :: average
-    integer, intent(in), optional :: pos_label
-    v=prf(y,p,1,average,pos_label)
-  end function
-  real(dp) function recall_score(y,p,average,pos_label) result(v)
-    integer, intent(in) :: y(:),p(:)
-    character(*), intent(in), optional :: average
-    integer, intent(in), optional :: pos_label
-    v=prf(y,p,2,average,pos_label)
-  end function
-  real(dp) function f1_score(y,p,average,pos_label) result(v)
-    integer, intent(in) :: y(:),p(:)
-    character(*), intent(in), optional :: average
-    integer, intent(in), optional :: pos_label
-    v=prf(y,p,3,average,pos_label)
-  end function
-  real(dp) function jaccard_score(y,p,average,pos_label) result(v)
-    integer, intent(in) :: y(:),p(:)
-    character(*), intent(in), optional :: average
-    integer, intent(in), optional :: pos_label
-    v=prf(y,p,4,average,pos_label)
   end function
   real(dp) function hamming_loss(y,p) result(v)
     integer, intent(in) :: y(:),p(:)

@@ -7166,3 +7166,66 @@ extreme values under checked execution.
 All functions are exported by `sklearn_pairwise_measures`, `sklearn_metrics`
 and `sklearn`. Inputs must be nonempty and feature-compatible, and finite
 except for the permitted missing-data entries.
+
+## Weighted classification and multilabel summaries
+
+`precision_score(y,p,average,pos_label,sample_weight,labels,zero_division,raw_values)`,
+`recall_score`, `f1_score` and `jaccard_score` retain their original leading
+arguments and add weights, label selection and undefined-score controls.
+`fbeta_score(y,p,beta,average,pos_label,sample_weight,labels,zero_division,raw_values)`
+adds general F-beta scoring. All return real(dp) scalars and are exported
+through `sklearn_classification_metrics`, `sklearn_metrics` and `sklearn`.
+
+Targets can be integer/logical vectors, dense integer/logical indicator
+matrices, canonical CSR indicators, or mixed dense/CSR indicators. One-column
+dense matrices use single-output class-label semantics. CSR targets require
+at least two columns, sorted unique indices and stored values exactly one,
+with no explicit zeros. Dense indicators accept at most two distinct values
+per matrix and treat nonzeros as relevant, following the source. CSR counts
+use row intersections and per-label accumulation without densifying targets.
+
+Average defaults to 'binary'. Other choices are 'micro', 'macro', 'weighted'
+and, for multilabel targets, 'samples'. 'none' adapts Python average=None:
+request optional allocatable real(dp) raw_values(:) for the vector; the fixed
+scalar return is its macro aggregate. For other averages, raw_values contains
+statistics before the selected reduction: one value for binary/micro,
+per-label values for macro/weighted and per-row values for samples.
+
+Pos_label defaults to 1 and is used only by binary averaging. Binary averaging
+requires at most two observed classes and validates the positive label when
+two classes are present. With zero or one observed class, an absent positive
+label yields the configured undefined-score result. This corrects the former
+scalar implementation's silent zero for an invalid positive label among two
+observed classes. Labels can select/reorder/subset classes, include absent
+vector classes and repeat entries. Multilabel labels are zero-based column
+identifiers in [0,n_labels), rather than Fortran array subscripts.
+
+Zero_division is a real(dp) value: 0 by default, 1, or quiet NaN. Jaccard only
+accepts 0 or 1. Default 0 gives the same result as Python's warning mode,
+without emitting Python warnings. Precision/recall/F-beta averages ignore NaN
+entries. Weighted reductions fall back to an unweighted mean when their
+remaining weights sum to zero, matching sklearn's _nanaverage. Jaccard uses
+ordinary averaging: zero-sum sample weights or nonzero class-support weights
+that cancel to zero are diagnosed; all-zero class supports use uniform
+averaging. Signed weights and source-compatible NaN/infinite weight arithmetic
+are supported. Shapes must agree; an empty vector is supported, while empty
+multilabel matrices are rejected.
+
+Beta must be nonnegative, including positive infinity. Beta=0 returns
+precision and beta=infinity returns recall. A finite beta whose square
+overflows is diagnosed, matching the baseline's Python-float overflow.
+Quiet IEEE composition and NumPy-compatible pairwise reductions preserve
+computed infinities/NaNs under checked execution.
+
+`call precision_recall_fscore_support(y,p,precision,recall,fscore,support, &
+ beta,labels,pos_label,average,sample_weight,zero_division)` returns allocatable
+real(dp) arrays. Average defaults to 'none', so outputs are per label and
+support contains weighted true counts. Averaged outputs have length one and
+support is unallocated, adapting the source's None support. Beta defaults to 1.
+
+`multilabel_confusion_matrix(y,p,sample_weight,labels,samplewise)` returns an
+allocatable real(dp) tensor `[n_selected_labels,2,2]` by default. Entries are
+`(class,actual+1,predicted+1)`: TN, FP, FN and TP. Samplewise=true instead uses
+the sample index on the first axis and is available only for multilabel input.
+Weighted counts can be fractional or signed. String/real-valued class labels,
+noncanonical CSR targets and Array API backends are unsupported.

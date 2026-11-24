@@ -1488,3 +1488,16 @@ paths. Terms remain in `LICENSES/scikit-learn-COPYING`. Native interfaces,
 canonical CSR adapters, callback adaptation, quiet IEEE composition, tests,
 example and reference harness are original MIT contributions. No dependency or
 public extension algorithm was added.
+
+## Weighted classification and multilabel summaries (BSD)
+
+`src/sklearn_classification_metrics.f90` adapts sklearn 1.6.1
+`metrics/_classification.py` precision_score, recall_score, f1_score,
+fbeta_score, jaccard_score, precision_recall_fscore_support and
+multilabel_confusion_matrix, plus `utils/extmath.py` _nanaverage conventions.
+Terms remain in `LICENSES/scikit-learn-COPYING`. Private pairwise summation
+follows the existing NumPy 2.2.6 reduction contract, with retained terms in
+`LICENSES/numpy-COPYING`. Native sparse intersections, label lookup, typed
+adapters, quiet IEEE composition, tests, example and reference harness are
+original MIT contributions. No dependency or public extension algorithm was
+added.

@@ -412,3 +412,9 @@ Pairwise measures include NaN-aware Euclidean and haversine distances, cosine
 and paired distances, and Laplacian/chi-squared kernels, with supported dense/CSR
 forms. See [the example](example/distance_kernel_measures.f90) and
 [the API contract](docs/API.md#additional-pairwise-distances-and-kernels).
+
+Classification summaries support weighted/multilabel precision, recall, F1,
+F-beta and Jaccard scores, raw support summaries and multilabel confusion
+tensors, including CSR targets. See
+[the example](example/classification_summary_scores.f90) and
+[the API contract](docs/API.md#weighted-classification-and-multilabel-summaries).
