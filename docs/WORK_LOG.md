@@ -7845,3 +7845,30 @@ fpm 0.14.0; the global fpm was unchanged. Only the eight named affected tree
 reference suites and their reported diagnostics were rerun. Artifacts remain
 under ignored validation/results/best_first*, including
 best_first_final_audit.json. Implementation commit: a13efc7.
+
+## Source-seeded Gaussian and sparse random projections
+
+Replaced the intrinsic Fortran random stream for GaussianRandomProjection and
+SparseRandomProjection with NumPy-compatible scalar-seeded components.
+Row-major normal draws, source scaling, binomial row counts, automatic
+tracking/permutation/reservoir sampling, deferred sign draws and the density-one
+branch follow sklearn 1.6.1. Added n_features_in_ and finite parameter checks.
+Fits preserve the intrinsic RNG and refits clear disabled inverse caches.
+The binomial kernels moved unchanged into a shared internal source module;
+bicluster generation is rechecked because it now imports that module.
+
+The new direct-source suite contains 808 fixtures / 6,464 required groups and
+43 invalid-input cases, covering five seeds, narrow/square/wide matrices,
+automatic JL dimensions, automatic and explicit densities, tiny-density zero
+matrices, both inverse-cache modes, component arrays, transforms, inverses,
+metadata, refits and RNG isolation. Component matrices compare exactly;
+transform and native SVD pseudoinverse comparisons use numerical tolerances.
+The older regression/factor/projection suite retains injected-matrix algebra
+checks and now accepts an explicit executable for canonical verification.
+
+Inventory: 222 public core types, 154 source modules, 203 native programs,
+179 reference suites / 3,673,694 retained groups and 84 invalid registries /
+4,654 cases. Existing dense real64 projection storage and native SVD limits
+remain. Earlier native seeds produce different matrices after this correction.
+MIT licensing and BSD attribution remain; no dependency or extension is added.
+Canonical checked/release verification will be recorded below.

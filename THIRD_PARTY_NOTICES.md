@@ -110,7 +110,7 @@ Reference paths by module:
 | kernel_approximation | kernel_approximation.py (including AdditiveChi2Sampler defaults, harmonic map and layout; SkewedChi2Sampler inverse-CDF weights, offsets, shifted-log map and domain); RBFSampler Fourier distribution/transform and Nystroem landmark normalization contracts; independent Fortran RNG and native PSD eigensolver |
 | fast_ica | decomposition/_fastica.py; parallel/deflation fixed-point updates, contrasts, whitening and scaling contract; native dense SVD/eigen/pseudoinverse and independent random stream |
 | factor_analysis | decomposition/_factor_analysis.py; full-SVD likelihood iteration, diagonal noise updates and posterior transform |
-| random_projection | random_projection.py; JL dimension bound, Gaussian/three-point distributions and pseudoinverse contract; independent Fortran random stream |
+| random_projection | random_projection.py; JL dimension bound, Gaussian/three-point distributions and pseudoinverse contract; NumPy-compatible scalar-seeded component generation |
 | spectral | manifold/_spectral_embedding.py; degree-normalized eigenvectors and affinity construction, with native dense eigensolver |
 | density | neighbors/_kde.py, _binary_tree.pxi.tp, _kd_tree.pyx.tp, _ball_tree.pyx.tp and metrics/_dist_metrics.pyx.tp; kernel normalization, KD/Ball bounds, traversal/stopping, weighted mixtures and metric contracts; NumPy RandomState draw ordering and reductions; scipy.special.gammainc uniform-ball mapping; native trees, heap partitions and incomplete-gamma implementation |
 
@@ -1628,3 +1628,16 @@ with existing attributed splitters and criteria. Forest forwarding follows
 Terms remain in `LICENSES/scikit-learn-COPYING`. Native storage integration,
 quiet comparisons, adapters, tests, example and reference harness are original
 MIT contributions. No dependency or public extension was added.
+
+## Seeded Gaussian and sparse random projections (BSD)
+
+`src/sklearn_random_projection.f90` follows sklearn 1.6.1
+`random_projection.py` component generation and `utils/_random.pyx`
+automatic tracking/permutation/reservoir position sampling. Existing NumPy
+2.2.6 MT19937, Gaussian and interval draws are reused. The unchanged binomial
+inversion/BTPE kernels previously inside sklearn_bicluster_datasets now live
+in `src/sklearn_random_binomial.f90`, following NumPy distributions.c and
+legacy-distributions.c. Existing sklearn and NumPy notices remain under
+LICENSES/. Native interfaces, dense storage, cache management, tests and
+validation harnesses are MIT contributions. No dependency or public extension
+was added.

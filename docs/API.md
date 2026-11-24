@@ -7672,3 +7672,22 @@ class weights, bootstrap multiplicities, supported criteria, feature sampling
 and minimum weighted leaf fractions compose with it. Parameter search accepts
 `max_leaf_nodes` for tree and forest families. Existing estimator API limits
 remain. See [the example](../example/best_first_trees.f90).
+
+## NumPy-compatible seeded random projections
+
+GaussianRandomProjection and SparseRandomProjection now draw their component
+matrices with the existing scalar-seeded NumPy RandomState implementation.
+Gaussian draws follow row-major normal generation and source scaling. Sparse
+projections draw row counts with the shared legacy binomial inversion/BTPE
+kernel, select positions with sklearn's tracking/permutation/reservoir rule,
+and draw signs after all positions. Density one uses the source dense sign
+branch. Finite positive eps and finite density are validated; nonnegative
+native integer seeds are supported. These fits preserve Fortran's intrinsic
+RNG state. `n_features_in_` records fitted input width.
+
+This changes seeded matrices from earlier native releases to match sklearn
+1.6.1. Storage and outputs remain dense real64; inverse components retain the
+native SVD backend. Refit clears the inverse cache when caching is disabled.
+See [the seeded example](../example/seeded_projections.f90). The binomial
+kernel was moved unchanged from bicluster generation into a shared internal
+module. No new public type, dependency or extension algorithm was added.

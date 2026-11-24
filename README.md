@@ -459,3 +459,8 @@ CART, ExtraTree, random-forest and ExtraTrees models support best-first growth
 with `max_leaf_nodes`, alongside pruning and sparse decision paths. See
 [the example](example/best_first_trees.f90) and
 [the API contract](docs/API.md#best-first-trees-and-leaf-budgets).
+
+Gaussian and sparse random projections reproduce scikit-learn's seeded
+component matrices using NumPy-compatible draws. See
+[the example](example/seeded_projections.f90) and
+[the API contract](docs/API.md#numpy-compatible-seeded-random-projections).

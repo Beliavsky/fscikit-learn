@@ -1,10 +1,11 @@
 """Reference checks for Bayesian/sparse regression, factors and projections.
 
-Random streams differ. Projection algebra is checked against sklearn using the
-actual Fortran-drawn matrices; native tests separately check their distribution.
+Projection algebra is isolated using the actual Fortran-drawn matrices.
+compare_seeded_projections.py separately compares the complete seeded draws.
 """
 from pathlib import Path
 import json
+import argparse
 import os
 import subprocess
 import warnings
@@ -69,7 +70,7 @@ def reference(x, y, actual):
                            ("sparse", SparseRandomProjection, 3),
                            ("dense_sign", SparseRandomProjection, x.shape[1]+2)):
         # Inject the native matrix to isolate transform/pseudoinverse correctness
-        # from the intentionally different RNG. No sklearn fit is needed here.
+        # from random matrix generation. No sklearn fit is needed here.
         m = cls(n_components=k)
         m.components_ = actual[prefix+"_components"].reshape((k, x.shape[1]), order="F")
         m.n_features_in_ = x.shape[1]
@@ -83,8 +84,14 @@ def reference(x, y, actual):
 
 
 def main():
+    parser=argparse.ArgumentParser()
+    parser.add_argument('--executable',type=Path)
+    parser.add_argument('--report',type=Path)
+    parser.add_argument('--profile',default='development')
+    args=parser.parse_args()
     RESULTS.mkdir(exist_ok=True)
     report = {"sklearn_version": sklearn.__version__, "checks": []}
+    report['profile']=args.profile
     for seed, n, p in ((7, 80, 6), (42, 60, 5), (2026, 8, 12)):
         rng = np.random.default_rng(seed)
         x = rng.normal(size=(n, p)) + np.linspace(-.3, .7, p)
@@ -95,8 +102,9 @@ def main():
         with data.open("w") as f:
             f.write(f"{n} {p}\n")
             np.savetxt(f, np.column_stack([x, y]), fmt="%.17g")
-        subprocess.run(["fpm", "run", "--target", "reference_regression_projection_driver", "--", str(data), str(output)],
-                       cwd=ROOT, check=True)
+        command=([str(args.executable),str(data),str(output)] if args.executable else
+                 ["fpm", "run", "--target", "reference_regression_projection_driver", "--", str(data), str(output)])
+        subprocess.run(command,cwd=ROOT,check=True)
         actual = {}
         for line in output.read_text().splitlines():
             name, *values = line.split()
@@ -114,7 +122,7 @@ def main():
             np.testing.assert_allclose(actual[name], want, atol=atol, rtol=rtol, err_msg=f"seed={seed} {name}")
             report["checks"].append({"seed": seed, "api": name, "passed": True})
             print(f"PASS seed={seed} {name}")
-    (RESULTS/"regression_projection_report.json").write_text(json.dumps(report, indent=2)+"\n")
+    (args.report or RESULTS/"regression_projection_report.json").write_text(json.dumps(report, indent=2)+"\n")
     print(f"{len(report['checks'])} regression/factor/projection reference comparisons passed against sklearn {sklearn.__version__}")
 
 
