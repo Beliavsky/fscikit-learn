@@ -8,6 +8,7 @@ program test_array_resampling
   integer, allocatable :: ids(:),other(:)
   integer :: labels(9)=[0,0,1,1,1,1,1,1,1],joint(4,2)
   real(dp), allocatable :: values(:)
+  real(dp) :: joint_real(3,1),power
   integer(int64), allocatable :: wide(:)
   character(:), allocatable :: text(:)
   type(csr_matrix) :: sparse,sampled
@@ -24,6 +25,9 @@ program test_array_resampling
   joint(:,1)=[2,10,2,10];joint(:,2)=0
   ids=resample(4,stratify=joint,random_state=0)
   call require(all(ids==[2,3,4,1]),'Joint integer labels use source lexical row order')
+  power=scale(1._dp,-1017);joint_real(:,1)=[power,nearest(power,-1._dp),nearest(power,1._dp)]
+  ids=resample(3,n_samples=6,stratify=joint_real,random_state=0)
+  call require(all(ids==[3,1,2,1,2,3]),'Asymmetric float rounding intervals preserve joint-label class order')
   ids=shuffle(9,random_state=7);other=resample(9,replace=.false.,random_state=7)
   call require(all(ids==other),'Shuffle is no-replacement resampling')
   ids=resample(0);call require(size(ids)==0,'Default empty bootstrap returns empty indices')

@@ -18,7 +18,8 @@ program reference_array_resampling_driver
     case(1,2,5,6)
       allocate(si(ns,q));read(*,*) si
     case(3,4)
-      allocate(sr(ns,q));read(*,*) sr
+      allocate(sr(ns,q),sj(ns,q));read(*,*) sj
+      sr=reshape(transfer(sj,[0._dp],size(sj)),[ns,q])
     case(7,8)
       allocate(sc(ns,q))
       do j=1,q

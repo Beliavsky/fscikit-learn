@@ -28,7 +28,8 @@ def payload(c):
     s=c['s'];n,q=(0,0) if s is None else s.shape
     lines=[' '.join(map(str,[c['n'],c['draw'],c['seed'],int(c['replace']),int(c['shuffle']),c['kind'],n,q,int(c['typed'])]))]
     if c['kind'] in [7,8]:lines+=list(map(str,s.ravel(order='F')))
-    elif c['kind'] in [1,2,3,4,5,6,9,10]:lines+=[' '.join(map(str,s.ravel(order='F')))]
+    elif c['kind'] in [3,4]:lines+=[' '.join(map(str,np.asarray(s,dtype=np.float64).ravel(order='F').view(np.int64)))]
+    elif c['kind'] in [1,2,5,6,9,10]:lines+=[' '.join(map(str,s.ravel(order='F')))]
     return '\n'.join(lines)+'\n'
 
 
@@ -117,6 +118,13 @@ def main():
     add('short_stratification',7,kind=1,s=[0,1,1],seed=7,typed=True)
     add('short_stratification_subsample',7,kind=1,s=[0,1,1],seed=7,draw=2,replace=False,typed=True)
     add('long_stratification_valid_selection',4,kind=1,s=np.zeros(7,int),draw=1,seed=3,typed=True)
+    power_grid=[]
+    for exponent in range(-1074,1024):
+        value=np.ldexp(1.,exponent)
+        for value in [value,np.nextafter(value,0),np.nextafter(value,np.inf)]:power_grid.extend([value,-value])
+    power_grid=np.array(power_grid)[:,None]
+    add('float_powers_subset',len(power_grid),kind=4,s=power_grid,draw=129,seed=0)
+    add('float_powers_bootstrap',len(power_grid),kind=4,s=power_grid,draw=2*len(power_grid),seed=42)
     assert cases and len({c['name'] for c,_ in cases})==len(cases)
     run=subprocess.run([str(exe)],input=str(len(cases))+'\n'+''.join(payload(c) for c,_ in cases),text=True,capture_output=True)
     if run.returncode:

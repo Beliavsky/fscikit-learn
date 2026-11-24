@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and seventy-one reference suites additionally check 3,271,904
+All types have native tests. One hundred and seventy-one reference suites additionally check 3,271,908
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -9041,7 +9041,7 @@ zeros, duplicates, stored ordering and nonfinite data. Existing splitter
 implementations remain unchanged. The facade example uses shared indices
 for paired feature/target rows.
 
-Development validation passed 9,287 groups across 1,876 fixtures, including
+Development validation passed 9,291 groups across 1,878 fixtures, including
 369 typed-data fixtures and 24 source-matched diagnostics. All comparisons
 are exact, including sampled indices and signed CSR zeros. Coverage includes
 five seeds, bootstrap and no-replacement controls, shuffle, empty inputs,
@@ -9050,6 +9050,13 @@ one-column joint labels, long/wide strata, storage-preserving CSR sampling
 and the baseline's stratification-length quirks. API.md documents the index
 adaptation and sparse-stratification guard.
 
+Additional power-of-two probes caught asymmetric shortest-decimal intervals
+and compiler formatted-input double rounding. Adjacent decimal candidates
+and direct C double parsing preserve joint-label ordering. Exact-bit
+reference inputs cover 12,588 signed powers/neighbor values across the binary64
+range, with zero input-bit or formatted-text differences in the retained
+diagnostic probe. Two public resampling fixtures verify that full grid.
+
 Cumulative inventory: 222 public core types, 151 source modules, 195 native
-programs, 171 reference suites / 3,271,904 retained required groups, and 76
+programs, 171 reference suites / 3,271,908 retained required groups, and 76
 invalid-input registries / 4,427 cases. These remain API subsets.

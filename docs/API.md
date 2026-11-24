@@ -7471,3 +7471,8 @@ Population sampling uses O(n_samples) workspace with replacement; permutations
 use O(n_population), and stratified grouping uses O(n_strata log n_strata)
 sorting plus row-key storage for matrix strata. The index overload represents
 Python's multiple-array use; data overloads accept one array per call.
+
+Float-key round-trip checks also test adjacent decimal candidates at
+asymmetric binary rounding intervals. They use standard C `strtod` through
+ISO_C_BINDING in the default C numeric locale, avoiding an extended
+intermediate in Fortran formatted input. This adds no package dependency.

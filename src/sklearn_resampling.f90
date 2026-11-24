@@ -5,6 +5,7 @@ module sklearn_resampling
   use sklearn_legacy_rng, only: legacy_random_state
   use sklearn_sparse, only: csr_matrix
   use, intrinsic :: iso_fortran_env, only: int64
+  use, intrinsic :: iso_c_binding, only: c_char,c_ptr,c_double,c_null_char,c_null_ptr
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite,ieee_is_negative
   implicit none
   private
@@ -18,6 +19,14 @@ module sklearn_resampling
   interface shuffle
     module procedure shuffle_population,shuffle_iv,shuffle_im,shuffle_jv,shuffle_jm
     module procedure shuffle_rv,shuffle_rm,shuffle_bv,shuffle_bm,shuffle_cv,shuffle_cm,shuffle_sparse
+  end interface
+  interface
+    function c_strtod(text,tail) bind(C,name='strtod') result(value)
+      import c_char,c_ptr,c_double
+      character(c_char), intent(in) :: text(*)
+      type(c_ptr), value :: tail
+      real(c_double) :: value
+    end function
   end interface
   type :: index_split
     integer, allocatable :: train(:),test(:)
@@ -80,9 +89,9 @@ contains
     real(dp), intent(in) :: value
     character(:), allocatable :: text,digits,mantissa,exponent_text
     character(64) :: buffer,format_
-    real(dp) :: parsed
-    integer :: precision,exponent_,position,i,e
-    logical :: negative
+    integer :: precision,exponent_,position,i,e,scale_,delta
+    integer(int64) :: coefficient,neighbor
+    logical :: negative,found
     negative=ieee_is_negative(value)
     if(value==0) then
       text='0.0';if(negative) text='-0.0';return
@@ -95,12 +104,20 @@ contains
       do i=1,e-1
         if(buffer(i:i)/='.'.and.buffer(i:i)/=' ') digits=digits//buffer(i:i)
       end do
-      if(exponent_==308) then
-        ! Coarse decimal rounding of HUGE can otherwise overflow the reader.
-        if(digits//repeat('0',17-len(digits))>'17976931348623157') cycle
-      end if
-      read(buffer,*) parsed
-      if(parsed==abs(value)) exit
+      if(decimal_roundtrips(digits,exponent_,abs(value))) exit
+      ! At powers of two the rounding interval is asymmetric. A neighboring
+      ! decimal can be shortest even when the nearest decimal misses it.
+      read(digits,*) coefficient;scale_=exponent_-len(digits)+1;found=.false.
+      do delta=-1,1,2
+        neighbor=coefficient+delta
+        if(neighbor<=0) cycle
+        mantissa=integer_text(neighbor)
+        position=scale_+len(mantissa)-1
+        if(decimal_roundtrips(mantissa,position,abs(value))) then
+          digits=mantissa;exponent_=position;found=.true.;exit
+        end if
+      end do
+      if(found) exit
     end do
     do while(len(digits)>1)
       if(digits(len(digits):)/='0') exit
@@ -127,6 +144,26 @@ contains
       end if
     end if
     if(negative) text='-'//text
+  end function
+  logical function decimal_roundtrips(digits,exponent_,value) result(equal)
+    character(*), intent(in) :: digits
+    integer, intent(in) :: exponent_
+    real(dp), intent(in) :: value
+    character(:), allocatable :: clean,text
+    real(dp) :: parsed
+    clean=digits;equal=.false.
+    do while(len(clean)>1)
+      if(clean(len(clean):)/='0') exit
+      clean=clean(:len(clean)-1)
+    end do
+    if(exponent_==308) then
+      ! Coarse decimal rounding of HUGE can otherwise overflow the reader.
+      if(clean//repeat('0',17-len(clean))>'17976931348623157') return
+    end if
+    text=clean(:1)//'.'//clean(2:)//'E'//integer_text(int(exponent_,int64))
+    ! Direct double parsing avoids double rounding through an extended
+    ! intermediate in some Fortran formatted-input implementations.
+    parsed=c_strtod(text//c_null_char,c_null_ptr);equal=parsed==value
   end function
   function stratification_ids(stratify) result(labels)
     class(*), intent(in) :: stratify(..)
