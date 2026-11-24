@@ -8334,7 +8334,44 @@ classes. Sparse output preserves the source CSR traversal order, so its column
 indices need not be sorted after reordering. Its arrays own their storage.
 
 The vector CSR path stores only selected labels and handles large class sets
-without a dense output allocation. String/object, real-valued and CSR target
-inputs are not currently exposed by this free-function interface. Native
+without a dense output allocation. String/object and real-valued dense targets
+are not currently exposed by this free-function interface. CSR targets are
+described below. Native
 integer kinds determine the representable label/code range; extreme default
 integer codes are handled without negating the minimum integer.
+
+## CSR targets for label_binarize
+
+Both free functions accept `csr_matrix` targets with the same default-integer
+classes and optional code arguments. `label_binarize(target,classes,...)` returns
+an **integer(int64)** matrix for this input type, matching the installed NumPy
+integer result. `label_binarize_csr` returns the package's owned real64 CSR type.
+See [label_codes_sparse_targets.f90](../example/label_codes_sparse_targets.f90).
+
+Source indicator recognition examines stored values, including duplicates and
+explicit zeros. With more than one column, stored data must be integral int64
+values with at most one distinct value, or two distinct values including zero.
+The class count must match target width. Reordered/repeated classes follow the
+same source column-slicing rules as dense indicators. Input arrays remain
+unchanged and returned CSR arrays own their storage.
+
+At pos_label=1, raw stored values and explicit zeros survive. Other positive
+codes replace every stored entry, including stored zeros; implicit zeros remain
+absent. Duplicate slots and original row traversal order survive sparse output.
+Dense output coalesces duplicates in real64 before converting to int64 and
+applying negative/zero-positive substitutions. Thus duplicate blocks with
+pos_label=0 can retain a positive multiple after the source's equality-based
+substitution. Out-of-int64-range sums map to the reference minimum-int64 result
+without a floating trap. Individual input values outside integral int64 range
+are rejected, as are nonfinite targets.
+
+The CSR container's real64 dtype is an explicit adapter boundary. Raw output
+slots match source integer slots converted to real64, while CSR operations
+such as to_dense use floating arithmetic rather than NumPy integer overflow.
+Use the dense overload when the source integer conversion result is required.
+
+Source non-indicator CSR targets retain its sparse-length/flattening boundaries.
+Dense output rejects them. Sparse output permits its binary/single-class
+shortcut when the first row has at most one stored entry, yielding an all-zero
+one-column result; other such targets are rejected. No warning interface or
+string/object category support is added.

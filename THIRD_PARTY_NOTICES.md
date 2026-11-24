@@ -1920,3 +1920,12 @@ matches the installed SciPy 1.15.3 CSR column-slicing behavior. Class sorting
 uses the existing attributed internal NumPy ordering backend. Native integer
 interfaces, owned real64 CSR adapters, tests, reference harness and example
 are MIT integration. No dependency or public extension algorithm was added.
+
+The CSR-target overloads additionally follow sklearn utils/multiclass.py
+is_multilabel/type_of_target sparse recognition and the source sparse-length
+and flattening boundaries. Dense conversion follows the installed SciPy
+1.15.3 CSR duplicate-coalescing order and NumPy 2.2.6 int64 casting/substitution
+semantics. Native compact row buffers, controlled int64 casts and real64 CSR
+storage adapters are MIT integration. Existing sklearn, SciPy and NumPy BSD
+notices and numerical-backend attribution continue to apply. The real64 CSR
+arithmetic boundary is documented in the API and validation report.

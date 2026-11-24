@@ -4,15 +4,17 @@ module sklearn_label_binarize
  use sklearn_common,only:dp,require
  use sklearn_numpy_ordering,only:numpy_argsort
  use sklearn_sparse,only:csr_matrix
+ use sklearn_ieee_math,only:sub=>ieee_difference
  use,intrinsic::iso_fortran_env,only:int64
+ use,intrinsic::ieee_arithmetic,only:ieee_is_finite
  implicit none
  private
  public::label_binarize,label_binarize_csr
  interface label_binarize
-  module procedure vector_dense,matrix_dense
+  module procedure vector_dense,matrix_dense,sparse_dense
  end interface
  interface label_binarize_csr
-  module procedure vector_csr,matrix_csr
+  module procedure vector_csr,matrix_csr,sparse_csr
  end interface
 contains
  subroutine parameters(neg_label,pos_label,negative,positive,sparse)
@@ -216,5 +218,126 @@ contains
    end do
   end do
   z%indptr(z%n_rows+1)=k;call z%validate()
+ end function
+ logical function integral64(x) result(valid)
+  real(dp),intent(in)::x
+  valid=.false.
+  if(.not.ieee_is_finite(x)) return
+  if(x< -2._dp**63.or.x>=2._dp**63) return
+  valid=x==real(int(x,int64),dp)
+ end function
+ integer(int64) function cast64(x) result(value)
+  real(dp),intent(in)::x
+  value=-huge(0_int64)-1_int64
+  if(.not.ieee_is_finite(x)) return
+  if(x< -2._dp**63.or.x>=2._dp**63) return
+  value=int(x,int64)
+ end function
+ subroutine sparse_layout(y,classes,order,single)
+  type(csr_matrix),intent(in)::y
+  integer,intent(in)::classes(:)
+  integer,allocatable,intent(out)::order(:)
+  logical,intent(out)::single
+  real(dp)::first,second
+  integer,allocatable::sorted(:)
+  integer::i
+  logical::found,distinct,zero
+  call y%validate()
+  call require(y%n_rows>0.and.y%n_cols>0,'label_binarize CSR target must be nonempty')
+  call require(all(ieee_is_finite(y%data)),'label_binarize CSR target must be finite')
+  found=.false.;distinct=.false.;zero=.false.;first=0;second=0
+  if(size(y%data)>0) first=y%data(1)
+  do i=1,size(y%data)
+   call require(integral64(y%data(i)),'label_binarize CSR target must contain integral int64 labels')
+   if(y%data(i)==0) zero=.true.
+   if(y%data(i)==first) cycle
+   if(.not.found) then
+    found=.true.;second=y%data(i)
+   else if(y%data(i)/=second) then
+    distinct=.true.
+   end if
+  end do
+  single=.not.(y%n_cols>1.and..not.distinct.and.(.not.found.or.zero))
+  if(single) then
+   ! For non-indicators sklearn's binary fallback ignores the multioutput
+   ! suffix when the first sparse row has at most one stored entry.
+   ! Single-class output returns before its dense-only column_or_1d call.
+   call require(size(classes)==1.and.y%indptr(2)-y%indptr(1)<=1, &
+    'label_binarize CSR target cannot be flattened')
+   allocate(order(1));order=1;return
+  end if
+  call require(size(classes)==y%n_cols,'label_binarize CSR indicator class count mismatch')
+  sorted=sorted_classes(classes);order=columns(classes,sorted,.false.)
+ end subroutine
+ function sparse_csr(y,classes,neg_label,pos_label) result(z)
+  type(csr_matrix),intent(in)::y
+  integer,intent(in)::classes(:)
+  integer,optional,intent(in)::neg_label,pos_label
+  type(csr_matrix)::z
+  integer,allocatable::order(:),ptr(:),index(:)
+  integer::negative,positive,i,t,j,k,column
+  integer(int64)::stored
+  logical::single
+  call parameters(neg_label,pos_label,negative,positive,.true.)
+  call sparse_layout(y,classes,order,single)
+  z%n_rows=y%n_rows;z%n_cols=size(order)
+  if(single) then
+   allocate(z%indptr(y%n_rows+1),z%indices(0),z%data(0));z%indptr=1;return
+  end if
+  call inverted(order,y%n_cols,ptr,index);stored=0
+  do t=1,size(y%data)
+   column=y%indices(t);stored=stored+ptr(column+1)-ptr(column)
+  end do
+  call require(stored<huge(1),'label_binarize sparse stored count overflow')
+  allocate(z%indptr(y%n_rows+1),z%indices(int(stored)),z%data(int(stored)));k=1
+  do i=1,y%n_rows
+   z%indptr(i)=k
+   do t=y%indptr(i),y%indptr(i+1)-1
+    column=y%indices(t)
+    do j=ptr(column),ptr(column+1)-1
+     z%indices(k)=index(j);z%data(k)=real(positive,dp)
+     ! Source replaces stored zeros too; implicit zeros remain absent.
+     ! Its integer cast also normalizes floating negative zero.
+     if(positive==1) z%data(k)=real(cast64(y%data(t)),dp)
+     k=k+1
+    end do
+   end do
+  end do
+  z%indptr(y%n_rows+1)=k;call z%validate()
+ end function
+ function sparse_dense(y,classes,neg_label,pos_label) result(z)
+  type(csr_matrix),intent(in)::y
+  integer,intent(in)::classes(:)
+  integer,optional,intent(in)::neg_label,pos_label
+  integer(int64),allocatable::z(:,:)
+  integer,allocatable::order(:)
+  real(dp),allocatable::row(:)
+  real(dp)::positive_value
+  integer(int64)::value,effective
+  integer::negative,positive,i,j,t
+  logical::single
+  call parameters(neg_label,pos_label,negative,positive,.false.)
+  call sparse_layout(y,classes,order,single)
+  call require(.not.single,'label_binarize dense single-class CSR target has ambiguous sparse length')
+  allocate(z(y%n_rows,size(order)))
+  effective=int(positive,int64)
+  if(positive==0) effective=-int(negative,int64)
+  positive_value=real(effective,dp);allocate(row(y%n_cols))
+  do i=1,y%n_rows
+   row=0
+   do t=y%indptr(i),y%indptr(i+1)-1
+    if(positive==1) then
+     row(y%indices(t))=sub(row(y%indices(t)),-y%data(t))
+    else
+     row(y%indices(t))=sub(row(y%indices(t)),-positive_value)
+    end if
+   end do
+   do j=1,size(order)
+    value=cast64(row(order(j)))
+    if(value==0) value=int(negative,int64)
+    if(positive==0.and.value==effective) value=0_int64
+    z(i,j)=value
+   end do
+  end do
  end function
 end module

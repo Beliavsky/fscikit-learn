@@ -564,3 +564,7 @@ The free `label_binarize` function supports explicit integer classes and dense
 indicator matrices, with owned CSR output through `label_binarize_csr`.
 See [the example](example/label_codes.f90) and
 [API contract](docs/API.md#free-label-binarization).
+
+The label-binarization functions also accept CSR targets, preserving duplicate
+slots and explicit-zero recoding. See the [CSR target example](example/label_codes_sparse_targets.f90)
+and [dtype/API contract](docs/API.md#csr-targets-for-label_binarize).

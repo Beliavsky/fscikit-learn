@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and ninety-nine reference suites additionally check 4,009,855
+All types have native tests. Two hundred reference suites additionally check 4,012,763
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -10830,3 +10830,31 @@ remains MIT with retained sklearn and existing numerical-backend attribution.
 Inventory: 222 core public types, 163 source modules, 227 native programs,
 199 reference suites / 4,009,855 retained groups and 99 invalid registries /
 5,714 cases. The broader translation remains unfinished.
+## CSR targets for free label binarization
+
+label_binarize and label_binarize_csr now accept native CSR targets. Stored
+integral-value indicator recognition, explicit-zero recoding, duplicate slots,
+class slicing and source sparse-length/flattening boundaries are retained.
+The dense overload returns integer(int64), coalesces duplicates before casting
+and follows the source positive-zero substitution and out-of-range cast values.
+Sparse results remain the package's owned real64 CSR type; their arithmetic
+uses real64 rather than NumPy integer overflow. This dtype boundary is explicit
+in the API and in separately labelled storage checks.
+
+The checked CSR grid passes 1,800 configurations: 476 accepted cases and 1,324
+expected source rejections. Its 2,908 retained groups contain 1,304 direct
+sklearn checks, 1,428 caller identities and 176 real64 storage-view certificates.
+These compare raw pointers/indices/data, exact int64 dense results, signed zeros,
+reordered/repeated classes, nonbinary indicators, duplicates, finite/integral
+boundaries and source binary shortcuts. Four malformed native CSR diagnostics
+pass independently of the source grid. Existing dense-function (2,584 groups),
+label-estimator (6,285) and core (192) suites pass. Four native programs and two
+examples pass, including a compact 100,000-by-100,000 CSR target and RNG checks.
+Optimized-profile verification is recorded in VALIDATION.md.
+
+Existing dense overload bodies are byte-identical after interface/import
+additions. There is no new estimator, extension algorithm or dependency.
+Original integration remains MIT with retained sklearn/SciPy/NumPy attribution.
+Inventory: 222 public core types, 163 source modules, 228 native programs,
+200 reference suites / 4,012,763 retained groups and 100 invalid registries /
+5,718 cases. The broader translation remains unfinished.
