@@ -7594,3 +7594,77 @@ affected reference suites and their reported diagnostic cases were rerun;
 other retained suites/registries are excluded from these rerun totals.
 Reports remain under ignored `validation/results/tree_absolute_error*`,
 including `tree_absolute_error_final_audit.json`.
+
+## Weighted classification forests (2026-11-24)
+
+Expanded random_forest_classifier and extra_trees_classifier with optional
+fit/score sample weights, Gini/entropy/log-loss criteria, impurity-decrease
+controls, integer max_samples for random-forest bootstraps, leaf matrices,
+log probabilities and learned feature/class counts. Class weighting accepts
+none, balanced, balanced_subsample and an explicit class_weight_map using
+original integer label keys. Balanced factors ignore fitting-weight magnitudes,
+matching sklearn 1.6.1; balanced-subsample factors use bootstrap label counts.
+Search and SelectFromModel now forward classifier-forest fitting weights.
+Search also accepts criterion, class_weight, max_samples and impurity decrease.
+
+Tree seeds and bootstrap draws follow NumPy's legacy RandomState contract.
+Row multiplicities multiply weights on the full matrix instead of duplicating
+rows. Intrinsic Fortran RNG state is preserved. The forest retains original
+classes_, while component trees now expose zero-based encoded class indices,
+matching sklearn forest storage. This changes the former native component
+class representation and seeded classification-forest results. Forest
+probability aggregation, NaN-aware argmax and quiet log probabilities match
+source zero/signed-weight outcomes. All-stump importance is zero.
+
+The new reference suite checks 3,480 fixtures / 73,044 groups directly against
+installed sklearn 1.6.1. Twenty mandatory fields cover RNG preservation,
+labels, probabilities/log probabilities, original/encoded classes, leaf IDs,
+importance, seeds, forest/tree metadata and every component node's normalized
+class values, impurity, weighted mass, threshold, children, feature and active
+row count. An additional score field covers 3,444 valid weighted-accuracy
+fixtures. Structures and integer fields compare exactly; floating fields use
+rtol=2e-10/atol=2e-12, including all 33,170 nonfinite source values. No alternate
+tree certificate is used in this new suite. Its 28 source-matched isolated
+input diagnostics pass without runtime bounds errors or floating-point traps.
+
+The corpus spans three criteria, both forest families, three class-weight
+presets, full/reduced/disabled bootstraps, minimum-leaf/feature/impurity
+controls, zero/signed/tiny/huge weights, dictionary defaults/unknown keys,
+single classes, singleton data, NaN queries, integer-limit labels and the
+maximum supported seed. ExtraTrees retains its forced non-bootstrap behavior.
+Training NaNs, sparse inputs, OOB scores, warm starts, pruning, monotonic
+constraints, fractional controls and multioutput forests remain unsupported.
+Effective class/bootstrap-multiplied fitting weights must be finite.
+
+Checked verification passed six focused native programs (classification
+forests, tree ensembles, regression forests, search, model selection and
+cross-validation) and 111,522 affected reference groups. In addition to the
+73,044 new groups, those totals include 20,538 regression-forest, 9,984
+weighted-tree, 4,068 search and 3,888 SelectFromModel groups. Existing suites
+retain their documented certificates. Fifty-six input diagnostics are included
+(new classification forests plus existing regression forests); separate
+weighted-tree/search/selector invalid-input registries were not rerun.
+The balanced facade example matches sklearn, including weighted accuracy
+0.75, original label order [-7,9,42] and its forest/ExtraTrees predictions.
+
+Cumulative inventory: 222 public core types, 152 source modules, 199 native
+programs, 175 reference suites / 3,393,690 retained required groups, and
+80 invalid-input registries / 4,527 cases. These remain API subsets. MIT
+licensing and retained sklearn/NumPy BSD attribution continue; no dependency
+or public extension algorithm was added.
+
+Final classification-forest verification: runtime-checked and optimized
+release builds each passed six focused native programs, 111,522 affected
+reference groups and 56 diagnostic cases. The new suite's 73,044 groups all
+use direct source comparisons. The other 193 native programs were compiled
+but not executed in this batch. Only the five named reference suites and
+reported diagnostic cases are included in the rerun totals.
+
+Both facade examples match sklearn. The combined audit verifies 168 compiled
+source units per profile with dependency-aware fpm fingerprints, complete
+20/21-field inventories, 3,444 scored fixtures, source/binary/validator/
+executable/report hashes, matching comparison inventories and distinct
+optimized reference executables. It verifies unchanged unrelated source/test
+paths and the checksum of private fpm 0.14.0; the global fpm was unchanged.
+Artifacts remain under ignored `validation/results/classification_forests*`,
+including `classification_forests_final_audit.json`.
