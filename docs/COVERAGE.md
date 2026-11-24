@@ -9423,3 +9423,69 @@ checksum-verified private fpm 0.14.0; the global fpm was unchanged. Only the
 six named reference suites and their reported diagnostics were rerun. Reports
 remain under ignored `validation/results/tree_pruning*`, including
 `tree_pruning_final_audit.json`.
+
+## Sparse decision paths and minimum weighted leaves (2026-11-24)
+
+Added decision_path to all four standalone CART/ExtraTree models and four
+random-forest/ExtraTrees classifier/regressor variants. Trees return native
+real64 CSR indicators. Forests horizontally concatenate component paths and
+optionally return zero-based cumulative node-column offsets, matching the
+source/embedding offset convention. CSR row pointers and columns remain
+one-based. Root and terminal nodes are included; pruned models use rebuilt
+node indices. No dense sample-by-node matrix is formed. Integer totals are
+checked in int64 before allocating stored entries and forest columns.
+
+The source sklearn 1.6.1 _decision_path_dense comparison routes NaNs right,
+even when apply/predict use the learned missing branch. The native methods
+preserve that distinction and share fitted-state, feature-shape, infinity
+and float32-range checks with apply. Absolute-error query NaNs are rejected.
+
+All eight variants now accept finite min_weight_fraction_leaf in [0,0.5].
+The threshold is the fraction times the effective training-weight total,
+including forest bootstrap/class factors. A private NumPy-compatible pairwise
+sum computes this total separately from splitter accumulation. Pruning-path
+clones and parameter search preserve/forward the control. The native search
+integration covers 16 weighted regression and 36 weighted classification
+criterion/class-weight/pruning/fraction combinations.
+
+The new suite checks 4,212 fixtures / 105,300 direct-source groups and
+44 isolated source-matched diagnostics. Twenty-five fields include CSR shape,
+pointers, columns, data and forest offsets plus fitted node structure,
+weighted masses, impurity, values/probabilities, predictions, classes, seeds,
+leaf IDs, importances, pruning paths and caller preservation. CSR/integer
+fields compare exactly; floating fields use rtol=2e-10/atol=2e-12, including
+372 nonfinite source values. Cases cover all eight estimators, seven criteria,
+pruning, seven fraction values, zero/signed/tiny/huge weights, class balancing,
+NaN queries and 137-row weight arrays exercising recursive pairwise reduction.
+The new suite uses no alternate-structure certificate.
+
+Checked verification passed all 201 native programs, 290,706 affected
+reference/safety groups and 168 diagnostics across seven suites. Existing
+absolute-error safety identities and weighted-tree certificates remain
+separately identified. Other retained reference/input registries were not
+rerun. The facade example matches CSR pointers [1,3,5,7,9], node columns
+[1,2,1,2,1,2,1,3], NaN apply leaf 2 versus path [1,3], and forest offsets
+[0,3,6,7] with indicator shape (4,7).
+
+Cumulative inventory: 222 public core types, 153 source modules, 201 native
+programs, 177 reference suites / 3,552,630 retained required groups, and
+82 invalid-input registries / 4,595 cases. These remain API subsets. MIT
+licensing and retained sklearn/NumPy BSD attribution continue; no dependency
+or public extension algorithm was added.
+
+Final sparse-path verification: checked and optimized release builds each
+passed all 201 native programs, 290,706 affected reference/safety groups and
+168 diagnostic cases. The new suite contributes 105,300 direct-source groups
+and 44 diagnostics. Existing absolute-error safety identities and weighted-tree
+certificates remain separately identified. Both facade examples match sklearn,
+including CSR arrays, NaN routing and forest column offsets.
+
+The combined audit verifies 365 compiled source units per profile using
+dependency-aware fingerprints, complete 25-field path/constraint inventories,
+stable source/binary/validator/executable/report hashes, matching comparison
+inventories and distinct optimized reference executables. Unrelated source,
+test and application paths remained unchanged. Four-job builds used the
+checksum-verified private fpm 0.14.0; the global fpm was unchanged. Only the
+seven named reference suites and their reported diagnostics were rerun.
+Artifacts remain under ignored `validation/results/tree_paths*`, including
+`tree_paths_final_audit.json`.
