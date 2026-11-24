@@ -1895,3 +1895,16 @@ LICENSES/Microsoft-STL-NOTICE.txt. The translated block has an explicit notice
 in the Fortran source. Original native integration remains MIT; upstream terms
 continue to apply to their respective portions. The backend is internal to
 source algorithm implementations and is not a public extension algorithm.
+## Numeric OneHotEncoder category maps and typed inverse results (BSD / MIT)
+
+src/sklearn_one_hot_encoding.f90 follows scikit-learn 1.6.1
+preprocessing/_encoders.py OneHotEncoder and utils/_encode.py category lookup,
+frequency grouping, stable count ties, dropping, unknown handling, feature
+names and inverse object/zero-sum semantics. Reference sources:
+https://github.com/scikit-learn/scikit-learn/blob/1.6.1/sklearn/preprocessing/_encoders.py
+and https://github.com/scikit-learn/scikit-learn/blob/1.6.1/sklearn/utils/_encode.py
+The existing scikit-learn BSD license remains under LICENSES/. Category ordering
+uses the already attributed internal NumPy ordering backend. Native owned CSR
+adapters, numeric/None/infrequent result masks, callback interfaces, float-name
+formatting, integration, tests, validation harness and example are original MIT
+contributions. No new dependency or public extension algorithm was introduced.

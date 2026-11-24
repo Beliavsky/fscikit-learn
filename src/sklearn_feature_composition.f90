@@ -282,7 +282,7 @@ contains
     type is(simple_imputer)
       call model%fit(x,names)
     type is(one_hot_encoder)
-      call model%fit(x)
+      call model%fit(x,names)
     type is(ordinal_encoder)
       call model%fit(x)
     type is(knn_imputer)
@@ -400,12 +400,7 @@ contains
         names(i)%text='truncatedsvd'//integer_text(i-1)
       end do
     type is(one_hot_encoder)
-      allocate(names(model%n_features_out_));k=0
-      do i=1,size(input)
-        do j=1,size(model%categories_(i)%values)
-          k=k+1;names(k)%text=input(i)%text//'_'//real_text(model%categories_(i)%values(j))
-        end do
-      end do
+      names=model%get_feature_names_out(input)
     type is(kbins_discretizer)
       names=model%get_feature_names_out(input)
     type is(spline_transformer)

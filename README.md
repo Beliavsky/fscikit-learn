@@ -554,3 +554,8 @@ KBinsDiscretizer supports seeded subsampling, named fits, owned CSR one-hot
 maps and source inverse semantics for soft, signed and fractional inputs.
 See the [example](example/kbins_sparse.f90) and
 [API contract](docs/API.md#discretization).
+
+OneHotEncoder supports numeric category selection, infrequent grouping, dropped
+categories, named fits, owned CSR output and typed dense/CSR inverse results.
+See the [example](example/onehot_categories.f90) and
+[API contract](docs/API.md#numeric-onehotencoder).

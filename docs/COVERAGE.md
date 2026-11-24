@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. One hundred and ninety-seven reference suites additionally check 3,990,201
+All types have native tests. One hundred and ninety-eight reference suites additionally check 4,007,271
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -10771,3 +10771,34 @@ and SciPy 1.15.3 remain the oracle versions. The global fpm is unchanged.
 Inventory: 222 public core types, 161 source modules, 225 native programs,
 197 reference suites / 3,990,201 retained groups and 98 invalid registries /
 5,669 cases. The broader translation remains unfinished.
+## Numeric OneHotEncoder category grouping and inverse maps
+
+The earlier automatic-category dense encoder is now a standalone module with
+explicit sorted numeric categories, NaNs, count/fraction rarity thresholds,
+max_categories, first/if_binary/explicit drops, all four source unknown modes,
+named fits, callbacks and owned CSR output. Dense and CSR inverse results
+distinguish numeric NaN, None and the infrequent string marker through explicit
+logical masks. Source soft/signed/zero-sum, grouped-drop indexing and if_binary
+broadcasting quirks remain visible. Feature composition delegates fitting and
+names to the encoder. Existing handle_unknown_ignore calls remain supported.
+
+The numeric grid retains 1,424 configurations: 912 accepted cases with 17,070
+exact field comparisons, 512 expected source rejections and 3,090 nonfinite
+values. It includes raw CSR inverse duplicates, descending indices, explicit
+zeros, unnamed refits, live controls, callback validation, floating category
+names across subnormal/huge ranges and source inverse broadcasting. Forty-five
+separate invalid cases require controlled native errors. String/mixed category
+inputs, dtype selection, Python warnings and graph adapters for the typed inverse
+result remain outside this interface; see the API for detailed contracts.
+
+Checked builds pass the new suite, all 45 native diagnostics, twelve affected
+native programs and the onehot_categories example. Existing reference checks
+also pass: core, RandomTreesEmbedding and original-generator OneHotEncoder
+column-transformer/feature-union slices. Optimized-profile verification is
+recorded separately in VALIDATION.md. This extends an existing sklearn type;
+no public extension algorithm or dependency is added. Original integration
+remains MIT with retained upstream notices.
+
+Inventory: 222 public core types, 162 source modules, 226 native programs,
+198 reference suites / 4,007,271 retained groups and 99 invalid registries /
+5,714 cases. The broader translation remains unfinished.

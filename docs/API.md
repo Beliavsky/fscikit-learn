@@ -8245,3 +8245,64 @@ column/union naming and FrozenEstimator inverse delegation recognize the new
 methods. Method presence makes pipeline/frozen inverse capability available;
 calling inverse still requires the add_indicator option. Python warning emissions
 are not exposed. See [the example](../example/simple_imputer.f90).
+
+## Numeric OneHotEncoder
+
+`one_hot_encoder` accepts dense real64 matrices, including NaN categories.
+`fit(x,feature_names)` and `fit_transform(x,feature_names)` accept optional
+`feature_string` names. `transform` returns a dense matrix; `transform_csr` and
+`fit_transform_csr` return owned `csr_matrix` objects with sorted column indices.
+Use [onehot_categories.f90](../example/onehot_categories.f90) for a complete example.
+
+`categories` is an optional allocated array of `onehot_category` wrappers, each
+with sorted, unique numeric `values`, with NaN last. Unallocated `categories`
+selects automatic discovery. Infinity is rejected in observations, but retained
+in explicitly supplied categories as in the reference. `categories_` retains the
+fitted raw categories. Numeric source names use Python real64 formatting, so
+integer-valued categories have a `.0` suffix.
+
+Set `min_frequency_count` or `min_frequency_fraction` to group rare categories;
+zero disables each option and the two positive options are mutually exclusive.
+`max_categories=0` means no cap; a positive cap includes the infrequent bucket.
+`infrequent_categories_` exists only when grouping is enabled; an unallocated
+per-feature `values` means that feature has no rare categories. Grouping and
+drop maps are fitted state and require refitting after parameter changes.
+
+`drop='none'`, `'first'` or `'if_binary'` operates after grouping. Allocated
+`drop_values(:)` instead specifies one raw numeric category per feature;
+explicitly dropping an infrequent category is rejected. `drop_idx_` is absent
+for no drop, otherwise uses 1-based raw category indices with zero for a
+per-feature absent drop. `n_features_in_` and `n_features_out_` retain dimensions.
+
+`handle_unknown` accepts `'error'`, `'ignore'`, `'infrequent_if_exist'` and
+`'warn'` and is consulted at query time. The retained legacy
+`handle_unknown_ignore=.true.` overrides it with `'ignore'`. Unknowns map to
+zero blocks for ignore; infrequent_if_exist maps to the rare bucket when present.
+The sklearn 1.6.1 warn behavior also leaves unknown blocks zero even when a rare
+bucket exists. Python warning emission is outside this API.
+
+`inverse_transform(encoded)` accepts dense real64 or CSR input and returns
+`onehot_inverse_result` with numeric `values` and logical `is_none` and
+`is_infrequent` matrices. Numeric NaN has both flags false; source `None` and
+`'infrequent_sklearn'` have their respective flag true and a NaN numeric value.
+`result%as_numeric()` returns the values only if neither object marker occurs.
+Soft, signed, tied and zero-sum blocks follow the reference, including its
+drop-index and if_binary broadcasting quirks. Nonfinite encoded input, empty
+rows and globally zero-width inverse input are rejected. CSR duplicates and
+implicit zeros are interpreted without modifying caller storage.
+
+`get_feature_names_out(input_features)` accepts optional validated names and
+uses fitted names or defaults x0, x1, etc. An unnamed refit clears old names.
+The optional procedure pointer `feature_name_combiner` implements
+`onehot_name_combiner(feature,category) result(text)`: feature is character,
+category is `onehot_name_value`, and the result is `feature_string` with allocated
+text. Numeric categories use `category%number`; string categories set
+`category%is_string` and allocate `category%text`. The callback receives the
+reference validation call ('feature','category') before actual output names.
+The infrequent bucket is passed as the string 'infrequent_sklearn'.
+
+String/mixed input categories, dtype selection and Python object arrays are
+outside the current interface. Feature composition delegates fit and naming
+to this encoder; its graph inverse adapters do not yet expose the typed inverse
+result. Original native integration is MIT; translated sklearn behavior retains
+the BSD attribution in THIRD_PARTY_NOTICES.md.
