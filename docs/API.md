@@ -3365,9 +3365,10 @@ meaning; sklearn requires a positive depth.
 DecisionTree fitting without weights uses unit weights in the same source-based
 kernel. This replaces the former real64/native RNG path and also changes the
 underlying trees in existing unweighted ensembles. Zero-gain splits allow a
-later split to learn XOR. Prefix recomputation can select a different optimal
-split from sklearn's incremental C criterion at floating-point ties; an exact
-source tree topology is not guaranteed in those cases.
+later split to learn XOR. Regression uses source-style mutable feature ordering
+and forward/reverse incremental target sums. Floating-point ties can still
+produce platform-dependent optimal splits. Forest-level criterion controls
+remain outside this addition.
 
 Voting, independent multioutput estimators, regressor/classifier chains, and
 multiclass reductions accept ExtraTree bases through their decision-tree

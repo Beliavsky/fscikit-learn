@@ -9093,3 +9093,52 @@ modules/tests were verified. Reports remain local under ignored
 `array_resampling_final_audit.json`. MIT licensing and retained sklearn/NumPy
 BSD attribution continue. Standard C double parsing uses the compiler runtime;
 no package dependency or public extension algorithm was added.
+
+## Regression-tree criteria (2026-11-24)
+
+Added scikit-learn Friedman MSE and Poisson criteria to the existing
+`decision_tree_regressor` and standalone `extra_tree_regressor`. The default
+remains squared error. Weighted means, forward/reverse incremental criterion
+updates, mutable feature ordering, Poisson positive-child restrictions and
+Friedman's distinct min_impurity_decrease scale follow sklearn 1.6.1.
+The Poisson split proxy uses the source base-two logarithm; node deviance uses
+the natural logarithm. GridSearchCV/RandomizedSearchCV can set `criterion`.
+Forest-level criterion parameters, absolute-error fitting, training NaNs,
+pruning and multioutput single-tree fitting remain outside this addition.
+
+The new reference suite checks 1,247 fixtures / 16,211 groups, comparing all
+13 fields directly against installed sklearn: predictions, leaf IDs,
+importance, metadata, values, impurity, weighted mass, thresholds, children,
+features, active-row counts and criterion preservation. Structures and integer
+fields compare exactly; floating fields use rtol=2e-10/atol=2e-12 with matching
+NaN/Inf outcomes. There are 89 nonfinite source values, and 16 isolated
+source-matched invalid-input cases. The corpus includes both splitter families,
+random feature selection, weighted/zero/signed/extreme masses, target scales,
+constant features, minimum-improvement boundaries and missing query routing.
+No alternate-tree certificate is used in this new suite.
+
+Checked verification passed all 196 native test programs, the new suite and
+9,984 groups / 768 fixtures from the existing weighted-tree suite. The latter
+retains its existing source-conditioned and pure-subtree certificates.
+Its separate invalid-input registries were not rerun. The facade example
+matches sklearn: Poisson predictions [1,1,1,4,8.5,8.5] in five nodes and
+Friedman ExtraTree predictions [1.75,1.75,1.75,1.75,8,9].
+
+Cumulative inventory: 222 public core types, 151 source modules, 196 native
+programs, 172 reference suites / 3,288,119 retained required groups, and
+77 invalid-input registries / 4,443 cases. These counts describe API subsets.
+MIT licensing and retained sklearn BSD attribution continue; no package
+dependency or public extension algorithm was added.
+
+Final verification: both the runtime-checked profile
+(`-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow`) and optimized
+release profile passed all 196 native programs, 26,195 affected reference
+groups and 16 new diagnostics. Both examples match sklearn. The final audit
+verified 354 compiled source units per profile using dependency-aware fpm
+fingerprints, complete 13-field fixture inventories, stable source/validator/
+executable/report hashes, unchanged installed tree binaries and distinct
+checked/release reference executables. The private fpm 0.14.0 executable
+checksum was verified; the global fpm installation was unchanged. Only the two
+affected reference suites were rerun. Reports and audit artifacts remain
+local under ignored `validation/results/tree_criteria*`, including
+`tree_criteria_final_audit.json`.
