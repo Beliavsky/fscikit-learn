@@ -1,4 +1,5 @@
 module sklearn_tree
+  use sklearn_sparse, only: csr_matrix
   use sklearn_tree_pruning, only: tree_pruning_path,weakest_link_pruning
   use sklearn_tree_median, only: tree_median_queue
   use sklearn_legacy_rng, only: legacy_random_state
@@ -24,10 +25,11 @@ module sklearn_tree
     logical :: random_thresholds=.false.
     logical, private :: weighted_fit_=.false.
     integer :: max_features_=0
-    real(dp) :: min_impurity_decrease=0,ccp_alpha=0
+    real(dp) :: min_impurity_decrease=0,ccp_alpha=0,min_weight_fraction_leaf=0
     real(dp), allocatable :: feature_importances_(:)
     type(tree_node), allocatable :: nodes_(:)
   contains
+    procedure :: decision_path=>tree_decision_path
     procedure :: apply=>tree_apply
     procedure :: get_depth=>tree_depth
     procedure :: get_n_leaves=>tree_leaves
@@ -60,6 +62,33 @@ module sklearn_tree
   end type
 
 contains
+  recursive real(dp) function tree_numpy_sum(a) result(total)
+    real(dp), intent(in) :: a(:)
+    real(dp) :: partial(8),left,right
+    integer :: n,i,j,whole,split
+    n=size(a);total=-0._dp
+    if(n<8) then
+      do i=1,n
+        total=ieee_difference(total,-a(i))
+      end do
+    else if(n<=128) then
+      partial=a(:8);whole=n-mod(n,8)
+      do i=9,whole,8
+        do j=1,8
+          partial(j)=ieee_difference(partial(j),-a(i+j-1))
+        end do
+      end do
+      left=ieee_difference(ieee_difference(partial(1),-partial(2)),-ieee_difference(partial(3),-partial(4)))
+      right=ieee_difference(ieee_difference(partial(5),-partial(6)),-ieee_difference(partial(7),-partial(8)))
+      total=ieee_difference(left,-right)
+      do i=whole+1,n
+        total=ieee_difference(total,-a(i))
+      end do
+    else
+      split=n/2;split=split-mod(split,8)
+      total=ieee_difference(tree_numpy_sum(a(:split)),-tree_numpy_sum(a(split+1:)))
+    end if
+  end function
   ! Weighted/randomized splitter follows sklearn 1.6.1 tree/_splitter.pyx and _criterion.pyx.
   subroutine build_weighted_tree(self,x,y,classes,criterion,w,max_features)
     class(tree_storage), intent(inout) :: self
@@ -94,6 +123,9 @@ contains
     call require(self%max_features>=0.and.self%max_features<=size(x,2),'invalid tree max_features')
     call require(ieee_is_finite(self%min_impurity_decrease),'tree impurity decrease must be finite')
     call require(self%min_impurity_decrease>=0,'negative impurity decrease')
+    call require(ieee_is_finite(self%min_weight_fraction_leaf),'tree minimum weighted leaf fraction must be finite')
+    call require(self%min_weight_fraction_leaf>=0.and.self%min_weight_fraction_leaf<=.5_dp, &
+      'tree minimum weighted leaf fraction must be in [0,0.5]')
     call require(ieee_is_finite(self%ccp_alpha),'tree ccp_alpha must be finite')
     call require(self%ccp_alpha>=0,'tree ccp_alpha must be nonnegative')
     call require(self%random_state>=0,'weighted tree random_state must be nonnegative')
@@ -103,7 +135,7 @@ contains
     if(allocated(self%nodes_)) deallocate(self%nodes_)
     allocate(self%nodes_(2*size(y))); self%feature_importances_=spread(0._dp,1,size(x,2))
     z=real(real(x,real32),dp); active=pack([(i,i=1,size(y))],w/=0)
-    root_weight=ieee_total(w); min_weight=ieee_product(0._dp,root_weight)
+    root_weight=ieee_total(w); min_weight=ieee_product(self%min_weight_fraction_leaf,tree_numpy_sum(w))
     all_features=[(i,i=1,size(x,2))]; constants=0
     call rng%seed(self%random_state); state=int(rng%integer_index(2147483647)-1,int64)
     ! MAE keeps its initialized queue storage across every node reset.
@@ -738,11 +770,10 @@ contains
     allocate(copied,source=self);copied%ccp_alpha=0
     call copied%fit(x,y,sample_weight);path=fitted_pruning_path(copied)
   end function
-  function tree_apply(self,x) result(leaves)
+  subroutine check_tree_queries(self,x)
     class(tree_storage), intent(in) :: self
     real(dp), intent(in) :: x(:,:)
-    integer :: leaves(size(x,1)),i,node,f,j
-    real(dp) :: value
+    integer :: i,j
     call require(allocated(self%nodes_),'decision tree is not fitted')
     if(self%weighted_fit_) then
       call require(size(x,1)>0.and.size(x,2)==self%n_features_in_,'tree query feature shape mismatch')
@@ -760,6 +791,13 @@ contains
     else
       call check_xy(transpose(x),self%n_features_in_)
     end if
+  end subroutine
+  function tree_apply(self,x) result(leaves)
+    class(tree_storage), intent(in) :: self
+    real(dp), intent(in) :: x(:,:)
+    integer :: leaves(size(x,1)),i,node,f,j
+    real(dp) :: value
+    call check_tree_queries(self,x)
     do i=1,size(x,1)
       node=1
       do while(self%nodes_(node)%left>0)
@@ -785,6 +823,51 @@ contains
       end do
       leaves(i)=node
     end do
+  end function
+  integer function indicator_child(self,node,row) result(child)
+    class(tree_storage), intent(in) :: self
+    integer, intent(in) :: node
+    real(dp), intent(in) :: row(:)
+    integer :: f
+    real(dp) :: value
+    f=self%nodes_(node)%feature
+    ! sklearn 1.6.1 _decision_path_dense sends NaNs right, unlike apply.
+    child=self%nodes_(node)%right
+    if(ieee_is_nan(row(f))) return
+    value=row(f)
+    if(self%weighted_fit_) value=real(real(value,real32),dp)
+    if(value<=self%nodes_(node)%threshold) child=self%nodes_(node)%left
+  end function
+  function tree_decision_path(self,x) result(indicator)
+    class(tree_storage), intent(in) :: self
+    real(dp), intent(in) :: x(:,:)
+    type(csr_matrix) :: indicator
+    integer :: i,node,k
+    integer(int64) :: stored
+    call check_tree_queries(self,x)
+    call require(size(x,1)<huge(1),'tree decision-path row count exceeds integer range')
+    indicator%n_rows=size(x,1);indicator%n_cols=self%node_count_
+    allocate(indicator%indptr(size(x,1)+1));indicator%indptr(1)=1;stored=1
+    do i=1,size(x,1)
+      node=1
+      do
+        stored=stored+1
+        call require(stored<=int(huge(1),int64),'tree decision-path stored count exceeds integer range')
+        if(self%nodes_(node)%left==0) exit
+        node=indicator_child(self,node,x(i,:))
+      end do
+      indicator%indptr(i+1)=int(stored)
+    end do
+    allocate(indicator%indices(int(stored)-1),indicator%data(int(stored)-1));indicator%data=1
+    do i=1,size(x,1)
+      node=1;k=indicator%indptr(i)
+      do
+        indicator%indices(k)=node;k=k+1
+        if(self%nodes_(node)%left==0) exit
+        node=indicator_child(self,node,x(i,:))
+      end do
+    end do
+    call indicator%validate()
   end function
   integer function tree_depth(self) result(depth)
     class(tree_storage), intent(in) :: self

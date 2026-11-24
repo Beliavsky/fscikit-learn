@@ -1,4 +1,5 @@
 module sklearn_ensemble
+  use sklearn_sparse, only: csr_matrix
   use sklearn_class_weight, only: class_weight_map,compute_sample_weight
   use sklearn_legacy_rng, only: legacy_random_state
   use sklearn_ieee_math, only: ieee_difference,ieee_product,ieee_quotient,ieee_total,ieee_mean,ieee_argmax
@@ -7,7 +8,7 @@ module sklearn_ensemble
   use sklearn_stacking, only: stacking_classifier,stacking_regressor,stacking_estimator
   use sklearn_bagging, only: bagging_classifier,bagging_regressor
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite,ieee_is_nan,ieee_value,ieee_quiet_nan,ieee_negative_inf
-  use, intrinsic :: iso_fortran_env, only: real32
+  use, intrinsic :: iso_fortran_env, only: real32,int64
   use sklearn_voting, only: voting_classifier,voting_regressor,voting_estimator
   use sklearn_isolation_forest, only: isolation_forest
   use sklearn_adaboost_regression, only: adaboost_regressor
@@ -57,13 +58,14 @@ module sklearn_ensemble
     character(16) :: criterion='gini'
     character(20) :: class_weight='none'
     type(class_weight_map), allocatable :: class_weight_values
-    real(dp) :: min_impurity_decrease=0,ccp_alpha=0
+    real(dp) :: min_impurity_decrease=0,ccp_alpha=0,min_weight_fraction_leaf=0
     logical :: bootstrap=.true.,random_thresholds=.false.
     integer, allocatable :: classes_(:)
     type(decision_tree_classifier), allocatable :: estimators_(:)
     real(dp), allocatable :: feature_importances_(:)
   contains
     procedure :: fit=>forest_classifier_fit
+    procedure :: decision_path=>forest_classifier_path
     procedure :: apply=>forest_classifier_apply
     procedure :: predict_log_proba=>forest_log_proba
     procedure :: predict_proba=>forest_proba
@@ -79,12 +81,13 @@ module sklearn_ensemble
     integer :: max_features=0,random_state=0
     integer :: max_samples=0,n_features_in_=0
     character(16) :: criterion='squared_error'
-    real(dp) :: min_impurity_decrease=0,ccp_alpha=0
+    real(dp) :: min_impurity_decrease=0,ccp_alpha=0,min_weight_fraction_leaf=0
     logical :: bootstrap=.true.,random_thresholds=.false.
     type(decision_tree_regressor), allocatable :: estimators_(:)
     real(dp), allocatable :: feature_importances_(:)
   contains
     procedure :: fit=>forest_regressor_fit
+    procedure :: decision_path=>forest_regressor_path
     procedure :: apply=>forest_regressor_apply
     procedure :: predict=>forest_regressor_predict
     procedure :: score=>forest_regressor_score
@@ -167,6 +170,7 @@ contains
       self%estimators_(i)%min_samples_leaf=self%min_samples_leaf
       self%estimators_(i)%min_samples_split=self%min_samples_split
       self%estimators_(i)%max_features=features
+      self%estimators_(i)%min_weight_fraction_leaf=self%min_weight_fraction_leaf
       self%estimators_(i)%ccp_alpha=self%ccp_alpha
       self%estimators_(i)%min_impurity_decrease=self%min_impurity_decrease
       self%estimators_(i)%random_thresholds=self%random_thresholds
@@ -236,6 +240,61 @@ contains
         end if
       end do
     end do
+  end function
+  function stack_decision_paths(parts,n_nodes_ptr) result(indicator)
+    type(csr_matrix), intent(in) :: parts(:)
+    integer, allocatable, optional, intent(out) :: n_nodes_ptr(:)
+    type(csr_matrix) :: indicator
+    integer :: offsets(size(parts)+1),i,t,j,k
+    integer(int64) :: columns,stored
+    columns=0;stored=0;offsets(1)=0
+    do t=1,size(parts)
+      columns=columns+int(parts(t)%n_cols,int64);stored=stored+size(parts(t)%data,kind=int64)
+      call require(columns<=int(huge(1),int64),'forest decision-path columns exceed integer range')
+      call require(stored<int(huge(1),int64),'forest decision-path stored count exceeds integer range')
+      offsets(t+1)=int(columns)
+    end do
+    indicator%n_rows=parts(1)%n_rows;indicator%n_cols=int(columns)
+    allocate(indicator%indptr(indicator%n_rows+1),indicator%indices(int(stored)),indicator%data(int(stored)))
+    indicator%data=1;indicator%indptr(1)=1;k=1
+    do i=1,indicator%n_rows
+      do t=1,size(parts)
+        do j=parts(t)%indptr(i),parts(t)%indptr(i+1)-1
+          indicator%indices(k)=offsets(t)+parts(t)%indices(j);k=k+1
+        end do
+      end do
+      indicator%indptr(i+1)=k
+    end do
+    if(present(n_nodes_ptr)) n_nodes_ptr=offsets
+    call indicator%validate()
+  end function
+  function forest_classifier_path(self,x,n_nodes_ptr) result(indicator)
+    class(random_forest_classifier), intent(in) :: self
+    real(dp), intent(in) :: x(:,:)
+    integer, allocatable, optional, intent(out) :: n_nodes_ptr(:)
+    type(csr_matrix) :: indicator
+    type(csr_matrix), allocatable :: parts(:)
+    integer :: t
+    call require(allocated(self%estimators_),'forest is not fitted')
+    allocate(parts(size(self%estimators_)))
+    do t=1,size(parts)
+      parts(t)=self%estimators_(t)%decision_path(x)
+    end do
+    indicator=stack_decision_paths(parts,n_nodes_ptr)
+  end function
+  function forest_regressor_path(self,x,n_nodes_ptr) result(indicator)
+    class(random_forest_regressor), intent(in) :: self
+    real(dp), intent(in) :: x(:,:)
+    integer, allocatable, optional, intent(out) :: n_nodes_ptr(:)
+    type(csr_matrix) :: indicator
+    type(csr_matrix), allocatable :: parts(:)
+    integer :: t
+    call require(allocated(self%estimators_),'forest is not fitted')
+    allocate(parts(size(self%estimators_)))
+    do t=1,size(parts)
+      parts(t)=self%estimators_(t)%decision_path(x)
+    end do
+    indicator=stack_decision_paths(parts,n_nodes_ptr)
   end function
   function forest_classifier_apply(self,x) result(leaves)
     class(random_forest_classifier), intent(in) :: self
@@ -314,6 +373,7 @@ contains
       self%estimators_(i)%min_samples_leaf=self%min_samples_leaf
       self%estimators_(i)%min_samples_split=self%min_samples_split
       self%estimators_(i)%max_features=self%max_features
+      self%estimators_(i)%min_weight_fraction_leaf=self%min_weight_fraction_leaf
       self%estimators_(i)%ccp_alpha=self%ccp_alpha
       self%estimators_(i)%min_impurity_decrease=self%min_impurity_decrease
       self%estimators_(i)%random_thresholds=self%random_thresholds

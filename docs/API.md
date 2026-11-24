@@ -7619,3 +7619,34 @@ root mass), with source ancestor accumulation and incremental updates. Quiet
 IEEE operations preserve defined NaN/Inf outcomes. A path with no comparable
 weakest link is rejected rather than using the source's uninitialized node
 index in that undefined case. Existing criterion and input limits still apply.
+
+## Sparse tree decision paths and minimum weighted leaves
+
+Standalone CART/ExtraTree classifiers/regressors expose decision_path(x),
+returning a real64 csr_matrix indicator of shape (n_queries,n_nodes).
+Each row stores all visited nodes, including the root and terminal leaf,
+in traversal order. indptr and indices follow the package's one-based CSR
+convention; stored data are ones. Pruned models use the rebuilt node indices.
+
+Random-forest/ExtraTrees classifiers/regressors expose
+`indicator = model%decision_path(x,n_nodes_ptr)`. The optional allocatable
+integer output has n_estimators+1 entries and stores zero-based cumulative
+column offsets, matching sklearn and the existing tree-embedding convention.
+The indicator horizontally concatenates component paths in estimator order.
+No dense sample-by-node matrix is constructed. Stored-count and column limits
+are checked before allocation using int64 totals.
+
+The installed sklearn 1.6.1 dense decision-path kernel sends NaNs right with
+its direct <= comparison. This can differ from apply/predict, which follow
+the learned missing-value route. Native indicators preserve that distinction.
+Absolute-error query NaNs remain rejected; infinity, feature-count and
+float32-range checks are shared with apply.
+
+All eight tree/forest variants accept min_weight_fraction_leaf in [0,0.5],
+finite, default zero. Candidate children must each carry at least this
+fraction of total effective training weight. Forest totals include bootstrap
+counts and applicable class factors. The minimum uses source NumPy pairwise
+summation, separately from splitter accumulation, preserving source rounding
+at constraints. Pruning paths, component fits and parameter search forward
+the control. Existing sparse-input/training-NaN and other estimator limits
+are unchanged.

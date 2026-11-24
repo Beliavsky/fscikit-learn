@@ -72,9 +72,11 @@ program test_search
   call require(size(predicted)==40.and.search%best_index_>0,'nested Pipeline parameters with integer regression target')
   count_tree%max_depth=2
   allocate(criterion_search%estimator,source=count_tree);allocate(criterion_search%param_grid(1))
-  allocate(criterion_search%param_grid(1)%axes(2));criterion_search%param_grid(1)%axes(1)%name='criterion'
+  allocate(criterion_search%param_grid(1)%axes(3));criterion_search%param_grid(1)%axes(1)%name='criterion'
   criterion_search%param_grid(1)%axes(2)%name='ccp_alpha'
   criterion_search%param_grid(1)%axes(2)%values=[param(0._dp),param(.1_dp)]
+  criterion_search%param_grid(1)%axes(3)%name='min_weight_fraction_leaf'
+  criterion_search%param_grid(1)%axes(3)%values=[param(0._dp),param(.2_dp)]
   criterion_search%param_grid(1)%axes(1)%values=[param('squared_error'),param('friedman_mse'),param('poisson'),param('absolute_error')]
   criterion_search%cv=3;criterion_search%scoring='neg_mean_squared_error'
   call criterion_search%fit(x,1+abs(y),weights)
@@ -88,7 +90,7 @@ program test_search
   count_extra%max_depth=2;deallocate(criterion_search%estimator)
   allocate(criterion_search%estimator,source=count_extra)
   call criterion_search%fit(x,1+abs(y),weights)
-  call require(size(criterion_search%cv_results_%params)==8,'ExtraTree criterion parameter adapter')
+  call require(size(criterion_search%cv_results_%params)==16,'ExtraTree criterion parameter adapter')
   count_forest%n_estimators=3;count_forest%max_depth=2
   deallocate(criterion_search%estimator);allocate(criterion_search%estimator,source=count_forest)
   call criterion_search%fit(x,1+abs(y),weights)
@@ -102,16 +104,18 @@ program test_search
   count_forest_extra%n_estimators=3;count_forest_extra%max_depth=2
   deallocate(criterion_search%estimator);allocate(criterion_search%estimator,source=count_forest_extra)
   call criterion_search%fit(x,1+abs(y),weights)
-  call require(size(criterion_search%cv_results_%params)==8,'Weighted ExtraTrees criterion parameter adapter')
+  call require(size(criterion_search%cv_results_%params)==16,'Weighted ExtraTrees criterion parameter adapter')
   class_forest%n_estimators=3;class_forest%max_depth=2
   deallocate(criterion_search%estimator);allocate(criterion_search%estimator,source=class_forest)
-  deallocate(criterion_search%param_grid(1)%axes);allocate(criterion_search%param_grid(1)%axes(3))
+  deallocate(criterion_search%param_grid(1)%axes);allocate(criterion_search%param_grid(1)%axes(4))
   criterion_search%param_grid(1)%axes(1)%name='criterion'
   criterion_search%param_grid(1)%axes(1)%values=[param('gini'),param('entropy'),param('log_loss')]
   criterion_search%param_grid(1)%axes(2)%name='class_weight'
   criterion_search%param_grid(1)%axes(2)%values=[param('none'),param('balanced'),param('balanced_subsample')]
   criterion_search%param_grid(1)%axes(3)%name='ccp_alpha'
   criterion_search%param_grid(1)%axes(3)%values=[param(0._dp),param(.1_dp)]
+  criterion_search%param_grid(1)%axes(4)%name='min_weight_fraction_leaf'
+  criterion_search%param_grid(1)%axes(4)%values=[param(0._dp),param(.2_dp)]
   criterion_search%scoring='accuracy';call criterion_search%fit(x,labels,weights)
   value=criterion_search%best_params_%get('criterion')
   select type(fitted=>criterion_search%best_estimator_)
@@ -123,7 +127,7 @@ program test_search
   class_extra%n_estimators=3;class_extra%max_depth=2
   deallocate(criterion_search%estimator);allocate(criterion_search%estimator,source=class_extra)
   call criterion_search%fit(x,labels,weights)
-  call require(size(criterion_search%cv_results_%params)==18,'Weighted ExtraTrees classifier criterion and class-weight grid')
+  call require(size(criterion_search%cv_results_%params)==36,'Weighted ExtraTrees classifier criterion and class-weight grid')
   print *, 'GridSearchCV and RandomizedSearchCV: PASS'
 contains
   integer function last_candidate(results) result(index)

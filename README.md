@@ -53,6 +53,7 @@ fpm run --example ordinal_encoding
 fpm run --example target_encoding
 fpm run --example stacking_ensembles
 fpm run --example bagging_ensembles
+fpm run --example sparse_tree_paths
 fpm run --example cost_complexity_trees
 fpm run --example balanced_classification_forests
 fpm run --example median_regression_trees
