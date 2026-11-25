@@ -8654,3 +8654,39 @@ the singleton product path. The implementation is scalar Fortran without a
 BLAS/SIMD/Python runtime dependency. Other backends, thread counts or buffer
 settings can round differently. Original integration remains MIT with retained
 sklearn/SciPy/NumPy/OpenBLAS BSD attribution.
+
+
+## Weighted multioutput R2 and explained variance
+
+`r2_score(y,p[,sample_weight,multioutput,force_finite,raw_values])` and
+`explained_variance_score` accept real64 vectors or sample-by-output matrices,
+including vector/one-column matrix pairs. Existing vector calls retain their
+argument names. Optional sample weights may be signed or nonfinite, following
+sklearn 1.6.1. Targets must be finite, nonempty and have matching shapes after
+vector-to-column conversion. Zero sample-weight sums reject, except that
+one-sample R2 returns NaN before reduction.
+
+`multioutput` accepts `'uniform_average'` (default), `'variance_weighted'`, or
+a real64 vector of custom output weights. Custom weights require multiple
+outputs, a matching length and finite values; signed weights are allowed.
+A zero output-weight sum rejects when aggregation is reached. If all target
+variances are zero, variance weighting falls back to uniform averaging.
+`force_finite` defaults to true: zero numerator yields 1, and a nonzero numerator
+with zero denominator yields 0. Setting it false retains NaN/negative infinity
+from constant targets. Other NaN/infinity results remain visible in either mode.
+
+Fortran has a static return rank. Use `r2_score_raw(y,p[,sample_weight,force_finite])`
+or `explained_variance_score_raw` for an owned vector corresponding to Python's
+`multioutput='raw_values'`. The scalar APIs reject that string. They also offer
+optional allocatable `raw_values` output alongside a scalar aggregate; this
+still performs aggregation and therefore checks its output-weight sum. Raw
+helpers bypass aggregation. For one-sample R2 the raw helper returns `[NaN]`,
+adapting sklearn's early scalar NaN result. These are native API adapters for
+existing sklearn metrics, not additional algorithms.
+
+Input data, RNG state, IEEE flags and halting modes are preserved. Python
+warning emission is omitted. Reductions reproduce NumPy 2.2.6's buffered
+pairwise vector sums and C-contiguous matrix slow-axis sums; other Python
+memory layouts or reduction buffer settings can round differently. The
+implementation has no Python/BLAS runtime dependency. See
+[`example/variance_scores.f90`](../example/variance_scores.f90).

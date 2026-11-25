@@ -6948,3 +6948,16 @@ Native programs test_kbins_extended and test_numpy_ordering complement the
 existing tests; example/kbins_sparse.f90 shows named seeded CSR bins and inverse
 midpoints. Attribution and full Intel BSD/Microsoft Apache-LLVM notices are
 retained under THIRD_PARTY_NOTICES.md and LICENSES/.
+
+
+Weighted multioutput R2 and explained variance:
+```
+python validation/compare_variance_scores.py --executable build/gfortran_E1FE13DB8881E18E/app/reference_variance_scores_driver.exe --profile checked --report validation/results/variance_checked.json
+python validation/check_variance_scores_invalid_inputs.py --executable build/gfortran_E1FE13DB8881E18E/app/variance_scores_invalid_driver.exe --profile checked --report validation/results/variance_invalid_checked.json
+```
+Repeat with the release executables and profile. The oracle pins sklearn 1.6.1,
+NumPy 2.2.6, C-contiguous float64 matrices and buffered vector reductions.
+Each successful fixture checks score values/nonfinite masks, input identity
+and IEEE status/mask preservation. Rejected source calls require controlled
+Fortran diagnostics. `test_variance_scores` also checks RNG preservation,
+owned raw arrays, mixed ranks, bias, constants and overflow under checked traps.

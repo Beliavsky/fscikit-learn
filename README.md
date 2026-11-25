@@ -607,3 +607,10 @@ See [the example](example/confusion_matrix.f90) and
 sample weights, counting individual label errors without densifying sparse
 targets. See [the example](example/hamming_loss.f90) and
 [API contract](docs/API.md#weighted-dense-and-sparse-hamming-loss).
+
+
+`r2_score` and `explained_variance_score` support sample weights, matrix targets,
+uniform/variance/custom output weighting and `force_finite`. Owned per-output
+vectors are available through `r2_score_raw` and `explained_variance_score_raw`.
+See [the example](example/variance_scores.f90) and
+[API contract](docs/API.md#weighted-multioutput-r2-and-explained-variance).

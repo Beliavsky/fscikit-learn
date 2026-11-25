@@ -1,5 +1,23 @@
 # Translation work log
 
+## Weighted multioutput R2 and explained variance (2026-11-24)
+
+Added sample weighting, uniform/variance/custom output aggregation and
+`force_finite` to R2 and explained variance, with explicit vector/matrix adapters
+and owned raw-output helpers. Existing vector score calls remain supported.
+The implementation follows sklearn 1.6.1, including singleton R2 NaN, signed
+and nonfinite sample weights, constant targets and IEEE exception preservation.
+NumPy 2.2.6 C-order matrix and buffered vector reductions are identified in the
+API. No dependency or extension algorithm was added; original integration
+remains MIT with retained sklearn/NumPy BSD attribution.
+
+At the implementation checkpoint the checked fpm build with tests passed,
+as did 53 affected native programs, two examples, all 192 core reference groups,
+20 targeted diagnostics and the retained EllipticEnvelope score-shape guard.
+An initial 800-configuration metric probe passed (1,608 groups and 264
+controlled source rejections). Full metric references and the optimized build
+are still running; final results will be recorded separately.
+
 ## Initial package milestone (2026-11-17/18)
 
 The requested target directory was empty. The reference source was recovered

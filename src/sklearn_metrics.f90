@@ -1,4 +1,5 @@
 module sklearn_metrics
+  use sklearn_variance_scores,only:r2_score,explained_variance_score,r2_score_raw,explained_variance_score_raw
   use sklearn_confusion_matrix,only:confusion_matrix
   use sklearn_categorical_scores,only:balanced_accuracy_score,matthews_corrcoef,cohen_kappa_score
   use sklearn_likelihood_ratios,only:class_likelihood_ratios
@@ -39,6 +40,7 @@ module sklearn_metrics
   public :: mutual_info_score
   public :: mean_squared_error, root_mean_squared_error, mean_absolute_error
   public :: median_absolute_error, mean_absolute_percentage_error, r2_score, explained_variance_score
+  public :: r2_score_raw,explained_variance_score_raw
   public :: max_error, mean_squared_log_error, mean_poisson_deviance, mean_gamma_deviance
   public :: accuracy_score, confusion_matrix, precision_score, recall_score, f1_score
   public :: balanced_accuracy_score, matthews_corrcoef, cohen_kappa_score, log_loss
@@ -80,28 +82,6 @@ contains
   real(dp) function max_error(y,p) result(v)
     real(dp), intent(in) :: y(:),p(:)
     call check_targets(y,p); v=maxval(abs(y-p))
-  end function
-  real(dp) function r2_score(y,p) result(v)
-    real(dp), intent(in) :: y(:),p(:)
-    real(dp) :: num,den
-    call check_targets(y,p); call require(size(y)>1,'R2 requires at least two samples')
-    num=sum((y-p)**2); den=sum((y-sum(y)/size(y))**2)
-    if(den==0) then
-      v=merge(1._dp,0._dp,num==0)
-    else
-      v=1-num/den
-    end if
-  end function
-  real(dp) function explained_variance_score(y,p) result(v)
-    real(dp), intent(in) :: y(:),p(:)
-    real(dp) :: num,den
-    call check_targets(y,p)
-    num=sum((y-p-sum(y-p)/size(y))**2); den=sum((y-sum(y)/size(y))**2)
-    if(den==0) then
-      v=merge(1._dp,0._dp,num==0)
-    else
-      v=1-num/den
-    end if
   end function
   real(dp) function mean_squared_log_error(y,p) result(v)
     real(dp), intent(in) :: y(:),p(:)

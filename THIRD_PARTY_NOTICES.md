@@ -2068,3 +2068,20 @@ Typed adapters, owned buffers, merge/accumulation counting, diagnostics,
 reference harness and example are MIT integration. Existing accuracy/zero-one
 function bodies are unchanged. No dependency or public extension algorithm is
 added, and the root MIT license/fpm declaration are unchanged.
+
+
+## Weighted multioutput R2 and explained variance (BSD / MIT)
+
+src/sklearn_variance_scores.f90 translates r2_score, explained_variance_score
+and their score assembly from scikit-learn 1.6.1 metrics/_regression.py, by
+the scikit-learn developers (BSD-3-Clause).
+Source: https://github.com/scikit-learn/scikit-learn/blob/1.6.1/sklearn/metrics/_regression.py
+Installed reference SHA256:
+60453695ff142bd8242274f894ad141fbc025814996f51b4507660bf6688dfd1.
+NumPy 2.2.6 buffered pairwise sums adapt the previously attributed BSD reduction
+algorithm; LICENSES/scikit-learn-COPYING and LICENSES/numpy-COPYING retain the
+full licenses. Changes include explicit typed rank adapters, owned raw-result
+helpers, C-order matrix reduction loops and IEEE state preservation.
+Original integration, diagnostics, tests, reference harness and example are
+MIT. No dependency or public extension algorithm is added. Root LICENSE and
+fpm's MIT declaration remain unchanged.

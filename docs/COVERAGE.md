@@ -1,5 +1,10 @@
 # Translation coverage
 
+R2 and explained variance now support sample weights, multioutput aggregation,
+`force_finite` and owned raw-output helpers. Their new source-reference suite is
+being verified in both build profiles; the retained totals below are the prior
+completed checkpoint. See the API contract for supported ranks and rounding.
+
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
