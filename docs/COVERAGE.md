@@ -12616,3 +12616,51 @@ estimator type was added. Inventory: 222 public core types, 181 source modules,
 259 native test programs, 270 app drivers, 215 examples, 234 reference suites /
 5,093,208 retained groups and 131 invalid registries / 6,628 cases.
 The broader translation remains unfinished.
+
+## Public covariance functions
+
+Array overloads now expose sklearn's `empirical_covariance`,
+`shrunk_covariance`, `ledoit_wolf` and `oas` through `sklearn_covariance` and
+`sklearn`. Existing estimator constructors remain available. The owned
+`covariance_estimate` helper represents the covariance/shrinkage tuple.
+Empirical covariance includes the one-sample vector interpretation and
+nonfinite input propagation. Shrinkage supports square-matrix batches through
+rank 15; positive extents and square final axes are explicit typed limits.
+Python's incidental nonsquare broadcasting and empty intermediate axes are
+outside this interface. See the API contract and covariance_functions example.
+
+The source grid retains 35,148 direct result groups across 11,716 configurations:
+five seeds, one to 129 samples, one/two/five/nine features, centered and
+uncentered estimates, three Ledoit-Wolf block sizes, vector inputs, degenerate
+data, rank-2 through rank-15 batches, signed/asymmetric matrices, four
+shrinkage amounts, trace overflow and empirical NaN/Inf cases. Source provenance
+is sklearn 1.6.1, NumPy 2.2.6 and SciPy 1.15.3. Both final package runs reused
+all 11,716 captured source configurations, with provenance hashes checked;
+expectations are actual sklearn results. No numerical certificates or tolerance
+changes were introduced. Maximum scaled errors were 7.948568529823766e-15
+(checked) and 9.835457057903985e-15 (optimized).
+
+Full builds including tests passed with private fpm 0.14.0 and GNU Fortran
+17.0.0 20260510. Checked flags were `-fcheck=all -fbacktrace
+-ffpe-trap=invalid,zero,overflow`; optimized flags were
+`-O3 -funroll-loops -fcoarray=single`. Each profile passed the new grid,
+16 isolated guards, five selected native programs, the example, 192 core
+reference comparisons and 5,112 prior shrinkage comparisons / 1,080 fixtures.
+Other historical suites were not rerun in this increment.
+
+The final audit verified 196 dependency-aware compiled-unit fingerprints per
+profile (186 library units and ten programs), matching source/validator/
+attribution manifests, identical reference inputs and distinct executables.
+All existing covariance procedure bodies and all other library files remain
+unchanged from 49055fe. Logs, caches and manifests are ignored under
+validation/results/covariance_functions_*. The final optimized package proof
+uses gfortran_B05B00B50E0682F7 / gfortran_AD4478C7C32A9255 in the isolated
+build directory; checked proof uses the existing F638FECF362AB298 /
+E1FE13DB8881E18E profiles.
+
+The package remains MIT with retained sklearn, NumPy and OpenBLAS attribution.
+No runtime dependency or algorithm extension was added. Inventory: 222 public
+core types plus the new storage helper, 182 source modules, 260 native test
+programs, 272 app drivers, 216 examples, 235 reference suites / 5,128,356
+retained groups and 132 invalid registries / 6,644 cases. The broader
+translation remains unfinished.
