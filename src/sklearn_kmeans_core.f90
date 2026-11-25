@@ -1,5 +1,6 @@
-! Weighted dense/CSR Lloyd KMeans, sklearn 1.6.1 cluster/_kmeans.py and
-! _k_means_lloyd.pyx/_k_means_common.pyx. Retained sklearn BSD attribution.
+! Weighted dense/CSR Lloyd and Elkan KMeans, sklearn 1.6.1 cluster/_kmeans.py,
+! _k_means_lloyd.pyx/_k_means_elkan.pyx/_k_means_common.pyx.
+! Elkan author: Andreas Mueller. Retained sklearn BSD attribution.
 module sklearn_kmeans_core
   use sklearn_common,only:dp,require,check_x
   use sklearn_sparse,only:csr_matrix
@@ -85,7 +86,7 @@ contains
       call require(init=='random'.or.init=='k-means++','unknown KMeans initialization')
       method=init
     end if
-    if(present(algorithm))call require(algorithm=='lloyd','KMeans currently supports the Lloyd algorithm')
+    if(present(algorithm))call require(algorithm=='lloyd'.or.algorithm=='elkan','unknown KMeans algorithm')
     call require(runs>=0.and.limit>=1,'invalid KMeans iteration controls')
     call require(ieee_is_finite(tolerance),'KMeans tolerance must be finite')
     call require(tolerance>=0,'KMeans tolerance must be nonnegative')
@@ -144,7 +145,7 @@ contains
       else
         centers=random_centers(n,p,n_clusters,w,rng,dense=z)
       end if
-      candidate=lloyd(n,p,w,centers,limit,scaled,dense=z)
+      candidate=single_run(n,p,w,centers,limit,scaled,algorithm,dense=z)
       if(run==1)then
         result=candidate
       else if(candidate%inertia<result%inertia)then
@@ -189,7 +190,7 @@ contains
       else
         centers=random_centers(x%n_rows,x%n_cols,n_clusters,w,rng,sparse=x)
       end if
-      candidate=lloyd(x%n_rows,x%n_cols,w,centers,limit,scaled,sparse=x)
+      candidate=single_run(x%n_rows,x%n_cols,w,centers,limit,scaled,algorithm,sparse=x)
       if(run==1)then
         result=candidate
       else if(candidate%inertia<result%inertia)then
@@ -331,70 +332,223 @@ contains
     end do
     value=max(0._dp,value+norm)
   end function
+  function single_run(n,p,w,centers,limit,tolerance,algorithm,dense,sparse)result(result)
+    integer,intent(in)::n,p,limit
+    real(dp),intent(in)::w(:),centers(:,:),tolerance
+    character(*),optional,intent(in)::algorithm
+    real(dp),optional,intent(in)::dense(:,:)
+    type(csr_matrix),optional,intent(in)::sparse
+    type(kmeans_result)::result
+    logical::use_elkan
+    use_elkan=.false.
+    if(present(algorithm))use_elkan=algorithm=='elkan'.and.size(centers,1)>1
+    if(use_elkan)then
+      result=elkan(n,p,w,centers,limit,tolerance,dense,sparse)
+    else
+      ! sklearn falls back to Lloyd for one cluster.
+      result=lloyd(n,p,w,centers,limit,tolerance,dense,sparse)
+    end if
+  end function
+  subroutine center_bounds(centers,half,next)
+    real(dp),intent(in)::centers(:,:)
+    real(dp),intent(out)::half(:,:),next(:)
+    integer::i,j,k
+    k=size(centers,1);half=distances_dense(centers,centers)/2
+    do j=1,k
+      half(j,j)=0;next(j)=huge(1._dp)
+      do i=1,k
+        if(i/=j)next(j)=min(next(j),half(i,j))
+      end do
+    end do
+  end subroutine
+  real(dp)function point_distance(i,center,norm,dense,sparse)result(value)
+    integer,intent(in)::i
+    real(dp),intent(in)::center(:),norm
+    real(dp),optional,intent(in)::dense(:,:)
+    type(csr_matrix),optional,intent(in)::sparse
+    if(present(dense))then
+      value=sqrt(dense_distance(dense(i,:),center))
+    else
+      value=sqrt(sparse_distance(sparse,i,center,norm))
+    end if
+  end function
+  subroutine init_elkan(n,centers,half,labels,upper,lower,dense,sparse)
+    integer,intent(in)::n
+    real(dp),intent(in)::centers(:,:),half(:,:)
+    integer,intent(out)::labels(:)
+    real(dp),intent(out)::upper(:),lower(:,:)
+    real(dp),optional,intent(in)::dense(:,:)
+    type(csr_matrix),optional,intent(in)::sparse
+    real(dp)::norms(size(centers,1)),best,distance
+    integer::i,j,label
+    norms=row_norms(centers);lower=0
+    do i=1,n
+      label=1;best=point_distance(i,centers(1,:),norms(1),dense,sparse);lower(i,1)=best
+      do j=2,size(centers,1)
+        if(best>half(label,j))then
+          distance=point_distance(i,centers(j,:),norms(j),dense,sparse);lower(i,j)=distance
+          if(distance<best)then
+            best=distance;label=j
+          end if
+        end if
+      end do
+      labels(i)=label;upper(i)=best
+    end do
+  end subroutine
+  subroutine assign_elkan(n,centers,half,next,labels,upper,lower,dense,sparse)
+    integer,intent(in)::n
+    real(dp),intent(in)::centers(:,:),half(:,:),next(:)
+    integer,intent(inout)::labels(:)
+    real(dp),intent(inout)::upper(:),lower(:,:)
+    real(dp),optional,intent(in)::dense(:,:)
+    type(csr_matrix),optional,intent(in)::sparse
+    real(dp)::norms(size(centers,1)),bound,distance
+    integer::i,j,label
+    logical::tight
+    norms=row_norms(centers)
+    do i=1,n
+      bound=upper(i);label=labels(i);tight=.false.
+      if(.not.(next(label)>=bound))then
+        do j=1,size(centers,1)
+          if(j==label)cycle
+          if(bound>lower(i,j).and.bound>half(label,j))then
+            if(.not.tight)then
+              bound=point_distance(i,centers(label,:),norms(label),dense,sparse)
+              lower(i,label)=bound;tight=.true.
+            end if
+            ! Preserve the source's OR after tightening the current bound.
+            if(bound>lower(i,j).or.bound>half(label,j))then
+              distance=point_distance(i,centers(j,:),norms(j),dense,sparse);lower(i,j)=distance
+              if(distance<bound)then
+                label=j;bound=distance
+              end if
+            end if
+          end if
+        end do
+        labels(i)=label;upper(i)=bound
+      end if
+    end do
+  end subroutine
+  function elkan(n,p,w,initial,limit,tolerance,dense,sparse)result(result)
+    integer,intent(in)::n,p,limit
+    real(dp),intent(in)::w(:),initial(:,:),tolerance
+    real(dp),optional,intent(in)::dense(:,:)
+    type(csr_matrix),optional,intent(in)::sparse
+    type(kmeans_result)::result
+    real(dp)::centers(size(initial,1),p),updated(size(initial,1),p),shift(size(initial,1))
+    real(dp),allocatable::half(:,:),next(:),upper(:),lower(:,:),norms(:)
+    integer::old(n),labels(n),i,j,k,it
+    logical::strict
+    k=size(initial,1);allocate(half(k,k),next(k),upper(n),lower(n,k),norms(k))
+    centers=initial;old=-1;strict=.false.;result%converged=.false.
+    call center_bounds(centers,half,next)
+    call init_elkan(n,centers,half,labels,upper,lower,dense,sparse)
+    do it=1,limit
+      call assign_elkan(n,centers,half,next,labels,upper,lower,dense,sparse)
+      call update_centers(n,p,w,centers,labels,updated,shift,dense,sparse)
+      do i=1,n
+        upper(i)=upper(i)+shift(labels(i))
+        do j=1,k
+          lower(i,j)=max(0._dp,lower(i,j)-shift(j))
+        end do
+      end do
+      call require(all(ieee_is_finite(updated)),'KMeans centers exceed finite working range')
+      call center_bounds(updated,half,next);centers=updated
+      if(all(labels==old))then
+        strict=.true.;result%converged=.true.;exit
+      end if
+      if(numpy_sum(shift**2)<=tolerance)then
+        result%converged=.true.;exit
+      end if
+      old=labels
+    end do
+    result%n_iter=min(it,limit)
+    if(.not.strict)call assign_elkan(n,centers,half,next,labels,upper,lower,dense,sparse)
+    result%centers=centers;result%labels=labels-1;result%inertia=0;norms=row_norms(centers)
+    do i=1,n
+      if(present(dense))then
+        result%inertia=result%inertia+w(i)*dense_distance(dense(i,:),centers(labels(i),:))
+      else
+        result%inertia=result%inertia+w(i)*sparse_distance(sparse,i,centers(labels(i),:),norms(labels(i)))
+      end if
+    end do
+  end function
+  subroutine update_centers(n,p,w,centers,labels,updated,shift,dense,sparse)
+    integer,intent(in)::n,p,labels(:)
+    real(dp),intent(in)::w(:),centers(:,:)
+    real(dp),intent(out)::updated(:,:),shift(:)
+    real(dp),optional,intent(in)::dense(:,:)
+    type(csr_matrix),optional,intent(in)::sparse
+    real(dp)::mass(size(centers,1)),distance(n),norms(size(centers,1))
+    integer::i,j,z,k,ne,far,donor,biggest,empty(size(centers,1))
+    integer,allocatable::order(:)
+    k=size(centers,1)
+    updated=0;mass=0
+    do i=1,n
+      j=labels(i);mass(j)=mass(j)+w(i)
+      if(present(dense))then
+        updated(j,:)=updated(j,:)+dense(i,:)*w(i)
+      else
+        do z=sparse%indptr(i),sparse%indptr(i+1)-1
+          updated(j,sparse%indices(z))=updated(j,sparse%indices(z))+sparse%data(z)*w(i)
+        end do
+      end if
+    end do
+    ne=0
+    do j=1,k
+      if(mass(j)==0)then
+        ne=ne+1;empty(ne)=j
+      end if
+    end do
+    if(ne>0)then
+      norms=row_norms(centers)
+      do i=1,n
+        if(present(dense))then
+          distance(i)=numpy_sum((dense(i,:)-centers(labels(i),:))**2)
+        else
+          distance(i)=sparse_distance(sparse,i,centers(labels(i),:),norms(labels(i)))
+        end if
+      end do
+      if(maxval(distance)>0)then
+        order=numpy_argpartition(distance,n-ne+1)
+        do j=1,ne
+          far=order(n-j+1);donor=labels(far);z=empty(j)
+          if(present(dense))then
+            updated(donor,:)=updated(donor,:)-dense(far,:)*w(far);updated(z,:)=dense(far,:)*w(far)
+          else
+            do i=sparse%indptr(far),sparse%indptr(far+1)-1
+              updated(donor,sparse%indices(i))=updated(donor,sparse%indices(i))-sparse%data(i)*w(far)
+              updated(z,sparse%indices(i))=sparse%data(i)*w(far)
+            end do
+          end if
+          mass(z)=w(far);mass(donor)=mass(donor)-w(far)
+        end do
+      end if
+    end if
+    biggest=maxloc(mass,dim=1)
+    do j=1,k
+      if(mass(j)>0)then
+        updated(j,:)=updated(j,:)*(1._dp/mass(j))
+      else
+        updated(j,:)=updated(biggest,:)
+      end if
+      shift(j)=sqrt(dense_distance(updated(j,:),centers(j,:)))
+    end do
+  end subroutine
   function lloyd(n,p,w,initial,limit,tolerance,dense,sparse)result(result)
     integer,intent(in)::n,p,limit
     real(dp),intent(in)::w(:),initial(:,:),tolerance
     real(dp),optional,intent(in)::dense(:,:)
     type(csr_matrix),optional,intent(in)::sparse
     type(kmeans_result)::result
-    real(dp)::centers(size(initial,1),p),updated(size(initial,1),p),mass(size(initial,1)),shift(size(initial,1))
-    real(dp)::distance(n),norms(size(initial,1))
-    integer::old(n),labels(n),empty(size(initial,1)),i,j,z,k,it,ne,far,donor,biggest
-    integer,allocatable::order(:)
+    real(dp)::centers(size(initial,1),p),updated(size(initial,1),p),shift(size(initial,1))
+    real(dp)::norms(size(initial,1))
+    integer::old(n),labels(n),i,k,it
     logical::strict
     k=size(initial,1);centers=initial;old=-1;strict=.false.;result%converged=.false.
     do it=1,limit
-      labels=assign(n,centers,dense,sparse);updated=0;mass=0
-      do i=1,n
-        j=labels(i);mass(j)=mass(j)+w(i)
-        if(present(dense))then
-          updated(j,:)=updated(j,:)+dense(i,:)*w(i)
-        else
-          do z=sparse%indptr(i),sparse%indptr(i+1)-1
-            updated(j,sparse%indices(z))=updated(j,sparse%indices(z))+sparse%data(z)*w(i)
-          end do
-        end if
-      end do
-      ne=0
-      do j=1,k
-        if(mass(j)==0)then
-          ne=ne+1;empty(ne)=j
-        end if
-      end do
-      if(ne>0)then
-        norms=row_norms(centers)
-        do i=1,n
-          if(present(dense))then
-            distance(i)=numpy_sum((dense(i,:)-centers(labels(i),:))**2)
-          else
-            distance(i)=sparse_distance(sparse,i,centers(labels(i),:),norms(labels(i)))
-          end if
-        end do
-        if(maxval(distance)>0)then
-          order=numpy_argpartition(distance,n-ne+1)
-          do j=1,ne
-            far=order(n-j+1);donor=labels(far);z=empty(j)
-            if(present(dense))then
-              updated(donor,:)=updated(donor,:)-dense(far,:)*w(far);updated(z,:)=dense(far,:)*w(far)
-            else
-              do i=sparse%indptr(far),sparse%indptr(far+1)-1
-                updated(donor,sparse%indices(i))=updated(donor,sparse%indices(i))-sparse%data(i)*w(far)
-                updated(z,sparse%indices(i))=sparse%data(i)*w(far)
-              end do
-            end if
-            mass(z)=w(far);mass(donor)=mass(donor)-w(far)
-          end do
-        end if
-      end if
-      biggest=maxloc(mass,dim=1)
-      do j=1,k
-        if(mass(j)>0)then
-          updated(j,:)=updated(j,:)*(1._dp/mass(j))
-        else
-          updated(j,:)=updated(biggest,:)
-        end if
-        shift(j)=sqrt(dense_distance(updated(j,:),centers(j,:)))
-      end do
+      labels=assign(n,centers,dense,sparse)
+      call update_centers(n,p,w,centers,labels,updated,shift,dense,sparse)
       centers=updated
       call require(all(ieee_is_finite(centers)),'KMeans centers exceed finite working range')
       if(all(labels==old))then

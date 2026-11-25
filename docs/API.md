@@ -9956,10 +9956,10 @@ design=add_dummy_feature(x, value=1._dp)
 mean_log_likelihood=log_likelihood(empirical_covariance(x), precision)
 ```
 
-## Weighted Lloyd KMeans
+## Weighted Lloyd and Elkan KMeans
 
 `kmeans`, `k_means` and the owned `kmeans_result` helper are exported by
-`sklearn_cluster` and `sklearn`. The shared native Lloyd solver replaces the
+`sklearn_cluster` and `sklearn`. The shared native Lloyd and Elkan solvers replace the
 original unweighted, process-global-RNG KMeans implementation.
 
 ```fortran
@@ -9969,6 +9969,7 @@ model%n_clusters=3
 model%n_init=0                  ! Python n_init='auto'
 model%init='k-means++'          ! or 'random'
 model%random_state=7
+model%algorithm='elkan'         ! or the default 'lloyd'
 call model%fit(x, sample_weight=weights)
 result=k_means(x, 3, sample_weight=weights, random_state=7)
 ! result%centers, labels, inertia, n_iter, n_init and converged own the result.
@@ -10012,5 +10013,12 @@ representation-dependent norm and relocation arithmetic. The class does not
 canonicalize input storage. The interfaces use owned copies; Python's copy_x
 in-place roundtrip, scalar-weight broadcasting, named dataframe features,
 callable initialization, verbosity and parallel execution are outside this
-interface. Only Lloyd is implemented here; algorithm='elkan' is not yet
-supported. This does not change BisectingKMeans' separate Elkan implementation.
+interface. Both algorithm='lloyd' and algorithm='elkan' are supported. Elkan
+uses triangle-inequality pruning with per-sample upper bounds, a dense
+(n_samples,n_clusters) lower-bound array and pairwise center bounds. It uses
+Lloyd for one cluster, following sklearn's fallback. No Python warning object
+is emitted by the Fortran interface. Prediction uses the ordinary nearest-center
+assignment for either algorithm. At ties, Elkan's stored fit labels can therefore
+differ from predict(x), as in sklearn; the bounds are retained through center
+relocation and final assignment. This does not change BisectingKMeans' separate
+Elkan implementation.

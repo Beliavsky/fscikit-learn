@@ -2322,3 +2322,13 @@ and query products reuse the existing scalar OpenBLAS reconstruction. Existing
 NumPy, x86-simd-sort and OpenBLAS license notices remain applicable. Typed
 storage, CSR composition and integration are original MIT contributions; no
 external BLAS or Python runtime is linked.
+
+## Elkan KMeans
+
+The dense/CSR Elkan bounds, pruning and final assignment adapt sklearn 1.6.1
+`cluster/_k_means_elkan.pyx` (author Andreas Mueller, BSD 3-clause) and
+`cluster/_kmeans.py`. The retained notice in `LICENSES/scikit-learn-COPYING`
+applies, along with the existing weighted KMeans numerical-helper notices
+above. Shared center updates and typed integration remain covered by their
+existing notices. The package license remains MIT; no runtime dependency was
+added.
