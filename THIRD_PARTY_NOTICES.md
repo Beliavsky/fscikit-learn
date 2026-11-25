@@ -2332,3 +2332,14 @@ applies, along with the existing weighted KMeans numerical-helper notices
 above. Shared center updates and typed integration remain covered by their
 existing notices. The package license remains MIT; no runtime dependency was
 added.
+
+## Classification reports
+
+Report composition, average selection and target-name handling adapt sklearn
+1.6.1 `metrics/_classification.py`; the existing BSD notice in
+`LICENSES/scikit-learn-COPYING` applies. Classification reductions reuse the
+existing attributed NumPy pairwise summation, now retaining the positive-zero
+ufunc identity. Existing NumPy notices remain applicable. Owned row storage,
+Fortran text formatting and integration are original MIT contributions.
+Shortest decimal support text reuses the package's native resampling helper;
+no Python or NumPy runtime dependency was added. The package remains MIT.

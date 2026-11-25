@@ -10,6 +10,8 @@ module sklearn_classification_metrics
   private
   public :: precision_score,recall_score,f1_score,jaccard_score,fbeta_score
   public :: precision_recall_fscore_support,multilabel_confusion_matrix
+  ! Internal observed-label ordering shared by classification reports.
+  public :: sorted_classes
   interface precision_score
     module procedure precision_score_vv
     module procedure precision_score_bb
@@ -168,6 +170,10 @@ contains
     else
       split=n/2;split=split-mod(split,8)
       total=ieee_difference(numpy_sum(a(:split)),-numpy_sum(a(split+1:)))
+    end if
+    ! NumPy reduction includes a positive-zero ufunc identity.
+    if(ieee_is_finite(total)) then
+      if(total==0) total=0
     end if
   end function
   real(dp) function average_values(values,weights) result(value)

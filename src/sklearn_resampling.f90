@@ -12,6 +12,8 @@ module sklearn_resampling
   public :: index_split,shuffle_split,stratified_shuffle_split,group_shuffle_split
   public :: repeated_kfold,repeated_stratified_kfold,leave_p_out,leave_p_groups_out
   public :: resample,shuffle
+  ! Internal numeric rendering helper shared by classification reports.
+  public :: real_text
   interface resample
     module procedure resample_population,resample_iv,resample_im,resample_jv,resample_jm
     module procedure resample_rv,resample_rm,resample_bv,resample_bm,resample_cv,resample_cm,resample_sparse

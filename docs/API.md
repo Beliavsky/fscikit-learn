@@ -10022,3 +10022,46 @@ assignment for either algorithm. At ties, Elkan's stored fit labels can therefor
 differ from predict(x), as in sklearn; the bounds are retained through center
 relocation and final assignment. This does not change BisectingKMeans' separate
 Elkan implementation.
+
+## Classification reports
+
+`classification_report(y,p,labels,target_names,sample_weight,digits,output_dict,
+zero_division)` returns an owned `classification_report_result`, exported by
+`sklearn_metrics` and `sklearn`. Integer/logical label vectors and one-column
+matrices support ordinary classification. Integer/logical indicator matrices,
+CSR indicators and mixed dense/CSR indicator pairs support multilabel reports,
+using the existing classification-metric storage contracts.
+
+The result owns `labels`, `rows`, `n_class_rows`, `micro_is_accuracy`,
+`target_names_mismatch` and `text`. Each `classification_report_row` owns its
+name and contains precision, recall, f1_score, support and is_accuracy. Class
+rows precede micro/accuracy, macro and weighted averages; multilabel reports
+also include the samples average. Selected labels retain order and duplicates.
+A micro row is shown as accuracy when all observed single-target classes are
+included. The accuracy row's precision is sklearn's scalar output_dict value;
+its f1_score is the value used by the text report. These can differ for repeated
+selected labels. The row table preserves repeated names instead of Python dict
+key replacement.
+
+Default digits=2 controls fixed-point text only. `output_dict=.true.` suppresses
+text generation and retains full-precision numeric rows; this is an owned row
+table, not a Python dictionary. Digits must be nonnegative for either mode.
+`zero_division` accepts 0 (default numeric behavior of Python 'warn'), 1 or quiet
+NaN. Averages retain sklearn's NaN exclusion, support weighting and signed-zero
+arithmetic. The text retains sklearn's support-type distinction: even without
+weights, single-target problems with no matching true/predicted labels print
+floating support. Weighted support uses shortest round-trip decimal text.
+
+`target_names` is an optional character array; trailing Fortran padding is
+trimmed. Without explicit labels its length must match the observed classes.
+With explicit labels, a mismatch sets target_names_mismatch and class rows
+follow sklearn's zip truncation, while averages still include all selected
+labels. An empty target-name list or absent class names cannot render text;
+output_dict mode supports empty labels/names and empty vectors. Logical labels
+use False/True default names, while integer labels use their decimal values.
+
+CSR indicators must have sorted unique column indices and stored ones, as in
+the existing classification metrics. Raw duplicate CSR storage, string/object
+class labels and Python warning objects are outside this native binding.
+Successful calls preserve caller IEEE flags and halting modes. See
+`example/classification_report.f90`.

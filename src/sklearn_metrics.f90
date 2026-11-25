@@ -1,4 +1,5 @@
 module sklearn_metrics
+  use sklearn_classification_report,only:classification_report,classification_report_result,classification_report_row
   use sklearn_kernel_dispatch,only:pairwise_kernels
   use sklearn_pairwise_reductions, only: pairwise_distances_argmin,pairwise_distances_argmin_min
   use sklearn_distribution_errors,only:mean_squared_log_error,mean_squared_log_error_raw, &
@@ -32,6 +33,7 @@ module sklearn_metrics
     average_precision_score,brier_score_loss
   implicit none
   private
+  public::classification_report,classification_report_result,classification_report_row
   public::pairwise_kernels
   public :: pairwise_distances_argmin,pairwise_distances_argmin_min
   public::class_likelihood_ratios

@@ -722,3 +722,10 @@ returns owned centers, labels, inertia and iteration metadata. See
 [the API](docs/API.md#weighted-lloyd-and-elkan-kmeans) and
 [example/weighted_kmeans.f90](example/weighted_kmeans.f90) and
 [example/elkan_kmeans.f90](example/elkan_kmeans.f90).
+
+## Classification reports
+
+`classification_report` returns owned per-class and aggregate metrics plus
+sklearn-style formatted text for numeric classification and dense/CSR
+multilabel targets. See [the API](docs/API.md#classification-reports) and
+[example/classification_report.f90](example/classification_report.f90).
