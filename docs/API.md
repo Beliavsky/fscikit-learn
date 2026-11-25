@@ -9636,3 +9636,48 @@ Later children can therefore refer to node IDs beyond the partial parent
 array. Fitted labels use only the retained parent forest. compute_full_tree_
 records the source's requested/auto selection even when single linkage builds
 the entire MST and child tree. See `example/single_linkage_trees.f90`.
+
+## Weighted multioutput KernelRidge
+
+`kernel_ridge%fit(X,y[,sample_weight])` accepts dense or CSR features,
+vector or matrix targets, and scalar or vector training weights. Weights must
+be finite and nonnegative; zero is supported. `alpha` is finite and nonnegative.
+Allocated `alpha_values` overrides it and must contain one value or one per
+target. `predict` returns a vector for single-target fits; `predict_multi`
+returns a matrix for either target rank. Both accept dense or CSR queries.
+`score` supports vector/matrix targets and optional vector sample weights.
+`dual_coef_multi_` stores every target; `dual_coef_` mirrors its first column.
+Fitted inputs and coefficients are owned copies. Metadata includes
+`n_samples_fit_`, `n_features_in_`, `n_targets_`, `sparse_fit_` and `used_lstsq_`.
+
+Kernels are linear, rbf, poly/polynomial, sigmoid, cosine, laplacian,
+additive_chi2, chi2, precomputed, callable and gp. Set `kernel_function` for a
+row callback or `kernel_object` for a GP kernel. `gamma=-1` represents None;
+chi2 requires an explicit nonnegative gamma, matching the working sklearn
+1.6.1 path. CSR precomputed, GP and chi-square inputs are rejected. CSR named
+and callback kernels retain sparse training storage with dense row scratch;
+the Gram matrix and solve still require quadratic sample storage. There is
+no sparse-time performance guarantee.
+
+Training callback kernels use the shared pairwise dispatch's symmetric
+identical-input contract. Predicting on the model's own stored `x_fit_` or
+`x_fit_csr_` preserves that identity; an independent query uses cross-kernel
+evaluation. This matters for asymmetric callbacks. Owned storage does not
+provide Python's borrowed-input mutation behavior.
+
+Equal penalties share a positive-definite solve with a minimum-norm SVD
+fallback when factorization fails. Unequal penalties solve each target
+separately and reject failed positive-definite systems, following sklearn's
+separate-target branch. Positive solves consume the upper triangle, including
+asymmetric precomputed kernels; predictions consume the full query matrix.
+Successful fit/predict preserve IEEE flags and halting modes and reject
+nonfinite working matrices/solutions. Weighted KernelRidge is also supported
+by the existing ensemble base-estimator dispatch.
+
+Exactly singular zero-penalty systems can select different factorization
+paths across native arithmetic and SciPy. Material coefficient, prediction
+and score differences are possible. `used_lstsq_` reports the native path.
+The reference validator is strict by default. Its explicit
+`--allow-singular-certificates` mode checks singularity, backward error or
+minimum-norm solutions, kernel multiplication and score consistency for
+these cases; those certificates do not establish sklearn output equality.

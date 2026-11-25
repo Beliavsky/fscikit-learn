@@ -664,3 +664,11 @@ Streaming nearest-pair searches are available as `pairwise_distances_argmin`
 and `pairwise_distances_argmin_min`, with dense/CSR inputs, axis selection,
 common named distances and row callbacks. See [the API](docs/API.md#streaming-nearest-pair-reductions)
 and [example/nearest_pairs.f90](example/nearest_pairs.f90).
+
+## Weighted KernelRidge
+
+KernelRidge supports dense/CSR features, multiple targets, sample weights and
+per-target penalties through the shared named, callback and GP kernels. See
+[the API](docs/API.md#weighted-multioutput-kernelridge) for supported combinations
+and singular-system numerical limits, and run
+`fpm run --example weighted_kernel_ridge` for an example.

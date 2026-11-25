@@ -2223,3 +2223,14 @@ accumulation reconstructs OpenBLAS 0.3.29 SkylakeX dot/GEMV/small-TN order:
 retained separately in `LICENSES/OpenBLAS-small-kernel-BSD`. These are scalar
 Fortran adaptations, with no OpenBLAS runtime dependency added. Original row
 views, storage/typed adapters and IEEE composition remain MIT integration.
+
+## KernelRidge expansion
+
+Weighted multioutput KernelRidge adapts sklearn 1.6.1 `kernel_ridge.py` and
+`linear_model/_ridge.py` (`_solve_cholesky_kernel`), including sample-weight
+transformation, shared versus per-target penalties, upper-triangle positive
+solves and the shared-penalty least-squares fallback. The existing sklearn
+BSD notice is retained in `LICENSES/scikit-learn-COPYING`; shared kernel and
+native SVD attributions remain applicable. Typed adapters, owned storage,
+ensemble wiring and validation integration are MIT. No numerical runtime
+dependency was added.

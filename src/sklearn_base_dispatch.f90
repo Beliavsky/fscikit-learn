@@ -129,8 +129,7 @@ contains
       call require(.not.present(weights),'voting base has no native weighted fit')
       call model%fit(x,y)
     type is(kernel_ridge)
-      call require(.not.present(weights),'voting base has no native weighted fit')
-      call model%fit(x,y)
+      call model%fit(x,y,weights)
     type is(dummy_regressor)
       call require(.not.present(weights),'voting base has no native weighted fit')
       call model%fit(x,y)
@@ -272,6 +271,7 @@ contains
     class is(multinomial_nb)
     type is(sgd_classifier)
     type is(sgd_regressor)
+    type is(kernel_ridge)
     type is(ridge_cv)
       ok=model%cv==0
     class is(decision_tree_classifier)
