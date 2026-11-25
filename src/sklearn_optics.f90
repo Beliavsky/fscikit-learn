@@ -1,12 +1,36 @@
 ! Dense OPTICS and Xi extraction, following scikit-learn 1.6.1 cluster/_optics.py.
 ! See THIRD_PARTY_NOTICES.md for the retained BSD attribution.
 module sklearn_optics
-  use sklearn_common, only: dp,require,check_x,argsort
+  use sklearn_common, only: dp,require,check_x
   use sklearn_metrics, only: pairwise_distances
+  use sklearn_kernel_dispatch,only:kernel_blas_dot,kernel_blas_inner_product
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite,ieee_is_nan,ieee_value,ieee_positive_inf
   implicit none
   private
-  public :: optics,cluster_optics_dbscan,cluster_optics_xi
+  public :: optics,cluster_optics_dbscan,cluster_optics_xi,compute_optics_graph,optics_graph_result
+  type :: optics_graph_result
+    integer :: min_samples=0
+    logical :: all_unreachable=.false.
+    integer,allocatable :: ordering(:),predecessor(:)
+    real(dp),allocatable :: core_distances(:),reachability(:)
+  end type
+  abstract interface
+    function graph_distance(x,y)result(value)
+      import dp
+      real(dp),intent(in)::x(:),y(:)
+      real(dp)::value
+    end function
+    function graph_row(point,update,eligible)result(row)
+      import dp
+      integer,intent(in)::point
+      logical,intent(in)::update
+      logical,optional,intent(in)::eligible(:)
+      real(dp),allocatable::row(:)
+    end function
+  end interface
+  interface compute_optics_graph
+    module procedure compute_graph_integer,compute_graph_fraction
+  end interface
   type :: optics
     integer :: min_samples=5,min_cluster_size=0,min_samples_=0,min_cluster_size_=0
     real(dp) :: min_samples_fraction=-1,min_cluster_fraction=-1
@@ -20,6 +44,204 @@ module sklearn_optics
     procedure :: fit_predict=>optics_fit_predict
   end type
 contains
+  function compute_graph_integer(x,min_samples,max_eps,metric,p,distance)result(graph)
+    real(dp),intent(in)::x(:,:)
+    integer,intent(in)::min_samples
+    real(dp),optional,intent(in)::max_eps,p
+    character(*),optional,intent(in)::metric
+    procedure(graph_distance),optional::distance
+    type(optics_graph_result)::graph
+    character(32)::kind
+    real(dp)::radius,power
+    integer::n
+    call check_x(x);n=size(x,1)
+    call require(min_samples>=2.and.min_samples<=n,'invalid OPTICS graph min_samples')
+    radius=ieee_value(0._dp,ieee_positive_inf);if(present(max_eps))radius=max_eps
+    call require(.not.ieee_is_nan(radius),'OPTICS graph max_eps must not be NaN')
+    call require(radius>=0,'OPTICS graph max_eps must be nonnegative')
+    kind='minkowski';if(present(metric))kind=metric
+    power=2;if(present(p))power=p
+    if(.not.present(distance))then
+      call require(any(kind==[character(32)::'minkowski','euclidean','l2','sqeuclidean','manhattan', &
+        'cityblock','l1','chebyshev','cosine','precomputed']),'unsupported OPTICS graph metric')
+      if(kind=='minkowski')then
+        call require(.not.ieee_is_nan(power),'OPTICS graph p must not be NaN')
+        call require(power>0,'OPTICS graph p must be positive')
+      end if
+      if(kind=='precomputed')then
+        call require(size(x,2)==n,'OPTICS graph precomputed matrix must be square')
+        call require(all(x>=0),'OPTICS graph distances must be nonnegative')
+      end if
+    end if
+    graph=build_graph(n,min_samples,radius,rows)
+  contains
+    function rows(point,update,eligible)result(row)
+      integer,intent(in)::point
+      logical,intent(in)::update
+      logical,optional,intent(in)::eligible(:)
+      real(dp),allocatable::row(:)
+      real(dp)::nx,ny,product
+      integer::j,k,count_pairs,pair_index
+      allocate(row(n));row=0;count_pairs=n;pair_index=0
+      if(present(eligible))count_pairs=count(eligible)
+      if(present(distance))then
+        do j=1,n
+          row(j)=distance(x(point,:),x(j,:))
+        end do
+      else if(kind=='precomputed')then
+        row=x(point,:)
+      else
+        do j=1,n
+          if(present(eligible))then
+            if(.not.eligible(j))cycle
+          end if
+          pair_index=pair_index+1
+          select case(trim(kind))
+          case('euclidean','l2')
+            if(update)then
+              nx=sum(x(point,:)**2);ny=sum(x(j,:)**2)
+              product=kernel_blas_dot(x(point,:),x(j,:),1,count_pairs,1,pair_index)
+            else
+              nx=kernel_blas_inner_product(x(point,:),x(point,:))
+              ny=kernel_blas_inner_product(x(j,:),x(j,:))
+              product=kernel_blas_dot(x(point,:),x(j,:),n,n,point,j)
+            end if
+            row(j)=sqrt(max((nx-2*product)+ny,0._dp))
+          case('sqeuclidean')
+            if(update)then
+              row(j)=sum((x(point,:)-x(j,:))**2)
+            else
+              nx=kernel_blas_inner_product(x(point,:),x(point,:))
+              ny=kernel_blas_inner_product(x(j,:),x(j,:))
+              product=kernel_blas_dot(x(point,:),x(j,:),n,n,point,j)
+              row(j)=max((nx-2*product)+ny,0._dp)
+            end if
+          case('manhattan','cityblock','l1')
+            row(j)=sum(abs(x(point,:)-x(j,:)))
+          case('chebyshev')
+            row(j)=maxval(abs(x(point,:)-x(j,:)))
+          case('minkowski')
+            if(.not.update.and.power==2)then
+              nx=kernel_blas_inner_product(x(point,:),x(point,:))
+              ny=kernel_blas_inner_product(x(j,:),x(j,:))
+              product=kernel_blas_dot(x(point,:),x(j,:),n,n,point,j)
+              row(j)=sqrt(max((-2*product+nx)+ny,0._dp))
+            else if(ieee_is_finite(power))then
+              row(j)=sum(abs(x(point,:)-x(j,:))**power)**(1/power)
+            else
+              row(j)=maxval(abs(x(point,:)-x(j,:)))
+            end if
+          case('cosine')
+            nx=sqrt(sum(x(point,:)**2));ny=sqrt(sum(x(j,:)**2));product=0
+            if(nx<10*epsilon(nx))nx=1
+            if(ny<10*epsilon(ny))ny=1
+            if(nx>0.and.ny>0)then
+              if(update)then
+                product=kernel_blas_dot(x(point,:)/nx,x(j,:)/ny,1,count_pairs,1,pair_index)
+              else
+                product=kernel_blas_dot(x(point,:)/nx,x(j,:)/ny,n,n,point,j)
+              end if
+            end if
+            row(j)=min(2._dp,max(0._dp,1-product))
+          end select
+        end do
+        if(.not.update)row(point)=0
+      end if
+      call require(all(ieee_is_finite(row)),'OPTICS graph metric returned nonfinite distances')
+      call require(all(row>=0),'OPTICS graph metric returned negative distances')
+    end function
+  end function
+
+  function compute_graph_fraction(x,min_samples,max_eps,metric,p,distance)result(graph)
+    real(dp),intent(in)::x(:,:),min_samples
+    real(dp),optional,intent(in)::max_eps,p
+    character(*),optional,intent(in)::metric
+    procedure(graph_distance),optional::distance
+    type(optics_graph_result)::graph
+    call require(ieee_is_finite(min_samples),'OPTICS graph sample fraction must be finite')
+    call require(min_samples>0.and.min_samples<=1,'OPTICS graph sample fraction must be in (0,1]')
+    graph=compute_graph_integer(x,max(2,int(min_samples*size(x,1))),max_eps,metric,p,distance)
+  end function
+
+  real(dp)function kth_distance(row,k)result(value)
+    real(dp),intent(in)::row(:)
+    integer,intent(in)::k
+    real(dp)::heap(k)
+    integer::i
+    heap=row(:k)
+    do i=k/2,1,-1
+      call sift_max(heap,i)
+    end do
+    do i=k+1,size(row)
+      if(row(i)<heap(1))then
+        heap(1)=row(i);call sift_max(heap,1)
+      end if
+    end do
+    value=heap(1)
+  end function
+  subroutine sift_max(heap,start)
+    real(dp),intent(inout)::heap(:)
+    integer,intent(in)::start
+    integer::parent,child
+    real(dp)::value
+    parent=start;value=heap(parent)
+    do while(parent<=size(heap)/2)
+      child=2*parent
+      if(child<size(heap))then
+        if(heap(child+1)>heap(child))child=child+1
+      end if
+      if(value>=heap(child))exit
+      heap(parent)=heap(child);parent=child
+    end do
+    heap(parent)=value
+  end subroutine
+  function build_graph(n,min_samples,max_eps,rows)result(graph)
+    integer,intent(in)::n,min_samples
+    real(dp),intent(in)::max_eps
+    procedure(graph_row)::rows
+    type(optics_graph_result)::graph
+    real(dp),allocatable::row(:),radius_row(:)
+    logical::processed(n),eligible(n)
+    integer::i,j,t,point
+    real(dp)::rd,inf
+    inf=ieee_value(0._dp,ieee_positive_inf)
+    graph%min_samples=min_samples
+    allocate(graph%ordering(n),graph%predecessor(n),graph%reachability(n),graph%core_distances(n))
+    graph%reachability=inf;graph%predecessor=-1;processed=.false.
+    do i=1,n
+      row=rows(i,.false.);rd=kth_distance(row,min_samples)
+      if(rd>max_eps)rd=inf
+      graph%core_distances(i)=rounded(rd)
+    end do
+    do t=1,n
+      point=0
+      do i=1,n
+        if(processed(i))cycle
+        if(point==0)then
+          point=i
+        else if(graph%reachability(i)<graph%reachability(point))then
+          point=i
+        end if
+      end do
+      graph%ordering(t)=point;processed(point)=.true.
+      if(.not.ieee_is_finite(graph%core_distances(point)))cycle
+      eligible=.not.processed
+      if(ieee_is_finite(max_eps))then
+        radius_row=rows(point,.false.);eligible=eligible.and.radius_row<=max_eps
+      end if
+      if(.not.any(eligible))cycle
+      row=rows(point,.true.,eligible)
+      do j=1,n
+        if(.not.eligible(j))cycle
+        rd=rounded(max(graph%core_distances(point),row(j)))
+        if(rd<graph%reachability(j))then
+          graph%reachability(j)=rd;graph%predecessor(j)=point
+        end if
+      end do
+    end do
+    graph%all_unreachable=all(.not.ieee_is_finite(graph%reachability))
+  end function
+
   integer function resolved_size(count,fraction,n,automatic) result(k)
     integer, intent(in) :: count,n,automatic
     real(dp), intent(in) :: fraction
@@ -36,7 +258,9 @@ contains
     real(dp) :: z,a,b
     y=x
     if(.not.ieee_is_finite(x)) return
-    if(x>huge(x)/1.e15_dp) return
+    if(x>huge(x)/1.e15_dp)then
+      y=ieee_value(0._dp,ieee_positive_inf);return
+    end if
     z=x*1.e15_dp; a=aint(z); b=z-a
     if(b>.5_dp) a=a+1
     if(b==.5_dp) then
@@ -48,11 +272,9 @@ contains
   subroutine optics_fit(self,x)
     class(optics), intent(inout) :: self
     real(dp), intent(in) :: x(:,:)
-    real(dp), allocatable :: d(:,:),row(:)
-    integer, allocatable :: order(:)
-    logical, allocatable :: processed(:)
-    integer :: n,i,j,t,point
-    real(dp) :: inf,rd,radius
+    type(optics_graph_result)::graph
+    integer :: n,i
+    real(dp) :: inf,radius
     call check_x(x)
     n=size(x,1); inf=ieee_value(0._dp,ieee_positive_inf)
     self%min_samples_=resolved_size(self%min_samples,self%min_samples_fraction,n,self%min_samples)
@@ -72,47 +294,15 @@ contains
     if(trim(self%metric)=='precomputed') then
       call require(size(x,2)==n,'OPTICS distance matrix must be square')
       call require(all(x>=0),'OPTICS distances must be nonnegative')
-      call require(all(abs(x-transpose(x))<=1.e-10_dp*max(1._dp,abs(x))), &
-        'OPTICS distance matrix must be symmetric')
-      d=x
       do i=1,n
-        call require(abs(d(i,i))<=1.e-12_dp,'OPTICS distance diagonal must be zero')
+        call require(all(abs(x(i,:)-x(:,i))<=1.e-10_dp*max(1._dp,abs(x(i,:)))), &
+          'OPTICS distance matrix must be symmetric')
+        call require(abs(x(i,i))<=1.e-12_dp,'OPTICS distance diagonal must be zero')
       end do
-    else
-      d=pairwise_distances(x,x,self%metric,self%p)
     end if
-    do i=1,n
-      d(i,i)=0
-    end do
-    if(allocated(self%ordering_)) deallocate(self%ordering_,self%predecessor_,self%reachability_,self%core_distances_)
-    allocate(self%ordering_(n),self%predecessor_(n),self%reachability_(n),self%core_distances_(n),processed(n))
-    self%reachability_=inf; self%predecessor_=-1; processed=.false.
-    do i=1,n
-      row=d(i,:); order=argsort(row)
-      rd=row(order(self%min_samples_))
-      if(rd>self%max_eps_) rd=inf
-      self%core_distances_(i)=rounded(rd)
-    end do
-    do t=1,n
-      point=0
-      do i=1,n
-        if(processed(i)) cycle
-        if(point==0) then
-          point=i
-        else if(self%reachability_(i)<self%reachability_(point)) then
-          point=i
-        end if
-      end do
-      self%ordering_(t)=point; processed(point)=.true.
-      if(.not.ieee_is_finite(self%core_distances_(point))) cycle
-      do j=1,n
-        if(processed(j) .or. d(point,j)>self%max_eps_) cycle
-        rd=rounded(max(self%core_distances_(point),d(point,j)))
-        if(rd<self%reachability_(j)) then
-          self%reachability_(j)=rd; self%predecessor_(j)=point
-        end if
-      end do
-    end do
+    graph=build_graph(n,self%min_samples_,self%max_eps_,legacy_rows)
+    self%ordering_=graph%ordering;self%predecessor_=graph%predecessor
+    self%reachability_=graph%reachability;self%core_distances_=graph%core_distances
     if(trim(self%cluster_method)=='xi') then
       call cluster_optics_xi(self%reachability_,self%predecessor_,self%ordering_,self%min_samples_, &
         self%labels_,self%cluster_hierarchy_,self%xi,self%min_cluster_size_,self%predecessor_correction)
@@ -124,6 +314,19 @@ contains
       if(allocated(self%cluster_hierarchy_)) deallocate(self%cluster_hierarchy_)
       allocate(self%cluster_hierarchy_(0,2))
     end if
+  contains
+    function legacy_rows(point,update,eligible)result(row)
+      integer,intent(in)::point
+      logical,intent(in)::update
+      logical,optional,intent(in)::eligible(:)
+      real(dp),allocatable::row(:),distances(:,:)
+      if(trim(self%metric)=='precomputed')then
+        row=x(point,:)
+      else
+        distances=pairwise_distances(x(point:point,:),x,self%metric,self%p);row=distances(1,:)
+      end if
+      row(point)=0
+    end function
   end subroutine
 
   function optics_fit_predict(self,x) result(labels)

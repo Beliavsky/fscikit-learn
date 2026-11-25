@@ -9369,3 +9369,55 @@ remains zero for these solvers; use `converged` and `n_iter`. Python warning
 emission is not reproduced. Zero Lipschitz constants and SAG's unit
 step-times-scaled-penalty case are rejected explicitly. These cases also fail
 in the pinned source. See `example/ridge_stochastic.f90`.
+
+
+## Public streamed OPTICS graphs
+
+`compute_optics_graph(x,min_samples,max_eps,metric,p,distance)` returns an
+owned `optics_graph_result`. Import it from `sklearn` or `sklearn_cluster`.
+`x` is a finite dense real64 feature matrix, or a square nonnegative finite
+matrix with `metric='precomputed'`. The low-level function permits asymmetric
+precomputed matrices and nonzero diagonals, following sklearn. The estimator's
+existing symmetry/zero-diagonal validation remains in place.
+
+Integer `min_samples` must be between 2 and n_samples. A real64 fraction in
+(0,1] resolves to max(2,floor(fraction*n_samples)). `max_eps` defaults to
+positive infinity. Named metrics are Minkowski (default), Euclidean/l2,
+squared Euclidean, Manhattan/cityblock/l1, Chebyshev and cosine. Minkowski p
+(default 2) must be positive; infinity is supported. A supplied `distance`
+procedure overrides the metric name and accepts two real64 row vectors,
+returning a finite nonnegative distance. It can capture metric parameters.
+General metric_params mappings, CSR input, tree/index search backends and
+parallel execution remain untranslated. The function uses brute neighbors;
+the estimator retains its previous supported distance conventions.
+
+Results contain `ordering`, `core_distances`, `reachability`, `predecessor`,
+resolved `min_samples` and `all_unreachable`. Indices are one-based;
+predecessor -1 denotes no predecessor. Infinite core/reachability values
+are retained. The boolean replaces the source's all-unreachable warning.
+The graph can be passed directly to `cluster_optics_dbscan` or
+`cluster_optics_xi`, allowing repeated extraction without rebuilding distances.
+
+Both the public function and OPTICS estimator now use row providers and a
+bounded max heap for the k-th neighbor. Additional graph/distance working
+storage is O(n_samples), without an n-by-n distance allocation. Caller-provided
+precomputed matrices already require quadratic storage. Brute computation
+still requires quadratic distance work and neighbor selection; no approximate
+neighbor search is used. Decimal-rounding overflow becomes infinity without
+triggering floating-point traps, matching the pinned source result.
+
+Graph order and predecessor ties can be sensitive to numerical backends.
+Brute Euclidean operations reuse the attributed native BLAS accumulation
+helpers. Scalar Minkowski distances use native arithmetic; last-bit differences
+between sklearn's core-distance backend and SciPy's update backend can change
+an ordering tie and subsequently a reachability value. The validation defaults
+to strict source output comparison. Its explicit `--allow-rounding-certificates`
+option retains four reference configurations whose native permutation,
+predecessor edges and all selection/update states are replayed using sklearn's
+own radius queries and reachability updater within recorded roundoff bounds.
+Core distances always remain direct source comparisons. Reachability in those
+cases is checked against source replay along the native permutation, and the
+report retains the difference from the original source result. These cases
+are not counted as exact source ordering matches; downstream extraction near
+such boundaries can differ. Precomputed graph comparisons never use this
+exception. See `example/optics_graph.f90`.

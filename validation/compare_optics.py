@@ -1,5 +1,6 @@
 """Compare dense OPTICS graphs, Xi hierarchies and re-extraction with sklearn."""
 from pathlib import Path
+import argparse
 import json
 import subprocess
 import warnings
@@ -12,6 +13,8 @@ ROOT = Path(__file__).resolve().parents[1]
 RESULTS = ROOT / "validation" / "results"
 
 def main():
+    parser=argparse.ArgumentParser();parser.add_argument("--executable");parser.add_argument("--report",type=Path)
+    args=parser.parse_args()
     RESULTS.mkdir(exist_ok=True)
     checks = []
     for seed in (7, 42, 2026):
@@ -27,8 +30,11 @@ def main():
             stream.write(f"{len(x)} 2\n")
             np.savetxt(stream, x, fmt="%.17g")
             np.savetxt(stream, d, fmt="%.17g")
-        subprocess.run(["fpm", "run", "--flag", "-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow",
-                        "--target", "reference_optics_driver", "--", str(data), str(output)], cwd=ROOT, check=True)
+        if args.executable:
+            subprocess.run([args.executable,str(data),str(output)],cwd=ROOT,check=True)
+        else:
+            subprocess.run(["fpm", "run", "--flag", "-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow",
+                            "--target", "reference_optics_driver", "--", str(data), str(output)], cwd=ROOT, check=True)
         actual = {}
         for line in output.read_text().splitlines():
             name, *values = line.split()
@@ -74,7 +80,7 @@ def main():
             else:
                 np.testing.assert_array_equal(got, want, err_msg=f"{seed} {name}")
             checks.append(dict(seed=seed, name=name, passed=True))
-    (RESULTS/"optics.json").write_text(json.dumps(dict(sklearn=sklearn.__version__, checks=checks), indent=2)+"\n")
+    (args.report or RESULTS/"optics.json").write_text(json.dumps(dict(sklearn=sklearn.__version__, checks=checks), indent=2)+"\n")
     print(f"{len(checks)} OPTICS result groups passed")
 
 if __name__ == "__main__":

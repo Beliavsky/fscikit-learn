@@ -10,14 +10,14 @@ module sklearn_cluster
   use, intrinsic :: iso_fortran_env, only: real32,int64
   use sklearn_metrics, only: pairwise_distances
   use sklearn_spectral, only: spectral_affinity_matrix,spectral_eigenvectors
-  use sklearn_optics, only: optics,cluster_optics_dbscan,cluster_optics_xi
+  use sklearn_optics, only: optics,cluster_optics_dbscan,cluster_optics_xi,compute_optics_graph,optics_graph_result
   implicit none
   private
   public :: kmeans_plusplus
   public :: bisecting_kmeans,mini_batch_kmeans
   public :: spectral_coclustering,spectral_biclustering
   public :: hdbscan
-  public :: optics,cluster_optics_dbscan,cluster_optics_xi
+  public :: optics,cluster_optics_dbscan,cluster_optics_xi,compute_optics_graph,optics_graph_result
   public :: kmeans,dbscan,agglomerative_clustering
   public :: mean_shift,estimate_bandwidth,get_bin_seeds,affinity_propagation,spectral_clustering
   public :: feature_agglomeration

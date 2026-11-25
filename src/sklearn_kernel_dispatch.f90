@@ -9,6 +9,14 @@ module sklearn_kernel_dispatch
  use,intrinsic::ieee_exceptions
  implicit none
  private
+ ! Internal accumulation helpers shared with the OPTICS brute backend.
+ public::kernel_blas_dot,kernel_blas_inner_product
+ interface kernel_blas_dot
+  module procedure dense_dot
+ end interface
+ interface kernel_blas_inner_product
+  module procedure ddot_lanes
+ end interface
  public::pairwise_kernels
  type::row_view
   real(dp),pointer::dense(:,:)=>null()
