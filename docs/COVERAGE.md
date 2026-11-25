@@ -77,7 +77,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Two hundred and forty-one reference suites additionally check 5,318,192
+All types have native tests. Two hundred and forty-two reference suites additionally check 5,349,576
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and explicitly recorded numerical certificates.
 
@@ -13010,4 +13010,58 @@ No runtime dependency or algorithm extension was added. Inventory: 222 core
 public types plus owned result helpers, 184 source modules, 266 native test
 programs, 283 app drivers, 222 examples, 241 reference suites / 5,318,192
 retained groups and 137 invalid registries / 6,751 cases.
+The broader translation remains unfinished.
+
+## Chunked pairwise distances
+
+`pairwise_distances_chunked` adds an owned single-pass iterator over vertical
+distance blocks, with zero-based starts and a MiB working-memory budget. Dense,
+CSR and mixed feature inputs support sklearn-routed metrics; dense inputs also
+support the SciPy-routed named metrics. Callable row metrics retain source
+upper-triangle/diagonal ordering for full self blocks and Cartesian ordering
+for partial blocks. Precomputed input yields one block, retaining CSR storage
+where supplied. Data-derived V/VI are precomputed from the complete self input,
+not separately for each chunk. API.md records metric-specific keyword limits,
+finite working-memory controls, eager owned initialization and aliasing limits.
+
+Mutable typed reducers support real/integer vectors and matrices, CSR outputs,
+flat tuples and None-style side effects, with source row-count validation.
+Source-invalid nested tuples and None tuple members are diagnosed. Temporary
+raw distance payloads are released after reduction. Iteration preserves caller
+IEEE flags and halting modes and leaves input data unchanged. A 50,000-row CSR
+native test emits one 50,000-element row rather than allocating the equivalent
+20 GB full distance matrix.
+
+The strict new reference suite checks 31,384 direct groups across 3,751
+configurations using actual sklearn 1.6.1 and SciPy 1.15.3 outputs. It covers
+three seeds, 24 named routes including precomputed, callable metric ordering,
+all supported typed payload kinds, flat tuples and None-style reducers, dense/CSR/mixed
+inputs, self identity, zero rows, NaN Euclidean data, squared output,
+automatic/explicit metric parameters, finite/negative/infinite Minkowski p,
+nonfinite intermediate arithmetic and exact/neighboring float chunk boundaries.
+It checks block offsets/heights, sparse structure/data, numeric distances,
+reduced arrays and callback counters. A first NaN-Euclidean comparison exposed
+a rounding difference; masked Gram products and NumPy's two-lane row norms now
+retain that source result. Maximum scaled error is 5.716448619459031e-14 in both profiles.
+The retained provenance includes source hashes,
+versions and 3,549 Source warnings. No certificates, native-derived expected
+outputs or widened tolerances were introduced.
+
+Full checked and optimized fpm builds including tests passed with private
+fpm 0.14.0 and GNU Fortran 17.0.0 20260510 under the established checked/optimized
+flags. Each profile passed the new reference suite, six selected native
+programs, the example, 20 isolated guards (19 actual Source rejections and one
+native single-payload-tag contract), and 192 core comparisons. Other historical
+reference suites were not rerun. The audit checks 199 dependency-aware compiled
+fingerprints per profile (189 library units and ten programs), stable manifests,
+identical reference inputs and distinct executables. Existing nearest-pair and
+metrics procedure bodies are unchanged from 4ffac33. Other library files,
+dependency declarations and license files remain unchanged.
+
+Artifacts remain ignored under validation/results/pairwise_chunks_*.
+The package remains MIT with retained sklearn, SciPy, NumPy and OpenBLAS notices.
+No runtime dependency or algorithm extension was added. Inventory: 222 core
+public types plus owned result/iterator helpers, 185 source modules, 267 native
+test programs, 285 app drivers, 223 examples, 242 reference suites / 5,349,576
+retained groups and 138 invalid registries / 6,771 cases.
 The broader translation remains unfinished.
