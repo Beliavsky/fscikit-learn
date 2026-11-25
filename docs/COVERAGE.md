@@ -1,5 +1,9 @@
 # Translation coverage
 
+Dense elastic-net and Lasso paths add automatic grids, scalar/Gram/grouped
+solves, warm coefficients and random coordinate selection, verified in checked
+and optimized profiles. Numerical stopping certificates are explicitly identified.
+
 Direct and Gram Cholesky orthogonal matching pursuit support multiple targets,
 residual tolerance and full paths, verified in checked and optimized profiles.
 Source wrapper and rank-degeneracy adaptations are explicitly identified.
@@ -51,7 +55,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Two hundred and nineteen reference suites additionally check 4,234,340
+All types have native tests. Two hundred and twenty reference suites additionally check 4,262,024
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -11765,3 +11769,57 @@ conditions or independent ridge/least-squares optimality gaps within the
 requested tolerance, retaining both source and native values in its report.
 These cases do not claim identical raw dual gaps or stopping counts.
 See example/coordinate_paths.f90.
+
+
+## Verified dense elastic-net and Lasso paths (2026-11-25)
+
+Implementation 42942d7 passed full checked and optimized fpm build --tests
+batches. Each profile passed 3,076 configurations / 27,684 retained groups.
+Coverage includes vector/column/multi-task responses, scalar direct and Gram
+kernels, auto and supplied precomputation, sampled Gram checks, supplied and
+discarded correlations, automatic/increasing/tiny grids, explicit sorting,
+duplicates and empty paths, warm coefficients, shared random-coordinate RNG,
+positivity, zero sweeps and zero/dependent/wide input columns. Alpha grids and
+all coefficient entries remain direct sklearn comparisons at rtol=atol=3e-8.
+The maximum scaled error on directly compared values across both profiles was
+8.926e-12.
+
+Stopping metadata is retained transparently when native and BLAS/Cython
+roundoff selects different iterations, status or raw dual gaps. Checked and
+optimized profiles respectively required 163/126
+zero-model KKT certificates and 21/10 zero-L1 optimality certificates,
+covering 159/111 configurations. Reports retain every affected alpha,
+source/native count/gap/status and proof bounds. Zero-model checks bound
+coefficients near machine zero and verify the KKT threshold. Zero-L1 checks
+use independent ridge primal/dual gaps or least-squares/NNLS objective gaps,
+within the requested tolerance or the recorded numerical floor. Coefficient
+and grid tolerances are unchanged; raw metadata is not claimed identical in
+these cases. Source warnings are retained, including discouraged zero-L1 fits.
+
+The owned result keeps (target,feature,alpha) coefficients, normalized dual
+gaps, iteration/convergence arrays and backend/tolerance diagnostics. Matrix
+targets use the coupled L2,1 penalty, even with one column; only vectors
+support positivity. Source's strict scalar versus non-strict group dual-gap
+stopping, zero-sweep n_iter=1 convention and skipped zero-norm columns are
+retained. Native inputs, including warm initial values, remain read-only.
+The API is dense real64; sparse path solves and sparse weighting/centering
+remain untranslated. This batch does not replace the existing estimator
+backends or claim a complete Python API port.
+
+Each profile also passed 192 existing multi-task groups, 7,960 multi-task
+CV/random-coordinate groups (including retained numerical equivalences),
+216 scalar coordinate-CV groups, 192 core groups, eleven selected native
+programs, 39 guards and the new example. Thirteen guards identify native
+finite/shape/convex-domain/denominator contracts. Other historical suites and
+native programs were not rerun. The combined audit checks 200 compiled-unit
+fingerprints per profile, stable source/validator/executable/input inventories
+and distinct optimized drivers. Existing library algorithm bodies match
+9cbc12e: only new import/exports and a shared multi-task RNG entry point were
+added around the new module. Artifacts remain ignored under
+validation/results/coordinate_paths*.
+
+Original integration remains MIT with sklearn BSD attribution retained.
+No runtime dependency, public core estimator type or algorithm outside sklearn
+was added. Inventory: 222 public core types, 178 source modules, 247 native
+programs, 220 reference suites / 4,262,024 retained groups and 119 invalid
+registries / 6,383 cases. The broader translation remains unfinished.
