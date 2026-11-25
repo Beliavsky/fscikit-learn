@@ -22,7 +22,7 @@ regenerated source inventory matches these counts. The full checked fpm batch
 passed, including 33,120 earlier regression groups, 59 native programs, 192 core
 groups, 77 new/25 earlier diagnostics, the accepted infinite-weight regression
 and retained score-shape guard. The audit passed all 243 compiled units and
-frozen hashes. Optimized verification is in progress; final results will be recorded separately.
+frozen hashes. Optimized verification subsequently passed; final results are in VALIDATION.md.
 
 ## General weighted Tweedie deviance/D2 implementation (2026-11-24)
 
@@ -8898,3 +8898,42 @@ Other math runtimes/buffer settings may round differently. The global fpm is
 unchanged. Original integration remains MIT with preserved BSD attribution.
 No dependency, core type or public ML extension was added. The broad translation
 remains unfinished.
+
+
+## Verified pinball and D2 quantile family (2026-11-24)
+
+Implementation checkpoint eee4be4 passed full checked/optimized fpm
+build --tests batches. Each profile retained 20,034 value/identity/IEEE groups
+over 6,734 complete configurations, with 534 controlled source rejections.
+All finite differences were zero; all 1,538 nonfinite masks matched. The
+independent source inventory matches every configuration ID, data hash, rank,
+shape, metric/mode/alpha and conditional result. Fixtures cover alpha endpoints,
+ties, weighted CDF cancellation, signed/nonfinite weights, interpolation and
+residual overflow, conditional score masks, singleton shortcuts and output
+aggregation. Incoming inexact flags alternate clear/set and are preserved.
+
+Each profile also passed 33,120 earlier regression groups over 4,507 fixtures,
+25 earlier diagnostics, the accepted infinite-weight regression and 929 source
+rejection records exercised via 254 unique native probes. All 59 selected
+native programs, 192 core groups, 77 new diagnostics and the retained score-shape
+guard passed. Six new guards are identified native adapters: scalar raw-result
+and mixed-keyword checks for three metrics. Native tests also check legacy
+optional unallocated arrays, singleton raw shapes, RNG and owned raw results.
+Both examples ran; the new example independently matches sklearn: loss 1/6,
+both D2 scores .5, custom loss 1/24 and raw losses [1/6,0].
+
+The combined audit verifies 243 dependency-aware compiled-unit fingerprints per
+profile, matching complete inventories, stable source/executable/validator/
+report hashes and distinct optimized drivers. The metrics facade bodies match
+fc7568c after raw imports/exports; the regression facade has exactly the intended
+public reexports. Other library/ordering bodies are unchanged. Dead legacy
+kernels are retired. Artifacts remain under ignored validation/results/
+quantile_loss*, including quantile_loss_final_audit.json. Four-job builds use
+verified private fpm 0.14.0, GNU Fortran 17.0.0 20260510, checked flags
+-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow and --profile release.
+References use Python 3.13.3, sklearn 1.6.1, NumPy 2.2.6, the pinned Intel index
+backend, C-contiguous real64 arrays and the default 8192-element sum buffer.
+Other sort/math backends or buffer settings can round differently. The global
+fpm is unchanged. Original integration remains MIT with preserved BSD notices;
+no dependency, core type or public ML extension was introduced. The broader
+translation remains unfinished.

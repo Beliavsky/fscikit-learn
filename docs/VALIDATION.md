@@ -9556,3 +9556,43 @@ optimized verification uses --profile release. The global fpm is unchanged.
 Inventory: 222 public core types, 173 source modules, 239 native programs,
 212 reference suites / 4,144,017 retained groups and 111 invalid registries /
 6,074 cases. The broader translation remains unfinished.
+
+
+## Pinball loss and D2 quantile/absolute scores (2026-11-24)
+
+Full checked and optimized fpm build --tests batches passed. Each profile
+passed 6,734 complete configurations, retaining 20,034 value/identity/IEEE
+groups and 534 controlled source rejections. Finite differences were zero
+(rtol=atol=3e-12); all 1,538 nonfinite masks matched. The independent inventory
+checks every ID, data hash, shape, rank, metric/mode/alpha and conditional field.
+Accepted calls use a batch and each expected rejection is isolated. Incoming
+inexact flags alternate clear/set, with all flags/modes checked immediately
+after each metric. The suite covers alpha endpoints, interpolation overflow,
+weighted CDFs, ties, signed/nonfinite weights, source score masks, singleton
+shortcuts, modern/legacy output selection and long buffers.
+
+Each profile also passed 33,120 earlier regression groups over 4,507 fixtures,
+25 earlier diagnostics, the accepted infinite-weight regression and 929 source
+rejection records via 254 unique probes. All 59 selected native programs, 192
+core groups, 77 new diagnostics and the retained score-shape guard passed.
+Six new diagnostics are explicit native adapters (raw-result rank and conflicting
+keywords); 71 are source rejections. Native tests check legacy optional arrays,
+singleton raw widths, RNG and owned results. Both examples ran; the new example
+matches an independent sklearn calculation. These are affected checks, not
+every historical suite rerun.
+
+The audit checks 243 dependency-aware compiled units per profile, matching
+complete inventories, frozen source/executable/validator/report hashes,
+distinct optimized drivers, unchanged metrics bodies and the exact regression
+compatibility facade. Other library/ordering sources are unchanged. Artifacts:
+validation/results/quantile_loss*, including quantile_loss_final_audit.json.
+References fix sklearn 1.6.1, NumPy 2.2.6, C-contiguous float64 arrays, the pinned
+Intel index backend and the default 8192-element buffer. Other backends/settings
+may round differently. MIT integration and retained BSD attribution continue.
+Toolchain: private fpm 0.14.0, GNU Fortran 17.0.0 20260510 and Python 3.13.3.
+Four-job checked flags: -fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow;
+optimized verification uses --profile release. The global fpm is unchanged.
+
+Inventory: 222 public core types, 174 source modules, 240 native programs,
+213 reference suites / 4,164,051 retained groups and 112 invalid registries /
+6,151 cases. The broader translation remains unfinished.

@@ -1,9 +1,8 @@
 # Translation coverage
 
-Pinball loss and D2 quantile/absolute scores now support modern multioutput
-selection, legacy optional arguments, mixed matrix ranks and owned raw helpers.
-Checked/optimized verification is in progress; retained totals below describe
-the prior completed batch.
+Pinball loss and D2 quantile/absolute scores support modern multioutput
+selection, legacy optional arguments, mixed matrix ranks and owned raw helpers,
+verified in both build profiles.
 
 General Tweedie deviance/D2 support all vector/column rank pairs and source-
 compatible signed/nonfinite sample weights, including D2's one-sample shortcut,
@@ -29,7 +28,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Two hundred and twelve reference suites additionally check 4,144,017
+All types have native tests. Two hundred and thirteen reference suites additionally check 4,164,051
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -11244,3 +11243,31 @@ attribution continue without new dependencies, core types or ML extensions.
 Inventory: 222 public core types, 173 source modules, 239 native programs,
 212 reference suites / 4,144,017 retained groups and 111 invalid registries /
 6,074 cases. The broader translation remains unfinished.
+
+
+## Pinball loss and D2 quantile/absolute scores (2026-11-24)
+
+The family accepts all vector/matrix rank pairs, typed modern multioutput forms,
+legacy optional-array/alpha/output-weight arguments and owned raw helpers.
+Loss averages support signed/nonfinite sample weights; D2 rejects nonfinite
+CDF weights when estimation is reached. Source singleton, interpolation,
+weighted-percentile, zero/nonzero-score and output-validation rules are
+preserved. Legacy optional raw outputs retain singleton response width while
+explicit raw helpers adapt Python's scalar NaN. The old regression module is
+a compatibility facade; logarithmic/Tweedie implementations are unchanged.
+
+Each profile passed 20,034 retained value/identity/IEEE groups over 6,734
+complete configurations with 534 controlled source rejections. Finite
+differences were zero and all 1,538 nonfinite masks matched. Each also passed
+33,120 earlier regression groups over 4,507 fixtures, 59 selected native
+programs, 192 core groups, 77 new and 25 earlier targeted diagnostics, the
+accepted infinity-weight regression and the score-shape guard. Earlier source
+rejections total 929 records exercised via 254 unique probes. Both examples
+ran; the new one independently matches sklearn. The audit verifies 243 compiled
+units per profile and matching complete inventories. Original MIT integration
+and retained BSD attribution continue; no dependency, core type or ML extension
+was added.
+
+Inventory: 222 public core types, 174 source modules, 240 native programs,
+213 reference suites / 4,164,051 retained groups and 112 invalid registries /
+6,151 cases. The broader translation remains unfinished.
