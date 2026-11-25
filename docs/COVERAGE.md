@@ -1,8 +1,7 @@
 # Translation coverage
 
-MSE, RMSE, MAE and MAPE now support sample/output weighting, matrix targets
-and owned raw-result helpers. Their checked/optimized verification is in
-progress; retained inventory totals below describe the last completed batch.
+MSE, RMSE, MAE and MAPE support sample/output weighting, matrix targets
+and owned raw-result helpers, verified in both build profiles.
 
 R2 and explained variance support sample weights, multioutput aggregation,
 `force_finite` and owned raw-output helpers, verified in both build profiles.
@@ -13,7 +12,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Two hundred and eight reference suites additionally check 4,077,460
+All types have native tests. Two hundred and nine reference suites additionally check 4,091,769
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -11124,3 +11123,27 @@ retained sklearn/NumPy BSD attribution and no new dependency.
 Inventory: 222 public core types, 169 source modules, 235 native programs,
 208 reference suites / 4,077,460 retained groups and 107 invalid registries /
 5,850 cases. The broader translation remains unfinished.
+
+
+## Weighted multioutput regression error family (2026-11-24)
+
+MSE, RMSE, MAE and MAPE support sample weights, all four vector/matrix rank
+pairs, uniform/custom output weights and owned raw-output helpers. This extends
+the existing sklearn metrics. RMSE roots are taken before output aggregation;
+its custom-weight validation follows sklearn 1.6.1's wrapper, including single
+outputs and nonfinite weights. MSE/MAE/MAPE custom weights require multiple
+outputs and finite values. Sample weights may be signed or nonfinite in all
+four metrics; zero sums reject. MAPE uses the float64 epsilon floor. See API.md
+for the full contract and the static raw-result adaptation.
+
+Each profile passed 14,309 retained value/identity/IEEE groups over 4,688
+complete configurations, with 273 controlled source rejections and 2,030
+matching nonfinite score masks. Finite differences were zero. All 54 affected
+native programs, 192 core groups, 77 targeted diagnostics and the existing
+score-shape guard passed. Two examples ran. MIT integration and retained BSD
+attribution continue; no dependency, estimator type or extension algorithm was
+added. Other sklearn_metrics function bodies remain unchanged.
+
+Inventory: 222 public core types, 170 source modules, 236 native programs,
+209 reference suites / 4,091,769 retained groups and 108 invalid registries /
+5,927 cases. The broader translation remains unfinished.

@@ -20,8 +20,8 @@ counts. Successful cases use a batched native driver; expected errors remain
 isolated. The checked fpm --tests build and full affected batch passed, including
 54 native programs, 192 core groups, 77 targeted diagnostics and the retained
 score-shape guard. The audit passed all 233 compiled-unit fingerprints and
-frozen artifact hashes. Optimized verification is in progress; final results
-will be recorded separately.
+frozen artifact hashes. Optimized verification subsequently passed; final results
+are recorded in VALIDATION.md.
 
 ## Weighted multioutput R2 and explained variance (2026-11-24)
 
@@ -8651,3 +8651,36 @@ Fortran 17.0.0 20260510, checked flags -fcheck=all -fbacktrace
 unchanged. References use sklearn 1.6.1 / NumPy 2.2.6 / Python 3.13.3.
 MIT integration and retained BSD notices continue. No dependency, new core
 type or public extension algorithm was added. The broader goal is unfinished.
+
+
+## Verified weighted regression error family (2026-11-24)
+
+Implementation checkpoint caf2b29 passed the full checked and optimized
+batches. Each profile passed 14,309 retained value/identity/IEEE groups over
+4,688 complete configurations, with 273 controlled source rejections. All
+finite score differences were zero and all 2,030 nonfinite score masks matched.
+The independently regenerated source inventory agrees with every configuration
+ID, input hash, shape, rank pair, metric/mode and conditional result inventory.
+Successful cases run in a batched native process; expected errors remain
+isolated. Both profiles have matching full inventories and distinct binaries.
+
+Each profile also passed 54 selected native regression/model-selection programs,
+192 retained core groups, 77 targeted diagnostics and the existing
+EllipticEnvelope score-shape guard. The targeted registry contains 73 source
+rejections and four explicit native static raw-result adapter guards. Both
+examples ran. The error example independently matches sklearn: MSE/MAE 1/6,
+RMSE 1/(2*sqrt(3)), MAPE 1/12 and raw RMSE [1/sqrt(3),0].
+
+The combined audit verifies 233 dependency-aware compiled-unit fingerprints per
+profile, source/executable/validator/report hash stability and preservation of
+all other sklearn_metrics bodies relative to 916d3b7. No other prior library
+source changed. Artifacts remain under ignored validation/results/error*,
+including error_final_audit.json. Four-job --tests builds used the verified
+private fpm 0.14.0, checked flags -fcheck=all -fbacktrace
+-ffpe-trap=invalid,zero,overflow, and --profile release. The global fpm was
+unchanged. References use GNU Fortran 17.0.0 20260510, Python 3.13.3,
+sklearn 1.6.1 and NumPy 2.2.6 with the 8192-element buffer and C-contiguous
+float64 target matrices. Other layouts/settings may round differently.
+Original integration remains MIT with retained sklearn/NumPy BSD notices.
+No dependency, new core type or public extension algorithm was introduced.
+The broader translation goal remains unfinished.

@@ -9403,3 +9403,38 @@ Root MIT licensing and retained sklearn/NumPy BSD attribution remain intact.
 Inventory: 222 public core types, 169 source modules, 235 native programs,
 208 reference suites / 4,077,460 retained groups and 107 invalid registries /
 5,850 cases. The broader translation remains unfinished.
+
+
+## Weighted multioutput MSE/RMSE/MAE/MAPE (2026-11-24)
+
+Checked and optimized fpm --tests builds passed. Each profile passed 4,688
+complete reference configurations, retaining 14,309 value/identity/IEEE groups
+and 273 controlled source rejections. All finite scores matched exactly
+(comparison rtol=atol=3e-12); all 2,030 nonfinite score masks matched. The suite
+covers all rank pairs, signed/nonfinite sample weights, output aggregation,
+RMSE's distinct custom-weight rules, MAPE's epsilon floor, constants,
+overflow/subnormals and long buffered sums. Successful cases run in one batched
+native process; each rejected source call remains isolated.
+
+All 54 selected affected native programs, 192 retained core reference groups,
+77 targeted diagnostics and the existing score-shape guard passed per profile.
+The targeted registry has 73 source rejections plus four identified static
+raw-result adapter guards. Native tests additionally check RNG preservation
+and owned raw arrays. Two examples ran; error example results independently
+match sklearn. These are affected checks, not a rerun of every historical suite.
+
+The combined audit verifies 233 dependency-aware compiled units per profile,
+complete matching configuration/data-hash/conditional inventories, stable
+source/executable/validator/report hashes, distinct optimized binaries and
+preservation of unrelated sklearn_metrics bodies. Artifacts remain under
+validation/results/error*, including error_final_audit.json. Toolchain:
+private fpm 0.14.0, GNU Fortran 17.0.0 20260510, Python 3.13.3, sklearn 1.6.1,
+NumPy 2.2.6. Checked flags are -fcheck=all -fbacktrace
+-ffpe-trap=invalid,zero,overflow; optimized builds use --profile release.
+The numerical oracle fixes C-contiguous float64 matrices and the default
+8192-element reduction buffer. Other memory layouts/settings may round
+differently. Root MIT licensing and retained BSD attribution remain intact.
+
+Inventory: 222 public core types, 170 source modules, 236 native programs,
+209 reference suites / 4,091,769 retained groups and 108 invalid registries /
+5,927 cases. The broader translation remains unfinished.
