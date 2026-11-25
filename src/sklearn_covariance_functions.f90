@@ -8,6 +8,7 @@ module sklearn_covariance_functions
   use,intrinsic::ieee_exceptions
   implicit none
   private
+  public::log_likelihood
   public::covariance_estimate,empirical_array,empirical_vector,ledoit_array,oas_array
   public::shrink_array_2, &
     shrink_array_3, &
@@ -28,6 +29,42 @@ module sklearn_covariance_functions
     real(dp)::shrinkage=0
   end type
 contains
+  real(dp) function log_likelihood(emp_cov,precision)result(value)
+    real(dp),intent(in)::emp_cov(:,:),precision(:,:)
+    real(dp),allocatable::work(:,:),row(:)
+    real(dp)::pivot,logdet,sign_det,largest,trace
+    integer::p,i,j,k,index
+    logical::modes(size(ieee_all)),flags(size(ieee_all))
+    p=size(precision,1)
+    call require(size(precision,2)==p,'log_likelihood precision must be square')
+    call require(all(shape(emp_cov)==shape(precision)),'log_likelihood covariance shape mismatch')
+    call quiet(modes,flags)
+    trace=numpy_sum(reshape(transpose(emp_cov*precision),[size(precision)]))
+    work=precision;allocate(row(p));logdet=0;sign_det=1
+    do i=1,p
+      index=i;largest=abs(work(i,i))
+      do k=i+1,p
+        if(abs(work(k,i))>largest)then
+          index=k;largest=abs(work(k,i))
+        end if
+      end do
+      if(index/=i)then
+        row=work(i,:);work(i,:)=work(index,:);work(index,:)=row;sign_det=-sign_det
+      end if
+      pivot=work(i,i)
+      if(pivot==0)then
+        sign_det=0;logdet=ieee_value(0._dp,ieee_negative_inf);exit
+      end if
+      if(pivot<0)sign_det=-sign_det
+      logdet=logdet+log(abs(pivot))
+      do j=i+1,p
+        work(j,i+1:)=work(j,i+1:)-(work(j,i)/pivot)*work(i,i+1:)
+      end do
+    end do
+    if(sign_det<=0)logdet=ieee_value(0._dp,ieee_negative_inf)
+    value=(-trace+logdet-p*log(2*acos(-1._dp)))/2
+    call restore(modes,flags)
+  end function
   subroutine quiet(modes,flags)
     logical,intent(out)::modes(size(ieee_all)),flags(size(ieee_all))
     call ieee_get_flag(ieee_all,flags);call ieee_get_halting_mode(ieee_all,modes)

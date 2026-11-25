@@ -7,7 +7,7 @@ module sklearn_preprocessing
   use sklearn_minmax_scaling, only: minmax_scaler,minmax_scale
   use sklearn_maxabs_scaling, only: maxabs_scaler,maxabs_scale
   use sklearn_polynomial, only: polynomial_features
-  use sklearn_stateless_preprocessing, only: normalizer,binarizer,normalize,binarize
+  use sklearn_stateless_preprocessing, only: normalizer,binarizer,normalize,binarize,add_dummy_feature
   use sklearn_function_transformer, only: function_transformer
   use sklearn_iterative_impute, only: iterative_imputer,imputer_triplet
   use sklearn_kernel_centering, only: kernel_centerer
@@ -42,6 +42,7 @@ module sklearn_preprocessing
   public :: scale
   public :: standard_scaler, minmax_scaler, maxabs_scaler, robust_scaler, simple_imputer
   public :: normalize, binarize, polynomial_features, label_encoder, one_hot_encoder
+  public :: add_dummy_feature
   public :: normalizer,binarizer
   type :: label_encoder
     integer, allocatable :: classes_(:)

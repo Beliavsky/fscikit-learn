@@ -2,6 +2,8 @@
 ! CSR semantics also follow sklearn utils/sparsefuncs*. BSD attribution:
 ! THIRD_PARTY_NOTICES.md. Original typed adapters are MIT contributions.
 module sklearn_stateless_preprocessing
+  use, intrinsic :: iso_fortran_env,only:int64
+  use, intrinsic :: ieee_exceptions
   use sklearn_common, only: dp,require,check_x
   use sklearn_sparse, only: csr_matrix
   use sklearn_feature_extraction, only: feature_string
@@ -10,8 +12,11 @@ module sklearn_stateless_preprocessing
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite,ieee_is_nan
   implicit none
   private
-  public :: normalizer,binarizer,normalize,binarize
+  public :: normalizer,binarizer,normalize,binarize,add_dummy_feature
   public :: sorted_sparse ! Internal shared CSR helper; not re-exported by facade.
+  interface add_dummy_feature
+    module procedure dummy_dense,dummy_sparse
+  end interface
   interface normalize
     module procedure normalize_dense,normalize_sparse
   end interface
@@ -52,6 +57,157 @@ module sklearn_stateless_preprocessing
     generic :: fit_transform=>fit_transform_dense,fit_transform_sparse
   end type
 contains
+  function dummy_dense(x,value)result(z)
+    real(dp),intent(in)::x(:,:)
+    real(dp),optional,intent(in)::value
+    real(dp),allocatable::z(:,:)
+    real(dp)::amount
+    call check_x(x);amount=1;if(present(value))amount=value
+    call require(ieee_is_finite(amount),'dummy feature value must be finite')
+    call require(size(x,2)<huge(1),'dummy feature count exceeds index capacity')
+    allocate(z(size(x,1),size(x,2)+1));z(:,1)=amount;z(:,2:)=x
+  end function
+  ! Original index introsort with the pinned SciPy/libstdc++ partition order.
+  ! Sorting duplicate column indices is observable in floating-point coalescing.
+  subroutine dummy_swap(ids,i,j)
+    integer,intent(inout)::ids(0:)
+    integer,intent(in)::i,j
+    integer::t
+    t=ids(i);ids(i)=ids(j);ids(j)=t
+  end subroutine
+  subroutine dummy_heap(keys,ids,first,last)
+    integer,intent(in)::keys(:),first,last
+    integer,intent(inout)::ids(0:)
+    integer::n,i,tail,hole,child,parent,value,top,bottom
+    n=last-first
+    do i=n/2-1,0,-1
+      hole=i;value=ids(first+hole);bottom=n;call adjust()
+    end do
+    do tail=n-1,1,-1
+      value=ids(first+tail);ids(first+tail)=ids(first);hole=0;bottom=tail;call adjust()
+    end do
+  contains
+    subroutine adjust()
+      top=hole;child=2*hole+2
+      do while(child<bottom)
+        if(keys(ids(first+child))<keys(ids(first+child-1)))child=child-1
+        ids(first+hole)=ids(first+child);hole=child;child=2*hole+2
+      end do
+      if(child==bottom)then
+        ids(first+hole)=ids(first+child-1);hole=child-1
+      end if
+      do while(hole>top)
+        parent=(hole-1)/2
+        if(keys(ids(first+parent))>=keys(value))exit
+        ids(first+hole)=ids(first+parent);hole=parent
+      end do
+      ids(first+hole)=value
+    end subroutine
+  end subroutine
+  recursive subroutine dummy_sort(keys,ids,begin,finish,depth)
+    integer,intent(in)::keys(:),begin,finish,depth
+    integer,intent(inout)::ids(0:)
+    integer::first,last,level,a,b,c,chosen,pivot,i,j,cut
+    first=begin;last=finish;level=depth
+    do while(last-first>16)
+      if(level==0)then
+        call dummy_heap(keys,ids,first,last);return
+      end if
+      level=level-1;a=first+1;b=(first+last)/2;c=last-1
+      if(keys(ids(a))<keys(ids(b)))then
+        if(keys(ids(b))<keys(ids(c)))then
+          chosen=b
+        else if(keys(ids(a))<keys(ids(c)))then
+          chosen=c
+        else
+          chosen=a
+        end if
+      else if(keys(ids(a))<keys(ids(c)))then
+        chosen=a
+      else if(keys(ids(b))<keys(ids(c)))then
+        chosen=c
+      else
+        chosen=b
+      end if
+      call dummy_swap(ids,first,chosen);pivot=keys(ids(first));i=first+1;j=last
+      do
+        do while(i<last)
+          if(keys(ids(i))>=pivot)exit
+          i=i+1
+        end do
+        j=j-1
+        do while(j>first)
+          if(keys(ids(j))<=pivot)exit
+          j=j-1
+        end do
+        if(i>=j)exit
+        call dummy_swap(ids,i,j);i=i+1
+      end do
+      cut=i;call dummy_sort(keys,ids,cut,last,level);last=cut
+    end do
+  end subroutine
+  function dummy_column_order(keys)result(ids)
+    integer,intent(in)::keys(:)
+    integer::ids(size(keys)),n,i,j,value,depth
+    n=size(keys);ids=[(i,i=1,n)];if(n<=1)return
+    depth=2*int(log(real(n,dp))/log(2._dp));call dummy_sort(keys,ids,0,n,depth)
+    do i=2,n
+      value=ids(i);j=i
+      do while(j>1)
+        if(keys(ids(j-1))<=keys(value))exit
+        ids(j)=ids(j-1);j=j-1
+      end do
+      ids(j)=value
+    end do
+  end function
+  function dummy_sparse(x,value)result(z)
+    type(csr_matrix),intent(in)::x
+    real(dp),optional,intent(in)::value
+    type(csr_matrix)::z
+    real(dp)::amount
+    real(dp),allocatable::data(:)
+    integer,allocatable::columns(:),order(:)
+    integer::i,j,k,n,dest,start,capacity
+    logical::modes(size(ieee_all)),flags(size(ieee_all)),ordered
+    call sparse_data(x);amount=1;if(present(value))amount=value
+    call require(ieee_is_finite(amount),'dummy feature value must be finite')
+    call require(x%n_cols<huge(1),'dummy feature count exceeds index capacity')
+    call require(int(x%nnz(),int64)+x%n_rows<int(huge(1),int64),'dummy feature storage exceeds index capacity')
+    ordered=.true.
+    do i=1,x%n_rows
+      do j=x%indptr(i)+1,x%indptr(i+1)-1
+        if(x%indices(j)<x%indices(j-1))ordered=.false.
+      end do
+    end do
+    capacity=x%nnz()+x%n_rows;z%n_rows=x%n_rows;z%n_cols=x%n_cols+1
+    allocate(z%indptr(x%n_rows+1),z%indices(capacity),z%data(capacity));dest=1
+    call ieee_get_flag(ieee_all,flags);call ieee_get_halting_mode(ieee_all,modes)
+    call ieee_set_halting_mode(ieee_all,.false.)
+    do i=1,x%n_rows
+      n=x%indptr(i+1)-x%indptr(i)+1;allocate(data(n),columns(n))
+      data(1)=amount;columns(1)=1
+      data(2:)=x%data(x%indptr(i):x%indptr(i+1)-1)
+      columns(2:)=x%indices(x%indptr(i):x%indptr(i+1)-1)+1
+      if(ordered)then
+        order=[(j,j=1,n)]
+      else
+        order=dummy_column_order(columns)
+      end if
+      z%indptr(i)=dest;start=dest
+      do j=1,n
+        k=order(j)
+        if(dest>start)then
+          if(z%indices(dest-1)==columns(k))then
+            z%data(dest-1)=z%data(dest-1)+data(k);cycle
+          end if
+        end if
+        z%indices(dest)=columns(k);z%data(dest)=data(k);dest=dest+1
+      end do
+      deallocate(data,columns,order)
+    end do
+    z%indptr(x%n_rows+1)=dest;z%indices=z%indices(:dest-1);z%data=z%data(:dest-1)
+    call ieee_set_halting_mode(ieee_all,modes);call ieee_set_flag(ieee_all,flags)
+  end function
   subroutine norm_controls(norm,axis)
     character(*), intent(in) :: norm
     integer, intent(in) :: axis

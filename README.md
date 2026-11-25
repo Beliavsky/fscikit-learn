@@ -706,3 +706,10 @@ dense or CSR sample groups. See [the API](docs/API.md#one-way-anova) and
 Both support mutable typed callbacks. See [the API](docs/API.md#dictionary-learning-functions-and-callbacks)
 and [example/dictionary_functions.f90](example/dictionary_functions.f90), including
 numerical limits for zero-tolerance stopping and null-space initialization.
+
+## Dummy columns and covariance likelihood
+
+`add_dummy_feature` prepends a constant column to dense or CSR data.
+`log_likelihood` evaluates the normalized covariance-model likelihood.
+See [the API](docs/API.md#dummy-feature-and-covariance-likelihood-functions) and
+[example/dummy_likelihood.f90](example/dummy_likelihood.f90).

@@ -9916,3 +9916,42 @@ limits. It does not widen comparison tolerances. Normal positive-tolerance
 cases in the retained grid compare directly. Exact zero-input CD initialization
 retains source identity warm codes and the corresponding L1 objective, even
 when the initialized dictionary is zero.
+
+## Dummy-feature and covariance-likelihood functions
+
+`add_dummy_feature(x, value=1._dp)` is exported by `sklearn_preprocessing`,
+`sklearn_stateless_preprocessing` and `sklearn`. It returns an owned dense
+matrix or CSR matrix matching the input representation, with the constant as
+its first column. Inputs must be finite, nonempty real64 matrices or valid
+nonempty finite CSR storage. The scalar value must be finite; negative values
+and signed zero are allowed. Native CSR indices and stored-entry counts must
+remain within the package's default-integer capacity.
+
+CSR output has sorted unique column indices. Duplicates are summed and
+explicit zeros, including a zero-valued dummy in every row, are retained.
+The input storage is unchanged. Canonicalization follows the pinned SciPy
+conversion: it skips sorting if all rows were already ordered; otherwise
+all rows are sorted before summing duplicates. An original index introsort
+matches the observed SciPy/libstdc++ ordering of tied columns. This order is
+observable with cancellation and overflow; other source backend versions may
+choose a different tied-entry order. Finite duplicate entries may overflow to
+Inf or NaN on coalescing, as in the source function. The operation preserves
+caller IEEE flags and halting modes. CSC/COO storage classes are outside this
+native CSR interface.
+
+`log_likelihood(emp_cov, precision)` is exported by `sklearn_covariance` and
+`sklearn`. Both arguments are real64 matrices of equal square shape. It returns
+`(-sum(emp_cov*precision) + logdet(precision) - p*log(2*pi))/2`, using pivoted LU
+for the determinant sign and logarithm. No symmetry or positive-definiteness
+restriction is added: a positive determinant can give a finite result even for
+a nonsymmetric or indefinite precision. A nonpositive determinant gives
+negative-infinite logdet. NaN/Inf arithmetic propagates, and zero-by-zero inputs
+return zero. Successful calls preserve caller IEEE flags and halting modes.
+Python's incidental cross-shape broadcasting is outside this typed interface.
+
+```fortran
+real(dp), allocatable :: design(:,:)
+real(dp) :: mean_log_likelihood
+design=add_dummy_feature(x, value=1._dp)
+mean_log_likelihood=log_likelihood(empirical_covariance(x), precision)
+```

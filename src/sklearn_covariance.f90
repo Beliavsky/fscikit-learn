@@ -1,7 +1,8 @@
 ! Dense covariance estimators. Shrinkage formulas follow sklearn/covariance/
 ! _shrunk_covariance.py (scikit-learn 1.6.1, BSD-3-Clause; see THIRD_PARTY_NOTICES).
 module sklearn_covariance
-  use sklearn_covariance_functions,only:covariance_estimate,empirical_array,empirical_vector,ledoit_array,oas_array, &
+  use sklearn_covariance_functions,only:log_likelihood,covariance_estimate, &
+    empirical_array,empirical_vector,ledoit_array,oas_array, &
     shrink_array_2,shrink_array_3,shrink_array_4,shrink_array_5, &
     shrink_array_6,shrink_array_7,shrink_array_8,shrink_array_9, &
     shrink_array_10,shrink_array_11,shrink_array_12,shrink_array_13, &
@@ -69,7 +70,7 @@ module sklearn_covariance
     procedure :: fit=>graphical_cv_fit
     procedure :: score=>graphical_cv_score
   end type
-  public::covariance_estimate
+  public::log_likelihood,covariance_estimate
   interface empirical_covariance
     module procedure empirical_array,empirical_vector
   end interface

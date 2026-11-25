@@ -2296,3 +2296,15 @@ pairwise reduction and scalar OpenBLAS inner-product helpers, with existing
 NumPy and OpenBLAS BSD notices applicable. No NumPy or BLAS runtime is linked.
 Typed result storage, fixed-shape callback views, integration and validation
 are original MIT contributions.
+
+## Dummy feature and covariance likelihood
+
+`add_dummy_feature` and `log_likelihood` adapt sklearn 1.6.1
+`preprocessing/_data.py` and `covariance/_empirical_covariance.py`; existing
+sklearn BSD notices apply. CSR conversion/coalescing follows SciPy 1.15.3
+`sparse/_coo.py` and [sparsetools/csr.h](https://github.com/scipy/scipy/blob/v1.15.3/scipy/sparse/sparsetools/csr.h),
+with the existing notice in `LICENSES/scipy-COPYING` retained. The index
+introsort is original Fortran matching observed source ordering; no C++ or
+sparse runtime is linked. Likelihood reduction reuses the attributed NumPy
+pairwise summation. LU, typed integration and IEEE composition are original
+MIT contributions.
