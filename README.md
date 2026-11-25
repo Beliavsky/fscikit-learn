@@ -124,6 +124,8 @@ python validation/compare_adaboost_regression.py
 python validation/compare_dictionary_learning.py
 python validation/compare_lars_selection.py
 python validation/compare_least_angle.py
+python validation/compare_lars_gram.py --executable build/<profile>/app/reference_lars_gram_driver.exe --profile checked
+python validation/check_lars_gram_invalid_inputs.py --executable build/<profile>/app/reference_lars_gram_driver.exe --profile checked
 python validation/compare_recursive_selection.py
 python validation/compare_sequential_selection.py
 python validation/compare_group_splitters.py

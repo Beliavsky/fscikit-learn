@@ -107,7 +107,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | mixture | `gaussian_mixture`, `bayesian_gaussian_mixture` | EM Gaussian mixtures and variational Bayesian mixtures with finite Dirichlet or truncated stick-breaking weights; full/tied/diag/spherical covariances; responsibilities and likelihood scores; GaussianMixture BIC/AIC |
 | neural_network | `mlp_classifier`, `mlp_regressor`, `bernoulli_rbm` | Arbitrary dense hidden layers, relu/tanh/logistic/identity, seeded minibatch Adam/SGD or full-data L-BFGS, momentum/Nesterov and SGD schedules, binary/multilabel logistic or multiclass softmax classification, scalar/joint squared-error regression, L2 regularization |
 | gaussian_process | `gaussian_process_regressor`, `gaussian_process_classifier` | Configurable covariance expressions or legacy RBF controls; anisotropy, Matern/RQ/periodic/dot/constant/white kernels and sums/products/powers; scalar/vector-alpha Cholesky regression, independent multiple targets, likelihood gradients and opt-in bounded kernel fitting; Laplace binary/OVR classification with optional independent kernel fitting, binary likelihood gradients and warm starts |
-| covariance | `empirical_covariance`, `shrunk_covariance`, `ledoit_wolf`, `oas`, `graphical_lasso`, `graphical_lasso_cv`, `min_cov_det`, `elliptic_envelope`; `fast_mcd` | Population covariance, pseudoinverse precision, squared Mahalanobis distance, likelihood, Frobenius/spectral covariance error; L1-penalized sparse precision via block coordinate descent and refined cross-validation; FastMCD robust covariance and elliptic outlier detection |
+| covariance | `empirical_covariance`, `shrunk_covariance`, `ledoit_wolf`, `oas`, `graphical_lasso`, `graphical_lasso_cv`, `min_cov_det`, `elliptic_envelope`; `fast_mcd` | Population covariance, pseudoinverse precision, squared Mahalanobis distance, likelihood, Frobenius/spectral covariance error; L1-penalized sparse precision via CD or LARS block solves and refined cross-validation; FastMCD robust covariance and elliptic outlier detection |
 | calibration | `calibrated_classifier_cv`; `calibration_curve` | Sigmoid/isotonic CV ensembles, out-of-fold calibration and prefit calibration with logistic, Gaussian NB or KNN bases; uniform/quantile reliability bins |
 | datasets | `make_classification`, `make_multilabel_classification`, `make_sparse_coded_signal`, `make_sparse_spd_matrix`, `make_biclusters`, `make_checkerboard`, `make_hastie_10_2`, `make_blobs`, `make_regression`, `make_low_rank_matrix`, `make_moons`, `make_circles`, `make_friedman1/2/3`, `make_sparse_uncorrelated`, `make_s_curve`, `make_swiss_roll`, `make_gaussian_quantiles` | Native synthetic generators with seeded legacy NumPy draws; scalar/joint regression, low-rank profiles, unequal blob/curve counts, per-cluster blob scales and center outputs; no bundled real-world datasets |
 
@@ -603,12 +603,16 @@ The solver implements sklearn 1.6.1's `mode='cd'` cyclic block updates and
 Gram coordinate descent, including its inner dual-gap stopping rule. It uses
 native Cholesky solves instead of the starting `pinvh`. Controls are
 `max_iter=100`, `tol=1e-4`, `enet_tol=1e-4`, and `eps=epsilon(1._dp)`.
-Both inner and outer loops use max_iter, following sklearn; outer convergence
+For CD, both inner and outer loops use max_iter; outer convergence
 requires abs(dual_gap_) < tol. Capped fits return their latest approximation
 with `converged_=.false.` and `n_iter_` at the cap. Tolerances/eps must be
 positive and max_iter must be positive; Python's zero-iteration edge case is
-unsupported. Only mode `cd` is accepted; no LARS, GraphicalLassoCV, public
-functional solver, covariance warm start, sparse matrix or warning API is added.
+unsupported. Both `mode='cd'` and `mode='lars'` are accepted. LARS solves each block with
+`lars_path_gram`, alpha_min=alpha/(n_features-1), eps from the estimator,
+and its default 500-step inner limit. Its inner solve ignores enet_tol and
+does not reuse the previous coefficients, following sklearn. See the later
+GraphicalLasso cross-validation section for the CV estimator. A public
+functional covariance solver, sparse matrix and warning API remain unsupported.
 
 `costs_(iteration,1:2)` stores the shifted objective and dual gap after every
 outer sweep; `objective_` and `dual_gap_` hold final values. For alpha zero it
@@ -4215,7 +4219,7 @@ location and precision with the source Gaussian likelihood, including negative
 infinity for a singular precision. Inputs are finite dense real64 arrays with
 at least two features. Fitting bounds their magnitude by
 `sqrt(huge(real64))/(16*n_samples*n_features)` to protect covariance arithmetic.
-Only `mode='cd'` and `covariance='empirical'` are supported; LARS, sparse data,
+Both `mode='cd'` and `mode='lars'` support `covariance='empirical'`; sparse data,
 metadata routing and parallel jobs remain outside this native interface.
 
 Unallocated `alphas` selects a refined grid: `n_alphas=4` points per refinement,
@@ -11475,3 +11479,35 @@ LICENSES/OpenBLAS-small-kernel-BSD. No dependency or public core type was added.
 Inventory: 222 public core types, 176 source modules, 244 native programs,
 217 reference suites / 4,210,606 retained groups and 116 invalid registries /
 6,304 cases. The broader translation remains unfinished.
+
+## Gram-matrix least-angle paths and graphical LARS
+
+`lars_path_gram(xy,gram,n_samples,method,max_iter,alpha_min,eps,positive)`
+is exported by `sklearn_least_angle`, `sklearn_linear_model` and `sklearn`.
+It returns the same `lars_path_result` as `lars_path`, including every alpha
+and coefficient knot, 1-based active indices and iteration count. Defaults
+and LAR/Lasso/positive-Lasso controls match the existing XY interface. Inputs
+are read-only real64 arrays; correlations must be nonempty, Gram must be
+feature-square, all entries finite and n_samples positive. These finite and
+shape guards are native interface constraints; no PSD test is imposed.
+The optional native `success` output permits covariance CV to recover from
+a numerical path failure; input validation still uses error stop. Copy/verbose
+options and Python's several tuple return forms are represented by the owned
+result record rather than extra controls.
+
+Both graphical covariance estimators accept `mode='lars'`. They use source
+1.6.1's least-angle block path and alpha scaling, including the default 500
+inner steps independently of the outer iteration cap. GraphicalLassoCV
+retains its covariance warm starts, failed-candidate handling, refined grids
+and fold diagnostics with either solver. Existing dense-data and numerical
+backend limitations still apply. This adds sklearn algorithms/options and
+no extension estimator.
+
+The Gram interface shares the existing native Cholesky homotopy backend.
+At machine epsilon, rank-deficient full paths can differ from sklearn's
+incremental BLAS/LAPACK factorization, including knot counts; increase eps
+for poorly conditioned problems. Reference checks use eps=0.1 for full
+underdetermined paths and machine epsilon for their early knots. Exactly
+duplicate columns can select interchangeable active representatives: the
+validation checks merged coefficients and every prediction knot in these
+cases rather than claiming identical coefficient allocation.

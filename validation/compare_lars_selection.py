@@ -1,5 +1,6 @@
 """Least-angle CV grids, residual MSE and AIC/BIC against installed sklearn."""
 from pathlib import Path
+import argparse
 import json
 import subprocess
 import warnings
@@ -32,6 +33,9 @@ def single_alpha_reference(x, y, cv, eps):
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--executable", type=Path)
+    args = parser.parse_args()
     RESULTS.mkdir(exist_ok=True)
     checks = []
     for seed, n, p in ((7, 48, 7), (42, 37, 9), (2026, 18, 23), (0, 12, 10), (91, 28, 6)):
@@ -47,9 +51,12 @@ def main():
         data = RESULTS / f"lars_selection_{seed}.txt"
         output = RESULTS / f"lars_selection_actual_{seed}.txt"
         np.savetxt(data, np.column_stack((x, y)), header=f"{n} {p}", comments="", fmt="%.17g")
-        subprocess.run(["fpm", "run", "--flag", "-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow",
-                        "--target", "reference_lars_selection_driver", "--", str(data), str(output)],
-                       cwd=ROOT, check=True)
+        if args.executable:
+            subprocess.run([str(args.executable.resolve()), str(data), str(output)], cwd=ROOT, check=True)
+        else:
+            subprocess.run(["fpm", "run", "--flag", "-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow",
+                            "--target", "reference_lars_selection_driver", "--", str(data), str(output)],
+                           cwd=ROOT, check=True)
         actual, expected = {}, {}
         for line in output.read_text().splitlines():
             name, *values = line.split(); actual[name] = np.array(values, dtype=float)

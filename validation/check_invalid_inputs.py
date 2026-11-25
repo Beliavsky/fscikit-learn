@@ -8,6 +8,8 @@ import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 CASES = {
+    "larsgram_empty": "LARS Gram requires nonempty correlations",
+    "larsgram_shape": "LARS Gram shape must match correlations",
     'lrcv_empty': 'X must be nonempty',
     'lrcv_length': 'X and y sample counts differ',
     'lrcv_one_class': 'LogisticRegressionCV requires at least two classes',
@@ -63,7 +65,7 @@ CASES = {
     'gcv_enet_negative': 'invalid GraphicalLassoCV tolerances',
     'gcv_eps_zero': 'invalid GraphicalLassoCV tolerances',
     'gcv_iterations_negative': 'GraphicalLassoCV max_iter must be nonnegative',
-    'gcv_mode': 'GraphicalLassoCV supports mode cd only',
+    'gcv_mode': 'invalid GraphicalLassoCV solver mode',
     'gcv_covariance_mode': 'GraphicalLassoCV requires empirical covariance mode',
     'gcv_refinements': 'GraphicalLassoCV n_refinements must be positive',
     'gcv_alphas_empty': 'GraphicalLassoCV needs at least two explicit alphas',
@@ -2294,7 +2296,7 @@ CASES = {
     "graphical_alpha": "alpha must be nonnegative", "graphical_nan": "nonfinite GraphicalLasso controls",
     "graphical_tol": "invalid GraphicalLasso tolerances", "graphical_enet_tol": "invalid GraphicalLasso tolerances",
     "graphical_eps": "invalid GraphicalLasso tolerances", "graphical_iterations": "max_iter must be positive",
-    "graphical_mode": "supports mode cd only", "graphical_cov_mode": "invalid GraphicalLasso covariance mode",
+    "graphical_mode": "invalid GraphicalLasso solver mode", "graphical_cov_mode": "invalid GraphicalLasso covariance mode",
     "graphical_samples": "at least two samples and features", "graphical_feature_count": "at least two samples and features",
     "graphical_square": "must be square", "graphical_asymmetric": "must be symmetric",
     "graphical_indefinite": "must be positive semidefinite", "graphical_zero_variance": "positive feature variances",

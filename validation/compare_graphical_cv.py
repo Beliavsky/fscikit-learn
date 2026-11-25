@@ -89,6 +89,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--executable', type=Path)
     parser.add_argument('--profile', choices=['checked', 'release'], default='checked')
+    parser.add_argument('--mode', choices=['cd', 'lars'], default='cd')
     args = parser.parse_args()
     RESULTS.mkdir(exist_ok=True)
     executable = args.executable.resolve() if args.executable else resolve(args.profile)
@@ -100,7 +101,7 @@ def main():
         nonlocal fixtures
         splitter = KFold(cv) if isinstance(cv, int) else cv
         folds = list(splitter.split(x)) if isinstance(cv, int) else cv
-        model = GraphicalLassoCV(alphas=alphas, n_refinements=refinements, cv=cv, max_iter=max_iter,
+        model = GraphicalLassoCV(mode=args.mode, alphas=alphas, n_refinements=refinements, cv=cv, max_iter=max_iter,
                                 assume_centered=centered, tol=tol, enet_tol=enet_tol)
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter('always')
@@ -139,10 +140,10 @@ def main():
         if not isinstance(cv, int):
             for train, test in folds:
                 lines += [f'{len(train)} {len(test)}', ' '.join(map(str, train + 1)), ' '.join(map(str, test + 1))]
-        inp = RESULTS / f'graphical_cv_{args.profile}_input.txt'
-        out = RESULTS / f'graphical_cv_{args.profile}_output.txt'
+        inp = RESULTS / f'graphical_cv_{args.mode}_{args.profile}_input.txt'
+        out = RESULTS / f'graphical_cv_{args.mode}_{args.profile}_output.txt'
         inp.write_text('\n'.join(lines) + '\n')
-        proc = subprocess.run([str(executable), str(inp), str(out)], cwd=ROOT,
+        proc = subprocess.run([str(executable), str(inp), str(out), args.mode], cwd=ROOT,
                               text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         assert proc.returncode == 0, (seed, case, proc.stdout)
         actual = {}
@@ -242,14 +243,14 @@ def main():
     path = Path(inspect.getfile(GraphicalLassoCV)); root = path.parent.parent
     sources = [path, path.parent / '_empirical_covariance.py', root / 'model_selection/_split.py',
                root / 'linear_model/_cd_fast.pyx']
-    report = dict(sklearn=sklearn.__version__, profile=args.profile, fixtures=fixtures, checks=checks,
+    report = dict(sklearn=sklearn.__version__, profile=args.profile, mode=args.mode, fixtures=fixtures, checks=checks,
                   source_warnings=source_warnings, endpoint_certificates=endpoint_certificates,
                   source_sha256={str(p.relative_to(root)): hashlib.sha256(p.read_bytes()).hexdigest() for p in sources})
     for certificate in endpoint_certificates:
         for name,value in certificate.items():
             if isinstance(value,float) and not np.isfinite(value):
                 certificate[name] = str(value)
-    (RESULTS / f'graphical_cv_{args.profile}.json').write_text(json.dumps(report, indent=2, allow_nan=False) + '\n')
+    (RESULTS / f'graphical_cv_{args.mode}_{args.profile}.json').write_text(json.dumps(report, indent=2, allow_nan=False) + '\n')
     print(f'{len(checks)} graphical-CV groups across {fixtures} fixtures passed')
 
 

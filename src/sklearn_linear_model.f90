@@ -4,7 +4,7 @@ module sklearn_linear_model
   use sklearn_composite_scores, only: score_weights
   use sklearn_ieee_math, only: ieee_mean,ieee_quotient,ieee_product,ieee_total,ieee_difference
   use sklearn_omp_cv, only: orthogonal_matching_pursuit_cv
-  use sklearn_least_angle, only: lars,lasso_lars,lars_path,lars_path_result, &
+  use sklearn_least_angle, only: lars,lasso_lars,lars_path,lars_path_gram,lars_path_result, &
     lars_cv,lasso_lars_cv,lasso_lars_ic
   use sklearn_sgd_one_class, only: sgd_one_class_svm
   use sklearn_quantile, only: quantile_regressor
@@ -17,7 +17,7 @@ module sklearn_linear_model
   implicit none
   private
   public :: orthogonal_matching_pursuit_cv
-  public :: lars,lasso_lars,lars_path,lars_path_result,lars_cv,lasso_lars_cv,lasso_lars_ic
+  public :: lars,lasso_lars,lars_path,lars_path_gram,lars_path_result,lars_cv,lasso_lars_cv,lasso_lars_ic
   public :: sgd_one_class_svm
   public :: quantile_regressor
   public :: sgd_regressor,sgd_classifier

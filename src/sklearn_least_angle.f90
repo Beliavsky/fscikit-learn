@@ -6,7 +6,7 @@ module sklearn_least_angle
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
   implicit none
   private
-  public :: lars,lasso_lars,lars_path,lars_path_result,lars_cv,lasso_lars_cv,lasso_lars_ic
+  public :: lars,lasso_lars,lars_path,lars_path_gram,lars_path_result,lars_cv,lasso_lars_cv,lasso_lars_ic
   type :: lars_path_result
     real(dp), allocatable :: alphas(:),coefficients(:,:)
     integer, allocatable :: active(:)
@@ -74,23 +74,65 @@ contains
     end do
   end subroutine
   function lars_path(x,y,method,max_iter,alpha_min,eps,positive) result(path)
-    real(dp), intent(in) :: x(:,:),y(:)
-    character(*), intent(in), optional :: method
-    integer, intent(in), optional :: max_iter
-    real(dp), intent(in), optional :: alpha_min,eps
-    logical, intent(in), optional :: positive
-    type(lars_path_result) :: path
-    real(dp), allocatable :: gram(:,:),original(:),cov(:),signs(:),l(:,:),w(:),corr(:),z(:)
-    real(dp), allocatable :: coefficients(:,:),alphas(:),beta(:),old_beta(:)
-    integer, allocatable :: active(:),inactive(:),dropped(:)
-    logical, allocatable :: blocked(:),remove(:)
-    integer :: n,p,limit,iteration,i,j,pick,key,k
-    real(dp) :: target,regularizer,c,candidate,a,gamma,ratio,zmin,alpha,fraction,denominator
-    real(dp), parameter :: tiny32=1.1754943508222875e-38_dp,equality_tol=1.1920928955078125e-7_dp
-    character(8) :: kind
-    logical :: constrained,drop,okay
-    call check_xy(x,size(y)); call check_x(reshape(y,[size(y),1]))
-    n=size(x,1); p=size(x,2); limit=500; if(present(max_iter)) limit=max_iter
+    real(dp),intent(in)::x(:,:),y(:)
+    character(*),optional,intent(in)::method
+    integer,optional,intent(in)::max_iter
+    real(dp),optional,intent(in)::alpha_min,eps
+    logical,optional,intent(in)::positive
+    type(lars_path_result)::path
+    real(dp),allocatable::gram(:,:),xy(:)
+    real(dp)::target,regularizer
+    integer::limit,status
+    character(8)::kind
+    logical::constrained
+    call check_xy(x,size(y));call check_x(reshape(y,[size(y),1]))
+    call lars_controls(method,max_iter,alpha_min,eps,positive,limit,target,regularizer,kind,constrained)
+    gram=matmul(transpose(x),x);xy=matmul(transpose(x),y)
+    path=solve_lars_gram(gram,xy,size(x,1),limit,target,regularizer,kind,constrained,status)
+    call lars_status(status)
+  end function
+  function lars_path_gram(xy,gram,n_samples,method,max_iter,alpha_min,eps,positive,success)result(path)
+    real(dp),intent(in)::xy(:),gram(:,:)
+    integer,intent(in)::n_samples
+    character(*),optional,intent(in)::method
+    integer,optional,intent(in)::max_iter
+    real(dp),optional,intent(in)::alpha_min,eps
+    logical,optional,intent(in)::positive
+    logical,optional,intent(out)::success
+    type(lars_path_result)::path
+    real(dp)::target,regularizer
+    integer::limit,status
+    character(8)::kind
+    logical::constrained
+    call require(size(xy)>0,'LARS Gram requires nonempty correlations')
+    call require(all(shape(gram)==[size(xy),size(xy)]),'LARS Gram shape must match correlations')
+    call require(all(ieee_is_finite(gram)).and.all(ieee_is_finite(xy)),'LARS Gram inputs must be finite')
+    call require(n_samples>=1,'LARS Gram n_samples must be positive')
+    call lars_controls(method,max_iter,alpha_min,eps,positive,limit,target,regularizer,kind,constrained)
+    path=solve_lars_gram(gram,xy,n_samples,limit,target,regularizer,kind,constrained,status)
+    if(.not.all(ieee_is_finite(path%coefficients)).or..not.all(ieee_is_finite(path%alphas)))status=3
+    if(present(success))then
+      success=status==0
+    else
+      call lars_status(status)
+    end if
+  end function
+  subroutine lars_status(status)
+    integer,intent(in)::status
+    if(status==1)call require(.false.,'LARS active factor became degenerate')
+    if(status==2)call require(.false.,'ill-conditioned LARS equiangular direction')
+    if(status==3)call require(.false.,'nonfinite LARS Gram path')
+  end subroutine
+  subroutine lars_controls(method,max_iter,alpha_min,eps,positive,limit,target,regularizer,kind,constrained)
+    character(*),optional,intent(in)::method
+    integer,optional,intent(in)::max_iter
+    real(dp),optional,intent(in)::alpha_min,eps
+    logical,optional,intent(in)::positive
+    integer,intent(out)::limit
+    real(dp),intent(out)::target,regularizer
+    character(8),intent(out)::kind
+    logical,intent(out)::constrained
+    limit=500; if(present(max_iter)) limit=max_iter
     target=0; if(present(alpha_min)) target=alpha_min
     regularizer=epsilon(1._dp); if(present(eps)) regularizer=eps
     kind='lar'
@@ -104,7 +146,23 @@ contains
     call require(target>=0.and.regularizer>=0,'LARS alpha_min and eps must be nonnegative')
     call require(kind=='lar'.or.kind=='lasso','unknown LARS method')
     call require(.not.(kind=='lar'.and.constrained),'positive constraint requires LARS method lasso')
-    gram=matmul(transpose(x),x); original=matmul(transpose(x),y); cov=original
+  end subroutine
+  function solve_lars_gram(gram,xy,n,limit,target,regularizer,kind,constrained,status) result(path)
+    real(dp),intent(in)::gram(:,:),xy(:),target,regularizer
+    integer,intent(in)::n,limit
+    character(*),intent(in)::kind
+    logical,intent(in)::constrained
+    integer,intent(out)::status
+    type(lars_path_result) :: path
+    real(dp), allocatable :: original(:),cov(:),signs(:),l(:,:),w(:),corr(:),z(:)
+    real(dp), allocatable :: coefficients(:,:),alphas(:),beta(:),old_beta(:)
+    integer, allocatable :: active(:),inactive(:),dropped(:)
+    logical, allocatable :: blocked(:),remove(:)
+    integer :: p,iteration,i,j,pick,key,k
+    real(dp) :: c,candidate,a,gamma,ratio,zmin,alpha,fraction,denominator
+    real(dp), parameter :: tiny32=1.1754943508222875e-38_dp,equality_tol=1.1920928955078125e-7_dp
+    logical :: drop,okay
+    p=size(xy);status=0;original=xy;cov=original
     allocate(coefficients(p,limit+1),alphas(limit+1),beta(p),old_beta(p),blocked(p))
     coefficients=0; alphas=0; beta=0; blocked=.false.
     active=[integer::]; signs=[real(dp)::]; inactive=[(i,i=1,p)]
@@ -141,14 +199,21 @@ contains
         inactive=inactive(2:)
       else
         call active_factor(gram,active,regularizer,l,okay)
-        call require(okay,'LARS active factor became degenerate')
+        if(.not.okay)then
+          status=1;exit
+        end if
       end if
       if(kind=='lasso'.and.iteration>0) then
         if(alphas(iteration)<alpha) exit
       end if
       k=size(active); w=solve_upper(transpose(l),solve_lower(l,signs))
       denominator=dot_product(w,signs)
-      call require(ieee_is_finite(denominator).and.denominator>0,'ill-conditioned LARS equiangular direction')
+      if(.not.ieee_is_finite(denominator))then
+        status=2;exit
+      end if
+      if(denominator<=0)then
+        status=2;exit
+      end if
       a=1/sqrt(denominator); w=w*a
       corr=matmul(gram(:,active),w)
       ! sklearn rounds inactive correlations to float64 decimal precision (15).

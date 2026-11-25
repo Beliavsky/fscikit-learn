@@ -1,5 +1,6 @@
 """Least-angle estimators and every homotopy knot against local sklearn."""
 from pathlib import Path
+import argparse
 import json
 import subprocess
 import warnings
@@ -11,6 +12,9 @@ RESULTS = ROOT / "validation/results"
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--executable", type=Path)
+    args = parser.parse_args()
     RESULTS.mkdir(exist_ok=True)
     checks = []
     dropout_count = 0
@@ -32,9 +36,12 @@ def main():
         data = RESULTS / f"least_angle_{seed}.txt"
         output = RESULTS / f"least_angle_actual_{seed}.txt"
         np.savetxt(data, np.column_stack((x, y)), header=f"{n} {p}", comments="", fmt="%.17g")
-        subprocess.run(["fpm", "run", "--flag", "-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow",
-                        "--target", "reference_least_angle_driver", "--", str(data), str(output)],
-                       cwd=ROOT, check=True)
+        if args.executable:
+            subprocess.run([str(args.executable.resolve()), str(data), str(output)], cwd=ROOT, check=True)
+        else:
+            subprocess.run(["fpm", "run", "--flag", "-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow",
+                            "--target", "reference_least_angle_driver", "--", str(data), str(output)],
+                           cwd=ROOT, check=True)
         actual, expected = {}, {}
         for line in output.read_text().splitlines():
             name, *values = line.split()

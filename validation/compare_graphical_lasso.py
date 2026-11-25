@@ -1,5 +1,6 @@
 """GraphicalLasso reference checks against the local sklearn baseline."""
 from pathlib import Path
+import argparse
 import json
 import subprocess
 import warnings
@@ -12,6 +13,10 @@ RESULTS = ROOT / "validation" / "results"
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--executable", type=Path)
+    parser.add_argument("--mode", choices=["cd", "lars"], default="cd")
+    args = parser.parse_args()
     RESULTS.mkdir(exist_ok=True)
     checks = []
     for seed, n, p in ((7, 60, 3), (42, 75, 4), (2026, 90, 5)):
@@ -24,9 +29,12 @@ def main():
         with data.open("w") as stream:
             stream.write(f"{n} {p}\n")
             np.savetxt(stream, x, fmt="%.17g")
-        subprocess.run(["fpm", "run", "--flag", "-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow",
-                        "--target", "reference_graphical_lasso_driver", "--", str(data), str(output)],
-                       cwd=ROOT, check=True)
+        if args.executable:
+            subprocess.run([str(args.executable.resolve()), str(data), str(output), args.mode], cwd=ROOT, check=True)
+        else:
+            subprocess.run(["fpm", "run", "--flag", "-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow",
+                            "--target", "reference_graphical_lasso_driver", "--", str(data), str(output), args.mode],
+                           cwd=ROOT, check=True)
         actual = {}
         for line in output.read_text().splitlines():
             name, *values = line.split()
@@ -34,7 +42,7 @@ def main():
         expected = {}
         for j in range(1, 9):
             train, query = x.copy(), x+.137
-            options = dict(alpha=.08, max_iter=300, tol=1e-9, enet_tol=1e-11)
+            options = dict(mode=args.mode, alpha=.08, max_iter=300, tol=1e-9, enet_tol=1e-11)
             if j == 2:
                 options["alpha"] = .2
             if j == 3:
@@ -65,7 +73,7 @@ def main():
                                        atol=3e-8, rtol=3e-8, err_msg=f"{seed} {name}")
             checks.append(dict(seed=seed, api=name, passed=True))
         print(f"PASS GraphicalLasso seed={seed}", flush=True)
-    (RESULTS/"graphical_lasso_report.json").write_text(json.dumps(
+    (RESULTS/f"graphical_lasso_{args.mode}_report.json").write_text(json.dumps(
         dict(sklearn_version=sklearn.__version__, checks=checks), indent=2)+"\n")
     print(f"{len(checks)} graphical-lasso comparisons passed against sklearn {sklearn.__version__}")
 

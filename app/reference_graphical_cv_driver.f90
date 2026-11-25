@@ -8,6 +8,8 @@ program reference_graphical_cv_driver
   character(512) :: file
   call get_command_argument(1,file); open(newunit=input,file=trim(file),status='old')
   call get_command_argument(2,file); open(newunit=output,file=trim(file),status='replace')
+  call get_command_argument(3,file)
+  if(len_trim(file)>0) model%mode=trim(file)
   read(input,*) n,p,m,na,nfolds
   read(input,*) model%n_alphas,model%n_refinements,model%cv,model%max_iter,centered, &
     model%tol,model%enet_tol,model%eps

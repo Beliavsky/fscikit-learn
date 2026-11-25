@@ -1,6 +1,7 @@
 ! Dense covariance estimators. Shrinkage formulas follow sklearn/covariance/
 ! _shrunk_covariance.py (scikit-learn 1.6.1, BSD-3-Clause; see THIRD_PARTY_NOTICES).
 module sklearn_covariance
+  use sklearn_least_angle,only:lars_path_gram,lars_path_result
   use sklearn_resampling, only: index_split
   use sklearn_robust_covariance, only: min_cov_det,elliptic_envelope,fast_mcd
   use sklearn_common
@@ -125,6 +126,7 @@ contains
     class(graphical_lasso), intent(inout) :: self
     real(dp), intent(in) :: x(:,:)
     real(dp), allocatable :: empirical(:,:),centered(:,:),gram(:,:),coefs(:),row(:),history(:,:)
+    type(lars_path_result)::lar_path
     real(dp) :: denominator
     real(dp) :: values(size(x,2)),vectors(size(x,2),size(x,2))
     integer :: p,n,i,j,it,indices(size(x,2)-1)
@@ -135,7 +137,7 @@ contains
     call require(self%alpha>=0,'GraphicalLasso alpha must be nonnegative')
     call require(self%tol>0.and.self%enet_tol>0.and.self%eps>0,'invalid GraphicalLasso tolerances')
     call require(self%max_iter>0,'GraphicalLasso max_iter must be positive')
-    call require(self%mode=='cd','GraphicalLasso supports mode cd only')
+    call require(self%mode=='cd'.or.self%mode=='lars','invalid GraphicalLasso solver mode')
     call require(self%covariance=='empirical'.or.self%covariance=='precomputed', &
       'invalid GraphicalLasso covariance mode')
     if(self%covariance=='precomputed') then
@@ -171,8 +173,13 @@ contains
       do j=1,p
         indices=pack([(i,i=1,p)],[(i/=j,i=1,p)])
         gram=self%covariance_(indices,indices); row=empirical(indices,j)
-        coefs=-self%precision_(indices,j)/(self%precision_(j,j)+1000*self%eps)
-        call graphical_cd(gram,row,self%alpha,coefs,self%max_iter,self%enet_tol)
+        if(self%mode=='cd')then
+          coefs=-self%precision_(indices,j)/(self%precision_(j,j)+1000*self%eps)
+          call graphical_cd(gram,row,self%alpha,coefs,self%max_iter,self%enet_tol)
+        else
+          lar_path=lars_path_gram(row,gram,p-1,alpha_min=self%alpha/(p-1),eps=self%eps,method='lar')
+          coefs=lar_path%coefficients(:,size(lar_path%alphas))
+        end if
         denominator=self%covariance_(j,j)-dot_product(self%covariance_(indices,j),coefs)
         call require(denominator>0,'GraphicalLasso nonpositive Schur complement; ill-conditioned fit')
         self%precision_(j,j)=1/denominator
@@ -296,6 +303,8 @@ contains
     integer, intent(out) :: n_iter
     logical, intent(out) :: converged,ok
     real(dp), allocatable :: gram(:,:),row(:),coefs(:),history(:,:)
+    type(lars_path_result)::lar_path
+    logical::lar_ok
     real(dp) :: denominator,gap,cost,penalty
     integer :: i,j,p,it,indices(size(emp_cov,1)-1)
     p=size(emp_cov,1); n_iter=1; converged=.false.; ok=.false.
@@ -315,8 +324,18 @@ contains
       do j=1,p
         indices=pack([(i,i=1,p)],[(i/=j,i=1,p)])
         gram=cov(indices,indices); row=emp_cov(indices,j)
-        coefs=-precision(indices,j)/(precision(j,j)+1000*self%eps)
-        call graphical_cd(gram,row,alpha,coefs,max_iter,self%enet_tol)
+        if(self%mode=='cd')then
+          coefs=-precision(indices,j)/(precision(j,j)+1000*self%eps)
+          call graphical_cd(gram,row,alpha,coefs,max_iter,self%enet_tol)
+        else
+          ! Automatic grids for exactly diagonal covariance can contain NaNs.
+          ! Treat these as failed CV candidates, as in the CD path.
+          if(.not.ieee_is_finite(alpha))return
+          if(.not.all(ieee_is_finite(gram)).or..not.all(ieee_is_finite(row)))return
+          lar_path=lars_path_gram(row,gram,p-1,alpha_min=alpha/(p-1),eps=self%eps,method='lar',success=lar_ok)
+          if(.not.lar_ok)return
+          coefs=lar_path%coefficients(:,size(lar_path%alphas))
+        end if
         if(.not.all(ieee_is_finite(coefs))) return
         denominator=cov(j,j)-dot_product(cov(indices,j),coefs)
         if(denominator==0) return
@@ -415,7 +434,7 @@ contains
     call require(all(ieee_is_finite([self%tol,self%enet_tol,self%eps])),'nonfinite GraphicalLassoCV controls')
     call require(self%tol>0.and.self%enet_tol>0.and.self%eps>0,'invalid GraphicalLassoCV tolerances')
     call require(self%max_iter>=0,'GraphicalLassoCV max_iter must be nonnegative')
-    call require(self%mode=='cd','GraphicalLassoCV supports mode cd only')
+    call require(self%mode=='cd'.or.self%mode=='lars','invalid GraphicalLassoCV solver mode')
     call require(self%covariance=='empirical','GraphicalLassoCV requires empirical covariance mode')
     call require(self%n_refinements>=1,'GraphicalLassoCV n_refinements must be positive')
     refinements=self%n_refinements

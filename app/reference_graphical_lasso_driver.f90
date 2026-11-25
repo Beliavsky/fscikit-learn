@@ -14,6 +14,8 @@ program reference_graphical_lasso_driver
   end do
   close(input)
   call get_command_argument(2,path); open(newunit=output,file=trim(path),status='replace')
+  call get_command_argument(3,path)
+  if(len_trim(path)>0) model%mode=trim(path)
   do j=1,8
     train=x; query=x+0.137_dp; model%alpha=0.08_dp; model%covariance='empirical'; model%assume_centered=.false.
     model%max_iter=300; model%tol=1.e-9_dp; model%enet_tol=1.e-11_dp

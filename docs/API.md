@@ -3754,7 +3754,7 @@ location and precision with the source Gaussian likelihood, including negative
 infinity for a singular precision. Inputs are finite dense real64 arrays with
 at least two features. Fitting bounds their magnitude by
 `sqrt(huge(real64))/(16*n_samples*n_features)` to protect covariance arithmetic.
-Only `mode='cd'` and `covariance='empirical'` are supported; LARS, sparse data,
+Both `mode='cd'` and `mode='lars'` support `covariance='empirical'`; sparse data,
 metadata routing and parallel jobs remain outside this native interface.
 
 Unallocated `alphas` selects a refined grid: `n_alphas=4` points per refinement,
@@ -9065,3 +9065,36 @@ the pinned NumPy 2.2.6 / OpenBLAS 0.3.29 SkylakeX dot, GEMV and small-TN paths
 for controlled overflow behavior; other math backends and layouts can round or
 propagate nonfinite values differently. Applicable BSD notices remain with the
 MIT integration. See [example/kernel_dispatch.f90](../example/kernel_dispatch.f90).
+
+## Gram least-angle paths
+
+```fortran
+use sklearn, only: dp,lars_path_gram,lars_path_result
+type(lars_path_result) :: path
+! gram = transpose(X) X; xy = transpose(X) y
+path=lars_path_gram(xy,gram,n_samples,method='lasso',alpha_min=.01_dp)
+```
+
+`xy(:)` and `gram(:,:)` are finite real64 arrays, with a nonempty
+correlation vector and matching square Gram matrix. `n_samples` is a positive
+integer used to scale the alpha knots. Inputs are retained unchanged.
+The controls and result record match `lars_path`; the full path, active
+indices (1-based) and n_iter are returned. `positive=.true.` requires
+`method='lasso'`. Defaults are method='lar', max_iter=500, alpha_min=0,
+eps=epsilon(real64), positive=false. An optional native logical `success`
+output reports numerical path failure without error stop; invalid input
+still stops with a diagnostic.
+
+Set `graphical_lasso%mode='lars'` or `graphical_lasso_cv%mode='lars'`
+to use these paths in sparse inverse-covariance block updates. Each block
+uses alpha_min=alpha/(n_features-1) and 500 inner steps; outer max_iter and
+tol retain their existing meanings. enet_tol applies to CD only.
+
+The Gram interface shares the existing native Cholesky homotopy backend.
+At machine epsilon, rank-deficient full paths can differ from sklearn's
+incremental BLAS/LAPACK factorization, including knot counts; increase eps
+for poorly conditioned problems. Reference checks use eps=0.1 for full
+underdetermined paths and machine epsilon for their early knots. Exactly
+duplicate columns can select interchangeable active representatives: the
+validation checks merged coefficients and every prediction knot in these
+cases rather than claiming identical coefficient allocation.
