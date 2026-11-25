@@ -2343,3 +2343,17 @@ ufunc identity. Existing NumPy notices remain applicable. Owned row storage,
 Fortran text formatting and integration are original MIT contributions.
 Shortest decimal support text reuses the package's native resampling helper;
 no Python or NumPy runtime dependency was added. The package remains MIT.
+
+## Chunked pairwise distances
+
+Chunk planning, metric dispatch, callback order and reduction validation adapt
+sklearn 1.6.1 `metrics/pairwise.py` and `utils/_chunking.py`, under the retained
+sklearn BSD notice. Distance kernels reuse the attributed sklearn/SciPy
+implementations in the nearest-pair module; existing
+`LICENSES/scipy-distance-BSD` and `LICENSES/scipy-COPYING` notices apply.
+Euclidean row norms retain the NumPy 2.2.6 einsum_sumprod.c.src adaptation,
+copyright (c) 2011 Mark Wiebe, University of British Columbia, under the retained
+NumPy BSD notice. Gram products reuse the existing attributed scalar OpenBLAS
+reconstruction. Owned iterators, typed reducer payloads, sparse row storage and
+integration are original MIT contributions. No runtime dependency was added;
+the package remains MIT.

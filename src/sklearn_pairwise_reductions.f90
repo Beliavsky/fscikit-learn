@@ -9,6 +9,9 @@ module sklearn_pairwise_reductions
  implicit none
  private
  public :: pairwise_distances_argmin,pairwise_distances_argmin_min
+ ! Internal row/kernel adapters shared by the chunked distance iterator.
+ public::row_view,check_view,get_row,get_haversine_row,metric_kind,row_distance,extended_distance, &
+   parameter_distance,covariance_precision
  type :: row_view
   real(dp),pointer :: dense(:,:)=>null()
   type(csr_matrix),pointer :: sparse=>null()

@@ -10065,3 +10065,78 @@ the existing classification metrics. Raw duplicate CSR storage, string/object
 class labels and Python warning objects are outside this native binding.
 Successful calls preserve caller IEEE flags and halting modes. See
 `example/classification_report.f90`.
+
+## Chunked pairwise distances
+
+`pairwise_distances_chunked` returns an owned `pairwise_distance_iterator`,
+exported by `sklearn_metrics` and `sklearn`. Dense real64 and CSR inputs support
+dense/dense, CSR/CSR and mixed input pairs. Omit Y or pass the same Fortran target
+for self comparisons. Construction copies feature storage and precomputes any
+data-derived parameters; it does not allocate the full distance matrix.
+
+```fortran
+type(pairwise_distance_iterator) :: stream
+type(distance_chunk) :: chunk
+stream=pairwise_distances_chunked(x, working_memory=0._dp)
+do while(stream%next(chunk))
+  ! chunk%distance%start is zero-based.
+  ! chunk%distance%values holds this vertical distance block.
+end do
+```
+
+Working memory is in MiB, default 1024. Rows follow sklearn's float floor
+calculation for 8*n_samples_Y bytes per row, capped by n_samples_X, with at
+least one row even when the budget is too small. `chunk_rows()` exposes the
+selected height; `exceeds_working_memory()` reports the source warning case.
+The budget bounds the output block rather than all intermediate storage.
+Iteration is single-pass; next returns false after exhaustion. Each chunk owns
+its output. CSR feature matrices remain sparse, with dense distance blocks.
+Precomputed input yields one complete block regardless of the budget, and CSR
+precomputed input retains CSR storage in `chunk%distance%sparse`, with
+is_sparse=true. Precomputed values must be finite and nonnegative and columns
+must match the reference sample count.
+
+Named metrics include euclidean/l2, sqeuclidean, manhattan/cityblock/l1,
+chebyshev, minkowski, cosine, nan_euclidean, haversine, braycurtis, canberra,
+correlation, hamming, dice, jaccard, rogerstanimoto, russellrao, sokalmichener,
+sokalsneath, yule, seuclidean, mahalanobis and precomputed. SciPy-routed metrics
+require dense inputs, while the sklearn Euclidean, Manhattan, cosine and
+Haversine routes accept CSR. Haversine requires two columns. NaN Euclidean
+accepts NaNs or optional missing_values and supports squared output, as do
+Euclidean/l2. Other feature inputs must be finite. Constant/zero rows retain
+the source NaN and diagonal behavior, including different cosine/SciPy
+self-distances when computed in partial versus full chunks.
+
+Minkowski accepts p (default 2), finite nonnegative per-feature w, and the source
+infinite-p behavior. Seuclidean uses V; Mahalanobis uses VI. With self input,
+omitted V/VI are estimated once from all input rows, not separately per chunk.
+Distinct input objects require explicit V/VI. Automatic Mahalanobis requires
+multiple features and an invertible covariance; floating-point singularity
+decisions can differ between numerical backends. This typed binding exposes w
+for Minkowski; weights for other SciPy metrics, higher-rank Python callback
+objects, Python warning objects, n_jobs and ensure_all_finite overrides are
+outside this interface. NaN p and nonfinite weights are diagnosed.
+
+Alternatively, pass a metric procedure with signature
+`real(dp) function metric(x,y)` for two real64 row vectors. CSR rows are provided
+as dense logical row contents. The procedure must remain valid throughout
+iteration. For a full self block, calls follow sklearn's upper-triangle order
+followed by diagonal calls; partial blocks use row-major Cartesian order.
+Self Euclidean chunks have their diagonal explicitly zeroed.
+
+For reductions, extend `pairwise_chunk_reducer` and implement
+`apply(self,block,reduced)`, with class(self) inout, type(distance_block) inout
+and type(distance_reduction) out. Pass the reducer to `stream%next(chunk,reducer)`.
+The block provides start, n_rows and either dense values or CSR sparse storage.
+An empty reduced payload represents Source None and permits side effects.
+Otherwise allocate exactly one of real_vector, real_matrix, integer_vector,
+integer_matrix, sparse or tuple. Arrays and CSR outputs must have block%n_rows
+rows; tuples contain flat sequences with the same row count. Empty tuples are
+accepted; nested tuples and None tuple members are rejected. The chunk then has
+is_reduced=true and owns reduced; its temporary raw distance payload is released.
+The callback can retain arbitrary additional native data in its own fields.
+
+Successful construction and iteration preserve caller IEEE flags and halting
+modes. Inputs and prior chunks are owned copies; Python aliasing and in-place
+mutation of caller arrays are outside this binding. See
+`example/pairwise_chunks.f90`.

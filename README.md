@@ -729,3 +729,10 @@ returns owned centers, labels, inertia and iteration metadata. See
 sklearn-style formatted text for numeric classification and dense/CSR
 multilabel targets. See [the API](docs/API.md#classification-reports) and
 [example/classification_report.f90](example/classification_report.f90).
+
+## Chunked pairwise distances
+
+`pairwise_distances_chunked` streams dense distance blocks from dense/CSR
+features, with named or callable metrics and typed reductions. See
+[the API](docs/API.md#chunked-pairwise-distances) and
+[example/pairwise_chunks.f90](example/pairwise_chunks.f90).

@@ -1,4 +1,6 @@
 module sklearn_metrics
+ use sklearn_pairwise_chunks,only:pairwise_distances_chunked,pairwise_distance_iterator,distance_block, &
+  distance_chunk,distance_reduction,pairwise_chunk_reducer
   use sklearn_classification_report,only:classification_report,classification_report_result,classification_report_row
   use sklearn_kernel_dispatch,only:pairwise_kernels
   use sklearn_pairwise_reductions, only: pairwise_distances_argmin,pairwise_distances_argmin_min
@@ -33,6 +35,8 @@ module sklearn_metrics
     average_precision_score,brier_score_loss
   implicit none
   private
+ public::pairwise_distances_chunked,pairwise_distance_iterator,distance_block,distance_chunk, &
+  distance_reduction,pairwise_chunk_reducer
   public::classification_report,classification_report_result,classification_report_row
   public::pairwise_kernels
   public :: pairwise_distances_argmin,pairwise_distances_argmin_min
