@@ -1,5 +1,8 @@
 # Translation coverage
 
+Public Ward trees support full hierarchies and connectivity-constrained partial
+forests with dense or CSR connectivity, verified in checked and optimized builds.
+
 Blocked Ledoit-Wolf shrinkage is public, with estimator block-size controls
 and complete IEEE-state preservation, verified in checked and optimized builds.
 
@@ -70,7 +73,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Two hundred and twenty-five reference suites additionally check 4,298,319
+All types have native tests. Two hundred and twenty-six reference suites additionally check 4,332,687
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and explicitly recorded numerical certificates.
 
@@ -106,7 +109,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | linear_model | `linear_regression`, `lars`, `lasso_lars`, `lars_cv`, `lasso_lars_cv`, `lasso_lars_ic`, `ridge`, `ridge_regression`, `ridge_classifier`, `ridge_classifier_cv`, `multi_task_elastic_net`, `multi_task_lasso`, `multi_task_elastic_net_cv`, `multi_task_lasso_cv`, `lasso`, `elastic_net`, `lasso_cv`, `elastic_net_cv`, `logistic_regression`, `logistic_regression_cv`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `sgd_regressor`, `sgd_classifier`, `sgd_one_class_svm`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `orthogonal_matching_pursuit_cv`, `huber_regressor`, `quantile_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; public dense/CSR weighted multi-target ridge solvers including seeded SAG/SAGA and SAG intercepts; least-angle/Lasso homotopy paths with CV and AIC/BIC selection; coordinate descent with K-fold alpha/l1-ratio selection; weighted logistic Newton solver with raw-score prediction; perceptron; PA-I/II classification/regression with averaging; streaming stochastic-gradient regression/classification and one-class detection; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; weighted L1-regularized quantile regression; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb`, `categorical_nb` | Weighted/streaming Gaussian moments, empirical/fixed priors and variance smoothing; dense/CSR weighted and streaming discrete event counts and fixed/empirical priors; nonnegative scalar alpha and force_alpha flooring, plus feature-wise Multinomial/Complement smoothing; Bernoulli threshold; optional complement normalization |
 | neighbors | `neighborhood_components_analysis`, `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Supervised NCA metric learning; brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with shrinkage, uniform/empirical/custom priors and Euclidean discriminant probabilities; tree-based kernel density |
-| cluster | `kmeans`, `bisecting_kmeans`, `mini_batch_kmeans`, `spectral_coclustering`, `spectral_biclustering`, `hdbscan`, `dbscan`, `agglomerative_clustering`, `feature_agglomeration`, `mean_shift`, `affinity_propagation`, `spectral_clustering`, `optics`, `birch`; `estimate_bandwidth`, `cluster_optics_dbscan`, `cluster_optics_xi` | Lloyd/k-means++; paired row/column spectral partitions and checkerboard biclustering; weighted streaming mini-batch centroids; bisecting centroid hierarchy with Lloyd/Elkan splits; density expansion; single/complete/average/Ward merge trees and feature pooling; flat-kernel mode seeking; damped exemplar messages; normalized-Laplacian clustering with k-means or pivoted QR assignment; OPTICS reachability ordering, Xi hierarchy and DBSCAN extraction; BIRCH streaming CF tree and optional Ward clustering |
+| cluster | `kmeans`, `bisecting_kmeans`, `mini_batch_kmeans`, `spectral_coclustering`, `spectral_biclustering`, `hdbscan`, `dbscan`, `agglomerative_clustering`, `feature_agglomeration`, `mean_shift`, `affinity_propagation`, `spectral_clustering`, `optics`, `birch`; `estimate_bandwidth`, `cluster_optics_dbscan`, `cluster_optics_xi`, `ward_tree` | Lloyd/k-means++; paired row/column spectral partitions and checkerboard biclustering; weighted streaming mini-batch centroids; bisecting centroid hierarchy with Lloyd/Elkan splits; density expansion; single/complete/average/Ward merge trees and feature pooling; flat-kernel mode seeking; damped exemplar messages; normalized-Laplacian clustering with k-means or pivoted QR assignment; OPTICS reachability ordering, Xi hierarchy and DBSCAN extraction; BIRCH streaming CF tree and optional Ward clustering; public full/partial Ward trees with connectivity completion and parent forests |
 | decomposition | `pca`, `incremental_pca`, `truncated_svd`, `nmf`, `mini_batch_nmf`, `sparse_pca`, `mini_batch_sparse_pca`, `dictionary_learning`, `mini_batch_dictionary_learning`, `sparse_coder`, `latent_dirichlet_allocation`; `sparse_encode`, `non_negative_factorization`; re-exports `kernel_pca`, `factor_analysis`, `fast_ica` | Full/randomized/covariance PCA with automatic routing; PCA whitening/inversion, variance/Minka dimension selection and probabilistic scores; streaming stacked-SVD IncrementalPCA; exact dense and randomized dense/CSR TruncatedSVD; regularized NMF coordinate descent and beta-divergence multiplicative updates, with a free function supporting fixed-H solves; sparse dictionary factorization and SparsePCA; five sparse coding methods; nonlinear kernel PCA; full/randomized-SVD factor analysis with orthogonal rotations; parallel/deflation ICA |
 | cross_decomposition | `pls_regression`, `pls_canonical`, `cca`, `pls_svd` | Paired-matrix latent components: NIPALS regression/canonical deflation, CCA pseudoinverse mode, canonical direct SVD and PLSSVD cross-covariance projection; multiple response columns |
 | isotonic | `isotonic_regression`; `isotonic_fit`, `check_increasing` | Weighted pool-adjacent-violators, automatic Spearman direction, bounds, repeated-input aggregation and piecewise linear interpolation |
@@ -12115,4 +12118,51 @@ shrinkage_*. Original integration remains MIT with sklearn BSD notices retained.
 No runtime dependency or algorithm outside sklearn was added. Inventory: 222
 public core types, 180 source modules, 252 native test programs, 225 reference
 suites / 4,298,319 retained groups and 124 invalid registries / 6,467 cases.
+The broader translation remains unfinished.
+
+
+Public Ward tree increment (2026-11-25):
+`ward_tree` exposes owned `hierarchy_result` trees through `sklearn_cluster`
+and the facade. Eight typed wrappers accept real64 matrices or one-feature
+vectors with omitted, dense real, dense logical or CSR connectivity. Children,
+parents and merge-node identifiers are 1-based. Distances are optional. Without
+connectivity the function returns a full tree and ignores n_clusters, matching
+source; structured calls support partial parent forests and report original
+connected-component counts and connectivity completion. Existing fitted
+agglomerative and feature-agglomeration algorithm bodies remain unchanged.
+
+Unstructured trees use nearest-neighbor chains, the Ward distance recurrence,
+stable height ordering and union-find relabeling. Structured trees use moments,
+a lexicographic merge heap and sparse adjacency. Directed/cancelling numeric
+connectivity, duplicate/unsorted CSR entries, explicit zeros and disconnected
+component completion are covered. Sparse connectivity never requires a dense
+connectivity matrix, although graph fill can become quadratic. Native finite
+input and arithmetic working-range checks are documented in API.md. Successful
+calls preserve all IEEE flags and halting modes. Python warnings are represented
+by result metadata rather than emitted messages.
+
+Full checked and optimized fpm builds passed. Each profile passed 8,592
+configurations / 34,368 direct source groups with exact children and parents
+and zero observed distance error at the unchanged 3e-8 bound. No numerical
+certificates or tolerance exceptions are used. Fixtures cover three seeds,
+random/grid/duplicate/zero data, one-feature and structured single-sample cases,
+full/partial trees, requested/omitted distances and eight connectivity topologies.
+The source emitted 3,968 warnings per profile. A provenance-checked cache holds
+actual sklearn outputs; initial capture made 5,820 source calls and reused 2,772
+identical cases. Both final profiles reused all 8,592 captured cases.
+
+Each profile also passed 15 isolated input guards, five selected native programs,
+the example and 192 core comparisons. The new native program checks all eight
+wrappers, golden heights/parent forests, IEEE state and a 32,768-node sparse
+partial forest avoiding an 8 GiB dense connectivity matrix. Other historical
+suites were not rerun. The final audit verifies 194 compiled-unit fingerprints
+per profile, stable source/validator/executable manifests, identical inputs,
+distinct optimized executables, unchanged existing cluster algorithm bodies and
+unchanged license/dependency declarations. Artifacts remain ignored under
+validation/results/ward_*.
+
+Original integration remains MIT with sklearn and SciPy BSD notices retained.
+No runtime dependency or algorithm outside sklearn was added. Inventory: 222
+public core types, 181 source modules, 253 native test programs, 226 reference
+suites / 4,332,687 retained groups and 125 invalid registries / 6,482 cases.
 The broader translation remains unfinished.

@@ -7316,3 +7316,40 @@ were used. All 193 compiled-unit fingerprints per profile, stable manifests,
 identical inputs and distinct executables passed the final audit. Other
 covariance algorithm bodies are unchanged. Other historical suites were not
 rerun. Artifacts remain ignored under validation/results/shrinkage_*.
+
+
+Public Ward trees:
+```
+python validation/compare_ward_tree.py --executable build/gfortran_E1FE13DB8881E18E/app/reference_ward_tree_driver.exe --reference-cache validation/results/ward_reference_cache.json --report validation/results/ward_checked_new.json
+python validation/check_ward_invalid_inputs.py --executable build/gfortran_E1FE13DB8881E18E/app/reference_ward_invalid_driver.exe
+```
+Repeat with the release executable directory. Omitting the reference-cache
+option recomputes every source tree. The optional ignored cache records source
+versions, relevant Python/extension hashes, input-specific keys and source
+outputs/warnings; provenance mismatches are rejected. Repeated profiles reuse
+captured sklearn outputs and retain cache/input/validator/executable hashes.
+The initial capture made 5,820 source calls and reused 2,772 identical cases.
+No expected trees are inferred from native output.
+
+The 8,592 configurations / 34,368 groups cover three seeds, random/grid/
+duplicate/zero data, one-feature and structured single-sample cases, full and
+partial trees, omitted/requested distances, disconnected completion, directed/
+random/chain/empty/diagonal/cancelling connectivity, dense real/logical matrices
+and canonical/unsorted-duplicate/explicit-zero CSR. Children and parents compare
+directly; distances use the standard 3e-8 bound, without exceptions or numerical
+certificates. Native tests additionally cover all eight typed wrappers, golden
+heights/parent forests, IEEE state and a 32,768-node sparse partial forest that
+avoids an 8 GiB dense connectivity matrix. Fifteen isolated guards cover shape,
+finite input, cluster counts and arithmetic working-range errors.
+
+
+Checked and optimized fpm builds passed on 2026-11-25. Both profiles passed
+all 8,592 configurations / 34,368 direct groups with zero observed error,
+15 input guards, five selected native programs, the example and 192 core
+comparisons. Each retains 3,968 source warnings from the captured outputs.
+Both final profiles reused all 8,592 cached cases. No numerical certificates
+or tolerance exceptions were used. All 194 compiled-unit fingerprints per
+profile, stable manifests, identical inputs and distinct executables passed
+the final audit. Existing cluster algorithm bodies and license/dependency
+manifests are unchanged. Other historical suites were not rerun. Artifacts
+remain ignored under validation/results/ward_*.
