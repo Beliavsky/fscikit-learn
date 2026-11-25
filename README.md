@@ -686,3 +686,10 @@ Set `bernoulli_nb%binarize=.false.` to retain raw dense/CSR feature values,
 matching sklearn's `binarize=None`, including streaming fits. See
 [the API](docs/API.md#bernoullinb-raw-feature-mode) and
 [the example](example/raw_bernoulli.f90).
+
+## Covariance functions
+
+Array calls to `empirical_covariance`, `shrunk_covariance`, `ledoit_wolf` and
+`oas` complement the existing estimator constructors. Shrinkage accepts
+square-matrix batches through rank 15. See [the API](docs/API.md#covariance-functions)
+and [the example](example/covariance_functions.f90).

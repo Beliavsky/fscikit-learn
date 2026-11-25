@@ -2265,3 +2265,14 @@ The singleton-class NumPy 2.2.6 pairwise reduction reuses the native GPR
 adaptation of `loops_utils.h.src`; NumPy BSD notices remain applicable.
 Typed mode selection, signed range guards and storage integration are MIT.
 No external BLAS/NumPy runtime is linked by these additions.
+
+## Covariance functional APIs
+
+The four public covariance functions adapt sklearn 1.6.1
+`covariance/_empirical_covariance.py` and `covariance/_shrunk_covariance.py`.
+The existing BSD notice in `LICENSES/scikit-learn-COPYING` applies. Pairwise
+summation reuses the attributed NumPy 2.2.6 `loops_utils.h.src` adaptation;
+NumPy BSD notices remain applicable. Inner products reuse the existing
+attributed scalar OpenBLAS dot helper. Typed overloads, batch/result storage
+and IEEE composition are original MIT integration. No runtime dependency
+was added and the package license remains MIT.

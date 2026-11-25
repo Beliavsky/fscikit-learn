@@ -9765,3 +9765,41 @@ ComplementNB. They add no BLAS/NumPy runtime dependency. Existing finite
 nonnegative sample weights, scalar Bernoulli alpha, priors, force_alpha and
 typed error/range controls remain applicable. See
 [the example](../example/raw_bernoulli.f90).
+
+## Covariance functions
+
+Import these names from `sklearn_covariance` or `sklearn`. An array first
+argument selects a function; calls without that argument retain the existing
+estimator constructor, for example `model=oas()` followed by `call model%fit(x)`.
+
+```fortran
+real(dp), allocatable :: covariance(:,:)
+type(covariance_estimate) :: estimate
+covariance = empirical_covariance(x, assume_centered=.false.)
+covariance = shrunk_covariance(covariance, shrinkage=0.1_dp)
+estimate = ledoit_wolf(x, assume_centered=.false., block_size=1000)
+estimate = oas(x, assume_centered=.false.)
+! estimate%covariance and estimate%shrinkage own the Python tuple results.
+```
+
+Rows of `x` are samples and columns are features. Empirical covariance uses
+biased normalization by sample count. Its vector overload treats the vector
+as one sample with multiple features, as sklearn does. Nonempty input is
+required. This functional API permits NaN/Inf input and propagates source
+nonfinite arithmetic; the existing estimator fit contracts are unchanged.
+
+Ledoit-Wolf and OAS accept nonempty finite matrices, return the owned
+`covariance_estimate` helper and do not compute precision. The block size must
+be positive. One feature returns zero shrinkage and mean squared centered
+values. Results exceeding finite working range are rejected. These functions
+preserve caller IEEE flags and halting modes on successful return.
+
+`shrunk_covariance(a, shrinkage)` accepts rank 2 through 15. The last two axes
+must be square matrices; preceding axes select independent batches. Every
+extent must be positive. Input must be finite, and shrinkage must be finite
+and in [0,1], default 0.1. Matrices need not be symmetric or positive definite.
+The result has the input shape and follows `(1-s)*a + s*trace(a)/p*identity`,
+including source NaN/Inf outcomes when finite trace accumulation overflows.
+Python's incidental nonsquare broadcasting and empty intermediate batch axes
+are outside this typed interface. This batch API follows sklearn's existing
+function and is not an algorithm extension.
