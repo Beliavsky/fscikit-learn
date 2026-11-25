@@ -8550,3 +8550,59 @@ multiply-add. Other backends or buffer settings can round differently. No BLAS,
 SIMD or Python runtime is linked. Caller data, RNG state, IEEE flags and halting
 modes are preserved. Python warning emission is not exposed. Original integration
 remains MIT with retained sklearn/NumPy/SciPy/OpenBLAS BSD attribution.
+
+## Weighted and normalized confusion matrices
+
+`confusion_matrix` is exported by `sklearn_confusion_matrix`, `sklearn_metrics`
+and `sklearn`. Existing `confusion_matrix(y,p,labels)` calls return an owned
+default-integer matrix. Supplying `sample_weight` or `normalize` selects an
+owned real64 matrix. See [confusion_matrix.f90](../example/confusion_matrix.f90).
+
+```fortran
+integer, allocatable :: counts(:,:)
+real(dp), allocatable :: weighted(:,:), normalized(:,:)
+counts=confusion_matrix(y,p)
+weighted=confusion_matrix(y,p,sample_weight=w)
+normalized=confusion_matrix(y,p,labels=[2,0,1],normalize='true')
+normalized=confusion_matrix(y,p,sample_weight=w,normalize='pred')
+```
+
+Targets can be mixed default-integer/logical/real64 vectors or nonempty
+single-column matrices. Real targets must be finite integral values within
+int64 range. Other intrinsic target kinds, scalar inputs and tensors reject
+at compile time; multioutput/multilabel matrices and CSR targets are outside
+this interface. Rows denote true classes, columns predicted classes.
+
+Without explicit labels, the combined target vocabulary is sorted. Optional
+`labels` accepts default-integer, logical or real64 vectors, including subsets,
+reordered/repeated/unknown classes and fractional/nonfinite selectors. Duplicate
+classes map to their last supplied index. Samples outside the selection are
+dropped. A nonempty selection must intersect nonempty `y`; empty selections
+reject. NaN selectors never match finite targets.
+
+`sample_weight` is a required real64 vector in the weighted overload and must
+be allocated/associated. Omit its keyword for no weights. Use its keyword
+when omitting labels; the third positional argument remains `labels`. Signed,
+zero and nonfinite weights are supported. Normalization is `'true'` for rows,
+`'pred'` for columns, `'all'` for the whole matrix or `'none'` for raw counts.
+Explicit `'none'` also selects a real64 result without changing count values.
+Normalization happens before NaNs/infinities are replaced with zero/signed
+maximum finite values. Consequently, nonfinite raw cells can erase other cells
+in their normalized row/column; they are not clipped before division.
+
+Empty target vectors without labels return a 0-by-0 matrix. Explicit labels
+return the corresponding zero matrix before checking weight length, retaining
+the source shortcut. Empty single-column matrices reject. Native result kinds
+are fixed by the selected overload, including shortcuts; Python's int64 counts
+and occasional integer shortcut dtype are represented by the native result
+contract above. Counts fit the package's default-integer sample indexing range.
+
+Class discovery uses merge sorting and binary lookup. Storage is dense in the
+class count, as in sklearn; native indexing-capacity guards reject oversized
+matrices before allocation. NumPy 2.2.6's 8192-element buffered reductions are
+retained. Caller targets, labels, weights, RNG state, IEEE flags and halting
+modes are preserved. Python warning emission is not exposed. The shared
+categorical-score backend keeps its existing default sanitization path; the
+matrix API requests raw accumulation before normalization. Its internal bridge
+is not re-exported through `sklearn`. Original integration remains MIT with
+retained sklearn/NumPy/SciPy BSD attribution and no additional dependency.

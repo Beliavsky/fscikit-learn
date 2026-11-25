@@ -2023,3 +2023,24 @@ class lookup, explicit typed rank overloads, scalar reduction lanes and complete
 IEEE status/mask save/restore. Native API integration, diagnostics, tests,
 reference harness and example are MIT. Root LICENSE and fpm's MIT declaration
 are unchanged; no dependency or public extension algorithm is added.
+
+## Weighted and normalized confusion matrices (BSD / MIT)
+
+src/sklearn_confusion_matrix.f90 and the internal confusion_values bridge in
+src/sklearn_categorical_scores.f90 translate sklearn 1.6.1 confusion_matrix,
+metrics/_classification.py, by the scikit-learn developers (BSD-3-Clause).
+Source: https://github.com/scikit-learn/scikit-learn/blob/1.6.1/sklearn/metrics/_classification.py
+The installed reference SHA256 is
+569fff857c6a27025ad6f4fb61a6ebc30cca07b35c786c8ce026af1fc0b7f7dd.
+Existing LICENSES/scikit-learn-COPYING, scipy-COPYING and numpy-COPYING retain
+the relevant BSD terms. Buffered/pairwise reductions follow NumPy 2.2.6;
+weighted cells follow SciPy COO input-order accumulation.
+
+Changes: typed Fortran rank/result overloads, default-integer legacy counts,
+real64 weighted/normalized matrices, owned transposed storage, stable numeric
+class maps and IEEE status/mask preservation. A private raw-count flag preserves
+the existing categorical-score path while permitting normalization before
+nan_to_num. Python warning emission is omitted. The internal bridge is not
+exported by the sklearn facade. Native adapters, diagnostics, tests, reference
+harness and example are MIT integration. Root LICENSE and fpm's MIT declaration
+remain unchanged. No dependency or public extension algorithm is introduced.

@@ -1,4 +1,5 @@
 module sklearn_metrics
+  use sklearn_confusion_matrix,only:confusion_matrix
   use sklearn_categorical_scores,only:balanced_accuracy_score,matthews_corrcoef,cohen_kappa_score
   use sklearn_likelihood_ratios,only:class_likelihood_ratios
   use sklearn_subset_metrics,only:accuracy_score,zero_one_loss
@@ -122,19 +123,6 @@ contains
     real(dp), intent(in) :: y(:),p(:)
     call check_targets(y,p); call require(all(y>0).and.all(p>0),'invalid Gamma targets')
     v=2*sum(log(p/y)+y/p-1)/size(y)
-  end function
-  function confusion_matrix(y,p,labels) result(cm)
-    integer, intent(in) :: y(:),p(:)
-    integer, intent(in), optional :: labels(:)
-    integer, allocatable :: cm(:,:), classes(:)
-    integer :: i,a,b
-    call require(size(y)>0.and.size(y)==size(p),'invalid label sizes')
-    classes=unique_labels([y,p]); if(present(labels)) classes=labels
-    allocate(cm(size(classes),size(classes))); cm=0
-    do i=1,size(y)
-      a=label_index(classes,y(i)); b=label_index(classes,p(i))
-      if(a>0.and.b>0) cm(a,b)=cm(a,b)+1
-    end do
   end function
   real(dp) function hamming_loss(y,p) result(v)
     integer, intent(in) :: y(:),p(:)

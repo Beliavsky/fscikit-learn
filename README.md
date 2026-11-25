@@ -596,3 +596,9 @@ and mixed numeric targets. Balanced accuracy includes chance adjustment;
 kappa includes class selection/order and linear/quadratic ordinal weights.
 See [the example](example/categorical_scores.f90) and
 [API contract](docs/API.md#weighted-categorical-classification-scores).
+
+`confusion_matrix` supports mixed numeric targets, class selection, sample
+weights and true-row/predicted-column/all normalization. Existing unweighted
+calls retain default-integer matrices; weighted/normalized calls return real64.
+See [the example](example/confusion_matrix.f90) and
+[API contract](docs/API.md#weighted-and-normalized-confusion-matrices).

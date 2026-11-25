@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Two hundred and five reference suites additionally check 4,040,186
+All types have native tests. Two hundred and six reference suites additionally check 4,056,466
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -92,7 +92,8 @@ Classification: weighted/chance-adjusted balanced accuracy, weighted Matthews
 correlation, Cohen kappa with sample weights and ordinal class weighting;
 weighted accuracy and zero-one loss for numeric vectors and
 dense/CSR multilabel targets; binary class likelihood ratios with class ordering
-and sample weights; confusion matrix, precision, recall, F1, Jaccard,
+and sample weights; confusion matrices with sample weights, class selection and
+row/column/all normalization; precision, recall, F1, Jaccard,
 Hamming loss, balanced accuracy, Matthews correlation, Cohen kappa, log loss,
 binary ROC AUC and average precision with sample weights; standardized partial ROC AUC;
 ROC, precision-recall and DET threshold curves; generic trapezoidal AUC; binary
@@ -11009,3 +11010,44 @@ remain outside this API. No public estimator or extension algorithm was added.
 Inventory: 222 public core types, 167 source modules, 232 native programs,
 205 reference suites / 4,040,186 retained groups and 104 invalid registries /
 5,786 cases. The broader translation remains unfinished.
+
+## Weighted and normalized confusion matrices
+
+confusion_matrix now supports mixed default-integer/logical/real64 vector and
+nonempty single-column targets, selected/reordered/repeated labels, sample
+weights and true-row/predicted-column/all normalization. Calls without weights
+or normalization retain owned default-integer count matrices; weighted and
+normalized calls return owned real64 matrices. Explicit normalize='none' is a
+real64 raw-count adapter. Empty vectors return a 0-by-0 matrix; explicit labels
+retain the source zero-matrix shortcut before weight validation.
+
+The checked grid passes 4,098 configurations, with 3,256 accepted cases
+and 842 source rejections. Its 16,280 groups cover shape, all matrix cells,
+native storage kinds, caller identity and IEEE-state identity. It compares
+1,815,664 cells, including exact integer counts, finite real values at rtol=3e-13
+and atol=0, and exact zero signs. All 96 accepted nonfinite-weight configurations
+are retained; normalization precedes nan_to_num, so all final matrices are finite.
+Cases cover all 36 target kind/rank pairs, labels, empty shortcuts, signed and
+nonfinite weights, numeric boundaries and class counts through 129. An
+independent sklearn-only inventory pins accepted/rejected IDs and cell counts.
+
+The checked fpm build passes 16 affected native programs, two examples and both
+native diagnostic registries. It passes 27,449 comparison groups: 16,280 new,
+10,977 categorical and 192 core. The checked audit verifies 196 compilation
+fingerprints and exact categorical records against the prior audited baseline.
+Optimized verification is pending. The shared categorical backend adds a raw-count switch and an
+internal bridge; its existing default sanitized-count path is retained. The
+matrix bridge is not exported through the sklearn facade. A separate 816-case
+isolated categorical-score reduction probe passes unchanged.
+
+Native matrices use dense class-by-class storage and default-integer indexing
+capacity guards. Counts use the native default integer rather than Python's
+int64 dtype; weighted/normalized results are consistently real64, including
+source shortcuts. String/object/CSR targets, other intrinsic kinds, multioutput
+targets and Python warning emission remain outside scope. Original integration
+remains MIT with retained sklearn/NumPy/SciPy BSD attribution. There is no new
+dependency, public estimator or extension algorithm.
+
+Inventory: 222 public core types, 168 source modules, 233 native programs,
+206 reference suites / 4,056,466 retained groups and 105 invalid registries /
+5,806 cases. The broader translation remains unfinished.

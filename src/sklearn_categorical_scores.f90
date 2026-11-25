@@ -11,6 +11,8 @@ module sklearn_categorical_scores
  implicit none
  private
  public::balanced_accuracy_score,matthews_corrcoef,cohen_kappa_score
+ ! Internal bridge; the sklearn facade only exports the public metric APIs.
+ public::confusion_values
  interface balanced_accuracy_score
   module procedure balanced_accuracy_score_iv_iv
   module procedure balanced_accuracy_score_iv_im
@@ -225,14 +227,15 @@ contains
    end if
   end do
  end function
- function build_confusion(y,p,labels,sample_weight) result(cm)
+ function build_confusion(y,p,labels,sample_weight,raw) result(cm)
   real(dp),intent(in)::y(:),p(:)
   class(*),optional,intent(in)::labels(:)
   real(dp),optional,intent(in)::sample_weight(:)
+  logical,optional,intent(in)::raw
   real(dp),allocatable::cm(:,:),selected(:),keys(:)
   integer,allocatable::positions(:)
   integer::n,i,j,a,b
-  logical::found
+  logical::found,clean
   call require(size(y)==size(p),'categorical score target lengths differ')
   call check_values(y);call check_values(p)
   if(present(labels)) then
@@ -273,6 +276,8 @@ contains
     cm(b,a)=cm(b,a)+1
    end if
   end do
+  clean=.true.;if(present(raw)) clean=.not.raw
+  if(clean) then
   do j=1,n
    do i=1,n
     if(ieee_is_nan(cm(i,j))) then
@@ -282,6 +287,7 @@ contains
     end if
    end do
   end do
+  end if
  end function
  recursive real(dp) function pairwise(x) result(value)
   real(dp),intent(in)::x(:)
@@ -1191,5 +1197,49 @@ contains
   class(*),optional,intent(in)::labels(:)
   character(*),optional,intent(in)::weights
   value=evaluate(target_l(y),target_l(p),3,sample_weight,labels=labels,weights=weights)
+ end function
+ function confusion_values(y,p,labels,sample_weight,normalize) result(values)
+  real(dp),intent(in)::y(:),p(:)
+  class(*),optional,intent(in)::labels(:)
+  real(dp),optional,intent(in)::sample_weight(:)
+  character(*),optional,intent(in)::normalize
+  real(dp),allocatable::values(:,:),cm(:,:),denominator(:)
+  real(dp)::total
+  character(:),allocatable::mode
+  logical::halting(size(ieee_all)),raised(size(ieee_all))
+  integer::i,j,n
+  mode='none';if(present(normalize)) mode=normalize
+  call require(mode=='none'.or.mode=='true'.or.mode=='pred'.or.mode=='all', &
+   'confusion matrix normalize must be none, true, pred or all')
+  call suspend(halting,raised)
+  cm=build_confusion(y,p,labels,sample_weight,raw=.true.);n=size(cm,1)
+  select case(mode)
+  case('true')
+   do j=1,n
+    cm(:,j)=cm(:,j)/summed(cm(:,j))
+   end do
+  case('pred')
+   allocate(denominator(n));denominator=0
+   do j=1,n
+    denominator=denominator+cm(:,j)
+   end do
+   do j=1,n
+    cm(j,:)=cm(j,:)/denominator(j)
+   end do
+  case('all')
+   total=summed(reshape(cm,[size(cm)]));cm=cm/total
+  end select
+  ! sklearn applies nan_to_num after normalization, not to the raw counts first.
+  do j=1,n
+   do i=1,n
+    if(ieee_is_nan(cm(i,j))) then
+     cm(i,j)=0
+    else if(.not.ieee_is_finite(cm(i,j))) then
+     cm(i,j)=sign(huge(1._dp),cm(i,j))
+    end if
+   end do
+  end do
+  values=transpose(cm)
+  call restore(halting,raised)
  end function
 end module

@@ -9190,3 +9190,90 @@ Inventory: 222 public core types, 167 source modules, 232 native programs,
 205 reference suites / 4,040,186 retained groups and 104 invalid registries /
 5,786 cases. String/object labels, CSR/multilabel targets and Python warnings
 remain outside this interface. The broader translation remains unfinished.
+
+## Weighted and normalized confusion matrices (2026-11-24)
+
+confusion_matrix now uses explicit typed overloads for mixed numeric vectors
+and nonempty single-column targets. Unweighted/un-normalized calls retain the
+legacy default-integer return; providing sample_weight or normalize selects
+real64. True-row, predicted-column and whole-matrix normalization use raw cells
+before nan_to_num. Empty vectors, labels, duplicate mapping and source shortcuts
+are retained. The shared categorical backend gains only an optional raw switch
+and an internal normalization bridge; its existing default sanitized path remains.
+
+The checked grid passes 4,098 configurations: 3,256 accepted cases and
+842 source rejections. Its 16,280 groups check shape, matrix values, native
+storage, caller identity and IEEE-state identity. All 1,815,664 matrix cells
+are compared. Integer counts are exact; real cells use rtol=3e-13 and atol=0,
+with exact zero signs. All returned matrices must be finite after sanitization.
+All 96 accepted nonfinite-weight cases are retained. Native storage certificates
+cover 272 default-integer results and 2,984 real64 results, independently of
+Python's int64 count dtype and integer empty-input shortcut.
+
+The grid covers all 36 target kind/rank pairs at 0/1/7/131 samples; reordered,
+repeated, unknown and fractional/nonfinite labels, including logical selectors;
+signed and nonfinite weights; int64 target boundaries and malformed shapes.
+Class counts through 129 include 91, 127, 128 and 129 to cross the 8,192-element
+buffer and pairwise reduction boundaries. An independent sklearn-only inventory
+pins accepted/rejected IDs, native integer-result cases and matrix cell counts.
+
+All 20 new native diagnostics pass controlled ERROR STOP checks without floating
+traps, bounds failures or segmentation faults. Cases cover each result overload,
+target/weight sizes, empty automatic-weight lengths, labels, values/shapes,
+normalization modes and pre-allocation indexing capacity. The capacity guard
+is a native limit rather than a source oracle rejection. Unsupported intrinsic
+target kinds, scalars and rank-three arrays reject at compile time.
+
+The checked fpm build passes 16 selected native programs: test_confusion_matrix,
+test_categorical_scores, test_likelihood_ratios, test_subset_metrics,
+test_preprocessing_metrics, test_classification_metrics, test_bayes_neighbors,
+test_discriminant_dummy_kernel, test_calibrated, test_gp_classification,
+test_sgd_classifier, test_svm, test_linear_svm, test_weighted_classifiers,
+test_pipeline_supervised and test_search. Both confusion_matrix and
+categorical_scores examples pass. Tests include asymmetric row/column
+orientation, exact legacy kind, weighted counts, duplicate classes, source
+empty shortcuts, normalization before nonfinite replacement, caller RNG and
+IEEE-state preservation. Both new/retained native diagnostic registries, 192
+core comparisons and the existing score-shape diagnostic pass. Other repository
+native programs are not executed in this batch. Optimized verification is pending.
+
+A separate 816-case categorical reduction probe passes 2,394 groups and 18
+source rejections, with 279 nonfinite source scores. The checked build also
+passes the complete 10,977-group categorical grid against its prior audited
+records, covering the shared backend's unchanged default path.
+
+Checked verification passes 27,449 required groups:
+
+| Suite | Groups |
+| --- | ---: |
+| Confusion matrices, storage, data and IEEE identities | 16,280 |
+| Existing weighted categorical scores | 10,977 |
+| Existing core comparisons | 192 |
+
+There are 1,731 expected source rejections (842 matrix and 889 categorical),
+42 native registry cases (20 matrix and 22 categorical) and the existing
+ellenv_score_shape diagnostic: 1,774 rejection checks in the checked profile.
+
+The checked audit verifies 196 Fortran compilation fingerprints, complete field
+and configuration inventories, source-oracle IDs and 1,815,664 compared cells,
+source/driver/validator/executable manifests and report/license hashes. All
+categorical configurations, comparison values and rejection records match the
+previous audited records exactly. Other source modules match revision 9424270.
+sklearn_metrics differs only by the new import and removal of the replaced
+function. The categorical backend differs only by the raw switch, internal
+bridge and export; existing score/reduction bodies are unchanged. Root LICENSE
+and fpm.toml match the baseline. Artifacts remain under ignored
+validation/results/confusion*, including confusion_partial_audit.json.
+
+No dependency, public estimator or extension algorithm is added. Root LICENSE
+and fpm's MIT declaration are unchanged, with retained sklearn/NumPy/SciPy BSD
+notices. The internal bridge is not exposed by the sklearn facade. Tools are
+the verified private fpm 0.14.0, GNU Fortran 17.0.0 20260510, Python 3.13.3,
+sklearn 1.6.1, NumPy 2.2.6 and SciPy 1.15.3. Builds use four jobs and --tests;
+checked flags are -fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow.
+The global fpm is unchanged.
+
+Inventory: 222 public core types, 168 source modules, 233 native programs,
+206 reference suites / 4,056,466 retained groups and 105 invalid registries /
+5,806 cases. Strings, CSR/multioutput targets, other intrinsic kinds and Python
+warning emission remain outside this API. The broader translation is unfinished.
