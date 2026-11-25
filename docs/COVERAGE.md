@@ -77,7 +77,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Two hundred and thirty-seven reference suites additionally check 5,153,098
+All types have native tests. Two hundred and thirty-eight reference suites additionally check 5,163,562
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and explicitly recorded numerical certificates.
 
@@ -109,7 +109,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | multiclass | `one_vs_rest_classifier`, `one_vs_one_classifier`, `output_code_classifier` | Dense independent binary reductions; supported native classifier and regressor bases; constant heads; weighted fitting where the base supports it; Gaussian NB/SGD classification streaming for OVR/OVO; seeded legacy NumPy codebooks |
 | inspection | `permutation_importance`, `permutation_importance_multi`, `partial_dependence` | Dense callback-based permutation importance and brute partial dependence/ICE; seeded subsampling/shuffles; weighted averages; categorical and Cunnane percentile grids; numeric multiple-output responses |
 | multioutput | `multi_output_regressor`, `multi_output_classifier`, `regressor_chain`, `classifier_chain` | Independent fitted base models per response column; supported native linear/SGD, NB, neighbors and tree families; ragged class probabilities; SGD/Gaussian NB streaming; native base weighting limits apply |
-| preprocessing | `kernel_centerer`, `ordinal_encoder`, `target_encoder`, `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `iterative_imputer`, `knn_imputer`, `missing_indicator`, `spline_transformer`, `label_encoder`, `one_hot_encoder`, `label_binarizer`, `multi_label_binarizer`, `power_transformer`, `kbins_discretizer`, `quantile_transformer`, `normalizer`, `binarizer`, `polynomial_features`; `normalize`, `binarize`, `scale`, `minmax_scale`, `maxabs_scale`, `robust_scale`, `quantile_transform`, `label_binarize`, `label_binarize_csr`, retained `polynomial_features(x,...)` | Ordinal category codes and infrequent grouping; cross-fitted target means; population variance; linear percentile interpolation; numeric dense/CSR imputation with mean/median/most-frequent/constant/callable statistics, empty-feature rules, indicators and dense inverse maps; numeric categories; empirical uniform/normal quantile transforms; dense/CSR polynomial estimator and retained array call with degree ranges, interactions and lazy powers/names; B-spline features and extrapolation; dense/CSR row normalization and thresholding, both-axis free normalization with returned norms |
+| preprocessing | `kernel_centerer`, `ordinal_encoder`, `target_encoder`, `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `iterative_imputer`, `knn_imputer`, `missing_indicator`, `spline_transformer`, `label_encoder`, `one_hot_encoder`, `label_binarizer`, `multi_label_binarizer`, `power_transformer`, `kbins_discretizer`, `quantile_transformer`, `normalizer`, `binarizer`, `polynomial_features`; `add_dummy_feature`, `normalize`, `binarize`, `scale`, `minmax_scale`, `maxabs_scale`, `robust_scale`, `quantile_transform`, `label_binarize`, `label_binarize_csr`, retained `polynomial_features(x,...)` | Ordinal category codes and infrequent grouping; cross-fitted target means; population variance; linear percentile interpolation; numeric dense/CSR imputation with mean/median/most-frequent/constant/callable statistics, empty-feature rules, indicators and dense inverse maps; numeric categories; empirical uniform/normal quantile transforms; dense/CSR polynomial estimator and retained array call with degree ranges, interactions and lazy powers/names; B-spline features and extrapolation; dense/CSR row normalization and thresholding, both-axis free normalization with returned norms |
 | linear_model | `linear_regression`, `lars`, `lasso_lars`, `lars_cv`, `lasso_lars_cv`, `lasso_lars_ic`, `ridge`, `ridge_regression`, `ridge_classifier`, `ridge_classifier_cv`, `multi_task_elastic_net`, `multi_task_lasso`, `multi_task_elastic_net_cv`, `multi_task_lasso_cv`, `lasso`, `elastic_net`, `lasso_cv`, `elastic_net_cv`, `logistic_regression`, `logistic_regression_cv`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `sgd_regressor`, `sgd_classifier`, `sgd_one_class_svm`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `orthogonal_matching_pursuit_cv`, `huber_regressor`, `quantile_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; public dense/CSR weighted multi-target ridge solvers including seeded SAG/SAGA and SAG intercepts; least-angle/Lasso homotopy paths with CV and AIC/BIC selection; coordinate descent with K-fold alpha/l1-ratio selection; weighted logistic Newton solver with raw-score prediction; perceptron; PA-I/II classification/regression with averaging; streaming stochastic-gradient regression/classification and one-class detection; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; weighted L1-regularized quantile regression; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb`, `categorical_nb` | Weighted/streaming Gaussian moments, empirical/fixed priors and variance smoothing; dense/CSR weighted and streaming discrete event counts and fixed/empirical priors; nonnegative scalar alpha and force_alpha flooring, plus feature-wise Multinomial/Complement smoothing; Bernoulli threshold or raw-feature mode; optional complement normalization |
 | neighbors | `neighborhood_components_analysis`, `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Supervised NCA metric learning; brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with shrinkage, uniform/empirical/custom priors and Euclidean discriminant probabilities; tree-based kernel density |
@@ -141,7 +141,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | mixture | `gaussian_mixture`, `bayesian_gaussian_mixture` | EM Gaussian mixtures and variational Bayesian mixtures with finite Dirichlet or truncated stick-breaking weights; full/tied/diag/spherical covariances; responsibilities and likelihood scores; GaussianMixture BIC/AIC |
 | neural_network | `mlp_classifier`, `mlp_regressor`, `bernoulli_rbm` | Arbitrary dense hidden layers, relu/tanh/logistic/identity, seeded minibatch Adam/SGD or full-data L-BFGS, momentum/Nesterov and SGD schedules, binary/multilabel logistic or multiclass softmax classification, scalar/joint squared-error regression, L2 regularization |
 | gaussian_process | `gaussian_process_regressor`, `gaussian_process_classifier` | Configurable covariance expressions or legacy RBF controls; anisotropy, Matern/RQ/periodic/dot/constant/white kernels and sums/products/powers; scalar/vector-alpha Cholesky regression, independent multiple targets, likelihood gradients and opt-in bounded kernel fitting; Laplace binary/OVR classification with optional independent kernel fitting, binary likelihood gradients and warm starts |
-| covariance | `empirical_covariance`, `shrunk_covariance`, `ledoit_wolf`, `oas`, `graphical_lasso`, `graphical_lasso_cv`, `min_cov_det`, `elliptic_envelope`; `fast_mcd`, `ledoit_wolf_shrinkage` | Array covariance functions and square-matrix batches through rank 15; blocked Ledoit-Wolf moments; population covariance, pseudoinverse precision, squared Mahalanobis distance, likelihood, Frobenius/spectral covariance error; L1-penalized sparse precision via CD or LARS block solves and refined cross-validation; FastMCD robust covariance and elliptic outlier detection |
+| covariance | `empirical_covariance`, `shrunk_covariance`, `ledoit_wolf`, `oas`, `graphical_lasso`, `graphical_lasso_cv`, `min_cov_det`, `elliptic_envelope`; `fast_mcd`, `ledoit_wolf_shrinkage`, `log_likelihood` | Array covariance functions and square-matrix batches through rank 15; blocked Ledoit-Wolf moments; population covariance, pseudoinverse precision, squared Mahalanobis distance, likelihood, Frobenius/spectral covariance error; L1-penalized sparse precision via CD or LARS block solves and refined cross-validation; FastMCD robust covariance and elliptic outlier detection |
 | calibration | `calibrated_classifier_cv`; `calibration_curve` | Sigmoid/isotonic CV ensembles, out-of-fold calibration and prefit calibration with logistic, Gaussian NB or KNN bases; uniform/quantile reliability bins |
 | datasets | `make_classification`, `make_multilabel_classification`, `make_sparse_coded_signal`, `make_sparse_spd_matrix`, `make_biclusters`, `make_checkerboard`, `make_hastie_10_2`, `make_blobs`, `make_regression`, `make_low_rank_matrix`, `make_moons`, `make_circles`, `make_friedman1/2/3`, `make_sparse_uncorrelated`, `make_s_curve`, `make_swiss_roll`, `make_gaussian_quantiles` | Native synthetic generators with seeded legacy NumPy draws; scalar/joint regression, low-rank profiles, unequal blob/curve counts, per-cluster blob scales and center outputs; no bundled real-world datasets |
 
@@ -12789,3 +12789,55 @@ core types, 182 source modules, 262 native test programs, 276 app drivers,
 218 examples, 237 reference suites / 5,153,098 retained groups and 134 invalid
 registries / 6,681 cases. The two new result helpers do not increase estimator
 coverage. The broader translation remains unfinished.
+
+## Dummy columns and general covariance likelihood
+
+`add_dummy_feature` now prepends a finite constant to dense or CSR matrices
+through sklearn_stateless_preprocessing, sklearn_preprocessing and sklearn.
+CSR output sorts/coalesces duplicate columns, retains explicit zeros and owns
+its storage. An original index introsort matches the pinned SciPy/libstdc++
+tied-column order; sorting is skipped only when all input rows are ordered,
+as in source conversion. This global condition and accumulation order are
+observable with cancellation and overflow. No sparse input is densified.
+
+`log_likelihood` is exported through sklearn_covariance and sklearn. It uses
+a signed pivoted-LU log determinant and NumPy-style product reduction without
+adding symmetry/positive-definiteness restrictions. Negative/singular
+determinants, empty square matrices and NaN/Inf arithmetic retain the source
+outcomes. Both APIs preserve caller IEEE flags and halting modes. Equal-square
+likelihood shapes, native CSR capacity and supported storage classes are
+explicit typed limits in API.md.
+
+The strict reference suite passed 10,464 direct result groups across 3,444
+configurations in both final profiles, with maximum scaled error
+1.2665840258322487e-15. No numerical certificates or tolerance changes were
+introduced. The grid covers dense and raw CSR data, signed zero, empty stored
+rows, duplicate cancellation/overflow, row-sort boundaries through 513 entries,
+ordered/reversed/organ-pipe indices, nonsymmetric/SPD/indefinite/singular
+precisions, scales 1e-160/1e160, empty square matrices and nonfinite likelihood
+arithmetic. CSR shape/pointers/indices and zero signs are exact. Provenance is
+sklearn 1.6.1, NumPy 2.2.6 and SciPy 1.15.3, including hashes of both Python
+source files and the compiled sparse backend. Each final run reused all 3,444
+captured source configurations and retained 1,164 source warnings.
+
+Full checked and optimized builds including tests passed with checksum-verified
+private fpm 0.14.0 and GNU Fortran 17.0.0 20260510. Flags were
+`-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow` and
+`-O3 -funroll-loops -fcoarray=single`. Each profile also passed 20 new isolated
+guards, five selected native programs, the example, 192 core comparisons,
+35,148 prior covariance-function groups, 19,386 stateless-preprocessing groups /
+1,801 fixtures / 29 rejections, and 5,328 composition groups / 864 fixtures.
+Other historical suites were not rerun in this increment.
+
+The audit verified 198 dependency-aware compiled-unit fingerprints per profile
+(186 library units and 12 programs), identical source/validator/attribution
+manifests and inputs, and distinct executables. Every existing procedure body
+in the four touched modules remains unchanged from 08de698. All other library
+files, dependency declarations and license files remain unchanged. Logs,
+caches and manifests are ignored under validation/results/dummy_likelihood_*.
+
+The package remains MIT with retained sklearn, SciPy and NumPy notices. No
+runtime dependency, extension, module or estimator type was added. Inventory:
+222 public core types, 182 source modules, 263 native test programs, 278 app
+drivers, 219 examples, 238 reference suites / 5,163,562 retained groups and
+135 invalid registries / 6,701 cases. The broader translation remains unfinished.
