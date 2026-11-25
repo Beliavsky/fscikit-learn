@@ -77,7 +77,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Two hundred and thirty-four reference suites additionally check 5,093,208
+All types have native tests. Two hundred and thirty-six reference suites additionally check 5,135,538
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and explicitly recorded numerical certificates.
 
@@ -130,7 +130,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | validation | `cross_validate`, general `cross_val_score`, `cross_val_predict`, typed `cross_val_predict_class` adapter; `learning_curve`, `validation_curve`, `permutation_test_score` | Dense vector targets, multiple/scalar scorers, fit weights, returned fold models/indices, no-target transformer callbacks, partitioned out-of-fold responses, class encoding and missing-class columns |
 | search | `grid_search_cv`, `randomized_search_cv`; typed parameter grids and samplers | Serial dense candidate/fold evaluation, default or explicit folds, single/multiple scorers, callbacks, weighted fits, ranking and refitting; native scalar parameter adapters and nested Pipeline paths |
 | model_selection | `kfold`, `stratified_kfold`, `time_series_split`, `group_kfold`, `leave_one_out`, `leave_one_group_out`, `predefined_split`, `shuffle_split`, `stratified_shuffle_split`, `group_shuffle_split`, `repeated_kfold`, `repeated_stratified_kfold`, `leave_p_out`, `leave_p_groups_out`, `ridge_cv`; `train_test_split`, `shuffle_indices`, `cross_val_score` | Index-based splits; seeded random/group/stratified holdouts; repeated shuffled folds; exhaustive sample/group combinations; fraction/count size controls; optional stratification; time gap/window; CV for linear-regression family and logistic regression; ridge CV selects negative mean squared error |
-| feature_selection | `select_from_model`, `variance_threshold`, `select_k_best`, `select_percentile`, `select_fpr`, `select_fdr`, `select_fwe`, `generic_univariate_select`, `sequential_feature_selector`, `rfe`, `rfecv`; `f_classif`, `f_regression`, `chi2`, `r_regression`, `mutual_info_classif`, `mutual_info_regression` | Model coefficient/tree-importance thresholds and stable caps; dense scores and masks; greedy forward/backward CV regression selection; coefficient-based recursive elimination and CV for regression/logistic classification; inverse transform fills dropped columns with zero; new statistical selectors include p-values and multiplicity control |
+| feature_selection | `select_from_model`, `variance_threshold`, `select_k_best`, `select_percentile`, `select_fpr`, `select_fdr`, `select_fwe`, `generic_univariate_select`, `sequential_feature_selector`, `rfe`, `rfecv`; `f_oneway`, `f_classif`, `f_regression`, `chi2`, `r_regression`, `mutual_info_classif`, `mutual_info_regression` | Ragged dense/CSR one-way ANOVA with F statistics and p-values; model coefficient/tree-importance thresholds and stable caps; dense scores and masks; greedy forward/backward CV regression selection; coefficient-based recursive elimination and CV for regression/logistic classification; inverse transform fills dropped columns with zero; new statistical selectors include p-values and multiplicity control |
 | image / image_graph | `patch_extractor`; `extract_patches_2d`, `reconstruct_from_patches_2d`, `grid_to_graph`, `img_to_graph` | Exhaustive or seeded with-replacement image patches; grayscale and multichannel batches; source overlap averaging; masked real64 CSR grid connectivity and pixel/voxel gradients |
 | feature_extraction | `dict_vectorizer`, `feature_hasher` | Named numeric/categorical mappings; string lists; learned or hashed columns; real64 CSR and dense outputs |
 | feature_extraction_text | `count_vectorizer`, `tfidf_transformer`, `tfidf_vectorizer`, `hashing_vectorizer` | Dense vocabulary/TF-IDF unigram counts with ASCII tokens of length 2-128; stateless CSR signed/binary hashed word, character and within-word character n-grams with dynamic token storage, ASCII analysis and English/custom stop words; l1/l2/no normalization |
@@ -141,7 +141,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | mixture | `gaussian_mixture`, `bayesian_gaussian_mixture` | EM Gaussian mixtures and variational Bayesian mixtures with finite Dirichlet or truncated stick-breaking weights; full/tied/diag/spherical covariances; responsibilities and likelihood scores; GaussianMixture BIC/AIC |
 | neural_network | `mlp_classifier`, `mlp_regressor`, `bernoulli_rbm` | Arbitrary dense hidden layers, relu/tanh/logistic/identity, seeded minibatch Adam/SGD or full-data L-BFGS, momentum/Nesterov and SGD schedules, binary/multilabel logistic or multiclass softmax classification, scalar/joint squared-error regression, L2 regularization |
 | gaussian_process | `gaussian_process_regressor`, `gaussian_process_classifier` | Configurable covariance expressions or legacy RBF controls; anisotropy, Matern/RQ/periodic/dot/constant/white kernels and sums/products/powers; scalar/vector-alpha Cholesky regression, independent multiple targets, likelihood gradients and opt-in bounded kernel fitting; Laplace binary/OVR classification with optional independent kernel fitting, binary likelihood gradients and warm starts |
-| covariance | `empirical_covariance`, `shrunk_covariance`, `ledoit_wolf`, `oas`, `graphical_lasso`, `graphical_lasso_cv`, `min_cov_det`, `elliptic_envelope`; `fast_mcd`, `ledoit_wolf_shrinkage` | Blocked Ledoit-Wolf moments; population covariance, pseudoinverse precision, squared Mahalanobis distance, likelihood, Frobenius/spectral covariance error; L1-penalized sparse precision via CD or LARS block solves and refined cross-validation; FastMCD robust covariance and elliptic outlier detection |
+| covariance | `empirical_covariance`, `shrunk_covariance`, `ledoit_wolf`, `oas`, `graphical_lasso`, `graphical_lasso_cv`, `min_cov_det`, `elliptic_envelope`; `fast_mcd`, `ledoit_wolf_shrinkage` | Array covariance functions and square-matrix batches through rank 15; blocked Ledoit-Wolf moments; population covariance, pseudoinverse precision, squared Mahalanobis distance, likelihood, Frobenius/spectral covariance error; L1-penalized sparse precision via CD or LARS block solves and refined cross-validation; FastMCD robust covariance and elliptic outlier detection |
 | calibration | `calibrated_classifier_cv`; `calibration_curve` | Sigmoid/isotonic CV ensembles, out-of-fold calibration and prefit calibration with logistic, Gaussian NB or KNN bases; uniform/quantile reliability bins |
 | datasets | `make_classification`, `make_multilabel_classification`, `make_sparse_coded_signal`, `make_sparse_spd_matrix`, `make_biclusters`, `make_checkerboard`, `make_hastie_10_2`, `make_blobs`, `make_regression`, `make_low_rank_matrix`, `make_moons`, `make_circles`, `make_friedman1/2/3`, `make_sparse_uncorrelated`, `make_s_curve`, `make_swiss_roll`, `make_gaussian_quantiles` | Native synthetic generators with seeded legacy NumPy draws; scalar/joint regression, low-rank profiles, unequal blob/curve counts, per-cluster blob scales and center outputs; no bundled real-world datasets |
 
@@ -12664,3 +12664,56 @@ core types plus the new storage helper, 182 source modules, 260 native test
 programs, 272 app drivers, 216 examples, 235 reference suites / 5,128,356
 retained groups and 132 invalid registries / 6,644 cases. The broader
 translation remains unfinished.
+
+## Public one-way ANOVA
+
+`f_oneway` now exposes sklearn's one-way ANOVA for unequal-sized groups through
+sklearn_univariate_selection, sklearn_feature_selection and sklearn. Owned
+`anova_sample` values replace variadic Python arguments, accepting dense or CSR
+matrices without densifying sparse samples. `anova_result` owns the per-feature
+statistics and p-values. Two-group dense and CSR convenience overloads are
+available. The algorithm retains source sums-of-squares arithmetic, including
+raw CSR duplicate squaring, degenerate NaN/Inf results and finite-input overflow.
+Caller IEEE flags and halting modes are preserved on successful return.
+
+The pinned source rejects dense-first mixed dense/CSR groups because its
+in-place intermediate cannot broadcast; CSR-first mixtures work. This source
+rejection is preserved. Native input matrices must have matching feature counts.
+The pinned sklearn/NumPy combination also raises for vector groups because of
+its scalar nonzero intermediate; the native API explicitly uses matrices.
+These contracts are documented in API.md.
+
+The new reference grid covers 4,158 configurations: 3,591 successful cases /
+7,182 direct result groups and 567 independently checked source rejections.
+It spans three seeds, one/two/three/five groups, unequal sizes through 133 rows,
+one/three/nine features, normal/zero/common-constant/separate-constant/sparse/
+subnormal-scale/overflow data, dense/CSR/mixed storage and raw duplicate entries.
+Statistics use the unchanged 3e-8 comparison bound; p-values additionally pass
+3e-10 relative tail checks with 1e-300 absolute tolerance. No numerical
+certificate or native-derived expectation was added. Maximum scaled error was
+3.526576412231288e-13 in both profiles. Source provenance is sklearn 1.6.1,
+NumPy 2.2.6 and SciPy 1.15.3; both final runs verified provenance and reused all
+4,158 captured configurations, retaining 7,888 source warnings per replay.
+
+Full builds including tests passed with private fpm 0.14.0 and GNU Fortran
+17.0.0 20260510. Checked flags were `-fcheck=all -fbacktrace
+-ffpe-trap=invalid,zero,overflow`; optimized flags were
+`-O3 -funroll-loops -fcoarray=single`. Each final profile passed the new suite,
+12 explicit isolated input guards, three selected native programs, the example,
+192 core reference comparisons and 12,964 prior univariate-selection groups.
+The earlier suite retained its 20 established numerical-difference checks;
+other historical suites were not rerun in this increment.
+
+The audit verified 194 dependency-aware compiled-unit fingerprints per profile
+(186 library units and eight programs), identical source/validator/attribution
+manifests and reference inputs, and distinct executables. All existing procedure
+bodies in both touched modules are unchanged from 89517dc, as are all other
+library files, license files and dependency declarations. Logs, source caches
+and manifests remain ignored under validation/results/anova_*.
+
+The package remains MIT with retained sklearn/NumPy attribution and no new
+runtime dependency or algorithm extension. Inventory: 222 public core types,
+182 source modules, 261 native test programs, 274 app drivers, 217 examples,
+236 reference suites / 5,135,538 retained groups and 133 invalid registries /
+6,656 cases. Two new owned storage helpers do not increase estimator coverage.
+The broader translation remains unfinished.

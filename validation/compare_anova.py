@@ -1,6 +1,7 @@
 """Public sklearn f_oneway: ragged dense, CSR and mixed groups."""
 from pathlib import Path
 import argparse,hashlib,json,subprocess,warnings,sys
+from concurrent.futures import ThreadPoolExecutor
 import numpy as np,scipy,sklearn
 from scipy.sparse import csr_matrix
 from sklearn.feature_selection import f_oneway
@@ -80,10 +81,12 @@ def main():
    finite=np.isfinite(actual)&np.isfinite(want)
    if finite.any():worst=max(worst,float(np.max(abs(actual[finite]-want[finite])/(1+abs(want[finite])))))
  assert next(rows,None)is None
- for label,request,expected in rejected:
+ def check_rejection(case):
+  label,request,expected=case
   run=subprocess.run([args.executable],input=request,text=True,capture_output=True)
   assert 'non-broadcastable output operand'in expected['error'] and label['storage']=='mixed'
   assert run.returncode and 'ANOVA dense-first mixed sparse samples cannot broadcast'in(run.stdout+run.stderr) and 'SIGFPE'not in run.stderr,(label,expected,run.stdout,run.stderr)
+ with ThreadPoolExecutor(max_workers=8)as pool:list(pool.map(check_rejection,rejected))
  root=Path(__file__).resolve().parents[1]
  report=dict(configurations=len(cases),successful_configurations=len(valid),source_rejections=len(rejected),groups=groups,max_scaled_error=worst,source_warnings=warns,source_calls=calls,reference_cache_hits=hits,
   reference_provenance=provenance,reference_cache_sha256=sha(args.reference_cache)if args.reference_cache else None,
