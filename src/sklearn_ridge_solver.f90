@@ -5,12 +5,17 @@ module sklearn_ridge_solver
   use sklearn_common,only:dp,require,check_x,check_xy,dense_svd,solve_lower,solve_upper
   use sklearn_sparse,only:csr_matrix
   use sklearn_legacy_rng,only:legacy_random_state
+  use sklearn_kernel_dispatch,only:kernel_blas_inner_product,kernel_blas_dot
   use,intrinsic::iso_fortran_env,only:int64
+  use,intrinsic::iso_c_binding,only:c_double
   use lbfgsb_module,only:setulb
   use,intrinsic::ieee_arithmetic,only:ieee_is_finite
+  use,intrinsic::ieee_exceptions
   implicit none
   private
   public::ridge_regression,ridge_solver_options,ridge_solution
+  ! Internal matrix-free centered CSR entry point for the Ridge estimator.
+  public::ridge_centered_sparse
   type::ridge_solver_options
     character(16)::solver='auto'
     real(dp)::tol=1.e-4_dp
@@ -24,7 +29,7 @@ module sklearn_ridge_solver
     character(16)::solver=''
   end type
   type,private::ridge_operator
-    real(dp),allocatable::dense(:,:)
+    real(dp),allocatable::dense(:,:),offset(:),root_weight(:)
     type(csr_matrix)::sparse
     integer::n=0,p=0
     logical::is_sparse=.false.
@@ -32,7 +37,28 @@ module sklearn_ridge_solver
   interface ridge_regression
     module procedure dense_vs,dense_vv,dense_ms,dense_mv,sparse_vs,sparse_vv,sparse_ms,sparse_mv
   end interface
+  interface
+    function ridge_fma(a,b,c)bind(C,name='fma')result(v)
+      import c_double
+      real(c_double),value::a,b,c
+      real(c_double)::v
+    end function
+  end interface
 contains
+  function ridge_centered_sparse(x,y,alpha,offset,options,sample_weight)result(fit)
+    type(csr_matrix),intent(in)::x
+    real(dp),intent(in)::y(:,:),alpha(:),offset(:)
+    type(ridge_solver_options),intent(in)::options
+    real(dp),optional,intent(in)::sample_weight(:)
+    type(ridge_solution)::fit
+    type(ridge_operator)::op
+    call require(.not.stochastic_options(options),'centered CSR operator requires a deterministic ridge solver')
+    op=prepare_sparse(x,sample_weight,options)
+    call require(size(offset)==op%p,'ridge centering offset feature count differs')
+    op%offset=offset;allocate(op%root_weight(op%n));op%root_weight=1
+    if(present(sample_weight))op%root_weight=sqrt(sample_weight)
+    fit=solve_all(op,y,alpha,options,sample_weight)
+  end function
   function dense_vs(x,y,alpha,options,sample_weight)result(fit)
     real(dp),intent(in)::x(:,:)
     real(dp),intent(in)::y(:),alpha
@@ -144,11 +170,39 @@ contains
     if(present(weights))then
       call weight_check(weights,op%n,stochastic_options(options))
       if(stochastic_options(options))return
-      do i=1,op%n
-        op%sparse%data(x%indptr(i):x%indptr(i+1)-1)= &
-          op%sparse%data(x%indptr(i):x%indptr(i+1)-1)*sqrt(weights(i))
-      end do
+      op%sparse=rescale_csr(x,weights)
     end if
+  end function
+  function rescale_csr(x,weights)result(y)
+    ! SciPy 1.15.3 dia(sqrt(weights)) @ CSR: reverse first-visited columns,
+    ! merge duplicate products in traversal order, and omit exact zeros.
+    type(csr_matrix),intent(in)::x
+    real(dp),intent(in)::weights(:)
+    type(csr_matrix)::y
+    real(dp)::sums(x%n_cols),scale
+    real(dp),allocatable::values(:)
+    integer::seen(x%n_cols),columns(x%n_cols),i,j,k,used,nnz
+    integer,allocatable::indices(:)
+    y%n_rows=x%n_rows;y%n_cols=x%n_cols;allocate(y%indptr(x%n_rows+1))
+    allocate(values(size(x%data)),indices(size(x%data)));seen=0;nnz=0;y%indptr(1)=1
+    do i=1,x%n_rows
+      used=0;scale=sqrt(weights(i))
+      do k=x%indptr(i),x%indptr(i+1)-1
+        j=x%indices(k)
+        if(seen(j)/=i)then
+          seen(j)=i;used=used+1;columns(used)=j;sums(j)=0
+        end if
+        sums(j)=sums(j)+scale*x%data(k)
+      end do
+      do k=used,1,-1
+        j=columns(k)
+        if(sums(j)/=0)then
+          nnz=nnz+1;indices(nnz)=j;values(nnz)=sums(j)
+        end if
+      end do
+      y%indptr(i+1)=nnz+1
+    end do
+    y%indices=indices(:nnz);y%data=values(:nnz)
   end function
   subroutine weight_check(weights,n,signed)
     real(dp),intent(in)::weights(:)
@@ -166,9 +220,15 @@ contains
     integer::i,k,j
     if(.not.op%is_sparse)then
       if(transpose)then
-        out=matmul(transpose_matrix(op%dense),v)
+        allocate(out(op%p))
+        do j=1,op%p
+          out(j)=gemv_n_column(op%dense(:,j),v,j,op%p)
+        end do
       else
-        out=matmul(op%dense,v)
+        allocate(out(op%n))
+        do i=1,op%n
+          out(i)=kernel_blas_dot(op%dense(i,:),v,op%n,1,i,1)
+        end do
       end if
     else
       if(transpose)then
@@ -186,6 +246,47 @@ contains
             out(i)=out(i)+op%sparse%data(k)*v(j)
           end if
         end do
+      end do
+    end if
+    if(allocated(op%offset))then
+      if(transpose)then
+        out=out-op%offset*kernel_blas_inner_product(op%root_weight,v)
+      else
+        out=out-op%root_weight*kernel_blas_inner_product(op%offset,v)
+      end if
+    end if
+  end function
+  real(dp)function gemv_n_column(a,x,index,outputs)result(total)
+    ! OpenBLAS 0.3.29 dgemv_n_4 / SkylakeX microkernel, 2014 OpenBLAS Project (BSD).
+    ! X.T is Fortran-contiguous in NumPy, unlike the forward C-contiguous route.
+    real(dp),intent(in)::a(:),x(:)
+    integer,intent(in)::index,outputs
+    real(dp)::part
+    integer::i,n,whole
+    n=size(a);whole=n-mod(n,4);total=0
+    if(outputs==1)then
+      total=kernel_blas_inner_product(a,x)
+    else if(outputs<=3)then
+      do i=1,whole,2
+        part=ridge_fma(a(i),x(i),a(i+1)*x(i+1));total=total+part
+      end do
+      do i=whole+1,n
+        total=ridge_fma(a(i),x(i),total)
+      end do
+    else if(index<=outputs-mod(outputs,4))then
+      do i=1,whole,4
+        part=ridge_fma(a(i),x(i),a(i+1)*x(i+1))
+        part=ridge_fma(a(i+2),x(i+2),part);part=ridge_fma(a(i+3),x(i+3),part)
+        total=total+part
+      end do
+      i=whole+1
+      if(n-whole>=2)then
+        total=total+ridge_fma(a(i),x(i),a(i+1)*x(i+1));i=i+2
+      end if
+      if(i<=n)total=total+a(i)*x(i)
+    else
+      do i=1,n
+        total=ridge_fma(a(i),x(i),total)
       end do
     end if
   end function
@@ -480,30 +581,34 @@ contains
     real(dp),allocatable::r(:),p(:),ap(:),tmp(:)
     real(dp)::rho,oldrho,step,denominator,threshold
     integer::it
-    allocate(x(size(b)));x=0;r=b;threshold=tol*sqrt(dot_product(b,b));oldrho=0;iterations=0;converged=.false.
-    if(all(b==0))then
-      converged=.true.;return
+    logical::modes(size(ieee_all)),flags(size(ieee_all))
+    call ieee_get_halting_mode(ieee_all,modes);call ieee_get_flag(ieee_all,flags)
+    call ieee_set_halting_mode(ieee_all,.false.)
+    allocate(x(size(b)));x=0;r=b;rho=kernel_blas_inner_product(b,b)
+    threshold=tol*sqrt(rho);oldrho=0;iterations=0;converged=.false.
+    if(sqrt(rho)==0)then
+      x=b;converged=.true.
+    else
+      do it=1,limit
+        rho=kernel_blas_inner_product(r,r)
+        if(sqrt(rho)<threshold)then
+          converged=.true.;exit
+        end if
+        if(it==1)then
+          p=r
+        else
+          p=p*(rho/oldrho);p=p+r
+        end if
+        if(dual)then
+          tmp=multiply(op,p,.true.);ap=multiply(op,tmp,.false.)+alpha*p
+        else
+          tmp=multiply(op,p,.false.);ap=multiply(op,tmp,.true.)+alpha*p
+        end if
+        denominator=kernel_blas_inner_product(p,ap)
+        step=rho/denominator;x=x+step*p;r=r-step*ap;oldrho=rho;iterations=it
+      end do
     end if
-    do it=1,limit
-      rho=dot_product(r,r)
-      if(sqrt(rho)<threshold.or.rho==0)then
-        converged=.true.;return
-      end if
-      if(it==1)then
-        p=r
-      else
-        p=r+(rho/oldrho)*p
-      end if
-      if(dual)then
-        tmp=multiply(op,p,.true.);ap=multiply(op,tmp,.false.)+alpha*p
-      else
-        tmp=multiply(op,p,.false.);ap=multiply(op,tmp,.true.)+alpha*p
-      end if
-      denominator=dot_product(p,ap)
-      call require(denominator/=0,'ridge conjugate-gradient breakdown')
-      step=rho/denominator;x=x+step*p;r=r-step*ap;oldrho=rho;iterations=it
-    end do
-    converged=sqrt(dot_product(r,r))<threshold.or.all(r==0)
+    call ieee_set_flag(ieee_all,flags);call ieee_set_halting_mode(ieee_all,modes)
   end subroutine
   subroutine rotation(a,b,c,s,r)
     real(dp),intent(in)::a,b
@@ -530,20 +635,20 @@ contains
     real(dp)::bnorm,beta,alfa,anorm,ddnorm,res2,xxnorm,z,cs2,sn2,rhobar,phibar,arnorm
     real(dp)::rhobar1,cs1,sn1,psi,cs,sn,rho,theta,phi,tau,t1,t2,delta,gambar,rhs,zbar,xnorm,gamma
     real(dp)::acond,rnorm,test1,test2,test3,rtol
-    allocate(x(op%p));x=0;u=b;bnorm=sqrt(sum(b*b));beta=bnorm;alfa=0
+    allocate(x(op%p));x=0;u=b;bnorm=sqrt(kernel_blas_inner_product(b,b));beta=bnorm;alfa=0
     allocate(v(op%p));v=0;iterations=0;stop=0
     if(beta>0)then
-      u=(1._dp/beta)*u;v=multiply(op,u,.true.);alfa=sqrt(sum(v*v))
+      u=(1._dp/beta)*u;v=multiply(op,u,.true.);alfa=sqrt(kernel_blas_inner_product(v,v))
     end if
     if(alfa>0)v=(1._dp/alfa)*v
     w=v;rhobar=alfa;phibar=beta;arnorm=alfa*beta
     if(arnorm==0)return
     anorm=0;ddnorm=0;res2=0;xxnorm=0;z=0;cs2=-1;sn2=0
     do while(iterations<limit)
-      iterations=iterations+1;u=multiply(op,v,.false.)-alfa*u;beta=sqrt(sum(u*u))
+      iterations=iterations+1;u=multiply(op,v,.false.)-alfa*u;beta=sqrt(kernel_blas_inner_product(u,u))
       if(beta>0)then
         u=(1._dp/beta)*u;anorm=sqrt(anorm**2+alfa**2+beta**2+damp**2)
-        v=multiply(op,u,.true.)-beta*v;alfa=sqrt(sum(v*v));if(alfa>0)v=(1._dp/alfa)*v
+        v=multiply(op,u,.true.)-beta*v;alfa=sqrt(kernel_blas_inner_product(v,v));if(alfa>0)v=(1._dp/alfa)*v
       end if
       psi=0;rhobar1=rhobar
       if(damp>0)then
@@ -553,7 +658,7 @@ contains
       call rotation(rhobar1,beta,cs,sn,rho)
       call require(rho/=0,'ridge LSQR rotation breakdown')
       theta=sn*alfa;rhobar=-cs*alfa;phi=cs*phibar;phibar=sn*phibar;tau=sn*phi
-      t1=phi/rho;t2=-theta/rho;dk=(1._dp/rho)*w;x=x+t1*w;w=v+t2*w;ddnorm=ddnorm+sum(dk*dk)
+      t1=phi/rho;t2=-theta/rho;dk=(1._dp/rho)*w;x=x+t1*w;w=v+t2*w;ddnorm=ddnorm+kernel_blas_inner_product(dk,dk)
       delta=sn2*rho;gambar=-cs2*rho;rhs=phi-delta*z
       call require(gambar/=0,'ridge LSQR norm estimate breakdown')
       zbar=rhs/gambar;xnorm=sqrt(xxnorm+zbar**2);gamma=sqrt(gambar**2+theta**2)
@@ -578,6 +683,7 @@ contains
     real(dp),allocatable,intent(out)::x(:)
     integer,intent(out)::iterations
     logical,intent(out)::converged
+    type(ridge_operator)::raw
     integer,parameter::memory=10
     real(dp),allocatable::g(:),lower(:),upper(:),wa(:),residual(:)
     integer,allocatable::nbd(:),iwa(:)
@@ -589,13 +695,19 @@ contains
     call require(p<=(huge(p)-11*memory*memory-8*memory)/(2*memory+5),'ridge optimizer dimension exceeds capacity')
     allocate(x(p),g(p),lower(p),upper(p),nbd(p),iwa(3*p),wa((2*memory+5)*p+11*memory*memory+8*memory))
     x=0;g=0;f=0;lower=0;upper=0;nbd=1;iwa=0;wa=0;isave=0;dsave=0;lsave=.false.
+    raw=op
+    if(allocated(raw%offset))deallocate(raw%offset,raw%root_weight)
     task='START';csave='';iterations=0;evaluations=0
     do
       call setulb(p,memory,x,lower,upper,nbd,f,g,tol/epsilon(1._dp),tol, &
         wa,iwa,task,-1,csave,lsave,isave,dsave)
       if(task(:2)=='FG')then
-        residual=multiply(op,x,.false.)-y;f=.5_dp*sum(residual**2)+.5_dp*alpha*sum(x*x)
-        g=multiply(op,residual,.true.)+alpha*x;evaluations=evaluations+1
+        residual=multiply(raw,x,.false.)-y
+        if(allocated(op%offset))residual=residual-op%root_weight*kernel_blas_inner_product(x,op%offset)
+        f=.5_dp*kernel_blas_inner_product(residual,residual)+.5_dp*alpha*kernel_blas_inner_product(x,x)
+        g=multiply(raw,residual,.true.)+alpha*x
+        if(allocated(op%offset))g=g-op%offset*kernel_blas_inner_product(residual,op%root_weight)
+        evaluations=evaluations+1
       else if(task(:5)=='NEW_X')then
         iterations=iterations+1
         if(iterations>=limit)then

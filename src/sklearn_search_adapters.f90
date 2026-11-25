@@ -103,17 +103,29 @@ contains
       case('fit_intercept');model%fit_intercept=value%as_logical()
       case('alpha')
         select type(model)
-        type is(ridge);model%alpha=value%as_real()
+        type is(ridge)
+          model%alpha=value%as_real()
+          if(allocated(model%alpha_per_target))deallocate(model%alpha_per_target)
         class is(elastic_net);model%alpha=value%as_real()
         class default;done=.false.
         end select
-      case('l1_ratio','tol','max_iter')
+      case('l1_ratio','tol','max_iter','solver','random_state','positive')
         select type(model)
+        type is(ridge)
+          select case(name)
+          case('tol');model%tol=value%as_real()
+          case('max_iter');model%max_iter=value%as_integer()
+          case('solver');model%solver=value%as_text()
+          case('random_state');model%random_state=value%as_integer()
+          case('positive');model%positive=value%as_logical()
+          case default;done=.false.
+          end select
         class is(elastic_net)
           select case(name)
           case('l1_ratio');model%l1_ratio=value%as_real()
           case('tol');model%tol=value%as_real()
           case('max_iter');model%max_iter=value%as_integer()
+          case default;done=.false.
           end select
         class default;done=.false.
         end select

@@ -16,8 +16,26 @@ contains
     real(dp) :: xc(size(x,1),size(x,2)),yc(size(y)),xm(size(x,2)),ym
     real(dp), allocatable :: u(:,:),s(:),v(:,:)
     real(dp) :: projection(size(x,2))
-    real(dp) :: mass,scale,cutoff,limit
+    real(dp) :: mass,scale,cutoff,limit,saved_alpha
+    real(dp),allocatable::saved_penalties(:)
     integer :: i,j
+    select type(model)
+    type is(ridge)
+      call require(ieee_is_finite(alpha),'bagging ridge alpha must be finite')
+      call require(alpha>=0,'bagging ridge alpha must be nonnegative')
+      if(ieee_is_finite(model%alpha))then
+        if(alpha==model%alpha)then
+          call model%fit(x,y,sample_weight=w);return
+        end if
+      end if
+      saved_alpha=model%alpha
+      if(allocated(model%alpha_per_target))then
+        saved_penalties=model%alpha_per_target;deallocate(model%alpha_per_target)
+      end if
+      model%alpha=alpha;call model%fit(x,y,sample_weight=w);model%alpha=saved_alpha
+      if(allocated(saved_penalties))model%alpha_per_target=saved_penalties
+      return
+    end select
     call check_xy(x,size(y));call check_x(reshape(y,[size(y),1]))
     call require(size(w)==size(y),'bagging linear weight length mismatch')
     call require(all(ieee_is_finite(w)),'bagging linear weights must be finite')

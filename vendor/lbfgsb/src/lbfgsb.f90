@@ -720,7 +720,7 @@
 
             call lnsrlb(n,l,u,Nbd,x,f,fold,gd,gdold,g,d,r,t,z,stp,dnorm,dtd, &
                         xstep,stpmx,iter,ifun,iback,nfgv,info,Task,boxed,    &
-                        cnstnd,Csave,Isave(22),Dsave(17))
+                        cnstnd,Csave,Isave(22),Dsave(17),Iprint)
             if ( info/=0 .or. iback>=20 ) then
                ! restore the previous iterate.
                call dcopy(n,t,1,x,1)
@@ -2157,7 +2157,7 @@
 
       subroutine lnsrlb(n,l,u,Nbd,x,f,Fold,Gd,Gdold,g,d,r,t,z,Stp,Dnorm,&
                         Dtd,Xstep,Stpmx,Iter,Ifun,Iback,Nfgv,Info,Task, &
-                        Boxed,Cnstnd,Csave,Isave,Dsave)
+                        Boxed,Cnstnd,Csave,Isave,Dsave,Iprint)
       implicit none
 
       character(len=60) :: Task , Csave
@@ -2167,6 +2167,7 @@
                   Xstep , Stpmx , x(n) , l(n) , u(n) , g(n) , &
                   d(n) , r(n) , t(n) , z(n) , Dsave(13)
 
+      integer,intent(in) :: Iprint
       integer :: i
       real(wp) :: a1 , a2
 
@@ -2231,7 +2232,7 @@
          if ( Gd>=zero ) then
             ! the directional derivative >=0.
             ! Line search is impossible.
-            write (6,*) ' ascent direction in projection gd = ' , Gd
+            if (Iprint>=0) write (6,*) ' ascent direction in projection gd = ' , Gd
             Info = -4
             return
          endif

@@ -76,7 +76,9 @@ def main():
     args=ap.parse_args()
     exe=args.executable.resolve() if args.executable else resolve(args.profile)
     vendor=json.loads((ROOT/'vendor/lbfgsb/PROVENANCE.json').read_text())
-    for file,digest in vendor['normalized_sha256'].items():
+    expected_hashes=dict(vendor['normalized_sha256'])
+    expected_hashes.update({patch['file']:patch['normalized_sha256']for patch in vendor.get('local_patches',[])})
+    for file,digest in expected_hashes.items():
         data=(ROOT/'vendor/lbfgsb'/file).read_bytes().replace(b'\r\n',b'\n')
         assert hashlib.sha256(data).hexdigest()==digest,file
     checks=[];count=0;errors={};iterations=[];fit_comparisons=[];certificates=[]

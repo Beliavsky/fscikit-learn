@@ -9,5 +9,17 @@
     "src/lbfgsb_blas_module.F90": "54cf9e902e9b1be10fb4c78ff552229922bf1c0c2b74684de877013322ef8371",
     "src/lbfgsb_kinds_module.F90": "518418b9947c4e99e99491d6e8e480d58555a6fdf25182f316bdfbd439aa638b",
     "src/lbfgsb_linpack_module.f90": "97e1e3b1becd293f9d11cdc40b121b589f0afb6efffecc1b0c559799ebfd651f"
-  }
+  },
+  "local_patches": [
+    {
+      "file": "src/lbfgsb.f90",
+      "description": "Propagate Iprint into lnsrlb and suppress the ascent-direction diagnostic when Iprint<0; no numerical changes.",
+      "normalized_sha256": "42513daf9d348be86aa4821e70eb6459124681f687de472e863e6dea3cc0fd94"
+    },
+    {
+      "file": "src/lbfgsb_blas_module.F90",
+      "description": "Real64 contiguous DDOT and DAXPY use attributed scalar OpenBLAS SkylakeX accumulation/FMA, improving SciPy finite-iteration trajectory fidelity.",
+      "normalized_sha256": "ea000630e55ed004198b3509c9bd35de75e9dff7a87e9e04da07ff0abb2ad77e"
+    }
+  ]
 }

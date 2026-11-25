@@ -51,7 +51,7 @@ module sklearn_model_selection
     integer :: cv=5
     real(dp) :: alpha_=0,best_score_=0
   contains
-    procedure :: fit=>ridge_cv_fit
+    procedure :: fit_dense=>ridge_cv_fit
   end type
   interface cross_val_score
     module procedure cross_val_regression,cross_val_logistic

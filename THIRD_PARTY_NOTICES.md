@@ -708,7 +708,7 @@ SVD scaling in `discriminant_analysis.py`; PCA uses the existing native Jacobi
 SVD. Copyright The scikit-learn developers, BSD-3-Clause; terms are retained
 in `LICENSES/scikit-learn-COPYING`. Original Fortran adapters retain MIT.
 
-`vendor/lbfgsb` contains unmodified numerical source, License.txt and fpm.toml
+`vendor/lbfgsb` contains numerical source, License.txt and fpm.toml
 from Jacob Williams's lbfgsb 1.0.0, commit
 `bcb0ddc71ae1afdf5715ededaf9453aa704c2384`:
 https://github.com/jacobwilliams/lbfgsb/tree/1.0.0 . It is the modern Fortran
@@ -716,9 +716,13 @@ refactoring of L-BFGS-B 3.0 by J. Nocedal and J. L. Morales, originally Ciyou Zh
 R. H. Byrd, P. Lu-Chen and J. Nocedal. Upstream identifies copyright Regents of
 the University of California and licenses it under BSD-3-Clause. Its complete
 upstream License.txt, authorship headers and manifest are retained in place;
-PROVENANCE.json records normalized SHA256 hashes. All four source files and
-the license/manifest were compared against the upstream tag, differing only
-in Windows line endings. The files were sourced from SciFort's dependency
+PROVENANCE.json retains upstream normalized SHA256 hashes and records a local
+patch: lnsrlb receives Iprint so the ascent-direction diagnostic respects silent
+mode. A second patch reconstructs real64 DDOT/DAXPY accumulation from OpenBLAS
+SkylakeX, with existing OpenBLAS BSD notices retained; this changes rounding,
+while L-BFGS-B algorithm logic and termination tests remain unchanged. The source
+files and license/manifest were originally compared against the upstream tag,
+differing only in Windows line endings. The files were sourced from SciFort's dependency
 cache; no SciFort optimizer adapter is copied. The numerical kernel is an
 internal implementation dependency of a core sklearn algorithm, rather than
 an additional public ML extension. No Python, SciPy or external BLAS binary is linked.
@@ -2357,3 +2361,23 @@ NumPy BSD notice. Gram products reuse the existing attributed scalar OpenBLAS
 reconstruction. Owned iterators, typed reducer payloads, sparse row storage and
 integration are original MIT contributions. No runtime dependency was added;
 the package remains MIT.
+
+## Ridge estimator solver integration
+
+Dense/CSR weighted preprocessing, solver dispatch and intercept recovery adapt
+scikit-learn 1.6.1 `linear_model/_base.py` and `linear_model/_ridge.py` under
+the retained `LICENSES/scikit-learn-COPYING` BSD notice. CG/LSQR stopping and
+norm calculations follow SciPy 1.15.3 `sparse/linalg/_isolve/iterative.py` and
+`lsqr.py`; `LICENSES/scipy-COPYING` applies. Weighted CSR multiplication order
+follows SciPy's sparse multiplication, retaining the same SciPy notice.
+Pairwise sums reuse the attributed NumPy adaptation.
+
+Scalar matrix-vector arithmetic follows OpenBLAS 0.3.29
+`kernel/x86_64/dgemv_n_4.c`, `dgemv_t_4.c` and
+`dgemv_n_microk_skylakex-4.c` (copyright 2014 The OpenBLAS Project), under
+the existing OpenBLAS BSD notice. The local real64 BLAS updates in vendored
+L-BFGS-B reuse the attributed scalar OpenBLAS dot-product reconstruction and
+fused multiply-add operations. Vendor provenance records both these updates
+and a print-control patch; upstream license notices are retained. Typed fit,
+prediction, scoring and composition integration are original MIT contributions.
+The project remains MIT and adds no runtime dependency.

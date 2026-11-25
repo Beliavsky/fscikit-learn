@@ -10,6 +10,7 @@
 
     use lbfgsb_kinds_module, only: wp => lbfgsb_wp
 
+    use,intrinsic::iso_c_binding,only:c_double
     implicit none
 
     private
@@ -23,6 +24,13 @@
 
     public :: daxpy,dcopy,ddot,dscal
 
+    interface
+      function blas_c_fma(a,b,c)bind(C,name='fma')result(v)
+       import c_double
+       real(c_double),value::a,b,c
+       real(c_double)::v
+      end function
+    end interface
     contains
 !*******************************************************************************
 
@@ -57,16 +65,16 @@
          m = mod(n,4)
          if ( m/=0 ) then
             do i = 1 , m
-               dy(i) = dy(i) + da*dx(i)
+               dy(i) = blas_fma(da,dx(i),dy(i))
             end do
             if ( n<4 ) return
          end if
          mp1 = m + 1
          do i = mp1 , n , 4
-            dy(i) = dy(i) + da*dx(i)
-            dy(i+1) = dy(i+1) + da*dx(i+1)
-            dy(i+2) = dy(i+2) + da*dx(i+2)
-            dy(i+3) = dy(i+3) + da*dx(i+3)
+            dy(i) = blas_fma(da,dx(i),dy(i))
+            dy(i+1) = blas_fma(da,dx(i+1),dy(i+1))
+            dy(i+2) = blas_fma(da,dx(i+2),dy(i+2))
+            dy(i+3) = blas_fma(da,dx(i+3),dy(i+3))
          end do
 
       else
@@ -79,7 +87,7 @@
          if ( incx<0 ) ix = (-n+1)*incx + 1
          if ( incy<0 ) iy = (-n+1)*incy + 1
          do i = 1 , n
-            dy(iy) = dy(iy) + da*dx(ix)
+            dy(iy) = blas_fma(da,dx(ix),dy(iy))
             ix = ix + incx
             iy = iy + incy
          end do
@@ -180,6 +188,9 @@
       if ( n<=0 ) return
       if ( incx==1 .and. incy==1 ) then
 
+         if(wp==c_double)then
+           ddot=skx_dot(dx(1:n),dy(1:n));return
+         end if
          ! code for both increments equal to 1
 
          ! clean-up loop
@@ -280,5 +291,53 @@
 #endif
 
 !*******************************************************************************
+ real(wp)function blas_fma(a,b,c)result(value)
+  real(wp),intent(in)::a,b,c
+  if(wp==c_double)then
+   value=real(blas_c_fma(real(a,c_double),real(b,c_double),real(c,c_double)),wp)
+  else
+   value=a*b+c
+  end if
+ end function
+ ! Real64 DDOT accumulation follows OpenBLAS SkylakeX. Copyright (c) 2014,
+ ! The OpenBLAS Project; retained BSD notices in LICENSES/OpenBLAS-LICENSE.
+ real(wp) function skx_dot(x,y) result(value)
+  real(wp),intent(in)::x(:),y(:)
+  real(wp)::wide(8,4),narrow(4,4),v(4)
+  integer::n,n16,n32,i,j,k,index
+  n=size(x);value=0
+  if(n==1) then
+   value=x(1)*y(1);return
+  end if
+  n16=n-mod(n,16);n32=n16-mod(n16,32);wide=0;narrow=0
+  do i=1,n32,32
+   do j=1,4
+    do k=1,8
+     index=i+(j-1)*8+k-1;wide(k,j)=blas_fma(x(index),y(index),wide(k,j))
+    end do
+   end do
+  end do
+  do j=1,4
+   do k=1,4
+    narrow(k,j)=wide(k,j)+wide(k+4,j)
+   end do
+  end do
+  if(n16>n32) then
+   do j=1,4
+    do k=1,4
+     index=n32+(j-1)*4+k;narrow(k,j)=blas_fma(x(index),y(index),narrow(k,j))
+    end do
+   end do
+  end if
+  if(n16>0) then
+   do k=1,4
+    v(k)=((narrow(k,1)+narrow(k,2))+narrow(k,3))+narrow(k,4)
+   end do
+   value=(v(1)+v(3))+(v(2)+v(4))
+  end if
+  do i=n16+1,n
+   value=blas_fma(x(i),y(i),value)
+  end do
+ end function
     end module lbfgsb_blas_module
 !*******************************************************************************

@@ -10140,3 +10140,39 @@ Successful construction and iteration preserve caller IEEE flags and halting
 modes. Inputs and prior chunks are owned copies; Python aliasing and in-place
 mutation of caller arrays are outside this binding. See
 `example/pairwise_chunks.f90`.
+
+## Ridge estimator solvers and sparse inputs
+
+`ridge` exposes `solver` (`auto`, `svd`, `cholesky`, `sparse_cg`, `lsqr`,
+`sag`, `saga`, `lbfgs`), `tol`, `max_iter` (-1 means Source None),
+`random_state` and `positive`. The existing scalar `alpha` defaults to 1;
+an allocated `alpha_per_target` overrides it with one penalty per target.
+Fits accept dense or CSR features, vector or matrix targets and optional
+scalar or vector sample weights. Matrix targets are (samples, targets).
+CSR centering uses an implicit operator rather than a dense design matrix.
+
+For vector targets, use `predict` and the existing `coef_`/`intercept_`.
+For matrix targets, use `predict_matrix`; `coef_matrix_` has shape
+(targets, features), and `intercepts_` has one entry per target. Both target
+ranks support dense/CSR queries and weighted `score`. Matrix result fields
+are also populated after vector fits. Refitting resets the target-rank state.
+`n_features_in_`, `n_targets_`, `solver_`, `n_iter_`, `native_iterations_`,
+`stop_code_` and convergence fields expose fitted metadata. `n_iter_=-1`
+represents sklearn's None. `rank_=0` is a sentinel: Ridge has no Source rank
+attribute. See `example/ridge_estimator_solvers.f90`.
+
+Positive fits require auto or lbfgs. Sparse fits with an intercept accept
+auto, sparse_cg, lsqr, sag or positive lbfgs. As in sklearn 1.6.1, sparse
+intercept SAG routes to sparse_cg unless max_iter=-1 and tol>1e-4.
+New weighted, CSR and matrix fit overloads require a direct `ridge`, and
+reject inherited use on `ridge_cv`; its established vector CV API remains.
+Weighted composition dispatch honors the Ridge solver controls.
+
+This is algorithm support, with known numerical differences from SciPy's
+optimizer. The full diagnostic reference suite retains nine configurations
+with failed comparisons: eight L-BFGS-B fits (seven at tol=0, one at 1e-6)
+and one tol=0 SAGA iteration count. Finite-iteration coefficients and early
+stopping can differ between the Fortran and SciPy optimizer backends.
+Strict validation remains the default; `--record-differences` saves the
+failures for diagnosis without claiming parity. Source CG tol=0 NaNs are
+preserved in fitted coefficients/predictions, and scoring rejects them.
