@@ -1,5 +1,8 @@
 # Translation coverage
 
+Streaming nearest-pair reductions have been added; full checked/release
+verification is pending. Totals below describe the last verified batch.
+
 Pinball loss and D2 quantile/absolute scores support modern multioutput
 selection, legacy optional arguments, mixed matrix ranks and owned raw helpers,
 verified in both build profiles.

@@ -7033,3 +7033,17 @@ Fixtures cover rank pairs, modern/legacy weighting, alpha endpoints, CDF ties,
 signed/nonfinite weights, interpolation overflow and conditional early results.
 Native/earlier regression/core checks are recorded separately. The old facade's
 dead kernels are removed, retaining its public imports and legacy arguments.
+
+
+Streaming nearest-pair reductions:
+```
+python validation/compare_pairwise_reductions.py --executable build/gfortran_E1FE13DB8881E18E/app/reference_pairwise_reductions_driver.exe --profile checked --report validation/results/pairwise_reductions_new_checked.json
+python validation/check_pairwise_reductions_invalid_inputs.py --executable build/gfortran_E1FE13DB8881E18E/app/reference_pairwise_reductions_driver.exe --profile checked --report validation/results/pairwise_reductions_invalid_checked.json
+```
+Repeat with the optimized executable/profile. Comparisons check both public
+APIs, exact indices, distance/nonfinite results, input identity and IEEE state.
+Fixtures include all supported names, all storage combinations, both axes,
+Minkowski powers, squared distances, sparse storage fallbacks, missing overlap,
+chunk boundaries, cancellation and overflow. Source expected rejections run
+separately. The invalid suite identifies its NaN-power native adapter explicitly.
+Older pairwise/core/native checks are recorded separately.

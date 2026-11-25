@@ -8850,3 +8850,62 @@ Warnings are omitted. The regression module is now a compatibility facade over
 the translated logarithmic, Tweedie and quantile kernels. Original integration
 remains MIT with retained BSD attribution; adapters add no ML extension.
 See [`example/quantile_losses.f90`](../example/quantile_losses.f90).
+
+
+## Streaming nearest-pair reductions
+
+`pairwise_distances_argmin` and `pairwise_distances_argmin_min` are available
+from `sklearn_metrics`, the `sklearn` facade and `sklearn_pairwise_reductions`.
+Rows are samples; returned indices are **1-based**. The function returns an
+owned allocatable integer vector. The subroutine additionally returns an owned
+allocatable real64 distance vector:
+
+```fortran
+indices = pairwise_distances_argmin(x, y, metric='manhattan', axis=1)
+call pairwise_distances_argmin_min(x, y, indices, distances, &
+    metric='minkowski', p=3._dp, axis=0)
+```
+
+Both inputs are required. Each can be a dense real64 matrix or `csr_matrix`,
+independently. The default metric is `euclidean`. `axis=1` finds Y rows for each
+X row; `axis=0` swaps the query/candidate roles and finds X rows for each Y row.
+The latter also swaps callable arguments, following sklearn. The workspace is
+linear: two feature rows plus result vectors, without a pairwise matrix or
+full dense CSR conversion. Time remains O(samples_X * samples_Y * features).
+
+Named metrics: `euclidean`, `sqeuclidean`, `l2`, `manhattan`, `cityblock`, `l1`,
+`chebyshev`, `minkowski`, `cosine`, `nan_euclidean`, and `haversine`.
+`p` is a positive real (including +infinity) for Minkowski, default 2;
+`squared` is supported for Euclidean and NaN-Euclidean. A required third/fifth
+`metric` procedure can replace the name; its signature is a real64 scalar
+function of two real64 row vectors. Callbacks should be deterministic. They
+receive dense row scratch even for CSR inputs. For identical input objects,
+asymmetric callbacks use the upper triangle symmetrically, as sklearn does.
+CSR arrays and all input values are preserved; IEEE flags and halting modes
+are restored after numerical work.
+
+Targets must be nonempty matrices with matching feature counts. Nonfinite
+inputs reject except NaN coordinates for dense `nan_euclidean`; no overlapping
+coordinates yields a NaN minimum with the first NaN candidate. Haversine
+requires two radian columns. `nan_euclidean` rejects CSR; `sqeuclidean` rejects
+two CSR inputs. The pinned source also rejects zero-stored-entry CSR inputs
+for sqeuclidean, Chebyshev and Minkowski; these guards are retained.
+
+Numerical conventions follow sklearn 1.6.1 with C-contiguous float64 data and
+the default optimized reduction backend: Euclidean/Squared-Euclidean use an
+ordered Gram expression, while `l2` uses coordinate differences. Reduced
+metrics select before the final square root/power/angular conversion and
+retain the finite heap sentinel on overflow. Optimized Gram NaNs clip to zero;
+the CSR/CSR Euclidean fallback preserves NaNs. Cosine retains dense versus
+sparse normalization cutoffs. The pinned Haversine CSR implementation maps
+coordinates modulo the zero-based CSR row start; this source behavior is
+preserved even where its answer differs from the dense Haversine calculation.
+Use dense inputs for ordinary geographic coordinate semantics.
+
+This port does not yet expose the remaining SciPy metric names, per-feature
+Minkowski weights, Mahalanobis/standardized-Euclidean parameters, distance
+objects, Python keyword dictionaries, joblib controls or alternative reduction
+backends. The native adapter explicitly rejects NaN Minkowski powers (the
+source optimized backend can accept them). Named metrics reject inapplicable
+native keywords. These interfaces add no algorithm beyond sklearn.
+See [`example/nearest_pairs.f90`](../example/nearest_pairs.f90).

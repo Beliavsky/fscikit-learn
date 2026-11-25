@@ -8937,3 +8937,22 @@ Other sort/math backends or buffer settings can round differently. The global
 fpm is unchanged. Original integration remains MIT with preserved BSD notices;
 no dependency, core type or public ML extension was introduced. The broader
 translation remains unfinished.
+
+
+## Streaming nearest-pair reductions (2026-11-25, implementation checkpoint)
+
+Added pairwise_distances_argmin and pairwise_distances_argmin_min with owned
+1-based index/distance results, both axis directions, all four dense/CSR input
+combinations and deterministic row callbacks. Eleven named metrics plus a
+callback path stream through two row scratch buffers rather than forming the
+pairwise matrix. Existing metrics bodies are unchanged; only public imports
+and exports were added. Source contracts include reduced-distance selection,
+ordered Gram arithmetic, finite heap sentinel, NaN fallback minima, sparse
+normalization and the pinned Haversine CSR row-start coordinate convention.
+
+Private checked probes passed 4,108 accepted configurations / 16,432 retained
+groups, 88 source rejection cases, 26 targeted diagnostics and native tests.
+The maximum scaled distance error was 4.31e-15. Full package checked/release
+verification is pending. Limits and the NaN-power native adapter are documented
+in API.md. Original integration remains MIT with retained sklearn BSD notices;
+no dependency, public core type or algorithm beyond sklearn was introduced.

@@ -645,3 +645,9 @@ Pinball loss and D2 quantile/absolute scores support matrix rank pairs, modern
 multioutput selection, legacy weight keywords and owned raw helpers. See
 [the example](example/quantile_losses.f90) and
 [API contract](docs/API.md#pinball-loss-and-d2-quantile-scores).
+
+
+Streaming nearest-pair searches are available as `pairwise_distances_argmin`
+and `pairwise_distances_argmin_min`, with dense/CSR inputs, axis selection,
+common named distances and row callbacks. See [the API](docs/API.md#streaming-nearest-pair-reductions)
+and [example/nearest_pairs.f90](example/nearest_pairs.f90).
