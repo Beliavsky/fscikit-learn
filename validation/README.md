@@ -7236,3 +7236,52 @@ stable manifests, identical inputs and distinct profile executables passed the
 final audit. Deterministic ridge kernel bodies remain byte-identical to
 00b398d. Other historical suites were not rerun. The reports and audit are
 ignored under validation/results/ridge_stochastic_*.
+
+
+Streamed OPTICS graphs:
+```
+python validation/compare_optics_graph.py --executable build/gfortran_E1FE13DB8881E18E/app/reference_optics_graph_driver.exe --allow-rounding-certificates --report validation/results/optics_graph_checked_new.json
+python validation/check_optics_graph_invalid_inputs.py --executable build/gfortran_E1FE13DB8881E18E/app/reference_optics_graph_invalid_driver.exe
+python validation/compare_optics.py --executable build/gfortran_E1FE13DB8881E18E/app/reference_optics_driver.exe --report validation/results/optics_graph_checked_old.json
+```
+Repeat with the release executable directory. The new suite retains 1,280
+configurations / 6,400 groups. It covers three seeds, integer/fractional sizes,
+finite/zero/infinite radii, Minkowski powers including subunit and infinite p,
+Euclidean/squared Euclidean, Manhattan aliases, Chebyshev, cosine including
+zero/tiny norms, row callbacks, asymmetric/nonzero-diagonal precomputed input,
+plateaus and overflow in decimal rounding.
+
+By default the validator compares directly with source and rejects numerical
+ordering differences. The explicit certificate flag permits four Minkowski
+p=1.5 configurations to replay sklearn's radius queries and _set_reach_dist
+along the native permutation. Every selected frontier value, near-minimum
+choice, predecessor edge and final state must satisfy the retained roundoff
+bounds. Core distances remain direct source comparisons. Reachability in
+these configurations compares to replay, with its difference from the
+original source graph retained. One of these graphs has a later reachability
+value that differs materially after its changed tie, so it is not a direct
+source result match. Precomputed graphs never use this exception. The remaining
+1,276 configurations retain direct ordering/predecessor comparisons and tight
+3e-14 distance comparisons. This is not a general widening of distance or
+index tolerances.
+
+Sixteen input rejections cover size/fraction, radius, power, metric, shape,
+finite/nonnegative data and callback contracts. A native 8,192-point analytic
+case exercises streamed storage whose full distance matrix would use 512 MiB.
+The estimator is checked against all 432 earlier OPTICS groups, preserving
+its prior supported metric conventions. The existing extraction and kernel
+algorithm bodies remain unchanged; native scalar BLAS helpers gain internal
+aliases for reuse.
+
+Checked and optimized fpm builds passed on 2026-11-25. Both profiles retained
+1,276 direct graph configurations and four replay certificates. Maximum
+compared source/replay scaled error was 9.022582387150723e-16. One certificate
+retains a material later reachability difference from the original source
+ordering (maximum scaled error 0.0024488865025990426); it is not treated as a
+direct source output match. Each profile recorded 578 source warnings and
+passed 16 guards, 432 previous OPTICS groups, seven native programs, the
+example, 192 core comparisons and 6,015 kernel groups / 276 source-rejection
+probes. Source/dependency fingerprints for 196 compiled units per profile,
+stable manifests, identical inputs and distinct executables passed the final
+audit. Other historical suites were not rerun. Artifacts remain ignored under
+validation/results/optics_graph_*.

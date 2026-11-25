@@ -1,5 +1,9 @@
 # Translation coverage
 
+OPTICS now streams distance rows, and `compute_optics_graph` exposes reusable
+dense/precomputed/callback graphs. Checked and optimized verification records
+four floating-point-sensitive graphs separately through source state replay.
+
 Ridge SAG/SAGA solvers support seeded dense/CSR fitting, sample weights and
 SAG direct intercepts, verified in checked and optimized profiles. Source
 coefficient-only stopping and zero-epoch accounting are explicitly retained.
@@ -63,9 +67,9 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Two hundred and twenty-three reference suites additionally check 4,286,807
+All types have native tests. Two hundred and twenty-four reference suites additionally check 4,293,207
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
-independent numerical identities and optimality certificates.
+independent numerical identities and explicitly recorded numerical certificates.
 
 This document counts core scikit-learn counterparts. Public extensions are
 tracked separately in [EXTENSIONS.md](EXTENSIONS.md) and excluded from the
@@ -12017,3 +12021,56 @@ dependency or algorithm outside sklearn was added. Inventory: 222 public core
 types, 179 source modules, 250 native test programs, 223 reference suites /
 4,286,807 retained groups and 122 invalid registries / 6,444 cases. The broader
 translation remains unfinished.
+
+
+Streamed public OPTICS graph increment (2026-11-25):
+`compute_optics_graph` accepts finite dense features or nonnegative square
+precomputed matrices, integer or fractional min_samples, finite/zero/infinite
+radii, named distances and deterministic row-distance procedures. Results own
+one-based ordering/predecessors, core/reachability vectors, resolved size and
+an all-unreachable diagnostic. Unlike the estimator, the low-level precomputed
+function permits asymmetric matrices and nonzero diagonals. CSR input,
+general metric_params mappings, indexed neighbor searches and parallel jobs
+remain untranslated. See the public streamed OPTICS section in API.md.
+
+Both this function and the existing estimator now compute distance rows on
+demand. A bounded max heap replaces full row sorting for the k-th neighbor.
+Graph/distance working buffers are linear in sample count; caller-provided
+precomputed inputs already require quadratic storage. Distance work remains
+quadratic. An 8,192-point analytic problem passed without a 512 MiB distance
+matrix. Decimal-rounding overflow now becomes infinity without trapping,
+matching source; the existing extractor bodies are unchanged.
+
+Full fpm checked and optimized builds passed. Each profile retained 1,280
+configurations / 6,400 groups. Of these, 1,276 use direct source ordering and
+predecessor comparisons with 3e-14 core/reachability tolerances. Four Minkowski
+p=1.5 configurations use explicit opt-in certificates that replay sklearn's
+radius queries and reachability updater along the native permutation. Every
+frontier selection, predecessor edge and final state is checked within recorded
+roundoff bounds. Core vectors always remain direct comparisons. Compared
+source/replayed-source distance error is at most 9.022582387150723e-16 scaled.
+
+These four graphs are not exact source output matches. In one, a changed tie
+also changes a later reachability value: maximum scaled difference from the
+original source graph is 0.0024488865025990426. That difference is retained
+explicitly; replay validates its alternative ordering, not equality to the
+original graph. Strict mode rejects the differences. Precomputed comparisons
+never use certificates. Downstream extraction can differ near such boundaries.
+The reference emitted 578 expected warnings per profile. The report retains
+input, configuration, source, validator and executable provenance.
+
+Each profile also passed 16 input rejections, all 432 previous OPTICS groups,
+seven selected native programs, the new example, 192 core comparisons and
+6,015 kernel-dispatch groups / 276 source-rejection probes. Other historical
+suites were not rerun. The final audit verifies 196 compiled-unit fingerprints
+per profile, stable source/validator/executable manifests, identical inputs,
+distinct optimized executables, unchanged extraction and kernel algorithm
+bodies, and unchanged license/dependency manifests. Kernel accumulation gains
+internal aliases for reuse. Artifacts are ignored under validation/results/
+optics_graph_*.
+
+Original integration remains MIT with sklearn and existing OpenBLAS BSD
+notices retained. No runtime dependency or algorithm outside sklearn was added.
+Inventory: 222 public core types, 179 source modules, 251 native test programs,
+224 reference suites / 4,293,207 retained groups and 123 invalid registries /
+6,460 cases. The broader translation remains unfinished.
