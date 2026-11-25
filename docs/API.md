@@ -8690,3 +8690,39 @@ pairwise vector sums and C-contiguous matrix slow-axis sums; other Python
 memory layouts or reduction buffer settings can round differently. The
 implementation has no Python/BLAS runtime dependency. See
 [`example/variance_scores.f90`](../example/variance_scores.f90).
+
+
+## Weighted multioutput regression errors
+
+`mean_squared_error`, `root_mean_squared_error`, `mean_absolute_error` and
+`mean_absolute_percentage_error` accept real64 vector/matrix target pairs,
+including vector/one-column matrix combinations. Existing `(y,p)` calls retain
+their names and result rank. Optional `sample_weight` is a real64 vector;
+signed and nonfinite weights follow sklearn 1.6.1. Targets must be finite,
+nonempty and have matching shapes after vector-to-column conversion. Sample
+weight lengths must match and zero weight sums reject, including singleton
+inputs. Overflow/invalid intermediate results propagate quietly as NaN/infinity.
+
+`multioutput` may be `'uniform_average'` (default) or a real64 vector of output
+weights. MSE/MAE/MAPE require multiple outputs and finite custom weights. RMSE
+follows sklearn's wrapper: it accepts custom weights for a single output and
+allows nonfinite output weights. All four reject length mismatches and zero
+output-weight sums. Signed output weights are allowed. RMSE takes each output's
+square root before aggregation; it is not generally the square root of the
+aggregate MSE. MAPE uses max(abs(y),epsilon(real64)) in its denominator and
+returns a relative error, so 1 means 100 percent.
+
+Use `mean_squared_error_raw`, `root_mean_squared_error_raw`,
+`mean_absolute_error_raw` or `mean_absolute_percentage_error_raw` for owned
+per-output vectors corresponding to Python's `multioutput='raw_values'`.
+Scalar calls reject that string with a diagnostic naming the raw helper.
+The scalar APIs also accept optional allocatable `raw_values` output alongside
+an aggregate, with aggregation checks still active. These helpers adapt static
+Fortran return ranks and do not introduce extension algorithms.
+
+Inputs, RNG state, IEEE flags and halting modes are preserved. Native reductions
+match NumPy 2.2.6 C-contiguous target matrices and default 8192-element buffered
+vector sums; other source array layouts/buffer settings can round differently.
+No Python/BLAS runtime dependency is needed. Original integration remains MIT
+with retained sklearn/NumPy BSD notices. See the
+[`example/error_metrics.f90`](../example/error_metrics.f90) demonstration.

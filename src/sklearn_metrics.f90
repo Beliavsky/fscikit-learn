@@ -1,4 +1,7 @@
 module sklearn_metrics
+  use sklearn_error_metrics,only:mean_squared_error,root_mean_squared_error, &
+   mean_absolute_error,mean_absolute_percentage_error,mean_squared_error_raw,root_mean_squared_error_raw, &
+   mean_absolute_error_raw,mean_absolute_percentage_error_raw
   use sklearn_variance_scores,only:r2_score,explained_variance_score,r2_score_raw,explained_variance_score_raw
   use sklearn_confusion_matrix,only:confusion_matrix
   use sklearn_categorical_scores,only:balanced_accuracy_score,matthews_corrcoef,cohen_kappa_score
@@ -41,6 +44,8 @@ module sklearn_metrics
   public :: mean_squared_error, root_mean_squared_error, mean_absolute_error
   public :: median_absolute_error, mean_absolute_percentage_error, r2_score, explained_variance_score
   public :: r2_score_raw,explained_variance_score_raw
+  public :: mean_squared_error_raw,root_mean_squared_error_raw
+  public :: mean_absolute_error_raw,mean_absolute_percentage_error_raw
   public :: max_error, mean_squared_log_error, mean_poisson_deviance, mean_gamma_deviance
   public :: accuracy_score, confusion_matrix, precision_score, recall_score, f1_score
   public :: balanced_accuracy_score, matthews_corrcoef, cohen_kappa_score, log_loss
@@ -56,28 +61,12 @@ contains
     call require(size(y)>0.and.size(y)==size(p),'invalid metric target sizes')
     call check_x(reshape(y,[size(y),1])); call check_x(reshape(p,[size(p),1]))
   end subroutine
-  real(dp) function mean_squared_error(y,p) result(v)
-    real(dp), intent(in) :: y(:),p(:)
-    call check_targets(y,p); v=sum((y-p)**2)/size(y)
-  end function
-  real(dp) function root_mean_squared_error(y,p) result(v)
-    real(dp), intent(in) :: y(:),p(:)
-    v=sqrt(mean_squared_error(y,p))
-  end function
-  real(dp) function mean_absolute_error(y,p) result(v)
-    real(dp), intent(in) :: y(:),p(:)
-    call check_targets(y,p); v=sum(abs(y-p))/size(y)
-  end function
   real(dp) function median_absolute_error(y,p) result(v)
     real(dp), intent(in) :: y(:),p(:)
     real(dp) :: errors(size(y))
     integer :: order(size(y)),n
     call check_targets(y,p); errors=abs(y-p); order=argsort(errors); n=size(y)
     v=(errors(order((n+1)/2))+errors(order(n/2+1)))/2
-  end function
-  real(dp) function mean_absolute_percentage_error(y,p) result(v)
-    real(dp), intent(in) :: y(:),p(:)
-    call check_targets(y,p); v=sum(abs(y-p)/max(abs(y),epsilon(1._dp)))/size(y)
   end function
   real(dp) function max_error(y,p) result(v)
     real(dp), intent(in) :: y(:),p(:)

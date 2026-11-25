@@ -6961,3 +6961,18 @@ Each successful fixture checks score values/nonfinite masks, input identity
 and IEEE status/mask preservation. Rejected source calls require controlled
 Fortran diagnostics. `test_variance_scores` also checks RNG preservation,
 owned raw arrays, mixed ranks, bias, constants and overflow under checked traps.
+
+
+Weighted multioutput regression errors:
+```
+python validation/compare_error_metrics.py --executable build/gfortran_E1FE13DB8881E18E/app/reference_error_metrics_driver.exe --profile checked --report validation/results/error_new_checked.json
+python validation/check_error_metrics_invalid_inputs.py --executable build/gfortran_E1FE13DB8881E18E/app/reference_error_metrics_driver.exe --profile checked --report validation/results/error_invalid_checked.json
+```
+Repeat with release executables and profile. Successful configurations run in
+one batched native process and check values, exact nonfinite masks, input
+identity and IEEE-state preservation. Source rejections and targeted public
+guards each run in isolated processes. The oracle pins sklearn 1.6.1, NumPy
+2.2.6, real64 C-contiguous target matrices and the default reduction buffer.
+The native test also checks RNG preservation, owned raw results and RMSE's
+per-output roots/custom-weight differences. No historical suite is implied by
+these commands; affected native/core regressions are recorded separately.

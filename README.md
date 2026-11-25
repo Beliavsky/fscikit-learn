@@ -614,3 +614,9 @@ uniform/variance/custom output weighting and `force_finite`. Owned per-output
 vectors are available through `r2_score_raw` and `explained_variance_score_raw`.
 See [the example](example/variance_scores.f90) and
 [API contract](docs/API.md#weighted-multioutput-r2-and-explained-variance).
+
+
+MSE, RMSE, MAE and MAPE support sample weights, matrix targets, custom output
+weighting and owned per-output vectors. See [the example](example/error_metrics.f90)
+and [API contract](docs/API.md#weighted-multioutput-regression-errors), including
+sklearn's distinct RMSE aggregation and output-weight rules.

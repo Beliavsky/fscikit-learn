@@ -1,5 +1,28 @@
 # Translation work log
 
+## Weighted multioutput regression error implementation (2026-11-24)
+
+Extended MSE, RMSE, MAE and MAPE with sample weights, matrix/vector rank pairs,
+uniform/custom output aggregation and owned raw-score helpers. Existing vector
+calls retain their names and result rank. RMSE roots are taken per output before
+aggregation, and its singleton/nonfinite custom-weight rules follow sklearn's
+wrapper rather than the stricter MSE/MAE/MAPE target checker. Signed weights,
+nonfinite sample weights, MAPE's epsilon denominator and quiet exceptional
+arithmetic match sklearn 1.6.1. Original integration remains MIT with retained
+sklearn/NumPy BSD attribution; no dependency or extension algorithm is added.
+
+The preliminary checked probe passed 4,688 configurations, 14,309 retained
+value/identity/IEEE groups and 273 controlled source rejections. All finite
+score differences were zero and all 2,030 nonfinite source masks matched.
+All 77 targeted diagnostics passed, including the four static raw-result
+adapter guards. An independently regenerated source inventory matches these
+counts. Successful cases use a batched native driver; expected errors remain
+isolated. The checked fpm --tests build and full affected batch passed, including
+54 native programs, 192 core groups, 77 targeted diagnostics and the retained
+score-shape guard. The audit passed all 233 compiled-unit fingerprints and
+frozen artifact hashes. Optimized verification is in progress; final results
+will be recorded separately.
+
 ## Weighted multioutput R2 and explained variance (2026-11-24)
 
 Added sample weighting, uniform/variance/custom output aggregation and

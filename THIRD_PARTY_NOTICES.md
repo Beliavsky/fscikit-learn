@@ -2085,3 +2085,21 @@ helpers, C-order matrix reduction loops and IEEE state preservation.
 Original integration, diagnostics, tests, reference harness and example are
 MIT. No dependency or public extension algorithm is added. Root LICENSE and
 fpm's MIT declaration remain unchanged.
+
+
+## Weighted multioutput regression errors (BSD / MIT)
+
+src/sklearn_error_metrics.f90 translates mean_squared_error,
+root_mean_squared_error, mean_absolute_error and mean_absolute_percentage_error
+from scikit-learn 1.6.1 metrics/_regression.py, by the scikit-learn developers
+(BSD-3-Clause). Source:
+https://github.com/scikit-learn/scikit-learn/blob/1.6.1/sklearn/metrics/_regression.py
+Installed reference SHA256:
+60453695ff142bd8242274f894ad141fbc025814996f51b4507660bf6688dfd1.
+NumPy 2.2.6 reductions reuse the buffered pairwise algorithm already attributed
+above. Full BSD licenses remain in LICENSES/scikit-learn-COPYING and
+LICENSES/numpy-COPYING. Changes include explicit typed rank adapters, C-order
+matrix reductions, owned raw-output helpers and IEEE status/mask preservation.
+Original integration, diagnostics, tests, batched reference driver/harness and
+example are MIT. Root LICENSE and fpm's MIT declaration remain unchanged.
+No dependency or public extension algorithm is added.

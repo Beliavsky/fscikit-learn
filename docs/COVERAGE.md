@@ -1,5 +1,9 @@
 # Translation coverage
 
+MSE, RMSE, MAE and MAPE now support sample/output weighting, matrix targets
+and owned raw-result helpers. Their checked/optimized verification is in
+progress; retained inventory totals below describe the last completed batch.
+
 R2 and explained variance support sample weights, multioutput aggregation,
 `force_finite` and owned raw-output helpers, verified in both build profiles.
 See the API contract for supported ranks and rounding.
