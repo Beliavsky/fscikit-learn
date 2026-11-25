@@ -2159,3 +2159,24 @@ null-model evaluation and state preservation. Existing non-Tweedie/D2 bodies
 remain unchanged. Typed adapters, diagnostics, reference harness and example
 are MIT integration. No dependency or ML extension is added; root LICENSE/fpm
 MIT declarations are unchanged.
+
+
+## Pinball loss and D2 quantile scores (BSD / MIT)
+
+src/sklearn_quantile_losses.f90 translates mean_pinball_loss, d2_pinball_score
+and d2_absolute_error_score from sklearn 1.6.1 metrics/_regression.py, plus
+utils/stats.py weighted-percentile and NumPy percentile/reduction semantics
+(BSD-3-Clause). Sources:
+https://github.com/scikit-learn/scikit-learn/blob/1.6.1/sklearn/metrics/_regression.py
+https://github.com/scikit-learn/scikit-learn/blob/1.6.1/sklearn/utils/stats.py
+The regression source SHA256 is
+60453695ff142bd8242274f894ad141fbc025814996f51b4507660bf6688dfd1.
+The existing Intel x86-simd-sort scalar adaptation is unchanged; copyright
+(C) 2022 Intel Corporation, revision 9a1b616d5cd4eaf49f7664fb86ccc1d18bad2b8d,
+with full notice in LICENSES/x86-simd-sort-BSD. sklearn/NumPy full BSD licenses
+remain in LICENSES/. Changes include explicit ranks, typed modern/legacy
+keyword adapters, owned raw results, quiet source-order arithmetic and IEEE
+preservation. The old regression implementation is replaced by a compatibility
+facade. Original integration, diagnostics, harness and example are MIT; root
+LICENSE/fpm MIT declarations remain unchanged. No dependency or ML extension
+is introduced.

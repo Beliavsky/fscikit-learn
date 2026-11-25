@@ -1,5 +1,10 @@
 # Translation coverage
 
+Pinball loss and D2 quantile/absolute scores now support modern multioutput
+selection, legacy optional arguments, mixed matrix ranks and owned raw helpers.
+Checked/optimized verification is in progress; retained totals below describe
+the prior completed batch.
+
 General Tweedie deviance/D2 support all vector/column rank pairs and source-
 compatible signed/nonfinite sample weights, including D2's one-sample shortcut,
 verified in both build profiles.

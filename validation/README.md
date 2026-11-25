@@ -7019,3 +7019,17 @@ Coverage includes all rank pairs, powers near boundaries, wide powers, extreme
 ratios, signed/nonfinite weights, D2 early/null-model behavior and buffered
 sums. Earlier regression-metric and selected native/core suites are recorded
 separately; these commands do not imply all historical suites were rerun.
+
+
+Pinball loss and D2 quantile/absolute scores:
+```
+python validation/compare_quantile_losses.py --executable build/gfortran_E1FE13DB8881E18E/app/reference_quantile_losses_driver.exe --profile checked --report validation/results/quantile_loss_new_checked.json
+python validation/check_quantile_losses_invalid_inputs.py --executable build/gfortran_E1FE13DB8881E18E/app/reference_quantile_losses_driver.exe --profile checked --report validation/results/quantile_loss_invalid_checked.json
+```
+Repeat for release/profile. Accepted calls run in one batch; each source
+rejection and targeted guard is isolated. Checks include values, nonfinite
+masks, input identity and IEEE state with alternating incoming inexact flags.
+Fixtures cover rank pairs, modern/legacy weighting, alpha endpoints, CDF ties,
+signed/nonfinite weights, interpolation overflow and conditional early results.
+Native/earlier regression/core checks are recorded separately. The old facade's
+dead kernels are removed, retaining its public imports and legacy arguments.

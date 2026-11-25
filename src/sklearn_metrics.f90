@@ -18,7 +18,8 @@ module sklearn_metrics
     paired_euclidean_distances,paired_manhattan_distances,paired_cosine_distances,paired_distances, &
     laplacian_kernel,additive_chi2_kernel,chi2_kernel
   use sklearn_score_ranking, only: hinge_loss,top_k_accuracy_score,dcg_score,ndcg_score
-  use sklearn_regression_metrics, only: mean_pinball_loss,mean_tweedie_deviance,d2_tweedie_score, &
+  use sklearn_regression_metrics, only: mean_pinball_loss_raw,d2_pinball_score_raw,d2_absolute_error_score_raw, &
+    mean_pinball_loss,mean_tweedie_deviance,d2_tweedie_score, &
     d2_pinball_score,d2_absolute_error_score,root_mean_squared_log_error,root_mean_squared_log_error_raw
   use sklearn_multilabel_ranking, only: coverage_error,label_ranking_average_precision_score,label_ranking_loss
   use sklearn_cluster_information, only: normalized_mutual_info_score,adjusted_mutual_info_score,fowlkes_mallows_score, &
@@ -41,6 +42,7 @@ module sklearn_metrics
   public :: laplacian_kernel,additive_chi2_kernel,chi2_kernel
   public :: hinge_loss,top_k_accuracy_score,dcg_score,ndcg_score
   public :: mean_pinball_loss,mean_tweedie_deviance,d2_tweedie_score,d2_pinball_score,d2_absolute_error_score
+  public :: mean_pinball_loss_raw,d2_pinball_score_raw,d2_absolute_error_score_raw
   public :: root_mean_squared_log_error,root_mean_squared_log_error_raw,mean_squared_log_error_raw
   public :: coverage_error,label_ranking_average_precision_score,label_ranking_loss
   public :: mutual_info_score

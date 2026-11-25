@@ -639,3 +639,9 @@ General Tweedie deviance and D2 support sample weighting and vector/column pairs
 including source-compatible nonfinite weights and D2's one-sample shortcut.
 See [the example](example/tweedie_scores.f90) and
 [API contract](docs/API.md#general-weighted-tweedie-deviance-and-d2).
+
+
+Pinball loss and D2 quantile/absolute scores support matrix rank pairs, modern
+multioutput selection, legacy weight keywords and owned raw helpers. See
+[the example](example/quantile_losses.f90) and
+[API contract](docs/API.md#pinball-loss-and-d2-quantile-scores).

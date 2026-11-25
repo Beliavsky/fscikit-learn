@@ -1,5 +1,29 @@
 # Translation work log
 
+## Pinball and D2 quantile implementation (2026-11-24)
+
+Completed the real64 pinball/D2 quantile/absolute interfaces with all vector/
+matrix rank pairs, modern multioutput keyword forms, legacy alpha/output_weights
+positions and optional-array semantics, and owned raw helpers. Loss arithmetic
+retains the source sign-product expression. D2 uses linear percentiles or
+source-order weighted CDF selection with the existing Intel NumPy index helper,
+then the exact zero/nonzero score masks. The sample-weight and singleton checks
+follow the source's ordering. Scalar legacy raw outputs retain response width
+for one sample; explicit raw helpers adapt Python's scalar NaN as [NaN].
+The old regression implementation is retired in favor of a small public
+compatibility facade over logarithmic, Tweedie and quantile kernels. Existing
+imports remain. Original integration is MIT with retained BSD notices; no
+dependency or ML extension is introduced.
+
+The first checked reference probe passed 6,734 configurations / 20,034 retained
+groups / 534 controlled rejections, with zero finite differences and 1,538
+matching nonfinite masks. All 77 targeted guards passed. An independently
+regenerated source inventory matches these counts. The full checked fpm batch
+passed, including 33,120 earlier regression groups, 59 native programs, 192 core
+groups, 77 new/25 earlier diagnostics, the accepted infinite-weight regression
+and retained score-shape guard. The audit passed all 243 compiled units and
+frozen hashes. Optimized verification is in progress; final results will be recorded separately.
+
 ## General weighted Tweedie deviance/D2 implementation (2026-11-24)
 
 Extended the general Tweedie family to all vector/one-column rank pairs and
