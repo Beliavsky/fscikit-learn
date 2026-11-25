@@ -68,13 +68,14 @@ def main():
     lines += [' '.join(map(str,row))for row in x]
     lines += [' '.join(map(str,row))for row in y]
     lines += [' '.join(map(str,alpha)),' '.join(map(str,weights))]
- for special in ['reset','zero_design','zero_target']:
+ for special in ['reset','zero_design','zero_target','zero_penalty']:
   rng=np.random.default_rng(7);n,p=(257,5)if special=='reset' else (11,4)
   x=rng.normal(size=(n,p));y=rng.normal(size=(n,2));weights=np.ones(n)
   alpha=np.array([.7,2.])
   if special=='reset':alpha=np.array([1e8,1e9]);y*=1e7
   if special=='zero_design':x[:]=0
   if special=='zero_target':y[:]=0
+  if special=='zero_penalty':alpha[:]=0
   for sparse in [False,True]:
    for solver,intercept in [('sag',False),('saga',False),('sag',True)]:
     if special=='zero_design' and solver=='sag' and not intercept:continue

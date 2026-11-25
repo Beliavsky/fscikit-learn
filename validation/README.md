@@ -7202,3 +7202,37 @@ fingerprints per profile and distinct checked/release executable hashes.
 Artifacts are ignored under validation/results/ridge_*; this record does not
 claim a rerun of every historical suite. LSQR's separate Stanford BSD notice is
 retained in LICENSES/lsqr-BSD.txt alongside the project and upstream licenses.
+
+
+Squared-loss SAG/SAGA ridge:
+```
+python validation/compare_ridge_stochastic.py --executable build/gfortran_E1FE13DB8881E18E/app/reference_ridge_stochastic_driver.exe --report validation/results/ridge_stochastic_checked_new.json
+python validation/check_ridge_stochastic_invalid_inputs.py --executable build/gfortran_E1FE13DB8881E18E/app/reference_ridge_stochastic_invalid_driver.exe
+```
+Repeat with the release executable directory. The batched suite retains 1,533
+configurations / 4,599 direct groups: coefficients, intercepts and exact epoch
+counts. It covers seeded dense/CSR tall, wide and one-sample problems, multiple
+targets, per-target penalties, omitted/unit/fractional/zero/signed weights,
+zero/short/full epoch caps, direct/auto SAG intercepts and SAGA. Additional
+fixtures preserve unsorted/duplicate/explicit-zero CSR entries, force internal
+scale resets with large penalties, and exercise zero designs, targets and penalties.
+No numerical exemptions or relaxed iteration comparisons are used. The report
+retains configuration labels, input/native/reference/validator/executable
+hashes and upstream warning counts. Fifteen isolated diagnostics cover bad
+seeds, solver/intercept/positive combinations, finite/shape/domain constraints,
+zero Lipschitz constants and SAG's unit step-times-penalty rejection.
+The native program additionally verifies analytic weighted solutions,
+coefficient-only stopping, the source zero-epoch count and a 100000-feature CSR
+problem. Python warning emission is represented by native status fields.
+
+Checked and optimized fpm 0.14 builds passed on 2026-11-25. Both profiles
+passed all 4,599 stochastic ridge groups, with exact epoch counts and maximum
+scaled coefficient/intercept error 1.0359420622090646e-15. Source warning counts
+were 1,423 per profile. Each profile also passed 15 new guards, 672 previous
+ridge groups / 13 guards, nine selected native programs, two examples, 192 core
+comparisons and 27,684 earlier coordinate-path groups (including their existing
+stopping certificates). Source fingerprints for 200 compiled units per profile,
+stable manifests, identical inputs and distinct profile executables passed the
+final audit. Deterministic ridge kernel bodies remain byte-identical to
+00b398d. Other historical suites were not rerun. The reports and audit are
+ignored under validation/results/ridge_stochastic_*.

@@ -9352,7 +9352,8 @@ sample-with-replacement xorshift draws seeded from legacy NumPy RandomState,
 per-sample gradient memory, number-seen denominators, automatic Lipschitz
 steps, coefficient scale factors and just-in-time sparse updates. Scale resets
 occur below 1e-9 and at each epoch boundary. CSR input is never densified;
-working storage is O(nnz+n_samples+n_features), apart from requested output.
+working storage is O(nnz+n_samples+n_features), plus owned target and
+coefficient matrices that scale with the number of targets.
 The default stochastic epoch cap is 1000. Integer random seeds must fit a
 nonnegative native integer. Integer seeds restart identically for each target,
 as in the source public ridge function.
