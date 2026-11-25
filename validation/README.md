@@ -7478,3 +7478,23 @@ and a 16,384-node sparse forest avoiding a 2 GiB dense graph distance matrix.
 Twenty isolated guards cover shape/domain errors and private-tree versus
 estimator metric-alias rules. Prior guard registries now test valid current
 restrictions instead of rejecting newly supported single-linkage options.
+
+
+Full checked and optimized fpm builds passed on 2026-11-25. Each profile passed
+all 84,810 new groups, with exact children/parents/canonicalized partitions.
+Maximum scaled numerical errors were 6.992240957504238e-17 for trees and
+2.453147316499086e-16 for fitted outputs. No tolerance exceptions or numerical
+certificates were used. Both profiles also passed 68 guards, eight selected
+native programs, the example, 104,008 previous complete/average groups,
+64,392 Ward groups, 192 core groups, 294 prior FeatureAgglomeration groups and
+237 BIRCH groups. Other historical suites were not rerun.
+
+The final audit verifies 205 compiled-unit fingerprints per profile, stable
+source/validator/executable/attribution manifests, identical inputs, distinct
+executables and unchanged license/dependency declarations. Thirty-five existing
+hierarchy, 37 cluster and 18 ranking procedures retain their bodies. Both final
+profiles reused every captured tree/estimator case. Initial capture made 4,326
+tree calls / 696 duplicate reuses and 9,955 estimator fits / 1,931 reuses, plus
+the fitted suite's 36 source threshold-fixture trees per run. Tree reports
+retain 2,885 source warnings and fitted reports retain 6,561 per profile.
+Artifacts remain ignored under validation/results/single_*.
