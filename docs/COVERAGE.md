@@ -77,7 +77,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Two hundred and thirty-three reference suites additionally check 4,713,048
+All types have native tests. Two hundred and thirty-four reference suites additionally check 5,093,208
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and explicitly recorded numerical certificates.
 
@@ -111,7 +111,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | multioutput | `multi_output_regressor`, `multi_output_classifier`, `regressor_chain`, `classifier_chain` | Independent fitted base models per response column; supported native linear/SGD, NB, neighbors and tree families; ragged class probabilities; SGD/Gaussian NB streaming; native base weighting limits apply |
 | preprocessing | `kernel_centerer`, `ordinal_encoder`, `target_encoder`, `standard_scaler`, `minmax_scaler`, `maxabs_scaler`, `robust_scaler`, `simple_imputer`, `iterative_imputer`, `knn_imputer`, `missing_indicator`, `spline_transformer`, `label_encoder`, `one_hot_encoder`, `label_binarizer`, `multi_label_binarizer`, `power_transformer`, `kbins_discretizer`, `quantile_transformer`, `normalizer`, `binarizer`, `polynomial_features`; `normalize`, `binarize`, `scale`, `minmax_scale`, `maxabs_scale`, `robust_scale`, `quantile_transform`, `label_binarize`, `label_binarize_csr`, retained `polynomial_features(x,...)` | Ordinal category codes and infrequent grouping; cross-fitted target means; population variance; linear percentile interpolation; numeric dense/CSR imputation with mean/median/most-frequent/constant/callable statistics, empty-feature rules, indicators and dense inverse maps; numeric categories; empirical uniform/normal quantile transforms; dense/CSR polynomial estimator and retained array call with degree ranges, interactions and lazy powers/names; B-spline features and extrapolation; dense/CSR row normalization and thresholding, both-axis free normalization with returned norms |
 | linear_model | `linear_regression`, `lars`, `lasso_lars`, `lars_cv`, `lasso_lars_cv`, `lasso_lars_ic`, `ridge`, `ridge_regression`, `ridge_classifier`, `ridge_classifier_cv`, `multi_task_elastic_net`, `multi_task_lasso`, `multi_task_elastic_net_cv`, `multi_task_lasso_cv`, `lasso`, `elastic_net`, `lasso_cv`, `elastic_net_cv`, `logistic_regression`, `logistic_regression_cv`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `sgd_regressor`, `sgd_classifier`, `sgd_one_class_svm`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `orthogonal_matching_pursuit_cv`, `huber_regressor`, `quantile_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; public dense/CSR weighted multi-target ridge solvers including seeded SAG/SAGA and SAG intercepts; least-angle/Lasso homotopy paths with CV and AIC/BIC selection; coordinate descent with K-fold alpha/l1-ratio selection; weighted logistic Newton solver with raw-score prediction; perceptron; PA-I/II classification/regression with averaging; streaming stochastic-gradient regression/classification and one-class detection; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; weighted L1-regularized quantile regression; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
-| naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb`, `categorical_nb` | Weighted/streaming Gaussian moments, empirical/fixed priors and variance smoothing; dense/CSR weighted and streaming discrete event counts and fixed/empirical priors; nonnegative scalar alpha and force_alpha flooring, plus feature-wise Multinomial/Complement smoothing; Bernoulli threshold; optional complement normalization |
+| naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb`, `categorical_nb` | Weighted/streaming Gaussian moments, empirical/fixed priors and variance smoothing; dense/CSR weighted and streaming discrete event counts and fixed/empirical priors; nonnegative scalar alpha and force_alpha flooring, plus feature-wise Multinomial/Complement smoothing; Bernoulli threshold or raw-feature mode; optional complement normalization |
 | neighbors | `neighborhood_components_analysis`, `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Supervised NCA metric learning; brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with shrinkage, uniform/empirical/custom priors and Euclidean discriminant probabilities; tree-based kernel density |
 | cluster | `kmeans`, `bisecting_kmeans`, `mini_batch_kmeans`, `spectral_coclustering`, `spectral_biclustering`, `hdbscan`, `dbscan`, `agglomerative_clustering`, `feature_agglomeration`, `mean_shift`, `affinity_propagation`, `spectral_clustering`, `optics`, `birch`; `estimate_bandwidth`, `cluster_optics_dbscan`, `cluster_optics_xi`, `ward_tree`, `linkage_tree` | Lloyd/k-means++; paired row/column spectral partitions and checkerboard biclustering; weighted streaming mini-batch centroids; bisecting centroid hierarchy with Lloyd/Elkan splits; density expansion; single/complete/average/Ward merge trees and feature pooling; flat-kernel mode seeking; damped exemplar messages; normalized-Laplacian clustering with k-means or pivoted QR assignment; OPTICS reachability ordering, Xi hierarchy and DBSCAN extraction; BIRCH streaming CF tree and optional Ward clustering; public full/partial Ward trees with connectivity completion and parent forests; fitted Ward/single/complete/average connectivity and threshold cuts; streamed/sparse single-linkage MSTs |
 | decomposition | `pca`, `incremental_pca`, `truncated_svd`, `nmf`, `mini_batch_nmf`, `sparse_pca`, `mini_batch_sparse_pca`, `dictionary_learning`, `mini_batch_dictionary_learning`, `sparse_coder`, `latent_dirichlet_allocation`; `sparse_encode`, `non_negative_factorization`; re-exports `kernel_pca`, `factor_analysis`, `fast_ica` | Full/randomized/covariance PCA with automatic routing; PCA whitening/inversion, variance/Minka dimension selection and probabilistic scores; streaming stacked-SVD IncrementalPCA; exact dense and randomized dense/CSR TruncatedSVD; regularized NMF coordinate descent and beta-divergence multiplicative updates, with a free function supporting fixed-H solves; sparse dictionary factorization and SparsePCA; five sparse coding methods; nonlinear kernel PCA; full/randomized-SVD factor analysis with orthogonal rotations; parallel/deflation ICA |
@@ -12542,3 +12542,77 @@ Inventory: 222 public core types, 181 source modules, 258 native test programs,
 268 app drivers, 214 examples, 233 reference suites / 4,713,048 retained groups
 and 130 invalid registries / 6,608 cases. The broader translation remains
 unfinished.
+## BernoulliNB raw features and source batch counting
+
+`bernoulli_nb%binarize=.false.` now represents sklearn's `binarize=None` for
+dense/CSR fit, partial_fit, likelihood and prediction. Fractional and signed
+values are retained, as are raw CSR duplicate entries and explicit zeros.
+The default thresholded mode is unchanged. Negative thresholds remain rejected
+by sklearn 1.6.1's public estimator parameter validation and by the native fit.
+Scalar Bernoulli smoothing and existing nonnegative weight controls remain in
+scope. See [the API](API.md#bernoullinb-raw-feature-mode) for typed controls and
+the representation-dependent IEEE cases at zero smoothing.
+
+Shared discrete counting now sums each batch before updating stored counts.
+Dense feature counting reconstructs the pinned OpenBLAS NT-small/GEMV-N/dot
+order, and singleton-class counts use NumPy pairwise reduction. This matters
+when tiny smoothing makes feature probabilities close to one: count rounding
+is amplified by log(1-p). The original direct-per-sample accumulation produced
+observable likelihood differences; the new suite compares these cases at the
+unchanged tolerance. Signed raw queries also preserve the signs of products
+with infinite log odds. Negative smoothed feature counts yield NaN logarithms.
+No probability clipping or alternate finite replacement is introduced.
+
+The new source grid retains 380,160 direct result groups across 20,736
+configurations and 38,016 fitted snapshots. It covers four seeds, one to
+65 samples, one/three/seven features, one/three/five classes, binary/fractional/
+signed/zero/unit/count-valued data, batch/three-stage streaming fits, four
+dense/CSR train/query combinations, duplicate-entry/explicit-zero storage,
+raw/zero-threshold/0.7-threshold modes, zero/tiny/positive smoothing, force_alpha,
+unweighted/weighted/zero-weight cases and empirical/uniform/fixed-zero priors.
+Metadata and labels are exact; counts, probabilities and likelihoods use the
+existing 3e-8 bound with matching NaN/Inf outcomes. No new numerical
+certificates or native-derived reference expectations are used. Source
+provenance is sklearn 1.6.1, NumPy 2.2.6 and SciPy 1.15.3, with 60,101 captured
+warnings retained per replay.
+
+Native tests include analytic fractional counts, signed weighted counts,
+dense/CSR agreement, ignored disabled-threshold values, unchanged default
+binarization, raw duplicate storage, signed infinite products and structural
+zero versus dense-zero behavior. Twenty new isolated typed guards exercise
+unfitted state, invalid data/weights/controls, streaming class changes, CSR
+structure and signed working-range overflow without SIGFPE.
+
+Full checked and optimized builds passed with the checksum-verified private
+fpm 0.14.0 and GNU Fortran 17.0.0 20260510. Checked flags were
+`-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow`; optimized flags were
+`-O3 -funroll-loops -fcoarray=single`. Each final profile passed the entire new
+grid, all 20 new guards, six selected native programs, the example and 192 core
+reference groups. Maximum new-suite scaled error was 5.684341885908095e-14
+in both profiles. Each also passed 22,150 prior streaming groups / 824 fixtures,
+99,824 prior sparse groups / 2,594 fixtures and 59,642 prior smoothing groups /
+2,378 fixtures, plus all 67 prior isolated rejections. Existing suites retain
+their established count/undefined/label certificate categories; other
+historical suites were not rerun in this increment.
+
+The initial workspace compiler profiles disappeared during optimized
+smoothing verification. Source files remained unchanged. Both full profiles
+were rebuilt with `--build-dir` under `%TEMP%/fsklearn-bernoulli-build`, then
+their package validations and audits were repeated to completion there.
+These isolated builds, rather than the interrupted run, provide the final
+executable manifests. The audit verifies 198 dependency-aware compiled-unit
+fingerprints per profile, stable source/validator/executable/attribution
+hashes, identical reference input hashes, distinct profile executables and
+unchanged license/dependency declarations. All library files except
+sklearn_naive_bayes.f90 remain unchanged from 5b77134, as do 28 existing NB
+procedure bodies. Both final reference runs reuse all 20,736 captured source
+configurations with provenance hashes verified. Source caches retain actual
+sklearn results, never native-derived expectations. Logs and artifacts remain
+ignored under validation/results/bernoulli_*.
+
+The package remains MIT with existing sklearn, NumPy and OpenBLAS notices
+retained. No external runtime dependency, public extension, module or core
+estimator type was added. Inventory: 222 public core types, 181 source modules,
+259 native test programs, 270 app drivers, 215 examples, 234 reference suites /
+5,093,208 retained groups and 131 invalid registries / 6,628 cases.
+The broader translation remains unfinished.
