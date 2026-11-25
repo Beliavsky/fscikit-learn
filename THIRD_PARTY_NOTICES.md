@@ -78,6 +78,7 @@ Reference paths by module:
 | neighbors | neighbors/_base.py, _classification.py, _regression.py |
 | incremental_pca | decomposition/_incremental_pca.py stacked-SVD update, mean correction, batch and variance conventions; native Jacobi SVD |
 | decomposition | decomposition/_pca.py, _truncated_svd.py, _nmf.py |
+| shrinkage / covariance | sklearn 1.6.1 covariance/_shrunk_covariance.py ledoit_wolf_shrinkage block traversal, moment sums, clipping and one-feature shortcut; LedoitWolf block_size integration. Native bounded block buffers and complete IEEE-state restoration are MIT; sklearn BSD notices remain in LICENSES/scikit-learn-COPYING |
 | optics | sklearn 1.6.1 cluster/_optics.py compute_optics_graph, streamed core/reachability graph, DBSCAN extraction, Xi steep regions, hierarchy labels and predecessor correction; metrics/_pairwise_distances_reduction/_argkmin.pyx.tp brute Euclidean conventions. Native row providers and bounded max heap are MIT; OpenBLAS scalar accumulation helpers are reused from kernel_dispatch with its existing BSD notices |
 | feature_agglomeration | cluster/_agglomerative.py FeatureAgglomeration fitting and _feature_agglomeration.py pooling/inverse contracts; existing native merge tree |
 | cluster | cluster/_birch.py (CF summaries, recursive insertion/splitting, leaf order and global/partial-fit contracts), cluster/_kmeans.py, _dbscan.py, _agglomerative.py, _mean_shift.py, _affinity_propagation.py, _spectral.py (including cluster_qr) |

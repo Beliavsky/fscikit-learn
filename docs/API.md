@@ -9421,3 +9421,30 @@ report retains the difference from the original source result. These cases
 are not counted as exact source ordering matches; downstream extraction near
 such boundaries can differ. Precomputed graph comparisons never use this
 exception. See `example/optics_graph.f90`.
+
+
+## Blocked Ledoit-Wolf shrinkage
+
+`ledoit_wolf_shrinkage(x,assume_centered,block_size)` returns a real64 scalar.
+Import it from `sklearn` or `sklearn_covariance`. Input is a nonempty finite
+real64 matrix. `assume_centered` defaults to false and `block_size` to 1000;
+block sizes must be positive. A single feature returns zero without unused
+moment arithmetic. One sample is accepted; Python warning emission is not
+reproduced.
+
+The implementation follows sklearn 1.6.1's full/remainder block traversal,
+centered second/fourth moments, beta/delta clipping and zero-beta shortcut.
+It copies input and needs O(n_samples*n_features + min(block_size,n_features)^2)
+working storage, without a full feature cross-moment matrix when blocks are
+smaller than the feature count. Computation still scales quadratically with
+features. Large finite data can yield a quiet NaN, following source overflow
+behavior. The function temporarily disables IEEE halting and restores every
+original flag and mode, including preexisting state.
+
+`ledoit_wolf` now has a `block_size=1000` component and uses this coefficient.
+It computes precision once, after shrinkage. The estimator still materializes
+its covariance and precision matrices. As in source, it applies the computed
+coefficient without an additional range clamp: roundoff can produce a tiny
+negative value for one-sample rank-one data. Estimator fitting requires finite
+computed shrinkage and remains subject to the existing covariance/pseudoinverse
+working range. See `example/blocked_shrinkage.f90`.

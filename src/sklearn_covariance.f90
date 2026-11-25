@@ -1,6 +1,7 @@
 ! Dense covariance estimators. Shrinkage formulas follow sklearn/covariance/
 ! _shrunk_covariance.py (scikit-learn 1.6.1, BSD-3-Clause; see THIRD_PARTY_NOTICES).
 module sklearn_covariance
+  use sklearn_shrinkage,only:ledoit_wolf_shrinkage
   use sklearn_least_angle,only:lars_path_gram,lars_path_result
   use sklearn_resampling, only: index_split
   use sklearn_robust_covariance, only: min_cov_det,elliptic_envelope,fast_mcd
@@ -11,6 +12,7 @@ module sklearn_covariance
   implicit none
   private
   public :: min_cov_det,elliptic_envelope,fast_mcd
+  public :: ledoit_wolf_shrinkage
   public :: empirical_covariance,shrunk_covariance,ledoit_wolf,oas,graphical_lasso
   public :: graphical_lasso_cv
   type :: empirical_covariance
@@ -28,6 +30,7 @@ module sklearn_covariance
     procedure :: fit=>shrunk_fit
   end type
   type, extends(empirical_covariance) :: ledoit_wolf
+    integer :: block_size=1000
     real(dp) :: shrinkage_=0
   contains
     procedure :: fit=>ledoit_fit
@@ -607,19 +610,26 @@ contains
   subroutine ledoit_fit(self,x)
     class(ledoit_wolf), intent(inout) :: self
     real(dp), intent(in) :: x(:,:)
-    real(dp) :: centered(size(x,1),size(x,2)),mu,beta,delta,squared_cov
-    integer :: n,p,j
-    call empirical_fit(self,x); n=size(x,1); p=size(x,2); self%shrinkage_=0
-    if(p==1) return
-    centered=x-spread(self%location_,1,n); mu=0
+    real(dp)::centered(size(x,1),size(x,2)),mu
+    integer::j,p
+    call require(self%block_size>=1,'Ledoit-Wolf block_size must be positive')
+    call check_x(x);self%location_=sum(x,dim=1)/size(x,1)
+    if(self%assume_centered)self%location_=0
+    centered=x-spread(self%location_,1,size(x,1))
+    self%covariance_=matmul(transpose(centered),centered)/size(x,1)
+    self%shrinkage_=ledoit_wolf_shrinkage(x,self%assume_centered,self%block_size)
+    call require(ieee_is_finite(self%shrinkage_),'Ledoit-Wolf shrinkage is nonfinite')
+    ! _ledoit_wolf applies the computed coefficient without a range clamp.
+    ! Roundoff can produce a tiny negative value for one-sample rank-one data.
+    p=size(x,2);mu=0
     do j=1,p
-      mu=mu+self%covariance_(j,j)/p
+      mu=mu+self%covariance_(j,j)
     end do
-    squared_cov=sum(self%covariance_**2)
-    beta=(sum(sum(centered**2,dim=2)**2)/n-squared_cov)/(p*n)
-    delta=(squared_cov-p*mu**2)/p
-    if(delta>0) self%shrinkage_=max(0._dp,min(1._dp,beta/delta))
-    call shrink(self,self%shrinkage_)
+    mu=mu/p;self%covariance_=(1-self%shrinkage_)*self%covariance_
+    do j=1,p
+      self%covariance_(j,j)=self%covariance_(j,j)+self%shrinkage_*mu
+    end do
+    call set_precision(self)
   end subroutine
   subroutine oas_fit(self,x)
     class(oas), intent(inout) :: self
