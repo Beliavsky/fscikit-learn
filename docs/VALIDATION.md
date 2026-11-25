@@ -9282,3 +9282,85 @@ Inventory: 222 public core types, 168 source modules, 233 native programs,
 206 reference suites / 4,056,466 retained groups and 105 invalid registries /
 5,806 cases. Strings, CSR/multioutput targets, other intrinsic kinds and Python
 warning emission remain outside this API. The broader translation is unfinished.
+
+## Weighted dense and sparse Hamming loss (2026-11-24)
+
+hamming_loss is now a typed generic in sklearn_subset_metrics, re-exported by
+sklearn_metrics/sklearn. It supports mixed numeric vector/matrix/CSR targets
+and sample weights. Categorical loss uses direct mismatch averages; multilabel
+loss counts unequal columns after independent sparse coalescing. Existing
+accuracy/zero-one function bodies and target helpers are unchanged.
+
+The checked grid passes 1,795 configurations: 1,532 accepted cases,
+4,596 required groups and 263 expected source rejections. Each accepted case
+checks loss, caller storage and IEEE flags/modes. Finite values use rtol=3e-13,
+atol=0; NaN/signed-infinity masks and zero signs agree exactly. All 678 nonfinite
+source results remain compared. An independent sklearn-only inventory pins
+accepted/rejected IDs, group counts and reference backend metadata.
+
+Coverage includes the previous numeric kind/rank/target grid, mixed dense/CSR
+indicators, stored zeros/duplicates/order, nonbinary indicator values, invalid
+formats/shapes/continuous/nonfinite labels, signed/zero/nonfinite/subnormal
+weights and lengths through 16,385. Contiguous, positive stride-two and negative
+stride-one weights exercise distinct serial OpenBLAS paths. Eighteen focused
+overflow/stride cases pass 54 groups, retaining 14 nonfinite source values.
+Multilabel reductions use row mismatch counts rather than row-perfect flags.
+
+The native test passes in the checked fpm build, including direct near-perfect categorical
+loss, dense/CSR agreement, weighted column errors, duplicates and explicit zeros,
+empty categorical/weighted-multilabel behavior, multilabel zero weights, a compact
+100,000-by-100,000 sparse shape and an int64 denominator. It distinguishes finite
+positive-stride fused results from contiguous overflow. IEEE flags/masks are
+preserved for both exceptional dot arithmetic and inexact duplicate coalescing;
+caller RNG is unchanged. All 24 new native diagnostics pass controlled ERROR
+STOP without floating traps, bounds failures or segmentation faults.
+
+The checked fpm build passes 17 affected native programs and two examples,
+the new Hamming grid, the existing accuracy/zero-one grid, core comparisons and
+both native diagnostic registries. Optimized verification is pending. Other
+repository native programs are not executed in this batch.
+
+Checked verification passes 10,530 required groups:
+
+| Suite | Groups |
+| --- | ---: |
+| Weighted dense/CSR Hamming loss and identities | 4,596 |
+| Existing accuracy / zero-one subset metrics | 5,742 |
+| Existing core comparisons | 192 |
+
+The retained subset grid keeps all 2,294 configurations, 380 source rejections
+and 775 nonfinite source values. All configuration, comparison and rejection
+records match its previous audited records. New and retained source rejections
+total 643; 24 new native diagnostics, 21 retained diagnostics and the existing
+ellenv_score_shape case add 46, for 689 rejection checks in the checked profile.
+
+The checked audit verifies 197 Fortran compilation fingerprints, complete field
+inventories and source-oracle accepted/rejected IDs, source/driver/validator/
+executable manifests and report/license hashes. Existing subset target helpers,
+accuracy/zero-one bodies and reductions match revision 3d58545 after removing
+the new declarations/imports and Hamming additions. Other modules match the
+baseline; sklearn_metrics only adds the import and removes the replaced body.
+Root LICENSE and fpm.toml are unchanged. Artifacts remain under ignored
+validation/results/hamming*, including hamming_partial_audit.json.
+
+The reference backend is serial NumPy OpenBLAS 0.3.29 SkylakeX, with 8,192-element
+NumPy pairwise-sum buffers. Counts are multiplied/accumulated with source fused
+lanes, including the nonunit-stride pair path and singleton product shortcut.
+The multilabel denominator preserves n_samples*n_labels*mean(weights). Empty
+unweighted multilabel targets reject; weighted empty targets return NaN.
+Categorical zero-weight sums reject, while multilabel zero sums remain valid.
+Canonical sparse merging avoids column scratch; noncanonical accumulation is
+O(columns) rather than a dense sample-by-column allocation. Shape products use
+int64. Python warnings, strings, other intrinsic kinds and general multioutput
+targets remain outside this API.
+
+Root LICENSE and fpm's MIT declaration remain unchanged, with retained sklearn,
+SciPy, NumPy and OpenBLAS BSD attribution. No dependency, public estimator or
+extension algorithm is added. Tools are the verified private fpm 0.14.0,
+GNU Fortran 17.0.0 20260510, Python 3.13.3, sklearn 1.6.1, NumPy 2.2.6 and
+SciPy 1.15.3. Four-job builds use --tests and checked flags -fcheck=all
+-fbacktrace -ffpe-trap=invalid,zero,overflow. The global fpm is unchanged.
+
+Inventory: 222 public core types, 168 source modules, 234 native programs,
+207 reference suites / 4,061,062 retained groups and 106 invalid registries /
+5,830 cases. The broader translation remains unfinished.

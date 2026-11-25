@@ -2044,3 +2044,27 @@ nan_to_num. Python warning emission is omitted. The internal bridge is not
 exported by the sklearn facade. Native adapters, diagnostics, tests, reference
 harness and example are MIT integration. Root LICENSE and fpm's MIT declaration
 remain unchanged. No dependency or public extension algorithm is introduced.
+
+## Weighted dense and sparse Hamming loss (BSD / MIT)
+
+The hamming_loss additions to src/sklearn_subset_metrics.f90 translate sklearn
+1.6.1 metrics/_classification.py hamming_loss and utils/sparsefuncs.py
+count_nonzero, by the scikit-learn developers (BSD-3-Clause).
+Source: https://github.com/scikit-learn/scikit-learn/blob/1.6.1/sklearn/metrics/_classification.py
+Source: https://github.com/scikit-learn/scikit-learn/blob/1.6.1/sklearn/utils/sparsefuncs.py
+Existing sklearn/SciPy/NumPy BSD licenses remain under LICENSES/. The installed
+classification reference SHA256 is
+569fff857c6a27025ad6f4fb61a6ebc30cca07b35c786c8ce026af1fc0b7f7dd.
+Sparse difference counting follows the independently coalesced SciPy 1.15.3
+CSR semantics attributed in the accuracy/zero-one notice above.
+
+Weighted multilabel reductions adapt the same OpenBLAS 0.3.29 ddot.c and
+ddot_microk_skylakex-2.c sources already pinned above. Copyright (c) 2014,
+The OpenBLAS Project. All rights reserved. The full BSD-3-Clause license is
+retained in LICENSES/OpenBLAS-LICENSE. Changes: scalar IEEE fused multiply-add
+lanes, contiguous and positive nonunit-stride paths, quiet exceptional results,
+int64 shape products and preservation of the caller's IEEE status/masks.
+Typed adapters, owned buffers, merge/accumulation counting, diagnostics,
+reference harness and example are MIT integration. Existing accuracy/zero-one
+function bodies are unchanged. No dependency or public extension algorithm is
+added, and the root MIT license/fpm declaration are unchanged.

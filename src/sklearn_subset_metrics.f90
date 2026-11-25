@@ -1,4 +1,4 @@
-! sklearn 1.6.1 accuracy_score / zero_one_loss, numeric target contracts (BSD).
+! sklearn 1.6.1 accuracy_score / zero_one_loss / hamming_loss, numeric target contracts (BSD).
 ! SciPy 1.15.3 CSR row accumulation and NumPy 2.2.6 pairwise reductions (BSD).
 ! Masked-dot order follows OpenBLAS 0.3.29 SkylakeX ddot (2014 OpenBLAS Project,
 ! BSD-3-Clause, LICENSES/OpenBLAS-LICENSE); scalar Fortran, no SIMD/BLAS runtime.
@@ -10,10 +10,11 @@ module sklearn_subset_metrics
  use sklearn_ieee_math,only:sub=>ieee_difference,mul=>ieee_product,div=>ieee_quotient
  use,intrinsic::iso_fortran_env,only:int64
  use,intrinsic::iso_c_binding,only:c_loc,c_intptr_t
- use,intrinsic::ieee_arithmetic,only:ieee_is_finite,ieee_is_nan
+ use,intrinsic::ieee_arithmetic,only:ieee_is_finite,ieee_is_nan,ieee_fma
+ use,intrinsic::ieee_exceptions
  implicit none
  private
- public::accuracy_score,zero_one_loss
+ public::accuracy_score,zero_one_loss,hamming_loss
  ! Explicit typed ranks preserve predictor-result and empty-expression calls.
  interface accuracy_score
   module procedure accuracy_iv_iv
@@ -122,6 +123,57 @@ module sklearn_subset_metrics
   real(dp),allocatable::values(:)
   type(csr_matrix)::matrix
  end type
+ interface hamming_loss
+  module procedure hamming_iv_iv
+  module procedure hamming_iv_im
+  module procedure hamming_iv_rv
+  module procedure hamming_iv_rm
+  module procedure hamming_iv_lv
+  module procedure hamming_iv_lm
+  module procedure hamming_iv_s
+  module procedure hamming_im_iv
+  module procedure hamming_im_im
+  module procedure hamming_im_rv
+  module procedure hamming_im_rm
+  module procedure hamming_im_lv
+  module procedure hamming_im_lm
+  module procedure hamming_im_s
+  module procedure hamming_rv_iv
+  module procedure hamming_rv_im
+  module procedure hamming_rv_rv
+  module procedure hamming_rv_rm
+  module procedure hamming_rv_lv
+  module procedure hamming_rv_lm
+  module procedure hamming_rv_s
+  module procedure hamming_rm_iv
+  module procedure hamming_rm_im
+  module procedure hamming_rm_rv
+  module procedure hamming_rm_rm
+  module procedure hamming_rm_lv
+  module procedure hamming_rm_lm
+  module procedure hamming_rm_s
+  module procedure hamming_lv_iv
+  module procedure hamming_lv_im
+  module procedure hamming_lv_rv
+  module procedure hamming_lv_rm
+  module procedure hamming_lv_lv
+  module procedure hamming_lv_lm
+  module procedure hamming_lv_s
+  module procedure hamming_lm_iv
+  module procedure hamming_lm_im
+  module procedure hamming_lm_rv
+  module procedure hamming_lm_rm
+  module procedure hamming_lm_lv
+  module procedure hamming_lm_lm
+  module procedure hamming_lm_s
+  module procedure hamming_s_iv
+  module procedure hamming_s_im
+  module procedure hamming_s_rv
+  module procedure hamming_s_rm
+  module procedure hamming_s_lv
+  module procedure hamming_s_lm
+  module procedure hamming_s_s
+ end interface
 contains
  logical function integral(x) result(valid)
   real(dp),intent(in)::x
@@ -1117,5 +1169,469 @@ contains
   logical,optional,intent(in)::normalize
   real(dp),optional,target,intent(in)::sample_weight(:)
   value=evaluate(target_c(y),target_c(p),normalize,sample_weight,.true.)
+ end function
+ subroutine hamming_canonical(y,p,score)
+  type(csr_matrix),intent(in)::y,p
+  real(dp),intent(out)::score(:)
+  integer::i,a,b,ae,be
+  score=0
+  do i=1,size(score)
+   a=y%indptr(i);ae=y%indptr(i+1);b=p%indptr(i);be=p%indptr(i+1)
+   do while(a<ae.and.b<be)
+    if(y%indices(a)==p%indices(b)) then
+     if(y%data(a)/=p%data(b)) score(i)=score(i)+1
+     a=a+1;b=b+1
+    else if(y%indices(a)<p%indices(b)) then
+     if(y%data(a)/=0) score(i)=score(i)+1
+     a=a+1
+    else
+     if(p%data(b)/=0) score(i)=score(i)+1
+     b=b+1
+    end if
+   end do
+   if(a<ae) then
+    score(i)=score(i)+real(count(y%data(a:ae-1)/=0),dp)
+   end if
+   if(b<be) then
+    score(i)=score(i)+real(count(p%data(b:be-1)/=0),dp)
+   end if
+  end do
+ end subroutine
+ function difference_counts(y,p) result(score)
+  type(target_data),intent(in)::y,p
+  real(dp),allocatable::score(:),left(:),right(:)
+  integer,allocatable::next(:)
+  integer::i,k,col,head,prior
+  call require(y%vector.eqv.p%vector,'subset metrics reject mixed vector and multilabel targets')
+  if(y%vector) then
+   call require(size(y%values)==size(p%values),'invalid label sizes')
+   score=merge(0._dp,1._dp,y%values==p%values);return
+  end if
+  call require(y%matrix%n_rows==p%matrix%n_rows,'invalid label sizes')
+  call require(y%matrix%n_cols==p%matrix%n_cols,'subset metric indicator shapes differ')
+  allocate(score(y%matrix%n_rows))
+  if(canonical(y%matrix).and.canonical(p%matrix)) then
+   call hamming_canonical(y%matrix,p%matrix,score);return
+  end if
+  allocate(left(y%matrix%n_cols),right(y%matrix%n_cols),next(y%matrix%n_cols))
+  score=0;left=0;right=0;next=-1
+  do i=1,size(score)
+   head=0
+   do k=y%matrix%indptr(i),y%matrix%indptr(i+1)-1
+    col=y%matrix%indices(k);left(col)=sub(left(col),-y%matrix%data(k))
+    if(next(col)==-1) then
+     next(col)=head;head=col
+    end if
+   end do
+   do k=p%matrix%indptr(i),p%matrix%indptr(i+1)-1
+    col=p%matrix%indices(k);right(col)=sub(right(col),-p%matrix%data(k))
+    if(next(col)==-1) then
+     next(col)=head;head=col
+    end if
+   end do
+   do while(head>0)
+    if(left(head)/=right(head)) score(i)=score(i)+1
+    left(head)=0;right(head)=0;prior=next(head);next(head)=-1;head=prior
+   end do
+  end do
+ end function
+ real(dp) function hamming_dot(x,y,nonunit) result(value)
+  real(dp),intent(in)::x(:),y(:)
+  logical,intent(in)::nonunit
+  real(dp)::wide(8,4),narrow(4,4),v(4),first,second
+  integer::n4
+  integer::n,n16,n32,i,j,k,index
+  n=size(x);value=0
+  if(n==1) then
+   value=x(1)*y(1);return
+  end if
+  if(nonunit) then
+   first=0;second=0;n4=n-mod(n,4)
+   do i=1,n4,4
+    first=first+ieee_fma(x(i),y(i),x(i+2)*y(i+2))
+    second=second+ieee_fma(x(i+1),y(i+1),x(i+3)*y(i+3))
+   end do
+   do i=n4+1,n
+    first=ieee_fma(x(i),y(i),first)
+   end do
+   value=first+second;return
+  end if
+  n16=n-mod(n,16);n32=n16-mod(n16,32);wide=0;narrow=0
+  do i=1,n32,32
+   do j=1,4
+    do k=1,8
+     index=i+(j-1)*8+k-1;wide(k,j)=ieee_fma(x(index),y(index),wide(k,j))
+    end do
+   end do
+  end do
+  do j=1,4
+   do k=1,4
+    narrow(k,j)=wide(k,j)+wide(k+4,j)
+   end do
+  end do
+  if(n16>n32) then
+   do j=1,4
+    do k=1,4
+     index=n32+(j-1)*4+k;narrow(k,j)=ieee_fma(x(index),y(index),narrow(k,j))
+    end do
+   end do
+  end if
+  if(n16>0) then
+   do k=1,4
+    v(k)=((narrow(k,1)+narrow(k,2))+narrow(k,3))+narrow(k,4)
+   end do
+   value=(v(1)+v(3))+(v(2)+v(4))
+  end if
+  do i=n16+1,n
+   value=ieee_fma(x(i),y(i),value)
+  end do
+ end function
+ subroutine hamming_suspend(halting,raised)
+  logical,intent(out)::halting(size(ieee_all)),raised(size(ieee_all))
+  integer::i
+  do i=1,size(ieee_all)
+   call ieee_get_flag(ieee_all(i),raised(i))
+  end do
+  do i=1,size(ieee_all)
+   call ieee_get_halting_mode(ieee_all(i),halting(i))
+  end do
+  do i=1,size(ieee_all)
+   call ieee_set_halting_mode(ieee_all(i),.false.)
+  end do
+ end subroutine
+ subroutine hamming_restore(halting,raised)
+  logical,intent(in)::halting(size(ieee_all)),raised(size(ieee_all))
+  integer::i
+  do i=1,size(ieee_all)
+   call ieee_set_halting_mode(ieee_all(i),halting(i))
+  end do
+  do i=1,size(ieee_all)
+   call ieee_set_flag(ieee_all(i),raised(i))
+  end do
+ end subroutine
+ real(dp) function hamming_evaluate(y,p,sample_weight) result(value)
+  type(target_data),intent(in)::y,p
+  real(dp),optional,target,intent(in)::sample_weight(:)
+  real(dp),allocatable::counts(:),products(:)
+  real(dp)::scale,average,total
+  logical::halt(size(ieee_all)),raised(size(ieee_all))
+  integer::n
+  call hamming_suspend(halt,raised)
+  counts=difference_counts(y,p);n=size(counts)
+  if(present(sample_weight)) call require(size(sample_weight)==n,'hamming loss sample weight length mismatch')
+  if(y%vector) then
+   if(present(sample_weight)) then
+    scale=summed(sample_weight)
+    if(.not.ieee_is_nan(scale)) call require(scale/=0,'hamming loss weights sum to zero')
+    products=counts*sample_weight;value=div(summed(products),scale)
+   else
+    value=div(summed(counts),real(n,dp))
+   end if
+  else
+   if(present(sample_weight)) then
+    average=div(summed(sample_weight),real(n,dp))
+    total=hamming_dot(counts,sample_weight,positive_stride(sample_weight))
+   else
+    call require(n>0,'unweighted Hamming multilabel targets require samples')
+    average=1;total=summed(counts)
+   end if
+   scale=real(int(n,int64)*int(y%matrix%n_cols,int64),dp)*average
+   value=div(total,scale)
+  end if
+  call hamming_restore(halt,raised)
+ end function
+ real(dp) function hamming_iv_iv(y,p,sample_weight) result(value)
+  integer,intent(in)::y(:)
+  integer,intent(in)::p(:)
+  real(dp),optional,target,intent(in)::sample_weight(:)
+  value=hamming_evaluate(target_i(y),target_i(p),sample_weight)
+ end function
+ real(dp) function hamming_iv_im(y,p,sample_weight) result(value)
+  integer,intent(in)::y(:)
+  integer,intent(in)::p(:,:)
+  real(dp),optional,target,intent(in)::sample_weight(:)
+  value=hamming_evaluate(target_i(y),target_i(p),sample_weight)
+ end function
+ real(dp) function hamming_iv_rv(y,p,sample_weight) result(value)
+  integer,intent(in)::y(:)
+  real(dp),intent(in)::p(:)
+  real(dp),optional,target,intent(in)::sample_weight(:)
+  value=hamming_evaluate(target_i(y),target_r(p),sample_weight)
+ end function
+ real(dp) function hamming_iv_rm(y,p,sample_weight) result(value)
+  integer,intent(in)::y(:)
+  real(dp),intent(in)::p(:,:)
+  real(dp),optional,target,intent(in)::sample_weight(:)
+  value=hamming_evaluate(target_i(y),target_r(p),sample_weight)
+ end function
+ real(dp) function hamming_iv_lv(y,p,sample_weight) result(value)
+  integer,intent(in)::y(:)
+  logical,intent(in)::p(:)
+  real(dp),optional,target,intent(in)::sample_weight(:)
+  value=hamming_evaluate(target_i(y),target_l(p),sample_weight)
+ end function
+ real(dp) function hamming_iv_lm(y,p,sample_weight) result(value)
+  integer,intent(in)::y(:)
+  logical,intent(in)::p(:,:)
+  real(dp),optional,target,intent(in)::sample_weight(:)
+  value=hamming_evaluate(target_i(y),target_l(p),sample_weight)
+ end function
+ real(dp) function hamming_iv_s(y,p,sample_weight) result(value)
+  integer,intent(in)::y(:)
+  type(csr_matrix),intent(in)::p
+  real(dp),optional,target,intent(in)::sample_weight(:)
+  value=hamming_evaluate(target_i(y),target_c(p),sample_weight)
+ end function
+ real(dp) function hamming_im_iv(y,p,sample_weight) result(value)
+  integer,intent(in)::y(:,:)
+  integer,intent(in)::p(:)
+  real(dp),optional,target,intent(in)::sample_weight(:)
+  value=hamming_evaluate(target_i(y),target_i(p),sample_weight)
+ end function
+ real(dp) function hamming_im_im(y,p,sample_weight) result(value)
+  integer,intent(in)::y(:,:)
+  integer,intent(in)::p(:,:)
+  real(dp),optional,target,intent(in)::sample_weight(:)
+  value=hamming_evaluate(target_i(y),target_i(p),sample_weight)
+ end function
+ real(dp) function hamming_im_rv(y,p,sample_weight) result(value)
+  integer,intent(in)::y(:,:)
+  real(dp),intent(in)::p(:)
+  real(dp),optional,target,intent(in)::sample_weight(:)
+  value=hamming_evaluate(target_i(y),target_r(p),sample_weight)
+ end function
+ real(dp) function hamming_im_rm(y,p,sample_weight) result(value)
+  integer,intent(in)::y(:,:)
+  real(dp),intent(in)::p(:,:)
+  real(dp),optional,target,intent(in)::sample_weight(:)
+  value=hamming_evaluate(target_i(y),target_r(p),sample_weight)
+ end function
+ real(dp) function hamming_im_lv(y,p,sample_weight) result(value)
+  integer,intent(in)::y(:,:)
+  logical,intent(in)::p(:)
+  real(dp),optional,target,intent(in)::sample_weight(:)
+  value=hamming_evaluate(target_i(y),target_l(p),sample_weight)
+ end function
+ real(dp) function hamming_im_lm(y,p,sample_weight) result(value)
+  integer,intent(in)::y(:,:)
+  logical,intent(in)::p(:,:)
+  real(dp),optional,target,intent(in)::sample_weight(:)
+  value=hamming_evaluate(target_i(y),target_l(p),sample_weight)
+ end function
+ real(dp) function hamming_im_s(y,p,sample_weight) result(value)
+  integer,intent(in)::y(:,:)
+  type(csr_matrix),intent(in)::p
+  real(dp),optional,target,intent(in)::sample_weight(:)
+  value=hamming_evaluate(target_i(y),target_c(p),sample_weight)
+ end function
+ real(dp) function hamming_rv_iv(y,p,sample_weight) result(value)
+  real(dp),intent(in)::y(:)
+  integer,intent(in)::p(:)
+  real(dp),optional,target,intent(in)::sample_weight(:)
+  value=hamming_evaluate(target_r(y),target_i(p),sample_weight)
+ end function
+ real(dp) function hamming_rv_im(y,p,sample_weight) result(value)
+  real(dp),intent(in)::y(:)
+  integer,intent(in)::p(:,:)
+  real(dp),optional,target,intent(in)::sample_weight(:)
+  value=hamming_evaluate(target_r(y),target_i(p),sample_weight)
+ end function
+ real(dp) function hamming_rv_rv(y,p,sample_weight) result(value)
+  real(dp),intent(in)::y(:)
+  real(dp),intent(in)::p(:)
+  real(dp),optional,target,intent(in)::sample_weight(:)
+  value=hamming_evaluate(target_r(y),target_r(p),sample_weight)
+ end function
+ real(dp) function hamming_rv_rm(y,p,sample_weight) result(value)
+  real(dp),intent(in)::y(:)
+  real(dp),intent(in)::p(:,:)
+  real(dp),optional,target,intent(in)::sample_weight(:)
+  value=hamming_evaluate(target_r(y),target_r(p),sample_weight)
+ end function
+ real(dp) function hamming_rv_lv(y,p,sample_weight) result(value)
+  real(dp),intent(in)::y(:)
+  logical,intent(in)::p(:)
+  real(dp),optional,target,intent(in)::sample_weight(:)
+  value=hamming_evaluate(target_r(y),target_l(p),sample_weight)
+ end function
+ real(dp) function hamming_rv_lm(y,p,sample_weight) result(value)
+  real(dp),intent(in)::y(:)
+  logical,intent(in)::p(:,:)
+  real(dp),optional,target,intent(in)::sample_weight(:)
+  value=hamming_evaluate(target_r(y),target_l(p),sample_weight)
+ end function
+ real(dp) function hamming_rv_s(y,p,sample_weight) result(value)
+  real(dp),intent(in)::y(:)
+  type(csr_matrix),intent(in)::p
+  real(dp),optional,target,intent(in)::sample_weight(:)
+  value=hamming_evaluate(target_r(y),target_c(p),sample_weight)
+ end function
+ real(dp) function hamming_rm_iv(y,p,sample_weight) result(value)
+  real(dp),intent(in)::y(:,:)
+  integer,intent(in)::p(:)
+  real(dp),optional,target,intent(in)::sample_weight(:)
+  value=hamming_evaluate(target_r(y),target_i(p),sample_weight)
+ end function
+ real(dp) function hamming_rm_im(y,p,sample_weight) result(value)
+  real(dp),intent(in)::y(:,:)
+  integer,intent(in)::p(:,:)
+  real(dp),optional,target,intent(in)::sample_weight(:)
+  value=hamming_evaluate(target_r(y),target_i(p),sample_weight)
+ end function
+ real(dp) function hamming_rm_rv(y,p,sample_weight) result(value)
+  real(dp),intent(in)::y(:,:)
+  real(dp),intent(in)::p(:)
+  real(dp),optional,target,intent(in)::sample_weight(:)
+  value=hamming_evaluate(target_r(y),target_r(p),sample_weight)
+ end function
+ real(dp) function hamming_rm_rm(y,p,sample_weight) result(value)
+  real(dp),intent(in)::y(:,:)
+  real(dp),intent(in)::p(:,:)
+  real(dp),optional,target,intent(in)::sample_weight(:)
+  value=hamming_evaluate(target_r(y),target_r(p),sample_weight)
+ end function
+ real(dp) function hamming_rm_lv(y,p,sample_weight) result(value)
+  real(dp),intent(in)::y(:,:)
+  logical,intent(in)::p(:)
+  real(dp),optional,target,intent(in)::sample_weight(:)
+  value=hamming_evaluate(target_r(y),target_l(p),sample_weight)
+ end function
+ real(dp) function hamming_rm_lm(y,p,sample_weight) result(value)
+  real(dp),intent(in)::y(:,:)
+  logical,intent(in)::p(:,:)
+  real(dp),optional,target,intent(in)::sample_weight(:)
+  value=hamming_evaluate(target_r(y),target_l(p),sample_weight)
+ end function
+ real(dp) function hamming_rm_s(y,p,sample_weight) result(value)
+  real(dp),intent(in)::y(:,:)
+  type(csr_matrix),intent(in)::p
+  real(dp),optional,target,intent(in)::sample_weight(:)
+  value=hamming_evaluate(target_r(y),target_c(p),sample_weight)
+ end function
+ real(dp) function hamming_lv_iv(y,p,sample_weight) result(value)
+  logical,intent(in)::y(:)
+  integer,intent(in)::p(:)
+  real(dp),optional,target,intent(in)::sample_weight(:)
+  value=hamming_evaluate(target_l(y),target_i(p),sample_weight)
+ end function
+ real(dp) function hamming_lv_im(y,p,sample_weight) result(value)
+  logical,intent(in)::y(:)
+  integer,intent(in)::p(:,:)
+  real(dp),optional,target,intent(in)::sample_weight(:)
+  value=hamming_evaluate(target_l(y),target_i(p),sample_weight)
+ end function
+ real(dp) function hamming_lv_rv(y,p,sample_weight) result(value)
+  logical,intent(in)::y(:)
+  real(dp),intent(in)::p(:)
+  real(dp),optional,target,intent(in)::sample_weight(:)
+  value=hamming_evaluate(target_l(y),target_r(p),sample_weight)
+ end function
+ real(dp) function hamming_lv_rm(y,p,sample_weight) result(value)
+  logical,intent(in)::y(:)
+  real(dp),intent(in)::p(:,:)
+  real(dp),optional,target,intent(in)::sample_weight(:)
+  value=hamming_evaluate(target_l(y),target_r(p),sample_weight)
+ end function
+ real(dp) function hamming_lv_lv(y,p,sample_weight) result(value)
+  logical,intent(in)::y(:)
+  logical,intent(in)::p(:)
+  real(dp),optional,target,intent(in)::sample_weight(:)
+  value=hamming_evaluate(target_l(y),target_l(p),sample_weight)
+ end function
+ real(dp) function hamming_lv_lm(y,p,sample_weight) result(value)
+  logical,intent(in)::y(:)
+  logical,intent(in)::p(:,:)
+  real(dp),optional,target,intent(in)::sample_weight(:)
+  value=hamming_evaluate(target_l(y),target_l(p),sample_weight)
+ end function
+ real(dp) function hamming_lv_s(y,p,sample_weight) result(value)
+  logical,intent(in)::y(:)
+  type(csr_matrix),intent(in)::p
+  real(dp),optional,target,intent(in)::sample_weight(:)
+  value=hamming_evaluate(target_l(y),target_c(p),sample_weight)
+ end function
+ real(dp) function hamming_lm_iv(y,p,sample_weight) result(value)
+  logical,intent(in)::y(:,:)
+  integer,intent(in)::p(:)
+  real(dp),optional,target,intent(in)::sample_weight(:)
+  value=hamming_evaluate(target_l(y),target_i(p),sample_weight)
+ end function
+ real(dp) function hamming_lm_im(y,p,sample_weight) result(value)
+  logical,intent(in)::y(:,:)
+  integer,intent(in)::p(:,:)
+  real(dp),optional,target,intent(in)::sample_weight(:)
+  value=hamming_evaluate(target_l(y),target_i(p),sample_weight)
+ end function
+ real(dp) function hamming_lm_rv(y,p,sample_weight) result(value)
+  logical,intent(in)::y(:,:)
+  real(dp),intent(in)::p(:)
+  real(dp),optional,target,intent(in)::sample_weight(:)
+  value=hamming_evaluate(target_l(y),target_r(p),sample_weight)
+ end function
+ real(dp) function hamming_lm_rm(y,p,sample_weight) result(value)
+  logical,intent(in)::y(:,:)
+  real(dp),intent(in)::p(:,:)
+  real(dp),optional,target,intent(in)::sample_weight(:)
+  value=hamming_evaluate(target_l(y),target_r(p),sample_weight)
+ end function
+ real(dp) function hamming_lm_lv(y,p,sample_weight) result(value)
+  logical,intent(in)::y(:,:)
+  logical,intent(in)::p(:)
+  real(dp),optional,target,intent(in)::sample_weight(:)
+  value=hamming_evaluate(target_l(y),target_l(p),sample_weight)
+ end function
+ real(dp) function hamming_lm_lm(y,p,sample_weight) result(value)
+  logical,intent(in)::y(:,:)
+  logical,intent(in)::p(:,:)
+  real(dp),optional,target,intent(in)::sample_weight(:)
+  value=hamming_evaluate(target_l(y),target_l(p),sample_weight)
+ end function
+ real(dp) function hamming_lm_s(y,p,sample_weight) result(value)
+  logical,intent(in)::y(:,:)
+  type(csr_matrix),intent(in)::p
+  real(dp),optional,target,intent(in)::sample_weight(:)
+  value=hamming_evaluate(target_l(y),target_c(p),sample_weight)
+ end function
+ real(dp) function hamming_s_iv(y,p,sample_weight) result(value)
+  type(csr_matrix),intent(in)::y
+  integer,intent(in)::p(:)
+  real(dp),optional,target,intent(in)::sample_weight(:)
+  value=hamming_evaluate(target_c(y),target_i(p),sample_weight)
+ end function
+ real(dp) function hamming_s_im(y,p,sample_weight) result(value)
+  type(csr_matrix),intent(in)::y
+  integer,intent(in)::p(:,:)
+  real(dp),optional,target,intent(in)::sample_weight(:)
+  value=hamming_evaluate(target_c(y),target_i(p),sample_weight)
+ end function
+ real(dp) function hamming_s_rv(y,p,sample_weight) result(value)
+  type(csr_matrix),intent(in)::y
+  real(dp),intent(in)::p(:)
+  real(dp),optional,target,intent(in)::sample_weight(:)
+  value=hamming_evaluate(target_c(y),target_r(p),sample_weight)
+ end function
+ real(dp) function hamming_s_rm(y,p,sample_weight) result(value)
+  type(csr_matrix),intent(in)::y
+  real(dp),intent(in)::p(:,:)
+  real(dp),optional,target,intent(in)::sample_weight(:)
+  value=hamming_evaluate(target_c(y),target_r(p),sample_weight)
+ end function
+ real(dp) function hamming_s_lv(y,p,sample_weight) result(value)
+  type(csr_matrix),intent(in)::y
+  logical,intent(in)::p(:)
+  real(dp),optional,target,intent(in)::sample_weight(:)
+  value=hamming_evaluate(target_c(y),target_l(p),sample_weight)
+ end function
+ real(dp) function hamming_s_lm(y,p,sample_weight) result(value)
+  type(csr_matrix),intent(in)::y
+  logical,intent(in)::p(:,:)
+  real(dp),optional,target,intent(in)::sample_weight(:)
+  value=hamming_evaluate(target_c(y),target_l(p),sample_weight)
+ end function
+ real(dp) function hamming_s_s(y,p,sample_weight) result(value)
+  type(csr_matrix),intent(in)::y
+  type(csr_matrix),intent(in)::p
+  real(dp),optional,target,intent(in)::sample_weight(:)
+  value=hamming_evaluate(target_c(y),target_c(p),sample_weight)
  end function
 end module

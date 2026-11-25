@@ -8606,3 +8606,51 @@ categorical-score backend keeps its existing default sanitization path; the
 matrix API requests raw accumulation before normalization. Its internal bridge
 is not re-exported through `sklearn`. Original integration remains MIT with
 retained sklearn/NumPy/SciPy BSD attribution and no additional dependency.
+
+## Weighted dense and sparse Hamming loss
+
+`hamming_loss(y,p,sample_weight)` is exported by `sklearn_subset_metrics`,
+`sklearn_metrics` and `sklearn`. It returns real64 and retains existing default-
+integer vector calls. See [hamming_loss.f90](../example/hamming_loss.f90).
+
+Targets may be mixed default-integer, logical or real64 vectors/matrices, or
+scalar `csr_matrix` containers. Target recognition follows accuracy_score's
+numeric contract: real values are finite integral int64 values; nonempty
+single-column dense matrices become vectors; other dense indicator matrices
+have at most two distinct integral values. CSR indicators require at least
+two columns and one distinct stored value, or two including zero. Scalar
+labels, tensors and other intrinsic target kinds reject at compile time.
+
+For categorical vectors, loss is the weighted/unweighted mean of mismatches,
+computed directly rather than subtracting accuracy from one. For multilabel
+targets, each unequal column contributes separately. Values are compared as
+stored numbers, without Booleanizing nonbinary indicators. Duplicates coalesce
+independently in each sparse input before unequal columns are counted. Explicit
+zeros and unsorted indices are supported, without changing caller storage.
+Vector/multilabel mixtures and unequal sample/column shapes reject.
+
+Optional `sample_weight` is a real64 vector with one value per sample. Signed,
+zero, NaN and infinite weights follow sklearn's arithmetic without clipping.
+Categorical weights summing to zero reject, including an empty supplied vector.
+Multilabel weights summing to zero remain valid and can produce NaN/infinity.
+The multilabel denominator retains the source order
+`n_samples*n_labels*mean(sample_weight)` rather than an algebraic rewrite.
+
+An empty categorical vector without weights returns NaN. Empty multilabel
+targets without weights reject, as in sklearn 1.6.1; supplying empty weights
+returns NaN. Empty single-column matrices and zero-width targets reject.
+Other source warnings are not emitted by the Fortran API.
+
+Canonical CSR pairs use an O(nnz+samples) merge with no column-sized scratch.
+Noncanonical pairs use O(columns) accumulation buffers; neither path creates
+a sample-by-column dense matrix. Shape products use int64 before conversion
+to real64, supporting compact very large sparse shapes. Caller data, RNG,
+IEEE flags and halting masks are preserved, including during coalescing.
+
+Vector averages and weight means follow NumPy 2.2.6 buffered pairwise sums.
+Multilabel dot products reconstruct serial OpenBLAS 0.3.29 SkylakeX fused
+accumulation, including positive nonunit strides, negative-stride copies and
+the singleton product path. The implementation is scalar Fortran without a
+BLAS/SIMD/Python runtime dependency. Other backends, thread counts or buffer
+settings can round differently. Original integration remains MIT with retained
+sklearn/SciPy/NumPy/OpenBLAS BSD attribution.

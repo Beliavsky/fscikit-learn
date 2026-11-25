@@ -2,7 +2,7 @@ module sklearn_metrics
   use sklearn_confusion_matrix,only:confusion_matrix
   use sklearn_categorical_scores,only:balanced_accuracy_score,matthews_corrcoef,cohen_kappa_score
   use sklearn_likelihood_ratios,only:class_likelihood_ratios
-  use sklearn_subset_metrics,only:accuracy_score,zero_one_loss
+  use sklearn_subset_metrics,only:accuracy_score,zero_one_loss,hamming_loss
   use sklearn_probability_metrics, only: log_loss,d2_log_loss_score
   use sklearn_bicluster_metrics, only: consensus_score,bicluster_similarity
   use sklearn_classification_metrics, only: precision_score,recall_score,f1_score,jaccard_score, &
@@ -123,10 +123,6 @@ contains
     real(dp), intent(in) :: y(:),p(:)
     call check_targets(y,p); call require(all(y>0).and.all(p>0),'invalid Gamma targets')
     v=2*sum(log(p/y)+y/p-1)/size(y)
-  end function
-  real(dp) function hamming_loss(y,p) result(v)
-    integer, intent(in) :: y(:),p(:)
-    v=1-accuracy_score(y,p)
   end function
   function pairwise_distances(x,y,metric,p) result(d)
     real(dp), intent(in) :: x(:,:),y(:,:)

@@ -5,7 +5,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Two hundred and six reference suites additionally check 4,056,466
+All types have native tests. Two hundred and seven reference suites additionally check 4,061,062
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -94,7 +94,7 @@ weighted accuracy and zero-one loss for numeric vectors and
 dense/CSR multilabel targets; binary class likelihood ratios with class ordering
 and sample weights; confusion matrices with sample weights, class selection and
 row/column/all normalization; precision, recall, F1, Jaccard,
-Hamming loss, balanced accuracy, Matthews correlation, Cohen kappa, log loss,
+weighted dense/CSR Hamming loss, balanced accuracy, Matthews correlation, Cohen kappa, log loss,
 binary ROC AUC and average precision with sample weights; standardized partial ROC AUC;
 ROC, precision-recall and DET threshold curves; generic trapezoidal AUC; binary
 Brier probability loss. Calibration curves use uniform or quantile bins. Precision/recall/F1/Jaccard support binary,
@@ -11052,3 +11052,42 @@ dependency, public estimator or extension algorithm.
 Inventory: 222 public core types, 168 source modules, 233 native programs,
 206 reference suites / 4,056,466 retained groups and 105 invalid registries /
 5,806 cases. The broader translation remains unfinished.
+
+## Weighted categorical and dense/CSR multilabel Hamming loss
+
+hamming_loss now supports mixed default-integer/logical/real64 vectors,
+single-column matrices, dense indicators and CSR targets, with optional real64
+sample weights. Categorical mismatches are averaged directly, avoiding
+complement cancellation. Multilabel loss counts unequal columns after separate
+sparse coalescing, without Booleanizing nonbinary indicators. Its denominator
+retains n_samples*n_labels*mean(weights), with an int64 shape product.
+
+The checked grid passes 1,795 configurations: 1,532 accepted cases
+with 4,596 loss/data/IEEE-state groups and 263 source rejections. Finite values
+use rtol=3e-13 and atol=0; NaN/infinity masks and zero signs agree, including
+678 nonfinite source losses. Cases cover the numeric target adapters, raw CSR
+slots, signed/nonfinite weights and contiguous/positive/negative weight strides
+at lengths through 16,385. Eighteen focused fused-stride overflow cases pass.
+An independent sklearn-only inventory pins accepted/rejected IDs and fields.
+All 24 new native input diagnostics, 21 retained subset diagnostics and the
+existing score-shape diagnostic pass. Seventeen native programs and two
+examples pass. The checked audit verifies 197 compilation fingerprints and
+10,530 groups including the retained 5,742 subset and 192 core groups.
+
+Canonical sparse pairs use a merge without column scratch; noncanonical pairs
+use O(columns) row buffers. Native tests include a compact 100,000-by-100,000
+case, direct near-perfect categorical loss, sparse duplicates, IEEE state during
+rounding coalescence and stride-dependent overflow. No sample-by-column sparse
+densification is used. Optimized verification is pending.
+
+Categorical zero-weight sums reject; multilabel zero sums can yield NaN/infinity.
+Empty unweighted multilabel targets reject, while empty weighted ones return
+NaN. Python warning emission is not exposed. Serial OpenBLAS 0.3.29 SkylakeX
+fused dot order and NumPy 2.2.6 buffered sums are scalar Fortran adaptations;
+other backends/buffer settings can round differently. Original MIT integration
+and retained BSD attribution continue. Existing accuracy/zero-one bodies are
+unchanged. No dependency, public estimator or extension algorithm was added.
+
+Inventory: 222 public core types, 168 source modules, 234 native programs,
+207 reference suites / 4,061,062 retained groups and 106 invalid registries /
+5,830 cases. The broader translation remains unfinished.

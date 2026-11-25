@@ -602,3 +602,8 @@ weights and true-row/predicted-column/all normalization. Existing unweighted
 calls retain default-integer matrices; weighted/normalized calls return real64.
 See [the example](example/confusion_matrix.f90) and
 [API contract](docs/API.md#weighted-and-normalized-confusion-matrices).
+
+`hamming_loss` supports mixed numeric targets, dense/CSR multilabel data and
+sample weights, counting individual label errors without densifying sparse
+targets. See [the example](example/hamming_loss.f90) and
+[API contract](docs/API.md#weighted-dense-and-sparse-hamming-loss).
