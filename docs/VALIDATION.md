@@ -9369,3 +9369,37 @@ SciPy 1.15.3. Four-job builds use --tests and checked flags -fcheck=all
 Inventory: 222 public core types, 168 source modules, 234 native programs,
 207 reference suites / 4,061,062 retained groups and 106 invalid registries /
 5,830 cases. The broader translation remains unfinished.
+
+
+## Weighted multioutput R2 and explained variance (2026-11-24)
+
+Checked and optimized builds with --tests passed. Each profile passed 8,120
+complete metric configurations: 16,398 retained value/identity/IEEE groups,
+2,966 controlled source rejections and 3,085 nonfinite source
+score values with exact NaN/infinity-mask agreement. Finite scores agree at
+rtol=atol=3e-12; maximum absolute difference is 0. All 53 selected
+native programs, 192 core groups, 20 new controlled diagnostics and the retained
+score-shape guard passed per profile. Two examples ran, with variance example
+results independently matching sklearn. The reference fixes sklearn 1.6.1,
+NumPy 2.2.6 and C-contiguous float64 target matrices. Other memory layouts or
+NumPy reduction buffer settings may round differently. Python warnings are
+omitted; API.md explains the static raw-result adaptation.
+
+The audit verifies 232 dependency-aware source fingerprints per
+profile, full matching configuration inventories, source/executable/validator/
+report hash stability, distinct optimized binaries and preservation of all
+unrelated sklearn_metrics bodies. Results: validation/results/variance*;
+combined record: variance_final_audit.json. These are selected affected checks,
+not a rerun of every historical suite. The new reference suite checks rank
+pairs, weighting, aggregation, constants, singleton R2, zero sums, nonfinite
+weights, overflow/subnormals, long buffered reductions, input identity and
+IEEE state. Native tests also verify RNG preservation and owned raw results.
+
+Toolchain: private fpm 0.14.0, GNU Fortran 17.0.0 20260510, Python 3.13.3,
+sklearn 1.6.1, NumPy 2.2.6. Four-job checked builds use -fcheck=all -fbacktrace
+-ffpe-trap=invalid,zero,overflow; optimized builds use --profile release.
+Root MIT licensing and retained sklearn/NumPy BSD attribution remain intact.
+
+Inventory: 222 public core types, 169 source modules, 235 native programs,
+208 reference suites / 4,077,460 retained groups and 107 invalid registries /
+5,850 cases. The broader translation remains unfinished.

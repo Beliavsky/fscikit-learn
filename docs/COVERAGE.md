@@ -1,16 +1,15 @@
 # Translation coverage
 
-R2 and explained variance now support sample weights, multioutput aggregation,
-`force_finite` and owned raw-output helpers. Their new source-reference suite is
-being verified in both build profiles; the retained totals below are the prior
-completed checkpoint. See the API contract for supported ranks and rounding.
+R2 and explained variance support sample weights, multioutput aggregation,
+`force_finite` and owned raw-output helpers, verified in both build profiles.
+See the API contract for supported ranks and rounding.
 
 Reference baseline: scikit-learn 1.6.1 installed in
 `c:/Programs/Python313/Lib/site-packages/sklearn`.
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Two hundred and seven reference suites additionally check 4,061,062
+All types have native tests. Two hundred and eight reference suites additionally check 4,077,460
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -11098,3 +11097,26 @@ unchanged. No dependency, public estimator or extension algorithm was added.
 Inventory: 222 public core types, 168 source modules, 234 native programs,
 207 reference suites / 4,061,062 retained groups and 106 invalid registries /
 5,830 cases. The broader translation remains unfinished.
+
+
+## Weighted multioutput variance scores (2026-11-24)
+
+R2 and explained variance now accept sample weights, vector/matrix targets,
+uniform/variance/custom output aggregation, `force_finite` and owned raw-score
+helpers. This extends the existing sklearn metrics; no estimator or extension
+algorithm is introduced. Source semantics include singleton R2, signed and
+nonfinite sample weights, constant targets, output-weight rejection/fallback,
+overflow and IEEE state preservation. The numerical oracle identifies NumPy
+2.2.6 C-contiguous matrix and buffered vector reductions. See API.md and
+VALIDATION.md for the supported contract and verification limits.
+
+Each checked/optimized profile passed 16,398 new retained groups across
+8,120 configurations, with 2,966 controlled source rejections and
+3,085 nonfinite source score values. Also passed: 53 affected native
+programs, 192 retained core groups, 20 targeted diagnostics and the existing
+score-shape guard. Two examples ran. Original integration remains MIT with
+retained sklearn/NumPy BSD attribution and no new dependency.
+
+Inventory: 222 public core types, 169 source modules, 235 native programs,
+208 reference suites / 4,077,460 retained groups and 107 invalid registries /
+5,850 cases. The broader translation remains unfinished.

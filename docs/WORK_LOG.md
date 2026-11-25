@@ -16,7 +16,7 @@ as did 53 affected native programs, two examples, all 192 core reference groups,
 20 targeted diagnostics and the retained EllipticEnvelope score-shape guard.
 An initial 800-configuration metric probe passed (1,608 groups and 264
 controlled source rejections). Full metric references and the optimized build
-are still running; final results will be recorded separately.
+subsequently passed; final results are recorded in VALIDATION.md.
 
 ## Initial package milestone (2026-11-17/18)
 
@@ -8597,3 +8597,34 @@ the global fpm was unchanged. Artifacts remain under ignored validation/results/
 robust*, including robust_final_audit.json. Implementation commit: 9164c4e.
 MIT integration and retained notices continue; no dependency or public extension
 algorithm was added. The broader translation goal remains unfinished.
+
+
+## Verified weighted multioutput variance scores (2026-11-24)
+
+Implementation checkpoint cf2fa4e passed the full checked and optimized batches.
+Each profile retained 16,398 new reference/safety groups over 8,120 complete
+configurations; 2,966 source rejections produced controlled diagnostics.
+The source returned 3,085 nonfinite score values; all corresponding
+NaN/infinity masks matched. Maximum finite absolute score difference was
+0, within the 3e-12 absolute/relative comparison tolerance.
+The suite covers all four explicit vector/matrix rank pairs, weighted and
+multioutput paths, custom signed weights, constants, singleton early return,
+nonfinite sample weights, overflow/subnormals and 8192-buffer boundaries.
+
+Each profile also passed 53 selected native regression/model-selection programs,
+192 retained core reference groups, 20 new diagnostics and the existing
+EllipticEnvelope score-shape guard. Both examples ran; the variance example
+matches sklearn's R2 0.0625, explained variance 1 and variance-weighted R2 0.4.
+The combined audit checks 232 dependency-aware compiled units
+per profile, complete matching configuration inventories, frozen input/source/
+executable/validator/report hashes and different optimized driver binaries.
+All other sklearn_metrics bodies match c67eff8 after removing the two superseded
+primitive functions and adding imports/exports. No other prior source body was
+changed. Artifacts remain under ignored validation/results/variance*.
+
+Four-job --tests builds used the checksum-verified private fpm 0.14.0, GNU
+Fortran 17.0.0 20260510, checked flags -fcheck=all -fbacktrace
+-ffpe-trap=invalid,zero,overflow, and --profile release. The global fpm was
+unchanged. References use sklearn 1.6.1 / NumPy 2.2.6 / Python 3.13.3.
+MIT integration and retained BSD notices continue. No dependency, new core
+type or public extension algorithm was added. The broader goal is unfinished.
