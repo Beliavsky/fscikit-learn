@@ -7353,3 +7353,29 @@ profile, stable manifests, identical inputs and distinct executables passed
 the final audit. Existing cluster algorithm bodies and license/dependency
 manifests are unchanged. Other historical suites were not rerun. Artifacts
 remain ignored under validation/results/ward_*.
+
+
+Fitted structured Ward clustering and feature agglomeration:
+```
+python validation/compare_structured_ward.py --executable build/gfortran_E1FE13DB8881E18E/app/reference_structured_ward_driver.exe --reference-cache validation/results/structured_ward_reference_cache.json --report validation/results/structured_ward_checked_new.json
+python validation/check_structured_ward_invalid_inputs.py --executable build/gfortran_E1FE13DB8881E18E/app/reference_structured_ward_invalid_driver.exe
+```
+Repeat with the release executable directory. The optional ignored cache stores
+actual installed-sklearn outputs, source versions/module hashes, input-specific
+keys and warnings; changed provenance is rejected. Omitting it recomputes the
+source fits. No expected values are inferred from native output. Labels and
+feature-pooling columns are canonicalized by first sample/feature to match the
+established native convention; tree children and metadata compare directly.
+Distances, pooled values and inverse maps use the unchanged 3e-8 bound.
+
+The suite exercises dense real/logical and canonical/duplicate/explicit-zero
+CSR connectivity, full/partial/auto builds, requested/omitted distances,
+cluster-count and threshold cuts, repeated fitting, all three pooling modes,
+and the 100-cluster auto boundary. Three seeds, random/grid/duplicate/zero data,
+one-feature/two-sample cases, threshold equality and disconnected/cancelling
+connectivity are included. Native tests add analytic cuts and pool/inverse
+values, IEEE preservation and a 32,768-node sparse auto forest avoiding an
+8 GiB dense distance/connectivity matrix. Twenty-three isolated rejections
+cover optional-control combinations, domain/shape errors and current non-Ward
+connectivity/threshold restrictions. Existing FeatureAgglomeration and BIRCH
+validators accept --executable and --report for serialized profile checks.

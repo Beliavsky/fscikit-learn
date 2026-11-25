@@ -1,7 +1,10 @@
 module sklearn_cluster
   use sklearn_hierarchy,only:ward_tree,hierarchy_result
+  use sklearn_sparse,only:csr_matrix
   use sklearn_kmeans_seeding, only: kmeans_plusplus
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
+  use,intrinsic::ieee_exceptions,only:ieee_all,ieee_get_flag,ieee_set_flag, &
+    ieee_get_halting_mode,ieee_set_halting_mode
   use sklearn_bisecting_kmeans, only: bisecting_kmeans
   use sklearn_minibatch_kmeans, only: mini_batch_kmeans
   use sklearn_bicluster, only: spectral_coclustering,spectral_biclustering
@@ -76,8 +79,12 @@ module sklearn_cluster
     procedure :: fit_predict=>dbscan_fit_predict
   end type
   type :: agglomerative_clustering
-    integer :: n_clusters=2
-    character(16) :: linkage='ward'
+    integer :: n_clusters=2,n_clusters_=0,n_features_in_=0,n_leaves_=0,n_connected_components_=0
+    character(16) :: linkage='ward',compute_full_tree='auto'
+    logical :: compute_distances=.true.,compute_full_tree_=.true.,connectivity_completed_=.false.
+    real(dp),allocatable :: distance_threshold,connectivity(:,:)
+    logical,allocatable :: connectivity_mask(:,:)
+    type(csr_matrix),allocatable :: connectivity_csr
     integer, allocatable :: labels_(:),children_(:,:)
     real(dp), allocatable :: distances_(:)
   contains
@@ -87,7 +94,11 @@ module sklearn_cluster
   ! sklearn 1.6.1 cluster/_agglomerative.py and _feature_agglomeration.py (BSD).
   type :: feature_agglomeration
     integer :: n_clusters=2,n_clusters_=0,n_features_in_=0,n_leaves_=0,n_connected_components_=0
-    character(16) :: linkage='ward',pooling_func='mean'
+    character(16) :: linkage='ward',pooling_func='mean',compute_full_tree='auto'
+    logical :: compute_distances=.true.,compute_full_tree_=.true.,connectivity_completed_=.false.
+    real(dp),allocatable :: distance_threshold,connectivity(:,:)
+    logical,allocatable :: connectivity_mask(:,:)
+    type(csr_matrix),allocatable :: connectivity_csr
     integer, allocatable :: labels_(:),children_(:,:)
     real(dp), allocatable :: distances_(:)
   contains
@@ -649,6 +660,14 @@ contains
     real(dp) :: best,value
     integer :: n,p,step,i,j,a,b,c,total
     call check_x(x); n=size(x,1); p=size(x,2)
+    call require(n>=2,'agglomerative fitting needs at least two samples')
+    call require(any(self%compute_full_tree==[character(16)::'auto','true','false']),'invalid compute_full_tree')
+    if(self%linkage=='ward')then
+      call agg_ward_fit(self,x);return
+    end if
+    call require(.not.allocated(self%connectivity).and..not.allocated(self%connectivity_mask).and. &
+      .not.allocated(self%connectivity_csr),'connectivity is currently supported for Ward linkage only')
+    call require(.not.allocated(self%distance_threshold),'distance_threshold is currently supported for Ward linkage only')
     call require(self%n_clusters>0.and.self%n_clusters<=n,'invalid agglomerative cluster count')
     call require(any(self%linkage==['ward    ','single  ','complete','average ']),'unknown linkage')
     d=pairwise_distances(x,x); allocate(centers(n,p),sizes(n),membership(n),node(n),active(n))
@@ -693,6 +712,90 @@ contains
         end do
       end if
     end do
+    self%n_clusters_=self%n_clusters;self%n_features_in_=p;self%n_leaves_=n;self%n_connected_components_=1
+    self%compute_full_tree_=.true.;self%connectivity_completed_=.false.
+    if(.not.self%compute_distances)then
+      deallocate(self%distances_);allocate(self%distances_(0))
+    end if
+  end subroutine
+  ! sklearn 1.6.1 AgglomerativeClustering._fit: auto full-tree heuristic,
+  ! threshold cluster counts and structured partial trees. Native labels retain
+  ! first-sample order; estimator children retain their historical zero base.
+  subroutine agg_ward_fit(self,x)
+    class(agglomerative_clustering),intent(inout)::self
+    real(dp),intent(in)::x(:,:)
+    type(hierarchy_result)::tree
+    integer,allocatable::parent(:),root_labels(:)
+    integer::n,clusters,requested,connections,i,k,root,node,next,total
+    logical::full,distances,structured,threshold
+    logical::modes(size(ieee_all)),flags(size(ieee_all))
+    n=size(x,1);threshold=allocated(self%distance_threshold)
+    call require((self%n_clusters==0).eqv.threshold,'set exactly one of n_clusters or distance_threshold')
+    if(threshold)then
+      call require(ieee_is_finite(self%distance_threshold),'distance_threshold must be finite')
+      call require(self%distance_threshold>=0,'distance_threshold must be nonnegative')
+      call require(self%compute_full_tree/='false','distance_threshold requires a full tree')
+    else
+      call require(self%n_clusters>0.and.self%n_clusters<=n,'invalid agglomerative cluster count')
+    end if
+    connections=0
+    if(allocated(self%connectivity))connections=connections+1
+    if(allocated(self%connectivity_mask))connections=connections+1
+    if(allocated(self%connectivity_csr))connections=connections+1
+    call require(connections<=1,'choose one Ward connectivity representation')
+    call ieee_get_flag(ieee_all,flags);call ieee_get_halting_mode(ieee_all,modes)
+    call ieee_set_halting_mode(ieee_all,.false.)
+    structured=connections==1;full=.true.
+    if(structured)then
+      select case(self%compute_full_tree)
+      case('true');full=.true.
+      case('false');full=.false.
+      case('auto');full=threshold.or.self%n_clusters<max(100._dp,.02_dp*n)
+      end select
+    end if
+    requested=0;if(.not.full)requested=self%n_clusters
+    distances=threshold.or.self%compute_distances
+    if(allocated(self%connectivity))then
+      tree=ward_tree(x,self%connectivity,requested,distances)
+    else if(allocated(self%connectivity_mask))then
+      tree=ward_tree(x,self%connectivity_mask,requested,distances)
+    else if(allocated(self%connectivity_csr))then
+      tree=ward_tree(x,self%connectivity_csr,requested,distances)
+    else
+      tree=ward_tree(x,n_clusters=requested,return_distance=distances)
+    end if
+    clusters=self%n_clusters
+    if(threshold)clusters=count(tree%distances>=self%distance_threshold)+1
+    ! Cutting a full tree by splitting its newest roots retains its first n-k
+    ! merges. A partial tree already contains exactly that prefix. Path
+    ! compression yields O(n + number_of_merges) storage without leaf matrices.
+    allocate(parent(n+size(tree%children,1)),root_labels(n+size(tree%children,1)))
+    parent=[(i,i=1,size(parent))];root_labels=-1
+    do k=1,n-clusters
+      parent(tree%children(k,:))=n+k
+    end do
+    if(allocated(self%labels_))deallocate(self%labels_)
+    allocate(self%labels_(n));total=0
+    do i=1,n
+      root=i
+      do while(parent(root)/=root)
+        root=parent(root)
+      end do
+      node=i
+      do while(parent(node)/=node)
+        next=parent(node);parent(node)=root;node=next
+      end do
+      if(root_labels(root)<0)then
+        root_labels(root)=total;total=total+1
+      end if
+      self%labels_(i)=root_labels(root)
+    end do
+    call require(total==clusters,'Ward tree cut produced an inconsistent forest')
+    self%children_=tree%children-1;self%distances_=tree%distances
+    self%n_clusters_=clusters;self%n_leaves_=tree%n_leaves;self%n_features_in_=size(x,2)
+    self%n_connected_components_=tree%n_connected_components
+    self%compute_full_tree_=full;self%connectivity_completed_=tree%connectivity_completed
+    call ieee_set_halting_mode(ieee_all,modes);call ieee_set_flag(ieee_all,flags)
   end subroutine
   function agg_fit_predict(self,x) result(labels)
     class(agglomerative_clustering), intent(inout) :: self
@@ -708,10 +811,16 @@ contains
     call require(size(x,2)>=2,'FeatureAgglomeration needs at least two features')
     call require(any(self%pooling_func==['mean  ','median','max   ']),'unknown feature pooling function')
     tree%n_clusters=self%n_clusters; tree%linkage=self%linkage
+    tree%compute_full_tree=self%compute_full_tree;tree%compute_distances=self%compute_distances
+    if(allocated(self%distance_threshold))tree%distance_threshold=self%distance_threshold
+    if(allocated(self%connectivity))tree%connectivity=self%connectivity
+    if(allocated(self%connectivity_mask))tree%connectivity_mask=self%connectivity_mask
+    if(allocated(self%connectivity_csr))tree%connectivity_csr=self%connectivity_csr
     call tree%fit(transpose(x))
     self%labels_=tree%labels_; self%children_=tree%children_; self%distances_=tree%distances_
-    self%n_clusters_=self%n_clusters; self%n_features_in_=size(x,2)
-    self%n_leaves_=size(x,2); self%n_connected_components_=1
+    self%n_clusters_=tree%n_clusters_; self%n_features_in_=size(x,2)
+    self%n_leaves_=tree%n_leaves_; self%n_connected_components_=tree%n_connected_components_
+    self%compute_full_tree_=tree%compute_full_tree_;self%connectivity_completed_=tree%connectivity_completed_
   end subroutine
 
   function feature_agg_transform(self,x) result(z)

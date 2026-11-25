@@ -1,6 +1,7 @@
 """Dense BIRCH tree, streaming, Ward partitions and distance reference checks."""
 from pathlib import Path
 import json
+import argparse
 import subprocess
 import warnings
 import numpy as np
@@ -19,6 +20,10 @@ def canonical(values, reference):
     return np.array([mapping[int(value)] for value in values])
 
 def main():
+    parser=argparse.ArgumentParser()
+    parser.add_argument("--executable")
+    parser.add_argument("--report",type=Path,default=RESULTS/"birch.json")
+    args=parser.parse_args()
     RESULTS.mkdir(exist_ok=True)
     checks = []
     for seed, p in ((7, 2), (42, 3), (2026, 4)):
@@ -31,8 +36,10 @@ def main():
         with data.open("w") as stream:
             stream.write(f"{len(x)} {p}\n")
             np.savetxt(stream, x, fmt="%.17g")
-        subprocess.run(["fpm", "run", "--flag", "-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow",
-                        "--target", "reference_birch_driver", "--", str(data), str(output)], cwd=ROOT, check=True)
+        command=([args.executable] if args.executable else ["fpm", "run", "--flag",
+                 "-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow", "--target",
+                 "reference_birch_driver", "--"])
+        subprocess.run(command+[str(data),str(output)],cwd=ROOT,check=True)
         actual = {}
         for line in output.read_text().splitlines():
             name, *values = line.split()
@@ -91,7 +98,7 @@ def main():
                     expected[prefix+name] = value
                     checks.append(dict(seed=seed, name=prefix+name, passed=True))
         assert actual.keys() == expected.keys()
-    (RESULTS/"birch.json").write_text(json.dumps(dict(sklearn=sklearn.__version__, checks=checks), indent=2)+"\n")
+    args.report.write_text(json.dumps(dict(sklearn=sklearn.__version__, checks=checks), indent=2)+"\n")
     print(f"{len(checks)} BIRCH result groups passed")
 
 if __name__ == "__main__":

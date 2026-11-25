@@ -9486,6 +9486,64 @@ Structured storage uses adjacency lists, moments and a dynamically growing
 candidate heap; dense fill can still require quadratic space. CSR setup uses
 linear work in stored entries plus sample count, and lists grow amortized.
 The public function restores all IEEE flags and halting modes. Generated
-nonfinite distances/inertias are rejected with controlled diagnostics. Existing
-AgglomerativeClustering/FeatureAgglomeration estimator methods retain their
-prior implementations. See `example/ward_trees.f90`.
+nonfinite distances/inertias are rejected with controlled diagnostics. Ward
+estimator fitting reuses this builder as described below. See
+`example/ward_trees.f90`.
+
+
+## Connectivity and threshold controls for fitted Ward clustering
+
+`agglomerative_clustering` and `feature_agglomeration` reuse `ward_tree` when
+linkage='ward'. Assign exactly one optional connectivity component:
+`connectivity` (dense real64), `connectivity_mask` (dense logical) or
+`connectivity_csr` (allocatable `csr_matrix`). The matrix is indexed by samples
+for clustering and by input features for feature agglomeration. Deallocate it
+to return to unstructured fitting. Sparse connectivity remains sparse during
+fitting; disconnected graphs are completed as described above.
+
+```fortran
+type(agglomerative_clustering) :: model
+model%connectivity_csr=csr_from_dense(graph)
+model%compute_full_tree='false'
+model%n_clusters=3
+model%compute_distances=.false.
+call model%fit(x) ! retains n_samples-3 merges
+model%n_clusters=0
+model%distance_threshold=2._dp
+model%compute_full_tree='auto'
+call model%fit(x) ! complete tree, cut at height 2
+```
+
+`compute_full_tree` accepts 'auto' (default), 'true' or 'false'. With connectivity,
+auto builds the full tree when a distance threshold is supplied or n_clusters
+is less than max(100,0.02*n_samples); otherwise it stops early. Without
+connectivity the full tree is always built. For feature agglomeration this
+heuristic uses the number of features as the tree's sample count.
+
+`distance_threshold` is an optional allocatable scalar, initially absent.
+Assign a finite nonnegative value and set n_clusters=0 to select it; otherwise
+leave it unallocated and select a positive cluster count. Threshold mode
+requires compute_full_tree='auto' or 'true'. Merges at heights equal to the
+threshold remain split: n_clusters_ is count(distances_ >= threshold)+1.
+Deallocate distance_threshold before returning to cluster-count mode.
+
+`compute_distances` defaults to true to retain the earlier native API; sklearn's
+estimator default is false. Setting it false returns an empty distances_
+vector unless threshold mode requires distances. Refit clears stale distance
+storage. These controls also apply to feature fit_transform; mean, median and
+max pooling and inverse maps use the fitted n_clusters_.
+
+Both estimators report n_clusters_, n_leaves_, n_connected_components_ and
+n_features_in_. Native compute_full_tree_ records the chosen build mode and
+connectivity_completed_ replaces a Python completion warning. Estimator labels
+remain zero-based in first-sample/feature order. Estimator children_ remain
+zero-based (unlike the public ward_tree result); source merge order is retained.
+Successful Ward fitting restores IEEE flags and halting modes. Cutting the
+hierarchy uses path-compressed parent links with linear working storage.
+Unstructured fitting uses condensed quadratic distances; structured graph fill
+can still become quadratic. At least two samples/features are required.
+
+Connectivity and distance_threshold controls currently require linkage='ward';
+other linkages retain their previous unstructured algorithms. Callable
+connectivity, caching and non-real64 feature arrays are not implemented. See
+`example/structured_ward.f90`.

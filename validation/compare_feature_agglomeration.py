@@ -1,6 +1,7 @@
 """Feature clustering, pooling and reconstruction against scikit-learn."""
 from pathlib import Path
 import json
+import argparse
 import subprocess
 import numpy as np
 import sklearn
@@ -9,6 +10,10 @@ ROOT = Path(__file__).resolve().parents[1]
 RESULTS = ROOT / "validation/results"
 
 def main():
+    parser=argparse.ArgumentParser()
+    parser.add_argument("--executable")
+    parser.add_argument("--report",type=Path,default=RESULTS/"feature_agglomeration.json")
+    args=parser.parse_args()
     RESULTS.mkdir(exist_ok=True)
     checks = []
     for seed, n, p in ((7, 37, 8), (42, 19, 6), (2026, 5, 11)):
@@ -18,8 +23,10 @@ def main():
         with data.open("w") as stream:
             stream.write(f"{n} {p}\n")
             np.savetxt(stream, x, fmt="%.17g")
-        subprocess.run(["fpm", "run", "--flag", "-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow",
-                        "--target", "reference_feature_agglomeration_driver", "--", str(data), str(output)], cwd=ROOT, check=True)
+        command=([args.executable] if args.executable else ["fpm", "run", "--flag",
+                 "-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow", "--target",
+                 "reference_feature_agglomeration_driver", "--"])
+        subprocess.run(command+[str(data),str(output)],cwd=ROOT,check=True)
         actual, expected = {}, {}
         for line in output.read_text().splitlines():
             name, *values = line.split(); actual[name] = np.array(values, dtype=float)
@@ -46,7 +53,7 @@ def main():
             assert actual[name].shape == want.shape, (seed, name)
             np.testing.assert_allclose(actual[name], want, atol=3e-8, rtol=3e-8, err_msg=f"{seed} {name}")
             checks.append(dict(seed=seed, name=name, passed=True))
-    (RESULTS/"feature_agglomeration.json").write_text(json.dumps(dict(sklearn=sklearn.__version__, checks=checks), indent=2)+"\n")
+    args.report.write_text(json.dumps(dict(sklearn=sklearn.__version__, checks=checks), indent=2)+"\n")
     print(f"{len(checks)} FeatureAgglomeration result groups passed")
 
 if __name__ == "__main__":
