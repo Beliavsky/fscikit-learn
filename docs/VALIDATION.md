@@ -9438,3 +9438,39 @@ differently. Root MIT licensing and retained BSD attribution remain intact.
 Inventory: 222 public core types, 170 source modules, 236 native programs,
 209 reference suites / 4,091,769 retained groups and 108 invalid registries /
 5,927 cases. The broader translation remains unfinished.
+
+
+## Weighted median absolute error and column maximum error (2026-11-24)
+
+Checked and optimized fpm --tests builds passed. Each profile passed 5,648
+complete configurations: 18,011 retained value/identity/IEEE groups and 15
+controlled source rejections. Finite differences were zero (comparison
+rtol=atol=3e-12); all 341 nonfinite masks matched, including direct signed
+infinite aggregation cases. The independent source inventory verifies every
+configuration/data hash/rank/shape/metric/mode and conditional result field.
+Accepted calls use a native batch; each expected source error remains isolated.
+
+Each profile passed 56 selected affected native programs, 192 core groups,
+28 targeted diagnostics and the existing score-shape guard. One targeted case
+is the identified static raw-result guard; the other 27 are source rejections.
+Two examples ran; order-error example results match an independent sklearn
+calculation. Native tests additionally check RNG preservation and owned raw
+results. These are affected checks, not all historical suites rerun.
+
+The audit verifies 236 dependency-aware compiled units per profile, complete
+matching inventories, frozen source/executable/validator/report hashes,
+distinct optimized drivers and preservation of unrelated metric/ordering-helper
+bodies. Results: validation/results/order*, including order_final_audit.json.
+References fix sklearn 1.6.1, NumPy 2.2.6, C-contiguous real64 arrays, the existing
+Intel index-order backend and the default 8192-element sum buffer. Different
+sort backends can change ties/cancellation for signed CDFs. Python warnings
+are omitted. Source regression/stats/extmath and native helper/license hashes
+are recorded. Original MIT integration and retained BSD attribution continue.
+
+Builds use four jobs, private fpm 0.14.0, GNU Fortran 17.0.0 20260510 and
+Python 3.13.3. Checked flags: -fcheck=all -fbacktrace
+-ffpe-trap=invalid,zero,overflow. Optimized verification uses --profile release.
+
+Inventory: 222 public core types, 171 source modules, 237 native programs,
+210 reference suites / 4,109,780 retained groups and 109 invalid registries /
+5,955 cases. The broader translation remains unfinished.

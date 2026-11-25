@@ -21,7 +21,7 @@ configurations, 18,011 groups, 15 rejections and 341 nonfinite masks. The checke
 fpm build and full affected batch passed, including 56 native programs, 192 core
 groups, 28 targeted diagnostics and the retained score-shape guard. The audit
 passed all 236 compiled-unit fingerprints and frozen artifact hashes.
-Optimized verification is in progress; final results will be recorded separately.
+Optimized verification subsequently passed; final results are in VALIDATION.md.
 
 ## Weighted multioutput regression error implementation (2026-11-24)
 
@@ -8707,3 +8707,40 @@ float64 target matrices. Other layouts/settings may round differently.
 Original integration remains MIT with retained sklearn/NumPy BSD notices.
 No dependency, new core type or public extension algorithm was introduced.
 The broader translation goal remains unfinished.
+
+
+## Verified weighted median and column maximum errors (2026-11-24)
+
+Implementation checkpoint ad2770f passed full checked and optimized
+batches. Each profile retained 18,011 value/identity/IEEE groups over 5,648
+complete configurations, with 15 controlled source rejections. All finite
+differences were zero and all 341 NaN/positive-infinity/negative-infinity masks
+matched. The independently regenerated source inventory agrees with each
+configuration ID, data hash, rank, shape, metric/mode and conditional field.
+Fixtures cover lower versus ordinary medians, signed/zero/zero-total CDFs,
+overflowed CDFs, ties, huge odd/even medians, long arrays, custom output weights,
+signed infinite aggregation and column maximum errors. Accepted cases run in
+one native batch; expected source errors remain isolated.
+
+Each profile also passed 56 selected native programs, including prior error/
+variance metrics and the unchanged NumPy-ordering helper, 192 core groups,
+28 targeted guards and the retained EllipticEnvelope score-shape guard. The
+targeted registry has 27 source rejections and one explicit static raw-result
+adapter guard. Both examples ran; the new example independently matches sklearn:
+median 0, weighted median 1, raw weighted medians [1,0], custom-output median
+0.25 and maximum 1. Native tests additionally verify RNG and owned raw arrays.
+
+The combined audit verifies 236 dependency-aware compiled-unit fingerprints per
+profile, matching complete inventories, stable source/executable/validator/
+report hashes and distinct optimized drivers. All other sklearn_metrics bodies
+match 46a6549, and the existing NumPy index-order source is unchanged. Artifacts
+remain under ignored validation/results/order*, including order_final_audit.json.
+Four-job --tests builds use the checksum-verified private fpm 0.14.0, checked
+flags -fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow and --profile release.
+The global fpm is unchanged. GNU Fortran 17.0.0 20260510 / Python 3.13.3 /
+sklearn 1.6.1 / NumPy 2.2.6 are the reference toolchain, with the existing pinned
+Intel index-order backend and 8192-element reduction buffer. Source regression,
+stats/extmath and native ordering-helper/Intel-license hashes are retained.
+Original integration remains MIT with preserved sklearn/NumPy/Intel BSD notices.
+No dependency, new core type or public extension algorithm was added. The broad
+translation remains unfinished.

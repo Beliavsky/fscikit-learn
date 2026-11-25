@@ -1,9 +1,8 @@
 # Translation coverage
 
-Median absolute error now supports sample/output weighting and matrix targets,
+Median absolute error supports sample/output weighting and matrix targets,
 with a raw-output helper; max_error accepts vector/one-column matrix pairs and
-quiet overflow. Checked/optimized verification is in progress; retained totals
-below describe the last completed batch.
+quiet overflow, verified in both build profiles.
 
 MSE, RMSE, MAE and MAPE support sample/output weighting, matrix targets
 and owned raw-result helpers, verified in both build profiles.
@@ -17,7 +16,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Two hundred and nine reference suites additionally check 4,091,769
+All types have native tests. Two hundred and ten reference suites additionally check 4,109,780
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -11152,3 +11151,29 @@ added. Other sklearn_metrics function bodies remain unchanged.
 Inventory: 222 public core types, 170 source modules, 236 native programs,
 209 reference suites / 4,091,769 retained groups and 108 invalid registries /
 5,927 cases. The broader translation remains unfinished.
+
+
+## Weighted median absolute error and column maximum error (2026-11-24)
+
+Median absolute error supports finite sample weights, all vector/matrix rank
+pairs, output weighting and owned raw results. Its lower weighted percentile
+follows the pinned Intel index ordering and serial CDF/binary-search rules,
+including signed and zero-total sample weights. The odd median selects one
+middle observation; even midpoint overflow follows sklearn. max_error accepts
+vector/one-column pairs, rejects multiple outputs and propagates residual
+overflow quietly. Input/RNG/IEEE state is preserved. See API.md for the supported
+contract, including static raw-result adaptation and backend rounding limits.
+
+Each checked/optimized profile passed 18,011 retained value/identity/IEEE groups
+over 5,648 complete configurations, with 15 controlled source rejections.
+Finite differences were zero and all 341 nonfinite masks matched. All 56
+selected native programs, 192 core groups, 28 targeted diagnostics and the
+existing score-shape guard passed per profile. Two examples ran; the order-error
+example matches an independent sklearn calculation. The combined audit checks
+236 compiled units per profile and matching complete inventories. Existing
+metric/ordering-helper bodies remain unchanged. MIT integration and retained
+BSD notices continue; no dependency, estimator type or ML extension is added.
+
+Inventory: 222 public core types, 171 source modules, 237 native programs,
+210 reference suites / 4,109,780 retained groups and 109 invalid registries /
+5,955 cases. The broader translation remains unfinished.
