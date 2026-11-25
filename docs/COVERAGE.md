@@ -77,7 +77,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Two hundred and thirty-one reference suites additionally check 4,585,897
+All types have native tests. Two hundred and thirty-two reference suites additionally check 4,643,952
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and explicitly recorded numerical certificates.
 
@@ -135,7 +135,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | feature_extraction | `dict_vectorizer`, `feature_hasher` | Named numeric/categorical mappings; string lists; learned or hashed columns; real64 CSR and dense outputs |
 | feature_extraction_text | `count_vectorizer`, `tfidf_transformer`, `tfidf_vectorizer`, `hashing_vectorizer` | Dense vocabulary/TF-IDF unigram counts with ASCII tokens of length 2-128; stateless CSR signed/binary hashed word, character and within-word character n-grams with dynamic token storage, ASCII analysis and English/custom stop words; l1/l2/no normalization |
 | dummy | `dummy_classifier`, `dummy_regressor` | Prior/most-frequent/stratified/uniform/constant classification; mean/median/quantile/constant regression |
-| kernel_ridge | `kernel_ridge` | Positive alpha; linear/RBF/polynomial/sigmoid kernels; no intercept |
+| kernel_ridge | `kernel_ridge` | Weighted dense/CSR, multioutput, per-target nonnegative alpha; named/callback/GP kernels; singular numeric limits below |
 | discriminant_analysis | `linear_discriminant_analysis`, `quadratic_discriminant_analysis` | LDA offers LSQR, SVD and generalized-eigen classification/projection with fixed/automatic shrinkage and custom priors; QDA full/thin regularization and custom priors; solver-specific rank contracts are documented below |
 | svm | `svc`, `nu_svc`, `linear_svc`, `linear_svr`; re-exports `svr`, `nu_svr`, `one_class_svm` | Primal L2 squared-loss linear classification/regression; OVO SVC/NuSVC; epsilon/nu support-vector regression and one-class detection; native pairwise dual optimization and weighted capacities |
 | mixture | `gaussian_mixture`, `bayesian_gaussian_mixture` | EM Gaussian mixtures and variational Bayesian mixtures with finite Dirichlet or truncated stick-breaking weights; full/tied/diag/spherical covariances; responsibilities and likelihood scores; GaussianMixture BIC/AIC |
@@ -12384,3 +12384,77 @@ dependency or algorithm outside sklearn was added. Inventory: 222 public core
 types, 181 source modules, 256 native test programs, 231 reference suites /
 4,585,897 retained groups and 128 invalid registries / 6,550 cases.
 The broader translation remains unfinished.
+## Weighted multioutput and sparse KernelRidge
+
+KernelRidge now supports vector/matrix targets, scalar/vector sample weights,
+per-target penalties, dense/CSR training and queries, and the shared named,
+row-callback and GP kernels. It owns its inputs, exposes all target coefficients
+and fitted dimensions, and participates in weighted ensemble dispatch. See
+[the API contract](API.md#weighted-multioutput-kernelridge) for typed adapters,
+unsupported sparse kernels, upper-triangle solves and ownership semantics.
+No estimator type, module, external dependency or public extension was added.
+
+The new reference grid has 11,664 configurations: 11,611 successful fits /
+58,055 retained groups and 53 matching isolated source/native rejections.
+It covers three seeds, normal/duplicate/zero features, vector and matrix target
+ranks, scalar/vector/per-target penalties, no/vector/scalar weights, all four
+dense/CSR train/query combinations where supported, asymmetric precomputed
+matrices and callbacks, GP objects, self-input identity and weighted scores.
+Direct comparisons retain the existing 3e-8 tolerance. The validator defaults
+to strict output comparison; numerical certificates require the explicit
+`--allow-singular-certificates` option.
+
+Singular systems with exactly zero penalties can select different successful
+Cholesky or least-squares paths across SciPy and native arithmetic. Some have
+material prediction/score differences. These are not sklearn output matches.
+Certificates require numerical singularity and zero penalties, independently
+check both paths' backward error or minimum-norm solution, then check native
+kernel multiplication and score consistency. Metadata remains directly
+compared; four numeric groups per certified configuration are separately
+classified. Counts depend on profile and are recorded in the final results.
+No positive-penalty mismatch is covered by this exception.
+
+The checked profile retains 57,451 direct groups and 604 certificate groups
+across 151 configurations; optimized retains 57,447 direct groups and 608
+certificate groups across 152 configurations. Maximum direct scaled error is
+3.069683923759658e-9 in both. The certificates include absolute prediction
+differences up to 12 and score differences up to 427.073; they must not be
+interpreted as tolerance-level sklearn parity. Both native profiles select
+2,478 least-squares fallbacks versus 2,456 in source. Each profile also matches
+all 53 source rejections, with no numerical certificate used for rejections.
+
+Native tests include weighted analytic coefficients, multiple targets,
+asymmetric upper-triangle solves, minimum-norm fallback, scalar weight
+broadcasting, deep copies, mixed storage, IEEE restoration and weighted voting.
+An eight-row, 2,097,152-feature one-hot CSR fit avoids a 128 MiB full dense
+feature matrix; row scratch is O(n_features), while the Gram/solve remains
+O(n_samples squared). This is a storage check, not a speed claim.
+
+Full checked and optimized fpm builds passed with the private checksum-verified
+fpm 0.14.0 and GNU Fortran 17.0.0 20260510. Checked flags are
+`-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow`; release uses
+`-O3 -funroll-loops -fcoarray=single`. Each profile passed the new reference grid,
+30 isolated guards, five selected native programs and the weighted example,
+plus 192 core, 16,965 voting, 32,162 bagging and 3,571 stacking/LOO result groups.
+Those ensemble reports retain their existing certificate categories; their
+other historical validation suites were not rerun. The missing names in the
+new voting fixture were corrected before the final native checks.
+
+The final audit verifies 197 dependency-aware compiled fingerprints per
+profile, stable source/validator/executable/attribution manifests, identical
+reference input hashes, distinct profile executables and unchanged license
+and dependency declarations. All library files outside KernelRidge and base
+dispatch remain unchanged from b91e0d5; eleven existing dispatch procedure
+bodies are unchanged. Only weighted regression training and weight-capability
+selection are updated there. Both profiles reuse the 11,664 captured source
+cases, with source/runtime provenance hashes checked. Caches retain actual
+sklearn outputs, never native-derived expectations. Checked regressions were
+retained across the test-only naming fix, with final fingerprints verified.
+
+Original integration remains MIT, with sklearn BSD attribution and existing
+shared-kernel/SVD notices retained. The source baseline is sklearn 1.6.1,
+SciPy 1.15.3 and NumPy 2.2.6. Source-output caches, provenance hashes, profile
+reports and build logs remain ignored under validation/results/kernel_ridge_*.
+Inventory: 222 public core types, 181 source modules, 257 native test programs,
+232 reference suites / 4,643,952 retained groups and 129 invalid registries /
+6,580 cases. The broader translation remains unfinished.
