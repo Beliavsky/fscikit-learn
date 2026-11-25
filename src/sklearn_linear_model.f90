@@ -1,4 +1,5 @@
 module sklearn_linear_model
+  use sklearn_omp_paths,only:orthogonal_mp,orthogonal_mp_gram,omp_result
   use sklearn_nnls, only: positive_least_squares
   use sklearn_resampling, only: index_split
   use sklearn_composite_scores, only: score_weights
@@ -17,6 +18,7 @@ module sklearn_linear_model
   implicit none
   private
   public :: orthogonal_matching_pursuit_cv
+  public :: orthogonal_mp,orthogonal_mp_gram,omp_result
   public :: lars,lasso_lars,lars_path,lars_path_gram,lars_path_result,lars_cv,lasso_lars_cv,lasso_lars_ic
   public :: sgd_one_class_svm
   public :: quantile_regressor

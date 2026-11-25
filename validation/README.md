@@ -7121,3 +7121,19 @@ certificate, --baseline-executable may name a separately compiled pre-change
 reference driver: the entire 200-group fixture must match that binary exactly.
 The report retains the source-comparison failure and baseline provenance
 separately; this option does not widen numerical tolerances.
+
+
+Direct and Gram OMP paths:
+```
+python validation/compare_omp_paths.py --executable build/gfortran_E1FE13DB8881E18E/app/reference_omp_paths_driver.exe --profile checked
+python validation/check_omp_paths_invalid_inputs.py --executable build/gfortran_E1FE13DB8881E18E/app/reference_omp_invalid_driver.exe --profile checked
+```
+Repeat for release. The reference driver batches 2,310 configurations, testing
+owned coefficients/paths, per-target iterations, backend selection, warning
+flags and input retention. Column-wise source solves supply ragged paths and
+precomputed iteration counts; source wrapper failures are recorded separately.
+Duplicate atoms use merged-coefficient/prediction certificates. Numerical
+full-span certificates retain rank-deficient extra-step cases and verify
+common prefixes, every extra reconstruction and backward error. Exact-zero
+tolerance warning-state differences are explicitly retained. Twenty-seven
+diagnostics include eight identified native finite/shape/pivot contracts.

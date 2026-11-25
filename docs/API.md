@@ -9097,3 +9097,64 @@ underdetermined paths and machine epsilon for their early knots. Exactly
 duplicate columns can select interchangeable active representatives: the
 validation checks merged coefficients and every prediction knot in these
 cases rather than claiming identical coefficient allocation.
+
+
+## Direct and Gram orthogonal matching pursuit
+
+`orthogonal_mp` and `orthogonal_mp_gram` are exported by `sklearn_omp_paths`,
+`sklearn_linear_model` and `sklearn`. The existing OMP estimator and its CV
+estimator keep their separate interfaces/backends. These functions implement
+sklearn 1.6.1's Cholesky pursuit algorithms, including atom permutations,
+dependent-atom stopping and residual-tolerance solves.
+
+```fortran
+use sklearn, only: dp,orthogonal_mp,orthogonal_mp_gram,omp_result
+type(omp_result) :: fit
+! X is (samples,features); y may be a vector or a target-column matrix.
+fit=orthogonal_mp(x,y,n_nonzero_coefs=3,return_path=.true.)
+fit=orthogonal_mp(x,y,tol=.01_dp,precompute='auto')
+! For vector Xy, norms_squared is scalar; for a matrix it is a vector.
+fit=orthogonal_mp_gram(gram,xy,tol=.01_dp,norms_squared=target_norms)
+```
+
+`orthogonal_mp` defaults to precompute=false and max(floor(n_features/10),1)
+atoms. `precompute` accepts a logical or the string 'auto', which selects
+Gram mode when n_samples > n_features. `orthogonal_mp_gram` defaults to
+floor(n_features/10) atoms, retaining source's zero-count diagnostic for
+fewer than ten features. Specify n_nonzero_coefs or tol in that case.
+
+`tol` is an optional finite nonnegative squared residual tolerance; it
+overrides the sparsity count and permits up to n_features active atoms.
+A supplied count must be positive; without tol it cannot exceed n_features.
+Gram tolerance solves require norms_squared for each target. Target norms
+are checked for length and finiteness only when tol uses them. Inputs are
+finite real64 arrays; Gram must be feature-square with matching correlations.
+The algorithm assumes a Gram matrix from the intended dictionary; it does
+not run a separate global PSD/symmetry test. A selected nonpositive first
+Gram diagonal is diagnosed instead of attempting an invalid factorization.
+No centering or column normalization is performed. All inputs are retained.
+
+The owned `omp_result` has coefficients(features,targets), n_iter(targets),
+premature(targets) and gram_used. Results retain a target dimension even
+for a vector response or one feature. Request return_path=true to allocate
+path(features,targets,max(n_iter)); otherwise path is unallocated. Target k
+uses path(:,k,:n_iter(k)); later columns are zero padding. Zero targets can
+return zero iterations and empty paths. Premature flags replace warning
+objects and describe native dependent/repeated/weak-atom termination.
+They can differ from source warning emission at exact-zero tolerance because
+residual roundoff determines whether the tolerance is met first.
+
+The result record intentionally retains independent full target paths and
+iteration counts: source 1.6.1 can truncate/fail for ragged multi-target
+paths and omits requested iteration counts in orthogonal_mp's precomputed
+route. Reference checks use separate source target solves and record these
+storage/wrapper adaptations. Finite correlations/norms, dimension checks and
+nonpositive first-pivot diagnostics are explicit native guard contracts.
+
+At rank deficiency, native and BLAS/LAPACK full paths can differ in their
+last steps or nonunique coefficients. Reference certificates compare the
+common path prefix and verify reconstruction to backward error for extra
+steps after spanning a wide dictionary. Exactly duplicate atoms use merged
+coefficients and prediction-path certificates. These limitations do not
+claim identical source coefficient allocation, stopping flags or final knot
+counts on numerically degenerate data. See example/omp_paths.f90.

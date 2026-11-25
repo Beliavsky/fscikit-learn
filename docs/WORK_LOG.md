@@ -9255,3 +9255,17 @@ no dependency, public core type or algorithm outside sklearn was added.
 Inventory: 222 public core types, 176 source modules, 245 native programs,
 218 reference suites / 4,218,170 retained groups and 117 invalid registries /
 6,317 cases. The broader translation remains unfinished.
+
+
+## Direct and Gram OMP implementation (2026-11-25)
+
+Added native orthogonal_mp and orthogonal_mp_gram with direct/Gram Cholesky
+pursuit, residual tolerance, auto-precomputation, multiple targets and owned
+full paths. Private checked and optimized probes each passed 16,170 groups
+across 2,310 configurations. Native unit and 27 guard probes passed.
+Independent certificates identify duplicate-atom allocation, zero-tolerance
+warning roundoff and full-span rank-deficient tail steps. Source ragged-path
+and missing-precomputed-iteration wrapper quirks are explicit adapters.
+Full fpm checked/optimized build and regression verification is underway.
+The existing OMP estimators retain their implementations. MIT and upstream
+BSD attribution are retained.
