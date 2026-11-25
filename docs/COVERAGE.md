@@ -1,9 +1,8 @@
 # Translation coverage
 
-General Tweedie deviance/D2 now support all vector/column rank pairs and source-
-compatible signed/nonfinite sample weights, including D2's one-sample shortcut.
-Checked/optimized verification is in progress; retained totals below describe
-the prior completed batch.
+General Tweedie deviance/D2 support all vector/column rank pairs and source-
+compatible signed/nonfinite sample weights, including D2's one-sample shortcut,
+verified in both build profiles.
 
 MSLE/RMSLE support sample/output weighting and matrix rank pairs, including
 RMSLE's legacy optional argument adapters. Direct Poisson/Gamma deviances
@@ -25,7 +24,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Two hundred and eleven reference suites additionally check 4,121,004
+All types have native tests. Two hundred and twelve reference suites additionally check 4,144,017
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -11213,3 +11212,30 @@ core type or ML extension.
 Inventory: 222 public core types, 172 source modules, 238 native programs,
 211 reference suites / 4,121,004 retained groups and 110 invalid registries /
 6,034 cases. The broader translation remains unfinished.
+
+
+## General weighted Tweedie deviance and D2 (2026-11-24)
+
+The general family accepts all vector/column rank pairs, signed/nonfinite sample
+weights and finite powers <= 0 or >= 1, with the source's power-dependent
+domains. Kernels preserve source arithmetic, null-mean handling and exceptional
+results. D2's singleton return precedes weight/domain checks; a zero null
+deviance rejects while a nonfinite null model propagates through the kernel.
+Input/RNG/IEEE state is preserved. See API.md for the complete supported contract.
+
+Each profile passed 23,013 retained value/identity/IEEE groups over 7,734 complete
+configurations, with 63 controlled source rejections. Finite differences were
+zero and all 4,186 nonfinite masks matched. Each also passed 33,120 earlier
+regression groups over 4,507 fixtures, 58 selected native programs, 192 core
+groups, 41 new and 25 earlier targeted diagnostics and the score-shape guard.
+The old infinity-weight case now checks accepted NaN output against sklearn;
+one formerly invalid case is therefore excluded from the invalid-case total.
+Earlier source-rejection records total 929, exercised via 254 unique probes.
+Both examples ran, with the new one independently matching sklearn. The combined
+audit verifies 241 compiled units per profile and preservation of all unrelated
+regression bodies and the metrics facade. MIT integration and retained BSD
+attribution continue without new dependencies, core types or ML extensions.
+
+Inventory: 222 public core types, 173 source modules, 239 native programs,
+212 reference suites / 4,144,017 retained groups and 111 invalid registries /
+6,074 cases. The broader translation remains unfinished.

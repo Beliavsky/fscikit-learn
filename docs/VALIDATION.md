@@ -9517,3 +9517,42 @@ was unchanged.
 Inventory: 222 public core types, 172 source modules, 238 native programs,
 211 reference suites / 4,121,004 retained groups and 110 invalid registries /
 6,034 cases. The broader translation remains unfinished.
+
+
+## General Tweedie deviance/D2 weighting and columns (2026-11-24)
+
+Full checked and optimized fpm build --tests batches passed. Each profile
+passed 7,734 complete configurations, retaining 23,013 value/identity/IEEE
+groups and 63 controlled source rejections. Finite differences were zero
+(rtol=atol=3e-12); all 4,186 nonfinite masks matched. The independent inventory
+checks every configuration ID, data hash, shape, rank, metric/power and
+conditional result. Incoming inexact flags alternate clear/set; all IEEE flags
+and modes are checked immediately after each call. Accepted calls use a batch;
+each source rejection is isolated.
+
+The suite covers power boundaries, wide powers, negative truth, signed/nonfinite
+weights, extreme ratios, buffered sums, D2 singleton/null-model behavior and
+all vector/column rank pairs. Each profile also passed 33,120 earlier regression
+groups over 4,507 fixtures, 25 earlier diagnostics and 929 source-rejection
+records via 254 unique probes. The 58 selected native programs, 192 core groups,
+41 new controlled diagnostics and retained score-shape guard passed. Two
+examples ran; the new example matches an independent sklearn calculation.
+The former infinity-weight rejection is an explicit accepted-value regression
+against sklearn; the invalid-case inventory is reduced by one. Native tests
+also verify RNG and direct-deviance identities. These are affected
+checks, not all historical suites rerun.
+
+The audit checks 241 dependency-aware compiled units per profile, matching
+complete inventories, frozen source/executable/validator/report hashes,
+distinct optimized drivers and preservation of other regression bodies and the
+main metrics facade. Results: validation/results/tweedie*, including
+tweedie_final_audit.json. Source baseline: sklearn 1.6.1 / NumPy 2.2.6 with the
+default 8192-element reduction buffer. Other math runtimes/settings can round
+differently. Original MIT integration and retained BSD attribution continue.
+Toolchain: private fpm 0.14.0, GNU Fortran 17.0.0 20260510 and Python 3.13.3.
+Four-job checked flags: -fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow;
+optimized verification uses --profile release. The global fpm is unchanged.
+
+Inventory: 222 public core types, 173 source modules, 239 native programs,
+212 reference suites / 4,144,017 retained groups and 111 invalid registries /
+6,074 cases. The broader translation remains unfinished.

@@ -8839,3 +8839,38 @@ and the default 8192-element buffer. Other math runtimes/layouts/settings can
 round differently. The global fpm is unchanged. Original integration remains
 MIT with retained sklearn/NumPy BSD notices. No dependency, new core type or
 public extension algorithm was added. The broad translation remains unfinished.
+
+
+## Verified general weighted Tweedie family (2026-11-24)
+
+Implementation checkpoint 33cbe2d passed full checked and optimized
+fpm build --tests batches. Each profile retained 23,013 value/identity/IEEE
+groups over 7,734 complete configurations, with 63 controlled source rejections.
+All finite differences were zero; all 4,186 nonfinite masks matched. The
+independently regenerated inventory matches every configuration ID, data hash,
+shape, rank, metric/power and conditional result. Fixtures cover ordinary,
+near-boundary/wide powers, negative truth, signed/nonfinite weights, extreme
+ratios, buffered sums, singleton shortcuts and nonpositive/nonfinite null
+models. Incoming inexact flags alternate clear/set and are preserved.
+
+Each profile also passed 33,120 earlier regression groups over 4,507 fixtures,
+25 earlier diagnostics, one migrated accepted-infinity regression and 929 source-rejection records exercised via 254
+unique native probes. All 58 selected native programs, 192 core groups, 41 new
+source-aligned diagnostics and the EllipticEnvelope score-shape guard passed.
+Both examples ran; the Tweedie example independently matches sklearn's normal,
+Poisson and Gamma D2 scores and weighted compound deviance. Native tests also
+check RNG and direct Poisson/Gamma identities. The combined audit verifies
+241 dependency-aware compiled-unit fingerprints per profile, matching complete
+inventories, stable source/executable/validator/report hashes and distinct
+optimized drivers. The metrics facade is unchanged and all other regression
+bodies match 7c89fff after replacing the two public vector functions with imports.
+
+Artifacts remain under ignored validation/results/tweedie*, including
+tweedie_final_audit.json. Four-job builds use verified private fpm 0.14.0,
+GNU Fortran 17.0.0 20260510, checked flags -fcheck=all -fbacktrace
+-ffpe-trap=invalid,zero,overflow and --profile release. References use Python
+3.13.3, sklearn 1.6.1 and NumPy 2.2.6 with default 8192-element buffered sums.
+Other math runtimes/buffer settings may round differently. The global fpm is
+unchanged. Original integration remains MIT with preserved BSD attribution.
+No dependency, core type or public ML extension was added. The broad translation
+remains unfinished.
