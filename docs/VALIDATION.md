@@ -9942,3 +9942,56 @@ No runtime dependency, public core estimator type or algorithm outside sklearn
 was added. Inventory: 222 public core types, 178 source modules, 247 native
 programs, 220 reference suites / 4,262,024 retained groups and 119 invalid
 registries / 6,383 cases. The broader translation remains unfinished.
+
+
+## Verified sparse weighted/centered coordinate paths (2026-11-25)
+
+Implementation 47291a7 passed full checked and optimized fpm build --tests
+batches. Each profile passed 2,168 configurations / 19,512 retained groups,
+all directly compared to sklearn 1.6.1, with no numerical-equivalence
+exceptions in the new suite. Maximum scaled error across both profiles was
+7.698e-16, at rtol=atol=3e-8 for numeric arrays and exact equality for
+shape, iteration, convergence, backend and input-retention groups.
+
+Coverage includes canonical/unsorted/explicit-zero/duplicate CSR, raw CSC
+conversion, scalar elastic-net/Lasso, automatic and explicit grids, repeated
+alphas, initial coefficients, positivity, cyclic/random coordinates, zero
+sweeps, missing/all-one/fractional/zero/signed sample weights and implicit
+means/scales. Sparse precomputation is forced off, ignored Gram/Xy/scale
+semantics are retained and all inputs are checked bit for bit, including
+ignored NaN arrays. The automatic grid deliberately remains raw/unweighted/
+uncentered; weights are not normalized. Explicit-grid paths avoid unused raw
+correlations, including a zero-weight case whose raw X.T*y would overflow.
+
+Raw duplicate storage follows the pinned source rather than silently
+canonicalizing: stored-entry squares determine coordinate norms, and the
+unweighted uint32 implicit-zero count wraps for overfull columns. Each
+profile retains 180 configurations with such columns. Weighted accumulation
+uses its separate source formula, so all-one weights need not equal omitted
+weights for noncanonical data. Dedicated analytic tests distinguish both
+normalizations. Conventional logical-matrix regression assumes canonical CSR;
+finite signed weights are accepted as source behavior without a convexity claim.
+
+The implementation transposes CSR once and uses compressed-column entries
+plus O(n+p) working vectors, without a dense design or Gram allocation. A
+32768-by-8192 design with one stored entry passed; its dense equivalent is
+2 GiB. An empty-storage centered problem exercises implicit nonzero columns.
+Requested output coefficient paths still use O(p*n_alphas) storage.
+
+Each profile also passed 27,684 earlier dense path groups (including their
+explicit numerical stopping certificates), 7,960 multi-task CV/random groups,
+216 scalar coordinate-CV groups, 192 core groups, eleven selected native
+programs and two examples. All 33 new diagnostics / 21 identified native
+buffer/finite/mean/domain contracts and 39 dense diagnostics passed. Other
+historical suites/native programs were not rerun. The combined audit checks
+202 compiled-unit fingerprints per profile, stable source/validator/executable/
+input inventories and distinct optimized drivers. Every old library algorithm
+body matches 3b6276f; only the coordinate-path module gains the CSR overloads,
+private CSC storage and sparse kernel. Artifacts remain ignored under
+validation/results/sparse_coordinate*.
+
+Original integration remains MIT with sklearn BSD attribution retained.
+No runtime dependency, public core estimator type or algorithm outside sklearn
+was added. Inventory: 222 public core types, 178 source modules, 248 native
+programs, 221 reference suites / 4,281,536 retained groups and 120 invalid
+registries / 6,416 cases. The broader translation remains unfinished.
