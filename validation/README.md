@@ -7285,3 +7285,34 @@ probes. Source/dependency fingerprints for 196 compiled units per profile,
 stable manifests, identical inputs and distinct executables passed the final
 audit. Other historical suites were not rerun. Artifacts remain ignored under
 validation/results/optics_graph_*.
+
+
+Blocked Ledoit-Wolf shrinkage:
+```
+python validation/compare_shrinkage.py --executable build/gfortran_E1FE13DB8881E18E/app/reference_shrinkage_driver.exe --report validation/results/shrinkage_checked_new.json
+python validation/check_shrinkage_invalid_inputs.py --executable build/gfortran_E1FE13DB8881E18E/app/reference_shrinkage_invalid_driver.exe
+```
+Repeat with the release executable directory. The suite retains 1,080
+configurations / 5,112 direct comparison groups: public coefficients and
+estimator shrinkage, locations, covariance and precision matrices. Three seeds,
+tall/wide/one-sample/one-feature data, centered/raw inputs, zero/constant/rank-
+deficient/isotropic/shifted cases and several block/remainder sizes are covered.
+Extreme finite scalar inputs exercise underflow, overflow, quiet NaN behavior
+and the one-feature shortcut. The native test independently checks analytic
+rank-one shrinkage, estimator covariance, all IEEE flags/modes and an
+8,192-feature case avoiding a 512 MiB cross-moment matrix. Seven isolated
+rejections cover block sizes, empty/nonfinite input and estimator validation.
+One-sample estimator fixtures also cover tiny negative computed coefficients,
+which source applies without an additional range clamp. No numerical exceptions
+or certificate substitutions are used in this suite; finite values use the
+3e-8 source comparison tolerance and NaN patterns must match.
+
+Checked and optimized fpm builds passed on 2026-11-25. Both profiles passed
+all 5,112 direct groups, seven rejection checks, five selected native programs,
+the example and 192 core comparisons. Maximum scaled error was
+1.095989315518997e-8 checked and 1.1367939906712503e-8 optimized, with 774
+source warnings per profile. No tolerance exceptions or certificate substitutions
+were used. All 193 compiled-unit fingerprints per profile, stable manifests,
+identical inputs and distinct executables passed the final audit. Other
+covariance algorithm bodies are unchanged. Other historical suites were not
+rerun. Artifacts remain ignored under validation/results/shrinkage_*.

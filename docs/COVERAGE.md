@@ -1,5 +1,8 @@
 # Translation coverage
 
+Blocked Ledoit-Wolf shrinkage is public, with estimator block-size controls
+and complete IEEE-state preservation, verified in checked and optimized builds.
+
 OPTICS now streams distance rows, and `compute_optics_graph` exposes reusable
 dense/precomputed/callback graphs. Checked and optimized verification records
 four floating-point-sensitive graphs separately through source state replay.
@@ -67,7 +70,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Two hundred and twenty-four reference suites additionally check 4,293,207
+All types have native tests. Two hundred and twenty-five reference suites additionally check 4,298,319
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and explicitly recorded numerical certificates.
 
@@ -131,7 +134,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | mixture | `gaussian_mixture`, `bayesian_gaussian_mixture` | EM Gaussian mixtures and variational Bayesian mixtures with finite Dirichlet or truncated stick-breaking weights; full/tied/diag/spherical covariances; responsibilities and likelihood scores; GaussianMixture BIC/AIC |
 | neural_network | `mlp_classifier`, `mlp_regressor`, `bernoulli_rbm` | Arbitrary dense hidden layers, relu/tanh/logistic/identity, seeded minibatch Adam/SGD or full-data L-BFGS, momentum/Nesterov and SGD schedules, binary/multilabel logistic or multiclass softmax classification, scalar/joint squared-error regression, L2 regularization |
 | gaussian_process | `gaussian_process_regressor`, `gaussian_process_classifier` | Configurable covariance expressions or legacy RBF controls; anisotropy, Matern/RQ/periodic/dot/constant/white kernels and sums/products/powers; scalar/vector-alpha Cholesky regression, independent multiple targets, likelihood gradients and opt-in bounded kernel fitting; Laplace binary/OVR classification with optional independent kernel fitting, binary likelihood gradients and warm starts |
-| covariance | `empirical_covariance`, `shrunk_covariance`, `ledoit_wolf`, `oas`, `graphical_lasso`, `graphical_lasso_cv`, `min_cov_det`, `elliptic_envelope`; `fast_mcd` | Population covariance, pseudoinverse precision, squared Mahalanobis distance, likelihood, Frobenius/spectral covariance error; L1-penalized sparse precision via CD or LARS block solves and refined cross-validation; FastMCD robust covariance and elliptic outlier detection |
+| covariance | `empirical_covariance`, `shrunk_covariance`, `ledoit_wolf`, `oas`, `graphical_lasso`, `graphical_lasso_cv`, `min_cov_det`, `elliptic_envelope`; `fast_mcd`, `ledoit_wolf_shrinkage` | Blocked Ledoit-Wolf moments; population covariance, pseudoinverse precision, squared Mahalanobis distance, likelihood, Frobenius/spectral covariance error; L1-penalized sparse precision via CD or LARS block solves and refined cross-validation; FastMCD robust covariance and elliptic outlier detection |
 | calibration | `calibrated_classifier_cv`; `calibration_curve` | Sigmoid/isotonic CV ensembles, out-of-fold calibration and prefit calibration with logistic, Gaussian NB or KNN bases; uniform/quantile reliability bins |
 | datasets | `make_classification`, `make_multilabel_classification`, `make_sparse_coded_signal`, `make_sparse_spd_matrix`, `make_biclusters`, `make_checkerboard`, `make_hastie_10_2`, `make_blobs`, `make_regression`, `make_low_rank_matrix`, `make_moons`, `make_circles`, `make_friedman1/2/3`, `make_sparse_uncorrelated`, `make_s_curve`, `make_swiss_roll`, `make_gaussian_quantiles` | Native synthetic generators with seeded legacy NumPy draws; scalar/joint regression, low-rank profiles, unequal blob/curve counts, per-cluster blob scales and center outputs; no bundled real-world datasets |
 
@@ -12074,3 +12077,42 @@ notices retained. No runtime dependency or algorithm outside sklearn was added.
 Inventory: 222 public core types, 179 source modules, 251 native test programs,
 224 reference suites / 4,293,207 retained groups and 123 invalid registries /
 6,460 cases. The broader translation remains unfinished.
+
+
+Blocked Ledoit-Wolf increment (2026-11-25):
+`ledoit_wolf_shrinkage` implements the public dense real64 function with
+optional centering, default block_size=1000, full/remainder blocks, source
+beta/delta clipping and the one-feature shortcut. Working storage is
+O(n_samples*n_features + min(block_size,n_features)^2); the coefficient-only
+function avoids a full feature cross-moment matrix for smaller blocks.
+Computation remains quadratic in features. An 8,192-feature analytic case
+passed with block_size=128, avoiding a 512 MiB cross-moment allocation.
+
+`ledoit_wolf` gains block_size and computes precision once, after shrinking.
+Its covariance/precision outputs still require quadratic storage. The fitted
+coefficient is applied without an additional range clamp, as in source;
+one-sample rank-one data can produce tiny negative values through roundoff.
+The scalar function follows source quiet-NaN overflow behavior while restoring
+all original IEEE flags and halting modes. Input stays unchanged. Python
+warning emission is not reproduced. See API.md and blocked_shrinkage.f90.
+
+Full checked and optimized fpm builds passed. Each profile passed 1,080
+configurations / 5,112 direct source comparison groups at the unchanged 3e-8
+tolerance, including estimator coefficients, locations, covariance and precision.
+Zero/constant/isotropic/rank-deficient/shifted/tall/wide/one-feature/one-sample
+inputs, multiple block/remainder sizes and extreme finite scalar inputs are
+covered. Maximum scaled error was 1.095989315518997e-8 checked and
+1.1367939906712503e-8 optimized. Nonfinite patterns match source; no numerical
+certificates or tolerance exceptions are used. Each profile recorded 774 source
+warnings, seven input rejections, five selected native programs, the example
+and 192 core comparisons. Other historical suites were not rerun.
+
+The final audit verifies 193 compiled-unit fingerprints per profile, stable
+source/validator/executable manifests, identical inputs, distinct optimized
+executables, unchanged other covariance algorithm bodies and unchanged license/
+dependency declarations. Ignored artifacts are retained under validation/results/
+shrinkage_*. Original integration remains MIT with sklearn BSD notices retained.
+No runtime dependency or algorithm outside sklearn was added. Inventory: 222
+public core types, 180 source modules, 252 native test programs, 225 reference
+suites / 4,298,319 retained groups and 124 invalid registries / 6,467 cases.
+The broader translation remains unfinished.
