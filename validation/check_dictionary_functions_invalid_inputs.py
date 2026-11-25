@@ -1,6 +1,6 @@
 import argparse,subprocess
 ap=argparse.ArgumentParser();ap.add_argument('--executable',required=True);args=ap.parse_args()
-for case in range(1,21):
+for case in range(1,26):
  p=subprocess.run([args.executable,str(case)],text=True,capture_output=True)
  assert p.returncode and 'ERROR STOP'in p.stderr and 'SIGFPE'not in p.stderr,(case,p.stdout,p.stderr)
-print('20 dictionary function input guards passed')
+print('25 dictionary function input guards passed')

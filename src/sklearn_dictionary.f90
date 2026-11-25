@@ -264,7 +264,8 @@ contains
       call require(valid_coding_algorithm(algorithm),'unknown sparse coding algorithm'); method=algorithm
     end if
     penalty=1; if(present(alpha)) penalty=alpha
-    call require(ieee_is_finite(penalty).and.penalty>=0,'sparse coding alpha must be finite and nonnegative')
+    call require(ieee_is_finite(penalty),'sparse coding alpha must be finite and nonnegative')
+    call require(penalty>=0,'sparse coding alpha must be finite and nonnegative')
     limit=1000; if(present(max_iter)) limit=max_iter
     call require(limit>=0.and.limit<huge(limit),'invalid sparse coding max_iter')
     k=size(dictionary,1); width=min(max(1,size(x,2)/10),k)
@@ -346,8 +347,9 @@ contains
     call require(k>=1,'dictionary component count must be positive')
     call require(limit>=0.and.limit<huge(limit).and.inner_limit>=0.and.inner_limit<huge(inner_limit), &
       'invalid dictionary iteration limit')
-    call require(all(ieee_is_finite([alpha,tolerance])).and.alpha>=0.and.tolerance>=0, &
+    call require(all(ieee_is_finite([alpha,tolerance])), &
       'dictionary alpha and tolerance must be finite and nonnegative')
+    call require(alpha>=0.and.tolerance>=0,'dictionary alpha and tolerance must be finite and nonnegative')
     call require(method=='lars'.or.method=='cd','unknown dictionary fit algorithm')
     call require(.not.(positive_code.and.method=='lars'),'positive dictionary codes require fit_algorithm cd')
     call rng%seed(seed)
@@ -396,8 +398,8 @@ contains
     call require(self%transform_n_nonzero_coefs>=0,'sparse coding sparsity must be nonnegative (zero means auto)')
     call require(self%transform_max_iter>=0.and.self%transform_max_iter<huge(self%transform_max_iter), &
       'invalid sparse coding max_iter')
-    call require(ieee_is_finite(self%transform_alpha).and. &
-      (self%transform_alpha==-1.or.self%transform_alpha>=0),'transform alpha must be -1 (auto) or nonnegative')
+    call require(ieee_is_finite(self%transform_alpha),'transform alpha must be -1 (auto) or nonnegative')
+    call require(self%transform_alpha==-1.or.self%transform_alpha>=0,'transform alpha must be -1 (auto) or nonnegative')
   end subroutine
   function apply_coding(self,x,dictionary,default_alpha) result(code)
     class(coding_parameters), intent(in) :: self
@@ -467,7 +469,8 @@ contains
     integer :: k,j,index
     call check_x(x)
     call require(self%n_components>=0,'SparsePCA n_components must be nonnegative (zero means auto)')
-    call require(ieee_is_finite(self%ridge_alpha).and.self%ridge_alpha>=0,'SparsePCA ridge_alpha must be nonnegative')
+    call require(ieee_is_finite(self%ridge_alpha),'SparsePCA ridge_alpha must be nonnegative')
+    call require(self%ridge_alpha>=0,'SparsePCA ridge_alpha must be nonnegative')
     k=self%n_components; if(k==0) k=size(x,2)
     self%mean_=sum(x,dim=1)/size(x,1); centered=x-spread(self%mean_,1,size(x,1))
     if(allocated(self%u_init).and.allocated(self%v_init)) then
@@ -500,7 +503,8 @@ contains
     integer :: k
     call check_x(x)
     call require(size(x,2)==size(components,2),name//' feature count mismatch')
-    call require(ieee_is_finite(ridge_alpha).and.ridge_alpha>=0,name//' ridge_alpha must be nonnegative')
+    call require(ieee_is_finite(ridge_alpha),name//' ridge_alpha must be nonnegative')
+    call require(ridge_alpha>=0,name//' ridge_alpha must be nonnegative')
     k=size(components,1); allocate(s(k),u(size(x,2),k),v(k,k),factor(k))
     call dense_svd(transpose(components),s,u,v)
     cutoff=epsilon(1._dp)*max(k,size(x,2))*maxval(s); factor=0

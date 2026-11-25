@@ -1,10 +1,13 @@
 program reference_dictionary_functions_invalid_driver
   use sklearn_common,only:dp
-  use sklearn_dictionary,only:dict_learning,dict_learning_online,dictionary_learning_result,online_dictionary_result
+  use sklearn_dictionary,only:dict_learning,dict_learning_online,dictionary_learning_result,online_dictionary_result, &
+    sparse_encode,sparse_pca
   use,intrinsic::ieee_arithmetic
   implicit none
   type(dictionary_learning_result)::a
   type(online_dictionary_result)::b
+  type(sparse_pca)::projection
+  real(dp),allocatable::z(:,:)
   real(dp)::x(3,2),d(2,2),u(3,2)
   character(16)::arg
   integer::mode
@@ -51,6 +54,17 @@ program reference_dictionary_functions_invalid_driver
     b=dict_learning_online(x,method='lars_bad')
   case(20)
     b=dict_learning_online(x,positive_code=.true.,method='lars')
+  case(21)
+    a=dict_learning(x,2,1._dp,tol=ieee_value(0._dp,ieee_quiet_nan))
+  case(22)
+    z=sparse_encode(x,d,alpha=ieee_value(0._dp,ieee_quiet_nan))
+  case(23)
+    projection%ridge_alpha=ieee_value(0._dp,ieee_quiet_nan);call projection%fit(x)
+  case(24)
+    b=dict_learning_online(x,alpha=ieee_value(0._dp,ieee_positive_inf))
+  case(25)
+    projection%max_iter=0;call projection%fit(x)
+    projection%ridge_alpha=ieee_value(0._dp,ieee_quiet_nan);z=projection%transform(x)
   end select
   print *,'guard unexpectedly returned'
 end program
