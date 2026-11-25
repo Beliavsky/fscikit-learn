@@ -2,7 +2,7 @@
 from pathlib import Path
 import argparse,hashlib,itertools,json,subprocess
 import numpy as np
-import scipy
+import scipy,sklearn
 import compare_pairwise_reductions as base
 METRICS=['braycurtis','canberra','correlation','hamming','dice','jaccard','rogerstanimoto','russellrao','sokalmichener','sokalsneath','yule','matching']
 def fixtures():
