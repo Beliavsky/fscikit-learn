@@ -10168,6 +10168,11 @@ New weighted, CSR and matrix fit overloads require a direct `ridge`, and
 reject inherited use on `ridge_cv`; its established vector CV API remains.
 Weighted composition dispatch honors the Ridge solver controls.
 
+For external Fortran subclasses of `linear_regression`, dense overrides now
+bind `fit_dense`, `predict_dense` and `score_dense`. The public call names
+`fit`, `predict` and `score` are generics. Existing callers retain those call
+names; custom subclasses must update their overriding binding names.
+
 This is algorithm support, with known numerical differences from SciPy's
 optimizer. The full diagnostic reference suite retains nine configurations
 with failed comparisons: eight L-BFGS-B fits (seven at tol=0, one at 1e-6)

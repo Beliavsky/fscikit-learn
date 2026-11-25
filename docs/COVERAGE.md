@@ -13065,3 +13065,77 @@ public types plus owned result/iterator helpers, 185 source modules, 267 native
 test programs, 285 app drivers, 223 examples, 242 reference suites / 5,349,576
 retained groups and 138 invalid registries / 6,771 cases.
 The broader translation remains unfinished.
+
+## Ridge estimator solver integration
+
+The existing Ridge estimator now integrates all seven functional solver
+algorithms, with auto routing, dense/CSR features, weighted centering,
+scalar-weight broadcasting, matrix targets, per-target penalties, fitted
+metadata and dense/CSR prediction and scoring. Sparse intercept fitting uses
+an implicit centered operator. Weighted composition and search adapters honor
+the configured solver. The API documents sparse solver restrictions and the
+direct-Ridge restriction on new fit overloads inherited by RidgeCV.
+
+`compare_ridge_estimator.py` uses actual sklearn 1.6.1 Ridge fits with NumPy
+2.2.6 and SciPy 1.15.3. The checked full diagnostic run contains 4,608
+configurations, 4,554 successful fits, 54 individually verified Source fit
+rejections and 147 individually verified Source score rejections. It attempts
+31,731 comparisons: 31,706 pass, and 25 fail across nine configurations.
+These failed comparisons are retained in the report and are not counted as
+parity. Default strict execution rejects the first mismatch (fixture 1418);
+diagnostic mode records all failures without changing tolerances or expected
+outputs. The strict 240-configuration smoke suite passes all 1,680 groups.
+
+Eight failed configurations use L-BFGS-B: indices 1418, 2936, 3013, 3020,
+3938, 3944, 4526 and 4532. Seven use tol=0 and cap=25; index 3013 uses tol=1e-6
+and cap=5. Their coefficient, prediction and score comparisons fail. The
+largest absolute coefficient difference is about 0.374, so these are material
+finite-iteration differences. The largest scaled comparison error is
+0.2684373793901219. SAGA fixture 3425 (tol=0) differs only in its iteration
+count, 25 versus Source 23. The solver implementations and SciPy optimizer
+backends do not have complete trajectory/stopping parity. Existing finite-
+iteration limitations remain open work.
+
+Full checked and optimized fpm builds including tests passed using private
+fpm 0.14.0 and GNU Fortran 17.0.0 20260510. Flags are
+`-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow` and
+`-O3 -funroll-loops -fcoarray=single`. Both profiles have identical full Ridge
+diagnostics, including the retained failures, and identical strict smoke
+results (maximum scaled error 3.4412716092030206e-9). Audits verify 230 compiled
+fingerprints per profile: 190 library units and 40 selected programs. Current
+source, validator, API and attribution manifests match between profiles;
+reference inputs and provenance match, while executable hashes differ.
+
+The implementation also reconstructs weighted CSR multiplication order,
+updates CG stopping/NaN behavior and LSQR norms, and reconstructs dense GEMV
+accumulation. The vendored optimizer has a print-control patch and attributed
+real64 BLAS rounding updates; its original provenance hashes and licenses are
+retained alongside explicit local patch hashes. The package remains MIT with
+retained BSD notices, and adds no runtime dependency or algorithm extension.
+
+Artifacts remain ignored under validation/results/ridge_estimator_*.
+The checked fpm build and 41 verification jobs completed: 28 selected native
+tests, the example, three guard suites, the strict smoke suite, full diagnostic
+suite, both original functional Ridge suites (672 and 4,599 groups), 192 core
+comparisons and selected optimizer-consumer reference suites. The latter
+include 240 NCA fixtures / 1,704 checks, MLP's 14,688 required checks / 1,080
+fixtures, 8,070 advanced GPR checks and 8,844 advanced GPC checks. Existing NCA
+and MLP optimization certificates/trajectory diagnostics remain distinct from
+direct parity; MLP separately reports 812 of 2,592 long-fit trajectory
+diagnostics differing from Source. No historical certificate was reclassified
+as strict parity. The new guard suite checks 17 actual Source rejections and
+one native target-rank contract. The older positive-linear/composition
+reference suites target the former augmented-NNLS Ridge path and were not
+rerun as evidence for the new solver dispatch; their native tests pass.
+
+The optimized profile completed the same 41 jobs without assertion failures.
+Its NCA, MLP, GPR and GPC required check counts match the checked profile.
+MLP's separate optimized long-fit diagnostics report 817 of 2,592 trajectories
+differing from Source, compared with 812 in checked mode. These diagnostics
+remain explicit and are not included in the new Ridge parity counts. Both
+profile processes terminated successfully, and the final audit confirms the
+current manifests, identical Ridge reference results and distinct executables.
+
+This increment adds one source module, one native test, two app drivers,
+one example, one reference suite and one invalid-input registry. It adds no
+core public estimator type. The broader translation remains unfinished.
