@@ -8726,3 +8726,43 @@ vector sums; other source array layouts/buffer settings can round differently.
 No Python/BLAS runtime dependency is needed. Original integration remains MIT
 with retained sklearn/NumPy BSD notices. See the
 [`example/error_metrics.f90`](../example/error_metrics.f90) demonstration.
+
+
+## Weighted median absolute error and column max error
+
+`median_absolute_error(y,p[,sample_weight,multioutput,raw_values])` accepts
+real64 vectors or sample-by-output matrices, including vector/one-column pairs.
+Targets must be finite, nonempty and shape-compatible. Optional sample weights
+must be finite and match the number of samples. Signed, zero and zero-total
+weights follow sklearn 1.6.1; their total is not required to be positive.
+
+Without weights the ordinary median uses the middle observation for odd
+lengths and the mean of the two central observations for even lengths. With
+weights sklearn selects the lower weighted median: sorted weights form a
+serial cumulative sum, the search threshold is half its final value, and a
+zero threshold advances to the smallest positive subnormal. A binary lower
+bound selects/clips the index even for signed/nonmonotone CDFs. Consequently,
+equal weights can differ from an unweighted even-length median; all-zero
+weights select the largest absolute error. Intermediate overflow and source
+NaN/infinity behavior are preserved. Python stability warnings are omitted.
+
+`multioutput` is `'uniform_average'` or a real64 vector of finite custom weights
+matching multiple outputs. Signed output weights are allowed; zero totals
+reject when aggregation is reached. Use `median_absolute_error_raw(y,p[,sample_weight])`
+for an owned vector corresponding to Python's `'raw_values'`. The scalar API
+rejects that string and also offers optional allocatable `raw_values` alongside
+an aggregate. That optional output still performs aggregation and its checks.
+
+`max_error(y,p)` accepts vector or one-column matrix pairs. It rejects multiple
+outputs, matching sklearn, and has no weighting arguments. Both metrics
+preserve inputs, RNG, IEEE flags and halting masks. Residual overflow returns
+infinity quietly under checked builds. The median of an odd number of huge
+equal errors avoids the old duplicated-middle addition; even midpoint overflow
+retains the source result.
+
+Weighted sorting reuses the existing scalar Intel x86-simd-sort index-order
+adaptation pinned to NumPy 2.2.6's reference backend. Other sort backends can
+change tied ordering and cancellation in signed-weight CDFs. Output aggregation
+uses NumPy's default 8192-element buffered sums. Original integration remains
+MIT with retained sklearn/NumPy/Intel BSD notices; no dependency or ML extension
+is introduced. See [`example/order_errors.f90`](../example/order_errors.f90).

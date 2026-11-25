@@ -2103,3 +2103,24 @@ matrix reductions, owned raw-output helpers and IEEE status/mask preservation.
 Original integration, diagnostics, tests, batched reference driver/harness and
 example are MIT. Root LICENSE and fpm's MIT declaration remain unchanged.
 No dependency or public extension algorithm is added.
+
+
+## Weighted median absolute error and column max error (BSD / MIT)
+
+src/sklearn_order_errors.f90 translates scikit-learn 1.6.1
+metrics/_regression.py median_absolute_error/max_error and utils/stats.py
+_weighted_percentile/stable cumulative-search behavior, by the scikit-learn
+developers (BSD-3-Clause). Sources:
+https://github.com/scikit-learn/scikit-learn/blob/1.6.1/sklearn/metrics/_regression.py
+https://github.com/scikit-learn/scikit-learn/blob/1.6.1/sklearn/utils/stats.py
+The installed regression source SHA256 is
+60453695ff142bd8242274f894ad141fbc025814996f51b4507660bf6688dfd1.
+The existing sklearn_numpy_ordering helper adapts Intel x86-simd-sort revision
+9a1b616d5cd4eaf49f7664fb86ccc1d18bad2b8d, as bundled in NumPy 2.2.6.
+Copyright (C) 2022 Intel Corporation, BSD-3-Clause; the full notice is retained
+in LICENSES/x86-simd-sort-BSD and its source header. That helper is unchanged.
+Buffered output reductions reuse the previously attributed NumPy algorithm.
+Full sklearn/NumPy BSD licenses remain in LICENSES/. Typed adapters, owned raw
+results, IEEE preservation, diagnostics, reference harness and example are MIT
+integration. Root LICENSE/fpm MIT declarations are unchanged. No dependency,
+new core estimator type or public extension algorithm is introduced.

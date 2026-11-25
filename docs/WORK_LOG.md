@@ -1,5 +1,28 @@
 # Translation work log
 
+## Weighted median and column maximum error implementation (2026-11-24)
+
+Extended median absolute error with finite sample weights, matrix/vector rank
+pairs, output weighting and owned raw results. Signed/zero/zero-total sample
+weights follow sklearn's lower-percentile CDF selection. Sorting reuses the
+unchanged scalar Intel index-order helper; cumulative weights and NaN-aware
+binary search reproduce the pinned sklearn/NumPy semantics. The old doubled
+middle term could spuriously overflow for huge odd-length medians; odd lengths
+now select one observation while even midpoint overflow retains source behavior.
+max_error accepts all vector/column rank pairs, rejects multioutput and quietly
+propagates residual overflow. Original integration remains MIT with retained
+sklearn/NumPy/Intel BSD attribution, without a new dependency or ML extension.
+
+The first checked probe passed 5,632 configurations and 17,963 retained groups,
+with 15 controlled source rejections, zero finite differences and exact matching
+of all 325 nonfinite masks. All 28 targeted diagnostics passed. The expanded
+source inventory adds direct signed infinite-output aggregation cases: 5,648
+configurations, 18,011 groups, 15 rejections and 341 nonfinite masks. The checked
+fpm build and full affected batch passed, including 56 native programs, 192 core
+groups, 28 targeted diagnostics and the retained score-shape guard. The audit
+passed all 236 compiled-unit fingerprints and frozen artifact hashes.
+Optimized verification is in progress; final results will be recorded separately.
+
 ## Weighted multioutput regression error implementation (2026-11-24)
 
 Extended MSE, RMSE, MAE and MAPE with sample weights, matrix/vector rank pairs,

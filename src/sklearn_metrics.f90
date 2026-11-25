@@ -1,4 +1,5 @@
 module sklearn_metrics
+  use sklearn_order_errors,only:median_absolute_error,median_absolute_error_raw,max_error
   use sklearn_error_metrics,only:mean_squared_error,root_mean_squared_error, &
    mean_absolute_error,mean_absolute_percentage_error,mean_squared_error_raw,root_mean_squared_error_raw, &
    mean_absolute_error_raw,mean_absolute_percentage_error_raw
@@ -46,6 +47,7 @@ module sklearn_metrics
   public :: r2_score_raw,explained_variance_score_raw
   public :: mean_squared_error_raw,root_mean_squared_error_raw
   public :: mean_absolute_error_raw,mean_absolute_percentage_error_raw
+  public :: median_absolute_error_raw
   public :: max_error, mean_squared_log_error, mean_poisson_deviance, mean_gamma_deviance
   public :: accuracy_score, confusion_matrix, precision_score, recall_score, f1_score
   public :: balanced_accuracy_score, matthews_corrcoef, cohen_kappa_score, log_loss
@@ -61,17 +63,6 @@ contains
     call require(size(y)>0.and.size(y)==size(p),'invalid metric target sizes')
     call check_x(reshape(y,[size(y),1])); call check_x(reshape(p,[size(p),1]))
   end subroutine
-  real(dp) function median_absolute_error(y,p) result(v)
-    real(dp), intent(in) :: y(:),p(:)
-    real(dp) :: errors(size(y))
-    integer :: order(size(y)),n
-    call check_targets(y,p); errors=abs(y-p); order=argsort(errors); n=size(y)
-    v=(errors(order((n+1)/2))+errors(order(n/2+1)))/2
-  end function
-  real(dp) function max_error(y,p) result(v)
-    real(dp), intent(in) :: y(:),p(:)
-    call check_targets(y,p); v=maxval(abs(y-p))
-  end function
   real(dp) function mean_squared_log_error(y,p) result(v)
     real(dp), intent(in) :: y(:),p(:)
     call check_targets(y,p); call require(all(y>=0).and.all(p>=0),'MSLE requires nonnegative targets')

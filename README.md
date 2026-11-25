@@ -620,3 +620,9 @@ MSE, RMSE, MAE and MAPE support sample weights, matrix targets, custom output
 weighting and owned per-output vectors. See [the example](example/error_metrics.f90)
 and [API contract](docs/API.md#weighted-multioutput-regression-errors), including
 sklearn's distinct RMSE aggregation and output-weight rules.
+
+
+`median_absolute_error` supports sample weights, matrix targets, custom output
+weighting and owned raw results. `max_error` accepts vector/one-column pairs
+and propagates overflow quietly. See [the example](example/order_errors.f90)
+and [API contract](docs/API.md#weighted-median-absolute-error-and-column-max-error).

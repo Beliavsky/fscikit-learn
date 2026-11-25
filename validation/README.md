@@ -6976,3 +6976,17 @@ guards each run in isolated processes. The oracle pins sklearn 1.6.1, NumPy
 The native test also checks RNG preservation, owned raw results and RMSE's
 per-output roots/custom-weight differences. No historical suite is implied by
 these commands; affected native/core regressions are recorded separately.
+
+
+Weighted median and column maximum errors:
+```
+python validation/compare_order_errors.py --executable build/gfortran_E1FE13DB8881E18E/app/reference_order_errors_driver.exe --profile checked --report validation/results/order_new_checked.json
+python validation/check_order_errors_invalid_inputs.py --executable build/gfortran_E1FE13DB8881E18E/app/reference_order_errors_driver.exe --profile checked --report validation/results/order_invalid_checked.json
+```
+Repeat for release executables/profile. Successful calls run in a batch and
+check values, nonfinite masks, input identity and IEEE state. Expected source
+rejections and targeted guards run in isolation. The source fixes sklearn
+1.6.1, NumPy 2.2.6 and the existing Intel index-order reference backend. Signed
+and zero-total CDFs, ties, odd/even huge errors, long arrays and static raw-rank
+adaptation are explicit fixtures. Selected native/core regressions and RNG
+preservation are recorded separately in docs/VALIDATION.md.

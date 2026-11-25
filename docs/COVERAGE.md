@@ -1,5 +1,10 @@
 # Translation coverage
 
+Median absolute error now supports sample/output weighting and matrix targets,
+with a raw-output helper; max_error accepts vector/one-column matrix pairs and
+quiet overflow. Checked/optimized verification is in progress; retained totals
+below describe the last completed batch.
+
 MSE, RMSE, MAE and MAPE support sample/output weighting, matrix targets
 and owned raw-result helpers, verified in both build profiles.
 
