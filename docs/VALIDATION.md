@@ -9635,3 +9635,50 @@ validation/results/pairwise_reductions*, including the combined final audit.
 Inventory: 222 public core types, 175 source modules, 241 native programs,
 214 reference suites / 4,180,483 retained groups and 113 invalid registries /
 6,177 cases. The broader translation remains unfinished.
+
+
+## Verified additional nearest-pair dissimilarities (2026-11-25)
+
+Implementation 51d8d5e passed full checked and optimized fpm build --tests
+batches. Each profile passed 2,682 accepted configurations / 10,728 retained
+groups: 2,538 strict sklearn configurations / 10,152 groups and 144 explicitly
+identified sparse Bray-Curtis adaptations / 576 groups. The latter compare
+logical sparse row values with sklearn's dense numerical contract; strict
+parity with the source CSR exhausted-buffer accesses is not claimed. The
+pinned source tail loops read from the exhausted opposite row, potentially beyond
+allocated storage. The native adaptation streams rows without those reads and
+preserves source nonempty-storage restrictions. It adds no new ML algorithm.
+
+All accepted calls check exact nearest indices, distance arrays, nonfinite
+masks, agreement of both APIs, input identity and IEEE flags/modes. All 482
+reference nonfinite masks matched. The largest scaled finite error across
+both profiles was 4.441e-16, at rtol=atol=3e-12. Every one of 3,582 source
+rejection records passed, exercised via 588 representative native probes
+per profile. Shared guards retain metric/storage/axis/shape/empty-storage/
+keyword and incoming-flag parity; the initial uncached probe exercised all
+3,582 separately. All 60 new targeted diagnostics are source rejections.
+
+Each profile also passed 16,432 existing nearest-pair groups, their 88 source
+rejections and 26 diagnostics; 16,729 earlier pairwise groups (16,709 strict
+source comparisons and 20 retained roundoff-bound checks) and 26 diagnostics;
+192 core groups and 19 selected native programs. Other historical suites/native
+programs were not rerun. Both examples ran; the new example independently
+matches sklearn. Source references use sklearn 1.6.1, NumPy 2.2.6 and SciPy
+1.15.3, C-contiguous float64 arrays and single-thread OpenMP/BLAS settings.
+The audit checks 203 compiled source-unit fingerprints per profile, fresh
+configuration/result inventories, source/validator/executable/report hashes,
+distinct release drivers and stable SciPy Python/binary oracle provenance.
+Existing kernel bodies, public wrappers, facades and other library sources
+remain unchanged from cad5935. Detailed artifacts are ignored under
+validation/results/extra_dissimilarities*, including the final combined audit.
+
+New names include Bray-Curtis, Canberra, correlation, numeric Hamming, Boolean
+matching, Dice, Jaccard, Rogers-Tanimoto, Russell-Rao, Sokal-Michener,
+Sokal-Sneath and Yule. Dense/CSR support follows source optimized/fallback
+restrictions, apart from the identified sparse Bray-Curtis adaptation.
+Per-feature weights and remaining metric parameters are still unexposed.
+Original integration remains MIT; applicable sklearn/SciPy BSD terms and the
+Damian Eads distance notice are retained. No dependency or public core type
+was added. Inventory: 222 public core types, 175 source modules, 242 native
+programs, 215 reference suites / 4,191,211 retained groups and 114 invalid
+registries / 6,237 cases. The broader translation remains unfinished.
