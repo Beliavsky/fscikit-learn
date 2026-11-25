@@ -2234,6 +2234,9 @@ BSD notice is retained in `LICENSES/scikit-learn-COPYING`; shared kernel and
 native SVD attributions remain applicable. Typed adapters, owned storage,
 ensemble wiring and validation integration are MIT. No numerical runtime
 dependency was added.
+
+## Dummy baseline expansion
+
 Weighted multioutput Dummy baselines adapt sklearn 1.6.1 `dummy.py`,
 `utils/multiclass.py` (`class_distribution`) and `utils/stats.py`
 (`_weighted_percentile`). Existing sklearn BSD notices remain in
@@ -2243,3 +2246,8 @@ through the existing attributed legacy binomial and MT19937 helpers; the
 existing NumPy BSD/MIT notices apply. Typed storage, CSR adapters, IEEE
 composition and ensemble integration are original MIT contributions. No
 external runtime dependency was introduced.
+
+Dummy weighted-percentile sorting reuses `sklearn_numpy_ordering`'s existing
+scalar adaptation of NumPy 2.2.6's Intel x86-simd-sort index ordering. Its
+BSD notice remains in `LICENSES/x86-simd-sort-BSD`. Tie ordering is observable
+for signed weights and a nonmonotone cumulative weight vector.

@@ -1,7 +1,8 @@
 ! Dummy baselines adapted from sklearn 1.6.1 dummy.py (BSD-3-Clause).
 ! NumPy legacy RNG/binomial helpers retain their existing notices.
 module sklearn_dummy
-  use sklearn_common,only:dp,require,argsort,unique_labels,label_index
+  use sklearn_common,only:dp,require,unique_labels,label_index
+  use sklearn_numpy_ordering,only:argsort=>numpy_argsort
   use sklearn_metrics,only:accuracy_score,r2_score
   use sklearn_sparse,only:csr_matrix
   use sklearn_legacy_rng,only:legacy_random_state

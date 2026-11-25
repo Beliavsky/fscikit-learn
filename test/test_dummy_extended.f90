@@ -16,6 +16,7 @@ program test_dummy_extended
   type(voting_estimator)::bases(2)
   real(dp)::x(4,0),query(8,2),y(4),w(4),targets(4,2)
   real(dp)::features(4,1)
+  real(dp)::ties_x(12,0)
   real(dp),allocatable::pred(:,:)
   integer::labels(4),binary(4,2),state_size
   integer,allocatable::before_rng(:),after_rng(:)
@@ -87,5 +88,9 @@ program test_dummy_extended
   regressor%strategy='median';allocate(bases(2)%estimator,source=regressor)
   vote_reg%weights=[1._dp,2._dp];call vote_reg%fit(features,y,bases,sample_weight=w)
   call require(maxval(abs(vote_reg%predict(features)-55._dp/18))<1.e-15_dp,'weighted dummy regressor voting')
+  regressor%strategy='quantile';regressor%quantile=.5_dp
+  call regressor%fit(ties_x,[-1._dp,0._dp,1._dp,1._dp,0._dp,1._dp,-1._dp,0._dp,0._dp,-1._dp,0._dp,1._dp], &
+    [1._dp,1._dp,1._dp,1._dp,0._dp,-1._dp,1._dp,-1._dp,0._dp,-1._dp,-1._dp,0._dp])
+  call require(regressor%constant_==1,'NumPy tie ordering for signed weighted percentiles')
   print *,'Extended Dummy baselines passed; ignored one billion CSR features without densifying'
 end program

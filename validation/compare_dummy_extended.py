@@ -20,7 +20,7 @@ def main():
  cache={};cases=[];calls=hits=warns=0
  if args.reference_cache and args.reference_cache.exists():
   saved=json.loads(args.reference_cache.read_text());assert saved['provenance']==provenance;cache=saved['cases']
- def add(seed,n,p,t,rank,storage,family,strategy,mode,weight_kind,q,binary):
+ def add(seed,n,p,t,rank,storage,family,strategy,mode,weight_kind,q,binary,y_override=None,weight_override=None):
   nonlocal calls,hits,warns
   rng=np.random.RandomState(seed+17*n+19*t);m=5;qp=2 if p==0 else 0
   x=np.full((n,p),np.nan);query=np.full((m,qp),np.nan)
@@ -36,12 +36,14 @@ def main():
    y=rng.normal(size=(n,t));y=np.round(y,1);truth=rng.normal(size=(m,t));constant=rng.normal(size=t)
    score_mode=1;name=['mean','median','quantile','constant'][strategy-1]
    model=DummyRegressor(strategy=name,quantile=q,constant=constant)
+  if y_override is not None:y=np.asarray(y_override).reshape(n,t)
   w=rng.uniform(.1,3,size=n)
   if weight_kind=='ones':w[:]=1
   elif weight_kind=='zeros':w[:]=0
   elif weight_kind=='signed':w[::2]*=-1
   elif weight_kind=='masked':w[::2]=0
   if mode==2:w[:]=1.75
+  if weight_override is not None:w=np.asarray(weight_override)
   qw=np.array([.5,2,1,0,3.])
   target=y[:,0]if rank==0 else y
   weight=None if mode==0 else float(w[0])if mode==2 else w
@@ -49,7 +51,8 @@ def main():
   for a in [y,truth]:block+=[' '.join(map(str,row))for row in a]
   for a in [w,qw,constant]:block+=[' '.join(map(str,a))]
   key=hashlib.sha256(('\n'.join(block)+'\n').encode()).hexdigest()
-  label=dict(seed=seed,n=n,p=p,t=t,rank=rank,storage=storage,family=family,strategy=name,weight_mode=mode,weights=weight_kind,q=q,binary=binary)
+  label=dict(seed=seed,n=n,p=p,t=t,rank=rank,storage=storage,family=family,strategy=name,weight_mode=mode,weights=weight_kind,q=q,binary=binary,
+    fixture='signed_ties'if y_override is not None else 'grid')
   if key in cache:expected=cache[key];hits+=1
   else:
    with warnings.catch_warnings(record=True)as caught:
@@ -93,6 +96,13 @@ def main():
    for kind in ['signed','zeros']:
     for storage in [0,1]:
      add(42,12,3,3,1,storage,family,strategy,1,kind,.5,False)
+ rng=np.random.RandomState(987)
+ for n in [7,12,31,80]:
+  for i in range(100):
+   y=rng.choice([-1.,0.,1.],n);w=rng.choice([-2.,-1.,0.,1.,2.],n);q=[0.,.25,.5,.75,1.][i%5]
+   for rank,t in [(0,1),(1,1),(1,3)]:
+    target=y if t==1 else np.column_stack([y,-y,y+1])
+    for storage in [0,1]:add(987,n,1,t,rank,storage,1,3,1,'tied_signed',q,False,target,w)
  if args.reference_cache:
   args.reference_cache.parent.mkdir(parents=True,exist_ok=True)
   args.reference_cache.write_text(json.dumps(dict(provenance=provenance,cases=cache),separators=(',',':'))+'\n')

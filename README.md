@@ -672,6 +672,9 @@ per-target penalties through the shared named, callback and GP kernels. See
 [the API](docs/API.md#weighted-multioutput-kernelridge) for supported combinations
 and singular-system numerical limits, and run
 `fpm run --example weighted_kernel_ridge` for an example.
+
+## Dummy baselines
+
 Dummy baselines support sample weights, multiple outputs, CSR features and
 NumPy-compatible integer-seeded uniform/stratified classification. See
 [the API](docs/API.md#weighted-multioutput-dummy-baselines) and

@@ -9681,6 +9681,7 @@ The reference validator is strict by default. Its explicit
 `--allow-singular-certificates` mode checks singularity, backward error or
 minimum-norm solutions, kernel multiplication and score consistency for
 these cases; those certificates do not establish sklearn output equality.
+
 ## Weighted multioutput Dummy baselines
 
 `dummy_classifier` and `dummy_regressor` accept dense or CSR feature inputs and
@@ -9697,6 +9698,9 @@ percentile, skipping leading zero weights at quantile zero; all-zero weights
 select the largest observation. Unweighted percentiles use linear
 interpolation. Signed percentile weights retain the source cumulative-sum and
 binary-search behavior, even when the cumulative weights are nonmonotone.
+Percentile sorting reuses the package's NumPy-compatible index-ordering helper;
+tie order is observable when signed weights make that cumulative vector
+nonmonotone.
 
 Use `predict` for one output and `predict_multi` for any fitted output count.
 Regressor `constants_` stores all fitted constants; `constant_` mirrors the
