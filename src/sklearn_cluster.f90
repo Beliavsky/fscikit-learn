@@ -1,4 +1,5 @@
 module sklearn_cluster
+  use sklearn_hierarchy,only:ward_tree,hierarchy_result
   use sklearn_kmeans_seeding, only: kmeans_plusplus
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
   use sklearn_bisecting_kmeans, only: bisecting_kmeans
@@ -18,6 +19,7 @@ module sklearn_cluster
   public :: spectral_coclustering,spectral_biclustering
   public :: hdbscan
   public :: optics,cluster_optics_dbscan,cluster_optics_xi,compute_optics_graph,optics_graph_result
+  public :: ward_tree,hierarchy_result
   public :: kmeans,dbscan,agglomerative_clustering
   public :: mean_shift,estimate_bandwidth,get_bin_seeds,affinity_propagation,spectral_clustering
   public :: feature_agglomeration

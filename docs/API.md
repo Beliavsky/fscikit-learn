@@ -9448,3 +9448,44 @@ coefficient without an additional range clamp: roundoff can produce a tiny
 negative value for one-sample rank-one data. Estimator fitting requires finite
 computed shrinkage and remains subject to the existing covariance/pseudoinverse
 working range. See `example/blocked_shrinkage.f90`.
+
+
+## Public Ward trees
+
+`ward_tree(x,connectivity,n_clusters,return_distance)` returns an owned
+`hierarchy_result`. Import it from `sklearn` or `sklearn_cluster`. `x` is a
+finite real64 matrix with samples in rows, or a real64 vector interpreted as
+one feature. Optional connectivity accepts a square real64 matrix, a logical
+matrix or `csr_matrix`. Sparse connectivity is processed without dense
+conversion; duplicates, unsorted entries and explicit zeros are supported.
+Numeric entries are added to their transpose before nonzero topology is used,
+so opposite weights can cancel. Native connectivity entries must be finite.
+
+Without connectivity, at least two samples are required and the full tree is
+built using the source nearest-neighbor chain, Ward distance updates, stable
+height sorting and union-find relabeling. As in source, n_clusters is ignored
+in this mode. With connectivity, symmetrized connected components are counted;
+one closest Euclidean edge is added between every pair of original components.
+Moment-based Ward inertias and lexicographic heap entries then build a full
+tree or a partial forest. n_clusters defaults to one; zero is the native
+sentinel for source None, and positive values must not exceed sample count.
+A structured single sample is supported.
+
+The result contains `children`, `parents`, `distances`, `n_leaves`,
+`n_connected_components`, `structured` and `connectivity_completed`. Child and
+parent node IDs are one-based: leaves are 1 through n, and merge k creates
+node n+k. Unstructured parents are an empty vector representing source None.
+Structured parents include all retained nodes and each forest root is its own
+parent. Empty children retain shape (0,2). Distances are populated only with
+return_distance=true; otherwise their vector is empty. Metadata records the
+original component count, with a boolean replacing source completion warnings.
+Warnings for ignored unstructured cluster counts are not emitted.
+
+Unstructured distance storage is condensed and quadratic in sample count.
+Structured storage uses adjacency lists, moments and a dynamically growing
+candidate heap; dense fill can still require quadratic space. CSR setup uses
+linear work in stored entries plus sample count, and lists grow amortized.
+The public function restores all IEEE flags and halting modes. Generated
+nonfinite distances/inertias are rejected with controlled diagnostics. Existing
+AgglomerativeClustering/FeatureAgglomeration estimator methods retain their
+prior implementations. See `example/ward_trees.f90`.
