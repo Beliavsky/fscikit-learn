@@ -42,6 +42,9 @@ def fixtures():
  for w in [np.array([float('nan'),1.]),np.array([float('inf'),1.]),np.array([-float('inf'),1.])]:
   yield dict(y=np.array([0,1]),p=np.array([0,0]),labels=None,w=w,z=0.,kind=0,seed=-5)
 
+ for numeric_only in [False,True]:
+  yield dict(y=np.array([0,1]),p=np.array([0,0]),labels=[0,0,1],w=None,z=0.,kind=0,seed=-6,dict=numeric_only)
+
 def main():
  ap=argparse.ArgumentParser();ap.add_argument('--executable',required=True,type=Path);ap.add_argument('--report',required=True,type=Path);ap.add_argument('--reference-cache',type=Path);args=ap.parse_args()
  sha=lambda p:hashlib.sha256(Path(p).read_bytes()).hexdigest()

@@ -77,7 +77,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Two hundred and forty reference suites additionally check 5,294,098
+All types have native tests. Two hundred and forty-one reference suites additionally check 5,318,192
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and explicitly recorded numerical certificates.
 
@@ -12954,4 +12954,60 @@ weight broadcasting, copy_x mutation and parallel execution remain gaps.
 Inventory: 222 public core types plus the owned result helper, 183 source modules,
 265 native test programs, 281 app drivers, 221 examples, 240 reference suites /
 5,294,098 retained groups and 136 invalid registries / 6,736 cases.
+The broader translation remains unfinished.
+
+## Classification reports
+
+`classification_report` now composes the existing classification reductions
+into an owned row table and sklearn-style text. It supports integer/logical
+label vectors and one-column matrices, dense indicator targets, canonical CSR
+indicators and all mixed dense/CSR indicator pairs. Per-class results retain
+selected-label order and duplicates. Full single-target label coverage replaces
+the micro heading with accuracy; multilabel reports add samples averages.
+Explicit target-name mismatch retains source zip truncation and complete-label
+averages. Numeric output mode suppresses text. API.md describes native row
+storage, warning metadata and the distinction from Python dictionary key
+replacement. Classifier/metric storage contracts remain unchanged.
+
+The new strict suite checks 24,094 direct groups across 3,442 configurations,
+including exact text, row names/metadata and full-precision numeric values.
+It covers three seeds, up to 129 samples and 17 indicator columns, reordered/
+repeated/absent/empty labels, logical names, one-column adapters, fractional/
+signed/zero/tiny/nonfinite weights, zero_division 0/1/NaN, four digit counts,
+mismatched names and empty vectors. Both profiles have zero measured numeric
+error and exact text equality. Expected values come from actual sklearn 1.6.1
+classification_report dictionaries/text and precision_recall_fscore_support;
+source version/hash provenance and 164 source warnings are retained. No
+certificates, native-derived expectations or tolerance changes were added.
+
+Text comparison exposed NumPy's positive-zero summation identity in the shared
+classification reductions; the correction preserves signed zeros in averaged
+reports. A native signed-zero test distinguishes micro/macro positive zeros
+from weighted negative zeros. The text renderer also retains floating support
+for unweighted single-target problems with no correct predictions, as in the
+source's confusion-matrix dtype behavior. Existing classification procedure
+bodies outside the shared sum and all resampling procedure bodies remain
+unchanged from 353ba06. The latter module only exposes its existing internal
+shortest-decimal helper for report support text.
+
+Full checked and optimized fpm builds including tests passed with private
+fpm 0.14.0 / GNU Fortran 17.0.0 20260510 and the established checked/optimized
+flags. Each package profile passed six selected native programs, the example,
+15 new input guards (14 actual Source rejections and one inherited native
+canonical-CSR contract), all new report groups and 192 core comparisons.
+The existing classification suite also passed 433,881 groups across 6,998
+fixtures in a separately linked checked driver and the optimized fpm driver,
+including 24 existing guards and 156 Source Jaccard rejection outcomes through
+150 probes. Other historical suites were not rerun.
+
+The audit checks 199 dependency-aware compiled-unit fingerprints per profile
+(188 library units and eleven programs), stable source/validator/attribution
+manifests, identical new-suite inputs and distinct executables. Unrelated
+library files, dependency declarations and license files are unchanged.
+Artifacts remain ignored under validation/results/classification_report_*.
+The package remains MIT with existing sklearn and NumPy BSD notices retained.
+No runtime dependency or algorithm extension was added. Inventory: 222 core
+public types plus owned result helpers, 184 source modules, 266 native test
+programs, 283 app drivers, 222 examples, 241 reference suites / 5,318,192
+retained groups and 137 invalid registries / 6,751 cases.
 The broader translation remains unfinished.
