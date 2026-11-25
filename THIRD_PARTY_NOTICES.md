@@ -2251,3 +2251,17 @@ Dummy weighted-percentile sorting reuses `sklearn_numpy_ordering`'s existing
 scalar adaptation of NumPy 2.2.6's Intel x86-simd-sort index ordering. Its
 BSD notice remains in `LICENSES/x86-simd-sort-BSD`. Tie ordering is observable
 for signed weights and a nonmonotone cumulative weight vector.
+
+## Bernoulli raw feature mode and discrete counts
+
+Raw Bernoulli feature handling and batch count accumulation adapt sklearn
+1.6.1 `naive_bayes.py`, with the existing sklearn BSD notice retained.
+Scalar dense counting follows OpenBLAS 0.3.29
+`kernel/x86_64/dgemv_n_4.c`, `dgemv_n_microk_skylakex-4.c` (2014 OpenBLAS
+Project) and `dgemm_small_kernel_nt_skylakex.c` (2021 OpenBLAS Project), plus
+the existing attributed dot helper. The existing notices in
+`LICENSES/OpenBLAS-LICENSE` and `LICENSES/OpenBLAS-small-kernel-BSD` apply.
+The singleton-class NumPy 2.2.6 pairwise reduction reuses the native GPR
+adaptation of `loops_utils.h.src`; NumPy BSD notices remain applicable.
+Typed mode selection, signed range guards and storage integration are MIT.
+No external BLAS/NumPy runtime is linked by these additions.

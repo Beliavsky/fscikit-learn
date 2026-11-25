@@ -5,8 +5,10 @@ module sklearn_naive_bayes
   use sklearn_common
   use sklearn_sparse, only: csr_matrix
   use sklearn_ieee_math, only: ieee_difference
+  use sklearn_kernel_dispatch,only:kernel_blas_inner_product
   use sklearn_metrics, only: accuracy_score
-  use, intrinsic :: ieee_arithmetic, only: ieee_is_finite,ieee_is_nan,ieee_value,ieee_quiet_nan,ieee_negative_inf,ieee_positive_inf
+  use, intrinsic :: ieee_arithmetic, only: ieee_is_finite,ieee_is_nan,ieee_value,ieee_quiet_nan, &
+    ieee_negative_inf,ieee_positive_inf,ieee_fma
   implicit none
   private
   public :: categorical_nb,categorical_table
@@ -51,6 +53,7 @@ module sklearn_naive_bayes
   end type
   type, extends(multinomial_nb) :: bernoulli_nb
     real(dp) :: binarize_threshold=0
+    logical :: binarize=.true.
   contains
     procedure, private :: fit_dense=>bernoulli_fit
     procedure, private :: joint_dense=>bernoulli_joint,joint_sparse=>bernoulli_joint_sparse
@@ -296,15 +299,19 @@ contains
     call check_x(x);alpha=discrete_alpha(self,size(x,2))
     select type(self)
     class is(bernoulli_nb)
-      call require(ieee_is_finite(self%binarize_threshold),'Bernoulli NB threshold must be finite')
-      call require(self%binarize_threshold>=0,'Bernoulli NB threshold must be nonnegative')
+      if(self%binarize)then
+        call require(ieee_is_finite(self%binarize_threshold),'Bernoulli NB threshold must be finite')
+        call require(self%binarize_threshold>=0,'Bernoulli NB threshold must be nonnegative')
+      end if
     class default
       call require(all(x>=0),'discrete NB requires nonnegative data')
     end select
   end subroutine
   elemental real(dp) function discrete_log(value) result(logged)
     real(dp), intent(in) :: value
-    if(value==0) then
+    if(value<0) then
+      logged=ieee_value(0._dp,ieee_quiet_nan)
+    else if(value==0) then
       logged=ieee_value(0._dp,ieee_negative_inf)
     else
       logged=log(value)
@@ -406,8 +413,9 @@ contains
     integer, optional, intent(in) :: classes(:)
     real(dp), optional, intent(in) :: sample_weight(:)
     integer, allocatable :: labels(:)
-    real(dp), allocatable :: data(:,:),weights(:),contribution(:)
-    integer :: i,c,k,p
+    real(dp), allocatable :: data(:,:),weights(:),contribution(:),indicators(:)
+    real(dp),allocatable::batch_features(:,:),batch_classes(:)
+    integer :: i,c,k,p,j
     call check_xy(x,size(y));call discrete_controls(self,x);p=size(x,2)
     if(.not.allocated(self%classes_)) then
       call require(present(classes),'NB first partial_fit requires classes')
@@ -431,19 +439,112 @@ contains
     data=x
     select type(self)
     class is(bernoulli_nb)
-      data=merge(1._dp,0._dp,x>self%binarize_threshold)
+      if(self%binarize)data=merge(1._dp,0._dp,x>self%binarize_threshold)
     end select
+    k=size(self%classes_);allocate(batch_features(k,p),batch_classes(k))
+    batch_features=0;batch_classes=0
     do i=1,size(y)
       c=label_index(self%classes_,y(i));call require(c>0,'NB label is absent from declared classes')
-      if(weights(i)>1) call require(all(data(i,:)<=huge(1._dp)/weights(i)),'NB weighted count exceeds numeric range')
+      if(weights(i)>1) call require(all(abs(data(i,:))<=huge(1._dp)/weights(i)),'NB weighted count exceeds numeric range')
       contribution=weights(i)*data(i,:)
-      call require(all(self%feature_count_(c,:)<=huge(1._dp)-contribution),'NB accumulated count exceeds numeric range')
-      call require(self%class_count_(c)<=huge(1._dp)-weights(i),'NB accumulated class count exceeds numeric range')
-      self%feature_count_(c,:)=self%feature_count_(c,:)+contribution
-      self%class_count_(c)=self%class_count_(c)+weights(i)
+      call require(batch_classes(c)<=huge(1._dp)-weights(i),'NB accumulated class count exceeds numeric range')
+      do j=1,p
+        batch_features(c,j)=discrete_count_add(batch_features(c,j),contribution(j))
+      end do
+      batch_classes(c)=batch_classes(c)+weights(i)
+    end do
+    if(k==1)batch_classes(1)=discrete_numpy_sum(weights)
+    allocate(indicators(size(y)))
+    do c=1,k
+      indicators=0
+      where(y==self%classes_(c))indicators=weights
+      do j=1,p
+        batch_features(c,j)=discrete_dense_count(indicators,data(:,j),k,p,c,j)
+        call require(ieee_is_finite(batch_features(c,j)),'NB batch count exceeds numeric range')
+      end do
+      self%class_count_(c)=discrete_count_add(self%class_count_(c),batch_classes(c))
+      do j=1,p
+        self%feature_count_(c,j)=discrete_count_add(self%feature_count_(c,j),batch_features(c,j))
+      end do
     end do
     call discrete_update(self)
   end subroutine
+  real(dp) function discrete_count_add(current,contribution)result(value)
+    real(dp),intent(in)::current,contribution
+    if(contribution>=0)then
+      call require(current<=huge(1._dp)-contribution,'NB accumulated count exceeds numeric range')
+    else
+      call require(current>=-huge(1._dp)-contribution,'NB accumulated count exceeds numeric range')
+    end if
+    value=current+contribution
+  end function
+  recursive real(dp) function discrete_numpy_sum(values) result(total)
+    ! NumPy 2.2.6 loops_utils.h.src pairwise reduction; retained NumPy BSD notice.
+    real(dp), intent(in) :: values(:)
+    real(dp) :: partial(8)
+    integer :: n,i,split,whole
+    n=size(values)
+    if(n<8) then
+      total=-0._dp
+      do i=1,n
+        total=total+values(i)
+      end do
+    else if(n<=128) then
+      partial=values(:8);whole=n-mod(n,8)
+      do i=9,whole,8
+        partial=partial+values(i:i+7)
+      end do
+      total=((partial(1)+partial(2))+(partial(3)+partial(4))) &
+        +((partial(5)+partial(6))+(partial(7)+partial(8)))
+      do i=whole+1,n
+        total=total+values(i)
+      end do
+    else
+      split=n/2;split=split-mod(split,8)
+      total=discrete_numpy_sum(values(:split))+discrete_numpy_sum(values(split+1:))
+    end if
+  end function
+  real(dp) function discrete_dense_count(u,v,k,p,c,j)result(value)
+    ! OpenBLAS NT-small and GEMV-N order for the source Y.T @ X count.
+    real(dp),intent(in)::u(:),v(:)
+    integer,intent(in)::k,p,c,j
+    real(dp)::part
+    integer::i,whole,dim,index
+    value=0
+    if(k>1.and.p>1)then
+      do i=1,size(u)
+        value=ieee_fma(u(i),v(i),value)
+      end do
+    else if(k==1.and.p==1)then
+      value=kernel_blas_inner_product(u,v)
+    else
+      dim=max(k,p);index=c;if(k==1)index=j
+      whole=size(u)-mod(size(u),4)
+      if(index<=dim-mod(dim,4))then
+        do i=1,whole,4
+          part=ieee_fma(u(i+1),v(i+1),u(i)*v(i))
+          part=ieee_fma(u(i+2),v(i+2),part)
+          part=ieee_fma(u(i+3),v(i+3),part);value=value+part
+        end do
+        i=whole+1
+        if(mod(size(u),4)>=2)then
+          part=ieee_fma(u(i),v(i),u(i+1)*v(i+1));value=value+part;i=i+2
+        end if
+        if(i<=size(u))value=value+u(i)*v(i)
+      else if(dim<=3)then
+        do i=1,whole,2
+          part=ieee_fma(u(i),v(i),u(i+1)*v(i+1));value=value+part
+        end do
+        do i=whole+1,size(u)
+          value=value+u(i)*v(i)
+        end do
+      else
+        do i=1,size(u)
+          value=ieee_fma(u(i),v(i),value)
+        end do
+      end if
+    end if
+  end function
   subroutine multinomial_fit(self,x,y,sample_weight)
     class(multinomial_nb), intent(inout) :: self
     real(dp), intent(in) :: x(:,:)
@@ -510,7 +611,7 @@ contains
             value=value+x(i,j)*weights(c,j)
           else if(x(i,j)==0) then
             undefined=.true.
-          else if(weights(c,j)>0) then
+          else if((weights(c,j)>0).eqv.(x(i,j)>0)) then
             positive=.true.
           else
             negative=.true.
@@ -541,19 +642,21 @@ contains
     class(bernoulli_nb), intent(in) :: self
     real(dp), intent(in) :: x(:,:)
     real(dp), allocatable :: joint(:,:),negative(:,:),binary(:,:),weights(:,:),base(:)
-    integer :: c
+    integer :: c,j
     call require(allocated(self%feature_log_prob_),'NB is not fitted')
     call check_xy(transpose(x),size(self%feature_log_prob_,2))
-    binary=merge(1._dp,0._dp,x>self%binarize_threshold)
+    binary=x
+    if(self%binarize)binary=merge(1._dp,0._dp,x>self%binarize_threshold)
     allocate(negative(size(self%classes_),size(x,2)),weights(size(self%classes_),size(x,2)))
     base=spread(ieee_value(0._dp,ieee_quiet_nan),1,size(self%classes_));weights=ieee_value(0._dp,ieee_quiet_nan)
     do c=1,size(self%classes_)
       if(any(ieee_is_nan(self%feature_log_prob_(c,:)))) cycle
+      if(any(self%feature_log_prob_(c,:)>0))cycle
       negative(c,:)=1-exp(self%feature_log_prob_(c,:))
-      ! A unit feature probability makes source's dense likelihood NaN for all rows.
-      if(any(negative(c,:)<=0)) cycle
-      negative(c,:)=log(negative(c,:))
-      weights(c,:)=self%feature_log_prob_(c,:)-negative(c,:)
+      negative(c,:)=discrete_log(negative(c,:))
+      do j=1,size(x,2)
+        weights(c,j)=ieee_difference(self%feature_log_prob_(c,j),negative(c,j))
+      end do
       base(c)=discrete_add(sum(negative(c,:)),self%class_log_prior_(c))
     end do
     joint=discrete_add(discrete_dot(binary,weights),spread(base,1,size(x,1)))
@@ -631,8 +734,10 @@ contains
     call require(all(ieee_is_finite(x%data)),'NB sparse X contains NaN or infinity')
     select type(self)
     class is(bernoulli_nb)
-      call require(ieee_is_finite(self%binarize_threshold),'Bernoulli NB threshold must be finite')
-      call require(self%binarize_threshold>=0,'Bernoulli NB threshold must be nonnegative')
+      if(self%binarize)then
+        call require(ieee_is_finite(self%binarize_threshold),'Bernoulli NB threshold must be finite')
+        call require(self%binarize_threshold>=0,'Bernoulli NB threshold must be nonnegative')
+      end if
     class default
       call require(all(x%data>=0),'sparse discrete NB requires nonnegative data')
     end select
@@ -644,6 +749,9 @@ contains
     integer :: i,j,n,position
     select type(self)
     class is(bernoulli_nb)
+      if(.not.self%binarize)then
+        data=x;return
+      end if
       ! Source binarizes stored entries before eliminating zeros; duplicates stay.
       n=count(x%data>self%binarize_threshold)
       data%n_rows=x%n_rows;data%n_cols=x%n_cols
@@ -669,6 +777,7 @@ contains
     integer, allocatable :: labels(:)
     real(dp), allocatable :: weights(:),alpha(:)
     real(dp) :: contribution
+    real(dp),allocatable::batch_features(:,:),batch_classes(:)
     integer :: i,c,k,p,j,column
     call discrete_sparse_check(self,x)
     call require(x%n_rows==size(y),'NB sparse X and y sample counts differ')
@@ -693,16 +802,24 @@ contains
       weights=sample_weight
     end if
     data=discrete_sparse_data(self,x)
+    k=size(self%classes_);allocate(batch_features(k,p),batch_classes(k))
+    batch_features=0;batch_classes=0
     do i=1,size(y)
       c=label_index(self%classes_,y(i));call require(c>0,'NB label is absent from declared classes')
-      call require(self%class_count_(c)<=huge(1._dp)-weights(i),'NB accumulated class count exceeds numeric range')
-      self%class_count_(c)=self%class_count_(c)+weights(i)
+      call require(batch_classes(c)<=huge(1._dp)-weights(i),'NB accumulated class count exceeds numeric range')
+      batch_classes(c)=batch_classes(c)+weights(i)
       do j=data%indptr(i),data%indptr(i+1)-1
         column=data%indices(j)
-        if(weights(i)>1) call require(data%data(j)<=huge(1._dp)/weights(i),'NB weighted count exceeds numeric range')
+        if(weights(i)>1) call require(abs(data%data(j))<=huge(1._dp)/weights(i),'NB weighted count exceeds numeric range')
         contribution=weights(i)*data%data(j)
-        call require(self%feature_count_(c,column)<=huge(1._dp)-contribution,'NB accumulated count exceeds numeric range')
-        self%feature_count_(c,column)=self%feature_count_(c,column)+contribution
+        batch_features(c,column)=discrete_count_add(batch_features(c,column),contribution)
+      end do
+    end do
+    if(k==1)batch_classes(1)=discrete_numpy_sum(weights)
+    do c=1,k
+      self%class_count_(c)=discrete_count_add(self%class_count_(c),batch_classes(c))
+      do j=1,p
+        self%feature_count_(c,j)=discrete_count_add(self%feature_count_(c,j),batch_features(c,j))
       end do
     end do
     call discrete_update(self)
@@ -758,6 +875,7 @@ contains
     base=spread(ieee_value(0._dp,ieee_quiet_nan),1,k)
     do c=1,k
       if(any(ieee_is_nan(self%feature_log_prob_(c,:)))) cycle
+      if(any(self%feature_log_prob_(c,:)>0))cycle
       negative=1-exp(self%feature_log_prob_(c,:))
       if(any(negative<0)) cycle
       negative=discrete_log(negative)

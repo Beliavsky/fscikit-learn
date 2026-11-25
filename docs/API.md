@@ -9738,3 +9738,30 @@ classification vectors/one-column matrices, and binary indicator matrices
 with subset accuracy. Multiclass multioutput accuracy remains unsupported,
 matching sklearn. Weighted Dummy fits are supported by ensemble base dispatch;
 the containing ensemble retains its own input and target restrictions.
+
+## BernoulliNB raw feature mode
+
+`bernoulli_nb%binarize=.false.` represents sklearn's `binarize=None`. Dense
+and CSR `fit`, `partial_fit`, likelihood and prediction methods then use raw
+feature values, including fractional and signed values. The default remains
+`.true.`, applying the existing finite nonnegative `binarize_threshold`.
+The installed sklearn 1.6.1 estimator rejects negative thresholds for both
+dense and CSR training inputs; this restriction is retained. A disabled
+threshold is ignored, including a stale nonfinite threshold value.
+
+Raw CSR input preserves duplicate entries and explicit zeros. Enabled
+binarization retains the existing per-stored-entry thresholding followed by
+zero elimination. Therefore dense structural zeros and explicitly stored CSR
+zeros can have different IEEE likelihood behavior when smoothing is zero.
+Raw negative query values also preserve the signs of products with infinite
+log odds. Negative smoothed feature counts yield NaN logs, as in source;
+outputs are not clipped to a probability model's usual binary domain.
+
+Streaming discrete NB counts now sum each batch before adding it to stored
+counts. Dense feature counts use scalar reconstructions of the pinned
+OpenBLAS counting order; singleton-class count reduction follows NumPy's
+pairwise sum. These shared counting changes also apply to MultinomialNB and
+ComplementNB. They add no BLAS/NumPy runtime dependency. Existing finite
+nonnegative sample weights, scalar Bernoulli alpha, priors, force_alpha and
+typed error/range controls remain applicable. See
+[the example](../example/raw_bernoulli.f90).

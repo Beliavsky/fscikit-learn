@@ -679,3 +679,10 @@ Dummy baselines support sample weights, multiple outputs, CSR features and
 NumPy-compatible integer-seeded uniform/stratified classification. See
 [the API](docs/API.md#weighted-multioutput-dummy-baselines) and
 [the weighted example](example/weighted_dummy.f90).
+
+## Bernoulli feature modes
+
+Set `bernoulli_nb%binarize=.false.` to retain raw dense/CSR feature values,
+matching sklearn's `binarize=None`, including streaming fits. See
+[the API](docs/API.md#bernoullinb-raw-feature-mode) and
+[the example](example/raw_bernoulli.f90).
