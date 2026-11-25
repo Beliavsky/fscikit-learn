@@ -11692,11 +11692,12 @@ registries / 6,344 cases. The broader translation remains unfinished.
 ## Elastic-net and Lasso coordinate paths
 
 `enet_path` and `lasso_path` are exported by `sklearn_coordinate_paths`,
-`sklearn_linear_model` and `sklearn`. Inputs are finite dense real64 arrays.
+`sklearn_linear_model` and `sklearn`. The dense forms take finite real64 arrays.
 Vector y selects scalar elastic net; matrix y selects the coupled multi-task
 L2,1 penalty, including for a one-column matrix. No centering or intercept
 fitting is performed. Prepare X/y before calling when an intercept is needed.
-CSR path solves and sparse centering/sample weights are not implemented here.
+CSR vector path solves, sample weights and implicit centering are described
+in the sparse-path section below.
 
 ```fortran
 use sklearn, only: dp,enet_path,lasso_path,coordinate_path_options,coordinate_path_result
@@ -11823,3 +11824,64 @@ No runtime dependency, public core estimator type or algorithm outside sklearn
 was added. Inventory: 222 public core types, 178 source modules, 247 native
 programs, 220 reference suites / 4,262,024 retained groups and 119 invalid
 registries / 6,383 cases. The broader translation remains unfinished.
+
+
+## Sparse elastic-net and Lasso paths
+
+`enet_path` and `lasso_path` accept native csr_matrix X with a real64 target
+vector. They retain coordinate_path_options and coordinate_path_result from
+the dense interface; result.backend is 'sparse'. CSR is transposed once to
+private compressed-column storage. Training uses stored entries and O(n+p)
+work vectors; it never expands the design or precomputes a dense Gram matrix.
+Requested coefficient-path storage remains O(p*n_alphas). Grouped matrix
+targets require the dense path API, matching source's sparse limitation.
+
+```fortran
+use sklearn, only: dp,enet_path,coordinate_path_options,coordinate_path_result
+use sklearn_sparse, only: csr_matrix
+type(csr_matrix) :: x
+type(coordinate_path_options) :: options
+type(coordinate_path_result) :: path
+! x is a validated CSR design; y and sample_weights have n_rows entries.
+path=enet_path(x,y,options,alphas=[.1_dp,.03_dp],sample_weight=sample_weights)
+path=enet_path(x,y,options,x_offset=offsets,x_scale=scales)
+```
+
+Optional sample_weight(:), x_offset(:) and x_scale(:) expose the source
+sparse coordinate kernel's weighting and implicit-centering parameters.
+Weights are passed through without normalization. With weights s and
+m=x_offset/x_scale, the canonical-data objective is
+sum(s*(y-(X-m)w)^2)/(2*n) + alpha*l1_ratio*||w||_1 +
+alpha*(1-l1_ratio)*||w||^2/2. Default weights are one and default m is zero.
+These are caller-supplied parameters; y is not centered automatically and X
+is not divided by x_scale. Offsets require finite, nonzero scales of the
+feature length. A scale argument without offsets is ignored, as in source.
+Finite signed weights are retained for source compatibility; conventional
+convex regression uses nonnegative weights and canonical CSR storage. Zero
+weights use source's guarded weighted residual-norm calculation.
+
+Sparse _pre_fit forces precomputation off. gram and xy are discarded even
+when options.precompute='true'; xy still receives the source's initial
+finite/nonempty check. An ignored Gram need not be square or finite. Sparse
+automatic alpha grids use the raw, unweighted, uncentered X.T*y, retaining
+sklearn 1.6.1's public-path behavior even when weights or offsets are present.
+Explicit alpha paths do not compute unused raw correlations. All original
+control/default/warm-start/positivity/random-coordinate/zero-sweep semantics
+are retained. Inputs and all CSR storage arrays are preserved bit for bit,
+including ignored arrays containing NaNs.
+
+CSR conversion preserves unsorted input entries, explicit zeros and duplicate
+storage. This deliberately reproduces the pinned source's raw CSC behavior:
+column norms sum stored-entry squares rather than the square of a duplicate
+sum. For unweighted centered columns, the source's uint32 implicit-zero count
+wraps if a column stores more entries than n_rows. Weighted normalization
+uses a different accumulation, so all-one weights can differ from omitted
+weights for noncanonical input. These are source storage quirks, not new ML
+algorithms or a claim of the conventional logical-matrix objective for raw
+duplicates. Supply canonical CSR for ordinary sparse regression.
+
+Native CSR structure/integer-capacity checks, finite data/weights/means,
+weight/offset/scale lengths, nonzero scales and nonzero coordinate denominators
+provide controlled diagnostics where source kernels can access invalid buffers
+or produce undefined arithmetic. These constraints are identified separately
+in the reference record. See example/sparse_coordinate_paths.f90.

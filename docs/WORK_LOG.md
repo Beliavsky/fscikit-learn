@@ -9386,3 +9386,16 @@ No runtime dependency, public core estimator type or algorithm outside sklearn
 was added. Inventory: 222 public core types, 178 source modules, 247 native
 programs, 220 reference suites / 4,262,024 retained groups and 119 invalid
 registries / 6,383 cases. The broader translation remains unfinished.
+
+
+## Sparse coordinate-path implementation (2026-11-25)
+
+Added CSR vector overloads for enet_path/lasso_path using compressed-column
+work storage, weighted residuals and implicit centering. Source precompute
+forcing, raw alpha-grid conventions, signed/zero weights, duplicate storage
+and unsigned implicit-zero counting are preserved. Private checked and
+optimized probes passed direct source comparisons; analytic weighted/centered
+and duplicate-counter tests and 33 guard probes passed. Large sparse storage
+and ignored precomputation/scale inputs are retained in the reference corpus.
+Full fpm builds and regressions are underway. MIT and upstream attribution
+are retained.

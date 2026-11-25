@@ -7155,3 +7155,19 @@ requested tolerance. Reports keep source and native gaps/counts/status plus
 certificate bounds. This does not widen coefficient tolerances or claim exact
 stopping equivalence at a floating-point zero boundary. Thirty-nine guards
 include thirteen native finite/shape/convex-domain constraints.
+
+
+Sparse elastic-net/Lasso paths:
+```
+python validation/compare_sparse_coordinate_paths.py --executable build/gfortran_E1FE13DB8881E18E/app/reference_sparse_coordinate_driver.exe --profile checked
+python validation/check_sparse_coordinate_invalid_inputs.py --executable build/gfortran_E1FE13DB8881E18E/app/reference_sparse_coordinate_invalid_driver.exe --profile checked
+```
+Repeat for release. Cases retain canonical/unsorted/zero/duplicate storage,
+unweighted/fractional/zero/signed weights, implicit means/scales, positive
+coefficients, random and cyclic paths, warm starts, ignored Gram/Xy/scale
+inputs, automatic and explicit grids, and zero sweeps. A 32768-by-8192
+design with one stored entry exercises storage whose dense equivalent is
+2 GiB. An explicit-grid case avoids unused overflowing raw correlations.
+All nine result groups per configuration compare directly to source; the
+raw duplicate uint32 implicit-zero wrap is retained explicitly. Thirty-three
+diagnostics identify twenty-one native buffer/finite/mean/domain guards.
