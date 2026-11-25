@@ -1,7 +1,7 @@
 # Translation coverage
 
-Streaming nearest-pair reductions have been added; full checked/release
-verification is pending. Totals below describe the last verified batch.
+Streaming nearest-pair reductions now support dense/CSR inputs, both axes and
+row callbacks, verified in checked and optimized profiles.
 
 Pinball loss and D2 quantile/absolute scores support modern multioutput
 selection, legacy optional arguments, mixed matrix ranks and owned raw helpers,
@@ -31,7 +31,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Two hundred and thirteen reference suites additionally check 4,164,051
+All types have native tests. Two hundred and fourteen reference suites additionally check 4,180,483
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -11274,3 +11274,42 @@ was added.
 Inventory: 222 public core types, 174 source modules, 240 native programs,
 213 reference suites / 4,164,051 retained groups and 112 invalid registries /
 6,151 cases. The broader translation remains unfinished.
+
+
+## Verified streaming nearest-pair reductions (2026-11-25)
+
+Implementation 4153392 passed full checked and optimized fpm build --tests
+batches. In each profile, 4,108 accepted configurations retained 16,432 groups
+checking exact nearest indices, distance arrays, nonfinite masks and combined
+API agreement/input identity/IEEE state. All 40 source nonfinite masks matched;
+the largest scaled finite distance error across both profiles was 4.302e-15
+(rtol=atol=3e-12). All 88 source rejection cases and 26 targeted diagnostics
+passed; the latter distinguish 25 source rejections from one native NaN-power
+adapter guard. References use sklearn 1.6.1, NumPy 2.2.6, real64 C-contiguous
+arrays and the default optimized backend with one OpenMP/BLAS thread.
+
+Each profile also passed 16,729 existing pairwise groups: 16,709 strict source
+comparisons and 20 retained large-offset roundoff-bound checks. All 26 earlier
+pairwise diagnostics, 18 selected native programs and 192 core groups passed.
+Other historical suites/native programs were not rerun in this batch. The
+nearest-pair example matches an independent sklearn reference. The audit
+verifies 201 dependency-aware source fingerprints per profile, stable source/
+validator/executable hashes, distinct optimized drivers and complete independent
+configuration/result inventories. Existing metric bodies and other library
+sources match 3d1bf4f. The new module streams two rows and result vectors;
+it does not allocate a pairwise matrix or densify complete CSR inputs.
+
+Pinned source details include axis-zero callback orientation, upper-triangle
+self-callback symmetry, reduced-distance selection and finite heap sentinels,
+Gram versus l2 arithmetic, dense/CSR cosine normalization, NaN-overlap fallback
+minima and the source's Haversine CSR row-start coordinate convention. The last
+is explicitly documented because sparse and dense geographic answers can
+differ. Supported names, native adapter limits and unexposed SciPy metrics/
+per-feature parameters are listed in API.md. No dependency, public core type or
+algorithm beyond sklearn was added. Original integration remains MIT with
+retained sklearn BSD attribution. Verification artifacts remain ignored under
+validation/results/pairwise_reductions*, including the combined final audit.
+
+Inventory: 222 public core types, 175 source modules, 241 native programs,
+214 reference suites / 4,180,483 retained groups and 113 invalid registries /
+6,177 cases. The broader translation remains unfinished.
