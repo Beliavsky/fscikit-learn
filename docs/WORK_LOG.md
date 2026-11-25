@@ -9077,6 +9077,62 @@ Private checked probes passed 3,345 configurations / 13,380 groups, 1,406 source
 rejection records via 274 native probes, and 33 targeted diagnostics. All 1,813
 nonfinite masks matched; maximum scaled finite error was 4.07e-16. Seven targeted
 checks are explicit native adapters: six unsafe-source precision shape guards
-and weighted NaN-power rejection. Full package verification is pending.
+and weighted NaN-power rejection. Full package verification subsequently passed, as recorded below.
 Integration remains MIT, with preserved sklearn/SciPy/NumPy BSD attribution.
 No dependency, public core type or algorithm beyond sklearn was added.
+
+
+## Verified parameterized nearest-pair distances (2026-11-25)
+
+Implementation 25f596d passed full checked and optimized fpm build --tests
+batches. Each profile passed 3,345 complete configurations / 13,380 retained
+groups, comparing exact indices, distance/nonfinite arrays, agreement of both
+APIs, target/parameter identity and IEEE flags/modes. All 1,813 source nonfinite
+masks matched; maximum scaled finite error across both profiles was 4.063e-16
+at rtol=atol=3e-12. All 1,406 source rejection records passed via 274 native
+probes. Native probes share metric, storage, identity mode, shape, axis,
+empty-storage and parameter-shape contracts; automatic self-covariance failures
+retain the full data hash. All 33 targeted diagnostics passed: 26 source
+rejections and seven identified native adapters. Six precision-shape checks
+avoid unchecked source memory layouts, so that reference is not called;
+weighted NaN-power rejection is the seventh adapter.
+
+The APIs now accept weighted Minkowski, standardized Euclidean, Mahalanobis
+and p/infinity aliases. Optional w/V/VI arguments preserve earlier forms and
+unallocated optional-array forwarding. Source distinctions include finite
+nonnegative Minkowski weights, general signed/nonfinite variance/precision,
+reduced-distance clipping, sparse restrictions and explicit/default precision.
+Automatic same-storage Mahalanobis streams ddof=1 covariance with a pivoted
+inverse; singular and one-feature source failures are retained. Mahalanobis
+adds O(features**2) storage/work per pair, without a full pairwise matrix.
+
+Same-storage fallback calls now preserve the source zero diagonal, even for
+degenerate correlation/Dice/Sokal-Sneath/Russell-Rao and overflowing sparse
+Euclidean. Fully missing NaN-Euclidean rows remain NaN; off-diagonal NaNs still
+win fallback minima. Callbacks retain their own diagonal values. Optimized
+NaN-to-infinity heaps follow the pinned one-thread, 256-row auto-strategy merge,
+verified on both sides of 1024/1025 queries. Other source thread/chunk/strategy
+settings can change exceptional/tied results. Existing unweighted kernel bodies
+are unchanged; earlier wrappers only gain optional parameters. Public facades
+and other library bodies match c6119f4.
+
+Each profile additionally passed 10,728 earlier dissimilarity groups (including
+144 explicitly identified sparse Bray-Curtis adapter configurations), their
+3,582 source rejection records and 60 diagnostics; 16,432 earlier nearest-pair
+groups, 88 source rejections and 26 diagnostics; 16,729 earlier pairwise groups
+(including 20 retained roundoff-bound checks) and 26 diagnostics; 192 core groups
+and 20 selected native programs. Other historical suites/native programs were
+not rerun. Three examples ran; the new one independently matches sklearn.
+The combined audit verifies 206 compiled-unit fingerprints per profile,
+complete fresh source configuration/result inventories, stable source/validator/
+executable/report hashes and distinct release drivers. Reference metadata pins
+sklearn 1.6.1, NumPy 2.2.6, SciPy 1.15.3, C-contiguous float64 arrays, NumPy's
+8192-element buffer and the default optimized one-thread auto backend.
+Artifacts remain ignored under validation/results/parameter_distances*,
+including the final combined audit. Original integration remains MIT with
+preserved sklearn/SciPy/NumPy BSD notices; no dependency, public core type or
+algorithm beyond sklearn was added.
+
+Inventory: 222 public core types, 175 source modules, 243 native programs,
+216 reference suites / 4,204,591 retained groups and 115 invalid registries /
+6,270 cases. The broader translation remains unfinished.
