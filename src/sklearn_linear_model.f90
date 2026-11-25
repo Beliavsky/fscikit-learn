@@ -1,4 +1,5 @@
 module sklearn_linear_model
+  use sklearn_ridge_solver,only:ridge_regression,ridge_solver_options,ridge_solution
   use sklearn_coordinate_paths,only:enet_path,lasso_path,coordinate_path_options,coordinate_path_result
   use sklearn_omp_paths,only:orthogonal_mp,orthogonal_mp_gram,omp_result
   use sklearn_nnls, only: positive_least_squares
@@ -18,6 +19,7 @@ module sklearn_linear_model
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite,ieee_is_nan
   implicit none
   private
+  public::ridge_regression,ridge_solver_options,ridge_solution
   public :: orthogonal_matching_pursuit_cv
   public :: orthogonal_mp,orthogonal_mp_gram,omp_result
   public :: enet_path,lasso_path,coordinate_path_options,coordinate_path_result

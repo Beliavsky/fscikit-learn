@@ -24,6 +24,7 @@ fpm run --example coordinate_descent_nmf
 fpm run --example omp_paths
 fpm run --example coordinate_paths
 fpm run --example sparse_coordinate_paths
+fpm run --example ridge_solvers
 fpm run --example beta_divergence_nmf
 fpm run --example positive_linear_models
 fpm run --example image_patches
