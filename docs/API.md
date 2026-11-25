@@ -9491,10 +9491,11 @@ estimator fitting reuses this builder as described below. See
 `example/ward_trees.f90`.
 
 
-## Connectivity and threshold controls for fitted Ward clustering
+## Connectivity and threshold controls for fitted hierarchical clustering
 
 `agglomerative_clustering` and `feature_agglomeration` reuse `ward_tree` when
-linkage='ward'. Assign exactly one optional connectivity component:
+linkage='ward' and `linkage_tree` when linkage='complete' or 'average'. Assign
+exactly one optional connectivity component:
 `connectivity` (dense real64), `connectivity_mask` (dense logical) or
 `connectivity_csr` (allocatable `csr_matrix`). The matrix is indexed by samples
 for clustering and by input features for feature agglomeration. Deallocate it
@@ -9539,12 +9540,60 @@ n_features_in_. Native compute_full_tree_ records the chosen build mode and
 connectivity_completed_ replaces a Python completion warning. Estimator labels
 remain zero-based in first-sample/feature order. Estimator children_ remain
 zero-based (unlike the public ward_tree result); source merge order is retained.
-Successful Ward fitting restores IEEE flags and halting modes. Cutting the
+Successful Ward/complete/average fitting restores IEEE flags and halting modes. Cutting the
 hierarchy uses path-compressed parent links with linear working storage.
 Unstructured fitting uses condensed quadratic distances; structured graph fill
 can still become quadratic. At least two samples/features are required.
 
-Connectivity and distance_threshold controls currently require linkage='ward';
-other linkages retain their previous unstructured algorithms. Callable
-connectivity, caching and non-real64 feature arrays are not implemented. See
-`example/structured_ward.f90`.
+Connectivity and distance_threshold controls support Ward, complete and average
+linkage. Single linkage retains its previous unstructured Euclidean algorithm.
+Callable connectivity, caching and non-real64 feature arrays are not implemented.
+See `example/structured_ward.f90` and `example/connected_linkage.f90`.
+
+
+## Complete and average linkage trees
+
+`linkage_tree(x,connectivity,n_clusters,return_distance,linkage,affinity)` returns
+`hierarchy_result` through `sklearn` or `sklearn_cluster`. Its counterpart is
+sklearn 1.6.1's `cluster._agglomerative.linkage_tree`; this native interface
+currently implements its complete and average algorithms. `linkage` defaults
+to 'complete'. Matrices/vectors and dense real/logical/CSR connectivity use the
+same eight typed forms as ward_tree. Tree child/parent IDs are 1-based, while
+fitted estimator children remain 0-based. Both input arrays are unchanged.
+
+Without connectivity, the full tree uses condensed distances, nearest-neighbor
+chains, stable height sorting and union-find relabeling. n_clusters is ignored,
+as in source. With connectivity, sparse neighbor maps and a distance-only heap
+build the requested full or partial hierarchy. Complete linkage takes the
+maximum for shared neighbors. Average linkage weights shared distances by
+cluster sizes; a distance present in only one map is copied unchanged. Stale
+edges are discarded, and original component pairs receive their closest
+connection before merging. Cost-only heap ties follow the tested CPython
+3.13.3 source ordering, including heaps larger than 2,500 entries.
+
+`affinity` defaults to 'euclidean'. Without connectivity, supported names are
+'euclidean'/'l2', 'manhattan'/'cityblock'/'l1', 'cosine', 'chebyshev',
+'sqeuclidean', 'minkowski' (source default p=2) and 'precomputed'. With
+connectivity, source paired_distances permits only the Euclidean/Manhattan
+aliases, cosine and precomputed routes. Other connected names are rejected.
+The estimators select these through `metric` (default 'euclidean'); Ward
+requires that exact metric name, as in source.
+
+Precomputed input must be square and finite. Without connectivity only the
+upper triangle is consumed. With connectivity, original directed row entries
+are consumed; symmetry, a zero diagonal and nonnegative entries are not imposed.
+Cosine input cannot contain zero vectors. Callback affinities and other SciPy
+metric names are not implemented. NumPy's paired row-norm and pairwise sum
+orders are retained, including the rounding used by threshold comparisons.
+Unstructured cosine uses the SciPy scalar convention; structured paired cosine
+uses half the squared distance between normalized rows.
+
+At least two samples are required. With connectivity, positive n_clusters must
+be less than sample count; zero/omission requests the full tree. sklearn 1.6.1
+fails when a structured complete/average tree has no merges, and the native
+function gives a controlled diagnostic for that request. A fitted estimator
+can still select one cluster per sample when it builds a full tree and cuts it.
+Distances are empty unless requested, with the same metadata and IEEE-state
+contract as ward_tree. Generated values outside finite working range are
+rejected. Sparse setup and partial trees avoid a full dense distance matrix;
+graph fill and candidate heaps can still require quadratic storage.

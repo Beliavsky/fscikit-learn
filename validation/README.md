@@ -7376,7 +7376,7 @@ one-feature/two-sample cases, threshold equality and disconnected/cancelling
 connectivity are included. Native tests add analytic cuts and pool/inverse
 values, IEEE preservation and a 32,768-node sparse auto forest avoiding an
 8 GiB dense distance/connectivity matrix. Twenty-three isolated rejections
-cover optional-control combinations, domain/shape errors and current non-Ward
+cover optional-control combinations, domain/shape errors and current single-linkage
 connectivity/threshold restrictions. Existing FeatureAgglomeration and BIRCH
 validators accept --executable and --report for serialized profile checks.
 
@@ -7397,3 +7397,32 @@ remain ignored under validation/results/structured_ward_*.
 The source_calls field counts fitted-estimator reference calls. Each run also
 makes 36 source Ward-tree calls to select threshold fixtures, including when
 all fitted-estimator cases are cached.
+
+
+Complete/average linkage trees and fitted estimators:
+```
+python validation/compare_linkage_tree.py --executable build/gfortran_E1FE13DB8881E18E/app/reference_linkage_tree_driver.exe --reference-cache validation/results/linkage_reference_cache.json --report validation/results/linkage_checked_tree.json
+python validation/compare_linkage_fit.py --executable build/gfortran_E1FE13DB8881E18E/app/reference_linkage_fit_driver.exe --reference-cache validation/results/linkage_fit_reference_cache.json --report validation/results/linkage_checked_fit.json
+python validation/check_linkage_invalid_inputs.py --executable build/gfortran_E1FE13DB8881E18E/app/reference_linkage_invalid_driver.exe
+```
+Repeat with release executables. Optional ignored caches retain actual source
+outputs, warning counts, input keys and source/runtime provenance; changes are
+rejected. Tree children and parents compare exactly. Fitted labels and pooled
+columns use the established first-sample/feature order; children, partitions
+and metadata otherwise compare directly. Distances, pooled values and inverse
+maps use the unchanged 3e-8 bound without numerical certificates.
+
+The tree suite covers 9,904 configurations / 39,616 groups, dense/logical/
+canonical/duplicate/explicit-zero connectivity, all supported named metrics,
+precomputed asymmetric/nonzero-diagonal/signed matrices, partial forests,
+disconnected completion, aliases, wide cosine rows and large tied heaps. The
+fitted suite covers 11,826 configurations / 64,392 groups, repeated fitting,
+full/partial/auto modes, threshold/cluster-count cuts, distance retention, all
+three feature-pooling modes and the 100-cluster auto boundary. Its source_calls
+counter counts estimator fits; 36 additional source complete-linkage trees per
+run select threshold fixtures. Neither suite infers expected values from native
+output. The native test checks all eight tree wrappers, missing-neighbor copy
+semantics, analytic trees/thresholds/pooling, an exact NumPy-rounding threshold
+regression, IEEE state, and an 8,192-node CSR partial tree avoiding a 512 MiB
+dense distance/connectivity matrix. Twenty-five isolated guards include the
+source's unsupported empty structured tree and connected metric restrictions.

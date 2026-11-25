@@ -29,8 +29,8 @@ program reference_structured_ward_invalid_driver
   case(15);call model%fit(x(:1,:));stop
   case(16);call model%fit(x(:0,:));stop
   case(17);x=ieee_value(0._dp,ieee_quiet_nan)
-  case(18);model%linkage='average';model%connectivity=g
-  case(19);model%linkage='complete';model%n_clusters=0;model%distance_threshold=1
+  case(18);model%linkage='single';model%connectivity=g
+  case(19);model%linkage='single';model%n_clusters=0;model%distance_threshold=1
   case(20);features%n_clusters=0;call features%fit(x);stop
   case(21);features%connectivity=g;call features%fit(x);stop
   case(22);model%connectivity=ieee_value(g,ieee_quiet_nan)

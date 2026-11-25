@@ -30,6 +30,7 @@ fpm run --example optics_graph
 fpm run --example blocked_shrinkage
 fpm run --example ward_trees
 fpm run --example structured_ward
+fpm run --example connected_linkage
 fpm run --example beta_divergence_nmf
 fpm run --example positive_linear_models
 fpm run --example image_patches
