@@ -1,5 +1,6 @@
 """Compare joint sparse regression with the installed sklearn reference."""
 from pathlib import Path
+import argparse
 import json
 import subprocess
 import warnings
@@ -10,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 RESULTS = ROOT / "validation/results"
 
 def main():
+    parser=argparse.ArgumentParser();parser.add_argument("--executable",type=Path);args=parser.parse_args()
     RESULTS.mkdir(exist_ok=True)
     checks = []
     for seed, n, p in ((7, 60, 5), (42, 30, 7), (2026, 9, 14)):
@@ -23,8 +25,11 @@ def main():
         with data.open("w") as stream:
             stream.write(f"{n} {p} 3\n")
             np.savetxt(stream, np.column_stack([x, y]), fmt="%.17g")
-        subprocess.run(["fpm", "run", "--flag", "-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow",
-                        "--target", "reference_multitask_driver", "--", str(data), str(output)], cwd=ROOT, check=True)
+        if args.executable:
+            subprocess.run([str(args.executable.resolve()),str(data),str(output)],cwd=ROOT,check=True)
+        else:
+            subprocess.run(["fpm", "run", "--flag", "-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow",
+                            "--target", "reference_multitask_driver", "--", str(data), str(output)], cwd=ROOT, check=True)
         actual = {}
         for line in output.read_text().splitlines():
             name, *values = line.split(); actual[name] = np.array(values, dtype=float)

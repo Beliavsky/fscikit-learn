@@ -11683,3 +11683,85 @@ No dependency, public core estimator type or algorithm outside sklearn was
 added. Inventory: 222 public core types, 177 source modules, 246 native
 programs, 219 reference suites / 4,234,340 retained groups and 118 invalid
 registries / 6,344 cases. The broader translation remains unfinished.
+
+
+## Elastic-net and Lasso coordinate paths
+
+`enet_path` and `lasso_path` are exported by `sklearn_coordinate_paths`,
+`sklearn_linear_model` and `sklearn`. Inputs are finite dense real64 arrays.
+Vector y selects scalar elastic net; matrix y selects the coupled multi-task
+L2,1 penalty, including for a one-column matrix. No centering or intercept
+fitting is performed. Prepare X/y before calling when an intercept is needed.
+CSR path solves and sparse centering/sample weights are not implemented here.
+
+```fortran
+use sklearn, only: dp,enet_path,lasso_path,coordinate_path_options,coordinate_path_result
+type(coordinate_path_options) :: options
+type(coordinate_path_result) :: path
+options%l1_ratio=.5_dp
+options%selection='random'; options%random_state=42
+path=enet_path(x,y,options)
+path=lasso_path(x,y,options,alphas=[.1_dp,.03_dp,.01_dp])
+! Vector coefficient slice: path%coefficients(1,:,alpha_index)
+```
+
+Options default to l1_ratio=.5, eps=.001, n_alphas=100, tol=1e-4,
+max_iter=1000, random_state=0, selection='cyclic', precompute='auto' and
+positive=false. Selection is cyclic or random. Each alpha advances the shared
+NumPy-compatible legacy RNG and initializes a fresh source-style xorshift
+coordinate state; coefficients warm-start from the preceding alpha. The
+integer seed is local and deterministic; Python global/object RNGs are not
+exposed. Lasso fixes l1_ratio=1 regardless of the options field.
+
+The scalar objective is ||y-Xw||^2/(2*n) + alpha*l1_ratio*||w||_1 +
+alpha*(1-l1_ratio)*||w||^2/2. For matrix targets, replace ||w||_1 by the sum
+of coefficient-vector L2 norms across features and use Frobenius norms.
+Positive coefficients are supported only for vector targets, following source.
+Zero-norm columns retain supplied initial coefficients because the source
+coordinate kernels skip those columns, including with positivity requested.
+
+Explicit alphas are finite, nonnegative and sorted descending; duplicates and
+an empty array are retained. Without alphas, n_alphas>=1 geometrically spaced
+values run from max_j ||Xy(j,:)||_2/(n*l1_ratio) to that maximum times eps.
+The grid is constant 1e-15 if the maximum is at most float64 resolution.
+A positive finite eps may exceed one, retaining source's increasing automatic
+grid. l1_ratio=0 requires explicit alphas. Mixing is in [0,1], max_iter is
+nonnegative and tol is finite/nonnegative. Source's zero-sweep convention is
+retained: max_iter=0 returns unchanged initial coefficients, n_iter=1,
+unconverged state and the initialized (1+tol)/n gap for each alpha.
+
+precompute is 'auto', 'true' or 'false' in the options record. Auto selects
+Gram setup for n_samples>n_features. Optional gram(:,:) overrides that mode;
+it must be feature-square, finite and pass source's sampled entry check
+(atol=1e-5, rtol=1e-7). Optional xy is a feature vector for vector y and a
+(features,targets) matrix for matrix y. It is validated for finite/nonempty
+values even when unused, but its shape is checked only when Gram setup uses
+it. Without Gram setup, caller xy is dropped, matching _pre_fit. Matrix
+targets always use the grouped solver, even if Gram setup supplies their
+automatic grid. No separate global Gram PSD/symmetry test is imposed.
+
+Optional coef_init is a feature vector or a (targets,features) matrix.
+All inputs, including initial coefficients and explicit alphas, are read-only
+and copied as needed. Copy/check-input/verbosity flags and arbitrary kwargs
+are represented by this checked owned interface. Native finite/shape/convex
+penalty and coordinate-denominator guards are identified in validation.
+
+`coordinate_path_result` holds alphas(:), coefficients(target,feature,alpha),
+dual_gaps(:), n_iter(:), converged(:), dual_tolerance and backend
+('direct', 'gram' or 'multitask'). A vector response retains one target axis.
+Dual gaps and dual_tolerance are normalized by n_samples. Scalar kernels use
+strict gap<tol*||y||^2; the grouped kernel uses <=. Thus an exactly zero target
+can exhaust scalar iterations while the corresponding one-column grouped
+problem stops immediately. Converged flags replace warning objects.
+
+Floating-point stopping metadata is not always portable between the native
+and BLAS/LAPACK implementations. At the zero-model threshold, a coefficient
+near machine zero can add a source/native sweep. With zero L1 penalty, a
+zero-versus-near-zero gradient can change the dual scaling discontinuously,
+so raw gap values, warnings and iteration counts can differ substantially.
+The reference suite keeps all coefficient and alpha comparisons direct.
+It separately certifies differing stopping metadata using zero-model KKT
+conditions or independent ridge/least-squares optimality gaps within the
+requested tolerance, retaining both source and native values in its report.
+These cases do not claim identical raw dual gaps or stopping counts.
+See example/coordinate_paths.f90.

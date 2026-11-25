@@ -9319,3 +9319,16 @@ No dependency, public core estimator type or algorithm outside sklearn was
 added. Inventory: 222 public core types, 177 source modules, 246 native
 programs, 219 reference suites / 4,234,340 retained groups and 118 invalid
 registries / 6,344 cases. The broader translation remains unfinished.
+
+
+## Dense coordinate-descent path implementation (2026-11-25)
+
+Added enet_path/lasso_path with scalar direct/Gram kernels and the existing
+grouped multi-task backend. Paths support automatic/explicit alpha grids,
+warm coefficients, random/cyclic coordinates, positivity, precomputation and
+shared RNG continuity. Private checked and optimized probes each passed
+27,684 groups across 3,076 configurations; analytic unit and 39 guard probes
+passed. Coefficients and alpha grids compare directly to sklearn. Explicit
+KKT/optimality certificates retain floating-point stopping differences at
+zero models or zero L1 penalty. Full fpm builds and regressions are underway.
+Original integration remains MIT with sklearn BSD attribution retained.

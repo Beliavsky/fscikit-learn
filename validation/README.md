@@ -7137,3 +7137,21 @@ full-span certificates retain rank-deficient extra-step cases and verify
 common prefixes, every extra reconstruction and backward error. Exact-zero
 tolerance warning-state differences are explicitly retained. Twenty-seven
 diagnostics include eight identified native finite/shape/pivot contracts.
+
+
+Dense elastic-net/Lasso paths:
+```
+python validation/compare_coordinate_paths.py --executable build/gfortran_E1FE13DB8881E18E/app/reference_coordinate_paths_driver.exe --profile checked
+python validation/check_coordinate_paths_invalid_inputs.py --executable build/gfortran_E1FE13DB8881E18E/app/reference_coordinate_invalid_driver.exe --profile checked
+```
+Repeat for release. The batched driver covers scalar/column/multi-task targets,
+Gram/direct/auto/supplied precomputation, supplied/discarded correlations,
+alpha sorting/duplicates/empty arrays, automatic grids, warm initial values,
+cyclic/random coordinate sequences, positivity, zero sweeps and degenerate
+data. All alpha and coefficient arrays remain direct sklearn comparisons.
+When stopping metadata differs, retained certificates verify zero-model KKT
+conditions or independent zero-L1 ridge/least-squares optimality within the
+requested tolerance. Reports keep source and native gaps/counts/status plus
+certificate bounds. This does not widen coefficient tolerances or claim exact
+stopping equivalence at a floating-point zero boundary. Thirty-nine guards
+include thirteen native finite/shape/convex-domain constraints.

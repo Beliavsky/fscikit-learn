@@ -10,6 +10,7 @@ module sklearn_multitask
   private
   public :: multi_task_elastic_net,multi_task_lasso
   public :: multi_task_elastic_net_cv,multi_task_lasso_cv
+  public :: multitask_path_step
   type :: multi_task_elastic_net
     real(dp) :: alpha=1,l1_ratio=.5_dp,tol=1.e-4_dp
     integer :: max_iter=1000,n_iter_=0,n_features_in_=0,random_state=0
@@ -40,6 +41,13 @@ module sklearn_multitask
     procedure :: fit=>multitask_lasso_cv_fit
   end type
 contains
+  ! Shared by the public coordinate-descent path without resetting its RNG.
+  subroutine multitask_path_step(model,x,y,rng)
+    type(multi_task_elastic_net),intent(inout)::model
+    real(dp),intent(in)::x(:,:),y(:,:)
+    type(legacy_random_state),intent(inout)::rng
+    call multitask_solve(model,x,y,model%l1_ratio,rng)
+  end subroutine
   integer function random_coordinate(state,p) result(coordinate)
     integer(int64), intent(inout) :: state
     integer, intent(in) :: p
