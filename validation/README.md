@@ -7062,3 +7062,17 @@ API agreement, input identity and IEEE state. Controlled source rejections
 run separately. Sixty targeted diagnostics cover source sparse-storage and
 finite-input restrictions. Existing nearest-pair/pairwise/core/native suites
 are recorded separately.
+
+
+Parameterized and aliased-input nearest-pair distances:
+```
+python validation/compare_parameter_distances.py --executable build/gfortran_E1FE13DB8881E18E/app/reference_parameter_distances_driver.exe --profile checked --report validation/results/parameter_distances_new_checked.json
+python validation/check_parameter_distances_invalid_inputs.py --executable build/gfortran_E1FE13DB8881E18E/app/reference_parameter_distances_driver.exe --profile checked --report validation/results/parameter_distances_invalid_checked.json
+```
+Repeat for release. Cases compare both APIs, exact indices, distance/nonfinite
+arrays, target/parameter identity and IEEE state. They include all storage/axis
+forms, general variance/precision, weighted powers, self-object fallbacks,
+automatic self covariance and the default auto-strategy threshold. Source
+rejection records identify representative native probes. Targeted diagnostics
+label six source-unsafe precision shapes (reference not called) and the native
+NaN-power guard separately. Other fixtures are strict sklearn comparisons.

@@ -8869,9 +8869,10 @@ call pairwise_distances_argmin_min(x, y, indices, distances, &
 Both inputs are required. Each can be a dense real64 matrix or `csr_matrix`,
 independently. The default metric is `euclidean`. `axis=1` finds Y rows for each
 X row; `axis=0` swaps the query/candidate roles and finds X rows for each Y row.
-The latter also swaps callable arguments, following sklearn. The workspace is
-linear: two feature rows plus result vectors, without a pairwise matrix or
-full dense CSR conversion. Time remains O(samples_X * samples_Y * features).
+The latter also swaps callable arguments, following sklearn. The workspace uses
+feature-row scratch and result vectors, without a pairwise matrix or full dense
+CSR conversion. Ordinary metrics cost O(samples_X * samples_Y * features).
+Mahalanobis adds quadratic feature storage/work, as described below.
 
 Named metrics: `euclidean`, `sqeuclidean`, `l2`, `manhattan`, `cityblock`, `l1`,
 `chebyshev`, `minkowski`, `cosine`, `nan_euclidean`, and `haversine`.
@@ -8902,10 +8903,9 @@ coordinates modulo the zero-based CSR row start; this source behavior is
 preserved even where its answer differs from the dense Haversine calculation.
 Use dense inputs for ordinary geographic coordinate semantics.
 
-This port does not yet expose Mahalanobis/standardized-Euclidean distances, per-feature
-Minkowski weights, Mahalanobis/standardized-Euclidean parameters, distance
-objects, Python keyword dictionaries, joblib controls or alternative reduction
-backends. The native adapter explicitly rejects NaN Minkowski powers (the
+This port does not yet expose distance objects, Python keyword dictionaries,
+joblib controls or alternative reduction backends. Parameterized distances are
+described below. The native adapter explicitly rejects NaN Minkowski powers (the
 source optimized backend can accept them). Named metrics reject inapplicable
 native keywords. These interfaces add no algorithm beyond sklearn.
 See [`example/nearest_pairs.f90`](../example/nearest_pairs.f90).
@@ -8917,7 +8917,8 @@ The same nearest-pair APIs also accept `braycurtis`, `canberra`, `correlation`,
 `hamming`, `matching`, `dice`, `jaccard`, `rogerstanimoto`, `russellrao`,
 `sokalmichener`, `sokalsneath`, and `yule`. These are algorithms exposed by the
 pinned sklearn 1.6.1 API; several names are deprecated in that source stack.
-No per-feature weights or additional metric parameters are exposed yet.
+Per-feature weights for these additional dissimilarities are not exposed.
+Weighted Minkowski is described below.
 
 Correlation centers each row using NumPy-compatible sums, then applies the
 SciPy centered-cosine calculation. Constant rows give NaN. Hamming compares
@@ -8945,3 +8946,65 @@ metric, with no new machine-learning algorithm.
 
 The implementation remains serial, real64 and linear in row workspace. Arrays
 and IEEE state are preserved. See [example/extra_dissimilarities.f90](../example/extra_dissimilarities.f90).
+
+
+### Parameterized distances and aliased input semantics
+
+The nearest-pair APIs additionally support `seuclidean` and `mahalanobis`,
+Minkowski feature weights `w(:)`, and the existing sklearn aliases `p` and
+`infinity` for Minkowski and Chebyshev. Optional real64 keywords `w`, `v`, and
+`vi` follow all earlier arguments, preserving existing calls:
+
+```fortran
+call pairwise_distances_argmin_min(x, y, indices, distances, &
+    metric='minkowski', p=3._dp, w=feature_weights)
+call pairwise_distances_argmin_min(x, y, indices, distances, &
+    metric='seuclidean', v=feature_variances)
+call pairwise_distances_argmin_min(x, y, indices, distances, &
+    metric='mahalanobis', vi=inverse_covariance)
+```
+
+Minkowski weights must be finite, nonnegative and match the feature count;
+weighted powers must be positive and finite. Zero weights do not suppress
+source overflow products such as 0*infinity. All four dense/CSR combinations
+retain source nonempty-CSR restrictions. Unallocated optional arrays are
+forwarded as absent, including previously supported positional arguments.
+
+Standardized Euclidean requires `v` even for identical input objects under the
+pinned optimized backend. Its length matches features; zero, negative and
+nonfinite variances follow the source arithmetic. Reduced distances are
+selected before the final nonnegative clip and square root. Two CSR inputs
+are rejected; mixed inputs require nonempty CSR storage.
+
+Mahalanobis accepts a real64 `vi(features,features)` matrix for distinct dense
+inputs. Symmetry, positive definiteness and finite coefficients are not forced:
+the source quadratic form and its NaNs are retained. CSR is rejected. When
+both arguments alias the same dense matrix and `vi` is absent, a streamed
+sample covariance (ddof=1) and pivoted inverse supply the source default.
+Singular covariance fails; the source scalar-covariance inverse failure is
+retained for one feature. Matrix storage is O(features**2), and pair evaluation
+costs O(features**2), without a complete pairwise matrix.
+
+Equal-shape arguments sharing the same Fortran storage represent the source's
+same-object case. Fallback metrics apply their zero diagonal before reduction;
+this matters for constant-row correlation, all-false Dice/Sokal-Sneath,
+Russell-Rao, cosine zero rows and overflowing sparse Euclidean distances.
+NaN-Euclidean preserves NaN for a fully missing row while setting an observed
+self diagonal to zero. Off-diagonal NaNs still win a fallback minimum. Row
+callbacks retain their own diagonal values and upper-triangle self symmetry.
+Equal-valued arrays with separate storage retain ordinary cross-distance rules.
+
+Optimized heap behavior follows the pinned one-thread, 256-row default auto
+strategy. Candidate heaps are merged when candidates >= queries and queries
+<=1024. A local +infinity heap after a NaN is then discarded in favor of the
+finite initial sentinel; query-parallel reductions retain it. The validation
+suite covers both sides of this threshold. Nondefault sklearn chunk sizes,
+thread counts or strategies can change exceptional/tied results.
+
+**Native adapters:** `vi` must have the exact feature-square shape; six shape
+guards avoid unchecked source buffer accesses. NaN Minkowski powers continue
+to reject, including with weights, although the optimized source can accept
+them. Inapplicable parameter keywords reject. These are identified interface
+constraints, not new machine-learning algorithms. Inputs, parameter arrays,
+IEEE flags and halting modes are preserved. See
+[example/parameter_distances.f90](../example/parameter_distances.f90).

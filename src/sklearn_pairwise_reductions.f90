@@ -42,7 +42,7 @@ module sklearn_pairwise_reductions
   module procedure pairwise_distances_argmin_min_ds_callback
  end interface
 contains
- function pairwise_distances_argmin_dd(x,y,metric,axis,p,squared) result(indices)
+ function pairwise_distances_argmin_dd(x,y,metric,axis,p,squared,w,v,vi) result(indices)
   real(dp),target,intent(in)::x(:,:)
   real(dp),target,intent(in)::y(:,:)
   integer,allocatable::indices(:)
@@ -51,12 +51,13 @@ contains
   character(*),optional,intent(in)::metric
   real(dp),optional,intent(in)::p
   logical,optional,intent(in)::squared
+  real(dp),optional,intent(in)::w(:),v(:),vi(:,:)
   type(row_view)::a,b
   a%dense=>x
   a%n=size(x,1);a%p=size(x,2)
   b%dense=>y
   b%n=size(y,1);b%p=size(y,2)
-  call reduce_pairs(a,b,indices,distances,axis,metric,p,squared)
+  call reduce_pairs(a,b,indices,distances,axis,metric,p,squared,w=w,v=v,vi=vi)
  end function
  function pairwise_distances_argmin_dd_callback(x,y,metric,axis) result(indices)
   real(dp),target,intent(in)::x(:,:)
@@ -72,7 +73,7 @@ contains
   b%n=size(y,1);b%p=size(y,2)
   call reduce_pairs(a,b,indices,distances,axis,callback=metric)
  end function
- function pairwise_distances_argmin_ss(x,y,metric,axis,p,squared) result(indices)
+ function pairwise_distances_argmin_ss(x,y,metric,axis,p,squared,w,v,vi) result(indices)
   type(csr_matrix),target,intent(in)::x
   type(csr_matrix),target,intent(in)::y
   integer,allocatable::indices(:)
@@ -81,12 +82,13 @@ contains
   character(*),optional,intent(in)::metric
   real(dp),optional,intent(in)::p
   logical,optional,intent(in)::squared
+  real(dp),optional,intent(in)::w(:),v(:),vi(:,:)
   type(row_view)::a,b
   a%sparse=>x
   a%n=x%n_rows;a%p=x%n_cols
   b%sparse=>y
   b%n=y%n_rows;b%p=y%n_cols
-  call reduce_pairs(a,b,indices,distances,axis,metric,p,squared)
+  call reduce_pairs(a,b,indices,distances,axis,metric,p,squared,w=w,v=v,vi=vi)
  end function
  function pairwise_distances_argmin_ss_callback(x,y,metric,axis) result(indices)
   type(csr_matrix),target,intent(in)::x
@@ -102,7 +104,7 @@ contains
   b%n=y%n_rows;b%p=y%n_cols
   call reduce_pairs(a,b,indices,distances,axis,callback=metric)
  end function
- function pairwise_distances_argmin_sd(x,y,metric,axis,p,squared) result(indices)
+ function pairwise_distances_argmin_sd(x,y,metric,axis,p,squared,w,v,vi) result(indices)
   type(csr_matrix),target,intent(in)::x
   real(dp),target,intent(in)::y(:,:)
   integer,allocatable::indices(:)
@@ -111,12 +113,13 @@ contains
   character(*),optional,intent(in)::metric
   real(dp),optional,intent(in)::p
   logical,optional,intent(in)::squared
+  real(dp),optional,intent(in)::w(:),v(:),vi(:,:)
   type(row_view)::a,b
   a%sparse=>x
   a%n=x%n_rows;a%p=x%n_cols
   b%dense=>y
   b%n=size(y,1);b%p=size(y,2)
-  call reduce_pairs(a,b,indices,distances,axis,metric,p,squared)
+  call reduce_pairs(a,b,indices,distances,axis,metric,p,squared,w=w,v=v,vi=vi)
  end function
  function pairwise_distances_argmin_sd_callback(x,y,metric,axis) result(indices)
   type(csr_matrix),target,intent(in)::x
@@ -132,7 +135,7 @@ contains
   b%n=size(y,1);b%p=size(y,2)
   call reduce_pairs(a,b,indices,distances,axis,callback=metric)
  end function
- function pairwise_distances_argmin_ds(x,y,metric,axis,p,squared) result(indices)
+ function pairwise_distances_argmin_ds(x,y,metric,axis,p,squared,w,v,vi) result(indices)
   real(dp),target,intent(in)::x(:,:)
   type(csr_matrix),target,intent(in)::y
   integer,allocatable::indices(:)
@@ -141,12 +144,13 @@ contains
   character(*),optional,intent(in)::metric
   real(dp),optional,intent(in)::p
   logical,optional,intent(in)::squared
+  real(dp),optional,intent(in)::w(:),v(:),vi(:,:)
   type(row_view)::a,b
   a%dense=>x
   a%n=size(x,1);a%p=size(x,2)
   b%sparse=>y
   b%n=y%n_rows;b%p=y%n_cols
-  call reduce_pairs(a,b,indices,distances,axis,metric,p,squared)
+  call reduce_pairs(a,b,indices,distances,axis,metric,p,squared,w=w,v=v,vi=vi)
  end function
  function pairwise_distances_argmin_ds_callback(x,y,metric,axis) result(indices)
   real(dp),target,intent(in)::x(:,:)
@@ -162,7 +166,7 @@ contains
   b%n=y%n_rows;b%p=y%n_cols
   call reduce_pairs(a,b,indices,distances,axis,callback=metric)
  end function
- subroutine pairwise_distances_argmin_min_dd(x,y,indices,distances,metric,axis,p,squared)
+ subroutine pairwise_distances_argmin_min_dd(x,y,indices,distances,metric,axis,p,squared,w,v,vi)
   real(dp),target,intent(in)::x(:,:)
   real(dp),target,intent(in)::y(:,:)
   integer,allocatable,intent(out)::indices(:)
@@ -171,12 +175,13 @@ contains
   character(*),optional,intent(in)::metric
   real(dp),optional,intent(in)::p
   logical,optional,intent(in)::squared
+  real(dp),optional,intent(in)::w(:),v(:),vi(:,:)
   type(row_view)::a,b
   a%dense=>x
   a%n=size(x,1);a%p=size(x,2)
   b%dense=>y
   b%n=size(y,1);b%p=size(y,2)
-  call reduce_pairs(a,b,indices,distances,axis,metric,p,squared)
+  call reduce_pairs(a,b,indices,distances,axis,metric,p,squared,w=w,v=v,vi=vi)
  end subroutine
  subroutine pairwise_distances_argmin_min_dd_callback(x,y,indices,distances,metric,axis)
   real(dp),target,intent(in)::x(:,:)
@@ -192,7 +197,7 @@ contains
   b%n=size(y,1);b%p=size(y,2)
   call reduce_pairs(a,b,indices,distances,axis,callback=metric)
  end subroutine
- subroutine pairwise_distances_argmin_min_ss(x,y,indices,distances,metric,axis,p,squared)
+ subroutine pairwise_distances_argmin_min_ss(x,y,indices,distances,metric,axis,p,squared,w,v,vi)
   type(csr_matrix),target,intent(in)::x
   type(csr_matrix),target,intent(in)::y
   integer,allocatable,intent(out)::indices(:)
@@ -201,12 +206,13 @@ contains
   character(*),optional,intent(in)::metric
   real(dp),optional,intent(in)::p
   logical,optional,intent(in)::squared
+  real(dp),optional,intent(in)::w(:),v(:),vi(:,:)
   type(row_view)::a,b
   a%sparse=>x
   a%n=x%n_rows;a%p=x%n_cols
   b%sparse=>y
   b%n=y%n_rows;b%p=y%n_cols
-  call reduce_pairs(a,b,indices,distances,axis,metric,p,squared)
+  call reduce_pairs(a,b,indices,distances,axis,metric,p,squared,w=w,v=v,vi=vi)
  end subroutine
  subroutine pairwise_distances_argmin_min_ss_callback(x,y,indices,distances,metric,axis)
   type(csr_matrix),target,intent(in)::x
@@ -222,7 +228,7 @@ contains
   b%n=y%n_rows;b%p=y%n_cols
   call reduce_pairs(a,b,indices,distances,axis,callback=metric)
  end subroutine
- subroutine pairwise_distances_argmin_min_sd(x,y,indices,distances,metric,axis,p,squared)
+ subroutine pairwise_distances_argmin_min_sd(x,y,indices,distances,metric,axis,p,squared,w,v,vi)
   type(csr_matrix),target,intent(in)::x
   real(dp),target,intent(in)::y(:,:)
   integer,allocatable,intent(out)::indices(:)
@@ -231,12 +237,13 @@ contains
   character(*),optional,intent(in)::metric
   real(dp),optional,intent(in)::p
   logical,optional,intent(in)::squared
+  real(dp),optional,intent(in)::w(:),v(:),vi(:,:)
   type(row_view)::a,b
   a%sparse=>x
   a%n=x%n_rows;a%p=x%n_cols
   b%dense=>y
   b%n=size(y,1);b%p=size(y,2)
-  call reduce_pairs(a,b,indices,distances,axis,metric,p,squared)
+  call reduce_pairs(a,b,indices,distances,axis,metric,p,squared,w=w,v=v,vi=vi)
  end subroutine
  subroutine pairwise_distances_argmin_min_sd_callback(x,y,indices,distances,metric,axis)
   type(csr_matrix),target,intent(in)::x
@@ -252,7 +259,7 @@ contains
   b%n=size(y,1);b%p=size(y,2)
   call reduce_pairs(a,b,indices,distances,axis,callback=metric)
  end subroutine
- subroutine pairwise_distances_argmin_min_ds(x,y,indices,distances,metric,axis,p,squared)
+ subroutine pairwise_distances_argmin_min_ds(x,y,indices,distances,metric,axis,p,squared,w,v,vi)
   real(dp),target,intent(in)::x(:,:)
   type(csr_matrix),target,intent(in)::y
   integer,allocatable,intent(out)::indices(:)
@@ -261,12 +268,13 @@ contains
   character(*),optional,intent(in)::metric
   real(dp),optional,intent(in)::p
   logical,optional,intent(in)::squared
+  real(dp),optional,intent(in)::w(:),v(:),vi(:,:)
   type(row_view)::a,b
   a%dense=>x
   a%n=size(x,1);a%p=size(x,2)
   b%sparse=>y
   b%n=y%n_rows;b%p=y%n_cols
-  call reduce_pairs(a,b,indices,distances,axis,metric,p,squared)
+  call reduce_pairs(a,b,indices,distances,axis,metric,p,squared,w=w,v=v,vi=vi)
  end subroutine
  subroutine pairwise_distances_argmin_min_ds_callback(x,y,indices,distances,metric,axis)
   real(dp),target,intent(in)::x(:,:)
@@ -360,6 +368,10 @@ contains
   case('sokalsneath');kind=19
   case('yule');kind=20
   case('matching');kind=21
+  case('seuclidean');kind=22
+  case('mahalanobis');kind=23
+  case('infinity');kind=5
+  case('p');kind=6
   end select
   call require(kind>0,'unsupported nearest-pair distance metric')
  end function
@@ -435,7 +447,7 @@ contains
    value=xx*xx+cos(u(1))*cos(v(1))*yy*yy
   end select
  end function
- subroutine reduce_pairs(x,y,indices,distances,axis,metric,p,squared,callback)
+ subroutine reduce_pairs(x,y,indices,distances,axis,metric,p,squared,callback,w,v,vi)
   type(row_view),intent(in)::x,y
   integer,allocatable,intent(out)::indices(:)
   real(dp),allocatable,intent(out)::distances(:)
@@ -444,10 +456,11 @@ contains
   real(dp),optional,intent(in)::p
   logical,optional,intent(in)::squared
   procedure(row_metric),optional::callback
+  real(dp),optional,intent(in)::w(:),v(:),vi(:,:)
   type(row_view)::a,b
   integer::direction,kind,i,j,k
   real(dp)::power,value
-  real(dp),allocatable::u(:),v(:)
+  real(dp),allocatable::u(:),candidate(:),precision(:,:)
   logical::square,halting(size(ieee_all)),raised(size(ieee_all)),allow_nan,optimized,backend_ok,self_pair
   logical,allocatable::mask_u(:),mask_v(:)
   direction=1;if(present(axis))direction=axis
@@ -468,6 +481,32 @@ contains
   if(kind==9)call require(x%p==2,'haversine requires latitude and longitude columns')
   if(kind>=12.and.kind<=20)call require(.not.associated(x%sparse).and..not.associated(y%sparse), &
    'this nearest-pair dissimilarity requires dense inputs')
+  self_pair=.false.
+  if(associated(x%dense).and.associated(y%dense))self_pair=associated(x%dense,y%dense)
+  if(associated(x%sparse).and.associated(y%sparse))self_pair=associated(x%sparse,y%sparse)
+  if(kind==22)then
+   call require(present(v),'seuclidean requires V')
+   call require(size(v)==x%p,'seuclidean V length must match features')
+   call require(.not.(associated(x%sparse).and.associated(y%sparse)), &
+    'seuclidean does not support two CSR inputs')
+   call require(backend_ok,'seuclidean requires nonempty CSR storage')
+  else
+   call require(.not.present(v),'V is only supported for seuclidean')
+  end if
+  if(kind==23)then
+   call require(.not.associated(x%sparse).and..not.associated(y%sparse),'mahalanobis requires dense inputs')
+   call require(present(vi).or.self_pair,'mahalanobis requires VI for distinct input objects')
+   if(present(vi))call require(all(shape(vi)==[x%p,x%p]),'mahalanobis VI shape must match features')
+   if(.not.present(vi))call require(x%p>1,'automatic mahalanobis requires at least two features')
+  else
+   call require(.not.present(vi),'VI is only supported for mahalanobis')
+  end if
+  if(present(w))then
+   call require(kind==6,'w is only supported for Minkowski')
+   call require(size(w)==x%p,'Minkowski w length must match features')
+   call require(all(ieee_is_finite(w)),'Minkowski w must be finite')
+   call require(all(w>=0),'Minkowski w must be nonnegative')
+  end if
   power=2
   if(present(p))then
    call require(kind==6,'p is only supported for Minkowski nearest-pair distances')
@@ -477,22 +516,20 @@ contains
    call require(.not.ieee_is_nan(power),'Minkowski p must not be NaN')
    call require(power>0,'Minkowski p must be positive')
   end if
+  if(present(w))call require(ieee_is_finite(power),'weighted Minkowski requires finite p')
   square=.false.
   if(present(squared))then
    call require(kind==1.or.kind==8,'squared is only supported for euclidean or nan_euclidean')
    square=squared
   end if
-  self_pair=.false.
-  if(associated(x%dense).and.associated(y%dense))self_pair=associated(x%dense,y%dense)
-  if(associated(x%sparse).and.associated(y%sparse))self_pair=associated(x%sparse,y%sparse)
   a=x;b=y
   if(direction==0)then
    a=y;b=x
   end if
   optimized=kind/=0.and.kind/=7.and.kind/=8.and.backend_ok
   if(kind==1.and.associated(a%sparse).and.associated(b%sparse))optimized=.false.
-  if(kind>=12.and.kind<=20)optimized=.false.
-  allocate(indices(a%n),distances(a%n),u(a%p),v(a%p))
+  if(kind>=12.and.kind<=20.or.kind==23)optimized=.false.
+  allocate(indices(a%n),distances(a%n),u(a%p),candidate(a%p))
   if(kind>=10)then
    allocate(mask_u(a%p),mask_v(a%p))
   else
@@ -508,6 +545,14 @@ contains
   do k=1,size(ieee_all)
    call ieee_set_halting_mode(ieee_all(k),.false.)
   end do
+  allocate(precision(0,0))
+  if(kind==23)then
+   if(present(vi))then
+    precision=vi
+   else
+    call covariance_precision(a,precision)
+   end if
+  end if
   do i=1,a%n
    if(kind==9)then
     call get_haversine_row(a,i,u)
@@ -518,21 +563,29 @@ contains
    indices(i)=1;distances(i)=huge(1._dp)
    do j=1,b%n
     if(kind==9)then
-     call get_haversine_row(b,j,v)
+     call get_haversine_row(b,j,candidate)
     else
-     call get_row(b,j,v)
+     call get_row(b,j,candidate)
     end if
     if(kind>=10)call stored_row(b,j,mask_v)
     if(present(callback))then
      if(self_pair.and.i>j)then
-      value=callback(v,u)
+      value=callback(candidate,u)
      else
-      value=callback(u,v)
+      value=callback(u,candidate)
      end if
+    else if(kind==22.or.kind==23.or.(kind==6.and.present(w)))then
+     value=parameter_distance(u,candidate,kind,power,w,v,precision)
     else if(kind>=10)then
-     value=extended_distance(u,v,kind,associated(a%sparse),associated(b%sparse),mask_u,mask_v)
+     value=extended_distance(u,candidate,kind,associated(a%sparse),associated(b%sparse),mask_u,mask_v)
     else
-     value=row_distance(u,v,kind,power,square,associated(a%sparse),associated(b%sparse))
+     value=row_distance(u,candidate,kind,power,square,associated(a%sparse),associated(b%sparse))
+    end if
+    if(self_pair.and.i==j.and..not.present(callback))then
+     if(.not.optimized.and.kind/=8)value=0
+     if(kind==8)then
+      if(any(.not.ieee_is_nan(u)))value=0
+     end if
     end if
     if(optimized)then
      ! Fixed k=1 heap: +Inf is not pushed; NaN is pushed, as in heap_push.
@@ -547,10 +600,18 @@ contains
      end if
     end if
    end do
+   ! The default one-thread/256-row auto strategy merges candidate heaps
+   ! when Y >= X and X <= 1024. An infinite local heap is not inserted.
+   if(optimized.and.b%n>=a%n.and.a%n<=1024)then
+    if(distances(i)==ieee_value(0._dp,ieee_positive_inf))then
+     distances(i)=huge(1._dp);indices(i)=1
+    end if
+   end if
+   if(optimized.and..not.ieee_is_nan(distances(i)))distances(i)=max(distances(i),0._dp)
    select case(kind)
    case(1)
     if(.not.square)distances(i)=sqrt(distances(i))
-   case(3)
+   case(3,22)
     distances(i)=sqrt(distances(i))
    case(6)
     if(ieee_is_finite(power))distances(i)=distances(i)**(1/power)
@@ -694,4 +755,68 @@ contains
    end select
   end select
  end function
+ ! Parameterized kernels follow sklearn DistanceMetric and SciPy distance_impl.h.
+ real(dp)function parameter_distance(a,b,kind,p,w,v,vi)result(value)
+  real(dp),intent(in)::a(:),b(:),p,vi(:,:)
+  real(dp),optional,intent(in)::w(:),v(:)
+  integer,intent(in)::kind
+  real(dp)::d(size(a)),row,total
+  integer::j,k
+  value=0;d=a-b
+  select case(kind)
+  case(6)
+   do j=1,size(a)
+    value=value+w(j)*abs(d(j))**p
+   end do
+  case(22)
+   do j=1,size(a)
+    value=value+(d(j)*d(j))/v(j)
+   end do
+  case(23)
+   do j=1,size(a)
+    row=0
+    do k=1,size(a)
+     row=row+d(k)*vi(j,k)
+    end do
+    value=value+d(j)*row
+   end do
+   value=sqrt(value)
+  end select
+ end function
+ subroutine covariance_precision(a,precision)
+  type(row_view),intent(in)::a
+  real(dp),allocatable,intent(out)::precision(:,:)
+  real(dp)::mean(a%p),row(a%p),cov(a%p,a%p),work(a%p,a%p),temp(a%p),scale,factor
+  integer::i,j,k,pivot
+  mean=0
+  do i=1,a%n
+   call get_row(a,i,row);mean=mean+row
+  end do
+  mean=mean/real(a%n,dp);cov=0
+  do i=1,a%n
+   call get_row(a,i,row);row=row-mean
+   do j=1,a%p
+    do k=1,a%p
+     cov(j,k)=cov(j,k)+row(j)*row(k)
+    end do
+   end do
+  end do
+  work=cov/real(a%n-1,dp);allocate(precision(a%p,a%p));precision=0
+  do i=1,a%p
+   precision(i,i)=1
+  end do
+  do k=1,a%p
+   pivot=k-1+maxloc(abs(work(k:,k)),dim=1)
+   scale=work(pivot,k)
+   if(.not.ieee_is_nan(scale))call require(scale/=0,'singular automatic mahalanobis covariance')
+   temp=work(k,:);work(k,:)=work(pivot,:);work(pivot,:)=temp
+   temp=precision(k,:);precision(k,:)=precision(pivot,:);precision(pivot,:)=temp
+   work(k,:)=work(k,:)/scale;precision(k,:)=precision(k,:)/scale
+   do i=1,a%p
+    if(i==k)cycle
+    factor=work(i,k);work(i,:)=work(i,:)-factor*work(k,:)
+    precision(i,:)=precision(i,:)-factor*precision(k,:)
+   end do
+  end do
+ end subroutine
 end module

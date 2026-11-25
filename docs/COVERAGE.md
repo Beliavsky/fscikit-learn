@@ -1,5 +1,9 @@
 # Translation coverage
 
+Parameterized nearest-pair distances and aliased-input corrections have been
+added. Full checked/release verification is pending; totals below retain the
+prior verified batch.
+
 Additional numeric and Boolean nearest-pair dissimilarities are verified in
 checked and optimized profiles. Sparse Bray-Curtis uses an explicitly
 identified adaptation to the dense numerical contract.

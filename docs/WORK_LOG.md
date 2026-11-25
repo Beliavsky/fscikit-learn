@@ -9060,3 +9060,23 @@ Damian Eads distance notice are retained. No dependency or public core type
 was added. Inventory: 222 public core types, 175 source modules, 242 native
 programs, 215 reference suites / 4,191,211 retained groups and 114 invalid
 registries / 6,237 cases. The broader translation remains unfinished.
+
+
+## Parameterized nearest-pair distances (2026-11-25, implementation checkpoint)
+
+Added weighted Minkowski, standardized Euclidean, Mahalanobis and p/infinity
+aliases. Typed optional w/V/VI parameters preserve earlier calls. The same-
+storage case now follows fallback zero diagonals, including degenerate metrics,
+while callbacks retain their own diagonal and fully missing NaN-Euclidean rows
+remain NaN. Automatic Mahalanobis self covariance is streamed with ddof=1 and
+pivoted inversion; explicit nonsymmetric/signed/nonfinite precision is accepted.
+A local +infinity optimized heap after NaN is merged or retained according to
+the default one-thread/256-row source strategy, tested at 1024/1025 queries.
+
+Private checked probes passed 3,345 configurations / 13,380 groups, 1,406 source
+rejection records via 274 native probes, and 33 targeted diagnostics. All 1,813
+nonfinite masks matched; maximum scaled finite error was 4.07e-16. Seven targeted
+checks are explicit native adapters: six unsafe-source precision shape guards
+and weighted NaN-power rejection. Full package verification is pending.
+Integration remains MIT, with preserved sklearn/SciPy/NumPy BSD attribution.
+No dependency, public core type or algorithm beyond sklearn was added.

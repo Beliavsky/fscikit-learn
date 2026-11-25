@@ -2193,3 +2193,15 @@ The native streaming CSR Bray-Curtis adapter uses sklearn's dense numerical
 contract instead of the source CSR exhausted-buffer reads. It is explicitly
 identified in API.md and the validation comparison methods. Original native
 integration remains MIT; applicable upstream BSD terms continue to apply.
+
+
+Parameterized nearest-pair distances and identical-input handling adapt
+sklearn 1.6.1 `metrics/pairwise.py` (parameter precomputation and fallback
+self-diagonals), `_dist_metrics.pyx.tp` (weighted Minkowski/standardized Euclidean),
+and `_pairwise_distances_reduction/_base.pyx.tp` / `_argkmin.pyx.tp` (auto strategy
+and heap merging). SciPy 1.15.3 `spatial/src/distance_impl.h` supplies the
+Mahalanobis quadratic-form contract; NumPy 2.2.6 supplies sample covariance,
+scalar inverse failure and mean-reduction reference behavior. Existing sklearn,
+SciPy/Damian Eads and NumPy BSD notices are retained. Native streamed covariance,
+pivoted inversion, storage-alias mapping and checked precision shapes are MIT
+integration; no external numerical dependency is linked by these additions.
