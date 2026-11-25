@@ -1,6 +1,7 @@
 """SparsePCA, DictionaryLearning, sparse coding and legacy resampling streams."""
 from pathlib import Path
 import json
+import argparse
 import subprocess
 import warnings
 import numpy as np
@@ -9,9 +10,15 @@ from sklearn.decomposition import SparsePCA, DictionaryLearning, SparseCoder, sp
 ROOT = Path(__file__).resolve().parents[1]
 RESULTS = ROOT / "validation/results"
 FLAGS = "-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow"
+EXE_DIR = None
 
 
 def run_driver(target, *args):
+    if EXE_DIR is not None:
+        executable=EXE_DIR/(target+'.exe')
+        if not executable.is_file():executable=EXE_DIR/target
+        subprocess.run([str(executable),*map(str,args)],cwd=ROOT,check=True)
+        return
     subprocess.run(["fpm", "run", "--flag", FLAGS, "--target", target, "--", *map(str, args)],
                    cwd=ROOT, check=True)
 
@@ -49,6 +56,9 @@ def compare_rng():
 
 
 def main():
+    global EXE_DIR
+    parser=argparse.ArgumentParser();parser.add_argument('--executable-dir',type=Path);args=parser.parse_args()
+    EXE_DIR=args.executable_dir.resolve()if args.executable_dir else None
     RESULTS.mkdir(exist_ok=True); compare_rng(); checks = []
     for seed, n, p in ((7, 31, 7), (42, 18, 9), (2026, 7, 11), (91, 31, 21)):
         rng = np.random.default_rng(seed)

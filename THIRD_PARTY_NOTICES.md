@@ -2286,3 +2286,13 @@ BSD notices apply. F survival probabilities reuse the package's existing
 incomplete-beta implementation. Owned ragged sample/result adapters, sparse
 storage and IEEE composition are original MIT integration. No runtime
 dependency was added.
+
+## Functional dictionary learning and callbacks
+
+The batch/online functions and callback scheduling adapt sklearn 1.6.1
+`decomposition/_dict_learning.py`, with the existing sklearn BSD notice retained.
+Objective accumulation reuses the native NumPy 2.2.6 `loops_utils.h.src`
+pairwise reduction and scalar OpenBLAS inner-product helpers, with existing
+NumPy and OpenBLAS BSD notices applicable. No NumPy or BLAS runtime is linked.
+Typed result storage, fixed-shape callback views, integration and validation
+are original MIT contributions.

@@ -1,6 +1,7 @@
 ! Native adaptation of sklearn 1.6.1 decomposition/_dict_learning.py and _sparse_pca.py.
 ! BSD-3-Clause upstream notices are retained in LICENSES and THIRD_PARTY_NOTICES.md.
 module sklearn_dictionary
+  use sklearn_kernel_dispatch,only:kernel_blas_dot
   use sklearn_randomized_svd_core, only: randomized_svd
   use, intrinsic :: iso_fortran_env, only: int64
   use sklearn_common
@@ -12,6 +13,29 @@ module sklearn_dictionary
   private
   public :: sparse_pca,dictionary_learning,sparse_coder,sparse_encode
   public :: mini_batch_dictionary_learning,mini_batch_sparse_pca
+  public :: dict_learning,dict_learning_online,dictionary_learning_result,online_dictionary_result
+  public :: dictionary_callback,online_dictionary_callback
+  abstract interface
+    subroutine dictionary_callback(iteration,code,dictionary,errors)
+      import dp
+      integer, intent(in) :: iteration
+      real(dp), intent(inout) :: code(:,:),dictionary(:,:),errors(:)
+    end subroutine
+    subroutine online_dictionary_callback(step,cost,dictionary,a,b)
+      import dp,int64
+      integer(int64), intent(in) :: step
+      real(dp), intent(in) :: cost
+      real(dp), intent(inout) :: dictionary(:,:),a(:,:),b(:,:)
+    end subroutine
+  end interface
+  type :: dictionary_learning_result
+    real(dp), allocatable :: code(:,:),dictionary(:,:),errors(:)
+    integer :: n_iter=0
+  end type
+  type :: online_dictionary_result
+    real(dp), allocatable :: code(:,:),dictionary(:,:)
+    integer(int64) :: n_iter=0,n_steps=0
+  end type
   type :: coding_parameters
     character(12) :: transform_algorithm='omp'
     integer :: transform_n_nonzero_coefs=0,transform_max_iter=1000
@@ -23,6 +47,7 @@ module sklearn_dictionary
     real(dp) :: alpha=1,tol=1.e-8_dp
     character(4) :: fit_algorithm='lars'
     logical :: positive_dict=.false.
+    procedure(dictionary_callback), pointer, nopass :: callback=>null()
     real(dp), allocatable :: components_(:,:),error_(:),dict_init(:,:),code_init(:,:)
   contains
     procedure :: fit=>dictionary_fit
@@ -54,6 +79,7 @@ module sklearn_dictionary
     real(dp) :: alpha=1,tol=.001_dp,ewa_cost_=0,ewa_cost_min_=0
     character(4) :: fit_algorithm='lars'
     logical :: positive_dict=.false.,shuffle=.true.
+    procedure(online_dictionary_callback), pointer, nopass :: callback=>null()
     real(dp), allocatable :: components_(:,:),a_(:,:),b_(:,:),dict_init(:,:)
     type(legacy_random_state), private :: rng
     character(4), private :: fitted_algorithm='lars'
@@ -81,6 +107,109 @@ module sklearn_dictionary
     integer :: n_iter=0
   end type
 contains
+  function dict_learning(x,n_components,alpha,max_iter,tol,method,dict_init,code_init, &
+      callback,random_state,positive_dict,positive_code,method_max_iter) result(result)
+    real(dp), intent(in) :: x(:,:),alpha
+    integer, intent(in) :: n_components
+    integer, optional, intent(in) :: max_iter,random_state,method_max_iter
+    real(dp), optional, intent(in) :: tol,dict_init(:,:),code_init(:,:)
+    character(*), optional, intent(in) :: method
+    logical, optional, intent(in) :: positive_dict,positive_code
+    procedure(dictionary_callback), optional :: callback
+    type(dictionary_learning_result) :: result
+    type(dictionary_learning) :: model
+    model%n_components=n_components;model%alpha=alpha;model%max_iter=100
+    if(present(max_iter))model%max_iter=max_iter
+    if(present(tol))model%tol=tol
+    if(present(method))then
+      call require(method=='cd'.or.method=='lars','unknown dictionary fit algorithm')
+      model%fit_algorithm=method
+    end if
+    if(present(dict_init))model%dict_init=dict_init
+    if(present(code_init))model%code_init=code_init
+    if(present(callback))model%callback=>callback
+    if(present(random_state))model%random_state=random_state
+    if(present(positive_dict))model%positive_dict=positive_dict
+    if(present(positive_code))model%positive_code=positive_code
+    if(present(method_max_iter))model%transform_max_iter=method_max_iter
+    result%code=model%fit_transform(x);result%dictionary=model%components_
+    result%errors=model%error_;result%n_iter=model%n_iter_
+  end function
+  function dict_learning_online(x,n_components,alpha,max_iter,return_code,dict_init,callback, &
+      batch_size,shuffle,method,random_state,positive_dict,positive_code,method_max_iter,tol, &
+      max_no_improvement) result(result)
+    real(dp), intent(in) :: x(:,:)
+    integer, optional, intent(in) :: n_components,max_iter,batch_size,random_state,method_max_iter,max_no_improvement
+    real(dp), optional, intent(in) :: alpha,dict_init(:,:),tol
+    logical, optional, intent(in) :: return_code,shuffle,positive_dict,positive_code
+    character(*), optional, intent(in) :: method
+    procedure(online_dictionary_callback), optional :: callback
+    type(online_dictionary_result) :: result
+    type(mini_batch_dictionary_learning) :: model
+    logical :: codes
+    model%n_components=2;model%max_iter=100;codes=.true.
+    if(present(n_components))model%n_components=n_components
+    if(present(alpha))model%alpha=alpha
+    if(present(max_iter))model%max_iter=max_iter
+    if(present(return_code))codes=return_code
+    if(present(dict_init))model%dict_init=dict_init
+    if(present(callback))model%callback=>callback
+    if(present(batch_size))model%batch_size=batch_size
+    if(present(shuffle))model%shuffle=shuffle
+    if(present(method))then
+      call require(method=='cd'.or.method=='lars','unknown dictionary fit algorithm')
+      model%fit_algorithm=method
+    end if
+    if(present(random_state))model%random_state=random_state
+    if(present(positive_dict))model%positive_dict=positive_dict
+    if(present(positive_code))model%positive_code=positive_code
+    if(present(method_max_iter))model%transform_max_iter=method_max_iter
+    if(present(tol))model%tol=tol
+    if(present(max_no_improvement))model%max_no_improvement=max_no_improvement
+    model%transform_algorithm='lasso_'//trim(model%fit_algorithm);model%transform_alpha=model%alpha
+    call model%fit(x)
+    result%dictionary=model%components_;result%n_iter=model%n_iter_;result%n_steps=model%n_steps_
+    if(codes)result%code=model%transform(x)
+  end function
+  recursive real(dp) function dictionary_numpy_sum(values) result(total)
+    ! NumPy 2.2.6 loops_utils.h.src pairwise reduction; retained NumPy BSD notice.
+    real(dp), intent(in) :: values(:)
+    real(dp) :: partial(8)
+    integer :: n,i,split,whole
+    n=size(values)
+    if(n<8) then
+      total=-0._dp
+      do i=1,n
+        total=total+values(i)
+      end do
+    else if(n<=128) then
+      partial=values(:8);whole=n-mod(n,8)
+      do i=9,whole,8
+        partial=partial+values(i:i+7)
+      end do
+      total=((partial(1)+partial(2))+(partial(3)+partial(4))) &
+        +((partial(5)+partial(6))+(partial(7)+partial(8)))
+      do i=whole+1,n
+        total=total+values(i)
+      end do
+    else
+      split=n/2;split=split-mod(split,8)
+      total=dictionary_numpy_sum(values(:split))+dictionary_numpy_sum(values(split+1:))
+    end if
+  end function
+  real(dp) function dictionary_objective(x,code,dictionary,alpha) result(cost)
+    real(dp),intent(in)::x(:,:),code(:,:),dictionary(:,:),alpha
+    real(dp),allocatable::residual(:,:)
+    integer::i,j
+    allocate(residual(size(x,1),size(x,2)))
+    do j=1,size(x,2)
+      do i=1,size(x,1)
+        residual(i,j)=x(i,j)-kernel_blas_dot(code(i,:),dictionary(:,j),size(x,1),size(x,2),i,j)
+      end do
+    end do
+    cost=.5_dp*dictionary_numpy_sum(reshape(transpose(residual**2),[size(residual)])) &
+      +alpha*dictionary_numpy_sum(reshape(transpose(abs(code)),[size(code)]))
+  end function
   logical function valid_coding_algorithm(algorithm) result(valid)
     character(*), intent(in) :: algorithm
     valid=algorithm=='lasso_lars'.or.algorithm=='lasso_cd'.or.algorithm=='lars'.or. &
@@ -201,13 +330,14 @@ contains
     end do
   end subroutine
   function learn_dictionary(y,k,alpha,limit,tolerance,method,inner_limit,seed,positive_dict, &
-      positive_code,code_init,dict_init) result(model)
+      positive_code,code_init,dict_init,callback) result(model)
     real(dp), intent(in) :: y(:,:),alpha,tolerance
     integer, intent(in) :: k,limit,inner_limit,seed
     character(*), intent(in) :: method
     logical, intent(in) :: positive_dict,positive_code
     real(dp), intent(in), optional :: code_init(:,:),dict_init(:,:)
     type(learning_result) :: model
+    procedure(dictionary_callback), optional :: callback
     type(legacy_random_state) :: rng
     real(dp), allocatable :: u(:,:),v(:,:),s(:),a(:,:),b(:,:),history(:)
     real(dp) :: cost
@@ -231,6 +361,14 @@ contains
     else
       allocate(u(n,p),v(p,p),s(p)); call dense_svd(y,s,u,v); r=min(k,n,p)
       model%code(:,:r)=u(:,:r); model%dictionary(:r,:)=transpose(v(:,:r))*spread(s(:r),2,p)
+      if(all(y==0))then
+        ! LAPACK's zero-matrix SVD returns leading identity columns. CD keeps
+        ! these warm coefficients when the corresponding Gram diagonal is zero.
+        model%code=0
+        do j=1,r
+          model%code(j,j)=1
+        end do
+      end if
       do j=1,r
         index=maxloc(abs(model%code(:,j)),dim=1)
         if(model%code(index,j)<0) then
@@ -243,11 +381,12 @@ contains
         max_iter=inner_limit,positive=positive_code,init=model%code)
       a=matmul(transpose(model%code),model%code); b=matmul(transpose(y),model%code)
       call update_dictionary(model%dictionary,y,model%code,a,b,rng,positive_dict)
-      cost=.5_dp*sum((y-matmul(model%code,model%dictionary))**2)+alpha*sum(abs(model%code))
+      cost=dictionary_objective(y,model%code,model%dictionary,alpha)
       history(it)=cost; model%n_iter=it
       if(it>1) then
         if(history(it-1)-cost<tolerance*cost) exit
       end if
+      if(mod(it-1,5)==0.and.present(callback))call callback(it-1,model%code,model%dictionary,history(:it))
     end do
     model%errors=history(:model%n_iter)
   end function
@@ -290,7 +429,7 @@ contains
     call require(self%n_components>=0,'dictionary n_components must be nonnegative (zero means auto)')
     k=self%n_components; if(k==0) k=size(x,2)
     model=learn_dictionary(x,k,self%alpha,self%max_iter,self%tol,trim(self%fit_algorithm), &
-      self%transform_max_iter,self%random_state,self%positive_dict,self%positive_code,self%code_init,self%dict_init)
+      self%transform_max_iter,self%random_state,self%positive_dict,self%positive_code,self%code_init,self%dict_init,self%callback)
     self%components_=model%dictionary; self%error_=model%errors; self%n_iter_=model%n_iter
     self%n_features_in_=size(x,2); code=model%code
   end function
@@ -436,7 +575,7 @@ contains
     code=sparse_encode(x,self%components_,algorithm='lasso_'//trim(self%fitted_algorithm),alpha=self%alpha, &
       max_iter=self%transform_max_iter,positive=self%positive_code)
     batch=real(size(x,1),dp)
-    cost=(.5_dp*sum((x-matmul(code,self%components_))**2)+self%alpha*sum(abs(code)))/batch
+    cost=dictionary_objective(x,code,self%components_,self%alpha)/batch
     if(step<int(size(x,1)-1,int64)) then
       theta=real(step+1,dp)*batch
     else
@@ -494,6 +633,7 @@ contains
       last=first+min(self%batch_size_,n-first+1)-1
       cost=mini_step(self,training(first:last,:),step); self%n_steps_=step+1
       if(mini_converged(self,cost,old,n,last-first+1,step)) exit
+      if(associated(self%callback))call self%callback(step,cost,self%components_,self%a_,self%b_)
       old=self%components_
       if(last==n) then
         first=1

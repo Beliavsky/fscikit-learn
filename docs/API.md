@@ -9842,3 +9842,77 @@ Noncanonical CSR duplicates are retained: sklearn's `safe_sqr` squares each
 stored value before reduction, so duplicate entries can give a different
 statistic from a canonicalized or dense equivalent. Explicit zeros remain
 valid. No source input is changed.
+
+## Dictionary-learning functions and callbacks
+
+Import `dict_learning`, `dict_learning_online`, `dictionary_learning_result` and
+`online_dictionary_result` from `sklearn`, `sklearn_decomposition` or
+`sklearn_dictionary`.
+
+```fortran
+type(dictionary_learning_result) :: batch
+type(online_dictionary_result) :: online
+batch=dict_learning(x, n_components=4, alpha=0.1_dp, method='cd')
+online=dict_learning_online(x, n_components=4, alpha=0.1_dp, &
+    method='cd', batch_size=3, random_state=7)
+! Both own code and dictionary. batch also owns errors and n_iter.
+! online additionally records n_iter and n_steps from the native estimator.
+```
+
+The batch function requires `x`, `n_components` and `alpha`. Optional arguments
+are `max_iter` (100), `tol` (1e-8), `method` ('lars'), `dict_init`, `code_init`,
+`callback`, `random_state` (native deterministic zero), `positive_dict` (false),
+`positive_code` (false) and `method_max_iter` (1000). Online defaults are two
+components, alpha=1, max_iter=100, return_code=true, batch_size=256,
+shuffle=true, method='lars', tol=.001 and max_no_improvement=10. Its optional
+initializer is `dict_init`. Set max_no_improvement=-1 for Python None; zero
+components represents Python None (automatic feature count), not Python's
+invalid integer zero. Python's global RNG, joblib parallelism and verbosity
+controls are outside this typed serial interface.
+
+`return_code=.false.` leaves `online%code` unallocated. When true, online codes
+use `lasso_cd` or `lasso_lars` with the fitting penalty, as the source function
+does; the estimator's independent default OMP transform is unchanged.
+Initializers and returned arrays use owned copies. sklearn can alias and mutate
+some supplied initializer arrays; that aliasing is not reproduced. Existing
+initializer-pair, shape, nonnegative-control and positivity/solver restrictions
+remain applicable. See the estimator contracts above.
+
+The public abstract interfaces are:
+
+```fortran
+subroutine dictionary_callback(iteration,code,dictionary,errors)
+  integer, intent(in) :: iteration
+  real(dp), intent(inout) :: code(:,:),dictionary(:,:),errors(:)
+end subroutine
+subroutine online_dictionary_callback(step,cost,dictionary,a,b)
+  integer(int64), intent(in) :: step
+  real(dp), intent(in) :: cost
+  real(dp), intent(inout) :: dictionary(:,:),a(:,:),b(:,:)
+end subroutine
+```
+
+Pass a procedure with `callback=my_callback`, or associate the estimator's new
+`callback` procedure-pointer field before `fit`. The caller must keep any
+associated procedure and its host state alive. Offline indices are zero-based
+and callbacks occur at iterations 0,5,10,... after the convergence test. Online
+callbacks occur after each nonconverged full-fit minibatch, with a zero-based
+int64 step. Partial fitting does not invoke them. The arrays are mutable live
+views of current solver state; changes affect later steps. Shapes cannot be
+changed and references must not be retained beyond the call. Online `a` and `b`
+are sufficient statistics with shapes (k,k) and (p,k). These views replace
+Python's arbitrary locals dictionary; callback return values and early-stop
+requests are not part of the source callback contract.
+
+Two numerical limits are explicit. At zero stopping tolerance, a roundoff-size
+objective increase can change the final iteration, callback count and resampled
+unused atoms across native/source backends. Such dictionary differences can
+also change subsequent coding of new samples. At zero iterations, rank-deficient
+SVD initialization can expose different null-space code columns. These are not
+claimed as source output parity. The validation script is strict by default;
+`--allow-roundoff-certificates` separately records independently checked
+objective/reconstruction equivalence, null-code products and inactive-atom
+limits. It does not widen comparison tolerances. Normal positive-tolerance
+cases in the retained grid compare directly. Exact zero-input CD initialization
+retains source identity warm codes and the corresponding L1 objective, even
+when the initialized dictionary is zero.

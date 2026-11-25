@@ -2,7 +2,9 @@ module sklearn_decomposition
   use sklearn_minibatch_nmf, only: mini_batch_nmf,nmf_initialize_factors
   use sklearn_nmf_mu, only: nmf_mu_solve
   use sklearn_lda, only: latent_dirichlet_allocation
-  use sklearn_dictionary, only: sparse_pca,dictionary_learning,sparse_coder,sparse_encode, &
+  use sklearn_dictionary, only: dict_learning,dict_learning_online,dictionary_learning_result, &
+    online_dictionary_result,dictionary_callback,online_dictionary_callback, &
+    sparse_pca,dictionary_learning,sparse_coder,sparse_encode, &
     mini_batch_dictionary_learning,mini_batch_sparse_pca
   use sklearn_incremental_pca, only: incremental_pca
   use sklearn_fast_ica, only: fast_ica
@@ -17,6 +19,8 @@ module sklearn_decomposition
   implicit none
   private
   public :: mini_batch_nmf
+  public :: dict_learning,dict_learning_online,dictionary_learning_result,online_dictionary_result
+  public :: dictionary_callback,online_dictionary_callback
   public :: mini_batch_dictionary_learning,mini_batch_sparse_pca
   public :: latent_dirichlet_allocation
   public :: sparse_pca,dictionary_learning,sparse_coder,sparse_encode

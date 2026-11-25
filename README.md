@@ -699,3 +699,10 @@ and [the example](example/covariance_functions.f90).
 `f_oneway` computes per-feature F statistics and p-values for unequal-sized
 dense or CSR sample groups. See [the API](docs/API.md#one-way-anova) and
 [example/anova.f90](example/anova.f90).
+
+## Dictionary-learning functions
+
+`dict_learning` and `dict_learning_online` return owned factorization results.
+Both support mutable typed callbacks. See [the API](docs/API.md#dictionary-learning-functions-and-callbacks)
+and [example/dictionary_functions.f90](example/dictionary_functions.f90), including
+numerical limits for zero-tolerance stopping and null-space initialization.
