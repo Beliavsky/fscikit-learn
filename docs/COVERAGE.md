@@ -11021,7 +11021,7 @@ normalized calls return owned real64 matrices. Explicit normalize='none' is a
 real64 raw-count adapter. Empty vectors return a 0-by-0 matrix; explicit labels
 retain the source zero-matrix shortcut before weight validation.
 
-The checked grid passes 4,098 configurations, with 3,256 accepted cases
+Both checked and optimized grids pass 4,098 configurations, with 3,256 accepted cases
 and 842 source rejections. Its 16,280 groups cover shape, all matrix cells,
 native storage kinds, caller identity and IEEE-state identity. It compares
 1,815,664 cells, including exact integer counts, finite real values at rtol=3e-13
@@ -11031,11 +11031,12 @@ Cases cover all 36 target kind/rank pairs, labels, empty shortcuts, signed and
 nonfinite weights, numeric boundaries and class counts through 129. An
 independent sklearn-only inventory pins accepted/rejected IDs and cell counts.
 
-The checked fpm build passes 16 affected native programs, two examples and both
-native diagnostic registries. It passes 27,449 comparison groups: 16,280 new,
-10,977 categorical and 192 core. The checked audit verifies 196 compilation
-fingerprints and exact categorical records against the prior audited baseline.
-Optimized verification is pending. The shared categorical backend adds a raw-count switch and an
+Both fpm builds pass 16 affected native programs, two examples and both native
+diagnostic registries. Each passes 27,449 comparison groups: 16,280 new,
+10,977 categorical and 192 core. The final audit verifies 196 compilation
+fingerprints per profile, matching checked/release hexadecimal matrix and score
+records, and exact categorical records against the prior audited baseline.
+The shared categorical backend adds a raw-count switch and an
 internal bridge; its existing default sanitized-count path is retained. The
 matrix bridge is not exported through the sklearn facade. A separate 816-case
 isolated categorical-score reduction probe passes unchanged.
