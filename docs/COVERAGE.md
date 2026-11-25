@@ -1,8 +1,8 @@
 # Translation coverage
 
-Pairwise kernel dispatch has been added with named, callback, GP-object and
-precomputed routes. Full checked/release verification is pending; totals below
-retain the prior verified batch.
+Pairwise kernel dispatch with named, callback, GP-object and precomputed
+routes is verified in checked and optimized profiles. Typed storage
+adaptations are explicitly identified.
 
 Parameterized nearest-pair distances and aliased-input corrections are
 verified in checked and optimized profiles. Native precision-shape and
@@ -43,7 +43,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Two hundred and sixteen reference suites additionally check 4,204,591
+All types have native tests. Two hundred and seventeen reference suites additionally check 4,210,606
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -11428,3 +11428,50 @@ algorithm beyond sklearn was added.
 Inventory: 222 public core types, 175 source modules, 243 native programs,
 216 reference suites / 4,204,591 retained groups and 115 invalid registries /
 6,270 cases. The broader translation remains unfinished.
+
+
+## Verified pairwise kernel dispatch (2026-11-25)
+
+Implementation be2ab7b passed full checked and optimized fpm build --tests
+batches. Each profile passed 2,005 complete configurations / 6,015 retained
+groups comparing matrix values, nonfinite masks and combined input identity/
+IEEE state. All 1,970 source nonfinite masks matched; maximum scaled finite
+error across both profiles was 4.441e-16, at rtol=atol=3e-12. All 276 controlled
+source rejection cases and 34 targeted diagnostics passed. The accepted
+inventory records four precomputed CSR results returned as owned dense native
+matrices, explicitly identified as storage adaptation. Sparse callbacks receive
+dense logical rows; no new ML algorithm is introduced.
+
+Named kernels, all dense/CSR combinations, omitted/aliased Y, real/integer
+degrees, filter_params, precomputed references, row callbacks and dense native
+GP objects are covered. The source dispatcher's nested-validation bypass is
+retained for applicable signed/nonfinite parameters. GP omitted Y is supplied
+as explicit Y=X, so WhiteKernel contributes zero here. Callback self evaluation
+uses upper triangle then diagonal. Dense accumulation reconstructs the pinned
+OpenBLAS dot/GEMV/small-TN paths, including controlled overflow lane/tail cases.
+No BLAS runtime dependency is added. Other hardware, backend layouts and thread
+settings can round or propagate nonfinite values differently.
+
+Each profile also passed 13,380 parameterized nearest-pair groups and their
+1,406 source rejection records / 33 diagnostics; 10,728 earlier dissimilarity
+groups (including 144 identified sparse Bray-Curtis adapter configurations) and
+3,582 source rejection records / 60 diagnostics; 16,432 earlier nearest-pair
+groups and 88 source rejections / 26 diagnostics; 16,729 earlier pairwise groups
+(including 20 retained roundoff-bound checks) / 26 diagnostics; 192 core groups
+and 21 selected native programs. Other historical suites/native programs were
+not rerun. Four examples ran; the new one independently matches sklearn.
+The combined audit verifies 210 compiled-unit fingerprints per profile,
+complete fresh source configuration/result inventories, stable source/validator/
+executable/report hashes and distinct optimized drivers. Existing metric
+bodies, standalone kernels, GP bodies and other library sources match 13a94d5
+apart from the new import/export. Reference provenance records sklearn 1.6.1,
+NumPy 2.2.6, SciPy 1.15.3 and actual Python/BLAS/sparse binary hashes; NumPy's
+OpenBLAS 0.3.29 SkylakeX backend uses one thread. Artifacts remain ignored under
+validation/results/kernel_dispatch*, including the final combined audit.
+
+Original integration remains MIT. Existing sklearn/NumPy/GP/OpenBLAS notices
+are retained, with the 2021 OpenBLAS Project small-kernel BSD notice added in
+LICENSES/OpenBLAS-small-kernel-BSD. No dependency or public core type was added.
+Inventory: 222 public core types, 176 source modules, 244 native programs,
+217 reference suites / 4,210,606 retained groups and 116 invalid registries /
+6,304 cases. The broader translation remains unfinished.
