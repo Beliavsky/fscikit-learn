@@ -693,3 +693,9 @@ Array calls to `empirical_covariance`, `shrunk_covariance`, `ledoit_wolf` and
 `oas` complement the existing estimator constructors. Shrinkage accepts
 square-matrix batches through rank 15. See [the API](docs/API.md#covariance-functions)
 and [the example](example/covariance_functions.f90).
+
+## One-way ANOVA
+
+`f_oneway` computes per-feature F statistics and p-values for unequal-sized
+dense or CSR sample groups. See [the API](docs/API.md#one-way-anova) and
+[example/anova.f90](example/anova.f90).

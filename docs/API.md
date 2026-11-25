@@ -9803,3 +9803,42 @@ including source NaN/Inf outcomes when finite trace accumulation overflows.
 Python's incidental nonsquare broadcasting and empty intermediate batch axes
 are outside this typed interface. This batch API follows sklearn's existing
 function and is not an algorithm extension.
+
+## One-way ANOVA
+
+Import `f_oneway`, `anova_sample` and `anova_result` from `sklearn`,
+`sklearn_feature_selection` or `sklearn_univariate_selection`.
+
+```fortran
+type(anova_sample) :: groups(3)
+type(anova_result) :: test
+groups(1)=anova_sample(first_group)
+groups(2)=anova_sample(second_group)
+groups(3)=anova_sample(third_group)
+test=f_oneway(groups)
+! test%statistic and test%pvalue are owned per-feature vectors.
+```
+
+Each group is a finite nonempty real64 matrix or CSR matrix, with samples in
+rows. Group sizes may differ; feature counts must match. Constructors own
+copies of their inputs. CSR groups stay sparse during the calculation.
+Two-group convenience calls `f_oneway(a,b)` accept two dense matrices or two
+CSR matrices. The sample array permits arbitrary group counts and CSR-first
+mixtures of dense/CSR groups. As in sklearn 1.6.1, a dense first group followed
+by a CSR group is rejected because source intermediate arrays cannot broadcast
+in place. Native vectors should be reshaped to one-column matrices; the pinned
+sklearn/NumPy combination raises on its scalar intermediate for vector groups.
+
+The implementation follows sklearn's sums-of-squares ANOVA, with no centering
+rewrite, variance floor or replacement for undefined statistics. A single group
+or insufficient residual degrees of freedom may return NaN. Constant groups
+with different means can return infinite F and zero p-value. Finite input whose
+arithmetic overflows propagates source nonfinite outcomes. Successful calls
+preserve caller IEEE flags and halting modes. Python warning objects are not
+returned. Use matrix inputs with matching feature counts; Python's incidental
+cross-feature broadcasting is outside this typed contract.
+
+Noncanonical CSR duplicates are retained: sklearn's `safe_sqr` squares each
+stored value before reduction, so duplicate entries can give a different
+statistic from a canonicalized or dense equivalent. Explicit zeros remain
+valid. No source input is changed.

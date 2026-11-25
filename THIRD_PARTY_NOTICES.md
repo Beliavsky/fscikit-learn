@@ -2276,3 +2276,13 @@ NumPy BSD notices remain applicable. Inner products reuse the existing
 attributed scalar OpenBLAS dot helper. Typed overloads, batch/result storage
 and IEEE composition are original MIT integration. No runtime dependency
 was added and the package license remains MIT.
+
+## One-way ANOVA
+
+`f_oneway` adapts sklearn 1.6.1 `feature_selection/_univariate_selection.py`,
+with the existing sklearn BSD notice retained. Its singleton-feature reduction
+uses the existing scalar adaptation of NumPy 2.2.6 `loops_utils.h.src`; NumPy
+BSD notices apply. F survival probabilities reuse the package's existing
+incomplete-beta implementation. Owned ragged sample/result adapters, sparse
+storage and IEEE composition are original MIT integration. No runtime
+dependency was added.

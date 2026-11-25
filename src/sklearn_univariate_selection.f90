@@ -2,12 +2,32 @@
 ! feature_selection/_univariate_selection.py, BSD-3-Clause.
 ! Upstream notice retained in LICENSES/scikit-learn-COPYING.
 module sklearn_univariate_selection
+  use sklearn_sparse, only: csr_matrix
+  use, intrinsic :: iso_fortran_env, only: int64
+  use, intrinsic :: ieee_exceptions
   use sklearn_common, only: dp,require,check_x,check_xy,unique_labels,argsort
   use, intrinsic :: ieee_arithmetic, only: ieee_is_nan,ieee_is_finite,ieee_value,ieee_quiet_nan,ieee_positive_inf
   implicit none
   private
   public :: select_percentile,select_fpr,select_fdr,select_fwe,generic_univariate_select
   public :: univariate_classification_scores,univariate_regression_scores
+  public :: f_oneway,anova_sample,anova_result
+  ! Owned ragged samples replace Python's variadic argument list.
+  type :: anova_sample
+    private
+    real(dp), allocatable :: values(:,:)
+    type(csr_matrix) :: matrix
+    logical :: sparse=.false.
+  end type
+  type :: anova_result
+    real(dp), allocatable :: statistic(:),pvalue(:)
+  end type
+  interface anova_sample
+    module procedure anova_dense_sample,anova_sparse_sample
+  end interface
+  interface f_oneway
+    module procedure anova_groups,anova_two_dense,anova_two_sparse
+  end interface
   type :: generic_univariate_select
     real(dp) :: alpha=.05_dp,percentile=10,param=1.e-5_dp
     integer :: n_features_in_=0
@@ -33,6 +53,124 @@ module sklearn_univariate_selection
   type, extends(generic_univariate_select) :: select_fwe
   end type
 contains
+  function anova_dense_sample(x) result(sample)
+    real(dp), intent(in) :: x(:,:)
+    type(anova_sample) :: sample
+    call check_x(x)
+    sample%values=x
+  end function
+  function anova_sparse_sample(x) result(sample)
+    type(csr_matrix), intent(in) :: x
+    type(anova_sample) :: sample
+    call x%validate()
+    call require(x%n_rows>0.and.x%n_cols>0,'ANOVA samples must be nonempty')
+    call require(all(ieee_is_finite(x%data)),'ANOVA samples must be finite')
+    sample%matrix=x; sample%sparse=.true.
+  end function
+  function anova_two_dense(a,b) result(test)
+    real(dp), intent(in) :: a(:,:),b(:,:)
+    type(anova_result) :: test
+    test=anova_groups([anova_sample(a),anova_sample(b)])
+  end function
+  function anova_two_sparse(a,b) result(test)
+    type(csr_matrix), intent(in) :: a,b
+    type(anova_result) :: test
+    test=anova_groups([anova_sample(a),anova_sample(b)])
+  end function
+  recursive real(dp) function anova_numpy_sum(values) result(total)
+    ! NumPy 2.2.6 loops_utils.h.src; existing NumPy BSD notice applies.
+    real(dp), intent(in) :: values(:)
+    real(dp) :: partial(8)
+    integer :: n,i,split,whole
+    n=size(values)
+    if(n<8) then
+      total=-0._dp
+      do i=1,n
+        total=total+values(i)
+      end do
+    else if(n<=128) then
+      partial=values(:8);whole=n-mod(n,8)
+      do i=9,whole,8
+        partial=partial+values(i:i+7)
+      end do
+      total=((partial(1)+partial(2))+(partial(3)+partial(4))) &
+        +((partial(5)+partial(6))+(partial(7)+partial(8)))
+      do i=whole+1,n
+        total=total+values(i)
+      end do
+    else
+      split=n/2;split=split-mod(split,8)
+      total=anova_numpy_sum(values(:split))+anova_numpy_sum(values(split+1:))
+    end if
+  end function
+  function anova_groups(samples) result(test)
+    type(anova_sample), intent(in) :: samples(:)
+    type(anova_result) :: test
+    real(dp), allocatable :: sums(:),squares(:),totals(:),all_squares(:),between(:),within(:)
+    real(dp) :: msb,msw
+    integer, allocatable :: counts(:)
+    integer :: k,p,c,i,j,index,n
+    integer(int64) :: total_count
+    logical :: modes(size(ieee_all)),flags(size(ieee_all))
+    k=size(samples);call require(k>0,'ANOVA requires at least one sample group')
+    allocate(counts(k));p=0;total_count=0
+    do c=1,k
+      if(samples(c)%sparse)then
+        call samples(c)%matrix%validate()
+        counts(c)=samples(c)%matrix%n_rows;j=samples(c)%matrix%n_cols
+        call require(all(ieee_is_finite(samples(c)%matrix%data)),'ANOVA samples must be finite')
+      else
+        call require(allocated(samples(c)%values),'ANOVA sample is uninitialized')
+        call check_x(samples(c)%values)
+        counts(c)=size(samples(c)%values,1);j=size(samples(c)%values,2)
+      end if
+      call require(counts(c)>0.and.j>0,'ANOVA samples must be nonempty')
+      if(c==1)p=j
+      call require(j==p,'ANOVA sample feature counts differ')
+      total_count=total_count+counts(c)
+    end do
+    if(.not.samples(1)%sparse)then
+      call require(.not.any(samples%sparse),'ANOVA dense-first mixed sparse samples cannot broadcast')
+    end if
+    call require(total_count<=int(huge(n),int64),'ANOVA sample count exceeds index capacity')
+    n=int(total_count)
+    allocate(sums(p),squares(p),totals(p),all_squares(p),between(p),within(p))
+    allocate(test%statistic(p),test%pvalue(p))
+    call ieee_get_flag(ieee_all,flags);call ieee_get_halting_mode(ieee_all,modes)
+    call ieee_set_halting_mode(ieee_all,.false.)
+    totals=0;all_squares=0;between=0
+    do c=1,k
+      sums=0;squares=0
+      if(samples(c)%sparse)then
+        ! safe_sqr squares stored entries; noncanonical duplicates are retained.
+        do i=1,counts(c)
+          do index=samples(c)%matrix%indptr(i),samples(c)%matrix%indptr(i+1)-1
+            j=samples(c)%matrix%indices(index)
+            sums(j)=sums(j)+samples(c)%matrix%data(index)
+            squares(j)=squares(j)+samples(c)%matrix%data(index)**2
+          end do
+        end do
+      else if(p==1)then
+        sums(1)=anova_numpy_sum(samples(c)%values(:,1))
+        squares(1)=anova_numpy_sum(samples(c)%values(:,1)**2)
+      else
+        do i=1,counts(c)
+          sums=sums+samples(c)%values(i,:)
+          squares=squares+samples(c)%values(i,:)**2
+        end do
+      end if
+      totals=totals+sums;all_squares=all_squares+squares
+      between=between+sums**2/real(counts(c),dp)
+    end do
+    within=all_squares-totals**2/real(n,dp)
+    between=between-totals**2/real(n,dp);within=within-between
+    do j=1,p
+      msb=between(j)/real(k-1,dp);msw=within(j)/real(n-k,dp)
+      test%statistic(j)=msb/msw
+      test%pvalue(j)=f_tail(test%statistic(j),k-1,n-k)
+    end do
+    call ieee_set_halting_mode(ieee_all,modes);call ieee_set_flag(ieee_all,flags)
+  end function
   real(dp) function beta_fraction(a,b,x) result(h)
     ! DLMF 8.17.22-23 beta fraction, evaluated by modified Lentz iteration.
     real(dp), intent(in) :: a,b,x

@@ -1,13 +1,15 @@
 module sklearn_feature_selection
   use sklearn_model_selection_features, only: select_from_model
   use sklearn_mutual_info, only: mutual_info_classif,mutual_info_regression,r_regression
-  use sklearn_univariate_selection, only: select_percentile,select_fpr,select_fdr,select_fwe,generic_univariate_select, &
+  use sklearn_univariate_selection, only: f_oneway,anova_sample,anova_result, &
+    select_percentile,select_fpr,select_fdr,select_fwe,generic_univariate_select, &
     univariate_classification_scores,univariate_regression_scores
   use sklearn_recursive_selection, only: rfe,rfecv,rfecv_results
   use sklearn_sequential_selection, only: sequential_feature_selector
   use sklearn_common
   implicit none
   private
+  public :: f_oneway,anova_sample,anova_result
   public :: mutual_info_classif,mutual_info_regression,r_regression
   public :: select_percentile,select_fpr,select_fdr,select_fwe,generic_univariate_select
   public :: univariate_classification_scores,univariate_regression_scores
