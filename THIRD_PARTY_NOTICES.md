@@ -2234,3 +2234,12 @@ BSD notice is retained in `LICENSES/scikit-learn-COPYING`; shared kernel and
 native SVD attributions remain applicable. Typed adapters, owned storage,
 ensemble wiring and validation integration are MIT. No numerical runtime
 dependency was added.
+Weighted multioutput Dummy baselines adapt sklearn 1.6.1 `dummy.py`,
+`utils/multiclass.py` (`class_distribution`) and `utils/stats.py`
+(`_weighted_percentile`). Existing sklearn BSD notices remain in
+`LICENSES/scikit-learn-COPYING`. Stratified sampling follows NumPy 2.2.6
+`numpy/random/src/legacy/legacy-distributions.c` (`legacy_random_multinomial`)
+through the existing attributed legacy binomial and MT19937 helpers; the
+existing NumPy BSD/MIT notices apply. Typed storage, CSR adapters, IEEE
+composition and ensemble integration are original MIT contributions. No
+external runtime dependency was introduced.

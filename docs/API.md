@@ -9681,3 +9681,51 @@ The reference validator is strict by default. Its explicit
 `--allow-singular-certificates` mode checks singularity, backward error or
 minimum-norm solutions, kernel multiplication and score consistency for
 these cases; those certificates do not establish sklearn output equality.
+## Weighted multioutput Dummy baselines
+
+`dummy_classifier` and `dummy_regressor` accept dense or CSR feature inputs and
+vector or matrix targets through `fit`. Features are ignored: zero columns,
+nonfinite feature values and a different query feature count are permitted,
+as in sklearn. CSR feature adapters validate their storage without densifying.
+Targets are dense; sparse target/output formats are not implemented.
+
+Both fits accept optional finite vector `sample_weight`, including signed and
+zero weights. Classifier fits also accept scalar weights. Regressor scalar
+weights are rejected, matching sklearn 1.6.1's initial length check. Weighted
+means reject zero total weight. Weighted median/quantile use the lower weighted
+percentile, skipping leading zero weights at quantile zero; all-zero weights
+select the largest observation. Unweighted percentiles use linear
+interpolation. Signed percentile weights retain the source cumulative-sum and
+binary-search behavior, even when the cumulative weights are nonmonotone.
+
+Use `predict` for one output and `predict_multi` for any fitted output count.
+Regressor `constants_` stores all fitted constants; `constant_` mirrors the
+first. Allocated `constant_values` supplies per-output constants for the
+constant strategy. Otherwise scalar `constant` applies to one output only.
+Regressor prediction uses fitted constants, independent of later configuration
+changes. Classifier `distributions_(:)` holds owned `classes` and `prior`
+vectors per output; legacy `classes_`, `class_prior_` and `n_classes_` mirror
+the first output, and `n_classes_multi_` records all sizes. `n_outputs_` and
+`n_features_in_` are available on both types.
+
+`predict_proba` returns one matrix for a single-output classifier.
+`predict_proba_multi` returns owned `dummy_probability(:)` objects, each with
+a `values(:,:)` matrix; `dummy_class_distribution` and `dummy_probability` are
+storage helpers, not additional estimators. The classifier freezes its strategy
+at fit. Zero-total-weight class priors can be NaN or infinite, matching source
+normalization; deterministic prediction uses NumPy's first-NaN argmax rule.
+Stratified prediction rejects invalid probability vectors.
+
+Integer `random_state` uses the shared private NumPy RandomState-compatible
+generator: uniform labels use bounded integer draws, and stratified labels use
+sequential binomial multinomial draws. Each prediction call recreates that
+integer-seeded state, including across multiple outputs, without changing the
+Fortran global RNG. The existing typed defaults remain `random_state=0`,
+`quantile=0.5` and scalar `constant=0`; Python's None/global-RNG defaults are
+not represented. Seeds fit a nonnegative default Fortran integer.
+
+`score` accepts optional vector score weights, regression vectors/matrices,
+classification vectors/one-column matrices, and binary indicator matrices
+with subset accuracy. Multiclass multioutput accuracy remains unsupported,
+matching sklearn. Weighted Dummy fits are supported by ensemble base dispatch;
+the containing ensemble retains its own input and target restrictions.

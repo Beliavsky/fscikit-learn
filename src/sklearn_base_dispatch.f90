@@ -88,8 +88,7 @@ contains
       call require(.not.present(weights),'voting base has no native weighted fit')
       call model%fit(x,y)
     type is(dummy_classifier)
-      call require(.not.present(weights),'voting base has no native weighted fit')
-      call model%fit(x,y)
+      call model%fit(x,y,weights)
     type is(adaboost_classifier)
       call model%fit(x,y,weights)
     class default
@@ -131,8 +130,7 @@ contains
     type is(kernel_ridge)
       call model%fit(x,y,weights)
     type is(dummy_regressor)
-      call require(.not.present(weights),'voting base has no native weighted fit')
-      call model%fit(x,y)
+      call model%fit(x,y,weights)
     class default
       call require(.false.,'unsupported native voting regressor base')
     end select
@@ -272,6 +270,8 @@ contains
     type is(sgd_classifier)
     type is(sgd_regressor)
     type is(kernel_ridge)
+    type is(dummy_classifier)
+    type is(dummy_regressor)
     type is(ridge_cv)
       ok=model%cv==0
     class is(decision_tree_classifier)
