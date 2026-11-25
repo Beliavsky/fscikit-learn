@@ -7089,3 +7089,35 @@ filtering and permissive applicable parameters, integer/real powers, callbacks,
 GP objects, precomputed storage, aliasing, tiny norms and pinned BLAS overflow
 paths. Reports identify source sparse results that become owned dense arrays.
 Controlled source rejections and 34 targeted diagnostics run separately.
+
+
+Gram least-angle paths and graphical LARS:
+```
+python validation/compare_lars_gram.py --executable build/gfortran_E1FE13DB8881E18E/app/reference_lars_gram_driver.exe --profile checked
+python validation/check_lars_gram_invalid_inputs.py --executable build/gfortran_E1FE13DB8881E18E/app/reference_lars_gram_driver.exe --profile checked
+python validation/compare_graphical_lasso.py --executable build/gfortran_E1FE13DB8881E18E/app/reference_graphical_lasso_driver.exe --mode lars
+python validation/compare_graphical_cv.py --executable build/gfortran_E1FE13DB8881E18E/app/reference_graphical_cv_driver.exe --profile checked --mode lars
+```
+Repeat for release; use --mode cd to retain the original graphical regressions.
+The least-angle and least-angle-selection validators also accept --executable
+to validate a completed build without invoking fpm again. Gram fixtures include
+LAR, Lasso, positive Lasso, interpolation, iteration caps, zero responses,
+duplicate columns and wide matrices. Duplicate columns use merged-coefficient
+and prediction-path certificates. Wide full paths use eps=0.1; early wide
+knots retain machine epsilon. The existing backend's machine-epsilon
+rank-deficient full-path limitations are documented in the API and coverage
+records. A separate guard script checks 11 controls/nonfinite-input errors;
+the central input-error registry adds empty/shape Gram guards and retains
+unknown graphical-mode rejection after replacing its former LARS fixtures.
+
+Complete each Windows build before running its executables, so the linker
+can replace the output files. Checked and release validators should run
+sequentially when they share reference input/output paths.
+
+The optimized least-angle selection regression has one existing
+rank-deficient LarsCV MSE tolerance miss (seed 2026, case1_mse). The default
+validator keeps its original strict tolerance. For an explicit nonregression
+certificate, --baseline-executable may name a separately compiled pre-change
+reference driver: the entire 200-group fixture must match that binary exactly.
+The report retains the source-comparison failure and baseline provenance
+separately; this option does not widen numerical tolerances.

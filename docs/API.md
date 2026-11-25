@@ -3799,9 +3799,8 @@ and NaN standard deviations are preserved for failed folds. Native inspection
 arrays `empirical_covariance(:,:,fold)`, `empirical_precision(:,:,fold)` and
 `empirical_test_covariance(:,:,fold)` retain the actual alpha-zero endpoint
 matrices; these are data containers, not extra estimators or algorithms.
-Refit replaces the result arrays and fitted model. The existing scalar
-GraphicalLasso remains unchanged except for source's zero-Gram-diagonal CD skip,
-needed when a CV training fold has constant features.
+Refit replaces the result arrays and fitted model. The CD path retains source's zero-Gram-diagonal skip, needed when a CV
+training fold has constant features.
 
 Candidate numerical failures are handled with a local IEEE exception scope,
 like NumPy errstate: invalid/divide-by-zero/overflow halting modes and their

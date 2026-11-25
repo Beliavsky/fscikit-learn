@@ -1,5 +1,9 @@
 # Translation coverage
 
+Gram-matrix least-angle paths and LARS solvers for GraphicalLasso and
+GraphicalLassoCV are verified in checked and optimized profiles. Numerical
+limits for rank-deficient paths and duplicate-column ties are documented.
+
 Pairwise kernel dispatch with named, callback, GP-object and precomputed
 routes is verified in checked and optimized profiles. Typed storage
 adaptations are explicitly identified.
@@ -43,7 +47,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Two hundred and seventeen reference suites additionally check 4,210,606
+All types have native tests. Two hundred and eighteen reference suites additionally check 4,218,170
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -4264,9 +4268,8 @@ and NaN standard deviations are preserved for failed folds. Native inspection
 arrays `empirical_covariance(:,:,fold)`, `empirical_precision(:,:,fold)` and
 `empirical_test_covariance(:,:,fold)` retain the actual alpha-zero endpoint
 matrices; these are data containers, not extra estimators or algorithms.
-Refit replaces the result arrays and fitted model. The existing scalar
-GraphicalLasso remains unchanged except for source's zero-Gram-diagonal CD skip,
-needed when a CV training fold has constant features.
+Refit replaces the result arrays and fitted model. The CD path retains source's zero-Gram-diagonal skip, needed when a CV
+training fold has constant features.
 
 Candidate numerical failures are handled with a local IEEE exception scope,
 like NumPy errstate: invalid/divide-by-zero/overflow halting modes and their
@@ -11511,3 +11514,57 @@ underdetermined paths and machine epsilon for their early knots. Exactly
 duplicate columns can select interchangeable active representatives: the
 validation checks merged coefficients and every prediction knot in these
 cases rather than claiming identical coefficient allocation.
+
+
+## Gram LARS and graphical LARS verification (2026-11-25)
+
+Implementation 13160bb adds lars_path_gram and mode='lars' to GraphicalLasso
+and GraphicalLassoCV. Full checked and optimized fpm build --tests batches
+passed using private fpm 0.14.0 and GNU Fortran 17. The checked flags include
+-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow.
+
+Each profile passed 1,440 Gram-path groups across 360 fixtures, including
+25 source coefficient-dropout events. Cases cover LAR, Lasso, positive Lasso,
+alpha interpolation, zero responses, iteration caps, duplicate columns and
+wide matrices. Ninety duplicate-column fixtures certify merged coefficients
+and every prediction knot because identical columns can select different
+active representatives. Full wide paths use eps=0.1; their early knots use
+machine epsilon. Rank-deficient full paths at machine epsilon can differ
+from sklearn's incremental BLAS/LAPACK backend, including knot counts.
+This existing backend limitation is retained explicitly in API and coverage
+documentation, rather than claimed as exact parity. Input arrays are checked
+unchanged by the native reference driver.
+
+Both graphical solvers passed 144 GraphicalLasso result groups and 5,980
+GraphicalLassoCV groups across 255 fixtures per mode per profile. These include
+precomputed/centered covariance, iteration caps, warm starts, explicit folds,
+refined and explicit grids, ill-conditioned empirical endpoints and failed
+candidates. Automatic diagonal-covariance grids retain NaN-candidate failures.
+The existing conditioned empirical-endpoint certificates are retained;
+positive-alpha fits and selection use ordinary direct source comparisons.
+
+Each profile also passed 730 existing least-angle groups, 192 core groups
+and eight selected native programs. The 1,000 least-angle model-selection
+groups passed directly in checked mode. Optimized mode passed 999 directly;
+one rank-deficient LarsCV MSE group retains a source tolerance miss in one
+entry (relative error about 4.3e-8 versus rtol=3e-8). A separately compiled
+pre-change 5fe5c01 solver produces byte-identical output for the entire
+200-group seed-2026 fixture, including that entry. An explicit optional
+baseline-executable certificate records this existing limitation; ordinary
+tolerances are unchanged and the default validator remains strict. Both
+profiles passed
+87 family input guards and 11 dedicated Gram guards. Two of the family guards
+are new empty/shape checks; invalid-mode fixtures now use an unknown string
+because LARS is accepted. Other historical suites/native programs were not
+rerun. The combined audit checks 195 compiled-unit fingerprints per profile,
+stable source/validator/executable manifests and distinct optimized Gram
+drivers. It also confirms the old LARS arithmetic body is unchanged apart
+from recoverable numerical status, and other library sources match 5fe5c01
+except the three intended modules. Artifacts remain ignored under
+validation/results/graphical_lars*, lars_gram* and graphical_cv*.
+
+Original integration remains MIT with existing sklearn BSD attribution;
+no dependency, public core type or algorithm outside sklearn was added.
+Inventory: 222 public core types, 176 source modules, 245 native programs,
+218 reference suites / 4,218,170 retained groups and 117 invalid registries /
+6,317 cases. The broader translation remains unfinished.
