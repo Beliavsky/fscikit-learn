@@ -77,7 +77,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Two hundred and thirty-two reference suites additionally check 4,643,952
+All types have native tests. Two hundred and thirty-three reference suites additionally check 4,713,048
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and explicitly recorded numerical certificates.
 
@@ -87,11 +87,11 @@ tracked separately in [EXTENSIONS.md](EXTENSIONS.md) and excluded from the
 selective, clearly identified extensions while prioritizing core correctness.
 
 Global scope: dense real64 CPU arrays, integer classification labels, generally one target
-per sample; cross-decomposition, multi-task regression, joint MLP regression and independent multioutput wrappers explicitly accept multiple response columns. General sparse estimator inputs, pandas integration, Python estimator cloning,
+per sample; cross-decomposition, multi-task regression, joint MLP regression, KernelRidge, Dummy baselines and independent multioutput wrappers explicitly accept multiple response columns. General sparse estimator inputs, pandas integration, Python estimator cloning,
 metadata routing, parallel backends and binary model persistence are outside the
 initial translation. The neighbor graph transformers provide CSR graph outputs and
 accept CSR precomputed distances, as do Isomap and Barnes-Hut TSNE. Randomized TruncatedSVD and direct Multinomial/
-Bernoulli/Complement Naive Bayes, SGD and MLP regression/classification, random projections, RBFSampler, Nystroem, AdditiveChi2Sampler, PolynomialCountSketch, StandardScaler, MaxAbsScaler, RobustScaler, QuantileTransformer, SimpleImputer, Normalizer/Binarizer and PolynomialFeatures also accept CSR matrices. Other estimator and
+Bernoulli/Complement Naive Bayes, SGD and MLP regression/classification, random projections, RBFSampler, Nystroem, AdditiveChi2Sampler, PolynomialCountSketch, StandardScaler, MaxAbsScaler, RobustScaler, QuantileTransformer, SimpleImputer, Normalizer/Binarizer and PolynomialFeatures also accept CSR matrices. KernelRidge (within its documented kernel limits) and Dummy baselines also accept CSR feature inputs. Other estimator and
 meta-estimator inputs remain dense.
 Fortran identifiers use snake_case rather than CamelCase.
 
@@ -134,7 +134,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | image / image_graph | `patch_extractor`; `extract_patches_2d`, `reconstruct_from_patches_2d`, `grid_to_graph`, `img_to_graph` | Exhaustive or seeded with-replacement image patches; grayscale and multichannel batches; source overlap averaging; masked real64 CSR grid connectivity and pixel/voxel gradients |
 | feature_extraction | `dict_vectorizer`, `feature_hasher` | Named numeric/categorical mappings; string lists; learned or hashed columns; real64 CSR and dense outputs |
 | feature_extraction_text | `count_vectorizer`, `tfidf_transformer`, `tfidf_vectorizer`, `hashing_vectorizer` | Dense vocabulary/TF-IDF unigram counts with ASCII tokens of length 2-128; stateless CSR signed/binary hashed word, character and within-word character n-grams with dynamic token storage, ASCII analysis and English/custom stop words; l1/l2/no normalization |
-| dummy | `dummy_classifier`, `dummy_regressor` | Prior/most-frequent/stratified/uniform/constant classification; mean/median/quantile/constant regression |
+| dummy | `dummy_classifier`, `dummy_regressor` | Weighted multioutput classification/regression; ignored dense/CSR features; NumPy-seeded uniform/stratified labels; weighted lower percentiles |
 | kernel_ridge | `kernel_ridge` | Weighted dense/CSR, multioutput, per-target nonnegative alpha; named/callback/GP kernels; singular numeric limits below |
 | discriminant_analysis | `linear_discriminant_analysis`, `quadratic_discriminant_analysis` | LDA offers LSQR, SVD and generalized-eigen classification/projection with fixed/automatic shrinkage and custom priors; QDA full/thin regularization and custom priors; solver-specific rank contracts are documented below |
 | svm | `svc`, `nu_svc`, `linear_svc`, `linear_svr`; re-exports `svr`, `nu_svr`, `one_class_svm` | Primal L2 squared-loss linear classification/regression; OVO SVC/NuSVC; epsilon/nu support-vector regression and one-class detection; native pairwise dual optimization and weighted capacities |
@@ -12458,3 +12458,87 @@ reports and build logs remain ignored under validation/results/kernel_ridge_*.
 Inventory: 222 public core types, 181 source modules, 257 native test programs,
 232 reference suites / 4,643,952 retained groups and 129 invalid registries /
 6,580 cases. The broader translation remains unfinished.
+## Weighted multioutput Dummy baselines and seeded classification
+
+DummyClassifier and DummyRegressor now fit vector/matrix targets with sample
+weights and ignored dense/CSR features. Multioutput classification retains
+ragged class distributions and probability matrices; regression retains all
+fitted constants. Scalar/vector legacy result fields mirror the first output.
+Private NumPy-compatible integer draws and sequential binomial multinomial
+draws replace Fortran-global-RNG uniform/stratified sampling. Weighted
+ensemble dispatch supports both types. See [the API](API.md#weighted-multioutput-dummy-baselines)
+for typed output methods, scalar-regressor-weight rejection, defaults,
+ignored-feature behavior and score restrictions.
+
+The reference grid retains 69,096 strictly compared result groups across
+13,084 configurations, including 130 matching isolated source/native
+rejections. It covers five seeds including the largest nonnegative default
+integer, one/twelve/thirty-one rows, zero/four feature columns, different query
+feature counts, nonfinite ignored features, dense/CSR storage, vector/column/
+three-output targets, every strategy, per-output constants, five quantiles,
+no/positive/unit/masked/scalar/signed/zero weights and binary subset accuracy.
+The source baseline is sklearn 1.6.1, NumPy 2.2.6 and SciPy 1.15.3. All source
+labels, class orders and probabilities are compared exactly; regression,
+priors and scores use the unchanged 3e-8 bound. No numerical certificates,
+native-derived expectations or tolerance exceptions are used. Multiclass
+multioutput accuracy is not compared: it is unsupported by source and the
+typed score method. Other outputs of those fixtures are compared directly.
+
+Source zero-weight behavior is retained: zero-total class priors can be NaN,
+deterministic first-NaN argmax is preserved, and stratified predictions reject
+invalid probability vectors. A weighted mean with zero total weight is
+rejected; all-zero weighted median/quantile selects the largest observation.
+Signed percentile weights preserve the source's cumulative-sum binary search.
+An additional 400-data-set stress probe exposed 35 mismatches with ordinary
+stable tie sorting; the implementation now reuses the existing attributed
+NumPy index-ordering helper. Those data sets are retained as 2,400 additional
+dense/CSR and vector/column/matrix configurations, including many duplicate
+targets and signed integer weights. A further 32 fractional quantiles are
+retained as 384 weighted/unweighted, dense/CSR and target-rank boundary
+configurations. They verify the observable rounding in sklearn's conversion
+from quantile to percentage and back, including positive-weight cases that
+otherwise select a different observation.
+Ordinary unweighted percentiles interpolate, while weighted percentiles select
+the lower weighted observation. These distinct algorithms are tested directly.
+
+Native checks include exact seeded label sequences, private versus global
+RNG state, weighted versus ordinary medians, zero/signed weights, owned model
+copies, fitted-strategy/constant behavior, multioutput scores, IEEE fit state,
+weighted classifier/regressor dispatch and end-to-end voting. A four-row CSR
+input with no stored entries and one billion feature columns fits without any feature-width scratch;
+empty queries and changed query widths are accepted. This is an ignored-input
+storage check, not a claim of feature processing at that scale.
+
+Full checked and optimized fpm builds passed with the checksum-verified private
+fpm 0.14.0 and GNU Fortran 17.0.0 20260510. Checked flags were
+`-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow`; optimized flags were
+`-O3 -funroll-loops -fcoarray=single`. Each final profile passed the full new
+grid (12,954 successful configurations plus 130 matching rejections), all 28
+isolated guards, six selected native programs, the example, 192 core reference
+groups, 16,965 voting groups / 1,200 fixtures, 32,162 bagging groups / 527
+fixtures and 3,571 stacking/LOO groups / 193 fixtures. Maximum scaled numeric
+error in the new suite was 4.517892648446282e-16 in both profiles; each report
+retains 530 source warnings. Existing ensemble reports retain their prior
+certificate categories; other historical suites were not rerun in this batch.
+
+The final audit verifies 198 compiled-unit fingerprints per profile, stable
+source/validator/executable/attribution manifests, identical reference inputs,
+distinct profile executables and unchanged license/dependency declarations.
+All library files outside Dummy and base dispatch remain unchanged from
+0d673de; ten existing dispatch procedure bodies are unchanged. Classifier and
+regressor training now forward weights, and weight-capability dispatch
+recognizes both Dummy types. Source-output caches retain actual sklearn
+results with runtime/source provenance; both final profiles reuse all 13,084
+captured configurations. Earlier builds/runs interrupted to correct the tie
+ordering and percentage-roundtrip findings are not used as final verification.
+The later 60-case probe with up to 4,097 rows also matched exactly, but is not
+included in cumulative retained-suite counts. Logs, reports and audit artifacts
+remain ignored under validation/results/dummy_*.
+
+The package remains MIT with sklearn and NumPy notices retained. Two public
+ragged-output storage helpers are not additional estimators. No core type,
+source module, external dependency or public algorithm extension was added.
+Inventory: 222 public core types, 181 source modules, 258 native test programs,
+268 app drivers, 214 examples, 233 reference suites / 4,713,048 retained groups
+and 130 invalid registries / 6,608 cases. The broader translation remains
+unfinished.
