@@ -262,6 +262,8 @@ contains
       end if
     end if
     call weights_for(n,sample_weight,w);call fp_begin(modes,flags)
+    ! Source quantile -> percentage -> fraction rounding affects CDF boundaries.
+    if(self%strategy=='quantile')q=(q*100._dp)/100._dp
     do j=1,self%n_outputs_
       select case(self%strategy)
       case('mean')

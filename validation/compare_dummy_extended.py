@@ -52,7 +52,7 @@ def main():
   for a in [w,qw,constant]:block+=[' '.join(map(str,a))]
   key=hashlib.sha256(('\n'.join(block)+'\n').encode()).hexdigest()
   label=dict(seed=seed,n=n,p=p,t=t,rank=rank,storage=storage,family=family,strategy=name,weight_mode=mode,weights=weight_kind,q=q,binary=binary,
-    fixture='signed_ties'if y_override is not None else 'grid')
+    fixture='quantile_roundtrip'if weight_kind=='quantile_boundary'else 'signed_ties'if y_override is not None else 'grid')
   if key in cache:expected=cache[key];hits+=1
   else:
    with warnings.catch_warnings(record=True)as caught:
@@ -103,6 +103,16 @@ def main():
    for rank,t in [(0,1),(1,1),(1,3)]:
     target=y if t==1 else np.column_stack([y,-y,y+1])
     for storage in [0,1]:add(987,n,1,t,rank,storage,1,3,1,'tied_signed',q,False,target,w)
+ boundary_count=0
+ for q in np.random.RandomState(834).uniform(size=10000):
+  if q*100/100==q:continue
+  for rank,t in [(0,1),(1,1),(1,3)]:
+   target=np.array([0.,1.])if t==1 else np.array([[0.,0.,1.],[1.,-1.,2.]])
+   for storage in [0,1]:
+    for mode in [0,1]:add(834,2,1,t,rank,storage,1,3,mode,'quantile_boundary',q,False,target,[q,1-q])
+  boundary_count+=1
+  if boundary_count==32:break
+ assert boundary_count==32
  if args.reference_cache:
   args.reference_cache.parent.mkdir(parents=True,exist_ok=True)
   args.reference_cache.write_text(json.dumps(dict(provenance=provenance,cases=cache),separators=(',',':'))+'\n')

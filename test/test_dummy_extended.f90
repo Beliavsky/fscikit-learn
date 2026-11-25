@@ -17,6 +17,7 @@ program test_dummy_extended
   real(dp)::x(4,0),query(8,2),y(4),w(4),targets(4,2)
   real(dp)::features(4,1)
   real(dp)::ties_x(12,0)
+  real(dp)::boundary_x(2,0),boundary_q
   real(dp),allocatable::pred(:,:)
   integer::labels(4),binary(4,2),state_size
   integer,allocatable::before_rng(:),after_rng(:)
@@ -92,5 +93,8 @@ program test_dummy_extended
   call regressor%fit(ties_x,[-1._dp,0._dp,1._dp,1._dp,0._dp,1._dp,-1._dp,0._dp,0._dp,-1._dp,0._dp,1._dp], &
     [1._dp,1._dp,1._dp,1._dp,0._dp,-1._dp,1._dp,-1._dp,0._dp,-1._dp,-1._dp,0._dp])
   call require(regressor%constant_==1,'NumPy tie ordering for signed weighted percentiles')
+  boundary_q=.3657049499562737_dp;regressor%quantile=boundary_q
+  call regressor%fit(boundary_x,[0._dp,1._dp],[boundary_q,1-boundary_q])
+  call require(regressor%constant_==1,'source quantile percentage-roundtrip boundary')
   print *,'Extended Dummy baselines passed; ignored one billion CSR features without densifying'
 end program

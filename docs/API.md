@@ -9702,6 +9702,11 @@ Percentile sorting reuses the package's NumPy-compatible index-ordering helper;
 tie order is observable when signed weights make that cumulative vector
 nonmonotone.
 
+Quantiles preserve sklearn's conversion to a percentage and back to a fraction
+before interpolation or cumulative-weight search. Its rounding can select a
+different observation exactly at a weighted boundary, even with positive
+weights.
+
 Use `predict` for one output and `predict_multi` for any fitted output count.
 Regressor `constants_` stores all fitted constants; `constant_` mirrors the
 first. Allocated `constant_values` supplies per-output constants for the
