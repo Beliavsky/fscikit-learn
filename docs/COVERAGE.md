@@ -1,5 +1,9 @@
 # Translation coverage
 
+Direct and Gram Cholesky orthogonal matching pursuit support multiple targets,
+residual tolerance and full paths, verified in checked and optimized profiles.
+Source wrapper and rank-degeneracy adaptations are explicitly identified.
+
 Gram-matrix least-angle paths and LARS solvers for GraphicalLasso and
 GraphicalLassoCV are verified in checked and optimized profiles. Numerical
 limits for rank-deficient paths and duplicate-column ties are documented.
@@ -47,7 +51,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Two hundred and eighteen reference suites additionally check 4,218,170
+All types have native tests. Two hundred and nineteen reference suites additionally check 4,234,340
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -11630,3 +11634,52 @@ steps after spanning a wide dictionary. Exactly duplicate atoms use merged
 coefficients and prediction-path certificates. These limitations do not
 claim identical source coefficient allocation, stopping flags or final knot
 counts on numerically degenerate data. See example/omp_paths.f90.
+
+
+## Verified direct and Gram OMP paths (2026-11-25)
+
+Implementation b0256e6 passed full checked and optimized fpm build --tests
+batches. Each profile passed 2,310 configurations / 16,170 retained groups,
+including 154 ragged multi-target paths. Checks cover direct/Gram/auto routing,
+vector/column/multiple responses, counts/defaults, finite nonnegative squared
+residual tolerances, full paths and final coefficients, dependent/zero atoms,
+zero responses, scaled/wide dictionaries, per-target iterations and input
+retention. On directly compared coefficient/path entries the maximum scaled
+error was 5.596e-15, at rtol=atol=3e-8.
+
+The inventory identifies 462 duplicate-atom coefficient/path certificates
+per profile: merged coefficients and predicted paths agree while atom
+representatives may differ. Checked/optimized profiles respectively retain
+4/4 full-span certificates. These verify common source/native path
+prefixes, zero padding, final-path consistency and reconstruction to backward
+error at every extra step after spanning a wide dictionary. They do not claim
+identical final knot counts or nonunique coefficients. Exact-zero-tolerance
+warning-state roundoff differs in 36/14 configurations; all corresponding
+coefficient/path/iteration comparisons or full-span certificates still pass.
+Premature flags describe native stopping and replace source warning objects.
+
+Source 1.6.1 wrapper probes confirm missing requested iteration counts in the
+precomputed orthogonal_mp route and IndexError for zero-first-target ragged
+multi-target paths in both public functions. The native owned result retains
+all independent target paths and iteration counts, using explicit zero padding.
+These are identified storage/wrapper adaptations; reference column solves
+supply each complete source target path. Gram vector norms are represented by
+a native scalar, while matrix norms retain one entry per target. Source's
+floor(.1*p) Gram default and its small-feature zero-count rejection are kept.
+
+Each profile also passed 1,936 existing OMP CV groups (with its retained
+numerical-equivalence certificates), 204 regression/factor/projection groups,
+192 core groups, ten selected native programs, 27 diagnostics and the new
+example. Eight diagnostics identify native finite/shape/nonpositive-pivot
+contracts. Other historical suites/native programs were not rerun. The audit
+checks 197 compiled-unit fingerprints per profile, stable source/validator/
+executable/input inventories and distinct optimized drivers. Every old library
+body matches e60457d; only linear_model import/export lines were added, alongside
+the new module. Artifacts remain ignored under validation/results/omp_paths*.
+The existing OMP estimator and CV estimator retain their original backends.
+
+Original integration remains MIT with retained sklearn BSD attribution.
+No dependency, public core estimator type or algorithm outside sklearn was
+added. Inventory: 222 public core types, 177 source modules, 246 native
+programs, 219 reference suites / 4,234,340 retained groups and 118 invalid
+registries / 6,344 cases. The broader translation remains unfinished.
