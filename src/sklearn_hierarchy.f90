@@ -1,4 +1,4 @@
-! Ward, complete and average trees: sklearn 1.6.1 cluster/_agglomerative.py
+! Ward, single, complete and average trees: sklearn 1.6.1 cluster/_agglomerative.py
 ! and _hierarchical_fast.pyx.
 ! Unstructured chain/relabeling: SciPy 1.15.3 cluster/_hierarchy.pyx and
 ! _hierarchy_distance_update.pxi. Retain BSD notices in LICENSES/ and
@@ -6,6 +6,7 @@
 module sklearn_hierarchy
   use sklearn_common,only:dp,require,check_x,argsort
   use sklearn_sparse,only:csr_matrix
+  use sklearn_ranking,only:stable_order
   use sklearn_kernel_dispatch,only:kernel_blas_dot
   use,intrinsic::iso_fortran_env,only:int64
   use,intrinsic::ieee_arithmetic,only:ieee_is_finite,ieee_value,ieee_positive_inf
@@ -202,7 +203,11 @@ contains
     call require(size(x,1)>=2,'unstructured linkage needs at least two samples')
     distances=.false.;if(present(return_distance))distances=return_distance
     call fp_begin(modes,flags)
-    tree=linkage_chain(x,distances,method,metric)
+    if(method=='single')then
+      tree=single_stream_tree(x,distances,metric)
+    else
+      tree=linkage_chain(x,distances,method,metric)
+    end if
     call fp_end(modes,flags)
   end function
   function linkage_vector(x,n_clusters,return_distance,linkage,affinity)result(tree)
@@ -357,12 +362,12 @@ contains
     character(*),optional,intent(in)::linkage,affinity
     character(16),intent(out)::method,metric
     logical,optional,intent(in)::structured
+    logical::singleton
     call check_x(x)
-    call require(size(x,1)>=2,'complete/average linkage needs at least two samples')
     if(present(linkage))call require(len_trim(linkage)<=16,'unsupported linkage name')
     if(present(affinity))call require(len_trim(affinity)<=16,'unsupported linkage affinity')
     method='complete';if(present(linkage))method=linkage
-    call require(method=='complete'.or.method=='average','linkage_tree supports complete or average linkage')
+    call require(any(method==[character(16)::'single','complete','average']),'unknown linkage_tree method')
     metric='euclidean';if(present(affinity))metric=affinity
     if(present(structured))then
       if(structured)call require(any(metric==[character(16)::'euclidean','l2','manhattan','cityblock','l1', &
@@ -373,6 +378,14 @@ contains
     case('l1','cityblock');metric='manhattan'
     case('minkowski');metric='euclidean' ! Source default p=2, with no metric kwargs.
     end select
+    if(method=='single')then
+      if(metric=='p')metric='euclidean'
+      if(metric=='infinity')metric='chebyshev'
+    end if
+    singleton=.false.
+    if(present(structured))singleton=structured.and.method=='single'.and.metric=='precomputed'
+    call require(size(x,1)>=2.or.singleton, &
+      'linkage needs at least two samples except connected singleton precomputed single')
     call require(any(metric==[character(16)::'euclidean','manhattan','cosine','chebyshev', &
       'sqeuclidean','precomputed']),'unsupported linkage affinity')
     if(metric=='precomputed')call require(size(x,1)==size(x,2),'precomputed linkage matrix must be square')
@@ -495,7 +508,11 @@ contains
     end if
     ! Source's empty structured tree fails while forming paired distances or
     ! slicing an empty child array. Return a controlled diagnostic instead.
-    call require(clusters>=1.and.clusters<n,'structured complete/average needs fewer clusters than samples')
+    if(method=='single')then
+      call require(clusters>=1.and.clusters<=n,'single cluster count must be between one and sample count')
+    else
+      call require(clusters>=1.and.clusters<n,'structured complete/average needs fewer clusters than samples')
+    end if
     nodes=n+(n-clusters);distances=.false.;if(present(return_distance))distances=return_distance
     tree%n_leaves=n;tree%structured=.true.
     allocate(labels(n));call components(adjacency,labels,tree%n_connected_components)
@@ -533,6 +550,10 @@ contains
         call append_node(adjacency(best_a),best_b);call append_node(adjacency(best_b),best_a)
       end do
     end do
+    if(method=='single')then
+      tree=single_sparse_tree(x,adjacency,clusters,distances,metric,tree%n_connected_components)
+      return
+    end if
     allocate(maps(nodes),mass(nodes));mass=0;mass(:n)=1
     allocate(tree%parents(nodes),tree%children(nodes-n,2),tree%distances(nodes-n))
     tree%parents=[(i,i=1,nodes)]
@@ -649,6 +670,137 @@ contains
     if(heap%used>0)then
       heap%data(1)=last;call weighted_sift(heap,1)
     end if
+  end function
+  ! sklearn 1.6.1 _hierarchical_fast.pyx mst_linkage_core and union-find;
+  ! SciPy 1.15.3 _hierarchy.pyx mst_single_linkage/label. Fast named metrics
+  ! preserve oriented children; SciPy's cosine/squared/precomputed route sorts
+  ! child roots. Both use the same streamed frontier without a dense matrix.
+  function single_stream_tree(x,distances,metric)result(tree)
+    real(dp),intent(in)::x(:,:)
+    logical,intent(in)::distances
+    character(*),intent(in)::metric
+    type(hierarchy_result)::tree
+    integer,allocatable::raw(:,:)
+    real(dp),allocatable::frontier(:),cost(:)
+    logical,allocatable::visited(:)
+    logical::sort_children
+    integer::n,current,next,i,k
+    real(dp)::value,best
+    n=size(x,1);allocate(raw(n-1,2),cost(n-1),frontier(n),visited(n))
+    frontier=ieee_value(0._dp,ieee_positive_inf);visited=.false.;current=1
+    do k=1,n-1
+      visited(current)=.true.;best=ieee_value(0._dp,ieee_positive_inf);next=0
+      do i=1,n
+        if(visited(i))cycle
+        if(metric=='precomputed')then
+          value=linkage_distance(x,min(current,i),max(current,i),metric,.false.)
+        else
+          value=linkage_distance(x,current,i,metric,.false.)
+        end if
+        if(value<frontier(i))frontier(i)=value
+        if(frontier(i)<best)then
+          best=frontier(i);next=i
+        end if
+      end do
+      call require(next>0,'single-linkage frontier has no finite candidate')
+      raw(k,:)=[current,next];cost(k)=best;current=next
+    end do
+    sort_children=.not.any(metric==[character(16)::'euclidean','manhattan','chebyshev'])
+    tree=label_single(raw,cost,n,0,sort_children,distances,1)
+  end function
+  ! SciPy 1.15.3 sparse/csgraph/_min_spanning_tree.pyx Kruskal implementation
+  ! (Copyright 2011 Jake Vanderplas, BSD; LICENSES/scipy-COPYING). Stable edge
+  ! ordering, CSR output ordering and sklearn's epsilon substitution are kept.
+  function single_sparse_tree(x,adjacency,clusters,distances,metric,components_count)result(tree)
+    real(dp),intent(in)::x(:,:)
+    type(neighbor_list),intent(in)::adjacency(:)
+    integer,intent(in)::clusters,components_count
+    logical,intent(in)::distances
+    character(*),intent(in)::metric
+    type(hierarchy_result)::tree
+    integer,allocatable::rows(:),cols(:),order(:),ids(:),raw(:,:),parent(:),rank(:)
+    real(dp),allocatable::cost(:),height(:)
+    logical,allocatable::keep(:)
+    integer(int64)::edge_count
+    integer::n,e,i,j,k,pos,a,b,accepted
+    real(dp)::value
+    n=size(x,1);edge_count=0
+    do i=1,n
+      edge_count=edge_count+int(count(adjacency(i)%id(:adjacency(i)%used)/=i),int64)
+    end do
+    call require(edge_count<=huge(0),'single-linkage edge count exceeds native integer capacity')
+    e=int(edge_count);allocate(rows(e),cols(e),cost(e),keep(e),parent(n),rank(n))
+    pos=0;keep=.false.;rank=0;parent=[(i,i=1,n)]
+    do i=1,n
+      ids=pack(adjacency(i)%id(:adjacency(i)%used),adjacency(i)%id(:adjacency(i)%used)/=i)
+      order=stable_order(real(ids,dp));ids=ids(order)
+      do k=1,size(ids)
+        j=ids(k);value=linkage_distance(x,i,j,metric,.true.)
+        if(value==0)value=epsilon(1._dp)
+        pos=pos+1;rows(pos)=i;cols(pos)=j;cost(pos)=value
+      end do
+    end do
+    order=stable_order(cost);accepted=0
+    do k=1,e
+      if(accepted==n-1)exit
+      j=order(k);a=mst_root(parent,rows(j));b=mst_root(parent,cols(j))
+      if(a==b)cycle
+      keep(j)=.true.;accepted=accepted+1
+      if(rank(a)>rank(b))then
+        parent(b)=a
+      else if(rank(a)<rank(b))then
+        parent(a)=b
+      else
+        parent(b)=a;rank(a)=rank(a)+1
+      end if
+    end do
+    call require(accepted==n-1,'single-linkage completed graph did not yield a spanning tree')
+    allocate(raw(n-1,2),height(n-1));pos=0
+    ! csr->coo retains row/column order, rather than Kruskal acceptance order.
+    do k=1,e
+      if(.not.keep(k))cycle
+      pos=pos+1;raw(pos,:)=[rows(k),cols(k)];height(pos)=cost(k)
+      if(height(pos)==epsilon(1._dp))height(pos)=0
+    end do
+    tree=label_single(raw,height,n,n+(n-clusters),.false.,distances,components_count)
+  end function
+  function label_single(raw,cost,n,nodes,sort_children,distances,components_count)result(tree)
+    integer,intent(in)::raw(:,:),n,nodes,components_count
+    real(dp),intent(in)::cost(:)
+    logical,intent(in)::sort_children,distances
+    type(hierarchy_result)::tree
+    integer,allocatable::parent(:),order(:)
+    integer::k,a,b,i
+    tree%n_leaves=n;tree%structured=nodes>0;tree%n_connected_components=components_count
+    tree%connectivity_completed=components_count>1
+    allocate(parent(n+(n-1)),tree%children(n-1,2),tree%distances(n-1),tree%parents(nodes))
+    parent=[(i,i=1,size(parent))];tree%parents=[(i,i=1,nodes)];order=stable_order(cost)
+    do k=1,n-1
+      a=mst_root(parent,raw(order(k),1));b=mst_root(parent,raw(order(k),2))
+      call require(a/=b,'single-linkage edge labels form a cycle')
+      tree%children(k,:)=[a,b]
+      if(sort_children)tree%children(k,:)=[min(a,b),max(a,b)]
+      tree%distances(k)=cost(order(k));parent(a)=n+k;parent(b)=n+k
+      if(n+k<=nodes)then
+        tree%parents(a)=n+k;tree%parents(b)=n+k
+      end if
+    end do
+    if(.not.distances)then
+      deallocate(tree%distances);allocate(tree%distances(0))
+    end if
+  end function
+  integer function mst_root(parent,node)result(root)
+    integer,intent(inout)::parent(:)
+    integer,intent(in)::node
+    integer::i,next
+    root=node
+    do while(parent(root)/=root)
+      root=parent(root)
+    end do
+    i=node
+    do while(parent(i)/=i)
+      next=parent(i);parent(i)=root;i=next
+    end do
   end function
   subroutine capacity(n)
     integer,intent(in)::n

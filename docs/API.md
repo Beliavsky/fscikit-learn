@@ -9494,7 +9494,7 @@ estimator fitting reuses this builder as described below. See
 ## Connectivity and threshold controls for fitted hierarchical clustering
 
 `agglomerative_clustering` and `feature_agglomeration` reuse `ward_tree` when
-linkage='ward' and `linkage_tree` when linkage='complete' or 'average'. Assign
+linkage='ward' and `linkage_tree` for single, complete or average linkage. Assign
 exactly one optional connectivity component:
 `connectivity` (dense real64), `connectivity_mask` (dense logical) or
 `connectivity_csr` (allocatable `csr_matrix`). The matrix is indexed by samples
@@ -9540,31 +9540,34 @@ n_features_in_. Native compute_full_tree_ records the chosen build mode and
 connectivity_completed_ replaces a Python completion warning. Estimator labels
 remain zero-based in first-sample/feature order. Estimator children_ remain
 zero-based (unlike the public ward_tree result); source merge order is retained.
-Successful Ward/complete/average fitting restores IEEE flags and halting modes. Cutting the
+Successful hierarchical fitting restores IEEE flags and halting modes. Cutting the
 hierarchy uses path-compressed parent links with linear working storage.
 Unstructured fitting uses condensed quadratic distances; structured graph fill
 can still become quadratic. At least two samples/features are required.
 
-Connectivity and distance_threshold controls support Ward, complete and average
-linkage. Single linkage retains its previous unstructured Euclidean algorithm.
+Connectivity and distance_threshold controls support all four linkages.
+Single linkage preserves the source's full-child-tree/partial-parent contract
+when compute_full_tree selects early stopping, as described below.
 Callable connectivity, caching and non-real64 feature arrays are not implemented.
 See `example/structured_ward.f90` and `example/connected_linkage.f90`.
 
 
-## Complete and average linkage trees
+## Single, complete and average linkage trees
 
 `linkage_tree(x,connectivity,n_clusters,return_distance,linkage,affinity)` returns
 `hierarchy_result` through `sklearn` or `sklearn_cluster`. Its counterpart is
 sklearn 1.6.1's `cluster._agglomerative.linkage_tree`; this native interface
-currently implements its complete and average algorithms. `linkage` defaults
+implements its single, complete and average algorithms. `linkage` defaults
 to 'complete'. Matrices/vectors and dense real/logical/CSR connectivity use the
 same eight typed forms as ward_tree. Tree child/parent IDs are 1-based, while
 fitted estimator children remain 0-based. Both input arrays are unchanged.
 
-Without connectivity, the full tree uses condensed distances, nearest-neighbor
-chains, stable height sorting and union-find relabeling. n_clusters is ignored,
-as in source. With connectivity, sparse neighbor maps and a distance-only heap
-build the requested full or partial hierarchy. Complete linkage takes the
+Without connectivity, complete/average trees use condensed distances and
+nearest-neighbor chains; single linkage streams a distance frontier with linear
+working storage. Stable height ordering and union-find relabel the tree.
+n_clusters is ignored, as in source. With connectivity, sparse neighbor maps
+and a distance-only heap build complete/average hierarchies; single linkage
+uses a sparse Kruskal spanning tree. Complete linkage takes the
 maximum for shared neighbors. Average linkage weights shared distances by
 cluster sizes; a distance present in only one map is copied unchanged. Stale
 edges are discarded, and original component pairs receive their closest
@@ -9577,7 +9580,9 @@ connection before merging. Cost-only heap ties follow the tested CPython
 connectivity, source paired_distances permits only the Euclidean/Manhattan
 aliases, cosine and precomputed routes. Other connected names are rejected.
 The estimators select these through `metric` (default 'euclidean'); Ward
-requires that exact metric name, as in source.
+requires that exact metric name, as in source. Unstructured single linkage also
+accepts 'p' (default p=2) and 'infinity' through linkage_tree only; sklearn's
+fitted estimators reject those two aliases, and the native types do likewise.
 
 Precomputed input must be square and finite. Without connectivity only the
 upper triangle is consumed. With connectivity, original directed row entries
@@ -9588,12 +9593,46 @@ orders are retained, including the rounding used by threshold comparisons.
 Unstructured cosine uses the SciPy scalar convention; structured paired cosine
 uses half the squared distance between normalized rows.
 
-At least two samples are required. With connectivity, positive n_clusters must
-be less than sample count; zero/omission requests the full tree. sklearn 1.6.1
-fails when a structured complete/average tree has no merges, and the native
-function gives a controlled diagnostic for that request. A fitted estimator
-can still select one cluster per sample when it builds a full tree and cuts it.
-Distances are empty unless requested, with the same metadata and IEEE-state
-contract as ward_tree. Generated values outside finite working range are
-rejected. Sparse setup and partial trees avoid a full dense distance matrix;
-graph fill and candidate heaps can still require quadratic storage.
+With connectivity, complete/average n_clusters must be less than sample count;
+single linkage also accepts one cluster per sample. Zero/omission requests the
+full tree. sklearn 1.6.1 fails for empty structured complete/average trees, and
+the native function gives a controlled diagnostic. A fitted estimator can
+still select one cluster per sample when it builds a full tree and cuts it.
+At least two samples are required except for single linkage with explicit
+connectivity and a one-by-one precomputed matrix, which source supports.
+Fitted estimators still require two samples/features. Distances are empty
+unless requested, with the metadata/IEEE-state contract of ward_tree. Generated
+values outside finite working range are rejected. Graph fill can still require
+quadratic storage.
+
+## Single-linkage spanning trees
+
+For Euclidean/Manhattan/Chebyshev named metrics (and applicable aliases),
+unstructured single linkage follows sklearn's mst_linkage_core and preserves
+oriented child roots. Cosine, squared Euclidean and precomputed inputs follow
+the SciPy fallback convention, which sorts the two child roots. The native
+fallback also streams distances rather than allocating a condensed matrix;
+precomputed input still requires its supplied dense matrix. All routes retain
+source merge ordering, not a forced ascending child convention.
+
+Connected single linkage completes components using the selected metric,
+creates sorted sparse rows, then runs stable Kruskal union-find over all
+directed stored edges. The chosen MST edges return to CSR row/column order,
+then stable height order, before hierarchical labeling. Working storage is
+O(n_samples + stored_edges), excluding the supplied feature/distance matrix;
+component completion can add dense graph fill. Stable sorting reuses an
+internal native merge-sort helper, without a new runtime dependency.
+
+As in source, stored zero distances are temporarily replaced by real64 epsilon
+before spanning-tree selection. Selected values exactly equal to epsilon are
+then reset to zero, including genuine positive epsilon distances. Values
+smaller than epsilon and asymmetric/signed precomputed entries retain source
+selection behavior. This rule is specific to connected single linkage.
+
+A connected n_clusters request truncates parents to
+n_samples+(n_samples-n_clusters) nodes, but children still contains all
+n_samples-1 merges and requested distances still contains all merge heights.
+Later children can therefore refer to node IDs beyond the partial parent
+array. Fitted labels use only the retained parent forest. compute_full_tree_
+records the source's requested/auto selection even when single linkage builds
+the entire MST and child tree. See `example/single_linkage_trees.f90`.

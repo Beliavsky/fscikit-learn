@@ -17,7 +17,7 @@ program reference_linkage_invalid_driver
   case(2);tree=linkage_tree(x(:,:0))
   case(3);x=ieee_value(x,ieee_quiet_nan);tree=linkage_tree(x)
   case(4);tree=linkage_tree(x(:1,:))
-  case(5);tree=linkage_tree(x,linkage='single')
+  case(5);tree=linkage_tree(x,linkage='unknown')
   case(6);tree=linkage_tree(x,affinity='unknown')
   case(7);x(1,:)=0;tree=linkage_tree(x,affinity='cosine')
   case(8);tree=linkage_tree(x,affinity='precomputed')
@@ -36,7 +36,7 @@ program reference_linkage_invalid_driver
   case(21);model%linkage='complete';model%connectivity=g;model%n_clusters=3;model%compute_full_tree='false'
     call model%fit(x)
   case(22);model%metric='l2';call model%fit(x)
-  case(23);model%linkage='single';model%metric='manhattan';call model%fit(x)
+  case(23);model%linkage='single';model%metric='unknown';call model%fit(x)
   case(24);tree=linkage_tree(x,affinity='euclidean        invalid')
   case(25);tree=linkage_tree(x,linkage='complete         invalid')
   end select

@@ -10,6 +10,7 @@ module sklearn_ranking
   private
   public :: roc_curve,precision_recall_curve,det_curve,auc,roc_auc_score,average_precision_score
   public :: calibration_curve,brier_score_loss
+  public :: stable_order ! Internal shared stable merge-sort; not reexported by sklearn.
 contains
   real(dp) function undefined() result(value)
     value=ieee_value(1._dp,ieee_quiet_nan)

@@ -652,73 +652,14 @@ contains
     call self%fit(x); labels=self%labels_
   end function
   subroutine agg_fit(self,x)
-    class(agglomerative_clustering), intent(inout) :: self
-    real(dp), intent(in) :: x(:,:)
-    real(dp), allocatable :: d(:,:),centers(:,:),sizes(:)
-    integer, allocatable :: membership(:),node(:)
-    logical, allocatable :: active(:)
-    real(dp) :: best,value
-    integer :: n,p,step,i,j,a,b,c,total
-    call check_x(x); n=size(x,1); p=size(x,2)
-    call require(n>=2,'agglomerative fitting needs at least two samples')
+    class(agglomerative_clustering),intent(inout)::self
+    real(dp),intent(in)::x(:,:)
+    call check_x(x)
+    call require(size(x,1)>=2,'agglomerative fitting needs at least two samples')
     call require(any(self%compute_full_tree==[character(16)::'auto','true','false']),'invalid compute_full_tree')
-    if(any(self%linkage==[character(16)::'ward','complete','average']))then
-      call agg_tree_fit(self,x);return
-    end if
-    call require(self%metric=='euclidean','single linkage currently supports Euclidean metric only')
-    call require(.not.allocated(self%connectivity).and..not.allocated(self%connectivity_mask).and. &
-      .not.allocated(self%connectivity_csr),'connectivity is currently supported for Ward, complete or average linkage')
-    call require(.not.allocated(self%distance_threshold), &
-      'distance_threshold is currently supported for Ward, complete or average linkage')
-    call require(self%n_clusters>0.and.self%n_clusters<=n,'invalid agglomerative cluster count')
-    call require(any(self%linkage==['ward    ','single  ','complete','average ']),'unknown linkage')
-    d=pairwise_distances(x,x); allocate(centers(n,p),sizes(n),membership(n),node(n),active(n))
-    centers=x; sizes=1; membership=[(i,i=1,n)]; node=[(i-1,i=1,n)]; active=.true.
-    if(allocated(self%children_)) deallocate(self%children_,self%distances_)
-    allocate(self%children_(n-1,2),self%distances_(n-1))
-    self%labels_=membership-1
-    do step=1,n-1
-      best=huge(1._dp); a=0; b=0
-      do j=2,n
-        if(.not.active(j)) cycle
-        do i=1,j-1
-          if(.not.active(i)) cycle
-          value=d(i,j)
-          if(trim(self%linkage)=='ward') value=sqrt(2*sizes(i)*sizes(j)/(sizes(i)+sizes(j))* &
-            sum((centers(i,:)-centers(j,:))**2))
-          if(value<best) then
-            best=value; a=i; b=j
-          end if
-        end do
-      end do
-      self%children_(step,:)=[node(a),node(b)]; self%distances_(step)=best
-      centers(a,:)=(sizes(a)*centers(a,:)+sizes(b)*centers(b,:))/(sizes(a)+sizes(b))
-      do c=1,n
-        if(c==a.or.c==b.or..not.active(c)) cycle
-        select case(trim(self%linkage))
-        case('single'); value=min(d(a,c),d(b,c))
-        case('complete'); value=max(d(a,c),d(b,c))
-        case('average'); value=(sizes(a)*d(a,c)+sizes(b)*d(b,c))/(sizes(a)+sizes(b))
-        case('ward'); value=0
-        end select
-        d(a,c)=value; d(c,a)=value
-      end do
-      sizes(a)=sizes(a)+sizes(b); active(b)=.false.; node(a)=n+step-1
-      where(membership==b) membership=a
-      if(n-step==self%n_clusters) then
-        total=0
-        do c=1,n
-          if(.not.active(c)) cycle
-          where(membership==c) self%labels_=total
-          total=total+1
-        end do
-      end if
-    end do
-    self%n_clusters_=self%n_clusters;self%n_features_in_=p;self%n_leaves_=n;self%n_connected_components_=1
-    self%compute_full_tree_=.true.;self%connectivity_completed_=.false.
-    if(.not.self%compute_distances)then
-      deallocate(self%distances_);allocate(self%distances_(0))
-    end if
+    call require(any(self%linkage==[character(16)::'ward','single','complete','average']),'unknown linkage')
+    call require(self%metric/='p'.and.self%metric/='infinity','p and infinity aliases are not valid estimator metrics')
+    call agg_tree_fit(self,x)
   end subroutine
   ! sklearn 1.6.1 AgglomerativeClustering._fit: auto full-tree heuristic,
   ! threshold cluster counts and structured partial trees. Native labels retain

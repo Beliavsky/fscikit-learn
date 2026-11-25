@@ -7376,8 +7376,8 @@ one-feature/two-sample cases, threshold equality and disconnected/cancelling
 connectivity are included. Native tests add analytic cuts and pool/inverse
 values, IEEE preservation and a 32,768-node sparse auto forest avoiding an
 8 GiB dense distance/connectivity matrix. Twenty-three isolated rejections
-cover optional-control combinations, domain/shape errors and current single-linkage
-connectivity/threshold restrictions. Existing FeatureAgglomeration and BIRCH
+cover optional-control combinations, domain/shape errors and single-linkage precomputed-shape and threshold/full-tree
+requirements. Existing FeatureAgglomeration and BIRCH
 validators accept --executable and --report for serialized profile checks.
 
 
@@ -7444,3 +7444,37 @@ Both final profiles reuse all captured tree/estimator cases. Initial captures
 made 8,481 tree calls / 1,423 duplicate reuses and 9,895 estimator fits / 1,931
 reuses, in addition to the fitted suite's 36 source threshold-fixture selectors
 per run. Artifacts remain ignored under validation/results/linkage_*.
+
+
+Single-linkage spanning trees and fitted estimators:
+```
+python validation/compare_single_tree.py --executable build/gfortran_E1FE13DB8881E18E/app/reference_single_tree_driver.exe --reference-cache validation/results/single_reference_cache.json --report validation/results/single_checked_tree.json
+python validation/compare_single_fit.py --executable build/gfortran_E1FE13DB8881E18E/app/reference_single_fit_driver.exe --reference-cache validation/results/single_fit_reference_cache.json --report validation/results/single_checked_fit.json
+python validation/check_single_invalid_inputs.py --executable build/gfortran_E1FE13DB8881E18E/app/reference_single_invalid_driver.exe
+```
+Repeat with release executables. Optional ignored caches contain actual source
+outputs, warning counts, input keys and source/runtime hashes, including the
+SciPy sparse-MST and sklearn distance-metric extensions. Omitting caches
+recomputes references. Tree children and parents compare exactly; fitted labels
+and pooled columns use the native first-sample/feature order. Other values use
+the unchanged 3e-8 bound, without numerical certificates.
+
+The tree suite covers 5,022 configurations / 20,088 groups, fast/fallback
+orientation, full-child/partial-parent forests, all supported named metrics,
+dense/logical/canonical/duplicate/explicit-zero connectivity, disconnected
+completion, asymmetric/signed precomputed matrices, tiny/zero/genuine-epsilon
+edges, aliases and the connected precomputed singleton. The fitted suite
+covers 11,886 configurations / 64,722 groups, refits, full/partial/auto modes,
+thresholds, all feature pooling modes, one-cluster-per-sample forests and the
+100-cluster auto boundary. Sixty cases target epsilon threshold behavior.
+Its source_calls counter counts estimator fits; 36 additional source single
+Euclidean trees per run choose threshold fixtures. Expected outputs are never
+inferred from native results.
+
+Native checks cover all eight typed tree forms, oriented versus sorted child
+roots, epsilon collision behavior, partial parents with full children/heights,
+feature pooling, threshold equality, IEEE state, a streamed 4,096-sample tree
+and a 16,384-node sparse forest avoiding a 2 GiB dense graph distance matrix.
+Twenty isolated guards cover shape/domain errors and private-tree versus
+estimator metric-alias rules. Prior guard registries now test valid current
+restrictions instead of rejecting newly supported single-linkage options.
