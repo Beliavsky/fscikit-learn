@@ -7426,3 +7426,21 @@ semantics, analytic trees/thresholds/pooling, an exact NumPy-rounding threshold
 regression, IEEE state, and an 8,192-node CSR partial tree avoiding a 512 MiB
 dense distance/connectivity matrix. Twenty-five isolated guards include the
 source's unsupported empty structured tree and connected metric restrictions.
+
+
+Full checked and optimized fpm builds passed on 2026-11-25. Each profile passed
+all 104,008 new groups, with exact children/parents/canonicalized partitions
+and maximum scaled numerical error 2.2938989500484793e-16. No tolerance
+exceptions or numerical certificates are used. Each also passed 48 guards
+(25 new plus 23 fitted-Ward), seven selected native programs, the example,
+64,392 prior Ward groups, 192 core groups, 294 previous FeatureAgglomeration
+groups and 237 BIRCH groups. Other historical suites were not rerun.
+
+The final audit checks 201 compiled-unit fingerprints per profile, stable
+source/validator/executable/attribution manifests, identical inputs, distinct
+executables and unchanged license/dependency declarations. Twenty original
+Ward procedures and 35 unrelated cluster procedures retain their bodies.
+Both final profiles reuse all captured tree/estimator cases. Initial captures
+made 8,481 tree calls / 1,423 duplicate reuses and 9,895 estimator fits / 1,931
+reuses, in addition to the fitted suite's 36 source threshold-fixture selectors
+per run. Artifacts remain ignored under validation/results/linkage_*.
