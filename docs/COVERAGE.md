@@ -11062,7 +11062,7 @@ complement cancellation. Multilabel loss counts unequal columns after separate
 sparse coalescing, without Booleanizing nonbinary indicators. Its denominator
 retains n_samples*n_labels*mean(weights), with an int64 shape product.
 
-The checked grid passes 1,795 configurations: 1,532 accepted cases
+Both checked and optimized grids pass 1,795 configurations: 1,532 accepted cases
 with 4,596 loss/data/IEEE-state groups and 263 source rejections. Finite values
 use rtol=3e-13 and atol=0; NaN/infinity masks and zero signs agree, including
 678 nonfinite source losses. Cases cover the numeric target adapters, raw CSR
@@ -11071,14 +11071,16 @@ at lengths through 16,385. Eighteen focused fused-stride overflow cases pass.
 An independent sklearn-only inventory pins accepted/rejected IDs and fields.
 All 24 new native input diagnostics, 21 retained subset diagnostics and the
 existing score-shape diagnostic pass. Seventeen native programs and two
-examples pass. The checked audit verifies 197 compilation fingerprints and
-10,530 groups including the retained 5,742 subset and 192 core groups.
+examples pass per profile. The final audit verifies 197 compilation fingerprints
+per profile and 10,530 groups including the retained 5,742 subset and 192 core
+groups. Checked/release records match, including hexadecimal loss values;
+retained subset records match the prior audited baseline.
 
 Canonical sparse pairs use a merge without column scratch; noncanonical pairs
 use O(columns) row buffers. Native tests include a compact 100,000-by-100,000
 case, direct near-perfect categorical loss, sparse duplicates, IEEE state during
 rounding coalescence and stride-dependent overflow. No sample-by-column sparse
-densification is used. Optimized verification is pending.
+densification is used. Final verification is recorded in VALIDATION.md.
 
 Categorical zero-weight sums reject; multilabel zero sums can yield NaN/infinity.
 Empty unweighted multilabel targets reject, while empty weighted ones return
