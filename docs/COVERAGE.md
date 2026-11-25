@@ -1,5 +1,10 @@
 # Translation coverage
 
+MSLE/RMSLE now support full sample/output weighting and matrix rank pairs,
+including RMSLE's legacy optional argument adapters. Direct Poisson/Gamma
+deviances support weights and vector/one-column pairs. Checked/optimized
+verification is in progress; retained totals below describe the prior batch.
+
 Median absolute error supports sample/output weighting and matrix targets,
 with a raw-output helper; max_error accepts vector/one-column matrix pairs and
 quiet overflow, verified in both build profiles.

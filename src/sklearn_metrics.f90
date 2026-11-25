@@ -1,4 +1,6 @@
 module sklearn_metrics
+  use sklearn_distribution_errors,only:mean_squared_log_error,mean_squared_log_error_raw, &
+   mean_poisson_deviance,mean_gamma_deviance
   use sklearn_order_errors,only:median_absolute_error,median_absolute_error_raw,max_error
   use sklearn_error_metrics,only:mean_squared_error,root_mean_squared_error, &
    mean_absolute_error,mean_absolute_percentage_error,mean_squared_error_raw,root_mean_squared_error_raw, &
@@ -17,7 +19,7 @@ module sklearn_metrics
     laplacian_kernel,additive_chi2_kernel,chi2_kernel
   use sklearn_score_ranking, only: hinge_loss,top_k_accuracy_score,dcg_score,ndcg_score
   use sklearn_regression_metrics, only: mean_pinball_loss,mean_tweedie_deviance,d2_tweedie_score, &
-    d2_pinball_score,d2_absolute_error_score,root_mean_squared_log_error
+    d2_pinball_score,d2_absolute_error_score,root_mean_squared_log_error,root_mean_squared_log_error_raw
   use sklearn_multilabel_ranking, only: coverage_error,label_ranking_average_precision_score,label_ranking_loss
   use sklearn_cluster_information, only: normalized_mutual_info_score,adjusted_mutual_info_score,fowlkes_mallows_score, &
     contingency_matrix,pair_confusion_matrix,entropy,expected_mutual_information,homogeneity_completeness_v_measure
@@ -39,7 +41,7 @@ module sklearn_metrics
   public :: laplacian_kernel,additive_chi2_kernel,chi2_kernel
   public :: hinge_loss,top_k_accuracy_score,dcg_score,ndcg_score
   public :: mean_pinball_loss,mean_tweedie_deviance,d2_tweedie_score,d2_pinball_score,d2_absolute_error_score
-  public :: root_mean_squared_log_error
+  public :: root_mean_squared_log_error,root_mean_squared_log_error_raw,mean_squared_log_error_raw
   public :: coverage_error,label_ranking_average_precision_score,label_ranking_loss
   public :: mutual_info_score
   public :: mean_squared_error, root_mean_squared_error, mean_absolute_error
@@ -63,27 +65,6 @@ contains
     call require(size(y)>0.and.size(y)==size(p),'invalid metric target sizes')
     call check_x(reshape(y,[size(y),1])); call check_x(reshape(p,[size(p),1]))
   end subroutine
-  real(dp) function mean_squared_log_error(y,p) result(v)
-    real(dp), intent(in) :: y(:),p(:)
-    call check_targets(y,p); call require(all(y>=0).and.all(p>=0),'MSLE requires nonnegative targets')
-    v=sum((log(1+y)-log(1+p))**2)/size(y)
-  end function
-  real(dp) function mean_poisson_deviance(y,p) result(v)
-    real(dp), intent(in) :: y(:),p(:)
-    integer :: i
-    call check_targets(y,p); call require(all(y>=0).and.all(p>0),'invalid Poisson targets')
-    v=0
-    do i=1,size(y)
-      v=v+p(i)-y(i)
-      if(y(i)>0) v=v+y(i)*log(y(i)/p(i))
-    end do
-    v=2*v/size(y)
-  end function
-  real(dp) function mean_gamma_deviance(y,p) result(v)
-    real(dp), intent(in) :: y(:),p(:)
-    call check_targets(y,p); call require(all(y>0).and.all(p>0),'invalid Gamma targets')
-    v=2*sum(log(p/y)+y/p-1)/size(y)
-  end function
   function pairwise_distances(x,y,metric,p) result(d)
     real(dp), intent(in) :: x(:,:),y(:,:)
     character(*), intent(in), optional :: metric

@@ -8766,3 +8766,49 @@ change tied ordering and cancellation in signed-weight CDFs. Output aggregation
 uses NumPy's default 8192-element buffered sums. Original integration remains
 MIT with retained sklearn/NumPy/Intel BSD notices; no dependency or ML extension
 is introduced. See [`example/order_errors.f90`](../example/order_errors.f90).
+
+
+## Weighted logarithmic errors and Poisson/Gamma deviance
+
+`mean_squared_log_error(y,p[,sample_weight,multioutput,raw_values])` and
+`root_mean_squared_log_error(y,predicted[,sample_weight,multioutput,raw_values])`
+accept real64 vector/matrix pairs, including vector/one-column combinations.
+Targets must be finite, nonempty, shape-compatible and strictly greater than
+-1. Values between -1 and zero are valid. Logarithms use the compiler runtime's
+C `log1p` function to preserve tiny differences; the previous MSLE used log(1+x)
+and incorrectly required nonnegative targets. RMSLE roots each output before
+aggregation. Signed/nonfinite sample weights follow sklearn 1.6.1; zero sums
+and length mismatches reject, including one-sample inputs.
+
+`multioutput` is `'uniform_average'` or a finite real64 vector matching multiple
+outputs. Both logarithmic metrics reject custom weights for a single output
+and reject nonfinite custom weights. RMSLE validates these before delegating
+to root-MSE, so its rules differ from the standalone RMSE metric. Signed output
+weights are allowed; zero sums reject when aggregation is reached. Use
+`mean_squared_log_error_raw` or `root_mean_squared_log_error_raw` for owned
+vectors corresponding to Python's `'raw_values'`. Scalar calls reject that
+string and also offer optional allocatable `raw_values` alongside an aggregate.
+Those optional outputs retain aggregation checks.
+
+RMSLE retains the old `predicted` and `output_weights` keywords, its fourth-
+position real-vector weights/fifth-position raw-result form, and import through
+`sklearn_regression_metrics`. `output_weights` is an alias for custom aggregation;
+combining it with `multioutput` rejects. Its validation now follows sklearn,
+including the single-output custom-weight rejection. The alias/raw helpers
+are native API adaptations, not ML extensions.
+
+`mean_poisson_deviance(y,p[,sample_weight])` and `mean_gamma_deviance` accept
+vector or one-column matrix pairs and reject multiple outputs. Poisson requires
+y >= 0 and p > 0, with xlogy(0,0) interpreted as zero. Gamma requires y > 0 and
+p > 0. Signed/nonfinite sample weights follow sklearn; zero sums reject. These
+direct APIs now support source-compatible weighting independently of the older
+general Tweedie/D2 API's documented subset. No output-aggregation argument is
+offered for the direct deviance metrics.
+
+Valid intermediate overflow/invalid arithmetic propagates quietly as NaN or
+signed infinity. Inputs, RNG state, IEEE flags and halting modes are preserved.
+Reductions match NumPy 2.2.6's C-contiguous target matrices and default 8192-
+element buffered sums. Other math runtimes, layouts or buffer settings can
+round differently. The C math functions are already part of the compiler
+runtime; no Python/BLAS or new package dependency is introduced. See
+[`example/distribution_errors.f90`](../example/distribution_errors.f90).

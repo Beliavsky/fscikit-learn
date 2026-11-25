@@ -626,3 +626,10 @@ sklearn's distinct RMSE aggregation and output-weight rules.
 weighting and owned raw results. `max_error` accepts vector/one-column pairs
 and propagates overflow quietly. See [the example](example/order_errors.f90)
 and [API contract](docs/API.md#weighted-median-absolute-error-and-column-max-error).
+
+
+MSLE/RMSLE support sample weights, matrix targets, custom aggregation and owned
+raw results, including valid targets between -1 and zero. Poisson/Gamma deviance
+support weights and vector/one-column pairs. See
+[the example](example/distribution_errors.f90) and
+[API contract](docs/API.md#weighted-logarithmic-errors-and-poissongamma-deviance).

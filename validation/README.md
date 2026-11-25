@@ -6990,3 +6990,18 @@ rejections and targeted guards run in isolation. The source fixes sklearn
 and zero-total CDFs, ties, odd/even huge errors, long arrays and static raw-rank
 adaptation are explicit fixtures. Selected native/core regressions and RNG
 preservation are recorded separately in docs/VALIDATION.md.
+
+
+Weighted logarithmic and direct deviance errors:
+```
+python validation/compare_distribution_errors.py --executable build/gfortran_E1FE13DB8881E18E/app/reference_distribution_errors_driver.exe --profile checked --report validation/results/distribution_new_checked.json
+python validation/check_distribution_errors_invalid_inputs.py --executable build/gfortran_E1FE13DB8881E18E/app/reference_distribution_errors_driver.exe --profile checked --report validation/results/distribution_invalid_checked.json
+```
+Repeat for release/profile. Successful calls run in one batch and check values,
+nonfinite masks, input identity and IEEE state. Expected source rejections and
+targeted guards remain isolated. The source fixes sklearn 1.6.1, NumPy 2.2.6,
+C-contiguous float64 matrices and the default reduction buffer. The earlier
+regression-metric reference suite is also rerun for RMSLE's existing module,
+positional and output_weights callers. Native tests check legacy keyword
+adapters, valid negative log targets, tiny log1p losses, roots per output, RNG
+and owned results. Affected/core validation is recorded in docs/VALIDATION.md.

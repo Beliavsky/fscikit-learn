@@ -1,5 +1,35 @@
 # Translation work log
 
+## Weighted logarithmic and direct deviance implementation (2026-11-24)
+
+Extended MSLE/RMSLE with sample weights, all vector/matrix rank pairs, output
+aggregation and owned raw helpers. MSLE now permits valid (-1,0) targets and
+uses compiler-runtime log1p to preserve tiny differences. RMSLE retains its
+predicted/output_weights keywords, legacy positional layout and old module
+import. Separate legacy entries keep optional/unallocated weight arguments
+valid Fortran while modern multioutput forms retain unambiguous typed dispatch.
+Both log metrics follow sklearn's finite, multiple-output custom-weight rules.
+Poisson/Gamma direct deviance gains sample weights and all vector/column pairs,
+source-domain guards, source-order kernels and quiet exceptional arithmetic.
+Other regression metric bodies remain unchanged. Original integration remains
+MIT with retained sklearn/NumPy BSD attribution and no new dependency/ML extension.
+
+The preliminary checked reference probe passed 3,669 configurations / 11,224
+value/identity/IEEE groups / 45 controlled rejections with zero finite score
+differences and 1,741 matching nonfinite masks. All 79 targeted diagnostics
+passed. The earlier regression-metric suite independently passed 33,120 groups
+over 4,507 fixtures, with 26 diagnostics and 929 source-rejection records, using
+the explicit legacy adapters. Native tests also check unallocated positional
+and named legacy weights. The full checked fpm build/batch passed: 11,224 new
+groups, 33,120 earlier regression groups, 57 native programs, 192 core groups,
+79 new diagnostics, 26 earlier diagnostics and the retained score-shape guard.
+The checked audit passed all 239 compiled-unit fingerprints and frozen hashes.
+Optimized verification is in progress; final results will be recorded separately.
+
+An attempted documented fpm --list target-build shortcut returned names without
+creating the new executables. The artifact check caught this; actual verification
+uses the checksum-verified private fpm 0.14.0 build --tests -j 4 workflow.
+
 ## Weighted median and column maximum error implementation (2026-11-24)
 
 Extended median absolute error with finite sample weights, matrix/vector rank

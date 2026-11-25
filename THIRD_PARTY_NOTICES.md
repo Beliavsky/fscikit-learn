@@ -2124,3 +2124,21 @@ Full sklearn/NumPy BSD licenses remain in LICENSES/. Typed adapters, owned raw
 results, IEEE preservation, diagnostics, reference harness and example are MIT
 integration. Root LICENSE/fpm MIT declarations are unchanged. No dependency,
 new core estimator type or public extension algorithm is introduced.
+
+
+## Weighted logarithmic and direct deviance errors (BSD / MIT)
+
+src/sklearn_distribution_errors.f90 translates scikit-learn 1.6.1
+metrics/_regression.py mean_squared_log_error, root_mean_squared_log_error,
+mean_poisson_deviance, mean_gamma_deviance and their p=1/p=2 Tweedie kernels,
+by the scikit-learn developers (BSD-3-Clause). Source:
+https://github.com/scikit-learn/scikit-learn/blob/1.6.1/sklearn/metrics/_regression.py
+Installed reference SHA256:
+60453695ff142bd8242274f894ad141fbc025814996f51b4507660bf6688dfd1.
+The NumPy 2.2.6 buffered reduction algorithm reuses the adaptation attributed
+above; full sklearn/NumPy BSD licenses remain under LICENSES/. Changes include
+explicit typed ranks, C-runtime log1p calls, source-order arithmetic, owned raw
+results, IEEE preservation and RMSLE legacy keyword/module adapters. The old
+non-RMSLE regression-metric bodies remain unchanged. Original integration,
+diagnostics, batched driver/reference harness and example are MIT. Root LICENSE
+and fpm's MIT declaration are unchanged. No dependency or ML extension is added.

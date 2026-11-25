@@ -1,6 +1,7 @@
 ! sklearn 1.6.1 metrics/_regression.py and utils/stats.py contracts (BSD).
 ! Native rank adapters and quiet IEEE composition are original MIT contributions.
 module sklearn_regression_metrics
+  use sklearn_distribution_errors,only:root_mean_squared_log_error,root_mean_squared_log_error_raw
   use sklearn_common, only: dp,require
   use sklearn_ieee_math, only: ieee_difference,ieee_product,ieee_quotient,ieee_total,ieee_mean
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite,ieee_is_nan,ieee_value, &
@@ -8,7 +9,7 @@ module sklearn_regression_metrics
   implicit none
   private
   public :: mean_pinball_loss,mean_tweedie_deviance,d2_tweedie_score,d2_pinball_score,d2_absolute_error_score
-  public :: root_mean_squared_log_error
+  public :: root_mean_squared_log_error,root_mean_squared_log_error_raw
   interface mean_pinball_loss
     module procedure mean_pinball_loss_vector,mean_pinball_loss_matrix
   end interface
@@ -17,9 +18,6 @@ module sklearn_regression_metrics
   end interface
   interface d2_absolute_error_score
     module procedure d2_absolute_error_score_vector,d2_absolute_error_score_matrix
-  end interface
-  interface root_mean_squared_log_error
-    module procedure root_mean_squared_log_error_vector,root_mean_squared_log_error_matrix
   end interface
 contains
   function ascending_order(scores) result(order)
@@ -350,17 +348,5 @@ contains
     real(dp), optional, intent(in) :: sample_weight(:),output_weights(:)
     real(dp), allocatable, optional, intent(out) :: raw_values(:)
     value=matrix_metric(y,predicted,2,sample_weight,.5_dp,output_weights,raw_values)
-  end function
-  real(dp) function root_mean_squared_log_error_vector(y,predicted,sample_weight,output_weights,raw_values) result(value)
-    real(dp), intent(in) :: y(:),predicted(:)
-    real(dp), optional, intent(in) :: sample_weight(:),output_weights(:)
-    real(dp), allocatable, optional, intent(out) :: raw_values(:)
-    value=matrix_metric(reshape(y,[size(y),1]),reshape(predicted,[size(predicted),1]),3,sample_weight,.5_dp,output_weights,raw_values)
-  end function
-  real(dp) function root_mean_squared_log_error_matrix(y,predicted,sample_weight,output_weights,raw_values) result(value)
-    real(dp), intent(in) :: y(:,:),predicted(:,:)
-    real(dp), optional, intent(in) :: sample_weight(:),output_weights(:)
-    real(dp), allocatable, optional, intent(out) :: raw_values(:)
-    value=matrix_metric(y,predicted,3,sample_weight,.5_dp,output_weights,raw_values)
   end function
 end module
