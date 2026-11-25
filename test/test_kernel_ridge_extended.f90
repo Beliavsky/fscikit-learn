@@ -58,6 +58,7 @@ program test_kernel_ridge_extended
   call require(base_weighted(model),'kernel ridge ensemble weight capability')
   call train_regressor(model,x,y,w)
   call require(maxval(abs(model%dual_coef_-[-3._dp/14,0._dp,10._dp/7]))<1.e-13_dp,'weighted ensemble dispatch')
+  bases(1)%name='alpha_one';bases(2)%name='alpha_two'
   allocate(bases(1)%estimator,source=model)
   model%alpha=2
   allocate(bases(2)%estimator,source=model)
