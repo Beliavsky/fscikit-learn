@@ -24,7 +24,7 @@ and named legacy weights. The full checked fpm build/batch passed: 11,224 new
 groups, 33,120 earlier regression groups, 57 native programs, 192 core groups,
 79 new diagnostics, 26 earlier diagnostics and the retained score-shape guard.
 The checked audit passed all 239 compiled-unit fingerprints and frozen hashes.
-Optimized verification is in progress; final results will be recorded separately.
+Optimized verification subsequently passed; final results are in VALIDATION.md.
 
 An attempted documented fpm --list target-build shortcut returned names without
 creating the new executables. The artifact check caught this; actual verification
@@ -8774,3 +8774,43 @@ stats/extmath and native ordering-helper/Intel-license hashes are retained.
 Original integration remains MIT with preserved sklearn/NumPy/Intel BSD notices.
 No dependency, new core type or public extension algorithm was added. The broad
 translation remains unfinished.
+
+
+## Verified logarithmic errors and direct deviances (2026-11-24)
+
+Implementation checkpoint 7053c3b passed both checked and optimized
+fpm build --tests batches. Each profile passed 11,224 new value/identity/IEEE
+groups over 3,669 complete configurations, with 45 controlled source rejections.
+Finite differences were zero and all 1,741 NaN/positive-infinity/negative-infinity
+masks matched. The independently regenerated inventory agrees with every
+configuration ID, data hash, shape, rank, metric/mode and conditional result.
+Coverage includes valid negative log targets, tiny log1p differences, roots
+before aggregation, finite custom-output validation, signed/nonfinite sample
+weights, direct deviance domains/columns, extreme ratios and buffered sums.
+
+Each profile also passed 33,120 earlier regression groups over 4,507 complete
+fixtures, including RMSLE's existing callers. There are 929 earlier source-
+rejection records checked through 254 unique native probes and 26 earlier
+targeted diagnostics. The 57 selected native programs, 192 core groups, 79 new
+guards and retained EllipticEnvelope score-shape guard passed. Three new guards
+are explicit native adapters (two scalar/raw-rank guards and RMSLE's mixed
+keyword rejection); 76 correspond to source rejections. Native tests exercise
+the legacy named and positional unallocated optional arrays, RNG preservation
+and owned raw results. Two examples ran, with the new one independently
+matching sklearn's MSLE/RMSLE/raw values and Poisson/Gamma examples.
+
+The combined audit verifies 239 dependency-aware compiled-unit fingerprints per
+profile, full matching inventories, stable source/executable/validator/report
+hashes and distinct optimized drivers. All other sklearn_metrics bodies match
+e3439cd after replacing three primitive functions and adding imports/exports.
+All non-RMSLE sklearn_regression_metrics bodies match after import/export and
+legacy-wrapper replacement. The general Tweedie/D2/pinball implementations are
+unchanged. Artifacts remain under ignored validation/results/distribution*,
+including distribution_final_audit.json. Four-job builds use the verified
+private fpm 0.14.0, GNU Fortran 17.0.0 20260510, checked flags -fcheck=all
+-fbacktrace -ffpe-trap=invalid,zero,overflow and --profile release. References
+use Python 3.13.3, sklearn 1.6.1 and NumPy 2.2.6 with C-contiguous real64 arrays
+and the default 8192-element buffer. Other math runtimes/layouts/settings can
+round differently. The global fpm is unchanged. Original integration remains
+MIT with retained sklearn/NumPy BSD notices. No dependency, new core type or
+public extension algorithm was added. The broad translation remains unfinished.

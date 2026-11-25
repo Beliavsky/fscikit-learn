@@ -9474,3 +9474,46 @@ Python 3.13.3. Checked flags: -fcheck=all -fbacktrace
 Inventory: 222 public core types, 171 source modules, 237 native programs,
 210 reference suites / 4,109,780 retained groups and 109 invalid registries /
 5,955 cases. The broader translation remains unfinished.
+
+
+## Weighted MSLE/RMSLE and Poisson/Gamma deviance (2026-11-24)
+
+Full checked and optimized fpm build --tests batches passed. Each profile
+passed 3,669 complete configurations: 11,224 new value/identity/IEEE groups,
+45 controlled source rejections and 1,741 matching nonfinite masks. All finite
+scores matched exactly (rtol=atol=3e-12 comparison). The independently regenerated
+inventory verifies every configuration ID, data hash, shape, rank, metric/mode
+and conditional field. Accepted calls run in a batch; rejected calls are
+isolated. The test covers log-domain boundaries/tiny differences, roots per
+output, signed/nonfinite sample weights, output validation, RMSLE legacy
+adapters, direct deviance columns/domains, extreme ratios and buffered sums.
+
+Both profiles also passed 33,120 earlier regression groups over 4,507 complete
+fixtures, with 26 earlier diagnostics and 929 source-rejection records exercised
+via 254 unique native probes. All 57 selected affected native programs, 192
+core groups, 79 new diagnostics and the retained score-shape guard passed.
+The new registry has 76 source rejections and three explicitly identified native
+adapter guards. Native tests additionally check optional/unallocated positional
+and keyword RMSLE compatibility, RNG state and owned raw results. Both examples
+ran; distribution-error example results match an independent sklearn calculation.
+These are affected checks, not every historical suite rerun.
+
+The combined audit checks 239 dependency-aware compiled units per profile,
+matching complete inventories, frozen source/executable/validator/report hashes,
+distinct optimized drivers and preservation of unrelated metric bodies in
+both existing modules. Artifacts remain under validation/results/distribution*,
+including distribution_final_audit.json. Numerical references fix sklearn 1.6.1,
+NumPy 2.2.6, C-contiguous float64 targets and the default 8192-element sum buffer.
+Other math runtimes/layouts/buffer settings can round differently. Original MIT
+integration and retained BSD attribution continue, without a new dependency.
+
+Builds use the private fpm 0.14.0 and GNU Fortran 17.0.0 20260510 with four jobs.
+Checked flags: -fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow. Optimized
+verification uses --profile release; references use Python 3.13.3. The attempted
+--list target-build shortcut did not create the executables, so actual proof
+uses full build --tests commands and fingerprinted artifacts. The global fpm
+was unchanged.
+
+Inventory: 222 public core types, 172 source modules, 238 native programs,
+211 reference suites / 4,121,004 retained groups and 110 invalid registries /
+6,034 cases. The broader translation remains unfinished.

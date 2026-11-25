@@ -1,9 +1,8 @@
 # Translation coverage
 
-MSLE/RMSLE now support full sample/output weighting and matrix rank pairs,
-including RMSLE's legacy optional argument adapters. Direct Poisson/Gamma
-deviances support weights and vector/one-column pairs. Checked/optimized
-verification is in progress; retained totals below describe the prior batch.
+MSLE/RMSLE support sample/output weighting and matrix rank pairs, including
+RMSLE's legacy optional argument adapters. Direct Poisson/Gamma deviances
+support weights and vector/one-column pairs, verified in both build profiles.
 
 Median absolute error supports sample/output weighting and matrix targets,
 with a raw-output helper; max_error accepts vector/one-column matrix pairs and
@@ -21,7 +20,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Two hundred and ten reference suites additionally check 4,109,780
+All types have native tests. Two hundred and eleven reference suites additionally check 4,121,004
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and optimality certificates.
 
@@ -11182,3 +11181,30 @@ BSD notices continue; no dependency, estimator type or ML extension is added.
 Inventory: 222 public core types, 171 source modules, 237 native programs,
 210 reference suites / 4,109,780 retained groups and 109 invalid registries /
 5,955 cases. The broader translation remains unfinished.
+
+
+## Weighted logarithmic and direct deviance errors (2026-11-24)
+
+MSLE/RMSLE support all vector/matrix rank pairs, sample/output weighting,
+owned raw results and quiet exceptional arithmetic. Targets in (-1,0) are valid,
+and log1p preserves tiny differences. RMSLE retains its predicted/output_weights
+keywords, positional optional-array semantics and old module import. Direct
+Poisson/Gamma deviances accept sample weights and vector/column pairs while
+rejecting multiple outputs. Their source-order kernels preserve xlogy zero
+semantics and overflow behavior. See API.md for domains, validation differences,
+legacy/native adapters and the general Tweedie API's remaining subset.
+
+Both profiles passed 11,224 new retained groups over 3,669 complete configurations,
+45 controlled source rejections and 1,741 matching nonfinite score masks. Finite
+differences were zero. Each also passed 33,120 earlier regression groups over
+4,507 fixtures, 57 selected native programs, 192 core groups, 79 new and 26
+earlier diagnostics and the score-shape guard. Earlier suite source rejection
+records total 929, checked via 254 unique native probes. Both examples ran;
+the new example matches an independent sklearn calculation. The audit checks
+239 compiled units per profile and preservation of all unrelated metric bodies.
+MIT integration and retained BSD attribution continue, without a new dependency,
+core type or ML extension.
+
+Inventory: 222 public core types, 172 source modules, 238 native programs,
+211 reference suites / 4,121,004 retained groups and 110 invalid registries /
+6,034 cases. The broader translation remains unfinished.
