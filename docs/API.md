@@ -9971,7 +9971,7 @@ model%init='k-means++'          ! or 'random'
 model%random_state=7
 model%algorithm='elkan'         ! or the default 'lloyd'
 call model%fit(x, sample_weight=weights)
-result=k_means(x, 3, sample_weight=weights, random_state=7)
+result=k_means(x, 3, sample_weight=weights, random_state=7, algorithm='elkan')
 ! result%centers, labels, inertia, n_iter, n_init and converged own the result.
 ```
 

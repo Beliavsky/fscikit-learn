@@ -77,7 +77,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Two hundred and thirty-nine reference suites additionally check 5,228,830
+All types have native tests. Two hundred and forty reference suites additionally check 5,294,098
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and explicitly recorded numerical certificates.
 
@@ -91,7 +91,7 @@ per sample; cross-decomposition, multi-task regression, joint MLP regression, Ke
 metadata routing, parallel backends and binary model persistence are outside the
 initial translation. The neighbor graph transformers provide CSR graph outputs and
 accept CSR precomputed distances, as do Isomap and Barnes-Hut TSNE. Randomized TruncatedSVD and direct Multinomial/
-Bernoulli/Complement Naive Bayes, SGD and MLP regression/classification, random projections, RBFSampler, Nystroem, AdditiveChi2Sampler, PolynomialCountSketch, StandardScaler, MaxAbsScaler, RobustScaler, QuantileTransformer, SimpleImputer, Normalizer/Binarizer and PolynomialFeatures also accept CSR matrices. KernelRidge (within its documented kernel limits) and Dummy baselines also accept CSR feature inputs. Weighted Lloyd KMeans also accepts CSR fitting and query inputs. Other estimator and
+Bernoulli/Complement Naive Bayes, SGD and MLP regression/classification, random projections, RBFSampler, Nystroem, AdditiveChi2Sampler, PolynomialCountSketch, StandardScaler, MaxAbsScaler, RobustScaler, QuantileTransformer, SimpleImputer, Normalizer/Binarizer and PolynomialFeatures also accept CSR matrices. KernelRidge (within its documented kernel limits) and Dummy baselines also accept CSR feature inputs. Weighted Lloyd and Elkan KMeans also accept CSR fitting and query inputs. Other estimator and
 meta-estimator inputs remain dense.
 Fortran identifiers use snake_case rather than CamelCase.
 
@@ -113,7 +113,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | linear_model | `linear_regression`, `lars`, `lasso_lars`, `lars_cv`, `lasso_lars_cv`, `lasso_lars_ic`, `ridge`, `ridge_regression`, `ridge_classifier`, `ridge_classifier_cv`, `multi_task_elastic_net`, `multi_task_lasso`, `multi_task_elastic_net_cv`, `multi_task_lasso_cv`, `lasso`, `elastic_net`, `lasso_cv`, `elastic_net_cv`, `logistic_regression`, `logistic_regression_cv`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `sgd_regressor`, `sgd_classifier`, `sgd_one_class_svm`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `orthogonal_matching_pursuit_cv`, `huber_regressor`, `quantile_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; public dense/CSR weighted multi-target ridge solvers including seeded SAG/SAGA and SAG intercepts; least-angle/Lasso homotopy paths with CV and AIC/BIC selection; coordinate descent with K-fold alpha/l1-ratio selection; weighted logistic Newton solver with raw-score prediction; perceptron; PA-I/II classification/regression with averaging; streaming stochastic-gradient regression/classification and one-class detection; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; weighted L1-regularized quantile regression; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb`, `categorical_nb` | Weighted/streaming Gaussian moments, empirical/fixed priors and variance smoothing; dense/CSR weighted and streaming discrete event counts and fixed/empirical priors; nonnegative scalar alpha and force_alpha flooring, plus feature-wise Multinomial/Complement smoothing; Bernoulli threshold or raw-feature mode; optional complement normalization |
 | neighbors | `neighborhood_components_analysis`, `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Supervised NCA metric learning; brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with shrinkage, uniform/empirical/custom priors and Euclidean discriminant probabilities; tree-based kernel density |
-| cluster | `kmeans`, `bisecting_kmeans`, `mini_batch_kmeans`, `spectral_coclustering`, `spectral_biclustering`, `hdbscan`, `dbscan`, `agglomerative_clustering`, `feature_agglomeration`, `mean_shift`, `affinity_propagation`, `spectral_clustering`, `optics`, `birch`; `k_means`, `kmeans_plusplus`, `estimate_bandwidth`, `cluster_optics_dbscan`, `cluster_optics_xi`, `ward_tree`, `linkage_tree` | Weighted dense/CSR Lloyd with source-seeded k-means++/random restarts and functional results; paired row/column spectral partitions and checkerboard biclustering; weighted streaming mini-batch centroids; bisecting centroid hierarchy with Lloyd/Elkan splits; density expansion; single/complete/average/Ward merge trees and feature pooling; flat-kernel mode seeking; damped exemplar messages; normalized-Laplacian clustering with k-means or pivoted QR assignment; OPTICS reachability ordering, Xi hierarchy and DBSCAN extraction; BIRCH streaming CF tree and optional Ward clustering; public full/partial Ward trees with connectivity completion and parent forests; fitted Ward/single/complete/average connectivity and threshold cuts; streamed/sparse single-linkage MSTs |
+| cluster | `kmeans`, `bisecting_kmeans`, `mini_batch_kmeans`, `spectral_coclustering`, `spectral_biclustering`, `hdbscan`, `dbscan`, `agglomerative_clustering`, `feature_agglomeration`, `mean_shift`, `affinity_propagation`, `spectral_clustering`, `optics`, `birch`; `k_means`, `kmeans_plusplus`, `estimate_bandwidth`, `cluster_optics_dbscan`, `cluster_optics_xi`, `ward_tree`, `linkage_tree` | Weighted dense/CSR Lloyd and Elkan with source-seeded k-means++/random restarts and functional results; paired row/column spectral partitions and checkerboard biclustering; weighted streaming mini-batch centroids; bisecting centroid hierarchy with Lloyd/Elkan splits; density expansion; single/complete/average/Ward merge trees and feature pooling; flat-kernel mode seeking; damped exemplar messages; normalized-Laplacian clustering with k-means or pivoted QR assignment; OPTICS reachability ordering, Xi hierarchy and DBSCAN extraction; BIRCH streaming CF tree and optional Ward clustering; public full/partial Ward trees with connectivity completion and parent forests; fitted Ward/single/complete/average connectivity and threshold cuts; streamed/sparse single-linkage MSTs |
 | decomposition | `pca`, `incremental_pca`, `truncated_svd`, `nmf`, `mini_batch_nmf`, `sparse_pca`, `mini_batch_sparse_pca`, `dictionary_learning`, `mini_batch_dictionary_learning`, `sparse_coder`, `latent_dirichlet_allocation`; `sparse_encode`, `dict_learning`, `dict_learning_online`, `non_negative_factorization`; re-exports `kernel_pca`, `factor_analysis`, `fast_ica` | Full/randomized/covariance PCA with automatic routing; PCA whitening/inversion, variance/Minka dimension selection and probabilistic scores; streaming stacked-SVD IncrementalPCA; exact dense and randomized dense/CSR TruncatedSVD; regularized NMF coordinate descent and beta-divergence multiplicative updates, with a free function supporting fixed-H solves; sparse dictionary factorization and SparsePCA; batch/online functional dictionary entry points with owned results and mutable typed callbacks; five sparse coding methods; nonlinear kernel PCA; full/randomized-SVD factor analysis with orthogonal rotations; parallel/deflation ICA |
 | cross_decomposition | `pls_regression`, `pls_canonical`, `cca`, `pls_svd` | Paired-matrix latent components: NIPALS regression/canonical deflation, CCA pseudoinverse mode, canonical direct SVD and PLSSVD cross-covariance projection; multiple response columns |
 | isotonic | `isotonic_regression`; `isotonic_fit`, `check_increasing` | Weighted pool-adjacent-violators, automatic Spearman direction, bounds, repeated-input aggregation and piecewise linear interpolation |
@@ -12867,8 +12867,9 @@ retain source norm, relocation and scoring behavior. Explicit centers permit
 finite signed and all-zero weights, while stochastic initialization checks
 normalized probabilities and random sampling's positive-support requirement.
 API.md records owned storage, n_init_effective_/n_features_in_ metadata and the
-native RNG/default adapters. Lloyd is implemented; Elkan, callable initialization,
-scalar-weight broadcasting, copy_x mutation and parallel execution remain gaps.
+native RNG/default adapters. At this batch's baseline, callable initialization,
+scalar-weight broadcasting, copy_x mutation, parallel execution and Elkan were
+gaps; the following batch adds Elkan.
 These limits do not change the separate BisectingKMeans implementation.
 
 The new suite retains 65,268 direct result groups across 9,324 configurations.
@@ -12906,4 +12907,51 @@ notices. No runtime dependency or algorithm extension was added. Inventory:
 222 public core types plus the owned result helper, 183 source modules,
 264 native test programs, 280 app drivers, 220 examples, 239 reference suites /
 5,228,830 retained groups and 136 invalid registries / 6,736 cases.
+The broader translation remains unfinished.
+
+## Weighted dense/CSR Elkan KMeans
+
+`kmeans` and `k_means` now accept algorithm='elkan' for dense and CSR fitting.
+The native implementation maintains sample upper/lower bounds and pairwise
+center bounds, tightens distances as required, prunes through the triangle
+inequality, and updates bounds after shared weighted center updates. It retains
+bounds through relocation and uses Elkan for the final assignment. One cluster
+falls back to Lloyd as in sklearn. Prediction still uses ordinary nearest-center
+assignment. A source-checked all-zero-weight test distinguishes Elkan's retained
+fit labels from Lloyd and from a subsequent predict call at coincident centers.
+
+The new strict reference suite checks 65,268 direct result groups across 9,324
+configurations, using actual sklearn 1.6.1 KMeans and k_means results. It covers
+dense/CSR fitting and queries, seeded k-means++/random/explicit initialization,
+restarts, iteration limits, weighted/signed/all-zero cases, raw CSR duplicate
+storage, rounded/offset data, empty centers, one-cluster fallback and up to
+129 features / nine clusters. Metadata and labels compare exactly; numeric
+comparisons use the existing 3e-8 tolerance. Both profiles have zero measured
+scaled error in this retained grid. All 12,522 source warnings are retained in
+the reference metadata, including sklearn's one-cluster fallback warnings.
+No certificates, native-derived expectations or tolerance changes were added.
+
+Full checked and optimized builds including tests passed with private fpm 0.14.0
+and GNU Fortran 17.0.0 20260510, using
+`-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow` and
+`-O3 -funroll-loops -fcoarray=single`. Each profile passed six selected native
+programs, both KMeans examples, 35 existing isolated guards and 192 core
+comparisons. Because the center-update code is now shared, both profiles also
+reran all 65,268 previous weighted Lloyd reference groups with zero measured
+error. Other historical suites were not rerun.
+
+The audit checks 199 dependency-aware compiled-unit fingerprints per profile
+(187 library units and twelve programs), stable source/validator/attribution
+manifests, identical inputs and distinct executables. All other library files,
+dependency declarations and license files are unchanged from 95f2f16. Logs,
+reference caches and manifests remain ignored under validation/results/elkan_*.
+
+The package remains MIT with sklearn BSD attribution retained, including
+Elkan author Andreas Mueller, and existing numerical-helper notices. No runtime
+dependency or algorithm extension was added. Elkan requires an additional
+n_samples-by-n_clusters lower-bound array. Callable initialization, scalar
+weight broadcasting, copy_x mutation and parallel execution remain gaps.
+Inventory: 222 public core types plus the owned result helper, 183 source modules,
+265 native test programs, 281 app drivers, 221 examples, 240 reference suites /
+5,294,098 retained groups and 136 invalid registries / 6,736 cases.
 The broader translation remains unfinished.
