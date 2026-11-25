@@ -7047,3 +7047,18 @@ Minkowski powers, squared distances, sparse storage fallbacks, missing overlap,
 chunk boundaries, cancellation and overflow. Source expected rejections run
 separately. The invalid suite identifies its NaN-power native adapter explicitly.
 Older pairwise/core/native checks are recorded separately.
+
+
+Additional numeric/Boolean nearest-pair dissimilarities:
+```
+python validation/compare_extra_dissimilarities.py --executable build/gfortran_E1FE13DB8881E18E/app/reference_pairwise_reductions_driver.exe --profile checked --report validation/results/extra_dissimilarities_new_checked.json
+python validation/check_extra_dissimilarities_invalid_inputs.py --executable build/gfortran_E1FE13DB8881E18E/app/reference_pairwise_reductions_driver.exe --profile checked --report validation/results/extra_dissimilarities_invalid_checked.json
+```
+Repeat for release. The suite separately counts strict sklearn configurations
+and the explicitly identified dense-contract adapter for incomplete CSR
+Bray-Curtis rows, avoiding the pinned source's exhausted-buffer accesses.
+Both methods compare exact nearest indices, distance arrays/nonfinite masks,
+API agreement, input identity and IEEE state. Controlled source rejections
+run separately. Sixty targeted diagnostics cover source sparse-storage and
+finite-input restrictions. Existing nearest-pair/pairwise/core/native suites
+are recorded separately.

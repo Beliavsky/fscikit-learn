@@ -348,6 +348,18 @@ contains
   case('cosine');kind=7
   case('nan_euclidean');kind=8
   case('haversine');kind=9
+  case('braycurtis');kind=10
+  case('canberra');kind=11
+  case('correlation');kind=12
+  case('hamming');kind=13
+  case('dice');kind=14
+  case('jaccard');kind=15
+  case('rogerstanimoto');kind=16
+  case('russellrao');kind=17
+  case('sokalmichener');kind=18
+  case('sokalsneath');kind=19
+  case('yule');kind=20
+  case('matching');kind=21
   end select
   call require(kind>0,'unsupported nearest-pair distance metric')
  end function
@@ -437,6 +449,7 @@ contains
   real(dp)::power,value
   real(dp),allocatable::u(:),v(:)
   logical::square,halting(size(ieee_all)),raised(size(ieee_all)),allow_nan,optimized,backend_ok,self_pair
+  logical,allocatable::mask_u(:),mask_v(:)
   direction=1;if(present(axis))direction=axis
   call require(direction==0.or.direction==1,'nearest-pair axis must be 0 or 1')
   kind=0;if(.not.present(callback))kind=metric_kind(metric)
@@ -450,9 +463,11 @@ contains
   backend_ok=.true.
   if(associated(x%sparse))backend_ok=backend_ok.and.size(x%sparse%data)>0
   if(associated(y%sparse))backend_ok=backend_ok.and.size(y%sparse%data)>0
-  if(kind==2.or.kind==5.or.kind==6)call require(backend_ok, &
+  if(any(kind==[2,5,6,10,11,21]))call require(backend_ok, &
    'this nearest-pair metric requires nonempty CSR storage')
   if(kind==9)call require(x%p==2,'haversine requires latitude and longitude columns')
+  if(kind>=12.and.kind<=20)call require(.not.associated(x%sparse).and..not.associated(y%sparse), &
+   'this nearest-pair dissimilarity requires dense inputs')
   power=2
   if(present(p))then
    call require(kind==6,'p is only supported for Minkowski nearest-pair distances')
@@ -476,7 +491,13 @@ contains
   end if
   optimized=kind/=0.and.kind/=7.and.kind/=8.and.backend_ok
   if(kind==1.and.associated(a%sparse).and.associated(b%sparse))optimized=.false.
+  if(kind>=12.and.kind<=20)optimized=.false.
   allocate(indices(a%n),distances(a%n),u(a%p),v(a%p))
+  if(kind>=10)then
+   allocate(mask_u(a%p),mask_v(a%p))
+  else
+   allocate(mask_u(0),mask_v(0))
+  end if
   ! Capture all flags before any halting-mode changes (Windows clears flags).
   do k=1,size(ieee_all)
    call ieee_get_flag(ieee_all(k),raised(k))
@@ -493,6 +514,7 @@ contains
    else
     call get_row(a,i,u)
    end if
+   if(kind>=10)call stored_row(a,i,mask_u)
    indices(i)=1;distances(i)=huge(1._dp)
    do j=1,b%n
     if(kind==9)then
@@ -500,12 +522,15 @@ contains
     else
      call get_row(b,j,v)
     end if
+    if(kind>=10)call stored_row(b,j,mask_v)
     if(present(callback))then
      if(self_pair.and.i>j)then
       value=callback(v,u)
      else
       value=callback(u,v)
      end if
+    else if(kind>=10)then
+     value=extended_distance(u,v,kind,associated(a%sparse),associated(b%sparse),mask_u,mask_v)
     else
      value=row_distance(u,v,kind,power,square,associated(a%sparse),associated(b%sparse))
     end if
@@ -540,4 +565,133 @@ contains
    call ieee_set_flag(ieee_all(k),raised(k))
   end do
  end subroutine
+ ! Additional kernels: sklearn DistanceMetric and SciPy 1.15.3 spatial
+ ! distance.py / src/distance_impl.h. Damian Eads (2007, 2008), BSD-3-Clause;
+ ! see LICENSES/scipy-distance-BSD and LICENSES/scipy-COPYING.
+ subroutine stored_row(a,i,mask)
+  type(row_view),intent(in)::a
+  integer,intent(in)::i
+  logical,intent(out)::mask(:)
+  integer::k
+  mask=.true.
+  if(associated(a%sparse))then
+   mask=.false.
+   do k=a%sparse%indptr(i),a%sparse%indptr(i+1)-1
+    mask(a%sparse%indices(k))=.true.
+   end do
+  end if
+ end subroutine
+ recursive real(dp) function ordered_pairwise(a)result(total)
+  real(dp),intent(in)::a(:)
+  real(dp)::lane(8)
+  integer::n,i,j,whole,split
+  n=size(a);total=-0._dp
+  if(n<8)then
+   do i=1,n
+    total=total+a(i)
+   end do
+  else if(n<=128)then
+   lane=a(:8);whole=n-mod(n,8)
+   do i=9,whole,8
+    do j=1,8
+     lane(j)=lane(j)+a(i+j-1)
+    end do
+   end do
+   total=((lane(1)+lane(2))+(lane(3)+lane(4)))+((lane(5)+lane(6))+(lane(7)+lane(8)))
+   do i=whole+1,n
+    total=total+a(i)
+   end do
+  else
+   split=n/2;split=split-mod(split,8)
+   total=ordered_pairwise(a(:split))+ordered_pairwise(a(split+1:))
+  end if
+ end function
+ real(dp)function ordered_sum(a)result(total)
+  real(dp),intent(in)::a(:)
+  integer::first,last
+  total=0
+  do first=1,size(a),8192
+   last=min(size(a),first+8191);total=total+ordered_pairwise(a(first:last))
+  end do
+ end function
+ real(dp)function extended_distance(u,v,kind,sparse_u,sparse_v,mask_u,mask_v)result(value)
+  real(dp),intent(in)::u(:),v(:)
+  integer,intent(in)::kind
+  logical,intent(in)::sparse_u,sparse_v,mask_u(:),mask_v(:)
+  real(dp)::num,den,mean_u,mean_v,x,y,xx,yy,xy,tt,ff,tf,ft,unequal,cosine,n
+  integer::k
+  logical::bu,bv
+  value=0;n=real(size(u),dp)
+  select case(kind)
+  case(10)
+   num=0;den=0
+   do k=1,size(u)
+    num=num+abs(u(k)-v(k));den=den+(abs(u(k))+abs(v(k)))
+   end do
+   if(den>0)then
+    value=num/den
+   end if
+   ! CSR Bray-Curtis in the pinned source has exhausted-buffer tail reads.
+   ! Use its dense numerical contract, including zero for a zero denominator.
+  case(11)
+   do k=1,size(u)
+    den=abs(u(k))+abs(v(k))
+    if(sparse_u.or.sparse_v)then
+     if(mask_u(k).and.mask_v(k))then
+      value=value+abs(u(k)-v(k))/den
+     else if(mask_u(k).or.mask_v(k))then
+      value=value+1
+     end if
+    else if(den>0)then
+     value=value+abs(u(k)-v(k))/den
+    end if
+   end do
+  case(12)
+   mean_u=ordered_sum(u)/n;mean_v=ordered_sum(v)/n
+   xx=0;yy=0;xy=0
+   do k=1,size(u)
+    x=u(k)-mean_u;y=v(k)-mean_v
+    xx=xx+x*x;yy=yy+y*y;xy=xy+x*y
+   end do
+   cosine=xy/(sqrt(xx)*sqrt(yy))
+   if(abs(cosine)>1)cosine=sign(1._dp,cosine)
+   value=1-cosine
+  case(13)
+   do k=1,size(u)
+    if(u(k)/=v(k))value=value+1
+   end do
+   value=value/n
+  case(14:21)
+   tt=0;tf=0;ft=0;ff=0
+   do k=1,size(u)
+    bu=u(k)/=0;bv=v(k)/=0
+    if(bu.and.bv)then
+     tt=tt+1
+    else if(bu)then
+     tf=tf+1
+    else if(bv)then
+     ft=ft+1
+    else
+     ff=ff+1
+    end if
+   end do
+   unequal=tf+ft
+   select case(kind)
+   case(14)
+    value=unequal/(2*tt+unequal)
+   case(15)
+    if(tt+unequal>0)value=unequal/(tt+unequal)
+   case(16,18)
+    value=(2*unequal)/(n+unequal)
+   case(17)
+    value=(n-tt)/n
+   case(19)
+    value=(2*unequal)/(2*unequal+tt)
+   case(20)
+    if(tf*ft/=0)value=(2*tf*ft)/(tt*ff+tf*ft)
+   case(21)
+    value=unequal/n
+   end select
+  end select
+ end function
 end module

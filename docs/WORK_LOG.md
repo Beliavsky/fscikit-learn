@@ -8995,3 +8995,21 @@ validation/results/pairwise_reductions*, including the combined final audit.
 Inventory: 222 public core types, 175 source modules, 241 native programs,
 214 reference suites / 4,180,483 retained groups and 113 invalid registries /
 6,177 cases. The broader translation remains unfinished.
+
+
+## Additional nearest-pair dissimilarities (2026-11-25, in progress)
+
+Added twelve named numeric/Boolean distances to the streaming nearest-pair
+APIs, including source optimized/fallback selection, numeric Hamming versus
+Boolean matching, source constant/all-false NaNs, centered correlation and
+Canberra's sparse stored-position rules. Existing named kernels and wrappers
+remain intact. Closed-form native tests and 60 targeted source rejection guards
+pass in private checked probes; broad accepted-case verification is in progress.
+
+The pinned sparse Bray-Curtis tail loops access the exhausted opposite row
+buffer, potentially outside allocated storage. The native CSR path therefore
+uses sklearn's dense numerical contract on streamed logical rows. Incomplete
+CSR configurations are explicitly marked as adaptations in validation; strict
+sparse-source parity is not claimed there. This changes no algorithm scope.
+SciPy distance copyright/BSD notices are retained alongside original MIT
+integration. Full package checked/release verification will be recorded below.

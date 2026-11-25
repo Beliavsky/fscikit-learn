@@ -1,5 +1,9 @@
 # Translation coverage
 
+Additional numeric and Boolean nearest-pair dissimilarities are in progress.
+Full checked/optimized verification is pending; totals below retain the prior
+verified batch.
+
 Streaming nearest-pair reductions now support dense/CSR inputs, both axes and
 row callbacks, verified in checked and optimized profiles.
 

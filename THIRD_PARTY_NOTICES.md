@@ -2181,3 +2181,15 @@ preservation. The old regression implementation is replaced by a compatibility
 facade. Original integration, diagnostics, harness and example are MIT; root
 LICENSE/fpm MIT declarations remain unchanged. No dependency or ML extension
 is introduced.
+
+
+The added nearest-pair dissimilarities also adapt SciPy 1.15.3
+`spatial/distance.py`, `spatial/src/distance_impl.h`, and the numerical formulas
+in `spatial/src/distance_metrics.h`. SciPy BSD notices are retained in
+`LICENSES/scipy-COPYING`; the distance implementation's Damian Eads (2007, 2008)
+BSD notice is additionally retained in `LICENSES/scipy-distance-BSD`.
+Pinned source: https://github.com/scipy/scipy/blob/v1.15.3/scipy/spatial/src/distance_impl.h.
+The native streaming CSR Bray-Curtis adapter uses sklearn's dense numerical
+contract instead of the source CSR exhausted-buffer reads. It is explicitly
+identified in API.md and the validation comparison methods. Original native
+integration remains MIT; applicable upstream BSD terms continue to apply.

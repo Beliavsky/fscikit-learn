@@ -8902,10 +8902,46 @@ coordinates modulo the zero-based CSR row start; this source behavior is
 preserved even where its answer differs from the dense Haversine calculation.
 Use dense inputs for ordinary geographic coordinate semantics.
 
-This port does not yet expose the remaining SciPy metric names, per-feature
+This port does not yet expose Mahalanobis/standardized-Euclidean distances, per-feature
 Minkowski weights, Mahalanobis/standardized-Euclidean parameters, distance
 objects, Python keyword dictionaries, joblib controls or alternative reduction
 backends. The native adapter explicitly rejects NaN Minkowski powers (the
 source optimized backend can accept them). Named metrics reject inapplicable
 native keywords. These interfaces add no algorithm beyond sklearn.
 See [`example/nearest_pairs.f90`](../example/nearest_pairs.f90).
+
+
+### Additional nearest-pair dissimilarities
+
+The same nearest-pair APIs also accept `braycurtis`, `canberra`, `correlation`,
+`hamming`, `matching`, `dice`, `jaccard`, `rogerstanimoto`, `russellrao`,
+`sokalmichener`, `sokalsneath`, and `yule`. These are algorithms exposed by the
+pinned sklearn 1.6.1 API; several names are deprecated in that source stack.
+No per-feature weights or additional metric parameters are exposed yet.
+
+Correlation centers each row using NumPy-compatible sums, then applies the
+SciPy centered-cosine calculation. Constant rows give NaN. Hamming compares
+numeric coordinates; matching and the Boolean dissimilarities compare zero
+versus nonzero, so negative values are true. All-false pairs give NaN for Dice
+and Sokal-Sneath, zero for Jaccard/Yule/matching, and one for Russell-Rao.
+Fallback reductions retain the first NaN minimum and otherwise the first tie.
+
+Bray-Curtis, Canberra and matching accept all dense/CSR combinations when CSR
+storage is nonempty, following the source backend restrictions. The other
+new names reject CSR, as sklearn's SciPy fallback does. Canberra preserves the
+source distinction between implicit sparse zeros and stored positions, including
+mixed dense/CSR zeros. Bray-Curtis uses the optimized sklearn denominator
+sum(abs(u)+abs(v)), including for signed vectors, and zero for two zero rows.
+
+**Identified native adaptation:** sparse Bray-Curtis uses the sklearn dense
+numerical contract on logical row values. The pinned `_dist_metrics.pyx.tp`
+CSR tail loops access the exhausted opposite buffer instead of the remaining
+row. This can read unrelated or out-of-bounds storage. The native routine
+streams rows and never makes those accesses. For incomplete CSR rows, validation
+uses sklearn's dense Bray-Curtis reference and identifies the comparison method
+explicitly; those configurations are not counted as strict sparse-source
+comparisons. This is an implementation adaptation of an existing sklearn
+metric, with no new machine-learning algorithm.
+
+The implementation remains serial, real64 and linear in row workspace. Arrays
+and IEEE state are preserved. See [example/extra_dissimilarities.f90](../example/extra_dissimilarities.f90).
