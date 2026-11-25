@@ -115,13 +115,23 @@ def main():
     assert not any(s in output for s in ['SIGFPE','Fortran runtime error']),(i,output)
     unique[key]=len(unique)
    source_rejections.append(dict(fixture=i,metric=metric,probe=unique[key],passed=True))
- invalid=dict(tweedie_constant='null deviance is zero',empty='nonempty',shape='shapes differ',target_nan='finite',pred_inf='finite',alpha_low='[0,1]',alpha_high='[0,1]',alpha_nan='finite',alpha_inf='finite',weight_length='length mismatch',weight_nan='finite',weight_inf='finite',weight_zero='nonzero total',weight_cancel='nonzero total',output_length='length mismatch',output_nan='finite',output_inf='finite',output_zero='nonzero total',rmsle_target='greater than -1',rmsle_prediction='greater than -1',power_gap='at most zero',power_nan='finite',power_inf='finite',positive_prediction='strictly positive',nonnegative_target='nonnegative',positive_target='strictly positive');rejections=[]
+ # Infinite Tweedie weights are accepted by sklearn. Keep the former invalid
+ # fixture as a numerical acceptance regression, separate from guard counts.
+ with warnings.catch_warnings(),np.errstate(all='ignore'):
+  warnings.simplefilter('ignore');expected=mean_tweedie_deviance([1.,1.],[2.,2.],sample_weight=[np.inf,1.])
+ r=subprocess.run([str(exe),'weight_inf'],text=True,capture_output=True)
+ assert r.returncode==0,(r.stdout,r.stderr)
+ fields=r.stdout.split();assert fields[:2]==['weight_inf','1'] and len(fields)==3,fields
+ actual=float(fields[2]);assert np.isnan(actual)==np.isnan(expected) and np.isposinf(actual)==np.isposinf(expected) and np.isneginf(actual)==np.isneginf(expected),(actual,expected)
+ if np.isfinite(expected):np.testing.assert_allclose(actual,expected,rtol=3e-11,atol=3e-11)
+ accepted_regressions=[dict(case='weight_inf',passed=True,source_nan=bool(np.isnan(expected)))]
+ invalid=dict(tweedie_constant='null deviance is zero',empty='nonempty',shape='shapes differ',target_nan='finite',pred_inf='finite',alpha_low='[0,1]',alpha_high='[0,1]',alpha_nan='finite',alpha_inf='finite',weight_length='length mismatch',weight_nan='finite',weight_zero='nonzero total',weight_cancel='nonzero total',output_length='length mismatch',output_nan='finite',output_inf='finite',output_zero='nonzero total',rmsle_target='greater than -1',rmsle_prediction='greater than -1',power_gap='at most zero',power_nan='finite',power_inf='finite',positive_prediction='strictly positive',nonnegative_target='nonnegative',positive_target='strictly positive');rejections=[]
  for mode,message in invalid.items():
   r=subprocess.run([str(exe),mode],text=True,capture_output=True);output=r.stdout+r.stderr;primary=next((s for s in output.splitlines() if s.startswith('fscikit-learn:')),'')
   assert r.returncode!=0 and message in primary,(mode,output);assert not any(s in output for s in ['SIGFPE','Fortran runtime error']),(mode,output)
   rejections.append(dict(case=mode,passed=True))
  import sklearn.metrics._regression as source
  import sklearn.utils.stats as stats
- report=dict(profile=args.profile,sklearn=sklearn.__version__,numpy=np.__version__,fixtures=len(cases),checks=checks,inventories=inventories,configurations=configs,rejections=rejections,source_nonfinite_values=nonfinite,source_rejections=source_rejections,unique_source_rejection_probes=len(unique),executable_sha256=sha(exe),validator_sha256=sha(__file__),source_sha256=sha(source.__file__),stats_source_sha256=sha(stats.__file__),native_source_sha256={n:sha(ROOT/'src'/n) for n in ['sklearn_regression_metrics.f90','sklearn_metrics.f90','sklearn_ieee_math.f90']})
+ report=dict(profile=args.profile,sklearn=sklearn.__version__,numpy=np.__version__,fixtures=len(cases),checks=checks,inventories=inventories,configurations=configs,rejections=rejections,accepted_regressions=accepted_regressions,source_nonfinite_values=nonfinite,source_rejections=source_rejections,unique_source_rejection_probes=len(unique),executable_sha256=sha(exe),validator_sha256=sha(__file__),source_sha256=sha(source.__file__),stats_source_sha256=sha(stats.__file__),native_source_sha256={n:sha(ROOT/'src'/n) for n in ['sklearn_regression_metrics.f90','sklearn_metrics.f90','sklearn_ieee_math.f90']})
  args.report.parent.mkdir(parents=True,exist_ok=True);args.report.write_text(json.dumps(report,indent=2,allow_nan=False)+'\n');print(len(checks),'groups /',len(cases),'fixtures /',len(rejections),'diagnostics PASS;',nonfinite,'nonfinite source values',flush=True)
 if __name__=='__main__':main()

@@ -10,6 +10,10 @@ program reference_regression_metrics_driver
   character(60) :: mode
   nan=ieee_value(0._dp,ieee_quiet_nan);inf=ieee_value(0._dp,ieee_positive_inf)
   call get_command_argument(1,mode)
+  if(trim(mode)=='weight_inf') then
+    value=mean_tweedie_deviance([1._dp,1._dp],[2._dp,2._dp],sample_weight=[inf,1._dp])
+    call vector('weight_inf',[value]);stop
+  end if
   if(trim(mode)=='pinball_stdin') then
     read(*,*) n,q,weighted,alpha
     allocate(y(n,q),pred(n,q))
@@ -129,7 +133,6 @@ contains
     case('alpha_inf');value=d2_pinball_score(a,b,alpha=inf)
     case('weight_length');value=mean_pinball_loss(a,b,sample_weight=w(:1))
     case('weight_nan');w(1)=nan;value=d2_absolute_error_score(a,b,sample_weight=w)
-    case('weight_inf');w(1)=inf;value=mean_tweedie_deviance(a(:,1),b(:,1),w)
     case('weight_zero');w=0;value=mean_pinball_loss(a,b,w)
     case('weight_cancel');w=[-1._dp,1._dp];value=d2_pinball_score(a,b,w)
     case('output_length');value=mean_pinball_loss(a,b,output_weights=ow(:1))

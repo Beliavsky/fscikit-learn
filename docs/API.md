@@ -8801,8 +8801,8 @@ are native API adaptations, not ML extensions.
 vector or one-column matrix pairs and reject multiple outputs. Poisson requires
 y >= 0 and p > 0, with xlogy(0,0) interpreted as zero. Gamma requires y > 0 and
 p > 0. Signed/nonfinite sample weights follow sklearn; zero sums reject. These
-direct APIs now support source-compatible weighting independently of the older
-general Tweedie/D2 API's documented subset. No output-aggregation argument is
+direct APIs and the general Tweedie/D2 family support these source-compatible
+weight/rank contracts. No output-aggregation argument is
 offered for the direct deviance metrics.
 
 Valid intermediate overflow/invalid arithmetic propagates quietly as NaN or
@@ -8812,3 +8812,38 @@ element buffered sums. Other math runtimes, layouts or buffer settings can
 round differently. The C math functions are already part of the compiler
 runtime; no Python/BLAS or new package dependency is introduced. See
 [`example/distribution_errors.f90`](../example/distribution_errors.f90).
+
+
+## General weighted Tweedie deviance and D2
+
+`mean_tweedie_deviance(y,predicted[,sample_weight,power])` and
+`d2_tweedie_score` accept real64 vectors or one-column matrices, including mixed
+rank pairs. Existing keywords and positional calls/imports remain supported.
+Targets must be finite, nonempty and shape-compatible; multiple outputs reject.
+`power` defaults to zero and must be finite and <= 0 or >= 1. For power < 0,
+predictions must be positive and truth can be any finite real. Power zero permits
+arbitrary finite truth/predictions. Powers in [1,2) require nonnegative truth
+and positive predictions; powers >= 2 require positive truth and predictions.
+
+Optional sample weights must match sample count. Signed/nonfinite weights
+propagate through the source arithmetic; zero totals reject when reduction is
+reached. D2 validates target shapes/finite values and power, then returns NaN
+for one sample before weight-length/sum or domain checks, matching sklearn
+1.6.1. Empty targets and multioutput shapes still reject before this shortcut.
+
+The kernels preserve sklearn's power-specific formulas, including clamping
+negative truth only in the first power < 0 term, squared error for power zero,
+the xlogy Poisson convention and the Gamma log/ratio kernel. Arithmetic is
+evaluated in source order under temporary IEEE masks. NaN/infinity results from
+overflow, underflow and invalid ratios propagate without triggering caller
+traps; IEEE flags/modes, input arrays and RNG state are preserved.
+
+D2 divides the prediction deviance by a null-model deviance at the weighted
+truth mean. The null prediction is not revalidated: signed/nonfinite weights
+can make it nonpositive or nonfinite, and the source kernel determines the
+result. A zero null deviance rejects (Python scalar zero division); NaN null
+deviance propagates. Poisson xlogy(0,NaN) remains NaN, including a zero truth/zero
+null prediction. Warning emission is omitted. Vector reductions match NumPy
+2.2.6's default 8192-element buffered pairwise sums; math runtimes and buffer
+settings may round differently. Original integration remains MIT with retained
+sklearn/NumPy BSD notices. See [`example/tweedie_scores.f90`](../example/tweedie_scores.f90).

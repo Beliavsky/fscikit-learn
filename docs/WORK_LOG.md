@@ -1,5 +1,30 @@
 # Translation work log
 
+## General weighted Tweedie deviance/D2 implementation (2026-11-24)
+
+Extended the general Tweedie family to all vector/one-column rank pairs and
+source-compatible signed/nonfinite sample weights, preserving existing names,
+keywords and module imports. The power-specific kernels now use source-order
+arithmetic under temporary IEEE masks and NumPy buffered sums. D2 keeps the
+source's one-sample return before weight-length/domain checks, scalar-mean null
+model without revalidation, zero-null-deviance rejection and NaN propagation.
+Poisson xlogy(0,NaN) is preserved for zero null predictions. Other regression
+metric bodies and the main metrics facade are unchanged. Original integration
+remains MIT with retained sklearn/NumPy BSD notices; no dependency or ML
+extension is introduced.
+
+The preliminary checked probe passed 7,734 configurations / 23,013 retained
+value/identity/IEEE groups / 63 controlled rejections, with zero finite
+differences and all 4,186 nonfinite masks matching. The incoming inexact flag
+alternates clear/set to check both restoration paths. All 41 targeted guards
+passed. The independently regenerated source inventory matches these counts.
+Full fpm checked/optimized batches passed, including 33,120 earlier regression
+groups, 58 native programs, 192 core groups, 41 new and 25 earlier diagnostics,
+plus the retained score-shape guard. The old infinity-weight rejection migrated
+to an accepted NaN regression checked against sklearn; its obsolete invalid
+classification is removed from the inventory. The audit passed all 241 compiled
+units per profile and frozen hashes. Final results are recorded separately.
+
 ## Weighted logarithmic and direct deviance implementation (2026-11-24)
 
 Extended MSLE/RMSLE with sample weights, all vector/matrix rank pairs, output

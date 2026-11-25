@@ -1,6 +1,7 @@
 ! sklearn 1.6.1 metrics/_regression.py and utils/stats.py contracts (BSD).
 ! Native rank adapters and quiet IEEE composition are original MIT contributions.
 module sklearn_regression_metrics
+  use sklearn_tweedie_scores,only:mean_tweedie_deviance,d2_tweedie_score
   use sklearn_distribution_errors,only:root_mean_squared_log_error,root_mean_squared_log_error_raw
   use sklearn_common, only: dp,require
   use sklearn_ieee_math, only: ieee_difference,ieee_product,ieee_quotient,ieee_total,ieee_mean
@@ -282,33 +283,6 @@ contains
     if(power>=1.and.power<2) call require(all(y>=0),'Tweedie targets must be nonnegative')
     if(power>=2) call require(all(y>0),'Tweedie targets must be strictly positive')
   end subroutine
-  real(dp) function mean_tweedie_deviance(y,predicted,sample_weight,power) result(value)
-    real(dp), intent(in) :: y(:),predicted(:)
-    real(dp), optional, intent(in) :: sample_weight(:),power
-    real(dp) :: p
-    p=0;if(present(power)) p=power
-    call check_power(p)
-    call check_arrays(reshape(y,[size(y),1]),reshape(predicted,[size(predicted),1]),sample_weight)
-    call check_tweedie_domain(y,predicted,p)
-    value=tweedie_loss(y,predicted,p,sample_weight)
-  end function
-  real(dp) function d2_tweedie_score(y,predicted,sample_weight,power) result(value)
-    real(dp), intent(in) :: y(:),predicted(:)
-    real(dp), optional, intent(in) :: sample_weight(:),power
-    real(dp) :: p,num,den,baseline(size(y))
-    p=0;if(present(power)) p=power
-    call check_power(p)
-    call check_arrays(reshape(y,[size(y),1]),reshape(predicted,[size(predicted),1]),sample_weight, &
-      check_mass=size(y)>=2)
-    if(size(y)<2) then
-      value=nan_value();return
-    end if
-    call check_tweedie_domain(y,predicted,p)
-    num=tweedie_loss(y,predicted,p,sample_weight);baseline=ieee_mean(y,sample_weight)
-    den=tweedie_loss(y,baseline,p,sample_weight)
-    if(.not.ieee_is_nan(den)) call require(den/=0,'D2 Tweedie null deviance is zero')
-    value=ieee_difference(1._dp,ieee_quotient(num,den))
-  end function
   real(dp) function mean_pinball_loss_vector(y,predicted,sample_weight,alpha,output_weights,raw_values) result(value)
     real(dp), intent(in) :: y(:),predicted(:)
     real(dp), optional, intent(in) :: sample_weight(:),output_weights(:)

@@ -7005,3 +7005,17 @@ regression-metric reference suite is also rerun for RMSLE's existing module,
 positional and output_weights callers. Native tests check legacy keyword
 adapters, valid negative log targets, tiny log1p losses, roots per output, RNG
 and owned results. Affected/core validation is recorded in docs/VALIDATION.md.
+
+
+General Tweedie deviance/D2:
+```
+python validation/compare_tweedie_scores.py --executable build/gfortran_E1FE13DB8881E18E/app/reference_tweedie_scores_driver.exe --profile checked --report validation/results/tweedie_new_checked.json
+python validation/check_tweedie_scores_invalid_inputs.py --executable build/gfortran_E1FE13DB8881E18E/app/reference_tweedie_scores_driver.exe --profile checked --report validation/results/tweedie_invalid_checked.json
+```
+Repeat for release/profile. The batched accepted cases check values/nonfinite
+masks, input identity and IEEE state, alternating the incoming inexact flag
+between clear/set. Source rejections and targeted guards run separately.
+Coverage includes all rank pairs, powers near boundaries, wide powers, extreme
+ratios, signed/nonfinite weights, D2 early/null-model behavior and buffered
+sums. Earlier regression-metric and selected native/core suites are recorded
+separately; these commands do not imply all historical suites were rerun.

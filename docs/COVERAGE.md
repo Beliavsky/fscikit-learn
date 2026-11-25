@@ -1,5 +1,10 @@
 # Translation coverage
 
+General Tweedie deviance/D2 now support all vector/column rank pairs and source-
+compatible signed/nonfinite sample weights, including D2's one-sample shortcut.
+Checked/optimized verification is in progress; retained totals below describe
+the prior completed batch.
+
 MSLE/RMSLE support sample/output weighting and matrix rank pairs, including
 RMSLE's legacy optional argument adapters. Direct Poisson/Gamma deviances
 support weights and vector/one-column pairs, verified in both build profiles.

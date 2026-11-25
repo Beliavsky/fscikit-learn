@@ -633,3 +633,9 @@ raw results, including valid targets between -1 and zero. Poisson/Gamma deviance
 support weights and vector/one-column pairs. See
 [the example](example/distribution_errors.f90) and
 [API contract](docs/API.md#weighted-logarithmic-errors-and-poissongamma-deviance).
+
+
+General Tweedie deviance and D2 support sample weighting and vector/column pairs,
+including source-compatible nonfinite weights and D2's one-sample shortcut.
+See [the example](example/tweedie_scores.f90) and
+[API contract](docs/API.md#general-weighted-tweedie-deviance-and-d2).

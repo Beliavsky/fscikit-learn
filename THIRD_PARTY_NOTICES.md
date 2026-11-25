@@ -2142,3 +2142,20 @@ results, IEEE preservation and RMSLE legacy keyword/module adapters. The old
 non-RMSLE regression-metric bodies remain unchanged. Original integration,
 diagnostics, batched driver/reference harness and example are MIT. Root LICENSE
 and fpm's MIT declaration are unchanged. No dependency or ML extension is added.
+
+
+## General weighted Tweedie deviance and D2 (BSD / MIT)
+
+src/sklearn_tweedie_scores.f90 translates mean_tweedie_deviance,
+d2_tweedie_score and _mean_tweedie_deviance from scikit-learn 1.6.1
+metrics/_regression.py, by the scikit-learn developers (BSD-3-Clause).
+Source: https://github.com/scikit-learn/scikit-learn/blob/1.6.1/sklearn/metrics/_regression.py
+Installed source SHA256:
+60453695ff142bd8242274f894ad141fbc025814996f51b4507660bf6688dfd1.
+NumPy 2.2.6 buffered sums reuse the previously attributed reduction adaptation.
+Full sklearn/NumPy BSD licenses remain in LICENSES/. Changes include explicit
+rank adapters, source-order power arithmetic under quiet IEEE masks, serial
+null-model evaluation and state preservation. Existing non-Tweedie/D2 bodies
+remain unchanged. Typed adapters, diagnostics, reference harness and example
+are MIT integration. No dependency or ML extension is added; root LICENSE/fpm
+MIT declarations are unchanged.
