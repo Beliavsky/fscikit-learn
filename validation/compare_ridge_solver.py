@@ -43,8 +43,8 @@ def main():
      if variant=='rank_deficient':x[:,1]=x[:,0]
      weights=np.zeros(5) if variant=='zero_weights' else np.ones(5)
      for sparse in [False,True]:
-      for solver in ['svd','sparse_cg','lsqr','lbfgs']:
-       if sparse and solver=='svd':continue
+      for solver in ['svd','cholesky','sparse_cg','lsqr','lbfgs']:
+       if sparse and (solver=='svd' or (solver=='cholesky' and variant=='rank_deficient')):continue
        for cap in [0,-1]:
         positive=solver=='lbfgs';alpha=np.array([0. if variant=='rank_deficient' else 1.])
         with warnings.catch_warnings():
@@ -57,6 +57,17 @@ def main():
         lines += [' '.join(map(str,row)) for row in x]
         lines += [' '.join(map(str,row)) for row in y]
         lines += [' '.join(map(str,alpha)),' '.join(map(str,weights))]
+    for sparse in [False,True]:
+      x=np.array([[1.,0.,0.],[1.,0.,0.]])
+      y=np.array([[1.,2.],[2.,4.]])
+      with warnings.catch_warnings():
+       warnings.simplefilter('ignore')
+       coef,it=ridge_regression(csr_matrix(x) if sparse else x,y,0.,solver='cholesky',return_n_iter=True)
+      cases.append((coef,np.full(2,-1),'cholesky'))
+      lines += [f'2 3 2 1 {int(sparse)} 0','cholesky 1e-8 -1 0']
+      lines += [' '.join(map(str,row)) for row in x]
+      lines += [' '.join(map(str,row)) for row in y]
+      lines += ['0','1 1']
     proc=subprocess.run([args.executable],input='\n'.join(lines)+'\n',text=True,capture_output=True,check=True)
     rows=iter(proc.stdout.splitlines()); worst=0
     for i,(coef,it,solver) in enumerate(cases):

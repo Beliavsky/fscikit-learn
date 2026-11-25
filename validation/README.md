@@ -7171,3 +7171,34 @@ design with one stored entry exercises storage whose dense equivalent is
 All nine result groups per configuration compare directly to source; the
 raw duplicate uint32 implicit-zero wrap is retained explicitly. Thirty-three
 diagnostics identify twenty-one native buffer/finite/mean/domain guards.
+
+
+Public ridge regression solvers:
+```
+python validation/compare_ridge_solver.py --executable build/gfortran_E1FE13DB8881E18E/app/reference_ridge_solver_driver.exe --report validation/results/ridge_checked_report.json
+python validation/check_ridge_invalid_inputs.py --executable build/gfortran_E1FE13DB8881E18E/app/reference_ridge_invalid_driver.exe
+```
+Repeat with the release executable directory. The 336 configurations retain
+672 direct comparison groups: coefficients at 3e-8 absolute/relative tolerance
+and exact source LSQR iteration counts (other solvers use -1 for None).
+Tall, wide and square designs cover one/multiple targets, per-target penalties,
+dense/CSR storage, sample weighting, all supported solver choices, positivity
+and iteration caps. Degenerate cases include zero design/targets/weights,
+rank deficiency and zero penalties, including primal SVD and dual least-squares
+Cholesky fallbacks. No numerical stopping exemptions are used.
+The report records dependency versions and source/validator/executable hashes.
+Thirteen isolated guards include finite/domain/shape constraints and rejected
+unsupported solver combinations. The native program checks all eight typed
+response/penalty/storage overloads, weighted analytic solutions, zero LSQR
+iterations, preserved inputs and a 100000-feature matrix-free CSR problem.
+
+Checked and optimized fpm 0.14 builds passed on 2026-11-25. Both profiles
+passed all 672 ridge groups (maximum scaled error 3.2798103331884335e-9),
+13 rejection processes, eight native programs and the example. Selected
+regressions passed 192 core and 27,684 earlier coordinate-path groups per
+profile; the earlier suite keeps its documented stopping certificates.
+The final audit retained stable source manifests, 196 compiled-unit
+fingerprints per profile and distinct checked/release executable hashes.
+Artifacts are ignored under validation/results/ridge_*; this record does not
+claim a rerun of every historical suite. LSQR's separate Stanford BSD notice is
+retained in LICENSES/lsqr-BSD.txt alongside the project and upstream licenses.
