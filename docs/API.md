@@ -9008,3 +9008,60 @@ them. Inapplicable parameter keywords reject. These are identified interface
 constraints, not new machine-learning algorithms. Inputs, parameter arrays,
 IEEE flags and halting modes are preserved. See
 [example/parameter_distances.f90](../example/parameter_distances.f90).
+
+
+## Pairwise kernel dispatch
+
+`pairwise_kernels` is exported by `sklearn_metrics`, `sklearn` and
+`sklearn_kernel_dispatch`. It returns an owned real64 matrix. Named kernels
+accept dense/CSR inputs independently, with omitted Y and explicit same-storage
+forms:
+
+```fortran
+k = pairwise_kernels(x, y) ! linear by default
+k = pairwise_kernels(x, metric='rbf', gamma=.2_dp)
+k = pairwise_kernels(sparse_x, y, metric='polynomial', degree=2)
+k = pairwise_kernels(x, y, metric='linear', gamma=99._dp, filter_params=.true.)
+```
+
+Supported names are `linear`, `poly`/`polynomial`, `rbf`, `sigmoid`, `cosine`,
+`laplacian`, `additive_chi2`, `chi2` and `precomputed`. Optional real64 `gamma`,
+`degree` and `coef0` follow the metric; an integer-degree overload is also
+provided. Defaults and `filter_params` use sklearn's KERNEL_PARAMS table.
+Inapplicable parameters reject when filtering is false, and are discarded when
+true. Precomputed kernels ignore these parameters regardless of the flag.
+
+The dispatcher retains the pinned wrapper's nested-validation behavior:
+applicable negative/nonfinite gamma or degree values are evaluated, unlike
+some standalone kernel entry points. Fractional powers of negative bases and
+0*infinity can return NaN; zero powers of NaN bases return one. RBF uses the
+source Gram expression and self-diagonal before scaling. Cosine uses the
+source dense/sparse normalization cutoffs. Chi-squared kernels require dense,
+nonnegative inputs. Other kernels accept signed finite feature arrays.
+
+A row function can be supplied as `metric=my_kernel`; it receives two real64
+vectors and returns a real64 scalar. Same-storage inputs evaluate the upper
+triangle once and then the diagonal, preserving callback diagonal values.
+Callback parameters can be captured through host/module association; dynamic
+keyword dictionaries are not exposed. A dense `gp_kernel` object is also
+accepted as `metric`. It delegates to the existing native GP matrix API.
+Following sklearn's dispatcher, omitted Y is supplied as Y=X to GP objects;
+WhiteKernel therefore returns zeros here, while a direct GP `%matrix(x)` call
+can include its noise diagonal. The GP overload inherits that native API's
+finite, nonempty, matching-feature input requirements.
+
+Precomputed input columns must match reference-row count, or X must be square
+when Y is omitted. Reference values are validated but its feature count is
+ignored. **Storage adapters:** precomputed CSR results are materialized as owned
+dense matrices; precomputed dense results are copied rather than aliased.
+CSR callbacks receive dense logical rows. These typed representation choices
+add no ML algorithm. CSR row arithmetic sums duplicate entries; strict source
+reference fixtures use canonical CSR. Complete CSR inputs are not densified.
+
+Input arrays, IEEE flags and halting modes are preserved. Calculation is serial;
+n_jobs, dense_output return-type switching, arbitrary Python objects and
+array-valued kernel parameters are unexposed. Dense scalar accumulation follows
+the pinned NumPy 2.2.6 / OpenBLAS 0.3.29 SkylakeX dot, GEMV and small-TN paths
+for controlled overflow behavior; other math backends and layouts can round or
+propagate nonfinite values differently. Applicable BSD notices remain with the
+MIT integration. See [example/kernel_dispatch.f90](../example/kernel_dispatch.f90).

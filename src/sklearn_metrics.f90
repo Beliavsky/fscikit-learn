@@ -1,4 +1,5 @@
 module sklearn_metrics
+  use sklearn_kernel_dispatch,only:pairwise_kernels
   use sklearn_pairwise_reductions, only: pairwise_distances_argmin,pairwise_distances_argmin_min
   use sklearn_distribution_errors,only:mean_squared_log_error,mean_squared_log_error_raw, &
    mean_poisson_deviance,mean_gamma_deviance
@@ -31,6 +32,7 @@ module sklearn_metrics
     average_precision_score,brier_score_loss
   implicit none
   private
+  public::pairwise_kernels
   public :: pairwise_distances_argmin,pairwise_distances_argmin_min
   public::class_likelihood_ratios
   public::zero_one_loss

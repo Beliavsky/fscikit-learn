@@ -2205,3 +2205,16 @@ scalar inverse failure and mean-reduction reference behavior. Existing sklearn,
 SciPy/Damian Eads and NumPy BSD notices are retained. Native streamed covariance,
 pivoted inversion, storage-alias mapping and checked precision shapes are MIT
 integration; no external numerical dependency is linked by these additions.
+
+
+`sklearn_kernel_dispatch` adapts sklearn 1.6.1 `metrics/pairwise.py` named kernel
+dispatch, parameter filtering, precomputed validation and callable self order,
+plus the existing attributed `sklearn_gp_kernels` matrix interface. Dense
+accumulation reconstructs OpenBLAS 0.3.29 SkylakeX dot/GEMV/small-TN order:
+`kernel/x86_64/ddot_microk_skylakex-2.c`, `dgemv_t_4.c`,
+`dgemv_t_microk_haswell-4.c`, `dgemm_small_kernel_tn_skylakex.c` and
+`dgemm_small_kernel_permit_skylakex.c`. Existing dot/GEMV BSD notices remain in
+`LICENSES/OpenBLAS-LICENSE`; the 2021 OpenBLAS Project small-kernel notice is
+retained separately in `LICENSES/OpenBLAS-small-kernel-BSD`. These are scalar
+Fortran adaptations, with no OpenBLAS runtime dependency added. Original row
+views, storage/typed adapters and IEEE composition remain MIT integration.

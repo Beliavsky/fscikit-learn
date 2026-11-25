@@ -7076,3 +7076,16 @@ automatic self covariance and the default auto-strategy threshold. Source
 rejection records identify representative native probes. Targeted diagnostics
 label six source-unsafe precision shapes (reference not called) and the native
 NaN-power guard separately. Other fixtures are strict sklearn comparisons.
+
+
+Pairwise kernel dispatch:
+```
+python validation/compare_kernel_dispatch.py --executable build/gfortran_E1FE13DB8881E18E/app/reference_kernel_dispatch_driver.exe --profile checked --report validation/results/kernel_dispatch_new_checked.json
+python validation/check_kernel_dispatch_invalid_inputs.py --executable build/gfortran_E1FE13DB8881E18E/app/reference_kernel_dispatch_driver.exe --profile checked --report validation/results/kernel_dispatch_invalid_checked.json
+```
+Repeat for release. Accepted calls compare kernel matrices, nonfinite masks,
+input identity and IEEE state. Cases cover each named route/storage combination,
+filtering and permissive applicable parameters, integer/real powers, callbacks,
+GP objects, precomputed storage, aliasing, tiny norms and pinned BLAS overflow
+paths. Reports identify source sparse results that become owned dense arrays.
+Controlled source rejections and 34 targeted diagnostics run separately.

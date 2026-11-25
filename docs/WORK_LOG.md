@@ -9136,3 +9136,21 @@ algorithm beyond sklearn was added.
 Inventory: 222 public core types, 175 source modules, 243 native programs,
 216 reference suites / 4,204,591 retained groups and 115 invalid registries /
 6,270 cases. The broader translation remains unfinished.
+
+
+## Pairwise kernel dispatch (2026-11-25, implementation checkpoint)
+
+Added pairwise_kernels named dispatch, all four dense/CSR combinations,
+omitted/aliased Y, integer/real degrees, parameter filtering, row callbacks,
+precomputed inputs and dense GP objects. Standalone kernel bodies are unchanged.
+The source wrapper bypasses nested parameter bounds, so negative/nonfinite
+applicable parameters retain source arithmetic. GP omitted Y becomes explicit
+Y=X, including WhiteKernel's zero matrix. Typed result/row storage adaptations
+are explicitly documented. Dense overflow follows scalar reconstructions of
+the pinned OpenBLAS dot, GEMV and small-TN paths with retained BSD notices.
+
+Private checked probes passed 2,005 configurations / 6,015 groups, 276 source
+rejections, 34 targeted diagnostics and native integration tests. All 1,970
+nonfinite masks matched; maximum scaled finite error was 4.45e-16. Full package
+checked/optimized verification is pending. Original integration remains MIT;
+no dependency, public core type or ML extension was added.

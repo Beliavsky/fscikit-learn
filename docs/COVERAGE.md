@@ -1,5 +1,9 @@
 # Translation coverage
 
+Pairwise kernel dispatch has been added with named, callback, GP-object and
+precomputed routes. Full checked/release verification is pending; totals below
+retain the prior verified batch.
+
 Parameterized nearest-pair distances and aliased-input corrections are
 verified in checked and optimized profiles. Native precision-shape and
 NaN-power adapters are explicitly identified.
