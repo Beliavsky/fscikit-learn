@@ -1,5 +1,8 @@
 # Translation coverage
 
+Fitted Ward clustering and feature agglomeration now support connectivity,
+partial trees, distance-threshold cuts and optional distance storage.
+
 Public Ward trees support full hierarchies and connectivity-constrained partial
 forests with dense or CSR connectivity, verified in checked and optimized builds.
 
@@ -73,7 +76,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Two hundred and twenty-six reference suites additionally check 4,332,687
+All types have native tests. Two hundred and twenty-seven reference suites additionally check 4,397,079
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and explicitly recorded numerical certificates.
 
@@ -109,7 +112,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | linear_model | `linear_regression`, `lars`, `lasso_lars`, `lars_cv`, `lasso_lars_cv`, `lasso_lars_ic`, `ridge`, `ridge_regression`, `ridge_classifier`, `ridge_classifier_cv`, `multi_task_elastic_net`, `multi_task_lasso`, `multi_task_elastic_net_cv`, `multi_task_lasso_cv`, `lasso`, `elastic_net`, `lasso_cv`, `elastic_net_cv`, `logistic_regression`, `logistic_regression_cv`, `perceptron`, `passive_aggressive_classifier`, `passive_aggressive_regressor`, `sgd_regressor`, `sgd_classifier`, `sgd_one_class_svm`, `bayesian_ridge`, `ard_regression`, `orthogonal_matching_pursuit`, `orthogonal_matching_pursuit_cv`, `huber_regressor`, `quantile_regressor`, `ransac_regressor`, `theil_sen_regressor`, `poisson_regressor`, `gamma_regressor`, `tweedie_regressor` | SVD least squares/ridge; public dense/CSR weighted multi-target ridge solvers including seeded SAG/SAGA and SAG intercepts; least-angle/Lasso homotopy paths with CV and AIC/BIC selection; coordinate descent with K-fold alpha/l1-ratio selection; weighted logistic Newton solver with raw-score prediction; perceptron; PA-I/II classification/regression with averaging; streaming stochastic-gradient regression/classification and one-class detection; Bayesian precision updates/uncertainty; ARD pruning; OMP; joint Huber coefficient/scale fitting; weighted L1-regularized quantile regression; RANSAC linear consensus; Theil-Sen subset/spatial-median fits; Newton GLMs |
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb`, `categorical_nb` | Weighted/streaming Gaussian moments, empirical/fixed priors and variance smoothing; dense/CSR weighted and streaming discrete event counts and fixed/empirical priors; nonnegative scalar alpha and force_alpha flooring, plus feature-wise Multinomial/Complement smoothing; Bernoulli threshold; optional complement normalization |
 | neighbors | `neighborhood_components_analysis`, `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Supervised NCA metric learning; brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with shrinkage, uniform/empirical/custom priors and Euclidean discriminant probabilities; tree-based kernel density |
-| cluster | `kmeans`, `bisecting_kmeans`, `mini_batch_kmeans`, `spectral_coclustering`, `spectral_biclustering`, `hdbscan`, `dbscan`, `agglomerative_clustering`, `feature_agglomeration`, `mean_shift`, `affinity_propagation`, `spectral_clustering`, `optics`, `birch`; `estimate_bandwidth`, `cluster_optics_dbscan`, `cluster_optics_xi`, `ward_tree` | Lloyd/k-means++; paired row/column spectral partitions and checkerboard biclustering; weighted streaming mini-batch centroids; bisecting centroid hierarchy with Lloyd/Elkan splits; density expansion; single/complete/average/Ward merge trees and feature pooling; flat-kernel mode seeking; damped exemplar messages; normalized-Laplacian clustering with k-means or pivoted QR assignment; OPTICS reachability ordering, Xi hierarchy and DBSCAN extraction; BIRCH streaming CF tree and optional Ward clustering; public full/partial Ward trees with connectivity completion and parent forests |
+| cluster | `kmeans`, `bisecting_kmeans`, `mini_batch_kmeans`, `spectral_coclustering`, `spectral_biclustering`, `hdbscan`, `dbscan`, `agglomerative_clustering`, `feature_agglomeration`, `mean_shift`, `affinity_propagation`, `spectral_clustering`, `optics`, `birch`; `estimate_bandwidth`, `cluster_optics_dbscan`, `cluster_optics_xi`, `ward_tree` | Lloyd/k-means++; paired row/column spectral partitions and checkerboard biclustering; weighted streaming mini-batch centroids; bisecting centroid hierarchy with Lloyd/Elkan splits; density expansion; single/complete/average/Ward merge trees and feature pooling; flat-kernel mode seeking; damped exemplar messages; normalized-Laplacian clustering with k-means or pivoted QR assignment; OPTICS reachability ordering, Xi hierarchy and DBSCAN extraction; BIRCH streaming CF tree and optional Ward clustering; public full/partial Ward trees with connectivity completion and parent forests; fitted Ward connectivity, early stopping and threshold cuts |
 | decomposition | `pca`, `incremental_pca`, `truncated_svd`, `nmf`, `mini_batch_nmf`, `sparse_pca`, `mini_batch_sparse_pca`, `dictionary_learning`, `mini_batch_dictionary_learning`, `sparse_coder`, `latent_dirichlet_allocation`; `sparse_encode`, `non_negative_factorization`; re-exports `kernel_pca`, `factor_analysis`, `fast_ica` | Full/randomized/covariance PCA with automatic routing; PCA whitening/inversion, variance/Minka dimension selection and probabilistic scores; streaming stacked-SVD IncrementalPCA; exact dense and randomized dense/CSR TruncatedSVD; regularized NMF coordinate descent and beta-divergence multiplicative updates, with a free function supporting fixed-H solves; sparse dictionary factorization and SparsePCA; five sparse coding methods; nonlinear kernel PCA; full/randomized-SVD factor analysis with orthogonal rotations; parallel/deflation ICA |
 | cross_decomposition | `pls_regression`, `pls_canonical`, `cca`, `pls_svd` | Paired-matrix latent components: NIPALS regression/canonical deflation, CCA pseudoinverse mode, canonical direct SVD and PLSSVD cross-covariance projection; multiple response columns |
 | isotonic | `isotonic_regression`; `isotonic_fit`, `check_increasing` | Weighted pool-adjacent-violators, automatic Spearman direction, bounds, repeated-input aggregation and piecewise linear interpolation |
@@ -341,7 +344,7 @@ distances; cosine similarity; linear, RBF, polynomial and sigmoid kernels.
 
 ## Remaining major scikit-learn areas
 
-Not translated: sparse data paths, general Python estimator base/clone/parameter
+Remaining gaps include broader sparse data paths, general Python estimator base/clone/parameter
 reflection, sparse/parallel/recoverable-error search paths, sparse/cached/metadata-routed pipeline paths, broader SVM/GLM/SGD options,
 broader histogram boosting, AdaBoost and bagging APIs,
 outlier detection beyond LOF/OneClassSVM/SGDOneClassSVM/IsolationForest/EllipticEnvelope,
@@ -1281,12 +1284,15 @@ with sklearn's BSD notice retained.
 
 `feature_agglomeration` implements sklearn 1.6.1 FeatureAgglomeration by fitting
 the native agglomerative tree to transpose(X), clustering columns rather than
-samples. n_clusters defaults to 2 and must be between 1 and n_features; at least
-two input features are required. linkage supports ward (default), single,
-complete and average, with Euclidean distances. A complete unconstrained tree
-is built and distances_ is always available. No connectivity graph, distance
-threshold, alternate metric, caching or early tree stopping is implemented.
-The dense exhaustive merge search favors moderate feature counts.
+samples. n_clusters defaults to 2; positive counts must not exceed n_features.
+At least two input features are required. linkage supports ward (default), single,
+complete and average, with Euclidean distances. Ward fitting supports dense/CSR
+connectivity, full/partial/auto trees and distance-threshold cuts through the
+public Ward builder. Set n_clusters=0 with an allocated nonnegative
+distance_threshold to select threshold mode. Other linkages retain their
+unstructured exhaustive merge searches. Alternate metrics and caching are not
+implemented. compute_distances defaults to true for the existing native API;
+false omits distances except when a Ward threshold requires them.
 
 Methods are fit, transform, inverse_transform and fit_transform. pooling_func
 is 'mean' by default, with 'median' and 'max' also supported, corresponding to
@@ -1300,15 +1306,18 @@ separately, so changing n_clusters requires refitting to affect transforms.
 labels_ contains zero-based feature cluster IDs ordered by first feature index,
 which can permute sklearn's arbitrary cluster IDs. Pooled output columns follow
 this order. children_ uses zero-based leaf/node IDs, with the first n_features
-IDs denoting feature columns. children_ has n_features-1 rows and two columns;
-distances_ contains the corresponding merge distances. Equal-distance merges
-follow the existing native tree's scan order and may differ from sklearn ties.
-Other attributes are n_features_in_, n_clusters_, n_leaves_ and
-n_connected_components_=1. Inputs and queries must be nonempty finite real64
+IDs denoting feature columns. children_ has n_features-1 rows for a full tree,
+or n_features-n_clusters rows for a partial forest, and two columns. Ward merge
+ordering follows the source builder; non-Ward equal-distance merges retain the
+native scan order and may differ from sklearn ties. Other attributes are
+n_features_in_, n_clusters_, n_leaves_ and the original n_connected_components_.
+Native compute_full_tree_ and connectivity_completed_ record build/completion
+choices. Inputs and queries must be nonempty finite real64
 matrices with matching widths. This is a dense transformer, with no predict or
 fit_predict API. Exported by sklearn_cluster and sklearn.
 
-Inventory: 118 core types, 50 source modules and 49 native test programs.
+At the original feature-agglomeration increment: 118 core types, 50 source
+modules and 49 native test programs.
 Original contributions remain MIT; sklearn BSD attribution is retained.
 No public extension or runtime dependency was added.
 
@@ -12165,4 +12174,65 @@ Original integration remains MIT with sklearn and SciPy BSD notices retained.
 No runtime dependency or algorithm outside sklearn was added. Inventory: 222
 public core types, 181 source modules, 253 native test programs, 226 reference
 suites / 4,332,687 retained groups and 125 invalid registries / 6,482 cases.
+The broader translation remains unfinished.
+
+
+Fitted Ward connectivity/threshold increment (2026-11-25):
+`agglomerative_clustering` and `feature_agglomeration` reuse the public Ward
+builder for linkage='ward'. Dense real/logical and CSR connectivity support
+connected-component completion, partial forests and source full-tree selection:
+auto uses n_clusters < max(100,0.02*n_tree_samples), or a supplied threshold.
+Without connectivity the full tree is built. Feature agglomeration applies
+these rules to transpose(X). Disconnected completion is exposed through fitted
+component counts and native connectivity_completed_ metadata.
+
+An allocated finite nonnegative distance_threshold selects source threshold
+mode with n_clusters=0; n_clusters_ becomes count(distances_ >= threshold)+1,
+then the hierarchy is cut in merge-node order. Otherwise a positive cluster
+count is required. compute_distances defaults to true for native compatibility,
+while sklearn defaults to false. False clears stale distances on refit unless
+threshold mode requires them. Native compute_full_tree_ records the chosen
+build mode. Estimator children remain zero-based, unlike the public tree's
+one-based result; labels and pooled columns retain first-sample/feature order.
+
+Ward fitting preserves IEEE flags/modes and cuts trees using path-compressed
+parent links with linear working storage. Structured fitting avoids a dense
+distance/connectivity matrix; dense graph fill can still become quadratic.
+Unstructured fitting now uses the condensed nearest-neighbor-chain tree rather
+than the previous exhaustive centroid merge loop. Non-Ward merge kernels,
+prediction methods, feature pooling/inverse maps and later cluster routines
+retain their previous bodies. Connectivity/threshold controls currently require
+Ward linkage; callable connectivity, caching and alternate metrics remain gaps.
+
+Checked and optimized package executables passed 11,826 configurations / 64,392
+source groups with zero observed error. Labels/pooled columns are canonicalized
+by first sample/feature, while children and metadata compare directly. Distances,
+pooled values and inverse maps use the unchanged 3e-8 bound, without numerical
+certificates or tolerance exceptions. Three seeds, random/grid/duplicate/zero
+data, one-feature/two-sample inputs, six connectivity modes (including the
+unstructured mode), eight
+topologies, full/partial/auto modes, cluster-count and threshold cuts, all three
+pooling modes and the 100-cluster auto boundary are covered. There are 3,888
+threshold cases and 8,544 feature-agglomeration cases. Reports retain 6,561
+source warnings per profile. A provenance-checked cache captures actual source
+outputs; initial capture made 10,107 estimator fits and reused 1,719 identical
+cases. Each run additionally calls the source Ward tree 36 times to choose
+threshold fixtures; these are not included in the source_calls fit counter.
+
+Full checked and optimized fpm builds passed. Each profile also passed 23
+isolated input guards, six selected native programs, the example, 192 core
+comparisons, 294 previous feature-agglomeration groups and 237 BIRCH groups. The new native program includes
+analytic threshold/partial cuts, refits, pool/inverse values, IEEE state and a
+32,768-node sparse auto forest avoiding an 8 GiB dense distance/connectivity
+matrix. Other historical suites were not rerun. Both final profiles reused all
+11,826 captured source cases. The final audit verifies 197 compiled-unit
+fingerprints per profile, stable source/validator/executable manifests,
+identical inputs, distinct executables, unchanged non-Ward merge kernels and
+pooling/prediction bodies, and unchanged license/dependency declarations.
+Artifacts remain ignored under validation/results/structured_ward_*.
+
+Original integration remains MIT with sklearn/SciPy BSD notices retained.
+No runtime dependency or algorithm outside sklearn was added. Inventory: 222
+public core types, 181 source modules, 254 native test programs, 227 reference
+suites / 4,397,079 retained groups and 126 invalid registries / 6,505 cases.
 The broader translation remains unfinished.

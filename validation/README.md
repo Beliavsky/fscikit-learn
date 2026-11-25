@@ -7379,3 +7379,21 @@ values, IEEE preservation and a 32,768-node sparse auto forest avoiding an
 cover optional-control combinations, domain/shape errors and current non-Ward
 connectivity/threshold restrictions. Existing FeatureAgglomeration and BIRCH
 validators accept --executable and --report for serialized profile checks.
+
+
+Full checked and optimized fpm builds passed on 2026-11-25. Each profile passed
+11,826 configurations / 64,392 source comparison groups with zero observed
+error, 23 isolated input guards, six selected native programs, the example,
+192 core comparisons, 294 previous FeatureAgglomeration groups and 237 BIRCH
+groups. There are 3,888 threshold cases and 8,544 feature-agglomeration cases.
+No tolerance exceptions or numerical certificates are used. Each profile
+retains 6,561 source warnings; initial capture made 10,107 source estimator fits and
+reused 1,719 identical cases. Both final profiles reused all 11,826 captured
+cases. The final audit verifies 197 compiled-unit fingerprints per profile,
+stable manifests, identical inputs, distinct executables and unchanged license/
+dependency declarations. Other historical suites were not rerun. Artifacts
+remain ignored under validation/results/structured_ward_*.
+
+The source_calls field counts fitted-estimator reference calls. Each run also
+makes 36 source Ward-tree calls to select threshold fixtures, including when
+all fitted-estimator cases are cached.

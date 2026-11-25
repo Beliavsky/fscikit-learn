@@ -9525,6 +9525,7 @@ Assign a finite nonnegative value and set n_clusters=0 to select it; otherwise
 leave it unallocated and select a positive cluster count. Threshold mode
 requires compute_full_tree='auto' or 'true'. Merges at heights equal to the
 threshold remain split: n_clusters_ is count(distances_ >= threshold)+1.
+The subsequent cut follows merge-node order, as in source.
 Deallocate distance_threshold before returning to cluster-count mode.
 
 `compute_distances` defaults to true to retain the earlier native API; sklearn's
