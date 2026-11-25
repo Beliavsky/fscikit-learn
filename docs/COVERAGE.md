@@ -77,7 +77,7 @@ Reference baseline: scikit-learn 1.6.1 installed in
 
 There are 222 public estimator, transformer, and splitter types. Each is a
 **subset** of the corresponding Python API, not a feature-complete class port.
-All types have native tests. Two hundred and thirty-six reference suites additionally check 5,135,538
+All types have native tests. Two hundred and thirty-seven reference suites additionally check 5,153,098
 result groups across seeded datasets using installed scikit-learn 1.6.1 and
 independent numerical identities and explicitly recorded numerical certificates.
 
@@ -114,7 +114,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | naive_bayes | `gaussian_nb`, `multinomial_nb`, `bernoulli_nb`, `complement_nb`, `categorical_nb` | Weighted/streaming Gaussian moments, empirical/fixed priors and variance smoothing; dense/CSR weighted and streaming discrete event counts and fixed/empirical priors; nonnegative scalar alpha and force_alpha flooring, plus feature-wise Multinomial/Complement smoothing; Bernoulli threshold or raw-feature mode; optional complement normalization |
 | neighbors | `neighborhood_components_analysis`, `nearest_neighbors`, `kneighbors_classifier`, `kneighbors_regressor`, `radius_neighbors_classifier`, `radius_neighbors_regressor`, `nearest_centroid`; re-exports `local_outlier_factor`, `kernel_density` | Supervised NCA metric learning; brute-force search; uniform/distance weights; radius queries/classification/regression; mean/median nearest centroids with shrinkage, uniform/empirical/custom priors and Euclidean discriminant probabilities; tree-based kernel density |
 | cluster | `kmeans`, `bisecting_kmeans`, `mini_batch_kmeans`, `spectral_coclustering`, `spectral_biclustering`, `hdbscan`, `dbscan`, `agglomerative_clustering`, `feature_agglomeration`, `mean_shift`, `affinity_propagation`, `spectral_clustering`, `optics`, `birch`; `estimate_bandwidth`, `cluster_optics_dbscan`, `cluster_optics_xi`, `ward_tree`, `linkage_tree` | Lloyd/k-means++; paired row/column spectral partitions and checkerboard biclustering; weighted streaming mini-batch centroids; bisecting centroid hierarchy with Lloyd/Elkan splits; density expansion; single/complete/average/Ward merge trees and feature pooling; flat-kernel mode seeking; damped exemplar messages; normalized-Laplacian clustering with k-means or pivoted QR assignment; OPTICS reachability ordering, Xi hierarchy and DBSCAN extraction; BIRCH streaming CF tree and optional Ward clustering; public full/partial Ward trees with connectivity completion and parent forests; fitted Ward/single/complete/average connectivity and threshold cuts; streamed/sparse single-linkage MSTs |
-| decomposition | `pca`, `incremental_pca`, `truncated_svd`, `nmf`, `mini_batch_nmf`, `sparse_pca`, `mini_batch_sparse_pca`, `dictionary_learning`, `mini_batch_dictionary_learning`, `sparse_coder`, `latent_dirichlet_allocation`; `sparse_encode`, `non_negative_factorization`; re-exports `kernel_pca`, `factor_analysis`, `fast_ica` | Full/randomized/covariance PCA with automatic routing; PCA whitening/inversion, variance/Minka dimension selection and probabilistic scores; streaming stacked-SVD IncrementalPCA; exact dense and randomized dense/CSR TruncatedSVD; regularized NMF coordinate descent and beta-divergence multiplicative updates, with a free function supporting fixed-H solves; sparse dictionary factorization and SparsePCA; five sparse coding methods; nonlinear kernel PCA; full/randomized-SVD factor analysis with orthogonal rotations; parallel/deflation ICA |
+| decomposition | `pca`, `incremental_pca`, `truncated_svd`, `nmf`, `mini_batch_nmf`, `sparse_pca`, `mini_batch_sparse_pca`, `dictionary_learning`, `mini_batch_dictionary_learning`, `sparse_coder`, `latent_dirichlet_allocation`; `sparse_encode`, `dict_learning`, `dict_learning_online`, `non_negative_factorization`; re-exports `kernel_pca`, `factor_analysis`, `fast_ica` | Full/randomized/covariance PCA with automatic routing; PCA whitening/inversion, variance/Minka dimension selection and probabilistic scores; streaming stacked-SVD IncrementalPCA; exact dense and randomized dense/CSR TruncatedSVD; regularized NMF coordinate descent and beta-divergence multiplicative updates, with a free function supporting fixed-H solves; sparse dictionary factorization and SparsePCA; batch/online functional dictionary entry points with owned results and mutable typed callbacks; five sparse coding methods; nonlinear kernel PCA; full/randomized-SVD factor analysis with orthogonal rotations; parallel/deflation ICA |
 | cross_decomposition | `pls_regression`, `pls_canonical`, `cca`, `pls_svd` | Paired-matrix latent components: NIPALS regression/canonical deflation, CCA pseudoinverse mode, canonical direct SVD and PLSSVD cross-covariance projection; multiple response columns |
 | isotonic | `isotonic_regression`; `isotonic_fit`, `check_increasing` | Weighted pool-adjacent-violators, automatic Spearman direction, bounds, repeated-input aggregation and piecewise linear interpolation |
 | kernel_approximation | `rbf_sampler`, `nystroem`, `additive_chi2_sampler`, `skewed_chi2_sampler`, `polynomial_count_sketch` | NumPy-seeded dense/CSR random Fourier RBF maps with scaled gamma; source-seeded full-SVD Nystroem maps with all built-in kernels, callbacks and precomputed input; additive and skewed chi2 maps; seeded dense/CSR polynomial TensorSketch with arbitrary-length FFTs |
@@ -12717,3 +12717,75 @@ runtime dependency or algorithm extension. Inventory: 222 public core types,
 236 reference suites / 5,135,538 retained groups and 133 invalid registries /
 6,656 cases. Two new owned storage helpers do not increase estimator coverage.
 The broader translation remains unfinished.
+
+## Dictionary-learning functions and mutable callbacks
+
+`dict_learning` and `dict_learning_online` now expose sklearn's functional
+batch/online dictionary learning through sklearn_dictionary,
+sklearn_decomposition and sklearn. Two owned result helpers represent the
+factor tuples; online dictionary-only calls leave code unallocated. Online
+returned codes use the source function's Lasso method/penalty rather than the
+estimator's independent default OMP transform. Both estimator families now
+accept mutable typed callback procedures. Offline scheduling is zero-based
+0,5,10,... after the convergence test; online callbacks follow each
+nonconverged full-fit minibatch. Callback mutations affect later solver state.
+
+Objectives use the attributed NumPy pairwise reduction and existing scalar
+OpenBLAS inner-product helper. Exact zero-input CD initialization preserves
+source identity warm codes and their L1 cost. Nonfinite checks are separated
+from range comparisons so NaN controls reach normal ERROR STOP guards under
+hardware exception trapping. This also hardens shared sparse-coding/SparsePCA
+controls. API.md records owned initializer copies, callback view lifetimes,
+zero-component/disabled-patience sentinels and serial interface limits.
+
+The new suite retains 17,560 result groups across 3,512 configurations:
+CD/LARS, default and zero stopping tolerances, default/warm/unpaired
+initializers, zero/one/six/eleven outer iterations, zero/one/default inner
+limits, zero/positive penalties, positive codes/dictionaries, automatic and
+overcomplete components, shuffled/ordered ragged batches, dictionary-only
+returns, observational/mutating callbacks and degenerate inputs. Provenance
+is sklearn 1.6.1, NumPy 2.2.6 and SciPy 1.15.3. Source expectations come from
+the actual public functions, with independent source-estimator counter checks;
+fresh initializers prevent source aliasing from contaminating repeated fits.
+Both final profiles reuse all 3,512 captured configurations with provenance
+verified and 177 source warnings retained per replay.
+
+Checked verification passed 17,532 direct groups and 28 certificate groups
+across 11 configurations; optimized verification passed 17,535 direct groups
+and 25 certificate groups across ten configurations. Maximum direct scaled
+errors were 2.9071821916215433e-11 and 3.211800246982711e-11 respectively.
+The default validator remains strict. Explicit --allow-roundoff-certificates
+checks independently recomputed objectives, matching fitted signals,
+roundoff-size cost plateaus, null-code products and zero-coded differing
+atoms. It does not establish output parity for the recorded groups or widen
+tolerances. Zero-tolerance stopping/callback counts and unused-atom resampling
+can differ across backends; differing unused atoms can change coding of new
+samples. Zero-iteration rank-deficient initialization can expose different
+null-space code columns. These limits remain visible. Each profile additionally
+passed 360 strict smoke groups without certificates.
+
+Final full builds including tests passed with checksum-verified private fpm
+0.14.0 and GNU Fortran 17.0.0 20260510. Checked flags were
+`-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow`; optimized flags were
+`-O3 -funroll-loops -fcoarray=single`. Each final profile passed 25 isolated
+guards, three selected native programs, the example, 192 core comparisons,
+744 prior sparse-dictionary groups, 28 NumPy RNG stream groups and 3,468 prior
+mini-batch dictionary/SparsePCA groups. Other historical suites were not rerun.
+An initial checked guard failure for NaN alpha was corrected before both final
+builds and all final package validations were repeated.
+
+The audit verified 196 dependency-aware compiled-unit fingerprints per profile
+(186 library units and ten programs), identical source/validator/attribution
+manifests and reference inputs, and distinct executables. Twenty-two existing
+dictionary procedures and every decomposition procedure body remain unchanged
+from ca92f2f. The other eight dictionary procedures changed only for the
+integration, objective/zero-input behavior or guards described above. All other
+library files, license files and dependency declarations remain unchanged.
+Logs, caches and manifests remain ignored under validation/results/dictionary_functions_*.
+
+The package remains MIT with retained sklearn, NumPy and OpenBLAS notices.
+No runtime dependency or algorithm extension was added. Inventory: 222 public
+core types, 182 source modules, 262 native test programs, 276 app drivers,
+218 examples, 237 reference suites / 5,153,098 retained groups and 134 invalid
+registries / 6,681 cases. The two new result helpers do not increase estimator
+coverage. The broader translation remains unfinished.
