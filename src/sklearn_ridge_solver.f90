@@ -4,6 +4,8 @@
 module sklearn_ridge_solver
   use sklearn_common,only:dp,require,check_x,check_xy,dense_svd,solve_lower,solve_upper
   use sklearn_sparse,only:csr_matrix
+  use sklearn_legacy_rng,only:legacy_random_state
+  use,intrinsic::iso_fortran_env,only:int64
   use lbfgsb_module,only:setulb
   use,intrinsic::ieee_arithmetic,only:ieee_is_finite
   implicit none
@@ -12,11 +14,11 @@ module sklearn_ridge_solver
   type::ridge_solver_options
     character(16)::solver='auto'
     real(dp)::tol=1.e-4_dp
-    integer::max_iter=-1
-    logical::positive=.false.
+    integer::max_iter=-1,random_state=0
+    logical::positive=.false.,return_intercept=.false.
   end type
   type::ridge_solution
-    real(dp),allocatable::coefficients(:,:)
+    real(dp),allocatable::coefficients(:,:),intercept(:)
     integer,allocatable::n_iter(:),native_iterations(:),stop_code(:)
     logical,allocatable::converged(:)
     character(16)::solver=''
@@ -38,7 +40,7 @@ contains
     real(dp),optional,intent(in)::sample_weight(:)
     type(ridge_solution)::fit
     type(ridge_operator)::op
-    op=prepare_dense(x,sample_weight)
+    op=prepare_dense(x,sample_weight,options)
     fit=solve_all(op,reshape(y,[size(y),1]),[alpha],options,sample_weight)
   end function
   function dense_vv(x,y,alpha,options,sample_weight)result(fit)
@@ -48,7 +50,7 @@ contains
     real(dp),optional,intent(in)::sample_weight(:)
     type(ridge_solution)::fit
     type(ridge_operator)::op
-    op=prepare_dense(x,sample_weight)
+    op=prepare_dense(x,sample_weight,options)
     fit=solve_all(op,reshape(y,[size(y),1]),alpha,options,sample_weight)
   end function
   function dense_ms(x,y,alpha,options,sample_weight)result(fit)
@@ -58,7 +60,7 @@ contains
     real(dp),optional,intent(in)::sample_weight(:)
     type(ridge_solution)::fit
     type(ridge_operator)::op
-    op=prepare_dense(x,sample_weight)
+    op=prepare_dense(x,sample_weight,options)
     fit=solve_all(op,y,[alpha],options,sample_weight)
   end function
   function dense_mv(x,y,alpha,options,sample_weight)result(fit)
@@ -68,7 +70,7 @@ contains
     real(dp),optional,intent(in)::sample_weight(:)
     type(ridge_solution)::fit
     type(ridge_operator)::op
-    op=prepare_dense(x,sample_weight)
+    op=prepare_dense(x,sample_weight,options)
     fit=solve_all(op,y,alpha,options,sample_weight)
   end function
   function sparse_vs(x,y,alpha,options,sample_weight)result(fit)
@@ -78,7 +80,7 @@ contains
     real(dp),optional,intent(in)::sample_weight(:)
     type(ridge_solution)::fit
     type(ridge_operator)::op
-    op=prepare_sparse(x,sample_weight)
+    op=prepare_sparse(x,sample_weight,options)
     fit=solve_all(op,reshape(y,[size(y),1]),[alpha],options,sample_weight)
   end function
   function sparse_vv(x,y,alpha,options,sample_weight)result(fit)
@@ -88,7 +90,7 @@ contains
     real(dp),optional,intent(in)::sample_weight(:)
     type(ridge_solution)::fit
     type(ridge_operator)::op
-    op=prepare_sparse(x,sample_weight)
+    op=prepare_sparse(x,sample_weight,options)
     fit=solve_all(op,reshape(y,[size(y),1]),alpha,options,sample_weight)
   end function
   function sparse_ms(x,y,alpha,options,sample_weight)result(fit)
@@ -98,7 +100,7 @@ contains
     real(dp),optional,intent(in)::sample_weight(:)
     type(ridge_solution)::fit
     type(ridge_operator)::op
-    op=prepare_sparse(x,sample_weight)
+    op=prepare_sparse(x,sample_weight,options)
     fit=solve_all(op,y,[alpha],options,sample_weight)
   end function
   function sparse_mv(x,y,alpha,options,sample_weight)result(fit)
@@ -108,22 +110,31 @@ contains
     real(dp),optional,intent(in)::sample_weight(:)
     type(ridge_solution)::fit
     type(ridge_operator)::op
-    op=prepare_sparse(x,sample_weight)
+    op=prepare_sparse(x,sample_weight,options)
     fit=solve_all(op,y,alpha,options,sample_weight)
   end function
-  function prepare_dense(x,weights)result(op)
+  logical function stochastic_options(options)result(stochastic)
+    type(ridge_solver_options),optional,intent(in)::options
+    type(ridge_solver_options)::control
+    if(present(options))control=options
+    stochastic=control%solver=='sag'.or.control%solver=='saga'
+    if(control%solver=='auto'.and.control%return_intercept.and..not.control%positive)stochastic=.true.
+  end function
+  function prepare_dense(x,weights,options)result(op)
     real(dp),intent(in)::x(:,:)
     real(dp),optional,intent(in)::weights(:)
+    type(ridge_solver_options),optional,intent(in)::options
     type(ridge_operator)::op
     call check_x(x);op%n=size(x,1);op%p=size(x,2);op%dense=x
     if(present(weights))then
-      call weight_check(weights,op%n)
-      op%dense=op%dense*spread(sqrt(weights),2,op%p)
+      call weight_check(weights,op%n,stochastic_options(options))
+      if(.not.stochastic_options(options))op%dense=op%dense*spread(sqrt(weights),2,op%p)
     end if
   end function
-  function prepare_sparse(x,weights)result(op)
+  function prepare_sparse(x,weights,options)result(op)
     type(csr_matrix),intent(in)::x
     real(dp),optional,intent(in)::weights(:)
+    type(ridge_solver_options),optional,intent(in)::options
     type(ridge_operator)::op
     integer::i
     call x%validate()
@@ -131,19 +142,21 @@ contains
     call require(all(ieee_is_finite(x%data)),'ridge sparse data must be finite')
     op%n=x%n_rows;op%p=x%n_cols;op%is_sparse=.true.;op%sparse=x
     if(present(weights))then
-      call weight_check(weights,op%n)
+      call weight_check(weights,op%n,stochastic_options(options))
+      if(stochastic_options(options))return
       do i=1,op%n
         op%sparse%data(x%indptr(i):x%indptr(i+1)-1)= &
           op%sparse%data(x%indptr(i):x%indptr(i+1)-1)*sqrt(weights(i))
       end do
     end if
   end function
-  subroutine weight_check(weights,n)
+  subroutine weight_check(weights,n,signed)
     real(dp),intent(in)::weights(:)
     integer,intent(in)::n
+    logical,intent(in)::signed
     call require(size(weights)==n,'ridge sample weight length mismatch')
     call require(all(ieee_is_finite(weights)),'ridge weights must be finite')
-    call require(all(weights>=0),'ridge weights must be nonnegative')
+    if(.not.signed)call require(all(weights>=0),'ridge weights must be nonnegative')
   end subroutine
   function multiply(op,v,transpose)result(out)
     type(ridge_operator),intent(in)::op
@@ -203,19 +216,25 @@ contains
     if(fit%solver=='auto')then
       fit%solver='cholesky'
       if(op%is_sparse)fit%solver='sparse_cg'
+      if(control%return_intercept)fit%solver='sag'
       if(control%positive)fit%solver='lbfgs'
     end if
-    call require(any(fit%solver==[character(16)::'svd','cholesky','sparse_cg','lsqr','lbfgs']), &
-      'unsupported ridge solver; supported: auto svd cholesky sparse_cg lsqr lbfgs')
+    call require(any(fit%solver==[character(16)::'svd','cholesky','sparse_cg','lsqr','lbfgs','sag','saga']), &
+      'unsupported ridge solver; supported: auto svd cholesky sparse_cg lsqr lbfgs sag saga')
     call require(.not.control%positive.or.fit%solver=='lbfgs','positive ridge requires lbfgs')
     call require(fit%solver/='lbfgs'.or.control%positive,'ridge lbfgs requires positive coefficients')
     call require(.not.(op%is_sparse.and.fit%solver=='svd'),'ridge SVD requires dense inputs')
+    call require(.not.control%return_intercept.or.fit%solver=='sag','ridge direct intercept requires sag')
+    if(stochastic_options(control))call require(control%random_state>=0,'ridge random state must be nonnegative')
     targets=y
-    if(present(weights))targets=targets*spread(sqrt(weights),2,t)
+    if(present(weights))then
+      if(.not.stochastic_options(control))targets=targets*spread(sqrt(weights),2,t)
+    end if
     allocate(penalty(t));penalty=alpha(1)
     if(size(alpha)==t)penalty=alpha
     one_alpha=all(penalty==penalty(1));dual=op%p>op%n
     allocate(fit%coefficients(t,op%p),fit%n_iter(t),fit%native_iterations(t),fit%stop_code(t),fit%converged(t))
+    allocate(fit%intercept(t));fit%intercept=0
     fit%coefficients=0;fit%n_iter=-1;fit%native_iterations=0;fit%stop_code=0;fit%converged=.true.
     if(fit%solver=='cholesky')then
       dim=op%p;if(dual)dim=op%n
@@ -271,6 +290,11 @@ contains
         call lsqr_solve(op,targets(:,k),sqrt(penalty(k)),control%tol,limit,coef,fit%n_iter(k),fit%stop_code(k))
         fit%native_iterations(k)=fit%n_iter(k);fit%converged(k)=any(fit%stop_code(k)==[1,2,4,5])
         if(all(targets(:,k)==0))fit%converged(k)=.true.
+      case('sag','saga')
+        limit=control%max_iter;if(limit<0)limit=1000
+        call stochastic_ridge(op,targets(:,k),penalty(k),control%tol,limit,control%random_state, &
+          fit%solver=='saga',control%return_intercept,coef,fit%intercept(k),fit%n_iter(k),fit%converged(k),weights)
+        fit%native_iterations(k)=fit%n_iter(k)
       case('lbfgs')
         limit=control%max_iter;if(limit<0)limit=15000
         call lbfgs_solve(op,targets(:,k),penalty(k),control%tol,limit,coef, &
@@ -279,6 +303,134 @@ contains
       fit%coefficients(k,:)=coef
     end do
   end function
+  ! Squared-loss SAG/SAGA: sklearn _sag.py and _sag_fast.pyx.tp.
+  ! Raw CSR entries are traversed in source order; lagged updates never densify X.
+  subroutine stochastic_ridge(op,y,alpha,tol,limit,seed,saga,fit_intercept,coef,intercept,iterations,converged,weights)
+    type(ridge_operator),intent(in)::op
+    real(dp),intent(in)::y(:),alpha,tol
+    integer,intent(in)::limit,seed
+    logical,intent(in)::saga,fit_intercept
+    real(dp),allocatable,intent(out)::coef(:)
+    real(dp),intent(out)::intercept
+    integer,intent(out)::iterations
+    logical,intent(out)::converged
+    real(dp),optional,intent(in)::weights(:)
+    type(legacy_random_state)::rng
+    real(dp),allocatable::sum_gradient(:),memory(:),previous(:),cumulative(:),values(:)
+    integer,allocatable::hist(:),columns(:)
+    logical,allocatable::seen(:)
+    integer::n,p,epoch,it,row,j,k,first,last,nnz,num_seen
+    integer(int64)::state
+    real(dp)::maxnorm,norm,scaled_alpha,lipschitz,step,scale_update,wscale,prediction,gradient,correction
+    real(dp)::intercept_gradient,decay,max_change,max_weight,cum
+    n=op%n;p=op%p;maxnorm=0
+    do row=1,n
+      if(op%is_sparse)then
+        norm=sum(op%sparse%data(op%sparse%indptr(row):op%sparse%indptr(row+1)-1)**2)
+      else
+        norm=sum(op%dense(row,:)**2)
+      end if
+      maxnorm=max(maxnorm,norm)
+    end do
+    scaled_alpha=alpha/n;lipschitz=maxnorm
+    if(fit_intercept)lipschitz=lipschitz+1
+    lipschitz=lipschitz+scaled_alpha
+    call require(lipschitz>0,'ridge stochastic step has zero Lipschitz constant')
+    if(saga)then
+      step=1._dp/(2*lipschitz+min(2._dp*n*scaled_alpha,lipschitz))
+    else
+      step=1._dp/lipschitz
+    end if
+    call require(step*scaled_alpha/=1,'ridge SAG step times penalty must differ from one')
+    scale_update=1-step*scaled_alpha
+    allocate(coef(p),sum_gradient(p),memory(n),previous(p),cumulative(n),hist(p),seen(n))
+    coef=0;sum_gradient=0;memory=0;previous=0;cumulative=0;hist=0;seen=.false.
+    intercept=0;intercept_gradient=0;wscale=1;num_seen=0;converged=.false.;iterations=1
+    decay=1;if(op%is_sparse)decay=.01_dp
+    call rng%seed(seed);state=int(rng%integer_index(2147483646),int64)
+    if(.not.op%is_sparse)then
+      allocate(columns(p),values(p));columns=[(j,j=1,p)]
+    end if
+    do epoch=1,limit
+      do it=0,n-1
+        if(state==0)state=1
+        state=iand(ieor(state,ishft(state,13)),4294967295_int64)
+        state=ieor(state,ishft(state,-17))
+        state=iand(ieor(state,ishft(state,5)),4294967295_int64)
+        row=int(modulo(iand(state,2147483647_int64),int(n,int64)))+1
+        if(op%is_sparse)then
+          first=op%sparse%indptr(row);last=op%sparse%indptr(row+1)-1
+          columns=op%sparse%indices(first:last);values=op%sparse%data(first:last)
+        else
+          values=op%dense(row,:)
+        end if
+        nnz=size(columns)
+        if(.not.seen(row))then
+          seen(row)=.true.;num_seen=num_seen+1
+        end if
+        if(it>0)then
+          do k=1,nnz
+            j=columns(k);cum=cumulative(it)
+            if(hist(j)/=0)cum=cum-cumulative(hist(j))
+            coef(j)=coef(j)-cum*sum_gradient(j);hist(j)=it
+          end do
+        end if
+        prediction=0
+        do k=1,nnz
+          prediction=prediction+coef(columns(k))*values(k)
+        end do
+        prediction=wscale*prediction+intercept
+        gradient=prediction-y(row)
+        if(present(weights))gradient=gradient*weights(row)
+        wscale=wscale*scale_update
+        do k=1,nnz
+          j=columns(k);correction=values(k)*(gradient-memory(row))
+          if(saga)coef(j)=coef(j)-(correction*step*(1-1._dp/num_seen)/wscale)
+          sum_gradient(j)=sum_gradient(j)+correction
+        end do
+        if(fit_intercept)then
+          correction=gradient-memory(row);intercept_gradient=intercept_gradient+correction
+          correction=correction*step*(1-1._dp/num_seen)
+          if(saga)then
+            intercept=intercept-(step*intercept_gradient/num_seen*decay+correction)
+          else
+            intercept=intercept-(step*intercept_gradient/num_seen*decay)
+          end if
+          call require(ieee_is_finite(intercept),'ridge stochastic intercept is nonfinite')
+        end if
+        memory(row)=gradient
+        if(it==0)then
+          cumulative(1)=step/(wscale*num_seen)
+        else
+          cumulative(it+1)=cumulative(it)+step/(wscale*num_seen)
+        end if
+        if(wscale<1.e-9_dp)call reset_scale(it+1)
+      end do
+      call reset_scale(n)
+      max_weight=maxval(abs(coef));max_change=maxval(abs(coef-previous));previous=coef
+      iterations=epoch
+      if(max_weight==0)then
+        converged=max_change==0
+      else
+        converged=max_change/max_weight<=tol
+      end if
+      if(converged)exit
+    end do
+  contains
+    subroutine reset_scale(sample_itr)
+      integer,intent(in)::sample_itr
+      integer::feature
+      real(dp)::pending
+      do feature=1,p
+        pending=cumulative(sample_itr)
+        if(hist(feature)/=0)pending=pending-cumulative(hist(feature))
+        coef(feature)=(coef(feature)-pending*sum_gradient(feature))*wscale
+        call require(ieee_is_finite(coef(feature)),'ridge stochastic coefficient is nonfinite')
+        hist(feature)=modulo(sample_itr,n)
+      end do
+      cumulative(sample_itr)=0;wscale=1
+    end subroutine
+  end subroutine
   subroutine svd_ridge(a,y,alpha,coef)
     real(dp),intent(in)::a(:,:),y(:),alpha
     real(dp),allocatable,intent(out)::coef(:)

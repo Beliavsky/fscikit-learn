@@ -9311,21 +9311,26 @@ in the reference record. See example/sparse_coordinate_paths.f90.
 `sklearn_linear_model`. Dense real64 and CSR designs support vector or matrix
 responses and scalar or per-target penalty vectors (length one broadcasts).
 Coefficients always have shape `(n_targets,n_features)`, including one target.
-The function fits no intercept; center data separately when needed.
+By default it fits no intercept; SAG supports direct intercept fitting through
+`options%return_intercept`, with results in `fit%intercept`. Other solver
+choices reject that option.
 
 Options: `solver='auto'`, `tol=1e-4`, `max_iter=-1` (source default),
-`positive=.false.`. Supported solvers are dense `svd`, dense/CSR `cholesky`,
-`sparse_cg`, `lsqr`, and positive `lbfgs`. Auto selects Cholesky for dense,
-CG for CSR, and L-BFGS-B for positive fitting. L-BFGS-B requires positivity;
+`positive=.false.`, `random_state=0`, `return_intercept=.false.`. Supported
+solvers are dense `svd`, dense/CSR `cholesky`, `sparse_cg`, `lsqr`, `sag`,
+`saga`, and positive `lbfgs`. Auto selects Cholesky for dense, CG for CSR,
+SAG for direct intercept fitting, and L-BFGS-B for positive fitting. L-BFGS-B requires positivity;
 other solvers reject it. Finite nonnegative sample weights of length n rescale
-rows by their square roots, without normalization. Penalties must be finite
+rows by their square roots, without normalization, for deterministic solvers.
+SAG/SAGA instead multiply sample gradients directly, including finite signed
+weights as source behavior; no convexity claim is made for signed weights. Penalties must be finite
 and nonnegative. Input arrays and sparse storage are copied.
 
-`n_iter` matches source LSQR counts; other solvers use -1 for source None.
+`n_iter` matches source LSQR/SAG/SAGA counts; other solvers use -1 for source None.
 `native_iterations` additionally records CG/L-BFGS-B iterations. `stop_code`
-records LSQR's 0?7 status or 1 for a dense primal Cholesky fallback to SVD.
+records LSQR's 0-7 status or 1 for a dense primal Cholesky fallback to SVD.
 `converged` is a native diagnostic: LSQR codes 1,2,4,5 indicate convergence;
-zero targets also converge without iteration. Code 0 otherwise reports no
+LSQR zero targets also converge without iteration. LSQR code 0 otherwise reports no
 iteration/stopping certificate. Direct solvers report successful completion.
 Cholesky selects the smaller primal/dual Gram matrix; CG and LSQR use
 matrix-vector products without a dense design or Gram for CSR. Requested
@@ -9336,7 +9341,30 @@ behavior is retained. SVD uses its absolute 1e-15 singular-value cutoff.
 Cholesky preserves the source's dense primal SVD fallback and common-penalty
 dual least-squares fallback. Floating-point singularity decisions and iterative
 stopping near a tolerance boundary can vary between numerical backends.
-SAG/SAGA, scalar weight broadcasting, direct `return_intercept`, estimator
-integration and general sparse formats remain unimplemented. This is a subset
+Scalar weight broadcasting, estimator integration and general sparse formats
+remain unimplemented. This is a subset
 of sklearn's public function, not an additional extension algorithm.
 See `example/ridge_solvers.f90`.
+
+
+SAG/SAGA ridge details: the native implementation retains sklearn 1.6.1's
+sample-with-replacement xorshift draws seeded from legacy NumPy RandomState,
+per-sample gradient memory, number-seen denominators, automatic Lipschitz
+steps, coefficient scale factors and just-in-time sparse updates. Scale resets
+occur below 1e-9 and at each epoch boundary. CSR input is never densified;
+working storage is O(nnz+n_samples+n_features), apart from requested output.
+The default stochastic epoch cap is 1000. Integer random seeds must fit a
+nonnegative native integer. Integer seeds restart identically for each target,
+as in the source public ridge function.
+
+Direct intercept fitting requires SAG. Sparse intercept updates use the source
+0.01 decay; dense updates use 1. `intercept` is an owned per-target vector,
+zero when direct fitting is not requested. Stochastic `converged` follows the
+source coefficient-only relative-change test; it does not certify intercept
+optimality. In particular a zero design can stop after one epoch while the
+intercept is still changing. A zero epoch cap retains zero coefficients and
+source's reported count of one, with native convergence false. `stop_code`
+remains zero for these solvers; use `converged` and `n_iter`. Python warning
+emission is not reproduced. Zero Lipschitz constants and SAG's unit
+step-times-scaled-penalty case are rejected explicitly. These cases also fail
+in the pinned source. See `example/ridge_stochastic.f90`.
