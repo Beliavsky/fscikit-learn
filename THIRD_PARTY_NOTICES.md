@@ -2308,3 +2308,17 @@ introsort is original Fortran matching observed source ordering; no C++ or
 sparse runtime is linked. Likelihood reduction reuses the attributed NumPy
 pairwise summation. LU, typed integration and IEEE composition are original
 MIT contributions.
+
+## Weighted Lloyd KMeans
+
+The shared solver and functional entry point adapt sklearn 1.6.1
+`cluster/_kmeans.py`, `_k_means_lloyd.pyx` and `_k_means_common.pyx`; the existing
+sklearn BSD notice applies. Initialization reuses the attributed legacy NumPy
+RNG and k-means++ implementation. Farthest-row ordering reuses the attributed
+NumPy/x86-simd-sort helper. Row norms adapt NumPy 2.2.6
+`numpy/_core/src/multiarray/einsum_sumprod.c.src`, copyright (c) 2011 Mark Wiebe,
+University of British Columbia, under the retained NumPy BSD notice. Assignment
+and query products reuse the existing scalar OpenBLAS reconstruction. Existing
+NumPy, x86-simd-sort and OpenBLAS license notices remain applicable. Typed
+storage, CSR composition and integration are original MIT contributions; no
+external BLAS or Python runtime is linked.

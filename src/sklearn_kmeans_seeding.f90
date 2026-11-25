@@ -8,7 +8,10 @@ module sklearn_kmeans_seeding
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite,ieee_is_nan
   implicit none
   private
-  public :: kmeans_plusplus
+  public :: kmeans_plusplus,kmeans_plusplus_state
+  interface kmeans_plusplus_state
+    module procedure state_dense,state_sparse
+  end interface
   interface kmeans_plusplus
     module procedure seed_dense,seed_sparse
   end interface
@@ -74,6 +77,29 @@ contains
       ids(j)=min(lower+1,n)
     end do
   end function
+  subroutine state_dense(x,n_clusters,rng,centers,sample_weight)
+    real(dp),intent(in)::x(:,:)
+    integer,intent(in)::n_clusters
+    type(legacy_random_state),intent(inout)::rng
+    real(dp),allocatable,intent(out)::centers(:,:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    integer,allocatable::indices(:)
+    call check_x(x)
+    call seed_body(size(x,1),size(x,2),n_clusters,centers,indices,sample_weight, &
+      dense=x,rng_state=rng)
+  end subroutine
+  subroutine state_sparse(x,n_clusters,rng,centers,sample_weight)
+    type(csr_matrix),intent(in)::x
+    integer,intent(in)::n_clusters
+    type(legacy_random_state),intent(inout)::rng
+    real(dp),allocatable,intent(out)::centers(:,:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    integer,allocatable::indices(:)
+    call x%validate()
+    call require(x%n_rows>0.and.x%n_cols>0,'kmeans++ sparse data must have nonempty axes')
+    call require(all(ieee_is_finite(x%data)),'kmeans++ sparse data must be finite')
+    call seed_body(x%n_rows,x%n_cols,n_clusters,centers,indices,sample_weight,sparse=x,rng_state=rng)
+  end subroutine
   subroutine seed_dense(x,n_clusters,centers,indices,sample_weight,x_squared_norms,random_state,n_local_trials)
     real(dp), intent(in) :: x(:,:)
     integer, intent(in) :: n_clusters
@@ -98,7 +124,7 @@ contains
     call seed_body(x%n_rows,x%n_cols,n_clusters,centers,indices,sample_weight,x_squared_norms, &
       random_state,n_local_trials,sparse=x)
   end subroutine
-  subroutine seed_body(n,p,k,centers,indices,sample_weight,x_squared_norms,random_state,n_local_trials,dense,sparse)
+  subroutine seed_body(n,p,k,centers,indices,sample_weight,x_squared_norms,random_state,n_local_trials,dense,sparse,rng_state)
     integer, intent(in) :: n,p,k
     real(dp), allocatable, intent(out) :: centers(:,:)
     integer, allocatable, intent(out) :: indices(:)
@@ -106,6 +132,7 @@ contains
     integer, optional, intent(in) :: random_state,n_local_trials
     type(csr_matrix), optional, intent(in) :: sparse
     type(legacy_random_state) :: rng
+    type(legacy_random_state),optional,intent(inout)::rng_state
     real(dp), allocatable :: weights(:),norms(:),actual_norms(:),cdf(:),closest(:),trial(:),best_dist(:),keys(:),row(:)
     integer, allocatable :: ids(:)
     real(dp) :: total,value,potential,best_cost,cost,current_norm
@@ -114,7 +141,11 @@ contains
     trials=2+int(log(real(k,dp)));if(present(n_local_trials)) trials=n_local_trials
     call require(trials>=1,'kmeans++ n_local_trials must be positive')
     seed=0;if(present(random_state)) seed=random_state
-    call rng%seed(seed)
+    if(present(rng_state))then
+      rng=rng_state
+    else
+      call rng%seed(seed)
+    end if
     allocate(weights(n),norms(n),actual_norms(n),cdf(n),closest(n),trial(n),best_dist(n),keys(trials),row(p))
     weights=1
     if(present(sample_weight)) then
@@ -185,6 +216,7 @@ contains
       call get_row(best_id,row);centers(c,:)=row;indices(c)=best_id
       closest=best_dist;potential=best_cost
     end do
+    if(present(rng_state))rng_state=rng
   contains
     real(dp) function squared_norm(a) result(norm)
       real(dp), intent(in) :: a(:)

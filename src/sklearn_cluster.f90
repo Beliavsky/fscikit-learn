@@ -1,4 +1,5 @@
 module sklearn_cluster
+  use sklearn_kmeans_core,only:k_means,kmeans_result,kmeans_labels,kmeans_distances,kmeans_inertia
   use sklearn_hierarchy,only:ward_tree,linkage_tree,hierarchy_result
   use sklearn_sparse,only:csr_matrix
   use sklearn_kmeans_seeding, only: kmeans_plusplus
@@ -17,6 +18,7 @@ module sklearn_cluster
   use sklearn_optics, only: optics,cluster_optics_dbscan,cluster_optics_xi,compute_optics_graph,optics_graph_result
   implicit none
   private
+  public :: k_means,kmeans_result
   public :: kmeans_plusplus
   public :: bisecting_kmeans,mini_batch_kmeans
   public :: spectral_coclustering,spectral_biclustering
@@ -56,17 +58,25 @@ module sklearn_cluster
     procedure :: fit_transform=>birch_fit_transform
   end type
   type :: kmeans
-    integer :: n_clusters=8,n_init=10,max_iter=300,random_state=0,n_iter_=0
+    integer :: n_clusters=8,n_init=10,max_iter=300,random_state=0,n_iter_=0,n_features_in_=0,n_init_effective_=0
     real(dp) :: tol=1.e-4_dp,inertia_=0
+    character(16)::init='k-means++',algorithm='lloyd'
     logical :: converged_=.false.
-    real(dp), allocatable :: cluster_centers_(:,:)
+    real(dp), allocatable :: initial_centers(:,:),cluster_centers_(:,:)
     integer, allocatable :: labels_(:)
   contains
-    procedure :: fit=>kmeans_fit
-    procedure :: predict=>kmeans_predict
-    procedure :: transform=>kmeans_transform
-    procedure :: fit_predict=>kmeans_fit_predict
-    procedure :: score=>kmeans_score
+    procedure,private::fit_dense=>kmeans_fit,fit_sparse=>kmeans_fit_sparse
+    generic::fit=>fit_dense,fit_sparse
+    procedure,private::predict_dense=>kmeans_predict,predict_sparse=>kmeans_predict_sparse
+    generic::predict=>predict_dense,predict_sparse
+    procedure,private::transform_dense=>kmeans_transform,transform_sparse=>kmeans_transform_sparse
+    generic::transform=>transform_dense,transform_sparse
+    procedure,private::fit_predict_dense=>kmeans_fit_predict,fit_predict_sparse=>kmeans_fit_predict_sparse
+    generic::fit_predict=>fit_predict_dense,fit_predict_sparse
+    procedure,private::fit_transform_dense=>kmeans_fit_transform,fit_transform_sparse=>kmeans_fit_transform_sparse
+    generic::fit_transform=>fit_transform_dense,fit_transform_sparse
+    procedure,private::score_dense=>kmeans_score,score_sparse=>kmeans_score_sparse
+    generic::score=>score_dense,score_sparse
   end type
   type :: dbscan
     real(dp) :: eps=0.5_dp
@@ -516,104 +526,112 @@ contains
     integer :: labels(size(x,1))
     call self%fit(x); labels=self%labels_
   end function
-  subroutine kmeans_fit(self,x,init_centers)
-    class(kmeans), intent(inout) :: self
-    real(dp), intent(in) :: x(:,:)
-    real(dp), intent(in), optional :: init_centers(:,:)
-    real(dp), allocatable :: centers(:,:),next(:,:),d(:,:),closest(:),weights(:)
-    integer, allocatable :: labels(:),previous(:),counts(:)
-    real(dp) :: best,inertia,r,cumulative,shift,variance
-    integer :: run,runs,it,n,p,k,i,j,chosen
-    call check_x(x); n=size(x,1); p=size(x,2); k=self%n_clusters
-    call require(k>0.and.k<=n,'invalid number of kmeans clusters')
-    call require(self%n_init>0.and.self%max_iter>0.and.self%tol>=0,'invalid kmeans controls')
-    runs=self%n_init
-    if(present(init_centers)) then
-      call require(all(shape(init_centers)==[k,p]),'kmeans initial centers shape mismatch')
-      call check_x(init_centers); runs=1
-    end if
-    allocate(centers(k,p),next(k,p),labels(n),previous(n),counts(k),closest(n),weights(n))
-    best=huge(1._dp); call seed_rng(self%random_state)
-    variance=0
-    do j=1,p
-      variance=variance+sum((x(:,j)-sum(x(:,j))/n)**2)/n
-    end do
-    variance=variance/p
-    do run=1,runs
-      if(present(init_centers)) then
-        centers=init_centers
-      else
-        call random_number(r); chosen=min(n,1+int(r*n)); centers(1,:)=x(chosen,:)
-        closest=sum((x-spread(centers(1,:),1,n))**2,dim=2)
-        do j=2,k
-          call random_number(r); cumulative=0; chosen=n
-          if(sum(closest)==0) then
-            chosen=1+mod(j-1,n)
-          else
-            r=r*sum(closest)
-            do i=1,n
-              cumulative=cumulative+closest(i)
-              if(cumulative>r) then
-                chosen=i; exit
-              end if
-            end do
-          end if
-          centers(j,:)=x(chosen,:)
-          closest=min(closest,sum((x-spread(centers(j,:),1,n))**2,dim=2))
-        end do
-      end if
-      previous=-1
-      do it=1,self%max_iter
-        d=pairwise_distances(x,centers,'sqeuclidean'); labels=minloc(d,dim=2)
-        next=0; counts=0
-        do i=1,n
-          next(labels(i),:)=next(labels(i),:)+x(i,:); counts(labels(i))=counts(labels(i))+1
-        end do
-        closest=minval(d,dim=2)
-        do j=1,k
-          if(counts(j)>0) then
-            next(j,:)=next(j,:)/counts(j)
-          else
-            chosen=maxloc(closest,dim=1); next(j,:)=x(chosen,:); closest(chosen)=-1
-          end if
-        end do
-        shift=sum((next-centers)**2); centers=next
-        if(all(labels==previous).or.shift<=self%tol*variance) exit
-        previous=labels
-      end do
-      d=pairwise_distances(x,centers,'sqeuclidean'); labels=minloc(d,dim=2)
-      inertia=sum(minval(d,dim=2))
-      if(inertia<best) then
-        best=inertia; self%cluster_centers_=centers; self%labels_=labels-1
-        self%inertia_=inertia; self%n_iter_=min(it,self%max_iter); self%converged_=it<=self%max_iter
-      end if
-    end do
+  subroutine kmeans_store(self,result)
+    class(kmeans),intent(inout)::self
+    type(kmeans_result),intent(in)::result
+    self%cluster_centers_=result%centers;self%labels_=result%labels
+    self%inertia_=result%inertia;self%n_iter_=result%n_iter;self%converged_=result%converged
+    self%n_features_in_=size(result%centers,2);self%n_init_effective_=result%n_init
   end subroutine
-  function kmeans_transform(self,x) result(d)
-    class(kmeans), intent(in) :: self
-    real(dp), intent(in) :: x(:,:)
-    real(dp), allocatable :: d(:,:)
+  subroutine kmeans_fit(self,x,init_centers,sample_weight)
+    class(kmeans),intent(inout)::self
+    real(dp),intent(in)::x(:,:)
+    real(dp),optional,intent(in)::init_centers(:,:),sample_weight(:)
+    type(kmeans_result)::result
+    if(present(init_centers))then
+      result=k_means(x,self%n_clusters,sample_weight=sample_weight,init=self%init,n_init=self%n_init, &
+        max_iter=self%max_iter,tol=self%tol,random_state=self%random_state,init_centers=init_centers,algorithm=self%algorithm)
+    else
+      result=k_means(x,self%n_clusters,sample_weight=sample_weight,init=self%init,n_init=self%n_init, &
+        max_iter=self%max_iter,tol=self%tol,random_state=self%random_state,init_centers=self%initial_centers, &
+        algorithm=self%algorithm)
+    end if
+    call kmeans_store(self,result)
+  end subroutine
+  function kmeans_transform(self,x)result(d)
+    class(kmeans),intent(in)::self
+    real(dp),intent(in)::x(:,:)
+    real(dp),allocatable::d(:,:)
     call require(allocated(self%cluster_centers_),'kmeans is not fitted')
-    d=pairwise_distances(x,self%cluster_centers_)
+    d=kmeans_distances(x,self%cluster_centers_)
   end function
-  function kmeans_predict(self,x) result(labels)
-    class(kmeans), intent(in) :: self
-    real(dp), intent(in) :: x(:,:)
-    integer :: labels(size(x,1))
-    real(dp), allocatable :: d(:,:)
-    d=self%transform(x); labels=minloc(d,dim=2)-1
+  function kmeans_predict(self,x)result(labels)
+    class(kmeans),intent(in)::self
+    real(dp),intent(in)::x(:,:)
+    integer::labels(size(x,1))
+    call require(allocated(self%cluster_centers_),'kmeans is not fitted')
+    labels=kmeans_labels(x,self%cluster_centers_)
   end function
-  function kmeans_fit_predict(self,x) result(labels)
-    class(kmeans), intent(inout) :: self
-    real(dp), intent(in) :: x(:,:)
-    integer :: labels(size(x,1))
-    call self%fit(x); labels=self%labels_
+  function kmeans_fit_predict(self,x,sample_weight)result(labels)
+    class(kmeans),intent(inout)::self
+    real(dp),intent(in)::x(:,:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    integer::labels(size(x,1))
+    call self%fit(x,sample_weight=sample_weight);labels=self%labels_
   end function
-  real(dp) function kmeans_score(self,x) result(v)
-    class(kmeans), intent(in) :: self
-    real(dp), intent(in) :: x(:,:)
-    real(dp), allocatable :: d(:,:)
-    d=self%transform(x); v=-sum(minval(d,dim=2)**2)
+  function kmeans_fit_transform(self,x,sample_weight)result(d)
+    class(kmeans),intent(inout)::self
+    real(dp),intent(in)::x(:,:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    real(dp),allocatable::d(:,:)
+    call self%fit(x,sample_weight=sample_weight);d=self%transform(x)
+  end function
+  real(dp)function kmeans_score(self,x,sample_weight)result(value)
+    class(kmeans),intent(in)::self
+    real(dp),intent(in)::x(:,:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    call require(allocated(self%cluster_centers_),'kmeans is not fitted')
+    value=-kmeans_inertia(x,self%cluster_centers_,sample_weight)
+  end function
+  subroutine kmeans_fit_sparse(self,x,init_centers,sample_weight)
+    class(kmeans),intent(inout)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),optional,intent(in)::init_centers(:,:),sample_weight(:)
+    type(kmeans_result)::result
+    if(present(init_centers))then
+      result=k_means(x,self%n_clusters,sample_weight=sample_weight,init=self%init,n_init=self%n_init, &
+        max_iter=self%max_iter,tol=self%tol,random_state=self%random_state,init_centers=init_centers,algorithm=self%algorithm)
+    else
+      result=k_means(x,self%n_clusters,sample_weight=sample_weight,init=self%init,n_init=self%n_init, &
+        max_iter=self%max_iter,tol=self%tol,random_state=self%random_state,init_centers=self%initial_centers, &
+        algorithm=self%algorithm)
+    end if
+    call kmeans_store(self,result)
+  end subroutine
+  function kmeans_transform_sparse(self,x)result(d)
+    class(kmeans),intent(in)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),allocatable::d(:,:)
+    call require(allocated(self%cluster_centers_),'kmeans is not fitted')
+    d=kmeans_distances(x,self%cluster_centers_)
+  end function
+  function kmeans_predict_sparse(self,x)result(labels)
+    class(kmeans),intent(in)::self
+    type(csr_matrix),intent(in)::x
+    integer::labels(x%n_rows)
+    call require(allocated(self%cluster_centers_),'kmeans is not fitted')
+    labels=kmeans_labels(x,self%cluster_centers_)
+  end function
+  function kmeans_fit_predict_sparse(self,x,sample_weight)result(labels)
+    class(kmeans),intent(inout)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),optional,intent(in)::sample_weight(:)
+    integer::labels(x%n_rows)
+    call self%fit(x,sample_weight=sample_weight);labels=self%labels_
+  end function
+  function kmeans_fit_transform_sparse(self,x,sample_weight)result(d)
+    class(kmeans),intent(inout)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),optional,intent(in)::sample_weight(:)
+    real(dp),allocatable::d(:,:)
+    call self%fit(x,sample_weight=sample_weight);d=self%transform(x)
+  end function
+  real(dp)function kmeans_score_sparse(self,x,sample_weight)result(value)
+    class(kmeans),intent(in)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),optional,intent(in)::sample_weight(:)
+    call require(allocated(self%cluster_centers_),'kmeans is not fitted')
+    value=-kmeans_inertia(x,self%cluster_centers_,sample_weight)
   end function
   subroutine dbscan_fit(self,x)
     class(dbscan), intent(inout) :: self

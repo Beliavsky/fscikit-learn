@@ -713,3 +713,11 @@ numerical limits for zero-tolerance stopping and null-space initialization.
 `log_likelihood` evaluates the normalized covariance-model likelihood.
 See [the API](docs/API.md#dummy-feature-and-covariance-likelihood-functions) and
 [example/dummy_likelihood.f90](example/dummy_likelihood.f90).
+
+## Weighted Lloyd KMeans
+
+`kmeans` now supports weighted dense/CSR Lloyd fitting, private sklearn-compatible
+seeded initialization, restarts and dense/CSR queries. The `k_means` function
+returns owned centers, labels, inertia and iteration metadata. See
+[the API](docs/API.md#weighted-lloyd-kmeans) and
+[example/weighted_kmeans.f90](example/weighted_kmeans.f90).

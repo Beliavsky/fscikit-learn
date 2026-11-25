@@ -9955,3 +9955,62 @@ real(dp) :: mean_log_likelihood
 design=add_dummy_feature(x, value=1._dp)
 mean_log_likelihood=log_likelihood(empirical_covariance(x), precision)
 ```
+
+## Weighted Lloyd KMeans
+
+`kmeans`, `k_means` and the owned `kmeans_result` helper are exported by
+`sklearn_cluster` and `sklearn`. The shared native Lloyd solver replaces the
+original unweighted, process-global-RNG KMeans implementation.
+
+```fortran
+type(kmeans) :: model
+type(kmeans_result) :: result
+model%n_clusters=3
+model%n_init=0                  ! Python n_init='auto'
+model%init='k-means++'          ! or 'random'
+model%random_state=7
+call model%fit(x, sample_weight=weights)
+result=k_means(x, 3, sample_weight=weights, random_state=7)
+! result%centers, labels, inertia, n_iter, n_init and converged own the result.
+```
+
+Dense real64 matrices and CSR matrices are accepted for fitting, prediction,
+transformation and scoring. CSR training remains sparse; centers and query
+distance outputs are dense. `predict` returns zero-based labels; `transform`
+returns sample-by-cluster Euclidean distances; `score` is negative weighted
+inertia. `fit_predict` and `fit_transform` accept optional sample weights.
+The weight vector must be finite and match the number of samples. It is not
+used to filter rows during assignment. Signed and zero weights follow the
+source arithmetic when valid for the requested initialization: stochastic
+initializers require finite nonnegative normalized probabilities, and random
+initialization without replacement needs enough positive-probability rows.
+Explicit initial centers permit all-zero weights and finite signed weights.
+
+The class retains its legacy default n_init=10. Zero selects Python 'auto':
+one run for k-means++ or explicit centers and ten for random initialization.
+The free function defaults to auto, max_iter=300, tol=1e-4, init='k-means++',
+algorithm='lloyd' and native deterministic random_state=0. Numeric restart
+counts must be positive. An explicit center matrix always selects one run.
+Use `model%initial_centers=centers` for persistent initialization or
+`init_centers=centers` in the function. The legacy second positional matrix
+argument to `model%fit(x,centers)` remains a per-call initializer; pass sample
+weights by keyword to fit. Initializers must have shape (n_clusters,n_features).
+
+The solver centers dense inputs internally, scales stopping tolerance by the
+unweighted feature variance, relocates empty clusters using farthest rows,
+checks strict label convergence before tolerance, and performs a final
+assignment when needed. Restarts replace the best solution only for a lower
+inertia and a different partition. It uses a private NumPy-compatible legacy
+RNG advanced across restarts and never changes Fortran's process-global RNG.
+The learned fields n_features_in_ and n_init_effective_ expose feature count
+and effective restart count; converged_ retains the native stopping diagnostic.
+Successful fitting preserves caller IEEE flags and halting modes. Nonfinite
+input/controls and results outside finite working range are rejected.
+
+Raw CSR duplicates and explicit zeros are retained, including the source's
+representation-dependent norm and relocation arithmetic. The class does not
+canonicalize input storage. The interfaces use owned copies; Python's copy_x
+in-place roundtrip, scalar-weight broadcasting, named dataframe features,
+callable initialization, verbosity and parallel execution are outside this
+interface. Only Lloyd is implemented here; algorithm='elkan' is not yet
+supported. This does not change BisectingKMeans' separate Elkan implementation.
