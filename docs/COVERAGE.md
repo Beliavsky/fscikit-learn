@@ -160,8 +160,13 @@ atol=2e-12), with exact structure and leaf indices. It includes opposing,
 duplicate, constant and zero-column targets, signed weights where exercised,
 both tree types and constrained growth. The previous scalar-criterion suite
 passes 1,247 fixtures / 16,211 groups. Native joint tests and 12 guards (11
-Source errors and one explicit native prediction-rank adapter) pass. Checked
-package and optimized verification are in progress. This adds no estimator type
+Source errors and one explicit native prediction-rank adapter) pass in checked
+and optimized module builds. Following implementation 7b0d31b, the full checked
+fpm rebuild, all 291 native programs, six selected examples, joint grid/guards,
+older tree reference suites and 192 core comparisons pass. Its audit verifies
+305 jobs and 516 compiled-unit fingerprints (201 library units). Optimized
+verification covers the changed tree module and direct public tree API rather
+than a full optimized package rebuild. This adds no estimator type
 or extension algorithm; joint classification and forest fitting remain outside
 this increment.
 

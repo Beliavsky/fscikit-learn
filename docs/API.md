@@ -3822,6 +3822,7 @@ matrix `(n_samples,n_outputs)` through the same `fit` generic. All four criteria
 use one shared tree and combine output statistics when selecting splits.
 Sample weights, best-first leaf budgets, minimum impurity decrease, feature
 selection and cost-complexity pruning apply to that shared tree.
+Poisson checks child target sums separately for every output.
 
 ```fortran
 type(decision_tree_regressor) :: model
