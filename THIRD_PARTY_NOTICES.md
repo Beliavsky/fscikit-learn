@@ -1,5 +1,17 @@
 # Third-party notices and provenance
 
+Classic gradient boosting in `src/sklearn_classic_gradient_boosting.f90`
+follows sklearn 1.6.1 `ensemble/_gb.py`, `_loss/loss.py`, `_loss/_loss.pyx.tp`,
+`_loss/link.py`, `dummy.py` and `utils/stats.py`: shared RandomState tree fitting,
+regression loss gradients and terminal-region updates, weighted percentiles,
+classification Newton updates and initialization, and raw impurity aggregation.
+The binary logit adapter follows SciPy 1.15.3
+[`special/xsf/log_exp.h`](https://github.com/scipy/scipy/blob/v1.15.3/scipy/special/xsf/log_exp.h).
+Sklearn/SciPy BSD notices remain in `LICENSES/scikit-learn-COPYING` and
+`LICENSES/scipy-COPYING`. Existing NumPy ordering/reduction notices apply to
+the reused native helpers. Typed APIs, diagnostics and registry integration
+are original MIT contributions; no external runtime dependency is added.
+
 Typed feature budgets for CART/ExtraTree and random-forest/ExtraTrees models
 follow scikit-learn 1.6.1 `tree/_classes.py` max_features resolution, including
 fraction truncation, square root, base-two logarithm and positive oversized

@@ -126,7 +126,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | outlier | `local_outlier_factor` | Training outlier scores and novelty detection, automatic/percentile threshold, Minkowski and other supported pairwise metrics |
 | semi_supervised | `label_propagation`, `label_spreading`, `self_training_classifier` | Dense RBF or directed k-neighbor graph, hard/soft clamping, transductive labels and inductive probabilities; threshold/k-best self-training with logistic, Gaussian NB or KNN bases |
 | tree | `decision_tree_classifier`, `decision_tree_regressor`, `extra_tree_classifier`, `extra_tree_regressor` | Weighted CART and standalone randomized trees; Gini/entropy/log-loss classification, squared-error/Friedman MSE/Poisson/absolute-error regression; depth/leaf/split/feature controls, normalized impurity importance, leaf indices, minimal cost-complexity pruning, pruning paths, CSR decision paths and minimum weighted leaf fractions |
-| ensemble | `hist_gradient_boosting_regressor`, `hist_gradient_boosting_classifier`, `stacking_classifier`, `stacking_regressor`, `bagging_classifier`, `bagging_regressor`, `random_forest_classifier`, `random_forest_regressor`, `extra_trees_classifier`, `extra_trees_regressor`, `gradient_boosting_regressor`, `gradient_boosting_classifier`, `adaboost_classifier`, `adaboost_regressor`, `isolation_forest`, `voting_classifier`, `voting_regressor` | Histogram Newton boosting with missing-value routing and five regression losses; heterogeneous hard/soft voting and averaged regression; source-seeded weighted regression forests with squared-error/Friedman/Poisson/absolute-error criteria; weighted source-seeded classification forests with Gini/entropy/log-loss and class balancing; component cost-complexity pruning, CSR decision paths and minimum weighted leaves; bootstrap forests, randomized feature subsets, random-threshold Extra Trees, squared-error residual boosting; binary/multiclass classification boosting with Newton leaf updates; seeded SAMME with configurable weighted CART; AdaBoost.R2 with depth-controlled CART; random isolation trees and path-length anomaly scores |
+| ensemble | `hist_gradient_boosting_regressor`, `hist_gradient_boosting_classifier`, `stacking_classifier`, `stacking_regressor`, `bagging_classifier`, `bagging_regressor`, `random_forest_classifier`, `random_forest_regressor`, `extra_trees_classifier`, `extra_trees_regressor`, `gradient_boosting_regressor`, `gradient_boosting_classifier`, `adaboost_classifier`, `adaboost_regressor`, `isolation_forest`, `voting_classifier`, `voting_regressor` | Histogram Newton boosting with missing-value routing and five regression losses; heterogeneous hard/soft voting and averaged regression; source-seeded weighted regression forests with squared-error/Friedman/Poisson/absolute-error criteria; weighted source-seeded classification forests with Gini/entropy/log-loss and class balancing; component cost-complexity pruning, CSR decision paths and minimum weighted leaves; bootstrap forests, randomized feature subsets, random-threshold Extra Trees, weighted squared/absolute/quantile/Huber classic boosting; binary/multiclass classification boosting with Newton leaf updates; seeded SAMME with configurable weighted CART; AdaBoost.R2 with depth-controlled CART; random isolation trees and path-length anomaly scores |
 | validation | `cross_validate`, general `cross_val_score`, `cross_val_predict`, typed `cross_val_predict_class` adapter; `learning_curve`, `validation_curve`, `permutation_test_score` | Dense vector targets, multiple/scalar scorers, fit weights, returned fold models/indices, no-target transformer callbacks, partitioned out-of-fold responses, class encoding and missing-class columns |
 | search | `grid_search_cv`, `randomized_search_cv`; typed parameter grids and samplers | Serial dense candidate/fold evaluation, default or explicit folds, single/multiple scorers, callbacks, weighted fits, ranking and refitting; native scalar parameter adapters and nested Pipeline paths |
 | model_selection | `kfold`, `stratified_kfold`, `time_series_split`, `group_kfold`, `leave_one_out`, `leave_one_group_out`, `predefined_split`, `shuffle_split`, `stratified_shuffle_split`, `group_shuffle_split`, `repeated_kfold`, `repeated_stratified_kfold`, `leave_p_out`, `leave_p_groups_out`, `ridge_cv`; `train_test_split`, `shuffle_indices`, `cross_val_score` | Index-based splits; seeded random/group/stratified holdouts; repeated shuffled folds; exhaustive sample/group combinations; fraction/count size controls; optional stratification; time gap/window; CV for linear-regression family and logistic regression; ridge CV selects negative mean squared error |
@@ -1184,49 +1184,62 @@ extensions or dependencies were added. The
 package now has 104 core types in 42 source modules.
 
 
+## Classic gradient boosting regression
+
+`gradient_boosting_regressor` implements full-data dense fitting with squared,
+absolute, quantile and Huber losses. It supports finite sample weights,
+loss-appropriate default or zero initialization, shared seeded RandomState tree
+fitting, exact lower weighted percentiles, Huber threshold/leaf corrections,
+staged predictions, leaf assignments, weighted R2 and training-loss histories.
+Unweighted and explicitly weighted default initializers retain sklearn's
+different percentile conventions. Components use configurable Friedman MSE or
+squared-error criteria, integer depth/leaf/split controls, weighted minimum
+leaves, leaf budgets, pruning and typed integer/fractional/named feature budgets.
+Feature importances aggregate unnormalized component reductions before final
+normalization. Learning rate is finite and nonnegative, including zero, and
+prediction uses its current value after fitting.
+
+The implementation lives in `sklearn_classic_gradient_boosting` and is re-exported
+by `sklearn_ensemble` and `sklearn`. This separates the tree learner from the
+ensemble facade so the weighted regressor can use the shared registry for
+pipelines, voting, bagging and stacking. Search and SelectFromModel forward fit
+weights. `init_` is a native scalar constant; `huber_delta_` records each stage's
+pre-fit threshold as a native diagnostic. All generators materialize arrays.
+Subsampling/OOB histories, warm starts, validation stopping, custom initializer
+objects, fractional sample-size controls and sparse input remain unimplemented.
+
 ## GradientBoostingClassifier
 
 `gradient_boosting_classifier` fits negative-gradient regression trees and
-performs Newton leaf updates for binary/multiclass log loss and binary
-exponential loss. Multiclass gradients are frozen at the start of each stage
-and include sklearn's (K-1)/K leaf correction. Defaults use class-prior
-initialization: log odds for binary log loss, centered log priors for multiclass,
-and half log odds for exponential loss. `init_zero=true` starts at zero.
-At least two distinct integer labels are required; exponential loss is binary.
+Newton leaf updates for binary/multiclass log loss and binary exponential loss.
+Gradients are frozen at the start of each stage and include sklearn's (K-1)/K
+multiclass correction. Initialization follows the SciPy logit, half logit, or
+log(probability/geometric-mean) operations used by sklearn. Loss gradients and
+recovered probabilities follow the installed Cython formulas, including the
+exponential reciprocal. All trees consume one advancing NumPy-compatible random
+stream; both Friedman MSE and squared-error criteria are available. The
+minimum-impurity control uses the chosen criterion's own units. Typed feature
+budgets, float32 split geometry, component values and full leaf IDs now receive
+strict reference comparisons rather than the older prediction-region-only check.
 
-`estimators_(stage,channel)` contains one native regression tree per stage for
-binary tasks and one per class for multiclass tasks. Native trees use squared
-error splits; these rank unweighted candidate splits like Friedman MSE.
-The minimum-impurity control is rescaled to Friedman's SSE-reduction units.
-Tie handling, float64 thresholds and random feature selection can differ from
-sklearn's float32 tree backend. `max_features=0` uses all features; positive
-values use the native seeded feature-selection stream. No RNG equality with
-NumPy is claimed. Split-based importances sum unnormalized impurity reductions
-across trees before normalization. `train_score_` preserves sklearn 1.6.1's
-binary log-loss deviance factor of two; multiclass and exponential scores are
-mean cross-entropy and mean exponential loss, respectively.
+Methods include fit, predict, decision_function, predict_proba, predict_log_proba,
+score, apply, and staged decision/probability/label outputs. Decisions always have
+rank two: (n,1) for binary and (n,K) for multiclass. Staged decisions are
+(n,channels,n_stages), probabilities (n,n_classes,n_stages), and labels
+(n,n_stages). Apply returns 1-based leaf IDs with shape (n,n_stages,channels).
+`estimators_(stage,channel)` stores one tree for binary and K for multiclass.
+At a zero binary decision, prediction selects the positive class as sklearn does.
+The fitted loss/link is retained, while prediction uses the current learning
+rate. Learning rate may be zero. Training scores retain sklearn's binary
+log-loss deviance factor of two. Native per-tree scalar and vector leaf storage
+remain synchronized after Newton updates.
 
-Methods include fit, predict, decision_function, predict_proba,
-predict_log_proba, score, apply, and staged decision/probability/label outputs.
-Decision matrices always have rank two: (n,1) for binary, (n,K) for multiclass.
-Staged decisions have shape (n,n_trees_per_iteration_,n_stages), staged
-probabilities (n,n_classes,n_stages), and staged labels (n,n_stages). Apply returns native 1-based leaf IDs with shape
-(n,n_stages,n_trees_per_iteration_). Leaf numbering can differ from sklearn;
-reference checks compare per-tree prediction functions and require each
-native leaf to map to a constant reference prediction, allowing redundant
-constant-valued subdivisions. Staged methods
-materialize all stages rather than returning Python generators. Log
-probabilities use stable direct formulas and remain finite for finite raw
-scores even when probability output underflows to zero. Fitted learning rate
-and loss are retained for prediction; refit to change model hyperparameters.
-
-The initial dense real64 port uses full-data fitting only. Sample weights,
+Classification still uses unweighted full-data fitting. Sample weights,
 subsampling/OOB statistics, early stopping, warm starts, custom initializers,
-pruning, alternate criteria, feature-name metadata and sparse input are not
-implemented. Native tree count/depth/leaf/split/max-feature and minimum-impurity
-controls are supported. Learning rate must be finite and positive. The package
-now contains 105 core types in 42 source modules; no public extensions or
-runtime dependencies were added.
+pruning, feature-name metadata and sparse input are not implemented for this
+classifier. Exponential loss requires two distinct integer classes; log loss
+supports multiple classes. Existing entry points and retained MIT/BSD notices
+are unchanged; no public extension algorithm is added.
 
 
 ## Ridge classification and leave-one-out selection

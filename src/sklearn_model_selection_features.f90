@@ -388,8 +388,7 @@ contains
     class is(random_forest_regressor)
       call model%fit(x,y,sample_weight)
     type is(gradient_boosting_regressor)
-      call require(.not.present(sample_weight),'SelectFromModel base has no native weighted fit')
-      call model%fit(x,y)
+      call model%fit(x,y,sample_weight)
     class default
       call train_regressor(model,x,y,sample_weight)
     end select

@@ -1,6 +1,7 @@
 ! Internal native base dispatch shared by voting and bagging ensembles.
 ! Existing voting dispatch semantics and diagnostics are retained.
 module sklearn_base_dispatch
+  use sklearn_classic_gradient_boosting,only:gradient_boosting_regressor
   use sklearn_model_selection, only: ridge_cv
   use sklearn_weighted_linear, only: weighted_ridge_loo
   use sklearn_common, only: dp,require,check_x,check_xy,unique_labels,label_index
@@ -51,6 +52,8 @@ contains
       ok=allocated(model%classes_)
     type is(dummy_classifier)
       ok=allocated(model%classes_)
+    type is(gradient_boosting_regressor)
+      ok=allocated(model%estimators_)
     type is(adaboost_classifier)
       ok=model%n_estimators_>0
     end select
@@ -122,6 +125,8 @@ contains
     type is(kneighbors_regressor)
       call require(.not.present(weights),'voting base has no native weighted fit')
       call model%fit(x,y)
+    type is(gradient_boosting_regressor)
+      call model%fit(x,y,weights)
     class is(decision_tree_regressor)
       call model%fit(x,y,weights)
     type is(passive_aggressive_regressor)
@@ -184,6 +189,8 @@ contains
     class is(elastic_net)
       values=model%predict(x)
     type is(kneighbors_regressor)
+      values=model%predict(x)
+    type is(gradient_boosting_regressor)
       values=model%predict(x)
     class is(decision_tree_regressor)
       values=model%predict(x)
@@ -252,6 +259,7 @@ contains
       type is(sgd_regressor)
       class is(linear_regression)
       type is(kneighbors_regressor)
+      type is(gradient_boosting_regressor)
       class is(decision_tree_regressor)
       type is(kernel_ridge)
       type is(dummy_regressor)
@@ -275,6 +283,7 @@ contains
     type is(ridge_cv)
       ok=model%cv==0
     class is(decision_tree_classifier)
+    type is(gradient_boosting_regressor)
     class is(decision_tree_regressor)
     class is(ridge_classifier)
     type is(linear_svc)
@@ -385,6 +394,8 @@ contains
     class is(decision_tree_classifier)
       model%random_state=value
     class is(decision_tree_regressor)
+      model%random_state=value
+    type is(gradient_boosting_regressor)
       model%random_state=value
     type is(sgd_classifier)
       model%random_state=value

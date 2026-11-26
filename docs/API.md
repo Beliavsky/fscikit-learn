@@ -1261,6 +1261,45 @@ Finite zero/negative skewedness is allowed on that shifted domain. See
 COVERAGE.md for output column ordering, kernel definitions and RNG conventions.
 
 
+## Classic gradient boosting regression
+
+`gradient_boosting_regressor` is exported by `sklearn`, `sklearn_ensemble`, and
+the focused `sklearn_classic_gradient_boosting` module:
+
+```fortran
+type(gradient_boosting_regressor) :: model
+model%loss='huber' ! squared_error, absolute_error, quantile, or huber
+model%alpha=.9_dp  ! quantile level or Huber threshold quantile, strictly (0,1)
+model%n_estimators=100
+call model%set_max_features(.5_dp)
+call model%fit(x,y,sample_weight=weights)
+prediction=model%predict(x_query)
+stages=model%staged_predict(x_query) ! (n_queries,n_stages)
+leaves=model%apply(x_query)          ! (n_queries,n_stages), 1-based IDs
+```
+
+Weights are optional. Absent weights use an unweighted default initializer;
+explicit weights use the weighted mean or lower weighted percentile. Leaf
+updates follow sklearn's weighted loss-specific line search. `init_zero=true`
+represents `init='zero'`. The learned scalar `init_` stores the constant raw
+initial prediction, and `estimators_(stage)` stores each component tree.
+Learned fields also include `n_features_in_`, `n_estimators_`,
+`n_trees_per_iteration_=1`, `max_features_`, `train_score_` and
+`feature_importances_`. `huber_delta_` is a native per-stage diagnostic of the
+threshold used before fitting each tree; it is zero for other losses.
+
+Controls include `criterion='friedman_mse'` (default) or `squared_error`,
+`max_depth`, integer `min_samples_leaf`/`min_samples_split`, `max_leaf_nodes`
+(zero means None), `min_weight_fraction_leaf`, `min_impurity_decrease`,
+`ccp_alpha`, and typed `set_max_features`. Learning rate must be finite and
+nonnegative; zero fits component trees while leaving all predictions at the
+initializer. Prediction uses the current `learning_rate`, including changes
+after fitting. Score accepts optional sample weights. Weighted regression
+boosters are supported by search, SelectFromModel, pipelines and the shared
+regression ensemble dispatcher. Dense finite input only; stochastic subsampling,
+OOB histories, warm starts, validation stopping, custom initializers, fractional
+sample-size controls and sparse input remain outside this interface.
+
 ## GradientBoostingClassifier
 
 ```fortran
@@ -1289,7 +1328,11 @@ is one for binary labels and K for multiclass. Fitted fields include classes_,
 class_prior_, init_ (raw initial scores), n_estimators_, n_trees_per_iteration_,
 n_features_in_, train_score_ and feature_importances_. Set init_zero=true for
 zero initial scores. Tree controls include max_depth, min_samples_leaf,
-min_samples_split, max_features (0 means all), and min_impurity_decrease.
+min_samples_split, typed set_max_features (zero restores all), criterion
+(`friedman_mse` or `squared_error`), and min_impurity_decrease.
+Both classic boosters share sklearn's advancing NumPy-compatible RandomState
+across component trees. Binary ties at a zero decision select the positive class.
+Learning rate is finite and nonnegative; prediction uses its current value.
 Sample weights/subsampling/early stopping are not part of this initial port;
 see COVERAGE.md for loss, tree-backend and staged-memory conventions.
 

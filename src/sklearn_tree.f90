@@ -65,6 +65,7 @@ module sklearn_tree
   type, extends(tree_storage) :: decision_tree_regressor
     character(16) :: criterion='squared_error'
   contains
+    procedure::fit_with_rng=>regressor_fit_with_rng
     procedure,private :: pruning_single=>regressor_pruning_path,pruning_multi=>regressor_pruning_multi
     generic :: cost_complexity_pruning_path=>pruning_single,pruning_multi
     procedure,private :: fit_single=>regressor_fit,fit_multi=>regressor_fit_multi
@@ -127,7 +128,7 @@ contains
     end if
   end function
   ! Weighted/randomized splitter follows sklearn 1.6.1 tree/_splitter.pyx and _criterion.pyx.
-  subroutine build_weighted_tree(self,x,y,classes,criterion,w,max_features,targets,class_targets,class_offsets)
+  subroutine build_weighted_tree(self,x,y,classes,criterion,w,max_features,targets,class_targets,class_offsets,random_stream)
     type :: frontier_record
       integer :: node=0,first=0,last=0,pos=0,depth=0
       logical :: is_leaf=.true.
@@ -140,6 +141,7 @@ contains
     integer, intent(in), optional :: max_features
     real(dp),optional,intent(in)::targets(:,:)
     integer,optional,intent(in)::class_targets(:,:),class_offsets(:)
+    type(legacy_random_state),optional,intent(inout)::random_stream
     type(legacy_random_state) :: rng
     real(dp), allocatable :: z(:,:)
     integer, allocatable :: active(:),frontier_samples(:)
@@ -200,7 +202,11 @@ contains
     z=real(real(x,real32),dp); active=pack([(i,i=1,size(y))],w/=0)
     root_weight=ieee_total(w); min_weight=ieee_product(self%min_weight_fraction_leaf,tree_numpy_sum(w))
     all_features=[(i,i=1,size(x,2))]; constants=0
-    call rng%seed(self%random_state); state=int(rng%integer_index(2147483647)-1,int64)
+    if(present(random_stream))then
+      state=int(random_stream%integer_index(2147483647)-1,int64)
+    else
+      call rng%seed(self%random_state);state=int(rng%integer_index(2147483647)-1,int64)
+    end if
     ! MAE keeps its initialized queue storage across every node reset.
     if(criterion=='absolute_error') then
       allocate(median_left(nout),median_right(nout))
@@ -940,6 +946,22 @@ contains
       call build_weighted_tree(self,x,y,[integer::],self%criterion,sample_weight)
     else
       call build_weighted_tree(self,x,y,[integer::],self%criterion,spread(1._dp,1,size(y)))
+    end if
+  end subroutine
+  ! Internal ensemble entry: consume the same mutable RandomState as sklearn.
+  subroutine regressor_fit_with_rng(self,x,y,random_stream,sample_weight)
+    class(decision_tree_regressor),intent(inout)::self
+    real(dp),intent(in)::x(:,:),y(:)
+    type(legacy_random_state),intent(inout)::random_stream
+    real(dp),optional,intent(in)::sample_weight(:)
+    select type(self)
+    class is(extra_tree_regressor)
+      self%random_thresholds=.true.
+    end select
+    if(present(sample_weight))then
+      call build_weighted_tree(self,x,y,[integer::],self%criterion,sample_weight,random_stream=random_stream)
+    else
+      call build_weighted_tree(self,x,y,[integer::],self%criterion,spread(1._dp,1,size(y)),random_stream=random_stream)
     end if
   end subroutine
   subroutine prepare_class_labels(self,y,flat)

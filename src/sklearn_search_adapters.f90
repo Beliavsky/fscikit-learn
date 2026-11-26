@@ -298,13 +298,21 @@ contains
       end select
     type is(gradient_boosting_classifier)
       select case(name)
+      case('criterion');model%criterion=value%as_text()
+      case('init_zero');model%init_zero=value%as_logical()
+      case('min_impurity_decrease');model%min_impurity_decrease=value%as_real()
       case('n_estimators');model%n_estimators=value%as_integer()
       case('max_depth');model%max_depth=value%as_integer()
       case('min_samples_leaf');model%min_samples_leaf=value%as_integer()
       case('random_state');model%random_state=value%as_integer()
       case('learning_rate');model%learning_rate=value%as_real()
       case('min_samples_split');model%min_samples_split=value%as_integer()
-      case('max_features');model%max_features=value%as_integer()
+      case('max_features')
+        select case(value%kind)
+        case(1);call model%set_max_features(value%as_real())
+        case(4);call model%set_max_features(value%as_text())
+        case default;call model%set_max_features(value%as_integer())
+        end select
       case('loss');model%loss=value%as_text()
       case default;done=.false.
       end select
@@ -315,6 +323,21 @@ contains
       case('min_samples_leaf');model%min_samples_leaf=value%as_integer()
       case('random_state');model%random_state=value%as_integer()
       case('learning_rate');model%learning_rate=value%as_real()
+      case('loss');model%loss=value%as_text()
+      case('criterion');model%criterion=value%as_text()
+      case('alpha');model%alpha=value%as_real()
+      case('init_zero');model%init_zero=value%as_logical()
+      case('min_samples_split');model%min_samples_split=value%as_integer()
+      case('max_leaf_nodes');model%max_leaf_nodes=value%as_integer()
+      case('ccp_alpha');model%ccp_alpha=value%as_real()
+      case('min_weight_fraction_leaf');model%min_weight_fraction_leaf=value%as_real()
+      case('min_impurity_decrease');model%min_impurity_decrease=value%as_real()
+      case('max_features')
+        select case(value%kind)
+        case(1);call model%set_max_features(value%as_real())
+        case(4);call model%set_max_features(value%as_text())
+        case default;call model%set_max_features(value%as_integer())
+        end select
       case default;done=.false.
       end select
     type is(standard_scaler)
@@ -424,7 +447,7 @@ contains
       class is(random_forest_regressor)
         call model%fit(x,yr,sample_weight)
       type is(gradient_boosting_regressor)
-        call require(.not.present(sample_weight),'search boosting has no native weighted fit');call model%fit(x,yr)
+        call model%fit(x,yr,sample_weight)
       class default
         call train_regressor(model,x,yr,sample_weight)
       end select
