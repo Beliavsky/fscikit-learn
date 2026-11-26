@@ -4,7 +4,9 @@ Classic gradient boosting in `src/sklearn_classic_gradient_boosting.f90`
 follows sklearn 1.6.1 `ensemble/_gb.py`, `_loss/loss.py`, `_loss/_loss.pyx.tp`,
 `_loss/link.py`, `dummy.py` and `utils/stats.py`: shared RandomState tree fitting,
 regression loss gradients and terminal-region updates, weighted percentiles,
-classification Newton updates and initialization, and raw impurity aggregation.
+weighted classification Newton updates and initialization, and raw impurity
+aggregation. Weighted class priors and zero-weight class retention also follow
+`utils/multiclass.py` class_distribution and `ensemble/_gb.py` _encode_y.
 The binary logit adapter follows SciPy 1.15.3
 [`special/xsf/log_exp.h`](https://github.com/scipy/scipy/blob/v1.15.3/scipy/special/xsf/log_exp.h).
 Sklearn/SciPy BSD notices remain in `LICENSES/scikit-learn-COPYING` and

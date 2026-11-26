@@ -1,7 +1,7 @@
 ! Internal native base dispatch shared by voting and bagging ensembles.
 ! Existing voting dispatch semantics and diagnostics are retained.
 module sklearn_base_dispatch
-  use sklearn_classic_gradient_boosting,only:gradient_boosting_regressor
+  use sklearn_classic_gradient_boosting,only:gradient_boosting_regressor,gradient_boosting_classifier
   use sklearn_model_selection, only: ridge_cv
   use sklearn_weighted_linear, only: weighted_ridge_loo
   use sklearn_common, only: dp,require,check_x,check_xy,unique_labels,label_index
@@ -36,6 +36,8 @@ contains
       ok=allocated(model%classes_)
     type is(kneighbors_classifier)
       ok=allocated(model%classes_)
+    type is(gradient_boosting_classifier)
+      ok=allocated(model%estimators_)
     class is(decision_tree_classifier)
       ok=allocated(model%classes_)
     class is(multinomial_nb)
@@ -73,6 +75,8 @@ contains
     type is(kneighbors_classifier)
       call require(.not.present(weights),'voting base has no native weighted fit')
       call model%fit(x,y)
+    type is(gradient_boosting_classifier)
+      call model%fit(x,y,weights)
     class is(decision_tree_classifier)
       call model%fit(x,y,weights)
     class is(multinomial_nb)
@@ -154,6 +158,8 @@ contains
       values=model%predict(x)
     type is(kneighbors_classifier)
       values=model%predict(x)
+    type is(gradient_boosting_classifier)
+      values=model%predict(x)
     class is(decision_tree_classifier)
       values=model%predict(x)
     class is(multinomial_nb)
@@ -219,6 +225,8 @@ contains
       values=model%predict_proba(x)
     type is(kneighbors_classifier)
       values=model%predict_proba(x)
+    type is(gradient_boosting_classifier)
+      values=model%predict_proba(x)
     class is(decision_tree_classifier)
       values=model%predict_proba(x)
     class is(multinomial_nb)
@@ -243,6 +251,7 @@ contains
       type is(gaussian_nb)
       type is(sgd_classifier)
       type is(kneighbors_classifier)
+      type is(gradient_boosting_classifier)
       class is(decision_tree_classifier)
       class is(multinomial_nb)
       type is(perceptron)
@@ -282,6 +291,7 @@ contains
     type is(dummy_regressor)
     type is(ridge_cv)
       ok=model%cv==0
+    type is(gradient_boosting_classifier)
     class is(decision_tree_classifier)
     type is(gradient_boosting_regressor)
     class is(decision_tree_regressor)
@@ -301,6 +311,7 @@ contains
     type is(sgd_classifier)
       ok=model%loss=='log_loss'.or.model%loss=='modified_huber'
     type is(kneighbors_classifier)
+    type is(gradient_boosting_classifier)
     class is(decision_tree_classifier)
     class is(multinomial_nb)
     type is(dummy_classifier)
@@ -320,6 +331,8 @@ contains
     type is(sgd_classifier)
       values=model%classes_
     type is(kneighbors_classifier)
+      values=model%classes_
+    type is(gradient_boosting_classifier)
       values=model%classes_
     class is(decision_tree_classifier)
       values=model%classes_
@@ -354,6 +367,7 @@ contains
     class is(ridge_classifier)
     type is(linear_svc)
     type is(svc)
+    type is(gradient_boosting_classifier)
     type is(adaboost_classifier)
     class default
       ok=.false.
@@ -378,6 +392,8 @@ contains
       value=model%decision_function(x)
     type is(svc)
       value=model%decision_function(x)
+    type is(gradient_boosting_classifier)
+      value=model%decision_function(x)
     type is(adaboost_classifier)
       value=model%decision_function(x)
     class default
@@ -391,6 +407,8 @@ contains
     integer :: value
     call rng%seed(seed); value=rng%integer_index(2147483647)-1
     select type(model)
+    type is(gradient_boosting_classifier)
+      model%random_state=value
     class is(decision_tree_classifier)
       model%random_state=value
     class is(decision_tree_regressor)

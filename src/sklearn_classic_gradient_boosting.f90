@@ -15,8 +15,8 @@ module sklearn_classic_gradient_boosting
   public::gradient_boosting_regressor,gradient_boosting_classifier
   type :: gradient_boosting_classifier
     integer :: n_estimators=100,max_depth=3,min_samples_leaf=1,min_samples_split=2,max_features=0,random_state=0
-    integer :: n_estimators_=0,n_trees_per_iteration_=0,n_features_in_=0
-    real(dp) :: learning_rate=.1_dp,min_impurity_decrease=0
+    integer :: n_estimators_=0,n_trees_per_iteration_=0,n_features_in_=0,n_classes_=0,max_leaf_nodes=0
+    real(dp) :: learning_rate=.1_dp,min_impurity_decrease=0,ccp_alpha=0,min_weight_fraction_leaf=0
     integer::max_features_=0
     type(feature_count_control),private::feature_control_
     character(16)::criterion='friedman_mse'
@@ -280,37 +280,48 @@ contains
     end if
   end function
 
-  subroutine gbc_fit(self,x,y)
+  subroutine gbc_fit(self,x,y,sample_weight)
     class(gradient_boosting_classifier), intent(inout) :: self
     real(dp), intent(in) :: x(:,:)
     integer, intent(in) :: y(:)
-    real(dp), allocatable :: raw(:,:),prob(:,:),gradient(:,:),indicator(:),hessian(:),logs(:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    real(dp)::w(size(y)),loss_values(size(y))
+    real(dp), allocatable :: raw(:,:),prob(:,:),gradient(:,:),indicator(:),hessian(:),logs(:),class_mass(:)
     integer, allocatable :: encoded(:),leaves(:)
     type(legacy_random_state)::rng
     logical, allocatable :: mask(:)
-    real(dp) :: floor_prior,numerator,denominator,factor,gain,stage_loss,v
-    integer :: n,p,c,k,t,i,leaf,left,right,feature,mass,nontrivial
+    real(dp) :: floor_prior,numerator,denominator,factor,v
+    integer :: n,p,c,k,t,i,leaf,left,nontrivial
     call check_xy(x,size(y)); n=size(y); p=size(x,2)
     call require(self%n_estimators>=1,'GradientBoostingClassifier n_estimators must be positive')
     call require(ieee_is_finite(self%learning_rate),'nonfinite GradientBoostingClassifier learning_rate')
     call require(self%learning_rate>=0,'GradientBoostingClassifier learning_rate must be nonnegative')
-    call require(ieee_is_finite(self%min_impurity_decrease),'nonfinite GradientBoostingClassifier impurity control')
-    call require(self%min_impurity_decrease>=0,'negative GradientBoostingClassifier impurity decrease')
-    call require(self%max_depth>=1.and.self%min_samples_leaf>=1.and.self%min_samples_split>=2, &
-      'invalid GradientBoostingClassifier tree controls')
+    call check_boosting_controls(self%max_depth,self%min_samples_split,self%min_samples_leaf,self%max_leaf_nodes, &
+      self%max_features,self%random_state,self%min_impurity_decrease,self%ccp_alpha,self%min_weight_fraction_leaf,p)
     self%max_features_=self%feature_control_%resolve(self%max_features,p,.false.)
     call require(any(self%criterion==[character(16)::'friedman_mse','squared_error']),'invalid boosting tree criterion')
     call rng%seed(self%random_state)
     call require(self%loss=='log_loss'.or.self%loss=='exponential','invalid GradientBoostingClassifier loss')
     self%classes_=unique_labels(y); c=size(self%classes_)
     call require(c>=2,'GradientBoostingClassifier requires at least two classes')
+    w=1
+    if(present(sample_weight))then
+      call require(size(sample_weight)==n,'GradientBoostingClassifier sample weight length mismatch')
+      call require(all(ieee_is_finite(sample_weight)),'GradientBoostingClassifier sample weights must be finite')
+      w=sample_weight
+    end if
+    encoded=[(label_index(self%classes_,y(i)),i=1,n)];allocate(class_mass(c));class_mass=0
+    ! Match DummyClassifier class_distribution's sequential weighted bincount.
+    do i=1,n;class_mass(encoded(i))=ieee_difference(class_mass(encoded(i)),-w(i));end do
+    call require(count(class_mass/=0)>=2,'GradientBoostingClassifier weights must retain at least two classes')
+    call require(boosting_sum(w)/=0.and.boosting_sum(class_mass)/=0, &
+      'GradientBoostingClassifier sample weights must have nonzero total weight')
     if(self%loss=='exponential') call require(c==2,'exponential boosting requires binary labels')
-    self%n_features_in_=p; self%n_estimators_=self%n_estimators
+    self%n_features_in_=p; self%n_estimators_=self%n_estimators;self%n_classes_=c
     self%n_trees_per_iteration_=c
     if(c==2) self%n_trees_per_iteration_=1
     self%fitted_loss=self%loss; self%fitted_rate=self%learning_rate
-    encoded=[(label_index(self%classes_,y(i)),i=1,n)]
-    self%class_prior_=[(real(count(encoded==k),dp)/n,k=1,c)]
+    self%class_prior_=class_mass/boosting_sum(class_mass)
     floor_prior=real(epsilon(1._real32),dp)
     logs=log(max(floor_prior,min(1-floor_prior,self%class_prior_)))
     if(allocated(self%init_)) deallocate(self%init_)
@@ -363,11 +374,13 @@ contains
         self%estimators_(t,k)%max_depth=self%max_depth
         self%estimators_(t,k)%min_samples_leaf=self%min_samples_leaf
         self%estimators_(t,k)%min_samples_split=self%min_samples_split
+        self%estimators_(t,k)%max_leaf_nodes=self%max_leaf_nodes;self%estimators_(t,k)%ccp_alpha=self%ccp_alpha
+        self%estimators_(t,k)%min_weight_fraction_leaf=self%min_weight_fraction_leaf
         call self%estimators_(t,k)%set_max_features(self%max_features_)
         self%estimators_(t,k)%criterion=self%criterion
         self%estimators_(t,k)%min_impurity_decrease=self%min_impurity_decrease
         self%estimators_(t,k)%random_state=self%random_state
-        call self%estimators_(t,k)%fit_with_rng(x,gradient(:,k),rng)
+        call self%estimators_(t,k)%fit_with_rng(x,gradient(:,k),rng,w)
         leaves=self%estimators_(t,k)%apply(x)
         if(c==2) then
           if(self%loss=='exponential') then
@@ -388,19 +401,11 @@ contains
         if(c>2) factor=real(c-1,dp)/c
         do leaf=1,self%estimators_(t,k)%node_count_
           left=self%estimators_(t,k)%nodes_(leaf)%left
-          if(left>0) then
-            right=self%estimators_(t,k)%nodes_(leaf)%right
-            feature=self%estimators_(t,k)%nodes_(leaf)%feature
-            gain=self%estimators_(t,k)%nodes_(leaf)%n_samples*self%estimators_(t,k)%nodes_(leaf)%impurity- &
-              self%estimators_(t,k)%nodes_(left)%n_samples*self%estimators_(t,k)%nodes_(left)%impurity- &
-              self%estimators_(t,k)%nodes_(right)%n_samples*self%estimators_(t,k)%nodes_(right)%impurity
-            self%feature_importances_(feature)=self%feature_importances_(feature)+max(0._dp,gain)
-            cycle
-          end if
-          mask=leaves==leaf; mass=count(mask)
-          numerator=boosting_mean(pack(gradient(:,k),mask),spread(1._dp,1,mass))
+          if(left>0)cycle
+          mask=leaves==leaf
+          numerator=boosting_mean(pack(gradient(:,k),mask),pack(w,mask))
           numerator=factor*numerator
-          denominator=boosting_mean(pack(hessian,mask),spread(1._dp,1,mass))
+          denominator=boosting_mean(pack(hessian,mask),pack(w,mask))
           v=0
           if(abs(denominator)>=1.e-150_dp) v=numerator/denominator
           self%estimators_(t,k)%nodes_(leaf)%value=v
@@ -408,17 +413,18 @@ contains
         end do
         raw(:,k)=raw(:,k)+self%learning_rate*self%estimators_(t,k)%predict(x)
       end do
-      stage_loss=0
       do i=1,n
         if(c>2) then
-          stage_loss=stage_loss+logsumexp(raw(i,:))-raw(i,encoded(i))
+          loss_values(i)=logsumexp(raw(i,:))-raw(i,encoded(i))
         else if(self%loss=='exponential') then
-          stage_loss=stage_loss+exp(-merge(1._dp,-1._dp,encoded(i)==2)*raw(i,1))
+          v=exp(raw(i,1))
+          loss_values(i)=ieee_difference(ieee_quotient(merge(1._dp,0._dp,encoded(i)==2),v), &
+            -ieee_product(merge(1._dp,0._dp,encoded(i)/=2),v))
         else
-          stage_loss=stage_loss+2*gbc_softplus(merge(-raw(i,1),raw(i,1),encoded(i)==2))
+          loss_values(i)=2*gbc_softplus(merge(-raw(i,1),raw(i,1),encoded(i)==2))
         end if
       end do
-      self%train_score_(t)=stage_loss/n
+      self%train_score_(t)=boosting_mean(loss_values,w)
     end do
     self%feature_importances_=0;nontrivial=0
     do t=1,self%n_estimators_
@@ -487,11 +493,12 @@ contains
     end if
   end function
 
-  real(dp) function gbc_score(self,x,y) result(v)
+  real(dp) function gbc_score(self,x,y,sample_weight) result(v)
     class(gradient_boosting_classifier), intent(in) :: self
     real(dp), intent(in) :: x(:,:)
     integer, intent(in) :: y(:)
-    v=accuracy_score(y,self%predict(x))
+    real(dp),optional,intent(in)::sample_weight(:)
+    v=accuracy_score(y,self%predict(x),sample_weight=sample_weight)
   end function
 
   function gbc_staged_decision(self,x) result(stages)

@@ -299,6 +299,9 @@ contains
     type is(gradient_boosting_classifier)
       select case(name)
       case('criterion');model%criterion=value%as_text()
+      case('max_leaf_nodes');model%max_leaf_nodes=value%as_integer()
+      case('min_weight_fraction_leaf');model%min_weight_fraction_leaf=value%as_real()
+      case('ccp_alpha');model%ccp_alpha=value%as_real()
       case('init_zero');model%init_zero=value%as_logical()
       case('min_impurity_decrease');model%min_impurity_decrease=value%as_real()
       case('n_estimators');model%n_estimators=value%as_integer()
@@ -427,7 +430,7 @@ contains
       class is(random_forest_classifier)
         call model%fit(x,yi,sample_weight)
       type is(gradient_boosting_classifier)
-        call require(.not.present(sample_weight),'search boosting has no native weighted fit');call model%fit(x,yi)
+        call model%fit(x,yi,sample_weight)
       class default
         call train_classifier(model,x,yi,sample_weight)
       end select

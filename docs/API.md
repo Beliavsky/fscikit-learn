@@ -1302,6 +1302,14 @@ sample-size controls and sparse input remain outside this interface.
 
 ## GradientBoostingClassifier
 
+`fit(x,y,sample_weight)` and `score(x,y,sample_weight)` accept optional real64
+weights. All observed integer classes remain in `classes_` and probability
+columns, including classes with zero total weight; at least two classes must
+have nonzero total weight. `n_classes_` records the full class count.
+Stage trees support `max_leaf_nodes=0` (unlimited), `ccp_alpha=0`, and
+`min_weight_fraction_leaf=0` by default. Search, SelectFromModel, pipelines,
+voting, bagging and stacking accept this classifier and forward fit weights.
+
 ```fortran
 use sklearn, only: dp,gradient_boosting_classifier
 implicit none
@@ -1333,7 +1341,7 @@ min_samples_split, typed set_max_features (zero restores all), criterion
 Both classic boosters share sklearn's advancing NumPy-compatible RandomState
 across component trees. Binary ties at a zero decision select the positive class.
 Learning rate is finite and nonnegative; prediction uses its current value.
-Sample weights/subsampling/early stopping are not part of this initial port;
+Subsampling and early stopping remain unimplemented;
 see COVERAGE.md for loss, tree-backend and staged-memory conventions.
 
 

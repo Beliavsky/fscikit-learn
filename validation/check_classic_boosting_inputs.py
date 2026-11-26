@@ -16,7 +16,9 @@ reg=dict(alpha_zero=dict(alpha=0.),alpha_one=dict(alpha=1.),alpha_nan=dict(alpha
  budget=dict(max_leaf_nodes=1),ccp=dict(ccp_alpha=-.1),weight_fraction=dict(min_weight_fraction_leaf=.6),
  weights_shape={},weights_zero={},weights_nan={},weights_inf={},target_nan={},target_inf={})
 for kind,cls in [('regression',GradientBoostingRegressor),('classification',GradientBoostingClassifier)]:
- cases=common|(reg if kind=='regression' else dict(one_class={},exponential_multiclass=dict(loss='exponential')))
+ cases=common|(reg if kind=='regression' else dict(one_class={},exponential_multiclass=dict(loss='exponential'),
+  budget=dict(max_leaf_nodes=1),ccp=dict(ccp_alpha=-.1),weight_fraction=dict(min_weight_fraction_leaf=.6),
+  weights_shape={},weights_zero={},weights_nan={},weights_inf={},weights_one_class={},weights_cancel={}))
  for name,params in cases.items():
   x=np.column_stack([np.arange(1,9),np.arange(1,9)%3,np.arange(1,9)**2]).astype(float)
   y=np.arange(1,9).astype(float) if kind=='regression' else np.arange(1,9)%2
@@ -40,6 +42,8 @@ for kind,cls in [('regression',GradientBoostingRegressor),('classification',Grad
    if name=='weights_shape':w=np.ones(1)
    if name=='weights_nan':w[0]=np.nan
    if name=='weights_inf':w[0]=np.inf
+   if name=='weights_one_class':w[y==1]=0
+   if name=='weights_cancel':w[y==1]=-1
   try:
    with warnings.catch_warnings():
     warnings.simplefilter('ignore')

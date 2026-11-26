@@ -1222,7 +1222,7 @@ prediction uses its current value after fitting.
 
 The implementation lives in `sklearn_classic_gradient_boosting` and is re-exported
 by `sklearn_ensemble` and `sklearn`. This separates the tree learner from the
-ensemble facade so the weighted regressor can use the shared registry for
+ensemble facade so both weighted boosters can use the shared registry for
 pipelines, voting, bagging and stacking. Search and SelectFromModel forward fit
 weights. `init_` is a native scalar constant; `huber_delta_` records each stage's
 pre-fit threshold as a native diagnostic. All generators materialize arrays.
@@ -1255,12 +1255,23 @@ rate. Learning rate may be zero. Training scores retain sklearn's binary
 log-loss deviance factor of two. Native per-tree scalar and vector leaf storage
 remain synchronized after Newton updates.
 
-Classification still uses unweighted full-data fitting. Sample weights,
-subsampling/OOB statistics, early stopping, warm starts, custom initializers,
-pruning, feature-name metadata and sparse input are not implemented for this
-classifier. Exponential loss requires two distinct integer classes; log loss
-supports multiple classes. Existing entry points and retained MIT/BSD notices
-are unchanged; no public extension algorithm is added.
+Classification supports full-data fitting with finite sample weights, including
+zero and signed weights where sklearn accepts them. Weighted class priors follow
+DummyClassifier's bincount normalization; classes with zero total weight retain
+their output columns, and at least two classes must have nonzero total weight.
+Weighted Newton updates, training losses, accuracy and importances use the same
+weights. `n_classes_` records every observed class. Component trees accept
+`max_leaf_nodes` (zero means unlimited), `ccp_alpha` and
+`min_weight_fraction_leaf`, alongside the existing depth/split/feature controls.
+Search, SelectFromModel, pipelines, voting, bagging and stacking forward weights;
+the shared registry exposes class labels, probabilities, decisions and seed
+assignment for this classifier.
+
+Subsampling/OOB histories in the booster itself, early stopping, warm starts,
+custom initializers, feature-name metadata and sparse input remain unimplemented.
+Exponential loss requires two distinct integer classes; log loss supports
+multiple classes. Existing entry points and retained MIT/BSD notices remain;
+no public extension algorithm is added.
 
 
 ## Ridge classification and leave-one-out selection

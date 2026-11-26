@@ -110,6 +110,15 @@ contains
   case('target_size');call model%fit(x,y(:7))
   case('one_class');y=0;call model%fit(x,y)
   case('exponential_multiclass');model%loss='exponential';y(1)=99;call model%fit(x,y)
+  case('budget');model%max_leaf_nodes=1;call model%fit(x,y)
+  case('ccp');model%ccp_alpha=-.1_dp;call model%fit(x,y)
+  case('weight_fraction');model%min_weight_fraction_leaf=.6_dp;call model%fit(x,y)
+  case('weights_shape');call model%fit(x,y,[1._dp])
+  case('weights_zero');w=0;call model%fit(x,y,w)
+  case('weights_nan');w(1)=bad;call model%fit(x,y,w)
+  case('weights_inf');w(1)=inf;call model%fit(x,y,w)
+  case('weights_one_class');where(y==1)w=0;call model%fit(x,y,w)
+  case('weights_cancel');where(y==1)w=-1;call model%fit(x,y,w)
   end select
  end subroutine classification
 end program
