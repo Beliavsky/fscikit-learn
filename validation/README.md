@@ -29,6 +29,15 @@ python validation/check_invalid_inputs.py
 
 The reference validator requires NumPy, SciPy and scikit-learn in Python.
 
+`compare_joint_trees.py` compares 736 actual sklearn CART/ExtraTree regression
+fits with one or more outputs, all four criteria, growth controls and pruning.
+Use `--executable <reference_joint_tree_driver.exe> --report <report.json>`.
+`check_joint_tree_invalid_inputs.py` uses `reference_joint_tree_invalid_driver`
+with the same arguments for 11 Source rejections and one native result-rank
+adapter. Integer tree fields match exactly; numeric bounds are the existing
+scalar-tree tolerances, rtol=2e-10 and atol=2e-12. Runtime provenance reads the
+Source extension's split-threshold capsule without modifying it.
+
 Weighted dense/CSR DBSCAN is checked with `compare_dbscan.py` (2,331 actual
 Source cases) and `check_dbscan_invalid_inputs.py` (19 constructor/input checks).
 Both take `--executable <driver.exe>` and `--report <report.json>`; build

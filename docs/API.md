@@ -3797,7 +3797,7 @@ NaNs: each missing feature follows the
 larger active-row child, with ties going right, matching a source tree trained
 without missing values. Query infinities and float32 overflow are rejected.
 NaN training, sparse input, monotonic constraints, fractional feature
-counts and multioutput single-tree fitting
+counts and joint multioutput classification
 remain outside this subset. Native max_depth=0 retains its existing root-only
 meaning; sklearn requires a positive depth.
 
@@ -3814,6 +3814,35 @@ interfaces and forward training weights to both tree families. Tree streaming
 (`partial_fit`) remains unavailable. The new internal `sklearn_ieee_math`
 module handles quiet nonfinite arithmetic in weighted trees and composite
 reductions; it adds no public estimator or external runtime dependency.
+
+### Joint regression targets
+
+`decision_tree_regressor` and `extra_tree_regressor` accept a real64 target
+matrix `(n_samples,n_outputs)` through the same `fit` generic. All four criteria
+use one shared tree and combine output statistics when selecting splits.
+Sample weights, best-first leaf budgets, minimum impurity decrease, feature
+selection and cost-complexity pruning apply to that shared tree.
+
+```fortran
+type(decision_tree_regressor) :: model
+real(dp), allocatable :: prediction(:,:)
+call model%fit(x,y_matrix,sample_weight=weights)
+prediction=model%predict_multi(x_query)
+print *, model%n_outputs_
+```
+
+`predict_multi` always returns a matrix; use it for joint fits because Fortran
+function result rank is fixed. The retained `predict` returns a vector for
+single-output fits and rejects joint fits. `score(x,y_matrix,sample_weight)`
+returns uniform-average R2, and `cost_complexity_pruning_path` accepts either
+target rank. `apply` and `decision_path` describe the shared partition for all
+outputs. Each regression node owns its output vector in `nodes_(i)%values`;
+the retained scalar `value` mirrors the first output at fitting time.
+
+`n_outputs_` resets on refitting, including a subsequent vector-target fit.
+Matrix prediction on a single-output fit agrees with the vector prediction.
+This does not add joint targets to forest or other ensemble fitting interfaces.
+See `example/joint_tree_regression.f90`.
 
 
 ## BaggingClassifier and BaggingRegressor

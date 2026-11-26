@@ -1,5 +1,14 @@
 # Third-party notices and provenance
 
+Joint regression in `src/sklearn_tree.f90` follows sklearn 1.6.1
+`tree/_criterion.pyx` multioutput RegressionCriterion/MSE/FriedmanMSE/MAE/Poisson
+statistics, split proxies, output averaging and weighted-median streams;
+`tree/_classes.py` target validation and uniform-average regression scores;
+and the previously attributed splitter and pruning kernels. Existing
+scikit-learn BSD-3-Clause notices remain in `LICENSES/scikit-learn-COPYING`.
+Owned output vectors and typed Fortran matrix fit/prediction overloads are
+native MIT integration, with no added dependency or extension algorithm.
+
 `src/sklearn_dbscan.f90` adapts scikit-learn 1.6.1 `cluster/_dbscan.py`
 signed neighborhood weights, sparse precomputed diagonal handling, fitted
 outputs and `cluster/_dbscan_inner.pyx` depth-first expansion by Lars Buitinck

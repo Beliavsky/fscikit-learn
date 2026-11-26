@@ -21,6 +21,7 @@ fpm build
 fpm test
 fpm run --example histogram_boosting
 fpm run --example weighted_dbscan
+fpm run --example joint_tree_regression
 fpm run --example coordinate_descent_nmf
 fpm run --example omp_paths
 fpm run --example coordinate_paths

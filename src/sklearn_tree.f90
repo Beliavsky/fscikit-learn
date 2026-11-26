@@ -17,11 +17,11 @@ module sklearn_tree
     integer :: left=0,right=0,feature=0,n_samples=0,depth=0
     logical :: missing_go_left=.false.
     real(dp) :: weighted_n_samples=0,threshold=0,impurity=0,value=0
-    real(dp), allocatable :: probability(:)
+    real(dp), allocatable :: probability(:),values(:)
   end type
   type :: tree_storage
     integer :: max_depth=100,min_samples_split=2,min_samples_leaf=1,max_features=0,max_leaf_nodes=0
-    integer :: random_state=0,node_count_=0,n_features_in_=0
+    integer :: random_state=0,node_count_=0,n_features_in_=0,n_outputs_=1
     logical :: random_thresholds=.false.
     logical, private :: weighted_fit_=.false.
     integer :: max_features_=0
@@ -47,10 +47,14 @@ module sklearn_tree
   type, extends(tree_storage) :: decision_tree_regressor
     character(16) :: criterion='squared_error'
   contains
-    procedure :: cost_complexity_pruning_path=>regressor_pruning_path
-    procedure :: fit=>regressor_fit
+    procedure,private :: pruning_single=>regressor_pruning_path,pruning_multi=>regressor_pruning_multi
+    generic :: cost_complexity_pruning_path=>pruning_single,pruning_multi
+    procedure,private :: fit_single=>regressor_fit,fit_multi=>regressor_fit_multi
+    generic :: fit=>fit_single,fit_multi
     procedure :: predict=>regressor_predict
-    procedure :: score=>regressor_score
+    procedure :: predict_multi=>regressor_predict_multi
+    procedure,private :: score_single=>regressor_score,score_multi=>regressor_score_multi
+    generic :: score=>score_single,score_multi
   end type
   type, extends(decision_tree_classifier) :: extra_tree_classifier
   contains
@@ -58,7 +62,7 @@ module sklearn_tree
   end type
   type, extends(decision_tree_regressor) :: extra_tree_regressor
   contains
-    procedure :: fit=>extra_regressor_fit
+    procedure,private :: fit_single=>extra_regressor_fit,fit_multi=>extra_regressor_fit_multi
   end type
 
 contains
@@ -90,7 +94,7 @@ contains
     end if
   end function
   ! Weighted/randomized splitter follows sklearn 1.6.1 tree/_splitter.pyx and _criterion.pyx.
-  subroutine build_weighted_tree(self,x,y,classes,criterion,w,max_features)
+  subroutine build_weighted_tree(self,x,y,classes,criterion,w,max_features,targets)
     type :: frontier_record
       integer :: node=0,first=0,last=0,pos=0,depth=0
       logical :: is_leaf=.true.
@@ -101,20 +105,33 @@ contains
     integer, intent(in) :: classes(:)
     character(*), intent(in) :: criterion
     integer, intent(in), optional :: max_features
+    real(dp),optional,intent(in)::targets(:,:)
     type(legacy_random_state) :: rng
     real(dp), allocatable :: z(:,:)
     integer, allocatable :: active(:),frontier_samples(:)
-    integer :: all_features(size(x,2)),constants(size(x,2)),i,root,nf
+    integer :: all_features(size(x,2)),constants(size(x,2)),i,root,nf,nout
     integer(int64) :: state
     real(dp) :: root_weight,min_weight,normalizer,contribution
-    type(tree_median_queue) :: median_left,median_right
+    type(tree_median_queue),allocatable :: median_left(:),median_right(:)
     logical :: source_regression,work_splitter
     call check_xy(x,size(y)); call check_x(reshape(y,[size(y),1]))
+    nout=1
+    if(present(targets))then
+      call require(size(classes)==0,'joint targets require regression')
+      call require(size(targets,1)==size(y).and.size(targets,2)>0,'invalid joint tree target shape')
+      call check_x(targets);nout=size(targets,2)
+    end if
+    self%n_outputs_=nout
     if(size(classes)==0) then
       call require(any(criterion==[character(16)::'squared_error','friedman_mse','poisson','absolute_error']),'unknown regression tree criterion')
       if(criterion=='poisson') then
-        call require(all(y>=0),'Poisson tree targets must be nonnegative')
-        call require(ieee_total(y)>0,'Poisson tree target sum must be positive')
+        if(present(targets))then
+          call require(all(targets>=0),'Poisson tree targets must be nonnegative')
+          call require(ieee_total(reshape(targets,[size(targets)]))>0,'Poisson tree target sum must be positive')
+        else
+          call require(all(y>=0),'Poisson tree targets must be nonnegative')
+          call require(ieee_total(y)>0,'Poisson tree target sum must be positive')
+        end if
       end if
     end if
     source_regression=size(classes)==0
@@ -146,7 +163,10 @@ contains
     call rng%seed(self%random_state); state=int(rng%integer_index(2147483647)-1,int64)
     ! MAE keeps its initialized queue storage across every node reset.
     if(criterion=='absolute_error') then
-      call median_left%init(size(y));call median_right%init(size(y))
+      allocate(median_left(nout),median_right(nout))
+      do i=1,nout
+        call median_left(i)%init(size(y));call median_right(i)%init(size(y))
+      end do
     end if
     if(self%max_leaf_nodes==0) then
       root=grow(active,0,0,0._dp)
@@ -177,6 +197,11 @@ contains
       end if
     end if
   contains
+    real(dp) function target_value(i,k)result(value)
+      integer,intent(in)::i,k
+      value=y(i)
+      if(present(targets))value=targets(i,k)
+    end function
     integer function next_random() result(value)
       if(state==0) state=1
       state=iand(ieor(state,ishft(state,13)),4294967295_int64)
@@ -199,13 +224,15 @@ contains
       integer, intent(in) :: ids(:)
       real(dp), intent(out) :: mass,sums(:),squares
       real(dp) :: wy
-      integer :: a,c,idx
+      integer :: a,c,idx,k
       mass=0; sums=0; squares=0
       do a=1,size(ids)
         idx=ids(a); mass=ieee_difference(mass,-w(idx))
         if(size(classes)==0) then
-          wy=ieee_product(w(idx),y(idx)); sums(1)=ieee_difference(sums(1),-wy)
-          squares=ieee_difference(squares,-ieee_product(wy,y(idx)))
+          do k=1,nout
+            wy=ieee_product(w(idx),target_value(idx,k)); sums(k)=ieee_difference(sums(k),-wy)
+            squares=ieee_difference(squares,-ieee_product(wy,target_value(idx,k)))
+          end do
         else
           do c=1,size(classes)
             if(y(idx)==real(classes(c),dp)) sums(c)=ieee_difference(sums(c),-w(idx))
@@ -225,35 +252,44 @@ contains
     end function
     real(dp) function regression_squares(ids) result(value)
       integer, intent(in) :: ids(:)
-      integer :: i,index_
+      integer :: i,index_,k
       value=0
       do i=1,size(ids)
         index_=ids(i)
-        value=ieee_difference(value,-ieee_product(ieee_product(w(index_),y(index_)),y(index_)))
+        do k=1,nout
+          value=ieee_difference(value,-ieee_product(ieee_product(w(index_),target_value(index_,k)),target_value(index_,k)))
+        end do
       end do
     end function
     real(dp) function impurity(mass,sums,squares,ids) result(value)
       real(dp), intent(in) :: mass,sums(:),squares
       integer, optional, intent(in) :: ids(:)
       real(dp) :: probability,term,total,ratio
-      integer :: c,i,index_
+      integer :: c,i,index_,k
       if(size(classes)==0) then
         if(criterion=='poisson') then
           value=ieee_value(0._dp,ieee_positive_inf)
-          if(.not.ieee_is_nan(sums(1))) then
-            if(sums(1)<=10*epsilon(1._dp)) return
-          end if
-          probability=ieee_quotient(sums(1),mass);total=0
-          do i=1,size(ids)
-            index_=ids(i);ratio=ieee_quotient(y(index_),probability)
-            term=0
-            if(ieee_is_nan(ratio).or.y(index_)/=0) term=ieee_product(y(index_),tree_log(ratio))
-            total=ieee_difference(total,-ieee_product(w(index_),term))
+          total=0
+          do k=1,nout
+            if(.not.ieee_is_nan(sums(k))) then
+              if(sums(k)<=10*epsilon(1._dp)) return
+            end if
+            probability=ieee_quotient(sums(k),mass)
+            do i=1,size(ids)
+              index_=ids(i);ratio=ieee_quotient(target_value(index_,k),probability)
+              term=0
+              if(ieee_is_nan(ratio).or.target_value(index_,k)/=0) term=ieee_product(target_value(index_,k),tree_log(ratio))
+              total=ieee_difference(total,-ieee_product(w(index_),term))
+            end do
           end do
-          value=ieee_quotient(total,mass);return
+          value=ieee_quotient(total,ieee_product(mass,real(nout,dp)));return
         end if
-        probability=ieee_quotient(sums(1),mass)
-        value=ieee_difference(ieee_quotient(squares,mass),ieee_product(probability,probability))
+        value=ieee_quotient(squares,mass)
+        do k=1,nout
+          probability=ieee_quotient(sums(k),mass)
+          value=ieee_difference(value,ieee_product(probability,probability))
+        end do
+        if(nout>1)value=ieee_quotient(value,real(nout,dp))
       else if(criterion=='gini') then
         total=0
         do c=1,size(classes)
@@ -376,12 +412,14 @@ contains
       real(dp), intent(in) :: mass,sums(:)
       real(dp), intent(inout) :: wl,sl(:)
       real(dp), intent(out) :: wr,sr(:)
-      integer :: j,c,index
+      integer :: j,c,index,k
       if(cut-pos<=size(ids)-cut) then
         do j=pos+1,cut
           index=ids(j)
           if(size(classes)==0) then
-            sl(1)=ieee_difference(sl(1),-ieee_product(w(index),y(index)))
+            do k=1,nout
+              sl(k)=ieee_difference(sl(k),-ieee_product(w(index),target_value(index,k)))
+            end do
           else
             c=label_index(classes,int(y(index)));sl(c)=ieee_difference(sl(c),-w(index))
           end if
@@ -392,7 +430,9 @@ contains
         do j=size(ids),cut+1,-1
           index=ids(j)
           if(size(classes)==0) then
-            sl(1)=ieee_difference(sl(1),ieee_product(w(index),y(index)))
+            do k=1,nout
+              sl(k)=ieee_difference(sl(k),ieee_product(w(index),target_value(index,k)))
+            end do
           else
             c=label_index(classes,int(y(index)));sl(c)=ieee_difference(sl(c),w(index))
           end if
@@ -425,19 +465,24 @@ contains
       real(dp), intent(in) :: mass
       real(dp), intent(inout) :: wl
       real(dp), intent(out) :: wr
-      type(tree_median_queue), intent(inout) :: left,right
-      integer :: j,index_
+      type(tree_median_queue), intent(inout) :: left(:),right(:)
+      integer :: j,index_,k
       if(cut-pos<=size(ids)-cut) then
         do j=pos+1,cut
           index_=ids(j)
-          call right%remove(y(index_),w(index_));call left%push(y(index_),w(index_))
+          do k=1,nout
+            call right(k)%remove(target_value(index_,k),w(index_));call left(k)%push(target_value(index_,k),w(index_))
+          end do
           wl=ieee_difference(wl,-w(index_))
         end do
       else
-        call median_reset(left,right,.true.);wl=mass
+        do k=1,nout;call median_reset(left(k),right(k),.true.);end do
+        wl=mass
         do j=size(ids),cut+1,-1
           index_=ids(j)
-          call left%remove(y(index_),w(index_));call right%push(y(index_),w(index_))
+          do k=1,nout
+            call left(k)%remove(target_value(index_,k),w(index_));call right(k)%push(target_value(index_,k),w(index_))
+          end do
           wl=ieee_difference(wl,w(index_))
         end do
       end if
@@ -445,14 +490,58 @@ contains
     end subroutine
     real(dp) function absolute_impurity(ids,center,mass) result(value)
       integer, intent(in) :: ids(:)
-      real(dp), intent(in) :: center,mass
-      integer :: j,index_
+      real(dp), intent(in) :: center(:),mass
+      integer :: j,index_,k
       value=0
-      do j=1,size(ids)
-        index_=ids(j)
-        value=ieee_difference(value,-ieee_product(abs(ieee_difference(y(index_),center)),w(index_)))
+      do k=1,nout
+        do j=1,size(ids)
+          index_=ids(j)
+          value=ieee_difference(value,-ieee_product(abs(ieee_difference(target_value(index_,k),center(k))),w(index_)))
+        end do
       end do
-      value=ieee_quotient(value,mass)
+      value=ieee_quotient(value,ieee_product(mass,real(nout,dp)))
+    end function
+    function medians(queues)result(values)
+      type(tree_median_queue),intent(in)::queues(:)
+      real(dp)::values(size(queues))
+      integer::k
+      do k=1,size(queues);values(k)=queues(k)%median();end do
+    end function
+    subroutine reset_medians()
+      integer::k
+      do k=1,nout;call median_reset(median_left(k),median_right(k),.false.);end do
+    end subroutine
+    real(dp)function joint_proxy(sl,sr,wl,wr)result(value)
+      real(dp),intent(in)::sl(:),sr(:),wl,wr
+      real(dp)::left,right,difference
+      integer::k
+      value=ieee_value(0._dp,ieee_negative_inf);left=0;right=0
+      select case(criterion)
+      case('friedman_mse')
+        do k=1,nout
+          left=ieee_difference(left,-sl(k));right=ieee_difference(right,-sr(k))
+        end do
+        difference=ieee_difference(ieee_product(wr,left),ieee_product(wl,right))
+        value=ieee_quotient(ieee_product(difference,difference),ieee_product(wl,wr))
+      case('poisson')
+        do k=1,nout
+          if(.not.ieee_is_nan(sl(k)))then
+            if(sl(k)<=10*epsilon(1._dp))return
+          end if
+          if(.not.ieee_is_nan(sr(k)))then
+            if(sr(k)<=10*epsilon(1._dp))return
+          end if
+          left=ieee_difference(left,ieee_product(sl(k),ieee_quotient(tree_log(ieee_quotient(sl(k),wl)),log(2._dp))))
+          right=ieee_difference(right,ieee_product(sr(k),ieee_quotient(tree_log(ieee_quotient(sr(k),wr)),log(2._dp))))
+        end do
+        value=ieee_difference(-left,right)
+      case default
+        do k=1,nout
+          left=ieee_difference(left,-ieee_product(sl(k),sl(k)))
+          right=ieee_difference(right,-ieee_product(sr(k),sr(k)))
+        end do
+        value=ieee_difference(ieee_quotient(left,wl),-ieee_quotient(right,wr))
+      end select
     end function
     subroutine partition_final(ids,feature,threshold)
       integer, intent(inout) :: ids(:)
@@ -534,10 +623,10 @@ contains
       real(dp), intent(in) :: inherited
       type(frontier_record), optional, intent(out) :: record
       integer, optional, intent(in) :: range_start
-      real(dp) :: node_median
+      real(dp) :: node_median(nout)
       integer, allocatable :: ordered(:),left(:),right(:),work(:)
       real(dp), allocatable :: feature_values(:)
-      real(dp) :: sums(max(1,size(classes))),sl(max(1,size(classes))),sr(max(1,size(classes)))
+      real(dp) :: sums(max(nout,size(classes))),sl(max(nout,size(classes))),sr(max(nout,size(classes)))
       real(dp) :: mass,squares,parent,wl,wr,sql,sqr,il,ir,proxy,best,low,high,threshold,best_threshold
       real(dp) :: best_left,best_right,best_wl,best_wr,improvement,difference
       integer :: n,fi,fj,drawn,found,visited,nconstant,f,cut,j,c,best_feature,left_node,right_node,first,last
@@ -545,11 +634,13 @@ contains
       n=size(ids);call moments(ids,mass,sums,squares)
       node_median=0
       if(criterion=='absolute_error') then
-        call median_left%clear();call median_right%clear()
-        do j=1,n
-          call median_right%push(y(ids(j)),w(ids(j)))
+        do c=1,nout
+          call median_left(c)%clear();call median_right(c)%clear()
         end do
-        node_median=median_right%median()
+        do j=1,n
+          do c=1,nout;call median_right(c)%push(target_value(ids(j),c),w(ids(j)));end do
+        end do
+        node_median=medians(median_right)
       end if
       if(work_splitter) then
         work=ids;allocate(feature_values(n))
@@ -569,11 +660,13 @@ contains
       end if
       self%nodes_(node)%impurity=parent
       if(size(classes)==0) then
+        allocate(self%nodes_(node)%values(nout))
         if(criterion=='absolute_error') then
-          self%nodes_(node)%value=node_median
+          self%nodes_(node)%values=node_median
         else
-          self%nodes_(node)%value=ieee_quotient(sums(1),mass)
+          do c=1,nout;self%nodes_(node)%values(c)=ieee_quotient(sums(c),mass);end do
         end if
+        self%nodes_(node)%value=self%nodes_(node)%values(1)
       else
         allocate(self%nodes_(node)%probability(size(classes)))
         do c=1,size(classes)
@@ -628,7 +721,7 @@ contains
           first=cut;last=cut
         end if
         pos=0;wl=0;sl=0
-        if(criterion=='absolute_error') call median_reset(median_left,median_right,.false.)
+        if(criterion=='absolute_error') call reset_medians()
         do cut=first,last
           if(cut<self%min_samples_leaf.or.n-cut<self%min_samples_leaf) cycle
           if(.not.self%random_thresholds) then
@@ -652,12 +745,15 @@ contains
           end if
           if(less(wl,min_weight).or.less(wr,min_weight)) cycle
           if(criterion=='absolute_error') then
-            il=absolute_impurity(ordered(:cut),median_left%median(),wl)
-            ir=absolute_impurity(ordered(cut+1:),median_right%median(),wr)
+            il=absolute_impurity(ordered(:cut),medians(median_left),wl)
+            ir=absolute_impurity(ordered(cut+1:),medians(median_right),wr)
           else
             il=impurity(wl,sl,sql,ordered(:cut));ir=impurity(wr,sr,sqr,ordered(cut+1:))
           end if
           if(size(classes)==0) then
+            if(nout>1.and.criterion/='absolute_error')then
+              proxy=joint_proxy(sl,sr,wl,wr)
+            else
             select case(criterion)
             case('absolute_error')
               proxy=ieee_difference(-ieee_product(wr,ir),ieee_product(wl,il))
@@ -679,6 +775,7 @@ contains
               proxy=ieee_difference(ieee_quotient(ieee_product(sl(1),sl(1)),wl), &
                 -ieee_quotient(ieee_product(sr(1),sr(1)),wr))
             end select
+            end if
           else
             proxy=ieee_difference(-ieee_product(wr,ir),ieee_product(wl,il))
           end if
@@ -695,10 +792,10 @@ contains
         if(.not.self%random_thresholds.or.f/=best_feature) call partition_final(work,best_feature,best_threshold)
         pos=0;wl=0;sl=0
         if(criterion=='absolute_error') then
-          call median_reset(median_left,median_right,.false.)
+          call reset_medians()
           call median_update(work,best_pos,pos,mass,wl,wr,median_left,median_right)
-          best_left=absolute_impurity(work(:best_pos),median_left%median(),wl)
-          best_right=absolute_impurity(work(best_pos+1:),median_right%median(),wr)
+          best_left=absolute_impurity(work(:best_pos),medians(median_left),wl)
+          best_right=absolute_impurity(work(best_pos+1:),medians(median_right),wr)
         else
           call classification_update(work,best_pos,pos,mass,sums,wl,sl,wr,sr)
           sql=0;sqr=0
@@ -714,7 +811,12 @@ contains
       improvement=ieee_difference(improvement,ieee_product(ieee_quotient(best_wl,mass),best_left))
       improvement=ieee_product(ieee_quotient(mass,root_weight),improvement)
       if(criterion=='friedman_mse') then
-        difference=ieee_difference(ieee_product(wr,sl(1)),ieee_product(wl,sr(1)))
+        if(nout>1)then
+          difference=ieee_quotient(ieee_difference(ieee_product(wr,ieee_total(sl)), &
+            ieee_product(wl,ieee_total(sr))),real(nout,dp))
+        else
+          difference=ieee_difference(ieee_product(wr,sl(1)),ieee_product(wl,sr(1)))
+        end if
         improvement=ieee_quotient(ieee_product(difference,difference),ieee_product(ieee_product(wl,wr),mass))
       end if
       if(.not.ieee_is_nan(improvement)) then
@@ -762,6 +864,17 @@ contains
       call build_weighted_tree(self,x,y,[integer::],self%criterion,spread(1._dp,1,size(y)))
     end if
   end subroutine
+  subroutine regressor_fit_multi(self,x,y,sample_weight)
+    class(decision_tree_regressor),intent(inout)::self
+    real(dp),intent(in)::x(:,:),y(:,:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    call check_xy(x,size(y,1));call require(size(y,2)>0,'tree targets require at least one output')
+    if(present(sample_weight))then
+      call build_weighted_tree(self,x,y(:,1),[integer::],self%criterion,sample_weight,targets=y)
+    else
+      call build_weighted_tree(self,x,y(:,1),[integer::],self%criterion,spread(1._dp,1,size(y,1)),targets=y)
+    end if
+  end subroutine
   subroutine extra_classifier_fit(self,x,y,sample_weight)
     class(extra_tree_classifier), intent(inout) :: self
     real(dp), intent(in) :: x(:,:)
@@ -788,6 +901,18 @@ contains
       call require(size(sample_weight)==size(y),'tree sample weight length mismatch'); weights=sample_weight
     end if
     call build_weighted_tree(self,x,y,[integer::],self%criterion,weights)
+  end subroutine
+  subroutine extra_regressor_fit_multi(self,x,y,sample_weight)
+    class(extra_tree_regressor),intent(inout)::self
+    real(dp),intent(in)::x(:,:),y(:,:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    call check_xy(x,size(y,1));call require(size(y,2)>0,'tree targets require at least one output')
+    self%random_thresholds=.true.
+    if(present(sample_weight))then
+      call build_weighted_tree(self,x,y(:,1),[integer::],self%criterion,sample_weight,targets=y)
+    else
+      call build_weighted_tree(self,x,y(:,1),[integer::],self%criterion,spread(1._dp,1,size(y,1)),targets=y)
+    end if
   end subroutine
   subroutine pruning_mask(self,leaves,path,alpha)
     class(tree_storage), intent(in) :: self
@@ -849,6 +974,15 @@ contains
     real(dp), optional, intent(in) :: sample_weight(:)
     type(tree_pruning_path) :: path
     class(decision_tree_regressor), allocatable :: copied
+    allocate(copied,source=self);copied%ccp_alpha=0
+    call copied%fit(x,y,sample_weight);path=fitted_pruning_path(copied)
+  end function
+  function regressor_pruning_multi(self,x,y,sample_weight)result(path)
+    class(decision_tree_regressor),intent(in)::self
+    real(dp),intent(in)::x(:,:),y(:,:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    type(tree_pruning_path)::path
+    class(decision_tree_regressor),allocatable::copied
     allocate(copied,source=self);copied%ccp_alpha=0
     call copied%fit(x,y,sample_weight);path=fitted_pruning_path(copied)
   end function
@@ -1008,10 +1142,31 @@ contains
     real(dp), intent(in) :: x(:,:)
     real(dp) :: y(size(x,1))
     integer :: leaves(size(x,1)),i
+    call require(self%n_outputs_==1,'joint tree prediction requires predict_multi')
     leaves=self%apply(x)
     do i=1,size(y)
       y(i)=self%nodes_(leaves(i))%value
     end do
+  end function
+  function regressor_predict_multi(self,x)result(y)
+    class(decision_tree_regressor),intent(in)::self
+    real(dp),intent(in)::x(:,:)
+    real(dp),allocatable::y(:,:)
+    integer::leaves(size(x,1)),i
+    leaves=self%apply(x);allocate(y(size(x,1),self%n_outputs_))
+    do i=1,size(x,1)
+      if(self%n_outputs_==1)then
+        y(i,1)=self%nodes_(leaves(i))%value
+      else
+        y(i,:)=self%nodes_(leaves(i))%values
+      end if
+    end do
+  end function
+  real(dp)function regressor_score_multi(self,x,y,sample_weight)result(value)
+    class(decision_tree_regressor),intent(in)::self
+    real(dp),intent(in)::x(:,:),y(:,:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    value=r2_score(y,self%predict_multi(x),sample_weight=sample_weight)
   end function
   real(dp) function regressor_score(self,x,y,sample_weight) result(v)
     class(decision_tree_regressor), intent(in) :: self

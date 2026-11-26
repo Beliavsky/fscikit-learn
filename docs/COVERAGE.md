@@ -87,7 +87,7 @@ tracked separately in [EXTENSIONS.md](EXTENSIONS.md) and excluded from the
 selective, clearly identified extensions while prioritizing core correctness.
 
 Global scope: dense real64 CPU arrays, integer classification labels, generally one target
-per sample; cross-decomposition, multi-task regression, joint MLP and neighbor regression, joint KNN/radius classification, KernelRidge, Dummy baselines and independent multioutput wrappers explicitly accept multiple response columns. General sparse estimator inputs, pandas integration, Python estimator cloning,
+per sample; cross-decomposition, multi-task regression, joint CART/ExtraTree regression, joint MLP and neighbor regression, joint KNN/radius classification, KernelRidge, Dummy baselines and independent multioutput wrappers explicitly accept multiple response columns. General sparse estimator inputs, pandas integration, Python estimator cloning,
 metadata routing, parallel backends and binary model persistence are outside the
 initial translation. The neighbor graph transformers provide CSR graph outputs and
 accept CSR precomputed distances, as do Isomap and Barnes-Hut TSNE. Randomized TruncatedSVD and direct Multinomial/
@@ -144,6 +144,26 @@ Fortran identifiers use snake_case rather than CamelCase.
 | covariance | `empirical_covariance`, `shrunk_covariance`, `ledoit_wolf`, `oas`, `graphical_lasso`, `graphical_lasso_cv`, `min_cov_det`, `elliptic_envelope`; `fast_mcd`, `ledoit_wolf_shrinkage`, `log_likelihood` | Array covariance functions and square-matrix batches through rank 15; blocked Ledoit-Wolf moments; population covariance, pseudoinverse precision, squared Mahalanobis distance, likelihood, Frobenius/spectral covariance error; L1-penalized sparse precision via CD or LARS block solves and refined cross-validation; FastMCD robust covariance and elliptic outlier detection |
 | calibration | `calibrated_classifier_cv`; `calibration_curve` | Sigmoid/isotonic CV ensembles, out-of-fold calibration and prefit calibration with logistic, Gaussian NB or KNN bases; uniform/quantile reliability bins |
 | datasets | `make_classification`, `make_multilabel_classification`, `make_sparse_coded_signal`, `make_sparse_spd_matrix`, `make_biclusters`, `make_checkerboard`, `make_hastie_10_2`, `make_blobs`, `make_regression`, `make_low_rank_matrix`, `make_moons`, `make_circles`, `make_friedman1/2/3`, `make_sparse_uncorrelated`, `make_s_curve`, `make_swiss_roll`, `make_gaussian_quantiles` | Native synthetic generators with seeded legacy NumPy draws; scalar/joint regression, low-rank profiles, unequal blob/curve counts, per-cluster blob scales and center outputs; no bundled real-world datasets |
+
+## Joint CART and ExtraTree regression
+
+DecisionTreeRegressor and ExtraTreeRegressor counterparts now fit matrix targets
+with shared splits across outputs, for squared error, Friedman MSE, absolute
+error and Poisson criteria. Output vectors, matrix prediction, uniform-average
+R2 scoring and pruning paths are exposed through typed overloads. Weighted
+median queues remain independent per output; leaf budgets, feature sampling,
+minimum impurity decrease and pruning act on the shared objective.
+
+The checked 736-case Source grid passes full tree fields, predictions, scores,
+pruning paths and importances at the existing scalar-tree bounds (rtol=2e-10,
+atol=2e-12), with exact structure and leaf indices. It includes opposing,
+duplicate, constant and zero-column targets, signed weights where exercised,
+both tree types and constrained growth. The previous scalar-criterion suite
+passes 1,247 fixtures / 16,211 groups. Native joint tests and 12 guards (11
+Source errors and one explicit native prediction-rank adapter) pass. Checked
+package and optimized verification are in progress. This adds no estimator type
+or extension algorithm; joint classification and forest fitting remain outside
+this increment.
 
 ## Weighted dense and sparse DBSCAN
 
