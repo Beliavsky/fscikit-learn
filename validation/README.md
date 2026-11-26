@@ -7967,5 +7967,6 @@ Bray-Curtis reads. Native undefined cells return NaN plus a diagnostic mask.
 one identified native adapter for the reserved Cython -1 return. Isolated Source
 reproductions and original failed probe reports remain under ignored
 `validation/results/distance_*`. The checked fpm rebuild, all 289 native programs,
-four examples, both public metric grids and 23 input checks pass. Broader checked
-and optimized package verification is running.
+four examples, both public metric grids and 23 input checks pass. The full checked
+audit passes 302 jobs and 501 compiled-unit fingerprints (200 library units).
+Implementation is committed as da27942; optimized verification is running.

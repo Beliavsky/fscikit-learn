@@ -154,8 +154,9 @@ quirks and persistent Mahalanobis state are retained. Defined source reads pass
 the private 688-configuration and 456-configuration raw-CSR grids; unresolved
 Source out-of-allocation reads remain explicit NaN/mask adaptations. The checked
 fpm rebuild, all 289 native programs, four selected examples, both public metric
-grids and 23 input checks pass. Broader checked and optimized package verification
-is in progress. This low-level metric type does not change the estimator/
+grids and 23 input checks pass. The full checked audit passes all 302 jobs and
+501 compiled-unit fingerprints (200 library units); optimized verification is
+in progress. Implementation is committed as da27942. This low-level metric type does not change the estimator/
 transformer/splitter count above.
 
 Discrete clustering mutual information: `mutual_info_score` returns nats from
