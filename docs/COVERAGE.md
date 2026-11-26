@@ -13138,6 +13138,59 @@ remain explicit and are not included in the new Ridge parity counts. Both
 profile processes terminated successfully, and the final audit confirms the
 current manifests, identical Ridge reference results and distinct executables.
 
-This increment adds one source module, one native test, two app drivers,
+The Ridge increment adds one source module, one native test, two app drivers,
 one example, one reference suite and one invalid-input registry. It adds no
 core public estimator type. The broader translation remains unfinished.
+
+## Functional SMACOF and seeded MDS
+
+`smacof` now exposes metric and nonmetric stress majorization with owned
+embedding/stress/iteration results, seeded serial restarts, explicit initial
+positions and logical/text normalized-stress controls. It retains sklearn
+1.6.1's upper-triangle isotonic disparity update, full-matrix normalization,
+pre-coordinate-update stress and scaled-stress stopping. Private RandomState
+draws follow NumPy row order and preserve the caller's global Fortran RNG.
+Successful functional calls preserve IEEE flags and halting modes.
+
+The MDS estimator shares this solver and now uses the Source seeded stream.
+Its existing stricter precomputed-input checks and one-step zero-matrix
+shortcut remain explicitly documented native adaptations. Collapsed metric
+starts follow Source behavior; the historical collapsed-start rejection now
+tests nonmetric fitting, which Source rejects after nonfinite intermediates.
+The old nonmetric-zero diagnostic registry was updated to the shared solver.
+No invalid case was silently dropped. The manifold reference suite now checks
+actual sklearn seeded restarts rather than replaying native-generated starts;
+three start arrays per fixture are also checked against NumPy RandomState.
+
+Both checked and optimized strict functional grids cover 2,943 configurations: 2,913 fits /
+8,739 direct comparisons and 30 individually verified actual Source
+rejections. The estimator grid covers 2,673 configurations within its existing
+native input contract: 2,661 fits / 7,983 comparisons and 12 Source rejections.
+Both use sklearn 1.6.1, NumPy 2.2.6 and SciPy 1.15.3. Maximum scaled error is
+3.158581040232271e-11 in each grid. Reports retain 5,475 functional and 1,215
+estimator Source warnings and full input inventories, versions and hashes.
+All grids retain strict 3e-8 tolerances, exact iteration metadata, and actual
+Source expected outputs; no certificates or native-derived expectations are
+used. Functional cases include one sample, negative/nonzero-diagonal inputs,
+near symmetry, missing/tied dissimilarities, zero/collapsed configurations,
+embedding widths through nine plus explicit width overrides, three seeds,
+restart counts, normalization choices and finite caps.
+
+Both full fpm builds including tests passed. Each profile passed six selected native tests,
+two examples, 16 isolated Source-matched input guards, all 14 legacy MDS
+guards, 147 manifold/LLE comparisons and 192 core comparisons passed. The
+compiled audit verifies 204 fingerprints per profile: 191 library units and 13 programs.
+The final audit confirms identical current source/validator/API/attribution
+manifests, identical reference inputs, provenance and cache hashes, and
+distinct executable hashes. Numerical maxima match between profiles. Builds
+use private fpm 0.14.0 and GNU Fortran 17.0.0 20260510 with
+`-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow` and
+`-O3 -funroll-loops -fcoarray=single`, respectively.
+Other historical reference suites were not rerun for this increment.
+
+Artifacts remain ignored under validation/results/smacof_*; the package
+remains MIT with retained sklearn, NumPy and OpenBLAS notices. No dependency
+or algorithm extension was added. This increment adds one source module, one
+native test, two app drivers, one example, one reference validator covering
+two APIs, one invalid-input registry and an owned result helper. The broader
+translation remains unfinished.
