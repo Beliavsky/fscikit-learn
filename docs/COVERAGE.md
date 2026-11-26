@@ -1186,6 +1186,27 @@ package now has 104 core types in 42 source modules.
 
 ## Classic gradient boosting regression
 
+Implementation `d5117c4` and Source-aligned legacy test `7148798` pass 240
+regression cases covering every loss, weights, zero rate, pruning and controls;
+140 strict classification cases covering two/three/five/nine classes and complete
+stage trees; 65 actual sklearn rejection checks; and 16 integration cases with
+weighted search, selection, pipelines, voting, bagging and stacking. The latter
+compare CV scores/ranks, caller/prefit preservation, component seeds and sample
+indices, and bagging OOB predictions/scores. These checks pass in checked and
+scoped optimized builds; the optimized scope uses fresh changed modules with
+matching unchanged checked dependencies, not a full optimized fpm package.
+
+The full checked build, all 298 native tests and ten examples pass. Earlier
+tree/forest/feature/bootstrap grids and guards, 510 legacy classifier groups and
+192 core comparisons also pass. Initial 96 classifier and 128 regression Source
+oracles are preserved, including all formerly differing classifier cases;
+their numeric bounds remain 2e-10 / 2e-12 and integer structures match exactly.
+The audit verifies 336 successful jobs and 853 compiled-source fingerprints
+(204 library units), saved Source/binary hashes and static locale-wrapper links.
+Both profiles use the documented validation-only Windows runtime workaround.
+Reports and original failure evidence remain under `validation/results/classic_boosting_*`
+and the associated `gb*_probe_*` files. No unprotected-runtime claim is made.
+
 `gradient_boosting_regressor` implements full-data dense fitting with squared,
 absolute, quantile and Huber losses. It supports finite sample weights,
 loss-appropriate default or zero initialization, shared seeded RandomState tree

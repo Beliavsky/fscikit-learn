@@ -1,5 +1,35 @@
 # Validation
 
+Classic gradient boosting (2026-11-26, implementation `d5117c4`, aligned legacy
+tie test `7148798`): run `compare_gbr_losses.py`, `compare_gbc_stages.py`,
+`check_classic_boosting_inputs.py` and `compare_gbr_integration.py` with
+`--executable PATH --report PATH`. Drivers are respectively
+`reference_gbr_loss_driver`, `reference_gbc_stage_driver`,
+`reference_gb_invalid_driver`, and `reference_gbr_integration_driver`.
+
+Checked and scoped optimized checks pass 240 regression cases, 140 strict
+classification cases, 65 input checks and 16 integration fixtures. They compare
+complete tree geometry/values, staged outputs, learned metadata, losses,
+importances, weights and initialization; integration includes weighted CV ranks,
+selection, pipeline, voting, bagging seeds/indices/OOB and stacking. Optimized
+verification covers fresh changed tree/loss/classic-boosting/dispatch/selection/
+search modules and matching unchanged checked dependencies. The earlier 510
+classifier result groups pass too. All initial 96 classifier and 128 regression
+Source oracles remain unchanged; strict numeric rtol/atol stay 2e-10 / 2e-12,
+with exact integer structures. The classifier initialization/gradient fixes
+resolve all recorded differences without excluding cases or weakening tolerances.
+
+The full checked fpm build, 298 native tests, ten examples, previous feature/
+tree/forest/bootstrap suites and guards, and 192 core comparisons pass. The final
+audit records 336 successful jobs and 853 compiled fingerprints (204 library
+units), verifies saved Source/binary hashes and retains original forest/tree
+input/oracle identities. A legacy unit that expected the lower class at a zero
+binary score was corrected after reproducing its exact fixture in sklearn,
+which predicts the positive class. The initial failed unit log remains retained.
+Both profiles use the documented optional static-libgfortran locale-copy link;
+unprotected runtime stability is not established. Evidence is under ignored
+`validation/results/classic_boosting_*` and associated `gb*_probe_*` artifacts.
+
 Typed tree/forest feature budgets (implementation `09ab61c`, 2026-11-26):
 `compare_joint_trees.py --features` and `compare_joint_classification.py --features`
 use their existing direct-tree drivers with appended learned-budget output.
