@@ -7525,3 +7525,25 @@ IEEE state, self exclusion, zero-distance weighting, precomputed geometry,
 radius limits and vector refits. `test_neighbor_frozen_outputs` checks borrowed
 fitted-state detection, joint prediction/scoring and vector/matrix refits.
 `neighbor_outputs` demonstrates the public facade.
+
+The checked and optimized package grids agree exactly. Each regular-point run
+passes 11,540 groups across 2,640 fits (maximum scaled error
+9.765330951305197e-16), including 240 prediction and 940 score rejections.
+Each full run checks 23,088 groups across 5,280 fits, with 480 prediction and
+1,872 score rejections. It retains 492 failed fields across 164 duplicate-point
+KNN configurations: prediction, matrix-helper prediction and R2 each fail 164
+times. All radius cases pass. Maximum scaled prediction error is
+.6930737981278454 and maximum scaled R2 error is .6547419723635348. These
+material tie-selection differences remain failures in default strict mode.
+The two profiles use identical input inventories and Source cache content;
+their reference executables have distinct hashes. Artifacts remain ignored
+under `validation/results/neighbor_package_*`.
+
+Both complete fpm builds succeed. Each profile passes 15 selected native tests,
+the example, all 29 input checks, 120 retained graph/neighbor comparisons and
+192 core comparisons. Its 22 verification jobs have expected outcomes,
+including the deliberate full strict failure. The final audit verifies 212
+dependency-aware compiled fingerprints per profile (192 library units and 20
+programs), current source/validator/API/attribution manifests, Source cache
+provenance and distinct executable hashes. No additional dependency was added;
+the package retains its MIT license and existing third-party BSD notices.

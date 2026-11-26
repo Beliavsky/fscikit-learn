@@ -13610,3 +13610,30 @@ sklearn brute selection can choose different tied target rows. Full numerical
 parity is not claimed. The new direct Source validator retains these output
 differences at unchanged tolerances, including their effects on R2, rather than
 substituting native-selected expected outputs.
+
+Both checked and optimized profiles pass all 15 selected native tests, the public
+example, 28 actual Source rejection checks plus one native rank contract,
+120 retained graph/neighbor comparisons and 192 core comparisons. The new
+regular-point grid passes 11,540 groups across 2,640 fits, with 240 matched
+prediction rejections and 940 matched score rejections. Maximum scaled error
+is 9.765330951305197e-16 at unchanged 3e-8 absolute/relative tolerances.
+
+The complete grid retains all 5,280 fits, 480 prediction rejections and 1,872
+score rejections. Of 23,088 comparison groups, 22,596 pass and 492 fail across
+164 duplicate-point KNN configurations: 164 prediction fields, 164 matrix-helper
+fields and 164 R2 fields. All radius cases and all regular-point cases pass.
+Maximum scaled prediction error is .6930737981278454; maximum scaled R2 error
+is .6547419723635348. These are material differences from selecting tied rows
+with different targets. The default full strict run fails on an actual
+comparison; diagnostic mode retains every failed field and case. No tolerance
+was widened and no expected prediction was replaced with a native result.
+
+Both full fpm builds complete successfully. Each profile completes 22
+verification jobs with expected outcomes, including its deliberately failing
+full strict comparison. Dependency-aware fingerprints verify 212 compiled
+units per profile: 192 library units and 20 programs. The final audit checks
+current source/validator/API/attribution manifests, Source cache provenance,
+matching input inventories and comparison results, and distinct checked and
+optimized reference executables. Artifacts remain ignored under
+`validation/results/neighbor_package_*`. Other historical reference suites
+were not rerun; the broader sklearn translation remains unfinished.
