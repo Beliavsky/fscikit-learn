@@ -7918,9 +7918,10 @@ The original functional graph grid passes 26,478 fields and the added BallTree
 grid passes 63,018, using unchanged oracle entries and fixture inventories.
 Fitted-NN reference drivers explicitly request the Source brute baseline as
 before; the Fortran type now also exposes automatic and explicit tree backends.
-New API, attribution and private evidence are retained. The checked package
-audit passes all 58 jobs, including 31 selected native tests and three examples,
-with 250 compiled-unit fingerprints (199 library units). The optimized rebuild
-and native/example checks pass; optimized reference verification is running
-under ignored `validation/results/nearest_neighbors_*`. Implementation is
-committed as ed145c0.
+New API, attribution and private evidence are retained. Both checked and
+optimized package audits pass all 58 jobs per profile, including 31 selected
+native tests and three examples, with 250 compiled-unit fingerprints
+(199 library units). Oracle entries, inventories and tolerances are preserved.
+The cross-profile audit and manifests are retained under ignored
+`validation/results/nearest_neighbors_*`. Implementation is committed as
+ed145c0; the historical intermittent optimized KNC crash remains unresolved.

@@ -14028,8 +14028,9 @@ groups; the BallTree graph grid passes 63,018 groups with unchanged oracle
 entries. Reference fitted-NN drivers now explicitly select their Source brute
 baseline. Private probes are retained under ignored
 `validation/results/neighbor_query_*`, `nearest_query_baseline*` and
-`nearest_neighbors_*`. The checked package audit passes all 58 jobs, including
-31 selected native tests and three examples, with 250 compiled-unit fingerprints
-(199 library units). The optimized rebuild and native/example checks pass;
-optimized reference verification is running. Implementation is committed as
-ed145c0. This remains a dense serial API subset.
+`nearest_neighbors_*`. Both checked and optimized package audits pass all
+58 jobs per profile, including 31 selected native tests and three examples,
+with 250 compiled-unit fingerprints (199 library units). Inventories, oracle
+entries, numerical tolerances and rejection checks are preserved across both
+profiles. Implementation is committed as ed145c0. This remains a dense serial
+API subset. The historical intermittent optimized KNC crash remains unresolved.
