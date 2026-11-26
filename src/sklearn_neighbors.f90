@@ -77,11 +77,23 @@ module sklearn_neighbors
     integer :: outlier_label=-1
     integer, allocatable :: classes_(:),y_(:)
     real(dp), allocatable :: x_(:,:)
+    character(20)::outlier_mode='legacy'
+    integer,allocatable::outlier_labels(:),outlier_label_(:),y_matrix_(:,:)
+    type(label_set),allocatable::classes_multi_(:)
+    real(dp),private,allocatable::encoded_y_(:,:)
+    character(20),private::outlier_mode_='legacy'
+    character(16),private::metric_='minkowski'
+    real(dp),private::p_=2
+    logical::outputs_2d_=.false.
+    integer::n_features_in_=0,n_outputs_=0,n_samples_fit_=0
   contains
-    procedure :: fit=>radius_classifier_fit
+    procedure :: fit_dense=>radius_classifier_fit,fit_matrix=>radius_classifier_fit_matrix
+    generic::fit=>fit_dense,fit_matrix
     procedure :: predict_proba=>radius_classifier_proba
-    procedure :: predict=>radius_classifier_predict
-    procedure :: score=>radius_classifier_score
+    procedure :: predict_proba_multioutput=>radius_classifier_proba_multioutput
+    procedure :: predict=>radius_classifier_predict,predict_matrix=>radius_classifier_predict_matrix
+    procedure :: score_dense=>radius_classifier_score,score_matrix=>radius_classifier_score_matrix
+    generic::score=>score_dense,score_matrix
   end type
   type :: radius_neighbors_regressor
     real(dp) :: radius=1,p=2
@@ -353,21 +365,29 @@ contains
       value=value/denom
     end if
   end function
-  function classification_reduce(codes,d,weights,class_sizes,mode)result(value)
+  function classification_reduce(codes,d,weights,class_sizes,mode,by_radius)result(value)
     real(dp),intent(in)::codes(:,:),d(:)
     character(*),intent(in)::weights
     integer,intent(in)::class_sizes(:)
-    logical,intent(in)::mode
+    logical,intent(in)::mode,by_radius
     real(dp),allocatable::value(:),votes(:)
-    real(dp)::w(size(d))
+    real(dp)::w(size(d)),normalizer
     logical::infmask(size(d))
     integer::i,j,c,first
     w=1
     if(weights=='distance')then
-      w=1/d;infmask=.not.ieee_is_finite(w).and..not.ieee_is_nan(w)
-      if(any(infmask))w=merge(1._dp,0._dp,infmask)
+      if(by_radius)then
+        if(any(d==0))then
+          w=merge(1._dp,0._dp,d==0)
+        else
+          w=1/d
+        end if
+      else
+        w=1/d;infmask=.not.ieee_is_finite(w).and..not.ieee_is_nan(w)
+        if(any(infmask))w=merge(1._dp,0._dp,infmask)
+      end if
     end if
-    call require(any(w/=0),'all neighbors have zero weights')
+    if(.not.by_radius)call require(any(w/=0),'all neighbors have zero weights')
     if(mode)then
       allocate(value(size(class_sizes)))
     else
@@ -387,13 +407,18 @@ contains
         do i=1,size(d)
           c=int(codes(i,j));votes(c)=votes(c)+w(i)
         end do
-        value(first:first+class_sizes(j)-1)=votes/neighbor_sum(votes)
+        normalizer=neighbor_sum(votes)
+        if(by_radius)then
+          if(normalizer==0)normalizer=1
+        end if
+        value(first:first+class_sizes(j)-1)=votes/normalizer
         first=first+class_sizes(j)
       end if
       deallocate(votes)
     end do
   end function
-  function regression_predict(training,targets,metric,p,weights,k,radius,by_radius,x,class_sizes,vote_mode)result(prediction)
+  function regression_predict(training,targets,metric,p,weights,k,radius,by_radius,x, &
+      class_sizes,vote_mode,empty_neighbors)result(prediction)
     real(dp),intent(in)::training(:,:),targets(:,:),p,radius
     character(*),intent(in)::metric,weights
     integer,intent(in)::k
@@ -401,6 +426,7 @@ contains
     real(dp),optional,intent(in)::x(:,:)
     integer,optional,intent(in)::class_sizes(:)
     logical,optional,intent(in)::vote_mode
+    logical,allocatable,optional,intent(out)::empty_neighbors(:)
     real(dp),allocatable::prediction(:,:),dist(:,:)
     integer,allocatable::order(:),ids(:)
     logical,allocatable::keep(:)
@@ -433,6 +459,7 @@ contains
       if(.not.mode)outputs=sum(class_sizes)
     end if
     allocate(prediction(m,outputs))
+    if(present(empty_neighbors))allocate(empty_neighbors(m))
     kind=metric
     if(kind=='minkowski')then
       if(p==1)kind='manhattan'
@@ -501,10 +528,15 @@ contains
             ids=pack(ids,keep)
           end if
         end if
+        if(present(empty_neighbors))empty_neighbors(row)=size(ids)==0
         if(size(ids)==0)then
-          prediction(row,:)=ieee_value(0._dp,ieee_quiet_nan)
+          if(present(class_sizes).and.by_radius)then
+            prediction(row,:)=0
+          else
+            prediction(row,:)=ieee_value(0._dp,ieee_quiet_nan)
+          end if
         else if(present(class_sizes))then
-          prediction(row,:)=classification_reduce(targets(ids,:),d(i,ids),weights,class_sizes,mode)
+          prediction(row,:)=classification_reduce(targets(ids,:),d(i,ids),weights,class_sizes,mode,by_radius)
         else
           prediction(row,:)=regression_average(targets(ids,:),d(i,ids),weights,.not.by_radius)
         end if
@@ -562,56 +594,155 @@ contains
     v=r2_score(y,self%predict_matrix(x),sample_weight=sample_weight)
   end function
   subroutine radius_classifier_fit(self,x,y)
-    class(radius_neighbors_classifier), intent(inout) :: self
-    real(dp), intent(in) :: x(:,:)
-    integer, intent(in) :: y(:)
-    call check_xy(x,size(y)); call require(self%radius>0,'radius must be positive')
-    call require(self%weights=='uniform'.or.self%weights=='distance','unknown neighbor weights')
-    self%x_=x; self%y_=y; self%classes_=unique_labels(y)
+    class(radius_neighbors_classifier),intent(inout)::self
+    real(dp),intent(in)::x(:,:)
+    integer,intent(in)::y(:)
+    call radius_classifier_fit_matrix(self,x,reshape(y,[size(y),1]))
+  end subroutine
+  subroutine radius_classifier_fit_matrix(self,x,y)
+    class(radius_neighbors_classifier),intent(inout)::self
+    real(dp),intent(in)::x(:,:)
+    integer,intent(in)::y(:,:)
+    integer::i,j,c
+    integer,allocatable::counts(:)
+    logical::enabled
+    call check_xy(x,size(y,1));call require(size(y,2)>0,'radius classification needs target columns')
+    call regression_parameters(x,self%metric,self%p,self%weights)
+    call require(.not.ieee_is_nan(self%radius),'radius is NaN')
+    call require(self%radius>=0,'radius must be nonnegative')
+    call require(any(self%outlier_mode==[character(20)::'legacy','error','label','most_frequent']), &
+      'unknown radius outlier mode')
+    self%x_=x;self%y_matrix_=y;self%metric_=self%metric;self%p_=self%p
+    self%outputs_2d_=size(y,2)>1;self%n_outputs_=size(y,2)
+    self%n_features_in_=size(x,2);self%n_samples_fit_=size(x,1)
+    self%outlier_mode_=self%outlier_mode
+    if(allocated(self%classes_multi_))deallocate(self%classes_multi_)
+    allocate(self%classes_multi_(self%n_outputs_));self%encoded_y_=real(y,dp)
+    do j=1,self%n_outputs_
+      self%classes_multi_(j)%values=unique_labels(y(:,j))
+      do i=1,size(y,1)
+        self%encoded_y_(i,j)=real(label_index(self%classes_multi_(j)%values,y(i,j)),dp)
+      end do
+    end do
+    if(allocated(self%classes_))deallocate(self%classes_)
+    if(allocated(self%y_))deallocate(self%y_)
+    if(.not.self%outputs_2d_)then
+      self%classes_=self%classes_multi_(1)%values;self%y_=y(:,1)
+    end if
+    if(allocated(self%outlier_label_))deallocate(self%outlier_label_)
+    enabled=self%outlier_mode_=='label'.or.self%outlier_mode_=='most_frequent'
+    if(self%outlier_mode_=='legacy')enabled=self%allow_outliers
+    if(enabled)then
+      allocate(self%outlier_label_(self%n_outputs_));self%outlier_label_=self%outlier_label
+      if(self%outlier_mode_=='most_frequent')then
+        do j=1,self%n_outputs_
+          counts=[(count(y(:,j)==self%classes_multi_(j)%values(c)),c=1,size(self%classes_multi_(j)%values))]
+          self%outlier_label_(j)=self%classes_multi_(j)%values(maxloc(counts,dim=1))
+        end do
+      else if(allocated(self%outlier_labels))then
+        call require(size(self%outlier_labels)==self%n_outputs_,'outlier label count differs from target count')
+        self%outlier_label_=self%outlier_labels
+      end if
+    end if
+  end subroutine
+  subroutine radius_outlier_labels(self,labels,enabled)
+    class(radius_neighbors_classifier),intent(in)::self
+    integer,allocatable,intent(out)::labels(:)
+    logical,intent(out)::enabled
+    allocate(labels(self%n_outputs_));labels=0
+    if(self%outlier_mode_=='legacy')then
+      enabled=self%allow_outliers
+      if(enabled)then
+        labels=self%outlier_label
+        if(allocated(self%outlier_labels))then
+          call require(size(self%outlier_labels)==self%n_outputs_,'outlier label count differs from target count')
+          labels=self%outlier_labels
+        end if
+      end if
+    else
+      enabled=allocated(self%outlier_label_)
+      if(enabled)labels=self%outlier_label_
+    end if
   end subroutine
   function radius_classifier_proba(self,x) result(prob)
-    class(radius_neighbors_classifier), intent(in) :: self
-    real(dp), intent(in) :: x(:,:)
-    real(dp), allocatable :: prob(:,:),d(:,:),weights(:)
-    integer, allocatable :: ids(:)
-    integer :: i,j,c,n
-    call require(allocated(self%x_),'radius classifier is not fitted')
-    d=pairwise_distances(x,self%x_,self%metric,self%p); n=size(self%y_)
-    allocate(prob(size(x,1),size(self%classes_))); prob=0
-    do i=1,size(x,1)
-      ids=pack([(j,j=1,n)],d(i,:)<=self%radius)
-      if(size(ids)==0) then
-        call require(self%allow_outliers,'query has no neighbors within radius')
-        c=label_index(self%classes_,self%outlier_label)
-        if(c>0) prob(i,c)=1
-        cycle
+    class(radius_neighbors_classifier),intent(in)::self
+    real(dp),optional,intent(in)::x(:,:)
+    real(dp),allocatable::prob(:,:)
+    type(neighbor_probability),allocatable::all_prob(:)
+    call require(.not.self%outputs_2d_,'joint radius probabilities require predict_proba_multioutput')
+    all_prob=self%predict_proba_multioutput(x);prob=all_prob(1)%values
+  end function
+  function radius_classifier_proba_multioutput(self,x)result(prob)
+    class(radius_neighbors_classifier),intent(in)::self
+    real(dp),optional,intent(in)::x(:,:)
+    type(neighbor_probability),allocatable::prob(:)
+    real(dp),allocatable::flat(:,:)
+    integer,allocatable::class_sizes(:),labels(:)
+    logical,allocatable::empty(:)
+    logical::enabled
+    integer::j,first,last,c,i
+    call require(allocated(self%y_matrix_),'radius classifier is not fitted')
+    class_sizes=[(size(self%classes_multi_(j)%values),j=1,self%n_outputs_)]
+    flat=regression_predict(self%x_,self%encoded_y_,self%metric_,self%p_,self%weights,0,self%radius,.true.,x, &
+      class_sizes=class_sizes,empty_neighbors=empty)
+    call radius_outlier_labels(self,labels,enabled)
+    if(any(empty))call require(enabled,'query has no neighbors within radius and no outlier label')
+    allocate(prob(self%n_outputs_));first=1
+    do j=1,self%n_outputs_
+      last=first+class_sizes(j)-1
+      prob(j)%classes=self%classes_multi_(j)%values;prob(j)%values=flat(:,first:last)
+      if(enabled)then
+        c=label_index(prob(j)%classes,labels(j))
+        if(c>0)then
+          do i=1,size(empty)
+            if(empty(i))prob(j)%values(i,c)=1
+          end do
+        end if
       end if
-      weights=get_weights(d(i,ids),self%weights)
-      do j=1,size(ids)
-        c=label_index(self%classes_,self%y_(ids(j))); prob(i,c)=prob(i,c)+weights(j)
-      end do
-      prob(i,:)=prob(i,:)/sum(weights)
+      first=last+1
     end do
   end function
   function radius_classifier_predict(self,x) result(y)
-    class(radius_neighbors_classifier), intent(in) :: self
-    real(dp), intent(in) :: x(:,:)
-    integer :: y(size(x,1)),i
-    real(dp), allocatable :: prob(:,:)
-    prob=self%predict_proba(x)
-    do i=1,size(y)
-      if(sum(prob(i,:))==0) then
-        y(i)=self%outlier_label
-      else
-        y(i)=self%classes_(maxloc(prob(i,:),dim=1))
-      end if
+    class(radius_neighbors_classifier),intent(in)::self
+    real(dp),optional,intent(in)::x(:,:)
+    integer,allocatable::y(:),matrix(:,:)
+    call require(.not.self%outputs_2d_,'joint radius labels require predict_matrix')
+    matrix=self%predict_matrix(x);y=matrix(:,1)
+  end function
+  function radius_classifier_predict_matrix(self,x)result(y)
+    class(radius_neighbors_classifier),intent(in)::self
+    real(dp),optional,intent(in)::x(:,:)
+    integer,allocatable::y(:,:),labels(:)
+    type(neighbor_probability),allocatable::prob(:)
+    logical::enabled
+    integer::i,j,c
+    prob=self%predict_proba_multioutput(x);call radius_outlier_labels(self,labels,enabled)
+    allocate(y(size(prob(1)%values,1),self%n_outputs_))
+    do j=1,self%n_outputs_
+      do i=1,size(y,1)
+        c=findloc(ieee_is_nan(prob(j)%values(i,:)),.true.,dim=1)
+        if(c>0)then
+          y(i,j)=prob(j)%classes(c)
+        else if(all(prob(j)%values(i,:)==0))then
+          call require(enabled,'zero class probabilities require an outlier label')
+          y(i,j)=labels(j)
+        else
+          y(i,j)=prob(j)%classes(maxloc(prob(j)%values(i,:),dim=1))
+        end if
+      end do
     end do
   end function
-  real(dp) function radius_classifier_score(self,x,y) result(v)
-    class(radius_neighbors_classifier), intent(in) :: self
-    real(dp), intent(in) :: x(:,:)
-    integer, intent(in) :: y(:)
-    v=accuracy_score(y,self%predict(x))
+  real(dp)function radius_classifier_score(self,x,y,sample_weight)result(v)
+    class(radius_neighbors_classifier),intent(in)::self
+    real(dp),optional,intent(in)::x(:,:),sample_weight(:)
+    integer,intent(in)::y(:)
+    v=accuracy_score(y,self%predict_matrix(x),sample_weight=sample_weight)
+  end function
+  real(dp)function radius_classifier_score_matrix(self,x,y,sample_weight)result(v)
+    class(radius_neighbors_classifier),intent(in)::self
+    real(dp),optional,intent(in)::x(:,:),sample_weight(:)
+    integer,intent(in)::y(:,:)
+    v=accuracy_score(y,self%predict_matrix(x),sample_weight=sample_weight)
   end function
   subroutine radius_regressor_fit(self,x,y)
     class(radius_neighbors_regressor),intent(inout)::self

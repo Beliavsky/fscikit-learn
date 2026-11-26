@@ -754,3 +754,7 @@ KNN classification supports shared-search joint integer targets, per-output
 class probabilities, weighted subset accuracy and self-excluding queries. See
 [the API](docs/API.md#joint-knn-classification) and
 [example/neighbor_classification_outputs.f90](example/neighbor_classification_outputs.f90).
+
+Radius classification supports joint targets, per-output outlier labels and
+most-frequent-class fallback. See [the API](docs/API.md#joint-radius-neighbor-classification)
+and [example/radius_classification_outputs.f90](example/radius_classification_outputs.f90).

@@ -2483,3 +2483,15 @@ their attributions. Pairwise summation follows NumPy 2.2.6 under its retained
 BSD notice. Owned typed probability lists, shared streaming integration and
 fitted-state adapters are original MIT contributions. No dependency or algorithm
 outside scikit-learn was added.
+
+## Joint radius-neighbor classification
+
+Joint radius target encoding, per-output most-frequent/explicit outlier labels,
+empty-neighborhood probabilities, object-array inverse-distance rules and
+first-NaN probability argmax adapt installed scikit-learn 1.6.1
+`neighbors/_classification.py`, `neighbors/_base.py` and `base.py`
+ClassifierMixin under the retained scikit-learn BSD notice. Existing ordered
+pairwise distances, NumPy-style reductions and accuracy retain their notices.
+Owned probability storage, legacy parameter adapters, streaming integration and
+IEEE composition are original MIT contributions. Fixed-kind Fortran labels do
+not implement Python dtype promotion or warning objects. No dependency was added.

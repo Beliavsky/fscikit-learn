@@ -284,6 +284,39 @@ increment. Frozen wrappers recognize joint fitted state; their existing
 scalar classification methods continue to require scalar targets. See
 `example/neighbor_classification_outputs.f90`.
 
+### Joint radius-neighbor classification
+
+`radius_neighbors_classifier` accepts integer vector or matrix targets, with
+the same `predict_matrix` and owned `predict_proba_multioutput` helpers as KNN
+classification. One-column fits retain the scalar APIs. Optional `x` implements
+self-excluding training queries. Both target ranks support weighted accuracy;
+general multiclass-multioutput `score` remains rejected by the accuracy metric.
+Dense metrics/precomputed distances and streaming have the joint-regression
+limits above. Radius zero and infinity are accepted.
+
+Set `outlier_mode='error'` for sklearn's `outlier_label=None`, `'label'` for
+explicit labels, or `'most_frequent'` for the most frequent fitted class in each
+output (smallest label wins ties). In label mode, `outlier_label` broadcasts a
+scalar, while allocated `outlier_labels(:)` supplies one label per output.
+`outlier_label_(:)` records fitted labels; it is unallocated in error mode.
+Known outlier classes receive probability one. Unknown outlier labels are
+returned by prediction with zero probability for every fitted class.
+
+The default `'legacy'` mode preserves `allow_outliers` and live scalar label
+changes from the earlier native API; explicit modes use fitted label settings.
+Refit applies changed modes, metric and `p`. `radius` and `weights` remain query
+controls. Fitted target/class metadata matches the KNN helpers. Radius distance
+weights mask exact zeros, preserving Source reciprocal-overflow NaNs; prediction
+selects the first NaN class as NumPy argmax does. IEEE flags/modes are preserved.
+
+Labels use Fortran's default integer kind. The reference grid uses sklearn
+`int64` targets and Python integer/list outlier labels, comparing label values.
+Python dtype-promotion checks (including sklearn's `int32`/Python-int and NumPy
+scalar rejection quirks) are not represented by this typed API; their Source
+rejection probes are retained separately. Python warnings are not emitted.
+Sparse inputs, callable weights, tree backends and joint meta-estimator adapters
+are not added here. See `example/radius_classification_outputs.f90`.
+
 ## Bayesian and sparse regression
 
 `bayesian_ridge`, `ard_regression`, and `orthogonal_matching_pursuit` are in

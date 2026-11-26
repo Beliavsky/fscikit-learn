@@ -7593,3 +7593,30 @@ matching Source caches and inputs, identical classification failure records,
 and distinct executables. Artifacts remain ignored under
 `validation/results/knc_package_*`. MIT licensing and dependency declarations
 are unchanged; the existing third-party notices are retained.
+
+## Joint radius-neighbor classification
+
+`compare_radius_classification_outputs.py` compares installed sklearn 1.6.1
+RadiusNeighborsClassifier with the typed matrix/list helpers. Pass
+`--executable`, `--report` and optionally `--reference-cache`. The 2,882-case
+inventory covers two seeds, three shapes, regular/duplicate points, five
+metrics, both weights, binary/ragged classes, one/three targets, explicit/self
+queries and radius zero/.8/infinity. Error/scalar/list/most-frequent outlier
+policies rotate across the grid. Two supplemental precomputed fixtures probe
+finite-distance reciprocal overflow, exact-zero domination and NaN argmax.
+Labels, classes, metadata and fitted outlier labels compare exactly;
+probabilities/scores use unchanged 3e-8 absolute/relative tolerances and matching
+NaNs. Default full execution is strict; diagnostic mode retains every mismatch.
+Cached Source calls preserve versions, source hashes and the integer adapter.
+Native output uses bounded file-backed batches and separate rejection probes.
+
+Source labels are normalized to int64 with Python integer/list outlier
+parameters. The Fortran API compares fixed-kind label values and does not model
+Python dtype-promotion checks. `check_radius_classification_invalid_inputs.py`
+pairs 23 actual Source rejections with native diagnostics and checks three
+native rank/enum contracts. It additionally retains two Source-only int32 and
+NumPy-scalar rejection observations, explicitly marked unrepresented in the
+native API. They are not counted as paired native rejections. Native analytic
+tests cover joint votes, known/unknown/per-output outliers, most-frequent ties,
+zero/infinite radii, precomputed geometry, IEEE state, overflow NaNs, weighted
+subset accuracy and vector/column refits. Earlier live legacy-label tests remain.

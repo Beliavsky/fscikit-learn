@@ -87,7 +87,7 @@ tracked separately in [EXTENSIONS.md](EXTENSIONS.md) and excluded from the
 selective, clearly identified extensions while prioritizing core correctness.
 
 Global scope: dense real64 CPU arrays, integer classification labels, generally one target
-per sample; cross-decomposition, multi-task regression, joint MLP and neighbor regression, joint KNN classification, KernelRidge, Dummy baselines and independent multioutput wrappers explicitly accept multiple response columns. General sparse estimator inputs, pandas integration, Python estimator cloning,
+per sample; cross-decomposition, multi-task regression, joint MLP and neighbor regression, joint KNN/radius classification, KernelRidge, Dummy baselines and independent multioutput wrappers explicitly accept multiple response columns. General sparse estimator inputs, pandas integration, Python estimator cloning,
 metadata routing, parallel backends and binary model persistence are outside the
 initial translation. The neighbor graph transformers provide CSR graph outputs and
 accept CSR precomputed distances, as do Isomap and Barnes-Hut TSNE. Randomized TruncatedSVD and direct Multinomial/
@@ -13690,3 +13690,27 @@ maximum errors also agree. A private compile probe verifies the ordinary
 `kneighbors_classifier(n_neighbors=3)` constructor remains usable. Other
 historical reference suites were not rerun. Artifacts remain ignored under
 `validation/results/knc_package_*`; the broader translation remains unfinished.
+
+## Joint radius-neighbor classification
+
+RadiusNeighborsClassifier now supports integer matrix targets, owned per-output
+class/probability lists, vector/column refits, weighted accuracy and optional-X
+self-excluding queries. Radius zero/infinity, dense precomputed geometry and
+the existing ten named dense metrics share the 8 MiB streaming core. Per-output
+explicit labels and most-frequent fitted classes handle empty neighborhoods;
+unknown labels yield all-zero fitted-class probabilities. Most-frequent ties
+choose the smallest label. Explicit label modes retain fitted choices; the
+default legacy adapter preserves live `allow_outliers`/scalar-label behavior.
+Radius inverse-distance weighting preserves the Source object-array zero and
+reciprocal-overflow rules, including NaN probabilities and first-NaN argmax.
+Native IEEE flags/halting modes are preserved. General multiclass-multioutput
+accuracy, sparse inputs, callable weights, tree backends and joint meta-estimator
+adapters remain outside this increment.
+
+The reference baseline uses int64 targets with Python integer/list outlier
+parameters and compares label values against fixed-kind Fortran integers.
+Python dtype-promotion validation and warning objects are not represented.
+Two actual Source dtype rejection probes are retained as unpaired observations:
+int32 targets with a Python scalar label promote to an incompatible dtype;
+a NumPy int32 scalar takes the Source arraylike/len rejection path. These are
+explicit typed-adapter limits, not paired native rejection successes.
