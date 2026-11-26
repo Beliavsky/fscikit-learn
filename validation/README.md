@@ -7944,7 +7944,9 @@ reduction difference and the distinction between physical and numerical self
 identity. The revised checked public API passes all 137,504 values exactly.
 The checked rebuild, all 288 native programs, three selected examples and
 2,005 kernel-dispatch configurations pass. Implementation is committed as
-501db6b. The full checked package audit passes all 322 jobs with 512 compiled-unit
-fingerprints (199 library units). The optimized rebuild, all 288 native programs
-and three examples pass; optimized reference verification is running under
-ignored `validation/results/nearest_sorted_radius_*`.
+501db6b. Full checked and optimized package audits pass all 322 jobs per profile
+with 512 compiled-unit fingerprints (199 library units), including all 288 native
+programs, three examples, original neighbor grids and the new comparisons.
+Inventories, oracle entries, tolerances and rejection checks are preserved.
+Reports and audits remain under ignored `validation/results/nearest_sorted_radius_*`.
+The historical intermittent GNU17 optimized KNC crash remains unresolved.

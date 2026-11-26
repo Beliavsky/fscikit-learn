@@ -14048,7 +14048,9 @@ cosine suite. The revised checked public API passes the same inputs exactly,
 along with 5,424 sorted-radius configurations / 19,620 fields and 48 numerical/
 storage chunk configurations / 137,504 values. All 288 checked native programs,
 three selected examples and the 2,005-configuration kernel-dispatch suite pass.
-Implementation is committed as 501db6b. The complete checked package audit
-passes all 322 jobs with 512 compiled-unit fingerprints (199 library units).
-The optimized rebuild, all 288 native programs and three examples also pass;
-optimized reference verification is running.
+Implementation is committed as 501db6b. Complete checked and optimized package
+audits pass all 322 jobs per profile with 512 compiled-unit fingerprints
+(199 library units). Both include all 288 native programs, three examples,
+the original neighbor grids and new pairwise/kernel regressions. Inventories,
+oracle entries, tolerances and rejection checks remain unchanged. The historical
+intermittent GNU17 optimized KNC crash remains unresolved.
