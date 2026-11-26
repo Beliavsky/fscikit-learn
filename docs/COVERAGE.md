@@ -13194,3 +13194,69 @@ or algorithm extension was added. This increment adds one source module, one
 native test, two app drivers, one example, one reference validator covering
 two APIs, one invalid-input registry and an owned result helper. The broader
 translation remains unfinished.
+
+## Functional graphical lasso
+
+The public `graphical_lasso(emp_cov,alpha,...)` function shares the existing
+CD/LARS solver, returning owned covariance, precision, complete two-column
+cost history and iteration metadata. It accepts sklearn 1.6.1's zero-iteration
+controls (empty costs, n_iter=1) and zero-penalty inverse shortcut (one cost
+row, n_iter=0). The existing estimator type/constructor remains available.
+The functional branch handles empirical covariance rows and lower-triangle
+pseudo-inversion for asymmetric input; the established symmetric estimator/CV
+path retains its prior routing. Successful calls preserve all IEEE flags and
+halting modes. No runtime dependency or algorithm extension was added.
+
+The strict finite-regularized grid covers 1,458 configurations with finite
+positive penalties and finite eps, including SPD, rank-deficient, diagonal,
+asymmetric and indefinite matrices, both solvers, zero/short/full caps and
+infinite tolerances. All 5,512 comparisons across 1,378 actual Source fits
+pass in both build profiles; 80 actual Source rejections are individually
+verified. Maximum scaled error is 4.924804299108134e-10 in checked mode and
+8.904428578777178e-10 in optimized mode. The grid retains 2,233 Source warnings.
+
+The default full grid retains all 1,956 configurations. It remains strict
+and currently rejects a known rank-deficient unregularized fit. Diagnostic
+mode records every difference without changing inputs or tolerances: 1,850
+Source fits and 106 Source rejections, with 1,840 fits accepted by both
+implementations. Of 7,360 direct comparisons, 7,288 pass and 72 fail. Native
+accepts 24 singular inputs that Source rejects, and rejects ten Source fits:
+eight singular zero-penalty configurations and two infinite-LARS-eps cases.
+These 34 fit-status differences and 72 numeric differences affect 74
+configurations. Unregularized singular precision/cost errors can be very
+large (maximum scaled error 1.1988216930939146e17); they are open numerical
+limitations, not parity certificates. Infinite LARS eps is explicitly
+diagnosed when an actual solve would use it. Infinite CD eps, tolerances and
+alpha's Source nonfinite-cost/error behavior are retained in the full grid.
+All 2,259 Source warnings and the complete inventory remain in its report.
+The separate regularized selection does not replace or remove full-grid cases.
+
+Reference outputs use actual installed sklearn 1.6.1 with NumPy 2.2.6 and
+SciPy 1.15.3. Strict comparisons use 3e-8 relative/absolute tolerances and
+exact iteration/cost-length metadata. There are no native-derived expected
+outputs or certificates in the new functional suites. Artifacts remain
+ignored under validation/results/graphical_function_*.
+
+Both full fpm builds including tests passed using private fpm 0.14.0 and
+GNU Fortran 17.0.0 20260510, with checked flags
+`-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow` and optimized flags
+`-O3 -funroll-loops -fcoarray=single`. Each profile completed 18 verification
+jobs: eight selected native tests, the example, 15 new Source-matched guards,
+both functional reference selections, the expected strict full-grid rejection,
+both existing GraphicalLasso estimator modes, both CV modes and 192 core
+comparisons. All 20 existing graphical-lasso guards passed separately.
+Each estimator mode passed 144 reference checks. Each CV mode passed 5,980
+checks across 255 fixtures, retaining its 26 existing endpoint certificates
+separately from direct comparisons. No historical certificate was promoted
+to parity. Other historical reference suites were not rerun.
+
+The final audit verifies 206 compiled fingerprints per profile (191 library
+units and 15 programs), identical current source/validator/API/attribution
+manifests and matching reference inputs, provenance and cache hashes, with
+distinct executables. Both full diagnostic runs retain the same fit-status
+and numeric failure counts and the same affected configuration count. The
+package remains MIT with retained sklearn/SciPy notices. This increment adds
+one native test, two app drivers, one example, one reference suite, one
+invalid-input registry and an owned result helper. No dependency, source
+module or core public estimator type was added. The broader translation
+remains unfinished.
