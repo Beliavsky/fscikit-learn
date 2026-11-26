@@ -20,6 +20,22 @@ Original warm fixtures remain available without `--fractional`. Comparisons use
 actual installed sklearn, exact integer fields and unchanged rtol/atol
 2e-10 / 2e-12. Local checked/optimized reports are under `validation/results/forest_fraction_*`.
 
+Fractional forest verification (2026-11-26, implementation `7ae11bd`): checked
+and scoped optimized grids pass 512 regression/384 classification checkpoints,
+24 typed search/clone fixtures and 102 input checks. Optimized verification
+covers fresh ensemble/selection/search objects and direct public APIs with
+matching unchanged checked dependencies. The checked package rebuild, all 296
+native tests, ten examples, the original 4,320 warm checkpoints, original clone
+and guard grids, 984 regression/1,908 classification cold-fit cases and 192 core
+comparisons pass. Original warm input hashes and Source oracles are preserved.
+The audit passes 317 jobs and 842 compiled fingerprints, including 201 library
+units, and verifies relevant executable/source hashes and locale-wrapper links.
+Both profiles use the optional static-libgfortran locale-copy workaround described
+below; this does not establish unprotected runtime stability. The original
+fractional classification fixture attempt exposed sklearn's changing-class-space
+prediction error; its log is retained, while final fraction fixtures deliberately
+hold class spaces fixed and the separate guard grid continues to test that error.
+
 Run from the package root:
 
 ```

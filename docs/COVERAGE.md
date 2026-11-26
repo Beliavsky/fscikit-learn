@@ -154,6 +154,18 @@ sklearn's `None` default. Typed search parameters retain the distinction between
 integer one and real one. Fractions also apply to regenerated warm-start sample
 indices and recomputed OOB state. This extends existing sklearn algorithms.
 
+Implementation `7ae11bd` passes 512 regression and 384 classification staged
+checkpoints, 24 mixed integer/real search and clone fixtures, and 102 input
+checks in both checked and scoped optimized verification. The optimized scope
+uses fresh ensemble, feature-selection and search-adapter objects with matching
+unchanged checked dependencies. Both use the documented validation-only Windows
+locale workaround. The full checked rebuild, all 296 native tests and ten
+examples pass. Original warm-start inputs and sklearn oracles are unchanged;
+the 4,320 original warm checkpoints, previous 984 regression/1,908 classification
+cold-fit cases and 192 core comparisons also pass. The local package audit
+records 317 successful jobs and 842 compiled fingerprints (201 library units)
+under `validation/results/forest_fraction_*`. No dependency or extension is added.
+
 All four forest types support retained-tree growth with integer-seed advancement,
 updated controls for new trees, unchanged-count fits and full resets. Scalar and
 joint targets, class presets/maps, changing training rows/weights, bootstrap
