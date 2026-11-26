@@ -448,6 +448,43 @@ sources=model%fit_transform(x)
 reconstructed=model%inverse_transform(sources)
 ```
 
+`model%whiten_solver` accepts `svd` (default) or `eigh`. Eigh whitening uses
+the centered cross-product, lower-triangle symmetric eigenvectors, descending
+eigenvalues and sklearn 1.6.1's 10*machine-epsilon eigenvalue floor. Both
+algorithms use private NumPy-compatible seeded normal starts and leave
+Fortran's global random stream unchanged. `unmixing_` stores the fitted
+rotation, including unit-variance scaling.
+
+`fit=fastica(x,...)` exposes the functional sklearn counterpart through
+`sklearn_fast_ica`, `sklearn_decomposition` and `sklearn`. The owned
+`fastica_result` contains whitening(components,features),
+unmixing(components,components), sources(samples,components), mean(features),
+n_iter and a native converged flag. Defaults match the fitted type; the native
+seed defaults to 0 and n_components=0 represents Source None. Keywords include
+algorithm, whiten, fun, alpha, max_iter, tol, w_init, whiten_solver,
+random_state and compute_sources. Use whiten='none' for Source whiten=False.
+Whitening and mean are unallocated without whitening. Sources are unallocated
+when compute_sources=false and whitening is arbitrary-variance or none.
+Sklearn 1.6.1 still returns unit-variance sources with compute_sources=false;
+this behavior is retained. See `example/fastica_sources.f90`.
+
+For a callable contrast, associate `model%contrast_proc` or pass
+`contrast_proc=callback` to fastica. The `fastica_contrast` interface is
+`subroutine callback(x,g,gprime)`: x is a real64 matrix (components,samples),
+g has the same shape, and gprime returns the mean derivative per component.
+Deflation supplies one row. This adapts Python's rank-dependent callable
+interface to fixed Fortran ranks. The callback takes precedence over the
+named fun selector. Custom arguments can be captured in its host context;
+keep an associated procedure valid for later refits. Fit and functional calls
+preserve caller IEEE flags and halting modes.
+
+Numerical backend differences can change longer fixed-point trajectories,
+including unmixing/source values and component signs or order. The full
+reference grid remains strict by default, with diagnostic mode retaining
+failures. The single-step grid separately tests each solver's update without
+replacing longer fits. Existing SVD retained-rank and unwhitened input shape
+restrictions remain documented in COVERAGE.md.
+
 `components_` has shape (components, features), `mixing_` has shape
 (features, components); the latter is the Moore-Penrose inverse. With reduced
 dimension, inverse transformation reconstructs the retained subspace.

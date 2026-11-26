@@ -28,6 +28,7 @@ fpm run --example ridge_solvers
 fpm run --example ridge_estimator_solvers
 fpm run --example smacof_embedding
 fpm run --example graphical_function
+fpm run --example fastica_sources
 fpm run --example ridge_stochastic
 fpm run --example optics_graph
 fpm run --example blocked_shrinkage

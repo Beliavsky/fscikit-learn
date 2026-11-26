@@ -4,6 +4,7 @@ import json
 import os
 import subprocess
 import warnings
+import argparse
 os.environ.setdefault("OMP_NUM_THREADS", "2")
 import numpy as np
 import sklearn
@@ -12,6 +13,8 @@ ROOT = Path(__file__).resolve().parents[1]
 RESULTS = ROOT / "validation" / "results"
 
 def main():
+    parser=argparse.ArgumentParser();parser.add_argument('--executable',type=Path)
+    parser.add_argument('--report',type=Path);args=parser.parse_args()
     RESULTS.mkdir(exist_ok=True)
     checks = []
     for seed in (7, 42, 2026):
@@ -27,7 +30,9 @@ def main():
             stream.write(f"{n} {p}\n")
             np.savetxt(stream, x, fmt="%.17g")
             np.savetxt(stream, prewhite, fmt="%.17g")
-        subprocess.run(["fpm", "run", "--target", "reference_ica_driver", "--", str(data), str(output)],
+        command=([str(args.executable.resolve()),str(data),str(output)]if args.executable else
+                 ["fpm", "run", "--target", "reference_ica_driver", "--", str(data), str(output)])
+        subprocess.run(command,
                        cwd=ROOT, check=True)
         lines = iter(output.read_text().splitlines())
         for line in lines:
@@ -50,7 +55,7 @@ def main():
                                            err_msg=f"{seed} {a,f,b,c} {name}")
                 checks.append(dict(seed=seed, case=[a,f,b,c], api=name, passed=True))
         print(f"PASS FastICA seed={seed}", flush=True)
-    (RESULTS/"ica_report.json").write_text(json.dumps(dict(sklearn_version=sklearn.__version__, checks=checks), indent=2)+"\n")
+    (args.report or RESULTS/"ica_report.json").write_text(json.dumps(dict(sklearn_version=sklearn.__version__, checks=checks), indent=2)+"\n")
     print(f"{len(checks)} FastICA reference comparisons passed against sklearn {sklearn.__version__}")
 
 if __name__ == "__main__":

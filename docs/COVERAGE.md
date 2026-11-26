@@ -362,7 +362,7 @@ steps before scaling this package to larger production workloads.
 
 `fast_ica` (`sklearn_decomposition`, also the `sklearn` facade) translates
 `sklearn.decomposition.FastICA`: parallel symmetric and sequential deflation
-solvers, logcosh/exp/cube contrasts, dense SVD whitening, unit-variance and
+solvers, logcosh/exp/cube and callable contrasts, dense SVD/eigh whitening, unit-variance and
 arbitrary-variance sources, and already-whitened input (`whiten='none'`).
 Methods: `fit`, `fit_transform`, `transform`, `inverse_transform`.
 Fitted arrays: `components_`, `mixing_`, `mean_`, and `whitening_` (only with
@@ -371,11 +371,12 @@ whitening); convergence is exposed through `n_iter_` and `converged_`.
 `n_components=0` selects min(samples, features); oversized requests are clipped.
 Unwhitened fitting ignores the requested dimension, uses every feature, does
 not center, and requires samples >= features. Whitening requires full rank
-in the retained subspace; singular initial/fixed-point matrices fail with a
-diagnostic rather than propagating invalid arithmetic. No eigh whitening
-solver, callable contrast or Python warning mechanism is implemented.
+in the retained SVD subspace. Symmetric decorrelation clips small eigenvalues
+as in Source; nonfinite fixed-point matrices fail diagnostically. A typed
+callable contrast and eigh whitening are available; Python warnings are not
+emitted by the native API.
 The `alpha` parameter (1 to 2) controls logcosh. Optional `w_init` is a square
-finite initial matrix. Random starts use the package's Fortran RNG.
+finite initial matrix. Random starts use a private NumPy-compatible generator.
 Numerical scaling and ill-conditioned fixed points can still limit convergence.
 
 ## Isotonic regression and kernel approximations

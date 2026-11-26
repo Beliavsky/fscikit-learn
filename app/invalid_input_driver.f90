@@ -6640,7 +6640,9 @@ program invalid_input_driver
   case('ica_tolerance'); ica%tol=-1; call ica%fit(x)
   case('ica_rank'); call ica%fit(x)
   case('ica_init_shape'); ica%whiten='none'; ica%w_init=reshape([1._dp],[1,1]); call ica%fit(x)
-  case('ica_init_singular'); ica%whiten='none'; ica%w_init=x(:2,:); call ica%fit(x)
+  case('ica_init_singular')
+    x(:,1)=[1._dp,2._dp,3._dp,4._dp];x(:,2)=sin(x(:,1))
+    ica%w_init=0*x(:2,:);call ica%fit(x)
   case default; error stop 'unknown validation mode'
   end select
   print *, 'ERROR: invalid input was accepted'

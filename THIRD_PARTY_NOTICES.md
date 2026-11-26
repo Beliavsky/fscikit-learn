@@ -2406,3 +2406,15 @@ semantics follow SciPy's `linalg.pinvh` API, under the retained SciPy BSD notice
 the numerical eigensolver and inverse remain the package's existing native
 implementations. Owned results and IEEE-state integration are original MIT
 contributions. No dependency or algorithm extension was added.
+
+## Functional and seeded FastICA
+
+The public functional interface, eigh whitening, contrast callback integration,
+clipped symmetric decorrelation and unit-variance unmixing adapt scikit-learn
+1.6.1 `decomposition/_fastica.py`, under the retained scikit-learn BSD notice.
+Initialization reuses the attributed legacy NumPy RandomState implementation.
+Pairwise sums and einsum accumulation follow NumPy 2.2.6 under its retained
+BSD notice. Matrix products reuse the attributed scalar OpenBLAS reconstruction;
+the existing OpenBLAS notices apply. Typed callback/result storage and IEEE
+composition are original MIT contributions. The native eigensolver/SVD remain
+existing package implementations. No dependency or algorithm extension was added.

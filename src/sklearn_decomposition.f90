@@ -7,7 +7,7 @@ module sklearn_decomposition
     sparse_pca,dictionary_learning,sparse_coder,sparse_encode, &
     mini_batch_dictionary_learning,mini_batch_sparse_pca
   use sklearn_incremental_pca, only: incremental_pca
-  use sklearn_fast_ica, only: fast_ica
+  use sklearn_fast_ica, only: fast_ica,fastica,fastica_result,fastica_contrast
   use sklearn_common
   use sklearn_legacy_rng, only: legacy_random_state
   use sklearn_sparse, only: csr_matrix
@@ -26,6 +26,7 @@ module sklearn_decomposition
   public :: sparse_pca,dictionary_learning,sparse_coder,sparse_encode
   public :: incremental_pca
   public :: fast_ica,pca, truncated_svd, nmf, kernel_pca, factor_analysis
+  public :: fastica,fastica_result,fastica_contrast
   public :: non_negative_factorization
   type :: pca
     integer :: n_components=0,n_samples_=0,n_components_=0
