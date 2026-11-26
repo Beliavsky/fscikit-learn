@@ -14000,3 +14000,33 @@ binary/source hashes, retained oracle entries and matching comparison summaries.
 Implementation is committed as fdb0edf. Evidence is ignored under
 `validation/results/ball_graphs_*`. The historical intermittent native crash
 remains unresolved.
+
+### Dense NearestNeighbors query engine (2026-11-26)
+
+Dense NearestNeighbors now snapshots Source auto/brute/KDTree/BallTree dispatch,
+leaf size and effective metric geometry. KNN queries accept omitted training
+queries with Source own-index removal, rectangular query batches, aliases,
+fractional/infinite Minkowski powers and dense precomputed data. Radius methods
+use the same fitted backend. The legacy logical radius/dense KNN graph returns
+remain, with CSR radius graphs and a typed CSR KNN graph adapter. Fitted free
+graph overloads use the NearestNeighbors backend; classifier/regressor search
+objects explicitly retain their established brute baseline.
+
+A baseline probe of the older direct API recorded 45 Source-accepted calls
+rejected, 25 accepted index mismatches and nine accepted distance mismatches
+across 99 cases. The new internal engine and public bindings each pass 13,200
+actual Source configurations: 9,977 successful queries, 3,223 matching rejections
+and 42,801 exact fields. These cover all four algorithms, omitted/explicit own
+data and rectangular queries, 25 metric/power combinations, fit-time thresholds,
+leaf sizes, constant/regular data and zero/negative/NaN/infinite radii.
+
+Initial probes retained 592 validation differences: 360 over-restrictive KDTree
+radius rejections and 232 explicit-brute alias acceptances. Both are resolved
+without removing cases or changing tolerances. Public native tests and 37
+constructor/query error checks pass. Existing functional graphs pass 26,478
+groups; the BallTree graph grid passes 63,018 groups with unchanged oracle
+entries. Reference fitted-NN drivers now explicitly select their Source brute
+baseline. Private probes are retained under ignored
+`validation/results/neighbor_query_*`, `nearest_query_baseline*` and
+`nearest_neighbors_*`. Full checked/optimized package rebuilds and verification
+are pending. This remains a dense serial API subset.

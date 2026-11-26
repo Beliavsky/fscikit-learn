@@ -1,5 +1,8 @@
 module sklearn_neighbors
   use,intrinsic::ieee_exceptions
+  use,intrinsic::iso_c_binding,only:c_loc,c_associated
+  use,intrinsic::iso_fortran_env,only:int64
+  use sklearn_neighbor_query,only:neighbor_query_state
   use sklearn_pairwise_reductions,only:row_distance
   use sklearn_pairwise_chunks,only:pairwise_distances_chunked,pairwise_distance_iterator,distance_chunk
   use sklearn_neighbor_selection,only:argkmin_order,pairwise_knn_order
@@ -29,7 +32,10 @@ module sklearn_neighbors
   public :: kneighbors_transformer,radius_neighbors_transformer,csr_matrix,csr_from_dense,csr_from_arrays
   public :: kneighbors_graph,radius_neighbors_graph,sort_graph_by_row_values
   type :: nearest_neighbors
-    integer :: n_neighbors=5
+    integer :: n_neighbors=5,leaf_size=30
+    character(16)::algorithm='auto',fit_method_='brute'
+    real(dp)::radius=1
+    type(neighbor_query_state),private::query_
     character(16) :: metric='minkowski'
     real(dp) :: p=2
     real(dp), allocatable :: x_(:,:)
@@ -41,6 +47,8 @@ module sklearn_neighbors
     procedure :: kneighbors=>neighbors_query
     procedure :: radius_neighbors=>radius_query
     procedure :: kneighbors_graph=>neighbors_graph
+    procedure :: kneighbors_graph_csr=>neighbors_csr_graph
+    procedure :: radius_neighbors_graph=>neighbors_radius_graph
   end type
   type :: kneighbors_classifier
     integer :: n_neighbors=5
@@ -174,8 +182,7 @@ contains
     logical::same
     same=.false.;if(present(include_self))same=include_self
     call functional_model_parameters(allocated(x%x_),x%metric,x%p,metric,p)
-    graph=brute_kneighbors_graph(x%x_,n_neighbors,mode=mode,metric=x%metric_, &
-      p=x%p_,include_self=same)
+    graph=nearest_functional_graph(x,n_neighbors,0._dp,.false.,mode,same)
   end function
   function kn_functional_nearest_auto(x,n_neighbors,mode,metric,p,include_self)result(graph)
     class(nearest_neighbors),intent(in)::x
@@ -188,8 +195,7 @@ contains
     call require(include_self=='auto','include_self string must be auto')
     same=.true.;if(present(mode))same=mode=='connectivity'
     call functional_model_parameters(allocated(x%x_),x%metric,x%p,metric,p)
-    graph=brute_kneighbors_graph(x%x_,n_neighbors,mode=mode,metric=x%metric_, &
-      p=x%p_,include_self=same)
+    graph=nearest_functional_graph(x,n_neighbors,0._dp,.false.,mode,same)
   end function
   function kn_functional_classifier(x,n_neighbors,mode,metric,p,include_self)result(graph)
     class(kneighbors_classifier),intent(in)::x
@@ -255,8 +261,7 @@ contains
     logical::same
     same=.false.;if(present(include_self))same=include_self
     call functional_model_parameters(allocated(x%x_),x%metric,x%p,metric,p)
-    graph=brute_radius_neighbors_graph(x%x_,radius,mode=mode,metric=x%metric_, &
-      p=x%p_,include_self=same)
+    graph=nearest_functional_graph(x,0,radius,.true.,mode,same)
   end function
   function rn_functional_nearest_auto(x,radius,mode,metric,p,include_self)result(graph)
     class(nearest_neighbors),intent(in)::x
@@ -269,8 +274,7 @@ contains
     call require(include_self=='auto','include_self string must be auto')
     same=.true.;if(present(mode))same=mode=='connectivity'
     call functional_model_parameters(allocated(x%x_),x%metric,x%p,metric,p)
-    graph=brute_radius_neighbors_graph(x%x_,radius,mode=mode,metric=x%metric_, &
-      p=x%p_,include_self=same)
+    graph=nearest_functional_graph(x,0,radius,.true.,mode,same)
   end function
   function rn_functional_classifier(x,radius,mode,metric,p,include_self)result(graph)
     class(radius_neighbors_classifier),intent(in)::x
@@ -327,59 +331,128 @@ contains
       p=x%p_,include_self=same)
   end function
   subroutine neighbors_fit(self,x)
-    class(nearest_neighbors), intent(inout) :: self
-    real(dp), intent(in) :: x(:,:)
-    call check_x(x); call require(self%n_neighbors>0,'n_neighbors must be positive')
+    class(nearest_neighbors),intent(inout)::self
+    real(dp),intent(in)::x(:,:)
+    call require(.not.ieee_is_nan(self%radius),'neighbor radius is NaN')
+    call require(self%radius>=0,'neighbor radius must be nonnegative')
+    call self%query_%fit(x,self%metric,self%p,self%algorithm,self%leaf_size,self%n_neighbors)
     self%x_=x;self%metric_=self%metric;self%p_=self%p
     self%n_features_in_=size(x,2);self%n_samples_fit_=size(x,1)
+    self%fit_method_=self%query_%fit_method()
   end subroutine
-  subroutine neighbors_query(self,x,distances,indices,n_neighbors)
-    class(nearest_neighbors), intent(in) :: self
-    real(dp), intent(in) :: x(:,:)
-    real(dp), allocatable, intent(out) :: distances(:,:)
-    integer, allocatable, intent(out) :: indices(:,:)
-    integer, intent(in), optional :: n_neighbors
-    real(dp), allocatable :: d(:,:)
-    integer, allocatable :: order(:)
-    integer :: i,k
-    call require(allocated(self%x_),'nearest_neighbors is not fitted')
-    k=self%n_neighbors; if(present(n_neighbors)) k=n_neighbors
-    call require(k>0.and.k<=size(self%x_,1),'n_neighbors exceeds training size')
-    d=pairwise_distances(x,self%x_,self%metric_,self%p_)
-    allocate(distances(size(x,1),k),indices(size(x,1),k))
-    do i=1,size(x,1)
-      order=argsort(d(i,:)); indices(i,:)=order(:k); distances(i,:)=d(i,order(:k))
-    end do
-  end subroutine
-  function radius_query(self,x,radius) result(mask)
-    class(nearest_neighbors), intent(in) :: self
-    real(dp), intent(in) :: x(:,:),radius
-    logical, allocatable :: mask(:,:)
-    call require(allocated(self%x_),'nearest_neighbors is not fitted')
-    call require(radius>=0,'radius must be nonnegative')
-    mask=pairwise_distances(x,self%x_,self%metric_,self%p_)<=radius
+  logical function same_neighbor_data(self,x)result(same)
+    class(nearest_neighbors),target,intent(in)::self
+    real(dp),target,optional,intent(in)::x(:,:)
+    same=.false.
+    if(.not.present(x))return
+    if(.not.allocated(self%x_))return
+    if(any(shape(x)/=shape(self%x_)))return
+    if(.not.is_contiguous(x))return
+    same=c_associated(c_loc(x(1,1)),c_loc(self%x_(1,1)))
   end function
-  function neighbors_graph(self,x,mode) result(graph)
-    class(nearest_neighbors), intent(in) :: self
-    real(dp), intent(in) :: x(:,:)
-    character(*), intent(in), optional :: mode
-    real(dp), allocatable :: graph(:,:),d(:,:)
-    integer, allocatable :: idx(:,:)
-    integer :: i
-    logical :: distance
-    distance=.false.
-    if(present(mode)) then
-      call require(mode=='connectivity'.or.mode=='distance','unknown graph mode')
-      distance=mode=='distance'
+  subroutine neighbors_query(self,x,distances,indices,n_neighbors)
+    class(nearest_neighbors),target,intent(in)::self
+    real(dp),target,optional,intent(in)::x(:,:)
+    real(dp),allocatable,intent(out)::distances(:,:)
+    integer,allocatable,intent(out)::indices(:,:)
+    integer,optional,intent(in)::n_neighbors
+    integer::k
+    call require(allocated(self%x_),'nearest_neighbors is not fitted')
+    k=self%n_neighbors;if(present(n_neighbors))k=n_neighbors
+    if(same_neighbor_data(self,x))then
+      call self%query_%kneighbors(self%x_,distances=distances,indices=indices,n_neighbors=k,exclude_self=.false.)
+    else
+      call self%query_%kneighbors(self%x_,x,distances,indices,k)
     end if
-    call self%kneighbors(x,d,idx); allocate(graph(size(x,1),size(self%x_,1))); graph=0
-    do i=1,size(x,1)
-      if(distance) then
-        graph(i,idx(i,:))=d(i,:)
-      else
-        graph(i,idx(i,:))=1
-      end if
+  end subroutine
+  function neighbors_radius_graph(self,x,radius,mode)result(graph)
+    class(nearest_neighbors),target,intent(in)::self
+    real(dp),target,optional,intent(in)::x(:,:)
+    real(dp),optional,intent(in)::radius
+    character(*),optional,intent(in)::mode
+    type(csr_matrix)::graph
+    real(dp)::r
+    character(16)::kind
+    call require(allocated(self%x_),'nearest_neighbors is not fitted')
+    r=self%radius;if(present(radius))r=radius
+    kind='connectivity';if(present(mode))kind=mode
+    call require(kind=='connectivity'.or.kind=='distance','unknown graph mode')
+    if(same_neighbor_data(self,x))then
+      graph=self%query_%radius_graph(self%x_,radius=r,exclude_self=.false.)
+    else
+      graph=self%query_%radius_graph(self%x_,x,r)
+    end if
+    if(kind=='connectivity')graph%data=1
+  end function
+  function radius_query(self,x,radius)result(mask)
+    class(nearest_neighbors),target,intent(in)::self
+    real(dp),target,optional,intent(in)::x(:,:)
+    real(dp),optional,intent(in)::radius
+    logical,allocatable::mask(:,:)
+    type(csr_matrix)::graph
+    integer::i
+    graph=self%radius_neighbors_graph(x,radius)
+    allocate(mask(graph%n_rows,graph%n_cols));mask=.false.
+    do i=1,graph%n_rows
+      mask(i,graph%indices(graph%indptr(i):graph%indptr(i+1)-1))=.true.
     end do
+  end function
+  function neighbor_knn_csr(d,idx,n,mode)result(graph)
+    real(dp),intent(in)::d(:,:)
+    integer,intent(in)::idx(:,:),n
+    character(*),optional,intent(in)::mode
+    type(csr_matrix)::graph
+    integer::i,m,k
+    character(16)::kind
+    kind='connectivity';if(present(mode))kind=mode
+    call require(kind=='connectivity'.or.kind=='distance','unknown graph mode')
+    m=size(d,1);k=size(d,2)
+    call require(int(m,int64)*k<huge(1),'neighbor graph exceeds integer capacity')
+    graph%n_rows=m;graph%n_cols=n;graph%indptr=[(1+i*k,i=0,m)]
+    graph%indices=reshape(transpose(idx),[m*k]);graph%data=reshape(transpose(d),[m*k])
+    if(kind=='connectivity')graph%data=1
+  end function
+  function neighbors_csr_graph(self,x,mode,n_neighbors)result(graph)
+    class(nearest_neighbors),target,intent(in)::self
+    real(dp),target,optional,intent(in)::x(:,:)
+    character(*),optional,intent(in)::mode
+    integer,optional,intent(in)::n_neighbors
+    type(csr_matrix)::graph
+    real(dp),allocatable::d(:,:)
+    integer,allocatable::idx(:,:)
+    call self%kneighbors(x,d,idx,n_neighbors)
+    graph=neighbor_knn_csr(d,idx,self%n_samples_fit_,mode)
+  end function
+  function neighbors_graph(self,x,mode,n_neighbors)result(graph)
+    class(nearest_neighbors),target,intent(in)::self
+    real(dp),target,optional,intent(in)::x(:,:)
+    character(*),optional,intent(in)::mode
+    integer,optional,intent(in)::n_neighbors
+    real(dp),allocatable::graph(:,:)
+    type(csr_matrix)::sparse
+    sparse=self%kneighbors_graph_csr(x,mode,n_neighbors);graph=sparse%to_dense()
+  end function
+  function nearest_functional_graph(self,k,radius,by_radius,mode,include_self)result(graph)
+    class(nearest_neighbors),intent(in)::self
+    integer,intent(in)::k
+    real(dp),intent(in)::radius
+    logical,intent(in)::by_radius,include_self
+    character(*),optional,intent(in)::mode
+    type(csr_matrix)::graph
+    real(dp),allocatable::d(:,:)
+    integer,allocatable::idx(:,:)
+    character(16)::kind
+    kind='connectivity';if(present(mode))kind=mode
+    call require(kind=='connectivity'.or.kind=='distance','invalid functional graph mode')
+    if(by_radius)then
+      call require(.not.ieee_is_nan(radius),'functional graph radius is NaN')
+      call require(radius>=0,'functional graph radius must be nonnegative')
+      graph=self%query_%radius_graph(self%x_,radius=radius,exclude_self=.not.include_self)
+      if(kind=='connectivity')graph%data=1
+    else
+      call self%query_%kneighbors(self%x_,distances=d,indices=idx,n_neighbors=k,exclude_self=.not.include_self)
+      graph=neighbor_knn_csr(d,idx,self%n_samples_fit_,kind)
+    end if
   end function
   subroutine knc_fit(self,x,y)
     class(kneighbors_classifier),intent(inout)::self
@@ -395,6 +468,7 @@ contains
     call check_xy(x,size(y,1));call require(size(y,2)>0,'neighbor classification needs target columns')
     call regression_parameters(x,self%metric,self%p,self%weights)
     self%search_%n_neighbors=self%n_neighbors; self%search_%metric=self%metric; self%search_%p=self%p
+    self%search_%algorithm='brute'
     call self%search_%fit(x)
     self%y_matrix_=y;self%outputs_2d_=size(y,2)>1
     self%n_features_in_=size(x,2);self%n_outputs_=size(y,2);self%n_samples_fit_=size(x,1)
@@ -776,6 +850,7 @@ contains
     call check_xy(x,size(y,1));call check_x(y)
     call regression_parameters(x,self%metric,self%p,self%weights)
     self%search_%n_neighbors=self%n_neighbors;self%search_%metric=self%metric;self%search_%p=self%p
+    self%search_%algorithm='brute'
     call self%search_%fit(x)
     self%y_matrix_=y;self%matrix_target_=matrix_target
     self%n_outputs_=size(y,2);self%n_features_in_=size(x,2);self%n_samples_fit_=size(x,1)

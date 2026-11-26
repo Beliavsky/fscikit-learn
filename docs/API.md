@@ -73,21 +73,47 @@ integer, allocatable :: indices(:,:)
 search%n_neighbors=3
 search%metric='minkowski'
 search%p=2
+search%algorithm='auto'
 call search%fit(x_train)
 call search%kneighbors(x_query,distances,indices)
+! Omitted queries search the fitted samples and exclude each own sample.
+call search%kneighbors(distances=distances,indices=indices)
 ```
 
 Both query outputs have shape `(n_query,n_neighbors)` and are sorted by distance.
-Indices are one-based training sample indices. Passing training data explicitly
-includes the sample itself; there is no implicit leave-one-out query mode.
-`radius_neighbors(x,radius)` returns a dense logical adjacency matrix.
+Indices are one-based training sample indices. Algorithms `auto`, `brute`,
+`kd_tree` and `ball_tree` follow Source dispatch, including fit-time neighbor
+and feature thresholds. `leaf_size` defaults to 30. Geometry, tree leaf size and
+the selected backend are frozen at fit; `fit_method_` reports the fitted backend.
+Default neighbor counts and radii are read from public parameters at query time.
+
+Fitted data are owned. Explicit query arrays are separate data unless they alias
+`search%x_`; explicit fitted data include the own sample. Omitted queries use
+training-data identity and remove each own sample, with Source's duplicate
+fallback rule when the own index was not selected. Brute distance blocks use
+8 MiB with at least one row, in addition to fitted data, row buffers and outputs.
+
+`radius_neighbors(x,radius)` retains its dense logical adjacency return. Both
+arguments are optional; omission uses fitted samples with own indices excluded,
+and the public `radius` parameter (default 1). `radius_neighbors_graph` returns
+CSR for arbitrary dense queries with `mode='connectivity'` or `'distance'`.
+The original bound `kneighbors_graph` returns dense storage; the typed
+`kneighbors_graph_csr` adapter returns CSR. Both accept optional query arrays,
+mode and a named `n_neighbors` override. Explicit zero-distance edges are stored
+in CSR.
+
+Queries support the dense functional-graph metrics below, including precomputed
+fit/query matrices, and the Source tree aliases `p` and `infinity`. Explicit
+brute fitting rejects those two aliases; `auto` and tree fitting accept them.
+The `p` alias uses Source's default metric power two. Fractional Minkowski uses
+brute force; infinite Minkowski uses Chebyshev geometry. CSR fitting, callable
+metrics, metric_params and parallel jobs are not included in this dense API.
 
 ### BallTree backend primitive
 
 The individual `sklearn_neighbor_ball_tree` module provides the native
 `neighbor_ball_tree` search engine. Raw functional graphs select this backend
-automatically for its additional metrics. The public NearestNeighbors query
-method retains its separate brute implementation.
+automatically for its additional metrics, as does dense NearestNeighbors.
 
 ```fortran
 use sklearn_neighbor_ball_tree, only: neighbor_ball_tree
@@ -165,7 +191,8 @@ count 15, neighbor-count thresholds and the radius constructor's default five
 neighbors. KD-compatible metrics use KDTree; the additional metric families use
 BallTree. Both use depth-first traversal with leaf size 30,
 Source partial partition/heap ordering and unsorted radius storage order.
-Fitted overloads retain their brute-force geometry. CSR inputs use the Source
+Fitted NearestNeighbors overloads use their fitted backend and leaf size.
+Classifier/regressor overloads retain their serial brute geometry. CSR inputs use the Source
 sparse dispatch restrictions. Brute routes use heap or NumPy selection and
 compare squared/reduced radius values before converting returned distances.
 Hamming and Boolean brute queries use pairwise/NumPy selection, including
@@ -178,8 +205,8 @@ accumulation, including occasional nonzero self distances from rounding. These
 are portable scalar adapters; no BLAS runtime dependency is added. Thread and
 backend controls remain fixed to the documented serial baseline. The earlier
 bound `search%kneighbors_graph(...)` still returns a dense array; the free
-functions return CSR. The public nearest_neighbors query method retains its
-separate documented brute implementation.
+functions return CSR. Bound NearestNeighbors query/graph methods use the same
+fitted dense query engine.
 
 The sorter mutates its CSR argument by default; `copy=true` preserves it.
 Every returned Fortran value owns its arrays, including Source fast paths that

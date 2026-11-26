@@ -2580,3 +2580,13 @@ the DistanceMetric denominator rather than the SciPy pairwise fallback.
 `sklearn_numpy_ordering.f90` now adapts x86-simd-sort's NaN-aware comparator and
 its MSVC `std::sort`/`std::nth_element` fallback, using the existing pinned
 Microsoft STL implementation and retained Intel BSD/Microsoft license terms.
+
+`src/sklearn_neighbor_query.f90` follows sklearn 1.6.1 `neighbors/_base.py`
+fit-time backend selection, query routing and own-sample exclusion. Its numeric
+brute routes reuse the attributed scalar DistanceMetric/BLAS/heap adapters;
+pairwise fallback routes reuse the attributed chunk iterator and NumPy index
+ordering. `sklearn_neighbors.f90` binds this engine to dense NearestNeighbors
+and fitted functional graphs. Source alias checks and numeric brute radius
+validation follow `_base.py` and `_radius_neighbors.pyx.tp`. The existing sklearn
+BSD, Intel BSD and Microsoft STL notices apply. Owned Fortran buffers, CSR/dense
+return adapters and temporary identity checks are native MIT contributions.

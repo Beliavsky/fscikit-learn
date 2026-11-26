@@ -169,8 +169,7 @@ contains
   integer,allocatable,intent(out)::indices(:)
   integer::used
   logical::modes(size(ieee_all)),flags(size(ieee_all))
-  call check_query(self,point);call require(.not.ieee_is_nan(radius),'KD tree radius is NaN')
-  call require(radius>=0,'KD tree radius must be nonnegative')
+  call check_query(self,point)
   allocate(distances(size(self%x,1)),indices(size(self%x,1)));used=0
   call ieee_get_halting_mode(ieee_all,modes);call ieee_get_flag(ieee_all,flags)
   call ieee_set_halting_mode(ieee_all,.false.)

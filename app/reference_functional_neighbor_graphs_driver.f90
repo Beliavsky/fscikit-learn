@@ -31,6 +31,7 @@ program reference_functional_neighbor_graphs_driver
     call read_csr(s,n,p)
    end if
    nn=nn0;kc=kc0;kr=kr0;rc=rc0;rr=rr0
+   nn%algorithm='brute'
    nn%metric=fit_metric;nn%p=fit_power
    kc%metric=fit_metric;kc%p=fit_power;kr%metric=fit_metric;kr%p=fit_power
    rc%metric=fit_metric;rc%p=fit_power;rr%metric=fit_metric;rr%p=fit_power

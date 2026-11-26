@@ -7903,3 +7903,21 @@ original inventories and retained oracle-cache entries. Both builds and all
 246 compiled fingerprints per profile, selected source/binary hashes, retained
 oracle entries and matching comparison summaries. Implementation is committed
 as fdb0edf. The historical intermittent native crash remains unresolved.
+
+Dense NearestNeighbors queries (2026-11-26): `compare_neighbor_queries.py`
+compares direct query-engine or public NearestNeighbors drivers with actual
+installed sklearn. Each private suite passes 13,200 configurations / 42,801
+exact fields, with 9,977 successful calls and 3,223 matching rejections. The
+public mode checks backend selection, new and implicit query matrices, own-data
+identity, KNN order, radius CSR storage and numerical results. All 592 initial
+validation differences are retained and resolved without excluding cases or
+changing tolerances. `check_nearest_neighbors_queries_invalid.py` passes 37
+actual Source-matched constructor/query rejections. Public native tests pass.
+
+The original functional graph grid passes 26,478 fields and the added BallTree
+grid passes 63,018, using unchanged oracle entries and fixture inventories.
+Fitted-NN reference drivers explicitly request the Source brute baseline as
+before; the Fortran type now also exposes automatic and explicit tree backends.
+New API, attribution and private evidence are retained. Full fpm checked and
+optimized rebuild/verification results are pending under ignored
+`validation/results/nearest_neighbors_*`.
