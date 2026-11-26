@@ -10318,3 +10318,47 @@ NNLS can choose different coefficients for duplicate training columns than
 SciPy. Such coefficients also produce different predictions on queries outside
 the training column constraints. These differences remain explicit in the full
 reference suite; unconstrained SVD/LSQR comparisons are checked separately.
+
+
+## GaussianMixture initialization, warm fits and sampling
+
+`gaussian_mixture` supports `init_params='kmeans'` (default), `random`,
+`random_from_data` and `k-means++`. Restarts consume one shared legacy NumPy
+RandomState stream, including the complete KMeans initialization. `n_init`
+chooses the best EM lower bound; zero-iteration fits keep the last restart,
+following sklearn 1.6.1. `max_iter=0`, `tol=0` and `reg_covar=0` are permitted.
+Covariance failures remain diagnostics, rather than adding hidden regularization.
+`fit_predict(x)` fits and returns the final component labels, starting at zero.
+
+Optional owned `weights_init(k)` and `means_init(k,p)` override the estimated
+initial values. `precisions_init` uses expanded native matrix storage: (p,p,k)
+for full, diagonal or spherical covariances, and (p,p,1) for tied covariance.
+Diagonal inputs have zero off-diagonal entries; spherical inputs also have equal
+positive diagonal entries. Full/tied precisions must be symmetric positive
+definite. Source's Python rank-dependent arrays are adapted to this fixed-rank
+Fortran storage. Initialization covariance estimates use the responsibility
+means before applying `means_init`, as in Source. On a new model, a zero-iteration
+fit with explicit precision has no Source covariance attribute and is diagnosed.
+
+`warm_start=.true.` continues an existing fit with one EM run and its previous
+lower bound. It accepts new data with the same feature count; component count
+and covariance kind must remain unchanged. Set warm_start false for a fresh
+fit. Changing covariance kind after fitting also requires refitting before
+queries. `n_features_in_`, `n_iter_`, `converged_` and `lower_bound_` expose fit
+metadata. Zero-iteration lower_bound_ is negative infinity. The existing
+covariances_ and precisions_ fields retain expanded (p,p,k) storage; logdet_
+has one covariance log determinant per component. `precisions_cholesky_` adds Source's upper factor U satisfying precision=U*U^T.
+Tied matrices are repeated for every component; diagonal/spherical factors are
+stored on the diagonal. Existing score_samples, predict_proba, predict, score,
+AIC and BIC methods remain available.
+
+`call model%sample(n_samples,x,labels)` generates grouped component draws.
+Omit n_samples with keywords to request one draw. Integer random_state resets
+the private RNG for each call. All multinomial counts precede normal draws.
+Full/tied covariance sampling uses the native SVD; its axis signs and degenerate
+bases can differ from NumPy, so seeded coordinates need not agree even when the
+distribution agrees. Diagonal/spherical sampling does not use SVD. Source's
+multinomial rejection of out-of-range initial weights is retained, including
+slightly greater-than-one weights after some zero-iteration initializations.
+Successful fit, fit_predict and sample calls preserve IEEE flags/modes and
+leave the global Fortran RNG unchanged. See `example/mixture_initialization.f90`.

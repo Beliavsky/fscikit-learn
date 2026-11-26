@@ -13412,3 +13412,33 @@ provenance and input inventories match current files; checked and optimized
 reference executables have distinct hashes. Comparison counts and maximum
 errors agree between profiles. Artifacts remain ignored under
 `validation/results/ols_package_*`. The broader translation remains unfinished.
+
+
+## GaussianMixture initialization and warm EM
+
+GaussianMixture now supports all four sklearn 1.6.1 initialization modes,
+explicit weights/means/precisions, a shared restart RNG stream, zero-iteration
+initialization, warm continuation, fit_predict and grouped seeded sampling.
+Dense covariance estimation follows Source's full, tied, diagonal and spherical
+formulas, and log likelihoods use Cholesky precision factors. Typed precision
+inputs use the native expanded matrix layout described in API.md. Warm fits
+require fixed feature/component counts and covariance kind; changing covariance
+kind requires a refit before querying. These native storage/state contracts are
+identified separately from Source input rejections.
+
+Full/tied sampling uses the package's native SVD. Axis sign and degenerate-basis
+differences from NumPy can change seeded coordinates. Analytic tests check
+sample moments, grouped labels, repeatability, explicit starting parameters,
+warm continuation, zero-iteration metadata, precision/covariance consistency,
+IEEE state and isolation from the global Fortran RNG. Reference validation
+retains all sampled coordinates, including disagreements. Near-singular thin
+designs can also show likelihood/precision rounding differences; they remain
+in the full grid at unchanged tolerances. No numerical parity is claimed for
+these cases.
+
+The implementation remains MIT with retained scikit-learn, NumPy and OpenBLAS
+attribution. No external dependency, core estimator type or algorithm extension
+was added. This increment adds one native test, two reference drivers, one
+example, one comparison suite and one invalid-input registry. Shared KMeans
+helpers gain optional RNG stream and selected-index plumbing; existing callers
+retain their previous defaults. The broader translation remains unfinished.

@@ -95,13 +95,15 @@ contains
       runs=1;if(method=='random')runs=10
     end if
   end subroutine
-  function fit_dense(x,n_clusters,sample_weight,init,n_init,max_iter,tol,random_state,init_centers,algorithm)result(result)
+  function fit_dense(x,n_clusters,sample_weight,init,n_init,max_iter,tol,random_state,init_centers,algorithm, &
+    random_state_stream)result(result)
     real(dp),intent(in)::x(:,:)
     integer,intent(in)::n_clusters
     real(dp),optional,intent(in)::sample_weight(:),tol,init_centers(:,:)
     integer,optional,intent(in)::n_init,max_iter,random_state
     character(*),optional,intent(in)::init,algorithm
     type(kmeans_result)::result
+    type(legacy_random_state),optional,intent(inout)::random_state_stream
     real(dp),allocatable::z(:,:),mean(:),var(:),w(:),centers(:,:)
     integer::n,p,runs,limit,seed,i,j,run
     real(dp)::tolerance,scaled
@@ -137,6 +139,7 @@ contains
     scaled=numpy_sum(var)/p*tolerance
     call require(ieee_is_finite(scaled).and.all(ieee_is_finite(z)),'KMeans centered data exceed finite working range')
     call rng%seed(seed)
+    if(present(random_state_stream))rng=random_state_stream
     do run=1,runs
       if(present(init_centers))then
         centers=init_centers-spread(mean,1,n_clusters)
@@ -154,6 +157,7 @@ contains
     end do
     result%centers=result%centers+spread(mean,1,n_clusters);result%n_init=runs
     call require(all(ieee_is_finite(result%centers)).and.ieee_is_finite(result%inertia),'KMeans result exceeds finite range')
+    if(present(random_state_stream))random_state_stream=rng
     call restore(modes,flags)
   end function
   function fit_sparse(x,n_clusters,sample_weight,init,n_init,max_iter,tol,random_state,init_centers,algorithm)result(result)

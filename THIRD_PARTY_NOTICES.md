@@ -2430,3 +2430,20 @@ The unweighted sparse adjoint reduction follows NumPy 2.2.6 pairwise sums;
 the retained NumPy BSD notice applies. Typed overloads, owned target storage,
 large sparse regression tests and IEEE integration are original MIT contributions.
 No new dependency or algorithm outside scikit-learn was added.
+
+
+## GaussianMixture initialization and continuation
+
+GaussianMixture initialization modes, explicit parameters, covariance formulas,
+Cholesky precision factors, restart selection, warm continuation, fit_predict
+and grouped sample routing adapt scikit-learn 1.6.1 `mixture/_base.py` and
+`mixture/_gaussian_mixture.py`. The retained scikit-learn BSD notice applies.
+Seeded KMeans and k-means++ reuse the existing attributed implementations with
+optional private RNG stream/index plumbing. Sampling reuses the attributed
+NumPy 2.2.6 legacy MT19937, Gaussian and binomial inversion/BTPE helpers, and
+pairwise reductions follow NumPy's existing retained BSD notice. Matrix
+products reuse the attributed scalar OpenBLAS reconstruction. Full/tied
+sampling uses the existing native SVD backend, with documented differences
+from NumPy SVD axes. Fixed-rank precision storage, typed integration and IEEE
+state composition are original MIT contributions. No dependency or algorithm
+outside scikit-learn was added.

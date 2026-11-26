@@ -77,16 +77,18 @@ contains
       ids(j)=min(lower+1,n)
     end do
   end function
-  subroutine state_dense(x,n_clusters,rng,centers,sample_weight)
+  subroutine state_dense(x,n_clusters,rng,centers,sample_weight,seed_indices)
     real(dp),intent(in)::x(:,:)
     integer,intent(in)::n_clusters
     type(legacy_random_state),intent(inout)::rng
     real(dp),allocatable,intent(out)::centers(:,:)
     real(dp),optional,intent(in)::sample_weight(:)
     integer,allocatable::indices(:)
+    integer,allocatable,optional,intent(out)::seed_indices(:)
     call check_x(x)
     call seed_body(size(x,1),size(x,2),n_clusters,centers,indices,sample_weight, &
       dense=x,rng_state=rng)
+    if(present(seed_indices))seed_indices=indices
   end subroutine
   subroutine state_sparse(x,n_clusters,rng,centers,sample_weight)
     type(csr_matrix),intent(in)::x
