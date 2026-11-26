@@ -55,7 +55,7 @@ program test_gradient_boosting_classifier
   call require(maxval(abs(last-prob))==0,'deterministic refitting')
   constant=0; model%n_estimators=3; model%init_zero=.true.
   call model%fit(constant,[-3,-3,-3,9,9,9]); labels=model%predict(constant)
-  call require(all(labels==-3).and.all(model%feature_importances_==0),'binary zero-score ties select lower class')
+  call require(all(labels==9).and.all(model%feature_importances_==0),'sklearn binary zero-score ties select positive class')
   model%n_estimators=1; model%learning_rate=1000; call model%fit(x,[-3,9]); logs=model%predict_log_proba(x)
   call require(all(ieee_is_finite(logs)),'log probabilities remain finite for saturated probabilities')
   print *, 'GradientBoostingClassifier tests passed'
