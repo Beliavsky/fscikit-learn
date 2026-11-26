@@ -13958,7 +13958,10 @@ retained. A subsequent 3,660-configuration / 297,924-field suite passes exactly.
 
 The expanded checked suite passes every field. Structure and indices match
 exactly; maximum scaled distance error is 1.7343803740184558e-16. Four selected
-native tests pass. The checked audit validates 203 compiled fingerprints
-(198 library units plus five programs), selected binaries and source/oracle
-hashes. Both fpm builds succeed; optimized reference verification is pending.
-Evidence remains ignored under `validation/results/neighbor_ball_tree_*`.
+native tests pass in each profile. Both fpm builds and all five verification
+jobs per profile pass. The combined audit validates 203 compiled fingerprints
+per profile (198 library units plus five programs), selected binaries and
+source/oracle hashes, and matching input digests and comparison summaries.
+Implementation and attribution are committed as ac5e278. Evidence remains
+ignored under `validation/results/neighbor_ball_tree_*`. The earlier
+intermittent native crash remains unresolved.

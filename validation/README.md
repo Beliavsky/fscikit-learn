@@ -7868,10 +7868,13 @@ compares actual installed sklearn BallTree construction, KNN and radius
 queries with `reference_neighbor_ball_tree_driver`. The expanded suite checks
 6,700 configurations / 665,980 fields, including duplicate and Boolean storage,
 fractional Minkowski orders, adjacent cutoffs and negative/NaN radii. All fields
-pass in checked mode; structural/order fields are exact and maximum scaled
-distance error is 1.7343803740184558e-16. Four native tests also pass. The checked
-audit validates 203 compiled fingerprints (198 library units and five programs),
-selected source/binary hashes and the loaded Source oracle binary. Both builds
-succeed; optimized reference verification is pending. Initial failed batch,
-source/executable snapshots, the earlier exact 297,924-field suite and the
-expanded reports remain ignored under `validation/results/neighbor_ball_tree_*`.
+pass in both profiles; structural/order fields are exact and maximum scaled
+distance error is 1.7343803740184558e-16. Four native tests also pass per profile.
+Both builds and all five verification jobs per profile pass. The combined
+audit validates 203 compiled fingerprints per profile (198 library units and
+five programs), selected source/binary hashes, the loaded Source oracle binary,
+and matching input digests/comparison summaries. Implementation is committed
+as ac5e278. Initial failed batch, source/executable snapshots, the earlier exact
+297,924-field suite and expanded reports remain ignored under
+`validation/results/neighbor_ball_tree_*`. The historical native crash remains
+unresolved.
