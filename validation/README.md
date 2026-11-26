@@ -7749,3 +7749,43 @@ failures across 23,088 groups. No Source cases, expected results or tolerances
 change. Original validator snapshots are retained for historical manifest
 audits; the new runs have separate current-validator manifests and outcomes
 under `validation/results/fng_reader_optimized_*`.
+
+## Serial KNN selection
+
+`compare_neighbor_selection.py` compares the native selector's actual indices
+and selected values directly with installed sklearn ArgKmin and NumPy ordering.
+Its 2,028 configurations check 4,056 fields exactly, including finite/infinite
+keys, duplicates, adjacent floating values, full/partial selections, chunk
+boundaries and both serial strategies. Oracle provenance includes source
+templates and compiled sklearn/NumPy module hashes. The raw selector probe can
+accept infinite keys; the public estimators' feature inputs remain finite.
+
+`compare_neighbor_selection_outputs.py --family classification` or
+`--family regression` runs additional fixtures through the existing actual-
+estimator reference readers. Each family retains 856 configurations: all named
+KNN metrics, scalar/joint targets, explicit/self queries, duplicate cutoffs and
+24 finite-input overflow cases. Both families pass, with 7,288 and 4,280 groups
+respectively. Initial reports retain six native overflow rejections per family;
+the correction returns unfilled heap values rather than gathering distances
+using their initial index. No oracle values, cases or tolerances were changed.
+
+The full checked fpm run completes all 44 selected jobs normally, including
+25 native tests, three examples and 162 guards. Its original classification
+and regression grids pass all 17,320 and 23,088 groups, resolving the previously
+retained 383 and 492 failures. The audit confirms identical original inventories,
+input/oracle hashes and validator versions. Radius, sorting, transformer,
+legacy graph and core checks pass. Functional graph diagnostics retain all
+625 original differences. Early private consumer probes mixed module
+generations and produced five compile-time interface mismatches; full fpm
+rebuilds compile every consumer consistently, and all 25 checked native tests
+pass. Those initial private logs remain retained.
+
+Both complete fpm builds succeed with the established GNU Fortran 17 checked
+and optimized flags. The checked audit validates 233 compiled fingerprints
+(194 library units and 39 programs). Complete optimized verification is still
+running. Per-profile manifests, outcomes, logs, reference reports and audits
+are ignored under `validation/results/neighbor_selection_*`. The original
+intermittent crash is not declared repaired; the exact historical optimized
+KNN executable is separately preserved as
+`validation/results/fng_knc_original_optimized_driver.exe` with SHA256
+`41ba9b85f268e792234d3e749826ef10459da5f8a20d61ad3250566529d06153`.

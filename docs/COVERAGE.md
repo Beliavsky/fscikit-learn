@@ -13833,3 +13833,37 @@ the functional, radius and regression grids retain identical inventories,
 input/cache hashes, numerical errors and differences across 75,417 groups
 (625, zero and 492 failed comparisons respectively). These reader changes do
 not repair or reclassify the historical native crash.
+
+## Serial KNN selection (2026-11-26)
+
+Joint KNN classification/regression predictions now follow sklearn 1.6.1's
+one-thread brute-force heap selection, automatic heap merge and simultaneous
+quicksort. Cosine/dense precomputed selection uses the existing pinned NumPy
+argpartition/argsort implementation. Selection precedes conversion from squared
+Euclidean/reduced Minkowski distances; unfilled slots preserve Source's finite
+DBL_MAX sentinel and initial index. No dependency or public estimator was added.
+
+The complete checked fpm verification passes all 44 jobs. All 25 selected native
+tests and three examples pass, and the audit validates 233 compiled fingerprints
+(194 library units and 39 programs). The original KNN classification grid now
+passes all 17,320 groups/2,240 fits, resolving its 383 recorded failures. The
+neighbor regression grid passes all 23,088 groups/5,280 fits, resolving its 492
+recorded failures. Inventories, input/oracle hashes and validators are unchanged.
+These results supersede the earlier joint-prediction tie counts above.
+
+Direct selection passes 4,056 exact index/value comparisons across 2,028
+configurations, including cutoff ties, adjacent floating values, infinite keys,
+unfilled sentinels, training chunks and the 1,024-query strategy boundary.
+Additional actual-estimator probes pass 7,288 classification groups and 4,280
+regression groups across 856 configurations each, covering all supported named
+metrics, scalar/joint targets, self queries and finite-input distance overflow.
+The six initially rejected overflow evaluations in each extra grid are resolved.
+
+The checked radius grid (25,851 groups), strict sorting (1,332), older
+transformers (5,550), graph checks (120), core checks (192) and 162 input checks
+also pass. Functional graphs retain their identical 625 failures; the public
+nearest_neighbors query and graph builders retain separate selection limits.
+The original intermittent native crash remains unresolved, and its exact
+optimized executable is preserved. Both full fpm builds succeed; the complete
+optimized verification matrix is still running. Evidence is retained under
+`validation/results/neighbor_selection_*`.
