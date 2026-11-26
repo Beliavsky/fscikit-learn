@@ -2394,3 +2394,15 @@ Distance and Guttman products reuse the attributed scalar OpenBLAS kernel
 reconstruction and NumPy row norms. Existing NumPy and OpenBLAS notices apply.
 Owned results, typed keyword adapters and estimator integration are original
 MIT contributions. No dependency or algorithm outside scikit-learn was added.
+
+## Functional graphical lasso
+
+The public functional adapter, zero-iteration/zero-penalty behavior and
+asymmetric-input solver routing adapt scikit-learn 1.6.1
+`covariance/_graph_lasso.py`. The retained BSD notice in
+`LICENSES/scikit-learn-COPYING` applies. The implementation reuses the existing
+attributed coordinate-descent and LARS solvers. Lower-triangle pseudo-inverse
+semantics follow SciPy's `linalg.pinvh` API, under the retained SciPy BSD notice;
+the numerical eigensolver and inverse remain the package's existing native
+implementations. Owned results and IEEE-state integration are original MIT
+contributions. No dependency or algorithm extension was added.

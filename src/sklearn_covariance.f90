@@ -13,7 +13,7 @@ module sklearn_covariance
   use sklearn_robust_covariance, only: min_cov_det,elliptic_envelope,fast_mcd
   use sklearn_common
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite,ieee_value,ieee_negative_inf,ieee_positive_inf,ieee_quiet_nan
-  use, intrinsic :: ieee_exceptions, only: ieee_invalid,ieee_divide_by_zero,ieee_overflow, &
+  use, intrinsic :: ieee_exceptions, only: ieee_all,ieee_invalid,ieee_divide_by_zero,ieee_overflow, &
     ieee_get_halting_mode,ieee_set_halting_mode,ieee_get_flag,ieee_set_flag
   implicit none
   private
@@ -21,6 +21,12 @@ module sklearn_covariance
   public :: ledoit_wolf_shrinkage
   public :: empirical_covariance,shrunk_covariance,ledoit_wolf,oas,graphical_lasso
   public :: graphical_lasso_cv
+  public :: graphical_lasso_result
+  type :: graphical_lasso_result
+    real(dp),allocatable :: covariance(:,:),precision(:,:),costs(:,:)
+    integer :: n_iter=0
+    logical :: converged=.false.
+  end type
   type :: empirical_covariance
     logical :: assume_centered=.false.
     real(dp), allocatable :: location_(:),covariance_(:,:),precision_(:,:)
@@ -96,7 +102,41 @@ module sklearn_covariance
     module procedure shrink_array_14
     module procedure shrink_array_15
   end interface
+  interface graphical_lasso
+    module procedure graphical_array
+  end interface
 contains
+  function graphical_array(emp_cov,alpha,mode,tol,enet_tol,max_iter,eps)result(fit)
+    real(dp),intent(in)::emp_cov(:,:),alpha
+    character(*),optional,intent(in)::mode
+    real(dp),optional,intent(in)::tol,enet_tol,eps
+    integer,optional,intent(in)::max_iter
+    type(graphical_lasso_result)::fit
+    type(graphical_lasso_cv)::control
+    logical::modes(size(ieee_all)),flags(size(ieee_all)),ok
+    call ieee_get_halting_mode(ieee_all,modes);call ieee_get_flag(ieee_all,flags)
+    call ieee_set_halting_mode(ieee_all,.false.)
+    call check_x(emp_cov)
+    call require(size(emp_cov,1)>=2.and.size(emp_cov,2)>=2,'graphical_lasso requires at least two features')
+    call require(size(emp_cov,1)==size(emp_cov,2),'graphical_lasso empirical covariance must be square')
+    control%alpha=alpha
+    if(present(mode))control%mode=mode
+    if(present(tol))control%tol=tol
+    if(present(enet_tol))control%enet_tol=enet_tol
+    if(present(max_iter))control%max_iter=max_iter
+    if(present(eps))control%eps=eps
+    call require(alpha>=0,'graphical_lasso alpha must be nonnegative')
+    call require(control%mode=='cd'.or.control%mode=='lars','invalid graphical_lasso mode')
+    call require(control%tol>0.and.control%enet_tol>0,'graphical_lasso tolerances must be positive')
+    call require(control%eps>=0,'graphical_lasso eps must be nonnegative')
+    call require(control%max_iter>=0,'graphical_lasso max_iter must be nonnegative')
+    if(control%mode=='lars'.and.alpha>0.and.ieee_is_finite(alpha).and.control%max_iter>0) &
+      call require(ieee_is_finite(control%eps),'graphical_lasso infinite LARS eps is not implemented')
+    call graph_cv_solve(control,emp_cov,alpha,emp_cov,control%max_iter,fit%covariance,fit%precision, &
+      fit%costs,fit%n_iter,fit%converged,ok,source_controls=.true.)
+    call require(ok,'graphical_lasso system is too ill-conditioned for this solver')
+    call ieee_set_flag(ieee_all,flags);call ieee_set_halting_mode(ieee_all,modes)
+  end function
   ! sklearn 1.6.1 covariance/_graph_lasso.py and linear_model/_cd_fast.pyx.
   ! Cyclic Gram coordinate descent, including the upstream inner dual-gap test.
   subroutine graphical_cd(gram,row,alpha,coefs,max_iter,tol)
@@ -330,19 +370,21 @@ contains
     ok=all(ieee_is_finite(precision))
   end function
 
-  subroutine graph_cv_solve(self,emp_cov,alpha,initial,max_iter,cov,precision,costs,n_iter,converged,ok)
+  subroutine graph_cv_solve(self,emp_cov,alpha,initial,max_iter,cov,precision,costs,n_iter,converged,ok,source_controls)
     class(graphical_lasso_cv), intent(in) :: self
     real(dp), intent(in) :: emp_cov(:,:),alpha,initial(:,:)
     integer, intent(in) :: max_iter
     real(dp), allocatable, intent(out) :: cov(:,:),precision(:,:),costs(:,:)
     integer, intent(out) :: n_iter
     logical, intent(out) :: converged,ok
+    logical,optional,intent(in)::source_controls
     real(dp), allocatable :: gram(:,:),row(:),coefs(:),history(:,:)
     type(lars_path_result)::lar_path
-    logical::lar_ok
+    logical::lar_ok,source_
     real(dp) :: denominator,gap,cost,penalty
     integer :: i,j,p,it,indices(size(emp_cov,1)-1)
     p=size(emp_cov,1); n_iter=1; converged=.false.; ok=.false.
+    source_=.false.;if(present(source_controls))source_=source_controls
     if(alpha==0) then
       cov=emp_cov; precision=graph_cv_inverse(emp_cov,ok); if(.not.ok) return
       gap=sum(emp_cov*precision)-p
@@ -354,15 +396,33 @@ contains
       cov(j,j)=emp_cov(j,j)
     end do
     if(.not.all(ieee_is_finite(cov))) return
-    precision=graph_cv_pinv(cov); allocate(history(max_iter,2))
+    if(source_)then
+      ! scipy.linalg.pinvh uses the lower triangle without symmetrizing input.
+      gram=cov
+      do j=1,p
+        do i=1,j-1
+          gram(i,j)=cov(j,i)
+        end do
+      end do
+      precision=graph_cv_pinv(gram)
+    else
+      precision=graph_cv_pinv(cov)
+    end if
+    allocate(history(max_iter,2))
     do it=1,max_iter
       do j=1,p
         indices=pack([(i,i=1,p)],[(i/=j,i=1,p)])
         gram=cov(indices,indices); row=emp_cov(indices,j)
+        if(source_)row=emp_cov(j,indices)
         if(self%mode=='cd')then
           coefs=-precision(indices,j)/(precision(j,j)+1000*self%eps)
           call graphical_cd(gram,row,alpha,coefs,max_iter,self%enet_tol)
         else
+          if(source_.and..not.ieee_is_finite(alpha))then
+            ! Positive infinite alpha_min stops Source LARS at its initial zero vector.
+            ! CV's separate policy for NaN grid candidates remains unchanged.
+            coefs=spread(0._dp,1,p-1)
+          else
           ! Automatic grids for exactly diagonal covariance can contain NaNs.
           ! Treat these as failed CV candidates, as in the CD path.
           if(.not.ieee_is_finite(alpha))return
@@ -370,6 +430,7 @@ contains
           lar_path=lars_path_gram(row,gram,p-1,alpha_min=alpha/(p-1),eps=self%eps,method='lar',success=lar_ok)
           if(.not.lar_ok)return
           coefs=lar_path%coefficients(:,size(lar_path%alphas))
+          end if
         end if
         if(.not.all(ieee_is_finite(coefs))) return
         denominator=cov(j,j)-dot_product(cov(indices,j),coefs)

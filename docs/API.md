@@ -10214,3 +10214,34 @@ stopping can differ between the Fortran and SciPy optimizer backends.
 Strict validation remains the default; `--record-differences` saves the
 failures for diagnosis without claiming parity. Source CG tol=0 NaNs are
 preserved in fitted coefficients/predictions, and scoring rejects them.
+
+## Functional graphical lasso
+
+`fit=graphical_lasso(emp_cov,alpha,...)` is exported by `sklearn_covariance`
+and `sklearn`. It returns an owned `graphical_lasso_result` with covariance,
+precision, costs(iterations,2), n_iter and a native converged flag. The two
+cost columns are objective and dual gap. The existing `graphical_lasso`
+estimator type and its constructor remain available under the same generic
+name. See `example/graphical_function.f90`.
+
+Keywords are mode='cd' or 'lars', tol=1e-4, enet_tol=1e-4, max_iter=100 and
+eps=machine epsilon. Covariances are finite square real64 matrices with at
+least two features. Unlike the existing estimator's precomputed adapter,
+the function accepts asymmetric and indefinite matrices as Source permits.
+Initial pseudo-inversion uses the lower triangle; inner regressions use the
+empirical covariance row. Alpha and eps are nonnegative, tolerances positive,
+and max_iter may be zero. With positive alpha and max_iter=0, costs has zero
+rows and n_iter=1, following sklearn 1.6.1. Alpha=0 returns an ordinary inverse,
+one diagnostic cost row and n_iter=0. Successful calls preserve IEEE state.
+Verbosity and conditional Python tuple lengths are replaced by owned fields.
+
+There is no complete numerical parity for singular unregularized matrices:
+rank decisions, precision and costs can differ substantially from SciPy LU.
+Infinite LARS eps is diagnosed when a positive finite penalty and iterations
+would use it. Infinite CD eps and infinite tolerances are supported; infinite
+alpha retains Source zero-iteration, NaN-cost and subsequent error behavior.
+The default full reference suite remains strict. Its optional diagnostic mode
+records every failed comparison and fit-status difference. The separate
+`--regularized` grid checks finite positive penalties and finite eps, without
+replacing or deleting cases from the full grid. See COVERAGE.md for evidence
+and the retained limitations.
