@@ -13368,3 +13368,47 @@ The project remains MIT with retained scikit-learn and NumPy BSD attribution.
 This adds one internal source module, one native test, two reference drivers,
 one example, one comparison suite and one invalid-input registry; no core
 estimator type, external dependency or algorithm extension is added.
+
+
+Checked and optimized verification both use actual sklearn 1.6.1, NumPy 2.2.6
+and SciPy 1.15.3. The strict unconstrained grid passes 7,344 groups across
+1,440 configurations (1,224 fits and 216 Source rejections), at unchanged
+3e-8 absolute/relative tolerances and exact rank/allocation metadata. Maximum
+scaled error is 6.883580761975506e-14 in both profiles.
+
+The full grid keeps 3,120 configurations, including 240 appended off-subspace
+positive query cases. It completes 2,040 fits and matches 1,080 Source
+rejections. Diagnostic mode retains 28 failed fields across 14 positive,
+dense, duplicate-column configurations out of 12,240 groups: 14 coefficient,
+seven prediction and seven score failures. Thus 12,212 groups pass. Maximum
+scaled error is 0.7019635225082914 in both profiles; Source warnings are zero.
+The default full strict run fails on a genuine coefficient comparison. No
+original cases were removed, expected outputs replaced, tolerances widened or
+new certificates introduced. The extra queries leave all original requests
+intact and demonstrate the predictive impact of nonunique NNLS solutions.
+
+Each profile passes 19 selected native regressions, the sparse example, 16
+Source-matched rejection probes plus one native target-rank contract, 192 core
+comparisons, the existing 672-group Ridge solver and 4,599-group stochastic
+Ridge suites, and the 240-configuration Ridge estimator smoke grid. The full
+Ridge diagnostic retains its prior 25 failed groups across nine configurations
+out of 31,731 comparisons. The affected pipeline suite passes 8,556 groups
+across 756 fixtures, and transformed-target regression passes 4,704 groups
+across 672 fixtures. The pipeline suite's existing four KNN certificate records
+(16 groups) remain distinguished from direct Source comparisons; the
+transformed-target suite uses no tree certificates in this run. Other
+historical reference suites, including positive-composition reference scripts,
+were not rerun; native positive-composition tests do pass.
+
+Both full fpm builds, including test compilation, pass with private fpm 0.14.0
+and GNU Fortran 17.0.0 20260510. Flags are
+`-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow` and
+`-O3 -funroll-loops -fcoarray=single`. Each profile completes 31 verification
+jobs with expected outcomes, including the intentionally failing full strict
+OLS run. The audit verifies 222 dependency-aware compiled fingerprints per
+profile: 192 library units and 30 test/example/app units, including two shared
+app helper modules. Source/validator/API/attribution hashes, reference cache
+provenance and input inventories match current files; checked and optimized
+reference executables have distinct hashes. Comparison counts and maximum
+errors agree between profiles. Artifacts remain ignored under
+`validation/results/ols_package_*`. The broader translation remains unfinished.
