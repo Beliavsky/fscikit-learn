@@ -2525,3 +2525,38 @@ attributed NumPy ordering implementation. KNN classification/regression select
 on Source surrogate distances and preserve unfilled finite heap sentinels.
 One-based owned buffers and integration with native streaming and IEEE
 preservation are original MIT contributions. No dependency was added.
+
+## Automatic functional neighbor graphs and KD queries
+
+`src/sklearn_neighbor_tree.f90` adapts sklearn 1.6.1
+`neighbors/_binary_tree.pxi.tp` depth-first single-tree queries, heap cutoffs,
+radius traversal and whole-node acceptance, and `_kd_tree.pyx.tp` reduced
+bounding distances. `sklearn_neighbor_functions.f90` follows `_base.py` automatic
+backend rules, reduced-radius comparisons and sparse fallbacks. The existing
+scikit-learn BSD terms remain under `LICENSES/scikit-learn-COPYING`.
+
+`src/sklearn_tree_partition.f90` adapts the coordinate/original-index comparator
+in sklearn `neighbors/_partition_nodes.pyx`. Its nth-element median/partition
+ordering reuses the already attributed Microsoft STL revision
+8eca13a3bfd44300c848bb93153cded88168aea4. Copyright (c) Microsoft Corporation;
+Apache-2.0 WITH LLVM-exception and NOTICE remain in the existing Microsoft-STL
+license files. This preserves partial leaf storage order rather than replacing
+it with a full coordinate sort.
+
+`src/sklearn_neighbor_gram.f90` adapts the accumulation used by the installed
+SciPy OpenBLAS 0.3.28 SkylakeX backend: the TN small kernel's vector-lane
+reductions and tail ordering, and generic GEMM depth blocking. Primary sources:
+
+- https://github.com/OpenMathLib/OpenBLAS/blob/v0.3.28/kernel/x86_64/dgemm_small_kernel_tn_skylakex.c
+- https://github.com/OpenMathLib/OpenBLAS/blob/v0.3.28/kernel/x86_64/dgemm_small_kernel_permit_skylakex.c
+- https://github.com/OpenMathLib/OpenBLAS/blob/v0.3.28/driver/level3/level3.c
+- https://github.com/OpenMathLib/OpenBLAS/blob/v0.3.28/param.h
+
+Copyright (c) 2021, The OpenBLAS Project, with the retained BSD terms in
+`LICENSES/OpenBLAS-small-kernel-BSD`; depth blocking is Copyright 2009, 2010
+The University of Texas at Austin, with its terms retained in
+`LICENSES/OpenBLAS-level3-BSD`. Row norms reuse the existing attributed scalar
+OpenBLAS dot adapter. Scalar FMA, owned tree buffers, one-based interfaces and
+streaming integration are native MIT contributions. These helpers are internal
+core implementations and are not exported as extension estimators. No new
+runtime dependency was introduced.

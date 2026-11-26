@@ -5,12 +5,16 @@ module sklearn_neighbor_functions
  use sklearn_sparse,only:csr_matrix
  use sklearn_pairwise_reductions,only:row_view,check_view,get_row,row_distance
  use sklearn_pairwise_chunks,only:pairwise_distances_chunked,pairwise_distance_iterator,distance_chunk
+ use sklearn_neighbor_selection,only:argkmin_order,pairwise_knn_order
+ use sklearn_neighbor_tree,only:neighbor_kd_tree
+ use sklearn_neighbor_gram,only:neighbor_row_norm,neighbor_middle_term
  use,intrinsic::ieee_arithmetic
  use,intrinsic::ieee_exceptions
  use,intrinsic::iso_fortran_env,only:int64
  implicit none
  private
  public::kneighbors_graph,radius_neighbors_graph,sort_graph_by_row_values
+ public::brute_kneighbors_graph,brute_radius_neighbors_graph
  interface kneighbors_graph
   module procedure kn_graph_dense,kn_graph_sparse,kn_graph_dense_auto,kn_graph_sparse_auto
  end interface
@@ -18,6 +22,28 @@ module sklearn_neighbor_functions
   module procedure rn_graph_dense,rn_graph_sparse,rn_graph_dense_auto,rn_graph_sparse_auto
  end interface
 contains
+ function brute_kneighbors_graph(x,n_neighbors,mode,metric,p,include_self)result(graph)
+  real(dp),target,intent(in)::x(:,:)
+  integer,intent(in)::n_neighbors
+  character(*),optional,intent(in)::mode,metric
+  real(dp),optional,intent(in)::p
+  logical,intent(in)::include_self
+  type(csr_matrix)::graph
+  type(row_view)::v
+  v%dense=>x;v%n=size(x,1);v%p=size(x,2)
+  graph=graph_from_view(v,n_neighbors,0._dp,.false.,mode,metric,p,include_self,force_brute=.true.)
+ end function
+ function brute_radius_neighbors_graph(x,radius,mode,metric,p,include_self)result(graph)
+  real(dp),target,intent(in)::x(:,:)
+  real(dp),intent(in)::radius
+  character(*),optional,intent(in)::mode,metric
+  real(dp),optional,intent(in)::p
+  logical,intent(in)::include_self
+  type(csr_matrix)::graph
+  type(row_view)::v
+  v%dense=>x;v%n=size(x,1);v%p=size(x,2)
+  graph=graph_from_view(v,0,radius,.true.,mode,metric,p,include_self,force_brute=.true.)
+ end function
  function kn_graph_dense(x,n_neighbors,mode,metric,p,include_self)result(graph)
   real(dp),target,intent(in)::x(:,:)
   integer,intent(in)::n_neighbors
@@ -206,22 +232,26 @@ contains
   end if
   call ieee_set_flag(ieee_all,flags);call ieee_set_halting_mode(ieee_all,modes)
  end function
- function graph_from_view(v,k,radius,by_radius,mode,metric,p,include_self)result(graph)
+ function graph_from_view(v,k,radius,by_radius,mode,metric,p,include_self,force_brute)result(graph)
   type(row_view),intent(in)::v
   integer,intent(in)::k
   real(dp),intent(in)::radius
   logical,intent(in)::by_radius,include_self
+  logical,optional,intent(in)::force_brute
   character(*),optional,intent(in)::mode,metric
   real(dp),optional,intent(in)::p
   type(csr_matrix)::graph,stored
   type(pairwise_distance_iterator)::state
   type(distance_chunk)::chunk
-  real(dp),allocatable::dist(:,:),u(:),w(:),values(:),new_values(:)
-  integer,allocatable::columns(:),new_columns(:),order(:),ids(:)
+  type(neighbor_kd_tree)::tree
+  real(dp),allocatable::dist(:,:),u(:),w(:),values(:),new_values(:),selection(:),tree_distance(:),row_norms(:)
+  integer,allocatable::columns(:),new_columns(:),order(:),ids(:),tree_ids(:)
   character(16)::kind,output_mode
   real(dp)::power
-  logical::sparse,modes(size(ieee_all)),flags(size(ieee_all)),available
+  logical::sparse,modes(size(ieee_all)),flags(size(ieee_all)),available,forced,use_tree,use_heap,square_keys,power_keys
   integer::n,used,capacity,first,span,count_rows,i,j,row,blockrow,trainrow,take,slot,remove
+  integer::fit_k,distance_kind
+  integer::query_id,query_chunk,train_chunk,query_offset,train_offset
   integer(int64)::limit
   call check_view(v,.false.);n=v%n;sparse=associated(v%sparse)
   kind='minkowski';if(present(metric))kind=metric
@@ -239,6 +269,17 @@ contains
   end if
   if(sparse)call require(any(kind==[character(16)::'euclidean','l2','manhattan','cityblock','l1', &
    'cosine','precomputed']),'unsupported sparse functional graph metric')
+  forced=.false.;if(present(force_brute))forced=force_brute
+  fit_k=k;if(by_radius)fit_k=5
+  use_tree=.not.sparse.and..not.forced.and.v%p<=15.and.fit_k<n/2
+  use_tree=use_tree.and.any(kind==[character(16)::'euclidean','l2','manhattan','cityblock','l1','chebyshev','minkowski'])
+  if(kind=='minkowski'.and.power<1)use_tree=.false.
+  use_heap=.not.by_radius.and.kind/='cosine'.and.kind/='precomputed'
+  if(sparse)then
+   use_heap=use_heap.and.kind/='euclidean'.and.size(v%sparse%data)>0
+  end if
+  square_keys=.not.use_tree.and.any(kind==[character(16)::'euclidean','l2','sqeuclidean'])
+  power_keys=.not.use_tree.and.kind=='minkowski'
   if(kind=='precomputed')then
    call require(v%n==v%p,'functional precomputed graph must be square')
    if(sparse)then
@@ -262,7 +303,18 @@ contains
   graph%indptr(1)=1;used=0
   call ieee_get_halting_mode(ieee_all,modes);call ieee_get_flag(ieee_all,flags)
   call ieee_set_halting_mode(ieee_all,.false.)
-  if(kind=='precomputed'.and.sparse)then
+  if(use_tree)then
+   call tree%fit(v%dense,metric=kind,p=power,leaf_size=30)
+   do row=1,n
+    if(by_radius)then
+     call tree%query_radius(v%dense(row,:),radius,tree_distance,tree_ids)
+    else
+     take=k;if(.not.include_self)take=k+1
+     call tree%query(v%dense(row,:),take,tree_distance,tree_ids)
+    end if
+    call select_row(tree_distance,tree_ids,.true.,preselected=.true.)
+   end do
+  else if(kind=='precomputed'.and.sparse)then
    stored=v%sparse;stored=sort_graph_by_row_values(stored,copy=.true.,warn_when_not_sorted=.false.)
    do row=1,n
     first=stored%indptr(row)
@@ -279,15 +331,22 @@ contains
     allocate(dist(count_rows,n))
     do trainrow=1,n
      do blockrow=1,count_rows
-      dist(blockrow,trainrow)=raw_csr_distance(v%sparse,first+blockrow,trainrow,kind=='l2')
+      dist(blockrow,trainrow)=raw_csr_distance(v%sparse,first+blockrow,trainrow,kind=='l2',square_keys)
      end do
     end do
     do i=1,count_rows
      row=first+i;call select_row(dist(i,:),[(j,j=1,n)],.false.)
     end do
    end do
-  else if(.not.sparse.and.(kind=='euclidean'.or.kind=='l2'.or.kind=='sqeuclidean'))then
+  else if(.not.sparse.and.(kind=='euclidean'.or.kind=='l2'.or.kind=='sqeuclidean'.or.power_keys))then
    allocate(u(v%p),w(v%p));span=max(1,min(n,1048576/n))
+   distance_kind=1
+   if(kind=='l2')distance_kind=3
+   if(power_keys)distance_kind=6
+   if(distance_kind==1)then
+    allocate(row_norms(n))
+    do i=1,n;row_norms(i)=neighbor_row_norm(v%dense(i,:));end do
+   end if
    do first=0,n-1,span
     count_rows=min(span,n-first);if(allocated(dist))deallocate(dist)
     allocate(dist(count_rows,n))
@@ -295,12 +354,16 @@ contains
      call get_row(v,trainrow,w)
      do blockrow=1,count_rows
       call get_row(v,first+blockrow,u)
-      if(kind=='l2')then
-       dist(blockrow,trainrow)=row_distance(u,w,3,power,.false.,.false.,.false.)
+      if(distance_kind==1)then
+       query_id=first+blockrow;query_offset=mod(query_id-1,256)+1;train_offset=mod(trainrow-1,256)+1
+       query_chunk=min(256,n-(query_id-query_offset));train_chunk=min(256,n-(trainrow-train_offset))
+       dist(blockrow,trainrow)=(row_norms(query_id)+ &
+        neighbor_middle_term(u,w,query_chunk,train_chunk,query_offset,train_offset))+row_norms(trainrow)
+       if(ieee_is_nan(dist(blockrow,trainrow)))dist(blockrow,trainrow)=0
+       dist(blockrow,trainrow)=max(0._dp,dist(blockrow,trainrow))
       else
-       dist(blockrow,trainrow)=row_distance(u,w,1,power,.false.,.false.,.false.)
+       dist(blockrow,trainrow)=row_distance(u,w,distance_kind,power,.false.,.false.,.false.)
       end if
-      if(kind/='sqeuclidean')dist(blockrow,trainrow)=sqrt(dist(blockrow,trainrow))
      end do
     end do
     do i=1,count_rows
@@ -311,6 +374,8 @@ contains
    if(sparse)then
     if(kind=='minkowski')then
      state=pairwise_distances_chunked(v%sparse,metric=kind,p=power,working_memory=8._dp)
+    else if(square_keys.and.kind=='euclidean')then
+     state=pairwise_distances_chunked(v%sparse,metric=kind,working_memory=8._dp,squared=.true.)
     else
      state=pairwise_distances_chunked(v%sparse,metric=kind,working_memory=8._dp)
     end if
@@ -346,24 +411,41 @@ contains
    used=used+1;columns(used)=column;values(used)=value
    if(output_mode=='connectivity')values(used)=1
   end subroutine
-  subroutine select_row(d,cols,already_sorted)
+  subroutine select_row(d,cols,already_sorted,preselected)
    real(dp),intent(in)::d(:)
    integer,intent(in)::cols(:)
    logical,intent(in)::already_sorted
+   logical,optional,intent(in)::preselected
    integer::q
+   real(dp)::cutoff,value
+   logical::ready
+   ready=.false.;if(present(preselected))ready=preselected
    if(by_radius)then
+    cutoff=radius
+    if(square_keys.and.kind/='sqeuclidean')cutoff=radius*radius
+    if(power_keys)cutoff=radius**power
     do q=1,size(d)
      if(.not.include_self.and.cols(q)==row)cycle
-     if(d(q)<=radius)call append(cols(q),d(q))
+     if(ready.or.d(q)<=cutoff)then
+      value=d(q)
+      if(square_keys.and.kind/='sqeuclidean')value=sqrt(max(value,0._dp))
+      if(power_keys)value=max(value,0._dp)**(1._dp/power)
+      call append(cols(q),value)
+     end if
     end do
    else
     take=k;if(.not.include_self)take=k+1
     call require(size(d)>=take,'not enough stored neighbors for functional graph')
     if(already_sorted)then
      order=[(q,q=1,take)]
+     selection=d(order)
+    else if(use_heap)then
+     selection=d(:take);order=argkmin_order(d,take,n,selection)
     else
-     order=stable_order(d);order=order(:take)
+     order=pairwise_knn_order(d,take);selection=d(order)
     end if
+    if(square_keys.and.kind/='sqeuclidean')selection=sqrt(max(selection,0._dp))
+    if(power_keys)selection=max(selection,0._dp)**(1._dp/power)
     remove=0
     if(.not.include_self)then
      do q=1,take
@@ -376,18 +458,19 @@ contains
     end if
     do q=1,take
      if(q==remove)cycle
-     slot=order(q);call append(cols(slot),d(slot))
+     slot=order(q);call append(cols(slot),selection(q))
     end do
    end if
    graph%indptr(row+1)=used+1
   end subroutine
  end function
- real(dp)function raw_csr_distance(a,row1,row2,euclidean)result(value)
+ real(dp)function raw_csr_distance(a,row1,row2,euclidean,squared)result(value)
   ! sklearn _dist_metrics.pyx.tp Manhattan/Euclidean dist_csr traverses
   ! stored buffers directly, including noncanonical indices and duplicates.
   type(csr_matrix),intent(in)::a
   integer,intent(in)::row1,row2
   logical,intent(in)::euclidean
+  logical,intent(in)::squared
   integer::i,j,last1,last2
   real(dp)::difference
   i=a%indptr(row1);j=a%indptr(row2);last1=a%indptr(row1+1);last2=a%indptr(row2+1);value=0
@@ -421,6 +504,6 @@ contains
    end if
    j=j+1
   end do
-  if(euclidean)value=sqrt(value)
+  if(euclidean.and..not.squared)value=sqrt(value)
  end function
 end module

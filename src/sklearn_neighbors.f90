@@ -6,7 +6,8 @@ module sklearn_neighbors
   use sklearn_nca, only: neighborhood_components_analysis
   use sklearn_label_binarization,only:label_set
   use sklearn_neighbor_graph, only: kneighbors_transformer,radius_neighbors_transformer
-  use sklearn_neighbor_functions,only:kneighbors_graph,radius_neighbors_graph,sort_graph_by_row_values
+  use sklearn_neighbor_functions,only:kneighbors_graph,radius_neighbors_graph,sort_graph_by_row_values, &
+    brute_kneighbors_graph,brute_radius_neighbors_graph
   use sklearn_sparse, only: csr_matrix,csr_from_dense,csr_from_arrays
   use sklearn_common
   use sklearn_outlier, only: local_outlier_factor
@@ -173,7 +174,7 @@ contains
     logical::same
     same=.false.;if(present(include_self))same=include_self
     call functional_model_parameters(allocated(x%x_),x%metric,x%p,metric,p)
-    graph=kneighbors_graph(x%x_,n_neighbors,mode=mode,metric=x%metric_, &
+    graph=brute_kneighbors_graph(x%x_,n_neighbors,mode=mode,metric=x%metric_, &
       p=x%p_,include_self=same)
   end function
   function kn_functional_nearest_auto(x,n_neighbors,mode,metric,p,include_self)result(graph)
@@ -187,7 +188,7 @@ contains
     call require(include_self=='auto','include_self string must be auto')
     same=.true.;if(present(mode))same=mode=='connectivity'
     call functional_model_parameters(allocated(x%x_),x%metric,x%p,metric,p)
-    graph=kneighbors_graph(x%x_,n_neighbors,mode=mode,metric=x%metric_, &
+    graph=brute_kneighbors_graph(x%x_,n_neighbors,mode=mode,metric=x%metric_, &
       p=x%p_,include_self=same)
   end function
   function kn_functional_classifier(x,n_neighbors,mode,metric,p,include_self)result(graph)
@@ -200,7 +201,7 @@ contains
     logical::same
     same=.false.;if(present(include_self))same=include_self
     call functional_model_parameters(allocated(x%search_%x_),x%metric,x%p,metric,p)
-    graph=kneighbors_graph(x%search_%x_,n_neighbors,mode=mode,metric=x%search_%metric_, &
+    graph=brute_kneighbors_graph(x%search_%x_,n_neighbors,mode=mode,metric=x%search_%metric_, &
       p=x%search_%p_,include_self=same)
   end function
   function kn_functional_classifier_auto(x,n_neighbors,mode,metric,p,include_self)result(graph)
@@ -214,7 +215,7 @@ contains
     call require(include_self=='auto','include_self string must be auto')
     same=.true.;if(present(mode))same=mode=='connectivity'
     call functional_model_parameters(allocated(x%search_%x_),x%metric,x%p,metric,p)
-    graph=kneighbors_graph(x%search_%x_,n_neighbors,mode=mode,metric=x%search_%metric_, &
+    graph=brute_kneighbors_graph(x%search_%x_,n_neighbors,mode=mode,metric=x%search_%metric_, &
       p=x%search_%p_,include_self=same)
   end function
   function kn_functional_regressor(x,n_neighbors,mode,metric,p,include_self)result(graph)
@@ -227,7 +228,7 @@ contains
     logical::same
     same=.false.;if(present(include_self))same=include_self
     call functional_model_parameters(allocated(x%search_%x_),x%metric,x%p,metric,p)
-    graph=kneighbors_graph(x%search_%x_,n_neighbors,mode=mode,metric=x%search_%metric_, &
+    graph=brute_kneighbors_graph(x%search_%x_,n_neighbors,mode=mode,metric=x%search_%metric_, &
       p=x%search_%p_,include_self=same)
   end function
   function kn_functional_regressor_auto(x,n_neighbors,mode,metric,p,include_self)result(graph)
@@ -241,7 +242,7 @@ contains
     call require(include_self=='auto','include_self string must be auto')
     same=.true.;if(present(mode))same=mode=='connectivity'
     call functional_model_parameters(allocated(x%search_%x_),x%metric,x%p,metric,p)
-    graph=kneighbors_graph(x%search_%x_,n_neighbors,mode=mode,metric=x%search_%metric_, &
+    graph=brute_kneighbors_graph(x%search_%x_,n_neighbors,mode=mode,metric=x%search_%metric_, &
       p=x%search_%p_,include_self=same)
   end function
   function rn_functional_nearest(x,radius,mode,metric,p,include_self)result(graph)
@@ -254,7 +255,7 @@ contains
     logical::same
     same=.false.;if(present(include_self))same=include_self
     call functional_model_parameters(allocated(x%x_),x%metric,x%p,metric,p)
-    graph=radius_neighbors_graph(x%x_,radius,mode=mode,metric=x%metric_, &
+    graph=brute_radius_neighbors_graph(x%x_,radius,mode=mode,metric=x%metric_, &
       p=x%p_,include_self=same)
   end function
   function rn_functional_nearest_auto(x,radius,mode,metric,p,include_self)result(graph)
@@ -268,7 +269,7 @@ contains
     call require(include_self=='auto','include_self string must be auto')
     same=.true.;if(present(mode))same=mode=='connectivity'
     call functional_model_parameters(allocated(x%x_),x%metric,x%p,metric,p)
-    graph=radius_neighbors_graph(x%x_,radius,mode=mode,metric=x%metric_, &
+    graph=brute_radius_neighbors_graph(x%x_,radius,mode=mode,metric=x%metric_, &
       p=x%p_,include_self=same)
   end function
   function rn_functional_classifier(x,radius,mode,metric,p,include_self)result(graph)
@@ -281,7 +282,7 @@ contains
     logical::same
     same=.false.;if(present(include_self))same=include_self
     call functional_model_parameters(allocated(x%x_),x%metric,x%p,metric,p)
-    graph=radius_neighbors_graph(x%x_,radius,mode=mode,metric=x%metric_, &
+    graph=brute_radius_neighbors_graph(x%x_,radius,mode=mode,metric=x%metric_, &
       p=x%p_,include_self=same)
   end function
   function rn_functional_classifier_auto(x,radius,mode,metric,p,include_self)result(graph)
@@ -295,7 +296,7 @@ contains
     call require(include_self=='auto','include_self string must be auto')
     same=.true.;if(present(mode))same=mode=='connectivity'
     call functional_model_parameters(allocated(x%x_),x%metric,x%p,metric,p)
-    graph=radius_neighbors_graph(x%x_,radius,mode=mode,metric=x%metric_, &
+    graph=brute_radius_neighbors_graph(x%x_,radius,mode=mode,metric=x%metric_, &
       p=x%p_,include_self=same)
   end function
   function rn_functional_regressor(x,radius,mode,metric,p,include_self)result(graph)
@@ -308,7 +309,7 @@ contains
     logical::same
     same=.false.;if(present(include_self))same=include_self
     call functional_model_parameters(allocated(x%x_),x%metric,x%p,metric,p)
-    graph=radius_neighbors_graph(x%x_,radius,mode=mode,metric=x%metric_, &
+    graph=brute_radius_neighbors_graph(x%x_,radius,mode=mode,metric=x%metric_, &
       p=x%p_,include_self=same)
   end function
   function rn_functional_regressor_auto(x,radius,mode,metric,p,include_self)result(graph)
@@ -322,7 +323,7 @@ contains
     call require(include_self=='auto','include_self string must be auto')
     same=.true.;if(present(mode))same=mode=='connectivity'
     call functional_model_parameters(allocated(x%x_),x%metric,x%p,metric,p)
-    graph=radius_neighbors_graph(x%x_,radius,mode=mode,metric=x%metric_, &
+    graph=brute_radius_neighbors_graph(x%x_,radius,mode=mode,metric=x%metric_, &
       p=x%p_,include_self=same)
   end function
   subroutine neighbors_fit(self,x)

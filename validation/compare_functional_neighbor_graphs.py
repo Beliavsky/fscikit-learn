@@ -75,7 +75,7 @@ def frame(a,original=None,sorted_before=False):
 
 def main():
  ap=argparse.ArgumentParser();ap.add_argument('--executable',type=Path,required=True);ap.add_argument('--report',type=Path,required=True);ap.add_argument('--reference-cache',type=Path);ap.add_argument('--smoke',action='store_true');ap.add_argument('--sort-only',action='store_true');ap.add_argument('--record-differences',action='store_true');a=ap.parse_args()
- provenance=dict(schema=1,python=sys.version,sklearn=sklearn.__version__,numpy=np.__version__,scipy=scipy.__version__,graph_sha256=sha(graph_source.__file__),base_sha256=sha(base_source.__file__),adapters='one-based CSR; owned Fortran returns; Python warning and identity objects not represented; native feature backend is brute')
+ provenance=dict(schema=2,python=sys.version,sklearn=sklearn.__version__,numpy=np.__version__,scipy=scipy.__version__,graph_sha256=sha(graph_source.__file__),base_sha256=sha(base_source.__file__),adapters='one-based CSR; owned Fortran returns; Python warning and identity objects not represented; raw auto/fitted brute Source dispatch')
  cache={}
  if a.reference_cache and a.reference_cache.exists():
   saved=json.loads(a.reference_cache.read_text());assert saved['provenance']==provenance;cache=saved['cases']

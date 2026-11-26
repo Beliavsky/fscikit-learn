@@ -6,6 +6,13 @@ module sklearn_neighbor_selection
  implicit none
  private
  public::argkmin_order,pairwise_knn_order
+ public::neighbor_heap_push,neighbor_simultaneous_sort
+ interface neighbor_heap_push
+  module procedure heap_push
+ end interface
+ interface neighbor_simultaneous_sort
+  module procedure simultaneous_sort
+ end interface
 contains
  subroutine heap_push(values,indices,value,index)
   real(dp),intent(inout)::values(:)
