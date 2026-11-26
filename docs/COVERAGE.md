@@ -13990,6 +13990,9 @@ was removed or widened. The expanded checked package suite also passes all
 208 matching rejections and 63,018 exact fields. Its 1,296 direct NaN ordering
 arrays also pass. The checked rebuild, all 30 selected native tests and three
 examples pass, as do the original selection, partition, tree-query, norm/GEMM,
-radius-boundary and KNN-classification comparisons. Remaining legacy suites
-and the optimized build/verification are still running. Implementation is
-committed as fdb0edf. Evidence is ignored under `validation/results/ball_graphs_*`.
+radius-boundary and KNN-classification comparisons. All 55 checked verification
+jobs now pass. The checked audit validates 246 compiled fingerprints (198
+library units and 48 programs), selected binary/source hashes, original
+comparison inventories and every retained oracle-cache entry. Both rebuilds
+pass; optimized verification is still running. Implementation is committed as
+fdb0edf. Evidence is ignored under `validation/results/ball_graphs_*`.

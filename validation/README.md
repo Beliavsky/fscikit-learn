@@ -7895,6 +7895,9 @@ The checked fpm rebuild, 30 selected native tests and three examples pass.
 The expanded checked graph suite passes 7,210 configurations / 63,018 exact
 fields, with 7,002 successful calls and 208 matching rejections. All 1,296 direct
 NaN-ordering arrays also pass. Original selection, partition, tree, norm/GEMM,
-radius-boundary and KNN-classification comparisons pass. Remaining legacy
-suites and optimized build/verification are still running. Implementation is
-committed as fdb0edf. The historical intermittent native crash remains unresolved.
+radius-boundary and KNN-classification comparisons pass. All 55 checked
+verification jobs now pass. The checked audit validates 246 compiled fingerprints
+(198 library units and 48 programs), selected binary/source hashes, unchanged
+original inventories and retained oracle-cache entries. Both builds pass;
+optimized verification is still running. Implementation is committed as fdb0edf.
+The historical intermittent native crash remains unresolved.
