@@ -13714,3 +13714,30 @@ Two actual Source dtype rejection probes are retained as unpaired observations:
 int32 targets with a Python scalar label promote to an incompatible dtype;
 a NumPy int32 scalar takes the Source arraylike/len rejection path. These are
 explicit typed-adapter limits, not paired native rejection successes.
+
+Both checked and optimized full fpm builds succeed. Each strict radius grid
+passes all 25,851 comparison groups across 2,882 fits, matching 456 prediction
+rejections and 689 score rejections. Labels, class lists, fitted outlier labels,
+raw targets, metadata and accuracy scores match exactly. Maximum scaled
+probability error is 6.427874999854559e-16 at unchanged 3e-8 absolute/relative
+tolerances, with matching NaN patterns. All regular, duplicate and supplemental
+reciprocal-overflow cases remain in the full strict runs. Source warnings total
+3,880 per report; warnings are recorded rather than emitted by the native API.
+
+Each profile passes 22 selected native tests, the public example, all 26 radius
+input/rank/enum checks, the 21 KNN checks, 29 regression checks, 120 retained
+graph/neighbor comparisons and 192 core comparisons. Each completes 31
+verification jobs with expected outcomes. The complete KNN classification grid
+retains its identical 383 failed fields across 17,320 groups/2,240 fits; the
+neighbor-regression grid retains its identical 492 failures across 23,088
+groups/5,280 fits. Those known duplicate-point tie differences were not fixed
+or removed by the radius work.
+
+The final audit verifies 223 dependency-aware compiled fingerprints per profile
+(192 library units and 31 programs), current source/validator/API/attribution
+manifests, cache provenance including the integer adapter, equal input inventories
+and maximum errors, unchanged old failure records, and distinct checked/optimized
+reference executables. A private compile probe verifies the ordinary radius
+classifier constructor remains usable. Artifacts remain ignored under
+`validation/results/rnc_package_*`. Other historical reference suites were not
+rerun; the broader translation remains unfinished.

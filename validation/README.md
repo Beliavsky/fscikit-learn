@@ -7620,3 +7620,25 @@ native API. They are not counted as paired native rejections. Native analytic
 tests cover joint votes, known/unknown/per-output outliers, most-frequent ties,
 zero/infinite radii, precomputed geometry, IEEE state, overflow NaNs, weighted
 subset accuracy and vector/column refits. Earlier live legacy-label tests remain.
+
+Both checked and optimized full fpm builds succeed. Their strict full radius
+runs pass all 25,851 groups across 2,882 fits, with 456 matching prediction
+rejections and 689 matching score rejections. Maximum scaled probability error
+is 6.427874999854559e-16; labels, class lists, fitted outlier labels, raw targets,
+metadata and accuracy match exactly, including the overflow fixtures' NaN
+patterns. Each report retains 3,880 Source warnings.
+
+Each profile passes 22 selected native tests, the example, all 76 input/rank/enum
+checks across radius classification, KNN classification and neighbor regression,
+120 legacy graph/neighbor groups and 192 core groups. The two Source-only dtype
+observations remain separate. Each completes 31 verification jobs with expected
+outcomes. The complete KNN grid retains its identical 383 failed fields across
+17,320 groups/2,240 fits, and the complete neighbor-regression grid retains its
+identical 492 failed fields across 23,088 groups/5,280 fits. Known cutoff-tie
+differences remain documented rather than being reclassified as passes.
+
+The audit verifies 223 compiled-unit fingerprints per profile, current
+source/validator/API/attribution manifests, matching inputs and Source caches,
+unchanged old failure records and distinct executables. Artifacts remain
+ignored under `validation/results/rnc_package_*`. No dependency or licensing
+change was introduced.
