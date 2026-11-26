@@ -49,6 +49,18 @@ without memory-guard violations or numerical differences. This does not prove
 the cause of the uninstrumented crashes; compiler/runtime stability is recorded
 separately from numerical parity, and full GNU 17 stability is not claimed.
 
+A fresh GNU Fortran 15.2.0 checked fpm build passes all 294 native programs,
+nine selected examples, the full 1,908-case / 24-guard classification forest
+suite, 984 regression forest cases / 17 guards, both scalar forest reference
+suites (3,480 classification and 1,210 regression fixtures), and 192 core
+comparisons. The audit verifies 310 successful jobs and 835 source fingerprints,
+including 201 library units. Fresh optimized GNU 15.2 tree/ensemble objects with
+matching checked dependencies also pass the new unit, example, 1,908 cases and
+24 guards. No algorithms, fixtures or comparison tolerances were changed for
+the stable-compiler validation. Use a fresh build directory when switching
+compiler versions, and matching runtime DLLs on PATH on Windows; do not mix
+module files from different compilers or incompatible coarray modes.
+
 `compare_joint_forests.py` compares 984 actual sklearn 1.6.1 regression forests,
 including all component-tree fields, seeds, bootstrap indices, training and OOB
 predictions/scores, and OOB coverage. Use

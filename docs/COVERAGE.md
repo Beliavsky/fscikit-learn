@@ -165,10 +165,22 @@ weights, zero-weight-only labels, tiny datasets, stump forests, all class-weight
 modes, pruning, leaf budgets and reduced bootstrap draws. Numeric tolerances
 remain 2e-10 / 2e-12; integer fields match exactly. Native tests independently
 reconstruct OOB averages and test owned bags, ExtraTrees bootstrap and refits.
-Twenty-four guards cover 20 Source errors and four native API configuration/rank
-errors. Source restrictions on multiclass-multioutput scoring and OOB target
+Twenty-four guards cover 20 Source errors and four explicit native API guards.
+Source restrictions on multiclass-multioutput scoring and OOB target
 types/class widths are retained. This adds no estimator type, extension
 algorithm or dependency. MIT and sklearn BSD notices remain in place.
+
+Following implementation 8c1d910, a fresh checked GNU Fortran 15.2.0 fpm build
+passes all 294 native programs, nine selected examples, 1,908 classification
+forest cases / 24 guards, 984 joint regression forest cases / 17 guards,
+3,480 scalar classification forest fixtures (73,044 groups), 1,210 scalar
+regression forest fixtures (20,538 groups), and 192 core comparisons. The audit
+records 310 successful jobs and 835 verified source fingerprints, including all
+201 library units and reference-driver helpers. Optimized GNU 15.2 verification
+rebuilds tree and ensemble objects against matching checked dependencies; its
+native test, example, 1,908 cases and 24 guards pass. This is not a full optimized
+package rebuild. The GNU 17 development snapshot's intermittent batch-driver
+input crashes remain unresolved and preserved; see `validation/README.md`.
 
 ## Joint regression forests and out-of-bag estimates
 
