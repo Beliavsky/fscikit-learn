@@ -2572,3 +2572,11 @@ Distances reuse the attributed `_dist_metrics.pyx.tp` scalar adapters. Partial
 partitions reuse the Microsoft STL implementation attributed above. The
 scikit-learn BSD terms remain in `LICENSES/scikit-learn-COPYING`; owned arrays,
 one-based indices and Fortran interfaces are native MIT contributions.
+
+Functional graphs also follow sklearn `_base.py` automatic BallTree selection
+and `_pairwise_distances_reduction/_dispatcher.py` Boolean/Hamming exclusions.
+Brute haversine uses `_dist_metrics.pyx.tp` reduced cutoffs; Bray-Curtis uses
+the DistanceMetric denominator rather than the SciPy pairwise fallback.
+`sklearn_numpy_ordering.f90` now adapts x86-simd-sort's NaN-aware comparator and
+its MSVC `std::sort`/`std::nth_element` fallback, using the existing pinned
+Microsoft STL implementation and retained Intel BSD/Microsoft license terms.

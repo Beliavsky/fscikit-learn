@@ -13965,3 +13965,27 @@ source/oracle hashes, and matching input digests and comparison summaries.
 Implementation and attribution are committed as ac5e278. Evidence remains
 ignored under `validation/results/neighbor_ball_tree_*`. The earlier
 intermittent native crash remains unresolved.
+
+### Automatic BallTree functional graphs (2026-11-26)
+
+Raw dense functional KNN/radius graphs now select BallTree for haversine,
+Bray-Curtis, Canberra, Hamming and the supported Boolean dissimilarities.
+Feature-count, fitted neighbor-count and radius-default thresholds follow
+Source auto dispatch. Fitted NearestNeighbors graph overloads retain the brute
+baseline. Classifier/regressor fit metric subsets are unchanged.
+
+Brute numeric routes use the Source DistanceMetric kernels, including the
+Bray-Curtis denominator and haversine reduced cutoff. Boolean/Hamming routes
+use pairwise distances and NumPy selection. Undefined Dice/Sokal-Sneath
+distances exposed the old internal non-NaN ordering restriction: 180 initial
+native rejections are resolved by implementing actual NumPy's NaN-aware
+MSVC sort/nth-element fallback. All 648 direct NumPy configurations / 1,296
+full index arrays match exactly, including equal keys, infinities and sizes
+through 1,025. Existing Intel/Microsoft attribution is retained.
+
+Private checked probes pass 7,182 graph configurations: 7,002 successful calls,
+180 matching Source rejections and 63,018 exact fields. No fixture or tolerance
+was removed or widened. The expanded package suite adds 28 invalid-width/CSR
+probes and retains every original neighbor comparison. The checked rebuild
+and new native graph test pass. Full checked/optimized verification is running;
+evidence is ignored under `validation/results/ball_graphs_*`.

@@ -3,10 +3,11 @@
 module sklearn_neighbor_functions
  use sklearn_common,only:dp,require
  use sklearn_sparse,only:csr_matrix
- use sklearn_pairwise_reductions,only:row_view,check_view,get_row,row_distance
+ use sklearn_pairwise_reductions,only:row_view,check_view,get_row,row_distance,metric_kind,extended_distance
  use sklearn_pairwise_chunks,only:pairwise_distances_chunked,pairwise_distance_iterator,distance_chunk
  use sklearn_neighbor_selection,only:argkmin_order,pairwise_knn_order
  use sklearn_neighbor_tree,only:neighbor_kd_tree
+ use sklearn_neighbor_ball_tree,only:neighbor_ball_tree
  use sklearn_neighbor_gram,only:neighbor_row_norm,neighbor_middle_term
  use,intrinsic::ieee_arithmetic
  use,intrinsic::ieee_exceptions
@@ -244,11 +245,12 @@ contains
   type(pairwise_distance_iterator)::state
   type(distance_chunk)::chunk
   type(neighbor_kd_tree)::tree
+  type(neighbor_ball_tree)::ball
   real(dp),allocatable::dist(:,:),u(:),w(:),values(:),new_values(:),selection(:),tree_distance(:),row_norms(:)
   integer,allocatable::columns(:),new_columns(:),order(:),ids(:),tree_ids(:)
   character(16)::kind,output_mode
   real(dp)::power
-  logical::sparse,modes(size(ieee_all)),flags(size(ieee_all)),available,forced,use_tree,use_heap,square_keys,power_keys
+  logical::sparse,modes(size(ieee_all)),flags(size(ieee_all)),available,forced,use_tree,use_ball,use_heap,square_keys,power_keys,haversine_keys
   integer::n,used,capacity,first,span,count_rows,i,j,row,blockrow,trainrow,take,slot,remove
   integer::fit_k,distance_kind
   integer::query_id,query_chunk,train_chunk,query_offset,train_offset
@@ -259,9 +261,12 @@ contains
   power=2;if(present(p))power=p
   call require(output_mode=='connectivity'.or.output_mode=='distance','invalid functional graph mode')
   call require(any(kind==[character(16)::'minkowski','euclidean','sqeuclidean','l2','manhattan', &
-   'cityblock','l1','chebyshev','cosine','precomputed']),'unsupported functional graph metric')
+   'cityblock','l1','chebyshev','cosine','precomputed','haversine','braycurtis','canberra', &
+   'hamming','dice','jaccard','rogerstanimoto','russellrao','sokalmichener','sokalsneath']), &
+   'unsupported functional graph metric')
   call require(.not.ieee_is_nan(power),'functional graph p is NaN')
   call require(power>0,'functional graph p must be positive')
+  if(kind=='haversine')call require(v%p==2,'functional haversine graph requires two features')
   if(kind=='minkowski')then
    if(power==1)kind='manhattan'
    if(power==2)kind='euclidean'
@@ -272,9 +277,13 @@ contains
   forced=.false.;if(present(force_brute))forced=force_brute
   fit_k=k;if(by_radius)fit_k=5
   use_tree=.not.sparse.and..not.forced.and.v%p<=15.and.fit_k<n/2
+  use_ball=use_tree.and.any(kind==[character(16)::'haversine','braycurtis','canberra','hamming', &
+   'dice','jaccard','rogerstanimoto','russellrao','sokalmichener','sokalsneath'])
   use_tree=use_tree.and.any(kind==[character(16)::'euclidean','l2','manhattan','cityblock','l1','chebyshev','minkowski'])
   if(kind=='minkowski'.and.power<1)use_tree=.false.
-  use_heap=.not.by_radius.and.kind/='cosine'.and.kind/='precomputed'
+  use_heap=.not.by_radius.and..not.any(kind==[character(16)::'cosine','precomputed','hamming', &
+   'dice','jaccard','rogerstanimoto','russellrao','sokalmichener','sokalsneath'])
+  haversine_keys=.not.use_ball.and.kind=='haversine'
   if(sparse)then
    use_heap=use_heap.and.kind/='euclidean'.and.size(v%sparse%data)>0
   end if
@@ -314,6 +323,17 @@ contains
     end if
     call select_row(tree_distance,tree_ids,.true.,preselected=.true.)
    end do
+  else if(use_ball)then
+   call ball%fit(v%dense,metric=kind,p=power,leaf_size=30)
+   do row=1,n
+    if(by_radius)then
+     call ball%query_radius(v%dense(row,:),radius,tree_distance,tree_ids)
+    else
+     take=k;if(.not.include_self)take=k+1
+     call ball%query(v%dense(row,:),take,tree_distance,tree_ids)
+    end if
+    call select_row(tree_distance,tree_ids,.true.,preselected=.true.)
+   end do
   else if(kind=='precomputed'.and.sparse)then
    stored=v%sparse;stored=sort_graph_by_row_values(stored,copy=.true.,warn_when_not_sorted=.false.)
    do row=1,n
@@ -332,6 +352,26 @@ contains
     do trainrow=1,n
      do blockrow=1,count_rows
       dist(blockrow,trainrow)=raw_csr_distance(v%sparse,first+blockrow,trainrow,kind=='l2',square_keys)
+     end do
+    end do
+    do i=1,count_rows
+     row=first+i;call select_row(dist(i,:),[(j,j=1,n)],.false.)
+    end do
+   end do
+  else if(.not.sparse.and.any(kind==[character(16)::'haversine','braycurtis','canberra']))then
+   distance_kind=metric_kind(kind);span=max(1,min(n,1048576/n))
+   do first=0,n-1,span
+    count_rows=min(span,n-first);if(allocated(dist))deallocate(dist)
+    allocate(dist(count_rows,n))
+    do trainrow=1,n
+     do blockrow=1,count_rows
+      if(distance_kind==9)then
+       dist(blockrow,trainrow)=row_distance(v%dense(first+blockrow,:),v%dense(trainrow,:), &
+        distance_kind,power,.false.,.false.,.false.)
+      else
+       dist(blockrow,trainrow)=extended_distance(v%dense(first+blockrow,:),v%dense(trainrow,:), &
+        distance_kind,.false.,.false.,v%dense(first+blockrow,:)/=0,v%dense(trainrow,:)/=0)
+      end if
      end do
     end do
     do i=1,count_rows
@@ -424,12 +464,14 @@ contains
     cutoff=radius
     if(square_keys.and.kind/='sqeuclidean')cutoff=radius*radius
     if(power_keys)cutoff=radius**power
+    if(haversine_keys)cutoff=sin(.5_dp*radius)**2
     do q=1,size(d)
      if(.not.include_self.and.cols(q)==row)cycle
      if(ready.or.d(q)<=cutoff)then
       value=d(q)
       if(square_keys.and.kind/='sqeuclidean')value=sqrt(max(value,0._dp))
       if(power_keys)value=max(value,0._dp)**(1._dp/power)
+      if(haversine_keys)value=2*asin(sqrt(value))
       call append(cols(q),value)
      end if
     end do
@@ -446,6 +488,7 @@ contains
     end if
     if(square_keys.and.kind/='sqeuclidean')selection=sqrt(max(selection,0._dp))
     if(power_keys)selection=max(selection,0._dp)**(1._dp/power)
+    if(haversine_keys)selection=2*asin(sqrt(selection))
     remove=0
     if(.not.include_self)then
      do q=1,take

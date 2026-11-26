@@ -7878,3 +7878,19 @@ as ac5e278. Initial failed batch, source/executable snapshots, the earlier exact
 297,924-field suite and expanded reports remain ignored under
 `validation/results/neighbor_ball_tree_*`. The historical native crash remains
 unresolved.
+
+Automatic BallTree graph verification (2026-11-26):
+`compare_ball_tree_graphs.py` reuses the existing actual-Source functional graph
+reader with new raw/fitted-NearestNeighbors fixtures. Private probes pass all
+7,182 configurations / 63,018 fields, with 7,002 successful calls and 180
+matching rejections. Initial 180 native Dice/Sokal-Sneath rejections exposed
+NaN ordering; all are resolved. `compare_numpy_nan_ordering.py` passes 648
+configurations / 1,296 full NumPy argsort/argpartition arrays exactly. No
+expected values or tolerances were replaced or widened.
+
+The expanded suite adds 28 invalid haversine-width/unsupported-CSR cases.
+Original oracle cache entries, failed batches, source/binary snapshots and
+initial/final reports are retained under ignored `validation/results/ball_graphs_*`.
+The checked fpm rebuild and new graph test pass; complete package verification
+is running in checked and optimized profiles. The historical intermittent
+native crash remains unresolved.

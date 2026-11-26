@@ -85,8 +85,9 @@ includes the sample itself; there is no implicit leave-one-out query mode.
 ### BallTree backend primitive
 
 The individual `sklearn_neighbor_ball_tree` module provides the native
-`neighbor_ball_tree` search engine. It is not yet selected by the public
-NearestNeighbors or functional-graph automatic dispatch.
+`neighbor_ball_tree` search engine. Raw functional graphs select this backend
+automatically for its additional metrics. The public NearestNeighbors query
+method retains its separate brute implementation.
 
 ```fortran
 use sklearn_neighbor_ball_tree, only: neighbor_ball_tree
@@ -134,15 +135,18 @@ first-candidate removal rule when duplicates prevent selection of the own index.
 Radius zero and infinity are supported. Explicit zero distances remain stored.
 
 Dense feature arrays support `minkowski` (positive `p`, including infinity),
-`euclidean`, `sqeuclidean`, `l2`, `manhattan`, `cityblock`, `l1`, `chebyshev` and
-`cosine`. Dense/CSR precomputed input uses `metric='precomputed'` and must be
+`euclidean`, `sqeuclidean`, `l2`, `manhattan`, `cityblock`, `l1`, `chebyshev`,
+`cosine`, `haversine` (two features), `braycurtis`, `canberra`, `hamming`,
+`dice`, `jaccard`, `rogerstanimoto`, `russellrao`, `sokalmichener` and
+`sokalsneath`. Dense/CSR precomputed input uses `metric='precomputed'` and must be
 square, finite and nonnegative. Only stored CSR precomputed entries are eligible;
 missing diagonals are not synthesized. CSR features support Euclidean/l2,
 Manhattan/cityblock/l1, cosine and Minkowski powers 1/2. Raw CSR Euclidean norms
 and Manhattan/l2 stored-buffer traversal follow the installed Source behavior,
 including noncanonical indices and duplicates. Brute-force distance blocks use
 an 8 MiB budget with at least one row; outputs and row buffers are additional
-storage. Automatic KD trees own coordinates, partition indices and node bounds.
+storage. Automatic KD/Ball trees own coordinates, partition indices and node
+bounds or centroids/radii.
 
 Fitted overloads accept `nearest_neighbors` for either function,
 `kneighbors_classifier`/`kneighbors_regressor` for KNN graphs, and
@@ -152,14 +156,23 @@ including defaults; geometry uses the fitted metric/p snapshot. NearestNeighbors
 now retains `n_features_in_` and `n_samples_fit_`. Refit applies changed geometry
 parameters. Fitted transformer objects, CSR-fitted estimator objects, callable
 metrics, metric_params and parallel backends are not included in these overloads.
+The additional BallTree metric names are supported for raw dense inputs and
+fitted `nearest_neighbors` graph overloads. Classifier/regressor fitting keeps
+its separately documented metric subset.
 
 Raw dense graphs follow the Source automatic backend rule, including feature
 count 15, neighbor-count thresholds and the radius constructor's default five
-neighbors. Supported tree metrics use a depth-first KD tree with leaf size 30,
+neighbors. KD-compatible metrics use KDTree; the additional metric families use
+BallTree. Both use depth-first traversal with leaf size 30,
 Source partial partition/heap ordering and unsorted radius storage order.
 Fitted overloads retain their brute-force geometry. CSR inputs use the Source
 sparse dispatch restrictions. Brute routes use heap or NumPy selection and
 compare squared/reduced radius values before converting returned distances.
+Hamming and Boolean brute queries use pairwise/NumPy selection, including
+NaN-aware index ordering for undefined Dice/Sokal-Sneath distances. Numeric
+Bray-Curtis/Canberra brute queries use Source DistanceMetric reductions. Brute
+haversine compares `sin(radius/2)**2`; an infinite radius produces an empty
+brute graph, following the pinned Source behavior.
 Dense Euclidean/squared-Euclidean reductions reproduce the pinned SciPy BLAS
 accumulation, including occasional nonzero self distances from rounding. These
 are portable scalar adapters; no BLAS runtime dependency is added. Thread and

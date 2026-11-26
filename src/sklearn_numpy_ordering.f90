@@ -2,6 +2,9 @@
 ! 9a1b616d5cd4eaf49f7664fb86ccc1d18bad2b8d, as bundled in NumPy 2.2.6.
 ! Copyright (C) 2022 Intel Corporation; BSD-3-Clause, LICENSES/x86-simd-sort-BSD.
 ! No SIMD instructions or C++ runtime are required. Internal real64 helpers.
+! NaN fallback: Microsoft STL 8eca13a3bfd44300c848bb93153cded88168aea4,
+! Copyright (c) Microsoft Corporation; Apache-2.0 WITH LLVM-exception.
+! Retained terms are in LICENSES/Microsoft-STL-* and THIRD_PARTY_NOTICES.md.
 module sklearn_numpy_ordering
  use sklearn_common,only:dp,require
  use,intrinsic::ieee_arithmetic
@@ -180,14 +183,44 @@ contains
   integer::t
   t=ids(i);ids(i)=ids(j);ids(j)=t
  end subroutine
+ ! Intel's NaN path calls MSVC std::sort / std::nth_element with this
+ ! comparator. Microsoft STL attribution is retained in LICENSES and notices.
+ logical function less(a,b)result(value)
+  real(dp),intent(in)::a,b
+  value=.false.
+  if(ieee_is_nan(a))return
+  if(ieee_is_nan(b))then
+   value=.true.
+  else
+   value=a<b
+  end if
+ end function
+ subroutine nan_partition(x,ids,kth)
+  real(dp),intent(in)::x(:)
+  integer,intent(inout)::ids(0:)
+  integer,intent(in)::kth
+  integer::first,last,pfirst,plast
+  first=0;last=size(ids)
+  do while(last-first>32)
+   call stl_partition(x,ids,first,last,pfirst,plast)
+   if(plast<=kth-1)then
+    first=plast
+   else if(kth-1<pfirst)then
+    last=pfirst
+   else
+    return
+   end if
+  end do
+  call stl_sort(x,ids,first,last,last-first)
+ end subroutine
  subroutine med3(x,ids,first,middle,last)
   real(dp),intent(in)::x(:)
   integer,intent(inout)::ids(0:)
   integer,intent(in)::first,middle,last
-  if(x(ids(middle))<x(ids(first))) call swap(ids,middle,first)
-  if(x(ids(last))<x(ids(middle))) then
+  if(less(x(ids(middle)),x(ids(first)))) call swap(ids,middle,first)
+  if(less(x(ids(last)),x(ids(middle)))) then
    call swap(ids,last,middle)
-   if(x(ids(middle))<x(ids(first))) call swap(ids,middle,first)
+   if(less(x(ids(middle)),x(ids(first)))) call swap(ids,middle,first)
   end if
  end subroutine
  subroutine stl_partition(x,ids,first,last,pfirst,plast)
@@ -208,19 +241,19 @@ contains
   end if
   pfirst=mid;plast=mid+1
   do while(first<pfirst)
-   if(x(ids(pfirst-1))/=x(ids(pfirst))) exit
+   if(less(x(ids(pfirst-1)),x(ids(pfirst))).or.less(x(ids(pfirst)),x(ids(pfirst-1)))) exit
    pfirst=pfirst-1
   end do
   do while(plast<last)
-   if(x(ids(plast))/=x(ids(pfirst))) exit
+   if(less(x(ids(plast)),x(ids(pfirst))).or.less(x(ids(pfirst)),x(ids(plast)))) exit
    plast=plast+1
   end do
   gfirst=plast;glast=pfirst
   do
    do while(gfirst<last)
-    if(x(ids(pfirst))<x(ids(gfirst))) then
+    if(less(x(ids(pfirst)),x(ids(gfirst)))) then
      gfirst=gfirst+1;cycle
-    else if(x(ids(gfirst))<x(ids(pfirst))) then
+    else if(less(x(ids(gfirst)),x(ids(pfirst)))) then
      exit
     else
      if(plast/=gfirst) call swap(ids,plast,gfirst)
@@ -229,9 +262,9 @@ contains
     gfirst=gfirst+1
    end do
    do while(first<glast)
-    if(x(ids(glast-1))<x(ids(pfirst))) then
+    if(less(x(ids(glast-1)),x(ids(pfirst)))) then
      glast=glast-1;cycle
-    else if(x(ids(pfirst))<x(ids(glast-1))) then
+    else if(less(x(ids(pfirst)),x(ids(glast-1)))) then
      exit
     else
      pfirst=pfirst-1
@@ -260,7 +293,7 @@ contains
   integer::top,child,parent
   top=hole;child=2*hole+2
   do while(child<bottom)
-   if(x(ids(first+child))<x(ids(first+child-1))) child=child-1
+   if(less(x(ids(first+child)),x(ids(first+child-1)))) child=child-1
    ids(first+hole)=ids(first+child);hole=child;child=2*hole+2
   end do
   if(child==bottom) then
@@ -268,7 +301,7 @@ contains
   end if
   do while(hole>top)
    parent=(hole-1)/2
-   if(.not.(x(ids(first+parent))<x(value))) exit
+   if(.not.(less(x(ids(first+parent)),x(value)))) exit
    ids(first+hole)=ids(first+parent);hole=parent
   end do
   ids(first+hole)=value
@@ -298,7 +331,7 @@ contains
     do i=first+1,last-1
      value=ids(i);j=i
      do while(j>first)
-      if(.not.(x(value)<x(ids(j-1)))) exit
+      if(.not.(less(x(value),x(ids(j-1))))) exit
       ids(j)=ids(j-1);j=j-1
      end do
      ids(j)=value
@@ -356,8 +389,10 @@ contains
   real(dp),intent(in)::x(:)
   integer::ids(size(x)),i,n,depth
   n=size(x);ids=[(i,i=1,n)]
-  call require(.not.any(ieee_is_nan(x)),'internal NumPy ordering requires non-NaN keys')
-  if(n<=1) return
+  if(n<=1)return
+  if(any(ieee_is_nan(x)))then
+   call fallback(x,ids);return
+  end if
   depth=2*int(log(real(n,dp))/log(2._dp));call sort_range(x,ids,0,n-1,depth)
  end function
  function numpy_argpartition(x,kth) result(ids)
@@ -366,8 +401,10 @@ contains
   integer::ids(size(x)),i,n,depth
   n=size(x);ids=[(i,i=1,n)]
   call require(kth>=1.and.kth<=n,'internal NumPy partition position out of range')
-  call require(.not.any(ieee_is_nan(x)),'internal NumPy ordering requires non-NaN keys')
-  if(n<=1) return
+  if(n<=1)return
+  if(any(ieee_is_nan(x)))then
+   call nan_partition(x,ids,kth);return
+  end if
   depth=2*int(log(real(n,dp))/log(2._dp));call sort_range(x,ids,0,n-1,depth,kth-1)
  end function
 end module
