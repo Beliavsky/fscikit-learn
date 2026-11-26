@@ -8,14 +8,15 @@ from sklearn.discriminant_analysis import LinearDiscriminantAnalysis,QuadraticDi
 from compare_function_transformer import ROOT,resolve
 from compare_gp_kernels import block
 REJECTIONS={}
-for family in ['lda','qda']:
+for family in ['lda']:
  for case,message in [('length','must match class count'),('empty','must match class count'),
   ('negative','must be nonnegative'),('nan','must be finite'),('inf','must be finite'),('zero','need positive total weight')]:
   REJECTIONS[family+'_'+case]=message
 REJECTIONS.update(lda_overflow='prior sum exceeds numeric range',lda_samples='need more samples than classes',
- eigen_singleton='matrix is not positive definite',svd_zero='no retained within-class directions',
- qda_wide_zero='QDA thin covariance requires positive reg_param')
-COMMON=['classes','means','priors','input','normalized','covariance','decision','proba','predict','score']
+ eigen_singleton='matrix is not positive definite',svd_zero='no retained within-class directions')
+# Former QDA rejection fixtures are retained as actual Source fit acceptances.
+ACCEPTED_FITS=['qda_'+n for n in ['length','empty','negative','nan','inf','zero','wide_zero']]
+COMMON=['classes','means','priors','input','normalized','covariance','decision','proba','log_proba','predict','score']
 EXTRA=['coef','intercept','reference']
 PROJECT=['scalings','ratio','fit','train','query','components','location_or_eigenvalues']
 
@@ -65,7 +66,7 @@ def main():
     model.fit(x,y)
     if mode in [1,2,4]:z=model.transform(x)
    assert any('Renormalizing' in str(w.message) for w in caught)==normalized
-   probability=model.predict_proba(q);prediction=model.predict(q);score=model.score(x,y)
+   probability=model.predict_proba(q);logprobability=model.predict_log_proba(q);prediction=model.predict(q);score=model.score(x,y)
    if mode==5:decision=model._decision_function(q)
    else:decision=model.decision_function(q)
   payload=f'{n} {p} {m} {count} {mode} {components} {index%2}\n'
@@ -93,13 +94,13 @@ def main():
        training_span_error=data_error,training_span_bound=float(3e-7*max(1.,np.linalg.norm(data,np.inf))),
        rank_error=rank_error,source_spectrum_checked=True,passed=True))
     with np.errstate(divide='ignore',invalid='ignore'):
-     decision=aligned._decision_function(q);probability=aligned.predict_proba(q)
+     decision=aligned._decision_function(q);probability=aligned.predict_proba(q);logprobability=aligned.predict_log_proba(q)
      prediction=aligned.predict(q);score=aligned.score(x,y)
     cov=np.stack([rot@np.diag(scales)@rot.T for rot,scales in zip(aligned.rotations_,aligned.scalings_)],axis=2)
    else:cov=np.stack(model.covariance_,axis=2)
   else:cov=np.repeat(model.covariance_[:,:,None],count,axis=2)
   expected=dict(classes=model.classes_,means=model.means_,priors=model.priors_,input=priors,
-    normalized=np.array([int(normalized)]),covariance=cov,decision=decision,proba=probability,predict=prediction,score=np.array([score]))
+    normalized=np.array([int(normalized)]),covariance=cov,decision=decision,proba=probability,log_proba=logprobability,predict=prediction,score=np.array([score]))
   if mode!=5:
    with np.errstate(divide='ignore',invalid='ignore'):
     fullcoef,fullintercept=full_lda_parameters(model,model.xbar_ if mode==2 else None)
@@ -162,10 +163,27 @@ def main():
   run=subprocess.run([str(exe),case],text=True,capture_output=True,cwd=ROOT)
   assert run.returncode!=0 and message in run.stdout+run.stderr,(case,run.stdout,run.stderr)
   rejects.append(dict(case=case,passed=True))
- report.update(checks=rejects)
+ accepted=[]
+ for case in ACCEPTED_FITS:
+  labels=np.arange(1,10)%3+1;data=np.c_[np.sin(np.arange(1,10)),np.cos(.7*np.arange(1,10))]
+  priors=np.array([.2,.3,.5])
+  if case=='qda_length':priors=np.array([.5,.5])
+  if case=='qda_empty':priors=np.empty(0)
+  if case=='qda_negative':priors[0]=-1
+  if case=='qda_nan':priors[0]=np.nan
+  if case=='qda_inf':priors[0]=np.inf
+  if case=='qda_zero':priors[:]=0
+  reg=.2
+  if case=='qda_wide_zero':data=np.arange(1,25,dtype=float).reshape(4,6,order='F');labels=np.array([1,1,2,2]);priors=np.array([.5,.5]);reg=0.
+  with warnings.catch_warnings():
+   warnings.simplefilter('ignore');QuadraticDiscriminantAnalysis(priors=priors,reg_param=reg).fit(data,labels)
+  run=subprocess.run([str(exe),case],text=True,capture_output=True,cwd=ROOT)
+  assert run.returncode==0,(case,run.stdout,run.stderr)
+  accepted.append(dict(case=case,source_fit_accepted=True,native_fit_accepted=True))
+ report.update(checks=rejects,source_accepted_fits=accepted)
  for field in ['fixtures','qda_thin_certificates','normalization_certificates','zero_prior_certificates','basis_certificates','undefined_ratio_certificates']:report.pop(field)
  (results/f'discriminant_priors_invalid_{args.profile}.json').write_text(json.dumps(report,indent=2,allow_nan=False)+'\n')
  print(len(checks),'groups,',len(fixtures),'normalization certificates,',len(zero),'zero-prior cases,',
-   len(undefined),'undefined ratios and',len(rejects),'rejections PASS',flush=True)
+   len(undefined),'undefined ratios,',len(rejects),'rejections and',len(accepted),'Source-accepted fits PASS',flush=True)
 
 if __name__=='__main__':main()

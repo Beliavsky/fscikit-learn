@@ -13501,3 +13501,38 @@ provenance and comparison counts, and distinct checked/optimized executables.
 Original manifests and failed attempts remain alongside final manifests and
 successful reruns under ignored `validation/results/mixture_package_*` artifacts.
 The broader translation remains unfinished.
+
+
+## Direct SVD QDA, singular fits and log probabilities
+
+QDA now uses direct thin-SVD factors on tall and wide class designs. It accepts
+singular/unregularized fits, exposes owned per-class factors, feature count and
+regularized-variance rank diagnostics, and adds max-shifted log posteriors.
+Tolerance changes the diagnostic rank without removing axes from scoring.
+Covariance and precision storage remain native compatibility diagnostics;
+zero variances can make precision diagnostics and scores nonfinite.
+
+QDA priors follow actual installed Source fit/query behavior: vectors are retained
+raw, length one broadcasts, malformed lengths fail at query time, and negative,
+zero and nonfinite priors can produce undefined posteriors. First-NaN prediction
+matches NumPy argmax. LDA retains its strict prior checks and receives its own
+zero-probability clipping in the new inherited log-probability method. All seven
+former QDA rejection fixtures remain as explicit Source fit-acceptance probes.
+The legacy prior suite additionally compares log probabilities for every valid
+fixture; its prior conditioning certificates remain identified separately.
+
+The new full reference grid compares actual unmodified Source fits, including
+wide, duplicate-column and zero designs, zero regularization, raw priors and
+nonfinite posterior behavior. It does not substitute native SVD directions into
+Source expected outputs. Native Jacobi SVD rank/null-space choices differ from
+NumPy's backend; wide and nearly singular unregularized predictions can differ
+substantially. The full grid remains strict by default, with an explicit mode
+that records all failed comparisons. A separate full-rank selection keeps the
+original full grid intact. SciFort was inspected and also uses a Jacobi SVD;
+no dependency was added on the assumption that it supplies NumPy's LAPACK path.
+
+The package remains MIT with retained scikit-learn, NumPy and OpenBLAS notices.
+This adds one native test, two drivers, one example, one comparison suite and one
+invalid-input registry, plus the internal owned-factor helper. No core estimator
+type or algorithm outside scikit-learn was added. The broader translation remains
+unfinished.

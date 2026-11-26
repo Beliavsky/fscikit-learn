@@ -2447,3 +2447,16 @@ sampling uses the existing native SVD backend, with documented differences
 from NumPy SVD axes. Fixed-rank precision storage, typed integration and IEEE
 state composition are original MIT contributions. No dependency or algorithm
 outside scikit-learn was added.
+
+
+## Direct SVD QDA and log posteriors
+
+The direct thin-SVD QDA fit/scoring path, regularized-variance rank diagnostic,
+raw prior broadcasting, first-NaN prediction, max-shifted QDA log posteriors,
+and binary LDA sigmoid/complement rounding and log clipping adapt
+installed scikit-learn 1.6.1 `discriminant_analysis.py`, under the retained
+scikit-learn BSD notice. SVD and null-basis completion reuse the existing native
+implementations. Pairwise reductions follow NumPy 2.2.6 under its retained BSD
+notice; matrix products reuse the attributed scalar OpenBLAS reconstruction.
+Owned ragged-factor storage and IEEE composition are original MIT contributions.
+No dependency or algorithm outside scikit-learn was added.

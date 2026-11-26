@@ -5997,9 +5997,10 @@ custom priors are documented below.
 
 Allocate `%priors(:)` in sorted `%classes_` order before fitting either
 `linear_discriminant_analysis` or `quadratic_discriminant_analysis`. Leaving it
-unallocated preserves empirical class frequencies. Input weights must be finite,
-nonnegative, match the fitted class count and contain at least one positive
-entry. The input vector is preserved; `%priors_` stores fitted values.
+unallocated preserves empirical class frequencies. LDA input weights must be
+finite, nonnegative, match the class count and contain a positive entry. QDA
+preserves its supplied vector without those fit-time checks, as detailed below.
+The input vector is preserved; `%priors_` stores fitted values.
 
 LDA renormalizes when `abs(sum(priors)-1)>1.e-5`, matching sklearn, and sets
 `%priors_normalized_`. No warning is printed; the fitted flag records the event.
@@ -6012,8 +6013,8 @@ posterior normalization happens during prediction, as in sklearn. Deallocate
 LDA priors weight each class covariance, SVD's center and between-class geometry,
 and all class intercepts. Explicit-prior LSQR uses numerical least squares for
 singular covariance; the default empirical/fixed LSQR contract is unchanged.
-SVD stored covariance also follows supplied class weights. Zero-prior classes
-remain in class metadata with exactly zero posterior and never win prediction.
+SVD stored covariance also follows supplied class weights. For LDA, zero-prior
+classes remain in class metadata with zero posterior and never win prediction.
 Their log priors use explicit negative infinity without floating-point traps.
 Automatic scores use the first positive-prior class as their zero reference;
 `%reference_class_` gives that one-based index, or zero for other score conventions.
@@ -6026,8 +6027,9 @@ QDA fitting for a class with fewer samples than features now retains
 and logdet describe that subspace. Zero-singular directions are completed
 orthogonally. They are nonunique and can affect wide-QDA query posteriors; source
 comparisons certify the training span, projector and source spectrum and evaluate
-the source classifier with the same valid retained null direction. Wide QDA with
-zero regularization remains rejected. See `example/prior_weighted_discriminants.f90`.
+the source classifier with the same valid retained null direction. The direct
+SVD QDA path below additionally accepts zero regularization, and its reference
+grid keeps unconditioned Source predictions. See `example/prior_weighted_discriminants.f90`.
 Custom covariance-estimator objects and sparse inputs remain outside this API.
 
 
@@ -10362,3 +10364,46 @@ multinomial rejection of out-of-range initial weights is retained, including
 slightly greater-than-one weights after some zero-iteration initializations.
 Successful fit, fit_predict and sample calls preserve IEEE flags/modes and
 leave the global Fortran RNG unchanged. See `example/mixture_initialization.f90`.
+
+
+## Direct SVD quadratic discriminant analysis
+
+`quadratic_discriminant_analysis` fits each class by thin SVD for both tall and
+wide designs. Singular and unregularized fits are accepted as in installed
+sklearn 1.6.1; rank deficiency is diagnostic rather than a fit rejection.
+`tol` defaults to 1e-4 and counts regularized variance values greater than tol.
+It does not truncate scoring axes. `n_features_in_` exposes training width.
+`subspaces_(c)%rotations` has shape (features,min(class_samples,features)),
+`subspaces_(c)%scalings` contains the regularized variances, and `%rank` holds
+the diagnostic count. These owned per-class factors adapt Source's ragged
+rotation/scaling lists without colliding with LDA's existing scalings_ matrix.
+The inherited LDA tolerance keeps its existing meaning and default. LDA
+binary probabilities use Source sigmoid/complement rounding. LDA log-probability
+prediction clips exact zeros to the smallest normal real64 value before taking
+logs, matching its separate Source method.
+
+Decision scores use the projected scaled axes directly. Existing
+`decision_function` returns a full (samples,classes) score matrix, including
+binary classification; subtract column one from column two for Source's binary
+public decision score. `predict_log_proba` adds Source's max-shifted posterior
+normalization. Predictions select the first NaN score when present, following
+NumPy argmax. Singular zero-variance fits can return NaN/Inf scores and posteriors.
+Successful QDA fit, decision, probability and log-probability calls preserve IEEE
+flags/modes. The existing covariance_ and precision_ diagnostics remain allocated
+for compatibility; precision_ may be undefined/nonfinite for zero variances.
+Covariance storage is retained even though Source can omit it.
+
+QDA preserves supplied priors without normalizing or validating their values at
+fit time. A length-one vector broadcasts at query time; a vector of class-count
+length applies per class. Other lengths, including empty vectors, fit and then
+produce a query shape diagnostic. Negative, zero, NaN and infinite priors follow
+Source's IEEE scoring behavior. Thus a zero-prior class can win an undefined
+posterior through Source's first-NaN/first-maximum convention. LDA retains its
+established strict prior validation.
+
+The native SVD uses different null-space directions and numerical rank decisions
+from NumPy. Wide designs, nearly zero unregularized variances and degenerate
+subspaces can therefore have different factors and predictions. The new direct
+reference grid uses actual unmodified Source fits; it does not replace Source
+rotations with native rotations. The older prior suite retains its explicitly
+identified thin-basis certificates as separate evidence.

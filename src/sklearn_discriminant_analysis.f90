@@ -1,21 +1,32 @@
 module sklearn_discriminant_analysis
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite,ieee_value,ieee_quiet_nan,ieee_positive_inf,ieee_negative_inf
+  use,intrinsic::ieee_exceptions
+  use,intrinsic::ieee_arithmetic,only:ieee_is_nan
+  use sklearn_kernel_dispatch,only:kernel_blas_dot
   use sklearn_covariance, only: ledoit_wolf
   use sklearn_common
   use sklearn_metrics, only: accuracy_score
   implicit none
   private
   public :: linear_discriminant_analysis,quadratic_discriminant_analysis
+  type :: qda_subspace
+    real(dp),allocatable::rotations(:,:),scalings(:)
+    integer::rank=0
+  end type
   type :: quadratic_discriminant_analysis
     real(dp) :: reg_param=0
     real(dp), allocatable :: priors(:)
     logical :: priors_normalized_=.false.
     integer, allocatable :: classes_(:)
     real(dp), allocatable :: means_(:,:),priors_(:),covariance_(:,:,:),precision_(:,:,:),logdet_(:)
+    real(dp)::tol=1.e-4_dp
+    integer::n_features_in_=0
+    type(qda_subspace),allocatable::subspaces_(:)
   contains
     procedure :: fit=>qda_fit
     procedure :: decision_function=>qda_decision
     procedure :: predict_proba=>discriminant_proba
+    procedure :: predict_log_proba=>discriminant_log_proba
     procedure :: predict=>discriminant_predict
     procedure :: score=>discriminant_score
   end type
@@ -23,7 +34,7 @@ module sklearn_discriminant_analysis
     character(8) :: solver='lsqr',shrinkage_mode='fixed'
     logical :: store_covariance=.false.
     integer :: n_components=0,n_components_=0,within_rank_=0,between_rank_=0,reference_class_=0
-    real(dp) :: tol=1.e-4_dp,total_shrinkage_=-1
+    real(dp) :: total_shrinkage_=-1
     real(dp), allocatable :: class_shrinkage_(:)
     real(dp), allocatable :: scalings_(:,:),xbar_(:),explained_variance_ratio_(:),eigenvalues_(:)
     real(dp) :: shrinkage=0
@@ -48,6 +59,8 @@ contains
     call check_xy(x,size(y)); self%classes_=unique_labels(y); k=size(self%classes_)
     n=size(y); p=size(x,2); call require(k>=2,'discriminant analysis requires at least two classes')
     self%priors_normalized_=.false.
+    select type(self)
+    class is(linear_discriminant_analysis)
     if(allocated(self%priors)) then
       call require(size(self%priors)==k,'discriminant priors must match class count')
       call require(all(ieee_is_finite(self%priors)),'discriminant priors must be finite')
@@ -55,6 +68,9 @@ contains
       largest=maxval(self%priors)
       call require(largest>0,'discriminant priors need positive total weight')
     end if
+    end select
+    self%n_features_in_=p
+    if(allocated(self%subspaces_))deallocate(self%subspaces_)
     if(allocated(self%means_)) deallocate(self%means_)
     if(allocated(self%priors_)) deallocate(self%priors_)
     if(allocated(self%covariance_)) deallocate(self%covariance_)
@@ -113,38 +129,71 @@ contains
       'singular covariance; set positive reg_param or shrinkage')
     logdet=sum(log(vals)); precision=matmul(vecs/spread(vals,1,size(vals)),transpose(vecs))
   end subroutine
-  subroutine qda_fit(self,x,y)
-    class(quadratic_discriminant_analysis), intent(inout) :: self
-    real(dp), intent(in) :: x(:,:)
-    integer, intent(in) :: y(:)
-    real(dp), allocatable :: group(:,:),s(:),u(:,:),v(:,:),scaling(:)
-    integer :: c,j,i,row,nc,p
-    call require(self%reg_param>=0.and.self%reg_param<=1,'invalid QDA regularization')
-    call class_statistics(self,x,y)
-    p=size(x,2)
-    do c=1,size(self%classes_)
-      nc=count(y==self%classes_(c))
-      if(nc<p) then
-        call require(self%reg_param>0,'QDA thin covariance requires positive reg_param')
-        allocate(group(nc,p));row=0
-        do i=1,size(y)
-          if(y(i)/=self%classes_(c)) cycle
-          row=row+1;group(row,:)=x(i,:)-self%means_(c,:)
-        end do
-        call lda_thin_svd(group,s,u,v);call qda_complete_basis(v)
-        scaling=(1-self%reg_param)*s*s/(nc-1)+self%reg_param
-        call require(all(scaling>0),'QDA thin covariance requires positive regularized singular values')
-        self%covariance_(:,:,c)=matmul(v*spread(scaling,1,p),transpose(v))
-        self%precision_(:,:,c)=matmul(v/spread(scaling,1,p),transpose(v))
-        self%logdet_(c)=sum(log(scaling));deallocate(group)
-        cycle
-      end if
-      self%covariance_(:,:,c)=(1-self%reg_param)*self%covariance_(:,:,c)
-      do j=1,size(x,2)
-        self%covariance_(j,j,c)=self%covariance_(j,j,c)+self%reg_param
+  recursive real(dp)function qda_sum(a)result(value)
+    real(dp),intent(in)::a(:)
+    real(dp)::parts(8)
+    integer::n,i,whole,half
+    n=size(a);value=-0._dp
+    if(n<8)then
+      do i=1,n
+        value=value+a(i)
       end do
-      call invert_covariance(self%covariance_(:,:,c),self%precision_(:,:,c),self%logdet_(c))
+    else if(n<=128)then
+      parts=a(:8);whole=n-mod(n,8)
+      do i=9,whole,8
+        parts=parts+a(i:i+7)
+      end do
+      value=((parts(1)+parts(2))+(parts(3)+parts(4)))+((parts(5)+parts(6))+(parts(7)+parts(8)))
+      do i=whole+1,n
+        value=value+a(i)
+      end do
+    else
+      half=n/2;half=half-mod(half,8);value=qda_sum(a(:half))+qda_sum(a(half+1:))
+    end if
+  end function
+  function qda_product(a,b)result(value)
+    real(dp),intent(in)::a(:,:),b(:,:)
+    real(dp)::value(size(a,1),size(b,2))
+    integer::i,j
+    do j=1,size(b,2)
+      do i=1,size(a,1)
+        value(i,j)=kernel_blas_dot(a(i,:),b(:,j),size(a,1),size(b,2),i,j)
+      end do
     end do
+  end function
+  subroutine qda_fit(self,x,y)
+    class(quadratic_discriminant_analysis),intent(inout)::self
+    real(dp),intent(in)::x(:,:)
+    integer,intent(in)::y(:)
+    real(dp),allocatable::group(:,:),s(:),u(:,:),v(:,:),scaling(:)
+    logical::modes(size(ieee_all)),flags(size(ieee_all))
+    integer::c,i,row,nc,p,k
+    call require(ieee_is_finite(self%reg_param).and.ieee_is_finite(self%tol),'QDA controls must be finite')
+    call require(self%reg_param>=0.and.self%reg_param<=1,'invalid QDA regularization')
+    call require(self%tol>=0,'QDA tolerance must be nonnegative')
+    call ieee_get_halting_mode(ieee_all,modes);call ieee_get_flag(ieee_all,flags)
+    call ieee_set_halting_mode(ieee_all,.false.)
+    call class_statistics(self,x,y,store_covariance=.false.)
+    p=size(x,2);k=size(self%classes_)
+    allocate(self%subspaces_(k),self%covariance_(p,p,k),self%precision_(p,p,k),self%logdet_(k))
+    do c=1,k
+      nc=count(y==self%classes_(c));allocate(group(nc,p));row=0
+      do i=1,size(y)
+        if(y(i)/=self%classes_(c))cycle
+        row=row+1;group(row,:)=x(i,:)
+      end do
+      if(p==1)self%means_(c,1)=qda_sum(group(:,1))/nc
+      group=group-spread(self%means_(c,:),1,nc)
+      call lda_thin_svd(group,s,u,v);call qda_complete_basis(v)
+      scaling=s**2/(nc-1);scaling=(1-self%reg_param)*scaling+self%reg_param
+      self%subspaces_(c)%rotations=v;self%subspaces_(c)%scalings=scaling
+      self%subspaces_(c)%rank=count(scaling>self%tol)
+      self%covariance_(:,:,c)=qda_product(v*spread(scaling,1,p),transpose(v))
+      ! Native precision diagnostics may be NaN/Inf for unregularized zero axes.
+      self%precision_(:,:,c)=qda_product(v/spread(scaling,1,p),transpose(v))
+      self%logdet_(c)=qda_sum(log(scaling));deallocate(group)
+    end do
+    call ieee_set_flag(ieee_all,flags);call ieee_set_halting_mode(ieee_all,modes)
   end subroutine
   subroutine qda_complete_basis(v)
     real(dp), intent(inout) :: v(:,:)
@@ -452,21 +501,30 @@ contains
     real(dp), allocatable :: z(:,:)
     call self%fit(x,y);z=self%transform(x)
   end function
-  function qda_decision(self,x) result(z)
-    class(quadratic_discriminant_analysis), intent(in) :: self
-    real(dp), intent(in) :: x(:,:)
-    real(dp), allocatable :: z(:,:)
-    real(dp) :: delta(size(x,2))
-    integer :: i,c
-    call require(allocated(self%means_),'discriminant model is not fitted')
-    call check_xy(transpose(x),size(self%means_,2)); allocate(z(size(x,1),size(self%classes_)))
-    do i=1,size(x,1)
-      do c=1,size(self%classes_)
-        delta=x(i,:)-self%means_(c,:)
-        z(i,c)=prior_log(self%priors_(c))-0.5_dp*(self%logdet_(c)+ &
-          dot_product(delta,matmul(self%precision_(:,:,c),delta)))
+  function qda_decision(self,x)result(z)
+    class(quadratic_discriminant_analysis),intent(in)::self
+    real(dp),intent(in)::x(:,:)
+    real(dp),allocatable::z(:,:),projected(:,:),scaled(:,:)
+    logical::modes(size(ieee_all)),flags(size(ieee_all))
+    real(dp)::prior
+    integer::i,c,p
+    call require(allocated(self%subspaces_),'discriminant model is not fitted')
+    call check_x(x);p=size(self%means_,2)
+    call require(size(x,2)==p,'QDA query feature count mismatch')
+    call require(size(self%priors_)==1.or.size(self%priors_)==size(self%classes_), &
+      'QDA prior array cannot broadcast to class count')
+    call ieee_get_halting_mode(ieee_all,modes);call ieee_get_flag(ieee_all,flags)
+    call ieee_set_halting_mode(ieee_all,.false.)
+    allocate(z(size(x,1),size(self%classes_)))
+    do c=1,size(self%classes_)
+      scaled=self%subspaces_(c)%rotations*spread(self%subspaces_(c)%scalings**(-.5_dp),1,p)
+      projected=qda_product(x-spread(self%means_(c,:),1,size(x,1)),scaled)
+      prior=self%priors_(min(c,size(self%priors_)))
+      do i=1,size(x,1)
+        z(i,c)=-.5_dp*(qda_sum(projected(i,:)**2)+self%logdet_(c))+prior_log(prior)
       end do
     end do
+    call ieee_set_flag(ieee_all,flags);call ieee_set_halting_mode(ieee_all,modes)
   end function
   function lda_decision(self,x) result(z)
     class(linear_discriminant_analysis), intent(in) :: self
@@ -491,24 +549,77 @@ contains
       z=matmul(x,transpose(self%coef_))+spread(self%intercept_,1,size(x,1))
     end if
   end function
-  function discriminant_proba(self,x) result(prob)
-    class(quadratic_discriminant_analysis), intent(in) :: self
-    real(dp), intent(in) :: x(:,:)
-    real(dp), allocatable :: prob(:,:)
-    integer :: i
-    prob=self%decision_function(x)
-    do i=1,size(x,1)
-      prob(i,:)=exp(prob(i,:)-logsumexp(prob(i,:)))
-    end do
+  function discriminant_log_proba(self,x)result(prob)
+    class(quadratic_discriminant_analysis),intent(in)::self
+    real(dp),intent(in)::x(:,:)
+    real(dp),allocatable::prob(:,:)
+    real(dp)::largest
+    logical::modes(size(ieee_all)),flags(size(ieee_all))
+    integer::i
+    call ieee_get_halting_mode(ieee_all,modes);call ieee_get_flag(ieee_all,flags)
+    call ieee_set_halting_mode(ieee_all,.false.)
+    select type(self)
+    class is(linear_discriminant_analysis)
+      prob=self%predict_proba(x)
+      where(prob==0)prob=tiny(1._dp)
+      prob=log(prob)
+    class default
+      prob=self%decision_function(x)
+      do i=1,size(x,1)
+        largest=maxval(prob(i,:))
+        if(any(ieee_is_nan(prob(i,:))))largest=ieee_value(0._dp,ieee_quiet_nan)
+        prob(i,:)=prob(i,:)-largest
+        prob(i,:)=prob(i,:)-log(qda_sum(exp(prob(i,:))))
+      end do
+    end select
+    call ieee_set_flag(ieee_all,flags);call ieee_set_halting_mode(ieee_all,modes)
+  end function
+  function discriminant_proba(self,x)result(prob)
+    class(quadratic_discriminant_analysis),intent(in)::self
+    real(dp),intent(in)::x(:,:)
+    real(dp),allocatable::prob(:,:)
+    logical::modes(size(ieee_all)),flags(size(ieee_all))
+    integer::i
+    select type(self)
+    class is(linear_discriminant_analysis)
+      call ieee_get_halting_mode(ieee_all,modes);call ieee_get_flag(ieee_all,flags)
+      call ieee_set_halting_mode(ieee_all,.false.)
+      prob=self%decision_function(x)
+      if(size(prob,2)==2)then
+        ! Source forms [1-expit(decision),expit(decision)] in the binary case.
+        prob(:,2)=1/(1+exp(-(prob(:,2)-prob(:,1))))
+        prob(:,1)=1-prob(:,2)
+      else
+        do i=1,size(x,1)
+          prob(i,:)=exp(prob(i,:)-logsumexp(prob(i,:)))
+        end do
+      end if
+      call ieee_set_flag(ieee_all,flags);call ieee_set_halting_mode(ieee_all,modes)
+    class default
+      call ieee_get_halting_mode(ieee_all,modes);call ieee_get_flag(ieee_all,flags)
+      call ieee_set_halting_mode(ieee_all,.false.)
+      prob=exp(self%predict_log_proba(x))
+      call ieee_set_flag(ieee_all,flags);call ieee_set_halting_mode(ieee_all,modes)
+    end select
   end function
   function discriminant_predict(self,x) result(y)
     class(quadratic_discriminant_analysis), intent(in) :: self
     real(dp), intent(in) :: x(:,:)
-    integer :: y(size(x,1)),i
+    integer :: y(size(x,1)),i,index
     real(dp), allocatable :: z(:,:)
     z=self%decision_function(x)
     do i=1,size(y)
-      y(i)=self%classes_(maxloc(z(i,:),dim=1))
+      select type(self)
+      class is(linear_discriminant_analysis)
+        index=maxloc(z(i,:),dim=1)
+      class default
+        if(any(ieee_is_nan(z(i,:))))then
+          index=findloc(ieee_is_nan(z(i,:)),.true.,dim=1)
+        else
+          index=maxloc(z(i,:),dim=1)
+        end if
+      end select
+      y(i)=self%classes_(index)
     end do
   end function
   real(dp) function discriminant_score(self,x,y) result(v)

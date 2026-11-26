@@ -11,7 +11,7 @@ program reference_discriminant_priors_driver
   integer :: n,p,m,k,mode,components,operation
   character(80) :: arg
   if(command_argument_count()>0) then
-    call get_command_argument(1,arg);call reject(trim(arg));stop 2
+    call get_command_argument(1,arg);call reject(trim(arg));stop
   end if
   read(*,*) n,p,m,k,mode,components,operation
   allocate(x(n,p),q(m,p),y(n));read(*,*) x;read(*,*) y;read(*,*) q
@@ -34,7 +34,7 @@ program reference_discriminant_priors_driver
   end if
   call vector(real(model%classes_,dp));call matrix(model%means_);call vector(model%priors_);call vector(model%priors)
   call vector([merge(1._dp,0._dp,model%priors_normalized_)]);call cube(model%covariance_)
-  call matrix(model%decision_function(q));call matrix(model%predict_proba(q));call vector(real(model%predict(q),dp))
+  call matrix(model%decision_function(q));call matrix(model%predict_proba(q));call matrix(model%predict_log_proba(q));call vector(real(model%predict(q),dp))
   call vector([model%score(x,y)])
   if(mode/=5) then
     call matrix(linear%coef_);call vector(linear%intercept_);call vector([real(linear%reference_class_,dp)])
