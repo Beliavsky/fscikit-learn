@@ -7929,19 +7929,20 @@ ed145c0; the historical intermittent optimized KNC crash remains unresolved.
 Sorted radius graphs and cosine self-products (2026-11-26):
 `compare_nearest_sorted_radius.py` compares 5,424 actual Source configurations,
 including finite/zero/negative/NaN/infinite radii, all four backends, both graph
-modes, both sort flags and own-data identity. The private revised engine passes
+modes, both sort flags and own-data identity. The revised checked public API passes
 3,924 successful calls, 1,500 matching rejections and 19,620 exact fields.
 `compare_nearest_cosine_queries.py` adds 360 configurations / 1,080 array groups,
 including integer/constant rows and the 1,023/1,024/1,025 storage boundary. The
-saved audited checked public executable fails 52 fields; the revised private
-engine passes all fields on identical inputs. Copies of both original public
+saved audited checked public executable fails 52 fields; the revised checked
+public API passes all fields on identical inputs. Copies of both original public
 executables are retained as `nearest_neighbors_before_sorted_*_driver.exe`.
 
 `compare_cosine_reference_frames.py` checks 48 configurations / 137,504 values
 against actual Source chunks, varying numerical and physical memory separately
 in both directions. Private probes identified and resolved a small-TN tail
 reduction difference and the distinction between physical and numerical self
-identity. The checked public rebuild, all 288 native programs and three selected
-examples pass. Reference verification includes existing neighbor suites and
-pairwise/kernel regressions. Checked reference verification and the optimized
-rebuild are running under ignored `validation/results/nearest_sorted_radius_*`.
+identity. The revised checked public API passes all 137,504 values exactly.
+The checked rebuild, all 288 native programs, three selected examples and
+2,005 kernel-dispatch configurations pass. Implementation is committed as
+501db6b. Remaining checked neighbor regressions and the optimized rebuild/
+verification are running under ignored `validation/results/nearest_sorted_radius_*`.

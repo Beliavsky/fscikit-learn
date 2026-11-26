@@ -14044,9 +14044,9 @@ self-transpose SYRK route and preserve Source numerical chunks independently
 of the 8 MiB storage buffers. Small-matrix tail reductions are also corrected.
 
 The saved, audited public executable fails 52 fields in a new 360-configuration
-cosine suite. Private revised engines pass the same inputs exactly, along with
-5,424 sorted-radius configurations / 19,620 fields and 48 numerical/storage
-chunk configurations / 137,504 values. The checked fpm rebuild, all 288 native
-programs and three selected examples pass. Reference verification includes the
-previous neighbor suites, pairwise/kernel checks and the new comparisons;
-checked reference verification and the optimized rebuild are running.
+cosine suite. The revised checked public API passes the same inputs exactly,
+along with 5,424 sorted-radius configurations / 19,620 fields and 48 numerical/
+storage chunk configurations / 137,504 values. All 288 checked native programs,
+three selected examples and the 2,005-configuration kernel-dispatch suite pass.
+Implementation is committed as 501db6b. Remaining checked neighbor regressions
+and the optimized rebuild/verification are running.
