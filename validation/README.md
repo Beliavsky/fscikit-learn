@@ -7547,3 +7547,25 @@ dependency-aware compiled fingerprints per profile (192 library units and 20
 programs), current source/validator/API/attribution manifests, Source cache
 provenance and distinct executable hashes. No additional dependency was added;
 the package retains its MIT license and existing third-party BSD notices.
+
+## Joint KNN classification
+
+`compare_neighbor_classification_outputs.py` compares actual installed sklearn
+1.6.1 KNeighborsClassifier (`algorithm='brute'`) with shared-search joint labels,
+ragged probability lists, vector/column targets and weighted accuracy. Pass
+`--executable`, `--report` and optionally `--reference-cache`. Its full inventory
+contains 2,240 configurations across two seeds, three shapes, regular/duplicate
+points, five metrics, uniform/distance weights, binary/ragged classes, one/three
+targets, explicit/self queries and one/three/all neighbors. Default execution
+compares labels and metadata exactly and probabilities/scores at unchanged 3e-8
+absolute/relative tolerances. `--regular` selects regular-point fixtures;
+`--record-differences` preserves every full-grid failure. Cached Source results
+include version/source hashes, requests and warnings. Native evaluation uses
+bounded file-backed output batches and separate rejection probes.
+
+`check_neighbor_classification_invalid_inputs.py` checks 19 actual Source
+rejections plus two native matrix/list rank guards. Analytic native tests check
+shared outputs, differing class counts, self exclusion, zero-distance weights,
+precomputed geometry, IEEE state, scalar refits and weighted subset accuracy.
+The frozen test checks borrowed fitted-state detection and scalar refits; its
+scalar prediction APIs do not gain joint classification adapters.

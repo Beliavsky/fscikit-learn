@@ -2471,3 +2471,15 @@ follows NumPy 2.2.6 under its retained BSD notice. Ordered Euclidean geometry
 reuses the existing attributed pairwise-reduction implementation. Typed target
 storage, streaming integration, stable native tie selection and frozen wrapper
 dispatch are original MIT contributions. No additional dependency was imported.
+
+## Joint KNN classification
+
+Joint KNN target encoding, column-target squeezing, per-output classes,
+self-excluding queries, probability votes and weighted-mode predictions adapt
+installed scikit-learn 1.6.1 `neighbors/_base.py`, `neighbors/_classification.py`,
+`utils/extmath.py` weighted_mode and `base.py` ClassifierMixin under the retained
+scikit-learn BSD notice. Existing accuracy and ordered-distance routines retain
+their attributions. Pairwise summation follows NumPy 2.2.6 under its retained
+BSD notice. Owned typed probability lists, shared streaming integration and
+fitted-state adapters are original MIT contributions. No dependency or algorithm
+outside scikit-learn was added.

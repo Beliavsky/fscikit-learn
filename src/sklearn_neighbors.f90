@@ -3,6 +3,7 @@ module sklearn_neighbors
   use sklearn_pairwise_reductions,only:row_distance
   use sklearn_pairwise_chunks,only:pairwise_distances_chunked,pairwise_distance_iterator,distance_chunk
   use sklearn_nca, only: neighborhood_components_analysis
+  use sklearn_label_binarization,only:label_set
   use sklearn_neighbor_graph, only: kneighbors_transformer,radius_neighbors_transformer
   use sklearn_sparse, only: csr_matrix,csr_from_dense,csr_from_arrays
   use sklearn_common
@@ -14,6 +15,11 @@ module sklearn_neighbors
   private
   public :: neighborhood_components_analysis
   public :: nearest_neighbors,kneighbors_classifier,kneighbors_regressor
+  public :: neighbor_probability,label_set
+  type :: neighbor_probability
+    integer,allocatable::classes(:)
+    real(dp),allocatable::values(:,:)
+  end type
   public :: radius_neighbors_classifier,radius_neighbors_regressor,nearest_centroid
   public :: local_outlier_factor
   public :: kernel_density
@@ -35,11 +41,19 @@ module sklearn_neighbors
     real(dp) :: p=2
     type(nearest_neighbors) :: search_
     integer, allocatable :: y_(:),classes_(:)
+    integer,allocatable::y_matrix_(:,:)
+    type(label_set),allocatable::classes_multi_(:)
+    real(dp),private,allocatable::encoded_y_(:,:)
+    logical::outputs_2d_=.false.
+    integer::n_features_in_=0,n_outputs_=0,n_samples_fit_=0
   contains
-    procedure :: fit=>knc_fit
+    procedure :: fit_dense=>knc_fit,fit_matrix=>knc_fit_matrix
+    generic::fit=>fit_dense,fit_matrix
     procedure :: predict_proba=>knc_proba
-    procedure :: predict=>knc_predict
-    procedure :: score=>knc_score
+    procedure :: predict_proba_multioutput=>knc_proba_multioutput
+    procedure :: predict=>knc_predict,predict_matrix=>knc_predict_matrix
+    procedure :: score_dense=>knc_score,score_matrix=>knc_score_matrix
+    generic::score=>score_dense,score_matrix
   end type
   type :: kneighbors_regressor
     integer :: n_neighbors=5
@@ -155,12 +169,36 @@ contains
     end do
   end function
   subroutine knc_fit(self,x,y)
-    class(kneighbors_classifier), intent(inout) :: self
-    real(dp), intent(in) :: x(:,:)
-    integer, intent(in) :: y(:)
-    call check_xy(x,size(y)); self%y_=y; self%classes_=unique_labels(y)
+    class(kneighbors_classifier),intent(inout)::self
+    real(dp),intent(in)::x(:,:)
+    integer,intent(in)::y(:)
+    call knc_fit_matrix(self,x,reshape(y,[size(y),1]))
+  end subroutine
+  subroutine knc_fit_matrix(self,x,y)
+    class(kneighbors_classifier),intent(inout)::self
+    real(dp),intent(in)::x(:,:)
+    integer,intent(in)::y(:,:)
+    integer::i,j
+    call check_xy(x,size(y,1));call require(size(y,2)>0,'neighbor classification needs target columns')
+    call regression_parameters(x,self%metric,self%p,self%weights)
     self%search_%n_neighbors=self%n_neighbors; self%search_%metric=self%metric; self%search_%p=self%p
     call self%search_%fit(x)
+    self%y_matrix_=y;self%outputs_2d_=size(y,2)>1
+    self%n_features_in_=size(x,2);self%n_outputs_=size(y,2);self%n_samples_fit_=size(x,1)
+    if(allocated(self%classes_multi_))deallocate(self%classes_multi_)
+    allocate(self%classes_multi_(size(y,2)))
+    self%encoded_y_=real(y,dp)
+    do j=1,size(y,2)
+      self%classes_multi_(j)%values=unique_labels(y(:,j))
+      do i=1,size(y,1)
+        self%encoded_y_(i,j)=real(label_index(self%classes_multi_(j)%values,y(i,j)),dp)
+      end do
+    end do
+    if(allocated(self%y_))deallocate(self%y_)
+    if(allocated(self%classes_))deallocate(self%classes_)
+    if(.not.self%outputs_2d_)then
+      self%y_=y(:,1);self%classes_=self%classes_multi_(1)%values
+    end if
   end subroutine
   function get_weights(d,kind) result(w)
     real(dp), intent(in) :: d(:)
@@ -178,37 +216,63 @@ contains
     end select
   end function
   function knc_proba(self,x) result(prob)
-    class(kneighbors_classifier), intent(in) :: self
-    real(dp), intent(in) :: x(:,:)
-    real(dp), allocatable :: prob(:,:),d(:,:),w(:)
-    integer, allocatable :: idx(:,:)
-    integer :: i,j,c
-    call require(allocated(self%y_),'kneighbors_classifier is not fitted')
-    call self%search_%kneighbors(x,d,idx)
-    allocate(prob(size(x,1),size(self%classes_))); prob=0
-    do i=1,size(x,1)
-      w=get_weights(d(i,:),self%weights)
-      do j=1,size(idx,2)
-        c=label_index(self%classes_,self%y_(idx(i,j))); prob(i,c)=prob(i,c)+w(j)
-      end do
-      prob(i,:)=prob(i,:)/sum(w)
+    class(kneighbors_classifier),intent(in)::self
+    real(dp),optional,intent(in)::x(:,:)
+    real(dp),allocatable::prob(:,:)
+    type(neighbor_probability),allocatable::all_prob(:)
+    call require(.not.self%outputs_2d_,'joint neighbor probabilities require predict_proba_multioutput')
+    all_prob=self%predict_proba_multioutput(x);prob=all_prob(1)%values
+  end function
+  function knc_proba_multioutput(self,x)result(prob)
+    class(kneighbors_classifier),intent(in)::self
+    real(dp),optional,intent(in)::x(:,:)
+    type(neighbor_probability),allocatable::prob(:)
+    real(dp),allocatable::flat(:,:)
+    integer,allocatable::class_sizes(:)
+    integer::j,first,last
+    call require(allocated(self%y_matrix_),'kneighbors_classifier is not fitted')
+    class_sizes=[(size(self%classes_multi_(j)%values),j=1,self%n_outputs_)]
+    flat=regression_predict(self%search_%x_,self%encoded_y_,self%search_%metric,self%search_%p, &
+      self%weights,self%n_neighbors,0._dp,.false.,x,class_sizes)
+    allocate(prob(self%n_outputs_));first=1
+    do j=1,self%n_outputs_
+      last=first+class_sizes(j)-1
+      prob(j)%classes=self%classes_multi_(j)%values;prob(j)%values=flat(:,first:last);first=last+1
     end do
   end function
   function knc_predict(self,x) result(y)
-    class(kneighbors_classifier), intent(in) :: self
-    real(dp), intent(in) :: x(:,:)
-    integer :: y(size(x,1)),i
-    real(dp), allocatable :: prob(:,:)
-    prob=self%predict_proba(x)
-    do i=1,size(y)
-      y(i)=self%classes_(maxloc(prob(i,:),dim=1))
+    class(kneighbors_classifier),intent(in)::self
+    real(dp),optional,intent(in)::x(:,:)
+    integer,allocatable::y(:),matrix(:,:)
+    call require(.not.self%outputs_2d_,'joint neighbor labels require predict_matrix')
+    matrix=self%predict_matrix(x);y=matrix(:,1)
+  end function
+  function knc_predict_matrix(self,x)result(y)
+    class(kneighbors_classifier),intent(in)::self
+    real(dp),optional,intent(in)::x(:,:)
+    integer,allocatable::y(:,:),class_sizes(:)
+    real(dp),allocatable::codes(:,:)
+    integer::j
+    call require(allocated(self%y_matrix_),'kneighbors_classifier is not fitted')
+    class_sizes=[(size(self%classes_multi_(j)%values),j=1,self%n_outputs_)]
+    codes=regression_predict(self%search_%x_,self%encoded_y_,self%search_%metric,self%search_%p, &
+      self%weights,self%n_neighbors,0._dp,.false.,x,class_sizes,.true.)
+    allocate(y(size(codes,1),self%n_outputs_))
+    do j=1,self%n_outputs_
+      y(:,j)=self%classes_multi_(j)%values(int(codes(:,j)))
     end do
   end function
-  real(dp) function knc_score(self,x,y) result(v)
-    class(kneighbors_classifier), intent(in) :: self
-    real(dp), intent(in) :: x(:,:)
-    integer, intent(in) :: y(:)
-    v=accuracy_score(y,self%predict(x))
+  real(dp)function knc_score(self,x,y,sample_weight)result(v)
+    class(kneighbors_classifier),intent(in)::self
+    real(dp),optional,intent(in)::x(:,:),sample_weight(:)
+    integer,intent(in)::y(:)
+    v=accuracy_score(y,self%predict_matrix(x),sample_weight=sample_weight)
+  end function
+  real(dp)function knc_score_matrix(self,x,y,sample_weight)result(v)
+    class(kneighbors_classifier),intent(in)::self
+    real(dp),optional,intent(in)::x(:,:),sample_weight(:)
+    integer,intent(in)::y(:,:)
+    v=accuracy_score(y,self%predict_matrix(x),sample_weight=sample_weight)
   end function
   ! Regression prediction follows sklearn 1.6.1 neighbors/_regression.py and
   ! _base.py (BSD). Owned matrix targets and streaming adapters are native MIT.
@@ -289,20 +353,62 @@ contains
       value=value/denom
     end if
   end function
-  function regression_predict(training,targets,metric,p,weights,k,radius,by_radius,x)result(prediction)
+  function classification_reduce(codes,d,weights,class_sizes,mode)result(value)
+    real(dp),intent(in)::codes(:,:),d(:)
+    character(*),intent(in)::weights
+    integer,intent(in)::class_sizes(:)
+    logical,intent(in)::mode
+    real(dp),allocatable::value(:),votes(:)
+    real(dp)::w(size(d))
+    logical::infmask(size(d))
+    integer::i,j,c,first
+    w=1
+    if(weights=='distance')then
+      w=1/d;infmask=.not.ieee_is_finite(w).and..not.ieee_is_nan(w)
+      if(any(infmask))w=merge(1._dp,0._dp,infmask)
+    end if
+    call require(any(w/=0),'all neighbors have zero weights')
+    if(mode)then
+      allocate(value(size(class_sizes)))
+    else
+      allocate(value(sum(class_sizes)))
+    end if
+    first=1
+    do j=1,size(class_sizes)
+      allocate(votes(class_sizes(j)));votes=0
+      if(mode)then
+        ! weighted_mode reduces a masked row per class, separately from the
+        ! sequential additions used by predict_proba.
+        do c=1,class_sizes(j)
+          votes(c)=neighbor_sum(merge(w,0._dp,int(codes(:,j))==c))
+        end do
+        value(j)=real(maxloc(votes,dim=1),dp)
+      else
+        do i=1,size(d)
+          c=int(codes(i,j));votes(c)=votes(c)+w(i)
+        end do
+        value(first:first+class_sizes(j)-1)=votes/neighbor_sum(votes)
+        first=first+class_sizes(j)
+      end if
+      deallocate(votes)
+    end do
+  end function
+  function regression_predict(training,targets,metric,p,weights,k,radius,by_radius,x,class_sizes,vote_mode)result(prediction)
     real(dp),intent(in)::training(:,:),targets(:,:),p,radius
     character(*),intent(in)::metric,weights
     integer,intent(in)::k
     logical,intent(in)::by_radius
     real(dp),optional,intent(in)::x(:,:)
+    integer,optional,intent(in)::class_sizes(:)
+    logical,optional,intent(in)::vote_mode
     real(dp),allocatable::prediction(:,:),dist(:,:)
     integer,allocatable::order(:),ids(:)
     logical,allocatable::keep(:)
     type(pairwise_distance_iterator)::state
     type(distance_chunk)::chunk
     character(16)::kind
-    logical::self_query,available,modes(size(ieee_all)),flags(size(ieee_all))
-    integer::n,m,first,i,row,j,take,span,blockrow,trainrow,qrow,count_rows
+    logical::self_query,available,modes(size(ieee_all)),flags(size(ieee_all)),mode
+    integer::n,m,first,i,row,j,take,span,blockrow,trainrow,qrow,count_rows,outputs
     n=size(training,1);self_query=.not.present(x);m=n
     call require(weights=='uniform'.or.weights=='distance','unknown neighbor weights')
     if(present(x))then
@@ -321,7 +427,12 @@ contains
     end if
     call ieee_get_halting_mode(ieee_all,modes);call ieee_get_flag(ieee_all,flags)
     call ieee_set_halting_mode(ieee_all,.false.)
-    allocate(prediction(m,size(targets,2)))
+    mode=.false.;if(present(vote_mode))mode=vote_mode
+    outputs=size(targets,2)
+    if(present(class_sizes))then
+      if(.not.mode)outputs=sum(class_sizes)
+    end if
+    allocate(prediction(m,outputs))
     kind=metric
     if(kind=='minkowski')then
       if(p==1)kind='manhattan'
@@ -392,6 +503,8 @@ contains
         end if
         if(size(ids)==0)then
           prediction(row,:)=ieee_value(0._dp,ieee_quiet_nan)
+        else if(present(class_sizes))then
+          prediction(row,:)=classification_reduce(targets(ids,:),d(i,ids),weights,class_sizes,mode)
         else
           prediction(row,:)=regression_average(targets(ids,:),d(i,ids),weights,.not.by_radius)
         end if

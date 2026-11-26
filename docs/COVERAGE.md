@@ -87,7 +87,7 @@ tracked separately in [EXTENSIONS.md](EXTENSIONS.md) and excluded from the
 selective, clearly identified extensions while prioritizing core correctness.
 
 Global scope: dense real64 CPU arrays, integer classification labels, generally one target
-per sample; cross-decomposition, multi-task regression, joint MLP regression, KernelRidge, Dummy baselines and independent multioutput wrappers explicitly accept multiple response columns. General sparse estimator inputs, pandas integration, Python estimator cloning,
+per sample; cross-decomposition, multi-task regression, joint MLP and neighbor regression, joint KNN classification, KernelRidge, Dummy baselines and independent multioutput wrappers explicitly accept multiple response columns. General sparse estimator inputs, pandas integration, Python estimator cloning,
 metadata routing, parallel backends and binary model persistence are outside the
 initial translation. The neighbor graph transformers provide CSR graph outputs and
 accept CSR precomputed distances, as do Isomap and Barnes-Hut TSNE. Randomized TruncatedSVD and direct Multinomial/
@@ -13637,3 +13637,19 @@ matching input inventories and comparison results, and distinct checked and
 optimized reference executables. Artifacts remain ignored under
 `validation/results/neighbor_package_*`. Other historical reference suites
 were not rerun; the broader sklearn translation remains unfinished.
+
+## Joint KNN classification
+
+KNeighborsClassifier now fits integer matrix targets with one shared neighbor
+geometry and sorted class lists per output. Owned ragged probability helpers
+represent different output class counts. Vector and one-column fits retain
+scalar prediction/probability APIs; joint targets use explicit matrix/list
+helpers. Weighted class-wise mode reductions and sequential probability votes
+follow their separate Source contracts. Optional-X methods exclude each fitted
+row's own index, while explicit training queries retain it. Dense precomputed
+distances and the ten dense regression metric names share the existing
+8 MiB streaming geometry, with stable native cutoff ties. Weighted accuracy
+supports scalar targets and multi-label subset accuracy; general multiclass-
+multioutput scores receive the same rejection as installed sklearn. Frozen
+wrappers recognize joint fitted state; joint classification meta-estimator
+methods, sparse inputs, callable weights and tree backends are not added here.

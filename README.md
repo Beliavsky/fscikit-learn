@@ -749,3 +749,8 @@ R2 scoring, dense precomputed distances and self-excluding training queries.
 See [the API](docs/API.md#joint-neighbor-regression) and
 [example/neighbor_outputs.f90](example/neighbor_outputs.f90). Fixed-count
 distance ties can differ from scikit-learn's selected neighbors.
+
+KNN classification supports shared-search joint integer targets, per-output
+class probabilities, weighted subset accuracy and self-excluding queries. See
+[the API](docs/API.md#joint-knn-classification) and
+[example/neighbor_classification_outputs.f90](example/neighbor_classification_outputs.f90).

@@ -253,6 +253,37 @@ CSR input, tree backends and `metric_params` are not provided here. Fixed-count
 distance ties retain training order and can produce different outputs from
 scikit-learn's brute-force selection. See `example/neighbor_outputs.f90`.
 
+### Joint KNN classification
+
+`kneighbors_classifier%fit(x,y)` accepts integer vector or matrix targets and
+fits one shared search geometry. `predict_matrix(x)` returns
+`(n_query,n_outputs)`. `predict_proba_multioutput(x)` returns an owned array of
+`neighbor_probability` objects, each containing sorted `classes(:)` and
+`values(n_query,n_classes)`. Class counts may differ between output columns.
+The probability helper is also valid after vector fits. A one-column target
+matrix is treated as a scalar target, matching sklearn; `predict(x)` and
+`predict_proba(x)` remain available for either scalar spelling. Multiple target
+columns require the matrix/list helpers.
+
+Omitting `x` queries fitted rows with self exclusion, requiring
+`n_neighbors<n_samples`. Both target ranks support
+`score(x,y,sample_weight=...)` and `score(y=...)`. Accuracy uses the existing
+sklearn-compatible metric: multi-label indicator matrices receive subset
+accuracy; general multiclass-multioutput matrices are rejected by `score`,
+while fitting, prediction and probabilities remain supported.
+
+Fitted metadata includes `outputs_2d_`, `n_outputs_`, `n_features_in_`,
+`n_samples_fit_`, raw integer `y_matrix_` and `classes_multi_(j)%values`.
+Scalar fits additionally retain `y_` and `classes_`; joint refits clear these
+scalar arrays. Weighted prediction uses class-wise masked sums; probability
+prediction uses sequential neighbor votes followed by class normalization.
+Dense metrics, precomputed query shape, streaming and stable cutoff ties have
+the same limits as joint neighbor regression above. Callable weights, sparse
+inputs, tree backends and joint meta-estimator adapters are outside this
+increment. Frozen wrappers recognize joint fitted state; their existing
+scalar classification methods continue to require scalar targets. See
+`example/neighbor_classification_outputs.f90`.
+
 ## Bayesian and sparse regression
 
 `bayesian_ridge`, `ard_regression`, and `orthogonal_matching_pursuit` are in

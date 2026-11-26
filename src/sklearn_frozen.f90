@@ -123,6 +123,7 @@ contains
     class is(linear_regression);ok=allocated(model%coef_)
     type is(sgd_regressor);ok=allocated(model%coef_)
     type is(kneighbors_regressor);ok=allocated(model%y_matrix_)
+    type is(kneighbors_classifier);ok=allocated(model%y_matrix_)
     class is(decision_tree_regressor);ok=allocated(model%nodes_)
     type is(kernel_ridge);ok=allocated(model%dual_coef_)
     type is(dummy_regressor);ok=model%fitted_
