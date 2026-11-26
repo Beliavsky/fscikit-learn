@@ -7791,3 +7791,50 @@ intermittent crash is not declared repaired; the exact historical optimized
 KNN executable is separately preserved as
 `validation/results/fng_knc_original_optimized_driver.exe` with SHA256
 `41ba9b85f268e792234d3e749826ef10459da5f8a20d61ad3250566529d06153`.
+
+## Automatic functional graph dispatch and cutoffs
+
+Four new direct suites exercise actual installed sklearn/SciPy implementations:
+`compare_tree_partition.py` checks 6,240 partition/span/bound fields across
+1,560 constructors; `compare_neighbor_tree.py` checks 107,448 fields across
+1,320 tree configurations; `compare_neighbor_gram.py` checks 924 norm/GEMM fields
+across 308 configurations; and `compare_neighbor_graph_boundaries.py` checks
+10,692 fields across 1,188 raw/fitted dense/CSR radius graphs. All private runs
+pass. The constructor/query and Gram values compare exactly; graph boundaries
+retain the existing reader's unchanged tolerance. All new failed-field records
+are retained rather than certified or excluded.
+
+The complete unchanged functional graph grid passes 26,478 groups across
+3,972 configurations (2,942 successful calls and 1,030 matching rejections),
+resolving all 625 prior differences. The maximum scaled error is
+1.071741140819224e-16. Adjacent-cutoff probes initially retained 169 failed
+fields. Reduced-radius membership comparisons and Source BLAS accumulation
+resolve them at the same tolerances. The native tests cover partial storage
+order, tree heaps without ArgKmin merging, IEEE state and the actual Source
+nonzero diagonal rounding case.
+
+The functional reader's provenance advances from schema 1 to 2; its former
+native-brute description was outdated. The fresh actual-Source cache is
+`neighbor_tree_functional_cache.json`, SHA256
+`3cad745a6fd92b2478aa274ca3bc5cd77092500548910448f7ee751d16222654`.
+All 3,550 full-grid entries are identical to their old-cache counterparts; the
+old cache has 52 additional earlier smoke entries, preserved separately. The
+oracle-migration audit also verifies that the existing reader changed only its
+provenance literal. No expected values were replaced by native values.
+
+Exploratory BLAS probes with incorrect enum/output-order adapters are retained
+as invalid exploratory evidence. The final wrapper uses Source's exported
+BLAS_Trans constants and allocates output in the order selected by that wrapper.
+Its corrected comparisons exposed eight wide-feature GEMM fields requiring
+Source depth blocking; the final expanded suite passes all 924 fields exactly.
+The norm/middle-term oracles call actual sklearn BLAS wrappers, and record
+loaded BLAS/OpenMP binary hashes and versions. No BLAS runtime is linked into
+the Fortran package; upstream BSD/Apache notices remain retained.
+
+The checked fpm rebuild succeeds, with all 27 selected native tests and three
+examples passing. Full 50-job checked verification and the optimized rebuild
+and verification are still running. The planned per-profile fingerprint scope
+is 241 units (197 library units and 44 programs). Current logs, outcomes,
+manifests, cache migration evidence and initial/final reports remain ignored
+under `validation/results/neighbor_tree_*`. This increment does not declare the
+historical native crash repaired.
