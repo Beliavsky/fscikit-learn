@@ -145,6 +145,38 @@ Fortran identifiers use snake_case rather than CamelCase.
 | calibration | `calibrated_classifier_cv`; `calibration_curve` | Sigmoid/isotonic CV ensembles, out-of-fold calibration and prefit calibration with logistic, Gaussian NB or KNN bases; uniform/quantile reliability bins |
 | datasets | `make_classification`, `make_multilabel_classification`, `make_sparse_coded_signal`, `make_sparse_spd_matrix`, `make_biclusters`, `make_checkerboard`, `make_hastie_10_2`, `make_blobs`, `make_regression`, `make_low_rank_matrix`, `make_moons`, `make_circles`, `make_friedman1/2/3`, `make_sparse_uncorrelated`, `make_s_curve`, `make_swiss_roll`, `make_gaussian_quantiles` | Native synthetic generators with seeded legacy NumPy draws; scalar/joint regression, low-rank profiles, unequal blob/curve counts, per-cluster blob scales and center outputs; no bundled real-world datasets |
 
+## Typed feature budgets for trees and forests
+
+CART, ExtraTree, random-forest and ExtraTrees classifiers/regressors support
+`set_max_features(integer/real(dp)/character)`: positive counts, finite fractions
+in `(0,1]`, `sqrt`, `log2`, and `none` (Python None). Fractions truncate the
+product with input width and retain at least one feature. Integer budgets may
+exceed the input width, matching sklearn; learned `max_features_` retains the
+requested budget while the splitter visits available features. Integer zero
+restores each type's existing native default; named None explicitly chooses all
+features. Typed search, cloning, pruning paths and retained warm prefixes preserve
+the controls. This adds no estimator type or extension algorithm.
+
+Implementation `09ab61c` passes 704 regression/528 classification direct-tree
+cases and 1,536 regression/1,152 classification warm-forest checkpoints against
+actual sklearn 1.6.1. Comparisons include learned budgets, complete component
+trees, pruning paths, predictions/probabilities, seeds, sample indices,
+importances and OOB state. Cases distinguish integer/real one, default/None,
+adjacent fractions, tiny budgets, sqrt/log2, constant columns and oversized
+integer budgets across all supported criteria and scalar/joint targets.
+An additional 48 three/eight-feature clone/search fixtures cover all eight types,
+and 72 guards require failures for invalid counts, fractions and names.
+
+These checks pass with checked builds and fresh optimized feature-resolution,
+tree, ensemble, selection and search-adapter objects using matching unchanged
+checked dependencies. Both use the documented validation-only Windows locale
+workaround. The full checked rebuild, all 297 native tests and ten examples pass.
+Original 736 regression/642 classification tree and 4,320 warm-forest inputs and
+Source oracles remain unchanged. Previous fractional-bootstrap, cold-forest,
+guard and 192 core comparisons pass as well. The local audit records 330 passing
+jobs and 846 compiled fingerprints, including 202 library units, under
+`validation/results/feature_controls_*`. MIT and retained BSD notices are unchanged.
+
 ## Warm-start random forests and ExtraTrees
 
 All four types additionally accept fractional bootstrap counts through
@@ -4217,9 +4249,10 @@ xorshift feature selection. Training features must be finite and within
 float32 range. Queries may contain NaNs: each missing feature follows the
 larger active-row child, with ties going right, matching a source tree trained
 without missing values. Query infinities and float32 overflow are rejected.
-NaN training, sparse input, pruning, monotonic constraints, fractional feature
-counts, alternate regression criteria, and multioutput single-tree fitting
-remain outside this subset. Native max_depth=0 retains its existing root-only
+NaN training, sparse input and monotonic constraints remain outside this subset.
+Pruning, fractional/named feature budgets, additional regression criteria and
+joint targets are described in their sections above.
+Native max_depth=0 retains its existing root-only
 meaning; sklearn requires a positive depth.
 
 DecisionTree fitting without weights uses unit weights in the same source-based

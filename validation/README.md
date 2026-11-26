@@ -1,5 +1,31 @@
 # Validation
 
+Typed tree/forest feature budgets (implementation `09ab61c`, 2026-11-26):
+`compare_joint_trees.py --features` and `compare_joint_classification.py --features`
+use their existing direct-tree drivers with appended learned-budget output.
+`compare_forest_warm_start.py --features --kind regression/classification` uses
+the corresponding warm driver. Supply `--executable PATH --report PATH` to each.
+`compare_feature_clones.py` uses `reference_feature_clone_driver`, and
+`check_feature_controls.py` uses `reference_feature_invalid_driver` with the same
+executable/report options. Shared fixtures are in `sklearn_feature_fixtures.py`.
+
+Checked and scoped optimized runs pass 704 regression/528 classification tree
+cases, 1,536 regression/1,152 classification forest checkpoints, 48 mixed-type
+clone/search cases and 72 input checks. The eight-feature clone cases distinguish
+sqrt from log2. All invalid-input diagnostics identify max_features. The optimized
+scope uses fresh resolver/tree/ensemble/selection/search objects and matching
+unchanged checked dependencies. Both profiles use the optional static-libgfortran
+locale-copy workaround; unprotected runtime stability is not established.
+
+The full checked fpm build, all 297 native tests and ten examples pass, together
+with the original warm/fractional-bootstrap/cold-forest/tree grids, four legacy
+guard grids and 192 core comparisons. Original 736 regression/642 classification
+tree and 4,320 warm-forest inputs and Source oracles are unchanged. Final audit
+results retain 330 successful jobs, 846 compiled fingerprints (202 library units),
+Source/binary hashes and matching optimized oracles under ignored
+`validation/results/feature_controls_*`. Integer fields remain exact and numeric
+rtol/atol remain 2e-10 / 2e-12.
+
 Fractional forest bootstrap checks use the existing warm-state drivers:
 
 ```text

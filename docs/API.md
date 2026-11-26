@@ -8160,8 +8160,7 @@ weights retain source NaN/Inf prediction behavior; score requires finite
 predictions/targets and a nonzero score-weight sum. Fitting weights and their
 bootstrap-multiplied values must be finite. Query NaNs use each component's
 finite-training missing-value routing, except absolute-error models reject
-query NaNs as sklearn does. Training NaNs, sparse inputs,
-fractional max_features and monotonic constraints
+query NaNs as sklearn does. Training NaNs, sparse inputs and monotonic constraints
 remain outside this interface. Matrix targets and OOB scores are supported
 as described under joint regression forests above.
 
@@ -8235,8 +8234,8 @@ class/bootstrap-multiplied weights must be finite. Score weights need nonzero
 total mass.
 
 Queries may contain NaNs after finite training, using component-tree routing.
-Training NaNs, sparse inputs, fractional feature controls,
-monotonic constraints remain unsupported. Joint targets, warm starts and OOB
+Training NaNs, sparse inputs and monotonic constraints remain unsupported.
+Joint targets, warm starts and OOB
 estimates are described under joint classification forests above.
 Parameter search accepts criterion, class_weight,
 max_samples and min_impurity_decrease, and forwards fitting weights.
