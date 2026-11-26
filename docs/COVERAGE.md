@@ -13994,5 +13994,9 @@ radius-boundary and KNN-classification comparisons. All 55 checked verification
 jobs now pass. The checked audit validates 246 compiled fingerprints (198
 library units and 48 programs), selected binary/source hashes, original
 comparison inventories and every retained oracle-cache entry. Both rebuilds
-pass; optimized verification is still running. Implementation is committed as
-fdb0edf. Evidence is ignored under `validation/results/ball_graphs_*`.
+pass. All 55 verification jobs pass in each profile (110 total), and the
+combined audit validates 246 compiled fingerprints per profile, selected
+binary/source hashes, retained oracle entries and matching comparison summaries.
+Implementation is committed as fdb0edf. Evidence is ignored under
+`validation/results/ball_graphs_*`. The historical intermittent native crash
+remains unresolved.

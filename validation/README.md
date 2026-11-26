@@ -7898,6 +7898,8 @@ NaN-ordering arrays also pass. Original selection, partition, tree, norm/GEMM,
 radius-boundary and KNN-classification comparisons pass. All 55 checked
 verification jobs now pass. The checked audit validates 246 compiled fingerprints
 (198 library units and 48 programs), selected binary/source hashes, unchanged
-original inventories and retained oracle-cache entries. Both builds pass;
-optimized verification is still running. Implementation is committed as fdb0edf.
-The historical intermittent native crash remains unresolved.
+original inventories and retained oracle-cache entries. Both builds and all
+55 verification jobs per profile pass (110 total). The combined audit validates
+246 compiled fingerprints per profile, selected source/binary hashes, retained
+oracle entries and matching comparison summaries. Implementation is committed
+as fdb0edf. The historical intermittent native crash remains unresolved.
