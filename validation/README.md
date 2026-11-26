@@ -7569,3 +7569,27 @@ shared outputs, differing class counts, self exclusion, zero-distance weights,
 precomputed geometry, IEEE state, scalar refits and weighted subset accuracy.
 The frozen test checks borrowed fitted-state detection and scalar refits; its
 scalar prediction APIs do not gain joint classification adapters.
+
+Both checked and optimized builds pass all 8,660 regular-point groups across
+1,120 fits, including 240 prediction and 220 score rejections. Maximum scaled
+probability error is 6.427874999854559e-16; labels and metadata match exactly.
+Each full report retains 17,320 groups across 2,240 fits, with 480 prediction
+and 440 score rejections. There are 383 failed fields across 162 duplicate-point
+configurations: matrix labels 91, vector labels 37, joint probabilities 162,
+scalar probabilities 70 and accuracy 23. The 16,937 remaining groups pass.
+Maximum scaled label/probability/accuracy errors are respectively
+3.3333333333333335, .3333333333333333 and .16967509025270755. The failures are
+material tie-selection differences and remain failures in default strict mode.
+
+Both full fpm builds succeed. Each profile passes 21 selected native tests,
+the example, all 21 classification and 29 retained regression input checks,
+120 legacy graph/neighbor comparisons and 192 core comparisons. The complete
+5,280-fit regression grid retains the preceding increment's identical 492
+failed fields across 23,088 groups. The checked profile completes 30 jobs with
+expected outcomes, including a deliberately failing full strict comparison;
+optimized verification completes 29 jobs. The audit verifies 220 compiled-unit
+fingerprints per profile, current source/validator/API/attribution manifests,
+matching Source caches and inputs, identical classification failure records,
+and distinct executables. Artifacts remain ignored under
+`validation/results/knc_package_*`. MIT licensing and dependency declarations
+are unchanged; the existing third-party notices are retained.

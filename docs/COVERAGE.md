@@ -13653,3 +13653,40 @@ supports scalar targets and multi-label subset accuracy; general multiclass-
 multioutput scores receive the same rejection as installed sklearn. Frozen
 wrappers recognize joint fitted state; joint classification meta-estimator
 methods, sparse inputs, callable weights and tree backends are not added here.
+
+Both checked and optimized profiles pass 8,660 groups across 1,120 regular-point fits,
+including 240 matching prediction rejections and 220 matching score rejections.
+All label/metadata comparisons are exact; maximum scaled probability error is
+6.427874999854559e-16 at unchanged 3e-8 absolute/relative tolerances. Native
+tests also check IEEE state, differing class counts, self exclusion,
+precomputed distances, zero-distance voting and vector/column/joint refits.
+
+The full grid retains 2,240 fits and 17,320 comparison groups, with 480 Source
+prediction rejections and 440 Source score rejections. It preserves 383 failed
+fields across 162 duplicate-point configurations: 91 matrix label fields,
+37 vector label fields, 162 joint probability fields, 70 scalar probability
+fields and 23 accuracy scores. Thus 16,937 groups pass. Class lists, class
+counts, raw targets and fitted metadata pass throughout. Maximum scaled label
+error is 3.3333333333333335, probability error .3333333333333333 and accuracy
+error .16967509025270755. These are material changes in selected tied labels;
+full numerical parity is not claimed. Default strict execution retains these
+failures, with no case deletion, conditioned expectations or tolerance changes.
+
+Both full fpm builds succeed. Each profile passes 21 selected native tests,
+the public example, 19 actual Source input rejections plus two native rank
+contracts, 120 retained graph/neighbor comparisons and 192 core comparisons.
+The checked profile completes 30 verification jobs with expected outcomes,
+including the deliberately failing default strict comparison; optimized
+verification completes 29 jobs without repeating that validator-mode check.
+Each also reruns all 29 regression input checks and the complete 5,280-fit,
+23,088-group neighbor-regression grid. Its 492 tied-output failures, inventories,
+numeric values and maximum errors remain identical to the preceding increment.
+
+The final audit verifies 220 dependency-aware compiled fingerprints per profile
+(192 library units and 28 programs), current source/validator/API/attribution
+manifests, Source cache provenance, identical classification inventories and
+failed-field records, and distinct checked/optimized executables. Regular-grid
+maximum errors also agree. A private compile probe verifies the ordinary
+`kneighbors_classifier(n_neighbors=3)` constructor remains usable. Other
+historical reference suites were not rerun. Artifacts remain ignored under
+`validation/results/knc_package_*`; the broader translation remains unfinished.
