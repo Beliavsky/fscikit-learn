@@ -243,6 +243,48 @@ K-means supports `call clusters%fit(x,init_centers)` for explicit initial center
 with shape `(n_clusters,n_features)`. It then performs one initialization run.
 Cluster IDs are zero-based, including agglomerative output; DBSCAN noise is `-1`.
 
+## DBSCAN
+
+`dbscan` is exported by `sklearn`, `sklearn_cluster` and `sklearn_dbscan`.
+`fit(x,sample_weight)` and `fit_predict(x,sample_weight)` accept dense real64
+or `csr_matrix` inputs. Weights are optional finite signed values: neighborhood
+weight sums determine core membership, so negative weights can suppress cores
+and a sufficiently heavy isolated sample can form a cluster.
+
+```fortran
+type(dbscan) :: model
+integer, allocatable :: labels(:)
+model%eps=.3_dp
+model%min_samples=3
+model%algorithm='auto'
+labels=model%fit_predict(x,sample_weight=weights)
+```
+
+Controls include `eps`, `min_samples`, `metric`, `p`, `algorithm` and
+`leaf_size`. Dense searches use the NearestNeighbors engine, including its
+automatic, brute, KDTree and BallTree routes and documented named metrics.
+CSR inputs use brute search; supported effective metrics are Euclidean,
+Manhattan, cosine and precomputed distances, including applicable aliases and
+Minkowski powers one/two. Sparse precomputed missing edges remain missing;
+explicit diagonal distances are inserted on an owned copy as in sklearn.
+Stored off-diagonal duplicates are preserved unless duplicate diagonal entries
+trigger SciPy's whole-matrix canonicalization.
+
+Expansion follows Source's depth-first stack order. `labels_` contains zero-based
+cluster IDs or noise `-1`; `core_sample_indices_` contains one-based row indices.
+`n_features_in_` records the input width, and `fit_method_` is a native backend
+diagnostic. Dense core rows are owned by `components_`. For CSR fits with cores,
+`components_csr_` is allocated and `components_` is unallocated. With no cores,
+Source returns a dense empty matrix even for sparse input; `components_` then
+has shape `(0,n_features)` and `components_csr_` is unallocated. Refitting clears
+the previous storage variant.
+
+Dense cosine fits preserve Source's aliased self-distance convention; CSR
+cosine fits preserve the distinct training-copy convention. In particular,
+zero-row diagonal behavior can differ between those storage forms. Callback
+metrics, arbitrary `metric_params` dictionaries and parallel jobs remain outside
+this typed interface. See `example/weighted_dbscan.f90`.
+
 ## Text features
 
 ```fortran

@@ -20,6 +20,7 @@ See the [fpm 0.14 release notes](https://github.com/fortran-lang/fpm/releases/ta
 fpm build
 fpm test
 fpm run --example histogram_boosting
+fpm run --example weighted_dbscan
 fpm run --example coordinate_descent_nmf
 fpm run --example omp_paths
 fpm run --example coordinate_paths

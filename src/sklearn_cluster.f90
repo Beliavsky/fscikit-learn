@@ -1,4 +1,5 @@
 module sklearn_cluster
+  use sklearn_dbscan,only:dbscan
   use sklearn_kmeans_core,only:k_means,kmeans_result,kmeans_labels,kmeans_distances,kmeans_inertia
   use sklearn_hierarchy,only:ward_tree,linkage_tree,hierarchy_result
   use sklearn_sparse,only:csr_matrix
@@ -77,16 +78,6 @@ module sklearn_cluster
     generic::fit_transform=>fit_transform_dense,fit_transform_sparse
     procedure,private::score_dense=>kmeans_score,score_sparse=>kmeans_score_sparse
     generic::score=>score_dense,score_sparse
-  end type
-  type :: dbscan
-    real(dp) :: eps=0.5_dp
-    integer :: min_samples=5
-    character(16) :: metric='euclidean'
-    integer, allocatable :: labels_(:),core_sample_indices_(:)
-    real(dp), allocatable :: components_(:,:)
-  contains
-    procedure :: fit=>dbscan_fit
-    procedure :: fit_predict=>dbscan_fit_predict
   end type
   type :: agglomerative_clustering
     integer :: n_clusters=2,n_clusters_=0,n_features_in_=0,n_leaves_=0,n_connected_components_=0
@@ -632,42 +623,6 @@ contains
     real(dp),optional,intent(in)::sample_weight(:)
     call require(allocated(self%cluster_centers_),'kmeans is not fitted')
     value=-kmeans_inertia(x,self%cluster_centers_,sample_weight)
-  end function
-  subroutine dbscan_fit(self,x)
-    class(dbscan), intent(inout) :: self
-    real(dp), intent(in) :: x(:,:)
-    logical, allocatable :: adjacent(:,:),core(:),queued(:)
-    integer :: n,i,j,c,head,tail,item
-    integer, allocatable :: queue(:)
-    call check_x(x); n=size(x,1)
-    call require(self%eps>0.and.self%min_samples>0,'invalid DBSCAN controls')
-    adjacent=pairwise_distances(x,x,self%metric)<=self%eps
-    core=count(adjacent,dim=2)>=self%min_samples
-    self%labels_=spread(-1,1,n); allocate(queue(n),queued(n)); c=0
-    do i=1,n
-      if(self%labels_(i)/=-1.or..not.core(i)) cycle
-      head=1; tail=1; queue(1)=i; queued=.false.; queued(i)=.true.
-      do while(head<=tail)
-        item=queue(head); head=head+1
-        if(self%labels_(item)/=-1) cycle
-        self%labels_(item)=c
-        if(.not.core(item)) cycle
-        do j=1,n
-          if(adjacent(item,j).and..not.queued(j).and.self%labels_(j)==-1) then
-            tail=tail+1; queue(tail)=j; queued(j)=.true.
-          end if
-        end do
-      end do
-      c=c+1
-    end do
-    self%core_sample_indices_=pack([(i,i=1,n)],core)
-    self%components_=x(self%core_sample_indices_,:)
-  end subroutine
-  function dbscan_fit_predict(self,x) result(labels)
-    class(dbscan), intent(inout) :: self
-    real(dp), intent(in) :: x(:,:)
-    integer :: labels(size(x,1))
-    call self%fit(x); labels=self%labels_
   end function
   subroutine agg_fit(self,x)
     class(agglomerative_clustering),intent(inout)::self

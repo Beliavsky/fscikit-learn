@@ -28,6 +28,14 @@ python validation/check_invalid_inputs.py
 ```
 
 The reference validator requires NumPy, SciPy and scikit-learn in Python.
+
+Weighted dense/CSR DBSCAN is checked with `compare_dbscan.py` (2,331 actual
+Source cases) and `check_dbscan_invalid_inputs.py` (19 constructor/input checks).
+Both take `--executable <driver.exe>` and `--report <report.json>`; build
+`reference_dbscan_driver` and `reference_dbscan_invalid_driver`, respectively.
+The numerical grid compares exact labels/core rows and CSR structure, with
+2e-12 tolerances for component values. Dense versus CSR cosine self-identity,
+negative weights and sparse precomputed duplicate diagonals are included.
 compare_lda.py and compare_discriminant_auto.py additionally require mpmath for high-precision certificates
 (`python -m pip install mpmath`). The
 Fortran package itself does not. It generates three seeded 80-by-5 datasets,

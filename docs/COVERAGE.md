@@ -91,7 +91,7 @@ per sample; cross-decomposition, multi-task regression, joint MLP and neighbor r
 metadata routing, parallel backends and binary model persistence are outside the
 initial translation. The neighbor graph transformers provide CSR graph outputs and
 accept CSR precomputed distances, as do Isomap and Barnes-Hut TSNE. Randomized TruncatedSVD and direct Multinomial/
-Bernoulli/Complement Naive Bayes, SGD and MLP regression/classification, random projections, RBFSampler, Nystroem, AdditiveChi2Sampler, PolynomialCountSketch, StandardScaler, MaxAbsScaler, RobustScaler, QuantileTransformer, SimpleImputer, Normalizer/Binarizer and PolynomialFeatures also accept CSR matrices. KernelRidge (within its documented kernel limits) and Dummy baselines also accept CSR feature inputs. Weighted Lloyd and Elkan KMeans also accept CSR fitting and query inputs. Other estimator and
+Bernoulli/Complement Naive Bayes, SGD and MLP regression/classification, random projections, RBFSampler, Nystroem, AdditiveChi2Sampler, PolynomialCountSketch, StandardScaler, MaxAbsScaler, RobustScaler, QuantileTransformer, SimpleImputer, Normalizer/Binarizer and PolynomialFeatures also accept CSR matrices. KernelRidge (within its documented kernel limits) and Dummy baselines also accept CSR feature inputs. Weighted Lloyd and Elkan KMeans accept CSR fitting and query inputs; DBSCAN accepts CSR features and precomputed distances. Other estimator and
 meta-estimator inputs remain dense.
 Fortran identifiers use snake_case rather than CamelCase.
 
@@ -144,6 +144,27 @@ Fortran identifiers use snake_case rather than CamelCase.
 | covariance | `empirical_covariance`, `shrunk_covariance`, `ledoit_wolf`, `oas`, `graphical_lasso`, `graphical_lasso_cv`, `min_cov_det`, `elliptic_envelope`; `fast_mcd`, `ledoit_wolf_shrinkage`, `log_likelihood` | Array covariance functions and square-matrix batches through rank 15; blocked Ledoit-Wolf moments; population covariance, pseudoinverse precision, squared Mahalanobis distance, likelihood, Frobenius/spectral covariance error; L1-penalized sparse precision via CD or LARS block solves and refined cross-validation; FastMCD robust covariance and elliptic outlier detection |
 | calibration | `calibrated_classifier_cv`; `calibration_curve` | Sigmoid/isotonic CV ensembles, out-of-fold calibration and prefit calibration with logistic, Gaussian NB or KNN bases; uniform/quantile reliability bins |
 | datasets | `make_classification`, `make_multilabel_classification`, `make_sparse_coded_signal`, `make_sparse_spd_matrix`, `make_biclusters`, `make_checkerboard`, `make_hastie_10_2`, `make_blobs`, `make_regression`, `make_low_rank_matrix`, `make_moons`, `make_circles`, `make_friedman1/2/3`, `make_sparse_uncorrelated`, `make_s_curve`, `make_swiss_roll`, `make_gaussian_quantiles` | Native synthetic generators with seeded legacy NumPy draws; scalar/joint regression, low-rank profiles, unequal blob/curve counts, per-cluster blob scales and center outputs; no bundled real-world datasets |
+
+## Weighted dense and sparse DBSCAN
+
+DBSCAN now uses the existing neighbor-search engine for dense input, including
+automatic, brute, KDTree and BallTree routes. Dense/CSR fitting and fit_predict
+accept signed sample weights; precomputed sparse distances retain absent-edge
+semantics and Source diagonal insertion/canonicalization. Expansion follows the
+Source depth-first stack. Core components retain their dense/CSR storage variant,
+including Source's dense empty result after a sparse fit with no cores.
+
+The 2,331-case actual sklearn 1.6.1 grid passes: 1,043 accepted fits and 1,288
+matching rejections. Labels, one-based core row indices and CSR structure match
+exactly; component values use unchanged 2e-12 tolerances. The grid includes
+all four algorithms, wide/low-dimensional data, four weight patterns, canonical,
+unsorted, duplicate and explicit-zero CSR storage, and duplicate/partial
+precomputed diagonals. Initial probes retained 312 differences; correcting
+dense/CSR cosine identity, tree validation and component storage resolves them.
+Final optimized module replays and all 19 constructor/input guards pass. The
+public checked unit test and 192 core reference comparisons also pass. Full
+checked package verification is in progress. This extends the existing DBSCAN
+counterpart and does not add a type or an extension algorithm.
 
 ## Metrics and kernels
 
