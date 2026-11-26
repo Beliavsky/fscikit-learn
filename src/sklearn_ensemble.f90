@@ -1,6 +1,7 @@
 module sklearn_ensemble
   use sklearn_sparse, only: csr_matrix
   use sklearn_class_weight, only: class_weight_map,compute_sample_weight
+  use sklearn_label_binarization,only:label_set
   use sklearn_legacy_rng, only: legacy_random_state
   use sklearn_ieee_math, only: ieee_difference,ieee_product,ieee_quotient,ieee_total,ieee_mean,ieee_argmax
   use sklearn_hist_gradient_boosting, only: hist_gradient_boosting_regressor,hist_gradient_boosting_classifier
@@ -55,27 +56,42 @@ module sklearn_ensemble
     integer :: n_estimators=100,max_depth=100,min_samples_leaf=1,min_samples_split=2
     integer :: max_features=0,random_state=0
     integer :: max_leaf_nodes=0
-    integer :: max_samples=0,n_features_in_=0,n_classes_=0
+    integer :: max_samples=0,n_features_in_=0,n_classes_=0,n_outputs_=1
+    integer,private::n_samples_fit_=0,n_samples_bootstrap_=0
+    integer,allocatable::n_classes_multi_(:)
+    type(label_set),allocatable::classes_multi_(:)
     character(16) :: criterion='gini'
     character(20) :: class_weight='none'
     type(class_weight_map), allocatable :: class_weight_values
+    type(class_weight_map),allocatable::class_weight_values_multi(:)
     real(dp) :: min_impurity_decrease=0,ccp_alpha=0,min_weight_fraction_leaf=0
     logical :: bootstrap=.true.,random_thresholds=.false.
+    logical::oob_score=.false.
+    logical,private::bootstrap_set_=.false.
+    real(dp)::oob_score_=0
+    real(dp),allocatable::oob_decision_function_(:,:)
+    type(tree_probability),allocatable::oob_decision_function_multi_(:)
+    integer,allocatable::oob_counts_(:)
     integer, allocatable :: classes_(:)
     type(decision_tree_classifier), allocatable :: estimators_(:)
     real(dp), allocatable :: feature_importances_(:)
   contains
-    procedure :: fit=>forest_classifier_fit
+    procedure,private::fit_single=>forest_classifier_fit,fit_multi=>forest_classifier_fit_multi
+    generic::fit=>fit_single,fit_multi
     procedure :: decision_path=>forest_classifier_path
     procedure :: apply=>forest_classifier_apply
     procedure :: predict_log_proba=>forest_log_proba
     procedure :: predict_proba=>forest_proba
     procedure :: predict=>forest_classifier_predict
-    procedure :: score=>forest_classifier_score
+    procedure,private::score_single=>forest_classifier_score,score_multi=>forest_classifier_score_multi
+    generic::score=>score_single,score_multi
+    procedure::predict_multi=>forest_classifier_predict_multi
+    procedure::predict_proba_multi=>forest_proba_multi,predict_log_proba_multi=>forest_log_proba_multi
+    procedure::set_bootstrap=>forest_classifier_set_bootstrap,estimators_samples=>forest_classifier_samples
   end type
   type, extends(random_forest_classifier) :: extra_trees_classifier
   contains
-    procedure :: fit=>extra_classifier_fit
+    procedure,private::fit_single=>extra_classifier_fit,fit_multi=>extra_classifier_fit_multi
   end type
   type :: random_forest_regressor
     integer :: n_estimators=100,max_depth=100,min_samples_leaf=1,min_samples_split=2
@@ -121,42 +137,84 @@ module sklearn_ensemble
   end type
 contains
   subroutine forest_classifier_fit(self,x,y,sample_weight)
+    class(random_forest_classifier),intent(inout)::self
+    real(dp),intent(in)::x(:,:)
+    integer,intent(in)::y(:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    call forest_classifier_fit_body(self,x,reshape(y,[size(y),1]),sample_weight)
+  end subroutine
+  subroutine forest_classifier_fit_multi(self,x,y,sample_weight)
+    class(random_forest_classifier),intent(inout)::self
+    real(dp),intent(in)::x(:,:)
+    integer,intent(in)::y(:,:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    call forest_classifier_fit_body(self,x,y,sample_weight)
+  end subroutine
+  subroutine forest_classifier_fit_body(self,x,y,sample_weight)
     class(random_forest_classifier), intent(inout) :: self
     real(dp), intent(in) :: x(:,:)
-    integer, intent(in) :: y(:)
+    integer, intent(in) :: y(:,:)
     real(dp), optional, intent(in) :: sample_weight(:)
     type(legacy_random_state) :: seeds,draws
-    real(dp) :: w(size(y)),tree_weights(size(y)),normalizer
+    real(dp) :: w(size(y,1)),tree_weights(size(y,1)),normalizer
     real(dp), allocatable :: factors(:)
-    integer :: i,j,n,p,features,seed,ns,nontrivial,at,counts(size(y)),encoded(size(y))
-    integer, allocatable :: indices(:)
-    call check_xy(x,size(y));call require(self%n_estimators>0,'forest needs positive n_estimators')
-    call require(self%max_samples>=0.and.self%max_samples<=size(y),'invalid forest max_samples')
+    integer :: i,j,k,c,n,p,q,features,seed,ns,nontrivial,at,counts(size(y,1)),encoded(size(y,1),size(y,2))
+    integer, allocatable :: indices(:),unsampled(:),oob_labels(:,:)
+    type(tree_probability),allocatable::oob(:),prob(:)
+    real(dp),allocatable::query(:,:)
+    call check_xy(x,size(y,1));call require(self%n_estimators>0,'forest needs positive n_estimators')
+    call require(self%max_samples>=0.and.self%max_samples<=size(y,1),'invalid forest max_samples')
     call require(self%bootstrap.or.self%max_samples==0,'forest max_samples requires bootstrap')
     call require(any(self%class_weight==[character(20)::'none','balanced','balanced_subsample']),'invalid forest class weight mode')
     call require(.not.(allocated(self%class_weight_values).and.self%class_weight/='none'), &
       'forest class weight map conflicts with preset')
+    q=size(y,2);call require(q>0,'forest targets require at least one output')
+    call require(self%bootstrap.or..not.self%oob_score,'forest OOB scoring requires bootstrap')
+    call require(.not.(allocated(self%class_weight_values).and.allocated(self%class_weight_values_multi)), &
+      'forest scalar and per-output class weight maps conflict')
+    call require(.not.(allocated(self%class_weight_values_multi).and.self%class_weight/='none'), &
+      'forest per-output class weight maps conflict with preset')
+    if(allocated(self%class_weight_values))call require(q==1,'joint forest class weights require per-output maps')
+    if(allocated(self%classes_multi_))deallocate(self%classes_multi_,self%n_classes_multi_)
+    allocate(self%classes_multi_(q),self%n_classes_multi_(q));self%n_outputs_=q
+    do k=1,q
+      self%classes_multi_(k)%values=unique_labels(y(:,k));self%n_classes_multi_(k)=size(self%classes_multi_(k)%values)
+      do j=1,size(y,1);encoded(j,k)=label_index(self%classes_multi_(k)%values,y(j,k))-1;end do
+    end do
+    self%classes_=self%classes_multi_(1)%values;self%n_classes_=self%n_classes_multi_(1)
+    self%oob_score_=0
+    if(allocated(self%oob_decision_function_))deallocate(self%oob_decision_function_)
+    if(allocated(self%oob_decision_function_multi_))deallocate(self%oob_decision_function_multi_)
+    if(allocated(self%oob_counts_))deallocate(self%oob_counts_)
+    if(self%oob_score.and.q>1)then
+      call require(all(self%n_classes_multi_<=2),'multiclass-multioutput forest OOB scoring is unsupported')
+      call require(all(self%n_classes_multi_==self%n_classes_),'forest OOB class widths must agree')
+    end if
     w=1
     if(present(sample_weight)) then
-      call require(size(sample_weight)==size(y),'forest sample weight length mismatch')
+      call require(size(sample_weight)==size(y,1),'forest sample weight length mismatch')
       call require(all(ieee_is_finite(sample_weight)),'forest sample weights must be finite')
       w=sample_weight
     end if
     if(allocated(self%class_weight_values)) then
-      factors=compute_sample_weight(y,class_weight=self%class_weight_values)
+      factors=compute_sample_weight(y(:,1),class_weight=self%class_weight_values)
+    else if(allocated(self%class_weight_values_multi)) then
+      factors=compute_sample_weight(y,class_weight=self%class_weight_values_multi)
     else if(self%class_weight=='balanced'.or.(self%class_weight=='balanced_subsample'.and..not.self%bootstrap)) then
       factors=compute_sample_weight(y,mode='balanced')
     end if
     if(allocated(factors)) then
-      do j=1,size(y)
+      do j=1,size(y,1)
         w(j)=ieee_product(w(j),factors(j))
       end do
     end if
-    n=size(y);p=size(x,2);self%classes_=unique_labels(y);self%n_classes_=size(self%classes_);self%n_features_in_=p
-    do j=1,n
-      encoded(j)=label_index(self%classes_,y(j))-1
-    end do
+    n=size(y,1);p=size(x,2);self%n_features_in_=p
     ns=n;if(self%max_samples>0) ns=self%max_samples
+    self%n_samples_fit_=n;self%n_samples_bootstrap_=ns
+    if(self%oob_score)then
+      allocate(oob(q),self%oob_counts_(n));self%oob_counts_=0
+      do k=1,q;allocate(oob(k)%values(n,self%n_classes_multi_(k)));oob(k)%values=0;end do
+    end if
     allocate(indices(ns));call seeds%seed(self%random_state)
     features=self%max_features;if(features==0) features=max(1,int(sqrt(real(p,dp))))
     if(allocated(self%estimators_)) deallocate(self%estimators_)
@@ -189,7 +247,25 @@ contains
       self%estimators_(i)%min_impurity_decrease=self%min_impurity_decrease
       self%estimators_(i)%random_thresholds=self%random_thresholds
       self%estimators_(i)%random_state=seed
-      call self%estimators_(i)%fit(x,encoded,sample_weight=tree_weights)
+      if(q==1)then
+        call self%estimators_(i)%fit(x,encoded(:,1),sample_weight=tree_weights)
+      else
+        call self%estimators_(i)%fit(x,encoded,sample_weight=tree_weights)
+      end if
+      if(self%oob_score)then
+        unsampled=pack([(j,j=1,n)],counts==0)
+        if(size(unsampled)>0)then
+          query=x(unsampled,:);prob=self%estimators_(i)%predict_proba_multi(query)
+          do j=1,size(unsampled)
+            at=unsampled(j);self%oob_counts_(at)=self%oob_counts_(at)+1
+            do k=1,q
+              do c=1,self%n_classes_multi_(k)
+                oob(k)%values(at,c)=ieee_difference(oob(k)%values(at,c),-prob(k)%values(j,c))
+              end do
+            end do
+          end do
+        end if
+      end if
       if(self%estimators_(i)%node_count_>1) then
         nontrivial=nontrivial+1
         do j=1,p
@@ -198,7 +274,7 @@ contains
         end do
       end if
     end do
-    if(nontrivial==0) return
+    if(nontrivial>0)then
     do j=1,p
       self%feature_importances_(j)=ieee_quotient(self%feature_importances_(j),real(nontrivial,dp))
     end do
@@ -206,20 +282,140 @@ contains
     do j=1,p
       self%feature_importances_(j)=ieee_quotient(self%feature_importances_(j),normalizer)
     end do
+    end if
+    if(self%oob_score)then
+      allocate(oob_labels(n,q))
+      do k=1,q
+        do j=1,n
+          do c=1,self%n_classes_multi_(k)
+            oob(k)%values(j,c)=ieee_quotient(oob(k)%values(j,c),real(max(1,self%oob_counts_(j)),dp))
+          end do
+          oob_labels(j,k)=ieee_argmax(oob(k)%values(j,:))-1
+        end do
+      end do
+      if(q==1)then
+        self%oob_decision_function_=oob(1)%values
+        self%oob_score_=accuracy_score(encoded(:,1),oob_labels(:,1))
+      else
+        self%oob_decision_function_multi_=oob
+        self%oob_score_=accuracy_score(encoded,oob_labels)
+      end if
+    end if
   end subroutine
   subroutine extra_classifier_fit(self,x,y,sample_weight)
-    class(extra_trees_classifier), intent(inout) :: self
-    real(dp), intent(in) :: x(:,:)
-    integer, intent(in) :: y(:)
-    real(dp), optional, intent(in) :: sample_weight(:)
-    self%bootstrap=.false.;self%random_thresholds=.true.
+    class(extra_trees_classifier),intent(inout)::self
+    real(dp),intent(in)::x(:,:)
+    integer,intent(in)::y(:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    if(.not.self%bootstrap_set_)self%bootstrap=.false.
+    self%random_thresholds=.true.
     call forest_classifier_fit(self,x,y,sample_weight)
   end subroutine
+  subroutine extra_classifier_fit_multi(self,x,y,sample_weight)
+    class(extra_trees_classifier),intent(inout)::self
+    real(dp),intent(in)::x(:,:)
+    integer,intent(in)::y(:,:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    if(.not.self%bootstrap_set_)self%bootstrap=.false.
+    self%random_thresholds=.true.
+    call forest_classifier_fit_multi(self,x,y,sample_weight)
+  end subroutine
+  subroutine forest_classifier_set_bootstrap(self,value)
+    class(random_forest_classifier),intent(inout)::self
+    logical,intent(in)::value
+    self%bootstrap=value;self%bootstrap_set_=.true.
+  end subroutine
+  function forest_classifier_samples(self)result(indices)
+    class(random_forest_classifier),intent(in)::self
+    integer,allocatable::indices(:,:)
+    type(legacy_random_state)::draws
+    integer::i,j,n
+    call require(allocated(self%estimators_),'forest is not fitted')
+    n=self%n_samples_fit_
+    if(self%bootstrap)then
+      allocate(indices(self%n_samples_bootstrap_,size(self%estimators_)))
+      do i=1,size(self%estimators_)
+        call draws%seed(self%estimators_(i)%random_state)
+        do j=1,self%n_samples_bootstrap_;indices(j,i)=draws%integer_index(n);end do
+      end do
+    else
+      allocate(indices(n,size(self%estimators_)))
+      do i=1,size(self%estimators_);indices(:,i)=[(j,j=1,n)];end do
+    end if
+  end function
+  function forest_proba_multi(self,x)result(prob)
+    class(random_forest_classifier),intent(in)::self
+    real(dp),intent(in)::x(:,:)
+    type(tree_probability),allocatable::prob(:),part(:)
+    integer::t,k,i,c
+    call require(allocated(self%estimators_),'forest is not fitted')
+    allocate(prob(self%n_outputs_))
+    do k=1,self%n_outputs_
+      allocate(prob(k)%values(size(x,1),self%n_classes_multi_(k)));prob(k)%values=0
+    end do
+    do t=1,size(self%estimators_)
+      part=self%estimators_(t)%predict_proba_multi(x)
+      do k=1,self%n_outputs_
+        do c=1,self%n_classes_multi_(k)
+          do i=1,size(x,1)
+            prob(k)%values(i,c)=ieee_difference(prob(k)%values(i,c),-part(k)%values(i,c))
+          end do
+        end do
+      end do
+    end do
+    do k=1,self%n_outputs_
+      do c=1,self%n_classes_multi_(k)
+        do i=1,size(x,1)
+          prob(k)%values(i,c)=ieee_quotient(prob(k)%values(i,c),real(size(self%estimators_),dp))
+        end do
+      end do
+    end do
+  end function
+  function forest_log_proba_multi(self,x)result(prob)
+    class(random_forest_classifier),intent(in)::self
+    real(dp),intent(in)::x(:,:)
+    type(tree_probability),allocatable::prob(:)
+    integer::k,i,c
+    prob=self%predict_proba_multi(x)
+    do k=1,size(prob)
+      do c=1,size(prob(k)%values,2)
+        do i=1,size(x,1)
+          if(ieee_is_nan(prob(k)%values(i,c)))cycle
+          if(prob(k)%values(i,c)==0)then
+            prob(k)%values(i,c)=ieee_value(0._dp,ieee_negative_inf)
+          else if(prob(k)%values(i,c)>0)then
+            prob(k)%values(i,c)=log(prob(k)%values(i,c))
+          else
+            prob(k)%values(i,c)=ieee_value(0._dp,ieee_quiet_nan)
+          end if
+        end do
+      end do
+    end do
+  end function
+  function forest_classifier_predict_multi(self,x)result(y)
+    class(random_forest_classifier),intent(in)::self
+    real(dp),intent(in)::x(:,:)
+    integer,allocatable::y(:,:)
+    type(tree_probability),allocatable::prob(:)
+    integer::i,k
+    prob=self%predict_proba_multi(x);allocate(y(size(x,1),self%n_outputs_))
+    do k=1,self%n_outputs_
+      do i=1,size(x,1);y(i,k)=self%classes_multi_(k)%values(ieee_argmax(prob(k)%values(i,:)));end do
+    end do
+  end function
+  real(dp)function forest_classifier_score_multi(self,x,y,sample_weight)result(value)
+    class(random_forest_classifier),intent(in)::self
+    real(dp),intent(in)::x(:,:)
+    integer,intent(in)::y(:,:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    value=accuracy_score(y,self%predict_multi(x),sample_weight=sample_weight)
+  end function
   function forest_proba(self,x) result(prob)
     class(random_forest_classifier), intent(in) :: self
     real(dp), intent(in) :: x(:,:)
     real(dp), allocatable :: prob(:,:),tree_prob(:,:)
     integer :: i,j,c
+    call require(self%n_outputs_==1,'joint forest probabilities require predict_proba_multi')
     call require(allocated(self%estimators_),'forest is not fitted')
     allocate(prob(size(x,1),self%n_classes_));prob=0
     do i=1,size(self%estimators_)
@@ -326,6 +522,7 @@ contains
     real(dp), intent(in) :: x(:,:)
     integer :: y(size(x,1)),i
     real(dp), allocatable :: prob(:,:)
+    call require(self%n_outputs_==1,'joint forest prediction requires predict_multi')
     prob=self%predict_proba(x)
     do i=1,size(y)
       y(i)=self%classes_(ieee_argmax(prob(i,:)))

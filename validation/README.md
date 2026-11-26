@@ -29,6 +29,26 @@ python validation/check_invalid_inputs.py
 
 The reference validator requires NumPy, SciPy and scikit-learn in Python.
 
+`compare_joint_class_forests.py` compares 1,908 actual sklearn 1.6.1 classification
+forests, including component trees/class sets, ragged probabilities and logs,
+labels, seeds, bootstrap samples, importances, supported scores and OOB fields.
+Use `--executable <reference_joint_class_forest_driver.exe> --report <report.json>`.
+`check_joint_class_forest_invalid_inputs.py` uses the corresponding invalid driver
+for 20 Source errors and four native API guards. Initial 1,728 fixtures remain
+in the expanded grid. Integer fields are exact and numeric tolerances remain
+rtol=2e-10 / atol=2e-12. OOB scoring preserves source target-type/class-width
+restrictions; native joint probabilities use owned per-output matrices.
+
+The GNU 17 development snapshot encountered intermittent batch-driver crashes
+while finalizing the next input-header read, in both checked and optimized
+binaries. Original executables, inputs, stderr and failing comparisons are
+retained locally under `validation/results/joint_class_forest_*`. File-backed
+input and line-header parsing did not reliably eliminate the failure. A
+diagnostic guarded allocator completed all 1,908 cases / 49,608 field groups
+without memory-guard violations or numerical differences. This does not prove
+the cause of the uninstrumented crashes; compiler/runtime stability is recorded
+separately from numerical parity, and full GNU 17 stability is not claimed.
+
 `compare_joint_forests.py` compares 984 actual sklearn 1.6.1 regression forests,
 including all component-tree fields, seeds, bootstrap indices, training and OOB
 predictions/scores, and OOB coverage. Use

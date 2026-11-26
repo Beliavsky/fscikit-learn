@@ -1,5 +1,14 @@
 # Third-party notices and provenance
 
+Joint classification forests and OOB estimates in `src/sklearn_ensemble.f90`
+follow scikit-learn 1.6.1 `ensemble/_forest.py`: global per-output label encoding,
+shared component trees, seeded bootstraps, class-weight expansion, probability
+aggregation and OOB subset accuracy/target restrictions. Per-output factors
+reuse the attributed `utils/class_weight.py` translation. Existing sklearn BSD
+notices remain in `LICENSES/scikit-learn-COPYING`. Typed ragged probabilities,
+owned samples, matrix interfaces and explicit bootstrap configuration are MIT
+integration; no external implementation or additional dependency is imported.
+
 Joint regression forests and OOB estimates in `src/sklearn_ensemble.f90`
 follow scikit-learn 1.6.1 `ensemble/_forest.py`: shared output trees, seeded
 bootstrap generation, sample-weight multiplicities, unsampled-row prediction

@@ -145,6 +145,31 @@ Fortran identifiers use snake_case rather than CamelCase.
 | calibration | `calibrated_classifier_cv`; `calibration_curve` | Sigmoid/isotonic CV ensembles, out-of-fold calibration and prefit calibration with logistic, Gaussian NB or KNN bases; uniform/quantile reliability bins |
 | datasets | `make_classification`, `make_multilabel_classification`, `make_sparse_coded_signal`, `make_sparse_spd_matrix`, `make_biclusters`, `make_checkerboard`, `make_hastie_10_2`, `make_blobs`, `make_regression`, `make_low_rank_matrix`, `make_moons`, `make_circles`, `make_friedman1/2/3`, `make_sparse_uncorrelated`, `make_s_curve`, `make_swiss_roll`, `make_gaussian_quantiles` | Native synthetic generators with seeded legacy NumPy draws; scalar/joint regression, low-rank profiles, unequal blob/curve counts, per-cluster blob scales and center outputs; no bundled real-world datasets |
 
+## Joint classification forests and out-of-bag estimates
+
+RandomForestClassifier and ExtraTreesClassifier counterparts now fit matrix
+targets with shared Gini/entropy/log-loss trees, per-output class sets, ragged
+probability and log-probability matrices, matrix predictions and subset accuracy
+where sklearn supports it. Balanced and balanced-subsample presets multiply
+per-output factors; typed per-output class maps support the source list-of-dicts
+contract. Both expose reproducible bootstrap indices and scalar/joint OOB class
+probabilities, coverage and unweighted accuracy. Native adapters retain scalar
+metadata and use explicit matrix/ragged helpers for joint results.
+
+The 1,908-case actual sklearn 1.6.1 grid checks every component tree and class
+set, seeds, exact bootstrap samples, labels, probabilities/log probabilities,
+leaves, importances, supported training scores and OOB fields. Initial 1,728
+fixtures remain in the expanded grid. Cases cover one through four outputs,
+ragged and constant classes, weights containing zeros, signed and all-zero
+weights, zero-weight-only labels, tiny datasets, stump forests, all class-weight
+modes, pruning, leaf budgets and reduced bootstrap draws. Numeric tolerances
+remain 2e-10 / 2e-12; integer fields match exactly. Native tests independently
+reconstruct OOB averages and test owned bags, ExtraTrees bootstrap and refits.
+Twenty-four guards cover 20 Source errors and four native API configuration/rank
+errors. Source restrictions on multiclass-multioutput scoring and OOB target
+types/class widths are retained. This adds no estimator type, extension
+algorithm or dependency. MIT and sklearn BSD notices remain in place.
+
 ## Joint regression forests and out-of-bag estimates
 
 RandomForestRegressor and ExtraTreesRegressor counterparts now accept matrix

@@ -3918,9 +3918,59 @@ Source accuracy semantics: multilabel indicators use exact row matching, while
 multiclass-multioutput targets are rejected by the classification metric even
 though fitting and prediction support them. Fitted joint-classification nodes
 store concatenated per-output probabilities in `nodes_(i)%values`; output class
-widths define its segments. This does not change ensemble fitting interfaces.
+widths define its segments. Joint classification forests are described below.
 See `example/joint_tree_classification.f90`.
 
+
+### Joint classification forests and OOB estimates
+
+`random_forest_classifier` and `extra_trees_classifier` accept integer target
+matrices through `fit(x,y,sample_weight)`. Gini, entropy and log-loss choose
+shared component-tree partitions across outputs. Use `predict_multi(x)` for
+matrix labels and `predict_proba_multi(x)` / `predict_log_proba_multi(x)` for
+owned arrays of `tree_probability`, with each output's matrix in `%values`.
+`classes_multi_(k)%values` and `n_classes_multi_(k)` describe the sorted class
+labels and probability width. The retained `classes_` and scalar `n_classes_`
+describe the first output; `n_outputs_` records the fitted output count.
+Vector `predict` and matrix `predict_proba` retain their single-output interfaces
+and reject joint fits. The multioutput helpers also work on single-output fits.
+
+```fortran
+type(random_forest_classifier) :: forest
+type(tree_probability), allocatable :: probabilities(:)
+forest%n_estimators=100
+forest%random_state=7
+forest%class_weight='balanced_subsample'
+forest%oob_score=.true.
+call forest%fit(x,y_indicator,sample_weight=weights)
+probabilities=forest%predict_proba_multi(x_query)
+print *, forest%score(x,y_indicator), forest%oob_score_
+```
+
+Class-weight presets apply to every output and multiply their factors, then
+multiply any fitting sample weights. `class_weight_values_multi(:)` accepts one
+`class_weight_map` per output, matching sklearn's list of dictionaries. Retained
+scalar `class_weight_values` is for a single output. Maps and presets cannot be
+combined. Class sets include labels present only in zero-weight rows.
+
+Bootstrap configuration and `estimators_samples()` follow the regression-forest
+conventions above: random forests default to bootstrap, ExtraTrees defaults to
+no bootstrap, and explicit ExtraTrees configuration uses `set_bootstrap`.
+Enable `oob_score` for OOB class-probability averages and accuracy. Single-output
+fits expose `oob_decision_function_(:,:)`; joint fits expose
+`oob_decision_function_multi_(k)%values`. These per-output matrices adapt
+sklearn's three-dimensional OOB array. `oob_counts_` records coverage; uncovered
+rows have zero probabilities, so argmax chooses the first class. OOB accuracy
+ignores fitting weights and requires exact row agreement for multiple outputs.
+
+Following sklearn 1.6.1, joint OOB scoring rejects multiclass-multioutput targets
+and unequal per-output class widths. Ordinary joint fit/predict can still use
+ragged class sets. Matrix `score` delegates the classification metric: indicator
+targets use subset accuracy, while unsupported multiclass-multioutput scoring
+raises a controlled error. Refits reset class metadata and OOB arrays.
+Sparse input, warm starts, fractional draw/feature counts, monotonic constraints,
+callable OOB scores and joint meta-estimator adapters remain outside this subset.
+See `example/joint_forest_classification.f90`.
 
 ## BaggingClassifier and BaggingRegressor
 
@@ -8073,8 +8123,8 @@ Tree seeds follow the NumPy legacy RandomState contract. Bootstrap row counts
 multiply fitting weights while the full training matrix and class space are
 preserved. The intrinsic Fortran RNG is unchanged. Random-forest max_samples=0
 means all training rows per draw; a positive integer selects a smaller count.
-Nonzero max_samples requires bootstrap. ExtraTrees retains the existing forced
-non-bootstrap behavior. max_features=0 selects floor(sqrt(n_features)), with
+Nonzero max_samples requires bootstrap. ExtraTrees defaults to non-bootstrap
+behavior; use `set_bootstrap(.true.)` to enable it explicitly. max_features=0 selects floor(sqrt(n_features)), with
 a minimum of one; a positive integer selects an explicit feature count.
 
 Forest classes_ retains the original sorted integer labels. Component tree
@@ -8090,9 +8140,10 @@ class/bootstrap-multiplied weights must be finite. Score weights need nonzero
 total mass.
 
 Queries may contain NaNs after finite training, using component-tree routing.
-Training NaNs, sparse inputs, fractional sample/feature controls, OOB scores,
-warm starts, monotonic constraints and multioutput classification
-forests remain unsupported. Parameter search accepts criterion, class_weight,
+Training NaNs, sparse inputs, fractional sample/feature controls,
+warm starts and monotonic constraints remain unsupported. Joint targets and OOB
+estimates are described under joint classification forests above.
+Parameter search accepts criterion, class_weight,
 max_samples and min_impurity_decrease, and forwards fitting weights.
 SelectFromModel also forwards classification-forest fitting weights.
 
