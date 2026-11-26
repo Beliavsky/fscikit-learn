@@ -1,6 +1,6 @@
 """Weighted Lloyd KMeans: seeded dense/CSR fitting, restarts and queries."""
 from pathlib import Path
-import argparse,hashlib,json,subprocess,sys,warnings
+import argparse,hashlib,json,subprocess,sys,warnings,tempfile
 import numpy as np,scipy,sklearn
 from scipy.sparse import csr_matrix
 from threadpoolctl import threadpool_info
@@ -96,7 +96,11 @@ def main():
          limit=10,initial=x[:k],kind='wide',route=len(cases)%2)
  if args.reference_cache:
   args.reference_cache.parent.mkdir(parents=True,exist_ok=True);args.reference_cache.write_text(json.dumps(dict(provenance=provenance,cases=cache),separators=(',',':'))+'\n')
- request=''.join(c[1]for c in cases);run=subprocess.run([args.executable],input=request,text=True,capture_output=True)
+ request=''.join(c[1]for c in cases)
+ # Keep the full configuration stream in one process, with file-backed stdout.
+ with tempfile.TemporaryFile(mode='w+',encoding='utf-8')as output:
+  run=subprocess.run([args.executable],input=request,text=True,stdout=output,stderr=subprocess.PIPE)
+  output.seek(0);run.stdout=output.read()
  if run.returncode:raise RuntimeError(run.stderr+'\n'+run.stdout[-1000:])
  rows=iter(run.stdout.splitlines());groups=0;worst=0
  for label,_,expected in cases:

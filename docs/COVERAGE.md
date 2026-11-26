@@ -13442,3 +13442,62 @@ was added. This increment adds one native test, two reference drivers, one
 example, one comparison suite and one invalid-input registry. Shared KMeans
 helpers gain optional RNG stream and selected-index plumbing; existing callers
 retain their previous defaults. The broader translation remains unfinished.
+
+
+Both checked and optimized full fpm builds, including test compilation, pass
+with private fpm 0.14.0 and GNU Fortran 17.0.0 20260510. Flags are
+`-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow` and
+`-O3 -funroll-loops -fcoarray=single`; build concurrency is four jobs. Each
+profile passes 13 selected native regressions, the new example, 30 actual
+Source rejection probes plus two native storage/state contracts, and 192 core
+comparisons. A private compile probe also confirms that the public keyword
+structure constructor remains usable.
+
+The actual sklearn 1.6.1 / NumPy 2.2.6 / SciPy 1.15.3 reference grid keeps
+2,976 configurations. Its 2,880 regular cases cover three seeds, four shapes,
+four covariance kinds, four initializers, zero/one/eight-iteration limits,
+multiple restarts and warm continuation, five explicit-parameter combinations
+and three sample counts. Another 96 boundary cases use seed 19, three iterations,
+duplicate/zero/thin designs, and zero or small positive regularization with
+zero tolerance. Both profiles
+complete 2,560 fits, match 416 Source fit rejections and 48 Source sampling
+rejections, and compare 35,744 groups. The 48 fits followed by Source sampling
+rejections still have their fitted parameters and queries compared; separate
+probes retain the original sampling rejection. Source warnings total 1,700.
+
+At unchanged 3e-8 absolute/relative tolerances, both profiles retain 847 failed
+fields across 846 configurations: 843 sampled-coordinate fields (447 full,
+396 tied), three lower bounds and one precision matrix. Thus 34,897 comparison
+groups pass. All non-sampling numerical failures are thin-design cases; regular
+fit parameters, query probabilities, labels, scores and criteria pass their
+comparisons. Maximum scaled error is 10.717823985460416, dominated by sampled
+coordinates; the largest failed non-sampling scaled error is
+0.0025663073612138976. Full strict execution fails on a genuine sampled-coordinate
+comparison. Diagnostic mode records every difference without changing the
+oracle, dropping cases, widening tolerances or adding certificates.
+
+The shared-helper regressions pass the existing 65,268 Lloyd and 65,268 Elkan
+comparisons across 9,324 configurations each, 9,628 seeding groups across 2,407
+fixtures plus 40 rejection diagnostics, and 5,524 Bayesian mixture groups.
+Seeding retains eight existing identical-distance replay certificates, separate
+from exact seed sequences. Other historical reference suites were not rerun.
+
+Initial large piped executions exposed incomplete GaussianMixture result frames
+and one optimized Lloyd segmentation fault. The original failed logs/outcomes
+remain retained. GaussianMixture validation now uses bounded file-backed result
+streams with complete-frame assertions. Lloyd validation keeps every original
+configuration in one process and uses file-backed output. The resulting checked
+and optimized full Lloyd reruns pass at unchanged tolerances and input hashes.
+The current file-backed output and an independently rebuilt pre-change Lloyd
+implementation produce byte-identical output across all 9,324 cases. A debugger
+rerun of the current piped executable also exits normally. The original crash
+remains unreproduced, rather than being claimed as a repaired numerical defect.
+
+There are 22 primary verification jobs per profile, with explicit additional
+reruns for the failed capture attempts. The final audit verifies 213 compiled
+fingerprints per profile (192 library units and 21 programs), matching current
+source/validator/API/attribution manifests, matching reference inputs, cache
+provenance and comparison counts, and distinct checked/optimized executables.
+Original manifests and failed attempts remain alongside final manifests and
+successful reruns under ignored `validation/results/mixture_package_*` artifacts.
+The broader translation remains unfinished.
