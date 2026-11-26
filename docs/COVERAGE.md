@@ -168,6 +168,17 @@ extension algorithm or dependency. Classification forests, sparse features,
 fractional bootstrap draw counts, callable OOB scoring and warm starts are
 outside this increment.
 
+Following implementation ae79108, the full checked fpm build and all 293 native
+test programs, eight selected examples, 984 forest cases and 17 guards pass.
+The existing 736 joint-regression and 642 joint-classification tree cases,
+1,210 scalar forest fixtures, 800 absolute-error fixtures (including five
+documented empty-queue safety cases), and 192 core comparisons also pass.
+The package audit records 308 successful jobs and 831 compiled-unit fingerprints,
+including 201 library units and reference-driver helper modules. Optimized
+verification covers fresh tree and ensemble objects, the direct forest API,
+984 cases and 17 guards using checked unchanged dependencies; it is not a full
+optimized package rebuild. Existing MIT licensing and sklearn BSD notices remain.
+
 ## Joint CART and ExtraTree classification
 
 Both classifier counterparts now fit integer target matrices with shared splits,
