@@ -185,6 +185,19 @@ algorithms; `validation/windows_locale_copy.c` is optional MIT validation code.
 The original failing executables and inputs remain preserved. Details and the
 upstream report are linked in the validation guide.
 
+Following implementation 552d0ef, the GNU 15.2 checked fpm package with the
+validation-only locale link passes all 295 native programs, ten selected
+examples, 4,320 staged-fit checkpoints, 78 error checks and 24 clone fixtures.
+The older 1,908 classification and 984 regression forest grids, their guards,
+3,480 scalar classification and 1,210 scalar regression fixtures, and 192 core
+comparisons also pass. The audit records 316 successful jobs and 841 source
+fingerprints, including all 201 library units. Optimized module/API verification
+passes the new unit/example and all new reference suites using unchanged Source
+oracles. Four additional complete 2,016-case classification runs pass every field
+check and produce identical output. Optimized verification covers fresh tree,
+ensemble, selection and search-adapter objects with matching checked unchanged
+dependencies; it is not a full optimized package rebuild.
+
 ## Joint classification forests and out-of-bag estimates
 
 RandomForestClassifier and ExtraTreesClassifier counterparts now fit matrix

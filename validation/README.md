@@ -47,6 +47,17 @@ when changing link flags: the private fpm version can otherwise leave old
 executables cached. Prefer a toolchain with the upstream runtime fix for
 general multithreaded applications.
 
+The warm-forest package audit uses GNU 15.2 checked objects and the validation
+locale link. All 295 native programs, ten selected examples, 4,320 staged-fit
+checkpoints, 78 error checks and 24 clone fixtures pass, as do the older joint
+forest grids/guards, 3,480 scalar classification and 1,210 scalar regression
+fixtures, and 192 core comparisons. It verifies 316 successful jobs and 841
+source fingerprints, including 201 library units. Fresh optimized tree,
+ensemble, selection and search-adapter objects also pass the new unit, example
+and complete new reference suites against the identical saved oracles. Four
+additional 2,016-case classification stress runs pass all fields and give
+identical output. Original failing binaries, inputs and stderr are retained.
+
 `compare_forest_warm_start.py` compares actual sklearn 1.6.1 retained-tree fits.
 Use `--kind regression --executable <reference_warm_joint_forest_driver.exe>` or
 `--kind classification --executable <reference_warm_joint_class_forest_driver.exe>`,
