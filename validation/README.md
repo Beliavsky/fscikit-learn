@@ -7700,6 +7700,26 @@ stdout, stderr and return-code evidence. Both complete KNN reruns pass with the
 same 383 tied fields; the regression grids retain the same 492 failed fields.
 These reruns do not erase the original crash. The audit checks 228 compiled
 fingerprints per profile, primary/current manifests, Source caches and distinct
-executables. An independent stable GNU Fortran 15.2 build is being evaluated;
-its results will be recorded separately. Artifacts remain ignored under
-`validation/results/fng_*`. Other historical suites were not rerun.
+executables.
+
+The independent full optimized GNU Fortran 15.2 build succeeds using
+`C:/Programs/Octave-11.1.0/mingw64/bin/gfortran.exe`, fpm 0.14.0 and flags
+`-O3 -funroll-loops -fcoarray=single`, in a separate temporary build directory.
+Only the verification processes prepend that compiler's runtime directory to
+PATH; the default compiler and system PATH are unchanged. All 32 selected jobs
+complete normally: 24 native tests, the example, strict sorting, the full
+functional/KNN/radius/regression grids, legacy transformers and core checks.
+The audit validates 224 compiled fingerprints (193 library units and 31 programs)
+and exact equality with GNU Fortran 17 for inventories, input/cache hashes,
+retained differences and maximum scaled errors. This includes 625 functional
+graph differences, 383 KNN differences and 492 regression differences; strict
+sorting, radius classification, transformer and core checks pass.
+
+Forty further exact replays of the previously crashing 64-case batch complete
+normally under GNU Fortran 15.2, with all 64 frames per replay. The original
+input hash is `b08c2a504eaf212f4f0627151e5bba8fbd982f30a738bafcc651da36fef9644c`.
+Successful independent runs do not establish a compiler defect, root cause or
+repair for the GNU Fortran 17 failure. The independent evidence is retained in
+`fng_gcc15_*`, including build logs, manifests, reports, audit and stress outputs.
+Artifacts remain ignored under `validation/results/fng_*`. Other historical
+suites were not rerun.

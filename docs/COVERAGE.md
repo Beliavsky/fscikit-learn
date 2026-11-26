@@ -13815,5 +13815,13 @@ distinguishes the primary failure from these reruns, validates 228 compiled-unit
 fingerprints per profile (193 library units and 35 programs), primary/current
 validator manifests, reference caches, identical new failure records and distinct
 executables. Constructor compile probes cover the three nearest/KNN types.
-An independent GNU Fortran 15.2 build is being evaluated separately. Artifacts
-remain ignored under `validation/results/fng_*`; broader translation is unfinished.
+An independent full GNU Fortran 15.2 optimized build succeeds. Its 32 selected
+verification jobs complete normally: 24 native tests, the example, strict sorting,
+the four full neighbor comparison grids, legacy transformers and core checks.
+The audit validates 224 compiled fingerprints (193 library units and 31 programs).
+All comparison inventories, input/cache hashes, errors and retained differences
+match GNU Fortran 17 exactly. Forty exact replays of the previously crashing
+64-case batch also complete normally with this compiler/runtime. These additional
+runs do not establish a cause or repair for the original intermittent crash.
+Artifacts remain ignored under `validation/results/fng_*`; broader translation
+is unfinished.
