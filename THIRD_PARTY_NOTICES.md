@@ -2564,3 +2564,11 @@ OpenBLAS dot adapter. Scalar FMA, owned tree buffers, one-based interfaces and
 streaming integration are native MIT contributions. These helpers are internal
 core implementations and are not exported as extension estimators. No new
 runtime dependency was introduced.
+
+`src/sklearn_neighbor_ball_tree.f90` follows sklearn 1.6.1
+`neighbors/_ball_tree.pyx.tp` centroid/radius initialization and point-to-node
+bounds, and `_binary_tree.pxi.tp` depth-first nearest-neighbor/radius traversal.
+Distances reuse the attributed `_dist_metrics.pyx.tp` scalar adapters. Partial
+partitions reuse the Microsoft STL implementation attributed above. The
+scikit-learn BSD terms remain in `LICENSES/scikit-learn-COPYING`; owned arrays,
+one-based indices and Fortran interfaces are native MIT contributions.

@@ -13935,3 +13935,30 @@ binary/source hashes, original fixture and nonfinite inventories, and identical
 input digests. Each profile passes ten verification jobs; no roundoff
 certificate is needed in either. Implementation and attribution are committed
 as 4f2762b. The historical intermittent native crash remains unresolved.
+
+### BallTree neighbor-search engine (2026-11-26)
+
+The new `sklearn_neighbor_ball_tree` module implements unweighted BallTree
+construction, Source partial storage order, centroid/radius bounds, depth-first
+KNN search and unsorted inclusive radius traversal. It supports the Euclidean,
+Manhattan, Chebyshev and Minkowski families, haversine, Bray-Curtis, Canberra,
+Hamming and the Source Boolean dissimilarities. The engine reuses the attributed
+partition and heap adapters; no dependency or public facade estimator is added.
+Automatic NearestNeighbors/functional-graph dispatch is not yet connected to
+this backend. The individual module's point-query interface is documented in
+API.md; weighted and parameterized-metric construction remain future work.
+
+Actual installed sklearn BallTree comparisons cover 6,700 configurations and
+665,980 fields: two seeds, 1/9/33/65/129 points, 1/2/5 features, regular,
+duplicate, constant, Boolean and integer data, leaf sizes 1/30, and 23 metric/
+power combinations. Queries cover full KNN counts, adjacent radius cutoffs,
+zero/infinite radii and Source negative/NaN-radius behavior. The initial probe
+incorrectly rejected NaN radii; its source, executable and failed batch remain
+retained. A subsequent 3,660-configuration / 297,924-field suite passes exactly.
+
+The expanded checked suite passes every field. Structure and indices match
+exactly; maximum scaled distance error is 1.7343803740184558e-16. Four selected
+native tests pass. The checked audit validates 203 compiled fingerprints
+(198 library units plus five programs), selected binaries and source/oracle
+hashes. Both fpm builds succeed; optimized reference verification is pending.
+Evidence remains ignored under `validation/results/neighbor_ball_tree_*`.

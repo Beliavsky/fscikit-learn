@@ -82,6 +82,37 @@ Indices are one-based training sample indices. Passing training data explicitly
 includes the sample itself; there is no implicit leave-one-out query mode.
 `radius_neighbors(x,radius)` returns a dense logical adjacency matrix.
 
+### BallTree backend primitive
+
+The individual `sklearn_neighbor_ball_tree` module provides the native
+`neighbor_ball_tree` search engine. It is not yet selected by the public
+NearestNeighbors or functional-graph automatic dispatch.
+
+```fortran
+use sklearn_neighbor_ball_tree, only: neighbor_ball_tree
+type(neighbor_ball_tree) :: tree
+real(dp), allocatable :: d(:)
+integer, allocatable :: ids(:)
+call tree%fit(x_train,metric='euclidean',leaf_size=30)
+call tree%query(x_query(1,:),3,d,ids)
+call tree%query_radius(x_query(1,:),1.5_dp,d,ids)
+```
+
+The engine owns dense real64 training data. Queries take one point and return
+owned one-dimensional distances and one-based training indices. KNN results
+are distance-sorted; radius results retain Source tree traversal order.
+Negative and NaN radii follow Source comparisons and return empty results.
+`get_arrays(indices,spans,centers,radii)` returns the stored partial permutation,
+one-based inclusive node spans with leaf flags, node centroids and radii.
+
+Supported metrics are Euclidean/l2, Manhattan/cityblock/l1, Chebyshev/infinity,
+Minkowski with positive `p` (including infinity), haversine (two features),
+Bray-Curtis, Canberra, Hamming, Dice, Jaccard, Rogers-Tanimoto, Russell-Rao,
+Sokal-Michener and Sokal-Sneath. `fit` defaults to Euclidean and leaf size 30.
+This implements unweighted construction and single-tree depth-first traversal;
+sample weights, parameterized covariance/feature-weight metrics, dual-tree and
+breadth-first queries are not included in this primitive.
+
 ### Functional neighbor graphs and CSR value sorting
 
 Import `kneighbors_graph`, `radius_neighbors_graph` and
