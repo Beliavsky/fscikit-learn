@@ -14028,5 +14028,7 @@ groups; the BallTree graph grid passes 63,018 groups with unchanged oracle
 entries. Reference fitted-NN drivers now explicitly select their Source brute
 baseline. Private probes are retained under ignored
 `validation/results/neighbor_query_*`, `nearest_query_baseline*` and
-`nearest_neighbors_*`. Full checked/optimized package rebuilds and verification
-are pending. This remains a dense serial API subset.
+`nearest_neighbors_*`. The checked rebuild, all 31 selected native tests and
+three examples pass. Remaining checked suites and optimized rebuild/verification
+are running. Implementation is committed as ed145c0. This remains a dense serial
+API subset.
