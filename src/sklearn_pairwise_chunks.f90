@@ -5,7 +5,7 @@ module sklearn_pairwise_chunks
  use sklearn_sparse,only:csr_matrix
  use sklearn_pairwise_reductions,only:row_view,check_view,get_row,get_haversine_row,metric_kind, &
   row_distance,extended_distance,parameter_distance,covariance_precision
- use sklearn_kernel_dispatch,only:pairwise_kernels,kernel_blas_dot
+ use sklearn_kernel_dispatch,only:pairwise_kernels,kernel_blas_dot,kernel_blas_self_product,kernel_blas_self_dot
  use,intrinsic::ieee_arithmetic
  use,intrinsic::ieee_exceptions
  implicit none
@@ -53,10 +53,11 @@ module sklearn_pairwise_chunks
   real(dp),allocatable::xd(:,:),yd(:,:),weights(:),variance(:),precision(:,:)
   type(csr_matrix)::xs,ys
   logical::sparse_x=.false.,sparse_y=.false.,self_pair=.false.,square=.false.,exceeded=.false.
-  integer::kind=1,n=0,m=0,p=0,position=1,rows=1
+  integer::kind=1,n=0,m=0,p=0,position=1,rows=1,reference_rows=0
   real(dp)::power=2,missing=0
   procedure(row_metric),pointer,nopass::callback=>null()
  contains
+  procedure::set_reference_memory
   procedure::next=>next_chunk
   procedure::chunk_rows
   procedure::exceeds_working_memory
@@ -68,6 +69,40 @@ module sklearn_pairwise_chunks
   module procedure chunks_sd,chunks_sd_callback
  end interface
 contains
+ ! Internal NN adapter: numerical chunks may span several storage buffers.
+ subroutine set_reference_memory(self,working_memory)
+  class(pairwise_distance_iterator),intent(inout)::self
+  real(dp),intent(in)::working_memory
+  real(dp)::capacity
+  call require(self%kind==7.and..not.self%sparse_x.and..not.self%sparse_y, &
+   'reference cosine frames require dense cosine inputs')
+  call require(ieee_is_finite(working_memory),'reference memory budget must be finite')
+  call require(working_memory>=0,'reference memory budget must be nonnegative')
+  self%reference_rows=self%n
+  if(working_memory<8._dp*self%m*self%n/1048576._dp)then
+   capacity=working_memory*1048576._dp/(8._dp*self%m)
+   self%reference_rows=max(1,int(floor(capacity)))
+  end if
+ end subroutine
+ function reference_gram(a,b,reference_rows,n,first,self_pair)result(values)
+  type(row_view),intent(in)::a,b
+  integer,intent(in)::reference_rows,n,first
+  logical,intent(in)::self_pair
+  real(dp)::values(a%n,b%n)
+  integer::i,j,row,start,frame_rows
+  do j=1,b%n
+   do i=1,a%n
+    row=first+i-1
+    if(self_pair.and.reference_rows>=n)then
+     values(i,j)=kernel_blas_self_dot(a%dense(i,:),b%dense(j,:),n,row,j)
+    else
+     start=((row-1)/reference_rows)*reference_rows
+     frame_rows=min(reference_rows,n-start)
+     values(i,j)=kernel_blas_dot(a%dense(i,:),b%dense(j,:),frame_rows,b%n,row-start,j)
+    end if
+   end do
+  end do
+ end function
  function chunks_dd(x,y,metric,working_memory,p,squared,w,v,vi,missing_values)result(state)
   real(dp),target,intent(in)::x(:,:)
   real(dp),target,optional,intent(in)::y(:,:)
@@ -460,7 +495,13 @@ contains
       yd=b%dense;b%dense=>yd
      end if
      call normalize_view(a);call normalize_view(b)
-     chunk%distance%values=1-gram(a,b)
+     if(self%reference_rows>0.and.associated(a%dense).and.associated(b%dense))then
+      chunk%distance%values=1-reference_gram(a,b,self%reference_rows,self%n,first,self%self_pair)
+     else if(whole.and.associated(a%dense).and.associated(b%dense))then
+      chunk%distance%values=1-kernel_blas_self_product(a%dense)
+     else
+      chunk%distance%values=1-gram(a,b)
+     end if
      where(chunk%distance%values<0)chunk%distance%values=0
      where(chunk%distance%values>2)chunk%distance%values=2
     else
@@ -474,7 +515,7 @@ contains
       end do
      end do
     end if
-    if(self%self_pair.and.(self%kind/=7.or.whole))then
+    if(self%self_pair.and.(self%kind/=7.or.(self%reference_rows==0.and.whole).or.self%reference_rows>=self%n))then
      do i=1,a%n
       chunk%distance%values(i,first+i-1)=0
      end do

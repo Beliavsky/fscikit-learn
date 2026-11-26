@@ -10,7 +10,7 @@ module sklearn_kernel_dispatch
  implicit none
  private
  ! Internal accumulation helpers shared with the OPTICS brute backend.
- public::kernel_blas_dot,kernel_blas_inner_product
+ public::kernel_blas_dot,kernel_blas_inner_product,kernel_blas_self_product,kernel_blas_self_dot
  interface kernel_blas_dot
   module procedure dense_dot
  end interface
@@ -511,7 +511,11 @@ contains
    do k=1,size(u)
     l=mod(k-1,8)+1;lane(l)=ieee_fma(u(k),v(k),lane(l))
    end do
+   if(ii>n-mod(n,4).and.jj>m-mod(m,4))then
+    value=((lane(1)+lane(5))+(lane(3)+lane(7)))+((lane(2)+lane(6))+(lane(4)+lane(8)))
+   else
    value=((lane(1)+lane(2))+(lane(3)+lane(4)))+((lane(5)+lane(6))+(lane(7)+lane(8)))
+   end if
   else
    do k=1,size(u)
     value=ieee_fma(u(k),v(k),value)
@@ -554,6 +558,90 @@ contains
   end if
   do i=n16+1,n
    value=ieee_fma(x(i),y(i),value)
+  end do
+ end function
+ ! NumPy 2.2.6 matmul self-transpose dispatch and OpenBLAS 0.3.29
+ ! SkylakeX SYRK P/Q blocking and generic 16x2 reduction lanes.
+ ! Retained BSD notices: OpenBLAS-LICENSE and OpenBLAS-level3-BSD.
+ ! Scalar shape adapters are native MIT; no BLAS runtime is linked.
+ integer function self_tile_width(length,index,choices)result(width)
+  integer,intent(in)::length,index,choices(:)
+  integer::remaining,local,whole,k
+  remaining=length;local=index;width=1
+  do k=1,size(choices)
+   width=choices(k);whole=(remaining/width)*width
+   if(local<whole)return
+   local=local-whole;remaining=remaining-whole
+  end do
+ end function
+ integer function self_row_block(remaining)result(width)
+  integer,intent(in)::remaining
+  if(remaining>=384)then
+   width=192
+  else if(remaining>192)then
+   width=((remaining/2+31)/32)*32
+  else
+   width=remaining
+  end if
+ end function
+ function kernel_blas_self_product(x)result(values)
+  real(dp),intent(in)::x(:,:)
+  real(dp)::values(size(x,1),size(x,1))
+  integer::i,j
+  do j=1,size(x,1)
+   do i=j,size(x,1)
+    values(i,j)=kernel_blas_self_dot(x(i,:),x(j,:),size(x,1),i,j)
+    values(j,i)=values(i,j)
+   end do
+  end do
+ end function
+ real(dp) function kernel_blas_self_dot(u,v,n,i,j)result(value)
+  real(dp),intent(in)::u(:),v(:)
+  integer,intent(in)::n,i,j
+  integer::row,col,start,nb,mlen,mi,nc,local,b,nn,mr,lanes,first,remaining,kcount,whole,kk,k,l
+  real(dp)::sums(4),part
+  if(n==1)then
+   value=ddot_lanes(u,v);return
+  end if
+  row=max(i,j)-1;col=min(i,j)-1;start=0;nb=self_row_block(n)
+  do while(row>=start+nb)
+   start=start+nb;nb=self_row_block(n-start)
+  end do
+  if(col<start)then
+   mlen=nb;mi=row-start;nc=self_tile_width(start,col,[12,10,8,6,4,2,1])
+  else
+   local=col-start;b=(local/32)*32;nn=min(32,nb-b)
+   if(row-start<b+nn)then
+    mlen=nn;mi=row-start-b
+   else
+    mlen=nb-b-nn;mi=row-start-b-nn
+   end if
+   nc=self_tile_width(nn,local-b,[12,10,8,6,4,2,1])
+  end if
+  mr=self_tile_width(mlen,mi,[16,8,4,2,1]);lanes=1
+  if(nc==12)then
+   if(mr<=2)lanes=4
+   if(mr==4)lanes=2
+  end if
+  value=0;first=0
+  do while(first<size(u))
+   remaining=size(u)-first;kcount=remaining
+   if(remaining>=768)then
+    kcount=384
+   else if(remaining>384)then
+    kcount=(remaining+1)/2
+   end if
+   sums=0;whole=kcount-mod(kcount,lanes)
+   do kk=0,whole-1
+    k=first+kk+1;l=mod(kk,lanes)+1;sums(l)=ieee_fma(u(k),v(k),sums(l))
+   end do
+   part=sums(1)
+   if(lanes==2)part=sums(1)+sums(2)
+   if(lanes==4)part=(sums(1)+sums(2))+(sums(3)+sums(4))
+   do kk=whole,kcount-1
+    k=first+kk+1;part=ieee_fma(u(k),v(k),part)
+   end do
+   value=value+part;first=first+kcount
   end do
  end function
 end module

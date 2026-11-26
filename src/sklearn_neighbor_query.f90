@@ -5,7 +5,7 @@ module sklearn_neighbor_query
  use sklearn_common,only:dp,require,check_x
  use sklearn_neighbor_tree,only:neighbor_kd_tree
  use sklearn_neighbor_ball_tree,only:neighbor_ball_tree
- use sklearn_neighbor_selection,only:argkmin_order,pairwise_knn_order
+ use sklearn_neighbor_selection,only:argkmin_order,pairwise_knn_order,neighbor_simultaneous_sort
  use sklearn_neighbor_gram,only:neighbor_row_norm,neighbor_middle_term
  use sklearn_pairwise_reductions,only:metric_kind,row_distance,extended_distance
  use sklearn_pairwise_chunks,only:pairwise_distances_chunked,pairwise_distance_iterator,distance_chunk
@@ -101,16 +101,53 @@ contains
   type(csr_matrix)::unused
   call query_rows(self,training,x,n_neighbors,0._dp,.false.,exclude_self,distances,indices,unused)
  end subroutine
- function state_radius(self,training,x,radius,exclude_self)result(graph)
+ function state_radius(self,training,x,radius,exclude_self,sort_results)result(graph)
   class(neighbor_query_state),intent(in)::self
   real(dp),target,intent(in)::training(:,:)
   real(dp),target,optional,intent(in)::x(:,:)
   real(dp),intent(in)::radius
   logical,optional,intent(in)::exclude_self
+  logical,optional,intent(in)::sort_results
   type(csr_matrix)::graph
   real(dp),allocatable::unused_d(:,:)
   integer,allocatable::unused_i(:,:)
-  call query_rows(self,training,x,0,radius,.true.,exclude_self,unused_d,unused_i,graph)
+  call query_rows(self,training,x,0,radius,.true.,exclude_self,unused_d,unused_i,graph,sort_results)
+ end function
+ function stable_order(values)result(order)
+  real(dp),intent(in)::values(:)
+  integer,allocatable::order(:),work(:)
+  integer::n,width,first,middle,last,left,right,out,i
+  logical::take_left
+  n=size(values);order=[(i,i=1,n)];allocate(work(n));width=1
+  do while(width<n)
+   first=1
+   do while(first<=n)
+    middle=first+min(width,n-first+1);last=middle+min(width,n-middle+1)-1
+    left=first;right=middle
+    do out=first,last
+     if(left>=middle)then
+      take_left=.false.
+     else if(right>last)then
+      take_left=.true.
+     else if(ieee_is_nan(values(order(left))))then
+      take_left=ieee_is_nan(values(order(right)))
+     else if(ieee_is_nan(values(order(right))))then
+      take_left=.true.
+     else
+      take_left=values(order(left))<=values(order(right))
+     end if
+     if(take_left)then
+      work(out)=order(left);left=left+1
+     else
+      work(out)=order(right);right=right+1
+     end if
+    end do
+    first=last+1
+   end do
+   order=work
+   if(width>=n-width)exit
+   width=2*width
+  end do
  end function
  logical function fallback(self)result(value)
   class(neighbor_query_state),intent(in)::self
@@ -124,7 +161,7 @@ contains
   if(self%kind==6)value=key**(1._dp/self%power)
   if(self%kind==9)value=2*asin(sqrt(key))
  end function
- subroutine query_rows(self,training,x,k,radius,by_radius,exclude_self,distances,indices,graph)
+ subroutine query_rows(self,training,x,k,radius,by_radius,exclude_self,distances,indices,graph,sort_results)
   class(neighbor_query_state),intent(in)::self
   real(dp),target,intent(in)::training(:,:)
   real(dp),target,optional,intent(in)::x(:,:)
@@ -135,15 +172,17 @@ contains
   real(dp),allocatable,intent(out)::distances(:,:)
   integer,allocatable,intent(out)::indices(:,:)
   type(csr_matrix),intent(out)::graph
+  logical,optional,intent(in)::sort_results
   type(pairwise_distance_iterator)::state
   type(distance_chunk)::chunk
   real(dp),allocatable::block(:,:),u(:),v(:),tnorm(:),qnorm(:),values(:),grown_values(:),drow(:),selected(:)
   integer,allocatable::columns(:),grown_columns(:),ids(:),order(:)
   real(dp)::cutoff,key,middle
   integer::m,take,row,i,j,first,span,nrows,offset_q,offset_t,chunk_q,chunk_t,used,capacity,q,remove,out,next
-  logical::skip,available,heap,modes(size(ieee_all)),flags(size(ieee_all))
+  logical::skip,available,heap,sorted,modes(size(ieee_all)),flags(size(ieee_all))
   call require(self%n>0,'neighbor query state is not fitted')
   call require(size(training,1)==self%n.and.size(training,2)==self%p,'fitted neighbor storage shape changed')
+  sorted=.false.;if(present(sort_results))sorted=sort_results
   m=self%n;skip=.not.present(x)
   if(present(x))then
    call check_x(x);call require(size(x,2)==self%p,'neighbor query feature count mismatch');m=size(x,1)
@@ -199,6 +238,7 @@ contains
    else
     state=pairwise_distances_chunked(training,metric=self%metric,working_memory=8._dp)
    end if
+   if(self%kind==7)call state%set_reference_memory(1024._dp)
    do
     available=state%next(chunk);if(.not.available)exit
     do i=1,size(chunk%distance%values,1)
@@ -271,13 +311,26 @@ contains
    integer,intent(in)::cols(:)
    logical,intent(in)::preselected
    real(dp)::value
+   real(dp),allocatable::radius_values(:)
+   integer,allocatable::radius_ids(:),radius_order(:)
    if(by_radius)then
-    do q=1,size(d)
-     if(skip.and.cols(q)==row)cycle
-     if(preselected.or.d(q)<=cutoff)then
-      value=d(q);if(.not.preselected)value=actual(self,value)
-      call append(cols(q),value)
+    if(preselected)then
+     radius_values=d;radius_ids=cols
+    else
+     radius_values=pack(d,d<=cutoff);radius_ids=pack(cols,d<=cutoff)
+    end if
+    if(sorted)then
+     if(preselected.or.heap)then
+      call neighbor_simultaneous_sort(radius_values,radius_ids)
+     else
+      radius_order=stable_order(radius_values)
+      radius_values=radius_values(radius_order);radius_ids=radius_ids(radius_order)
      end if
+    end if
+    do q=1,size(radius_values)
+     if(skip.and.radius_ids(q)==row)cycle
+     value=radius_values(q);if(.not.preselected)value=actual(self,value)
+     call append(radius_ids(q),value)
     end do
     graph%indptr(row+1)=used+1
    else

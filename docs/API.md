@@ -92,11 +92,17 @@ Fitted data are owned. Explicit query arrays are separate data unless they alias
 training-data identity and remove each own sample, with Source's duplicate
 fallback rule when the own index was not selected. Brute distance blocks use
 8 MiB with at least one row, in addition to fitted data, row buffers and outputs.
+Cosine products retain Source's default 1024 MiB numerical chunk semantics
+across these smaller storage buffers, including self-product identity.
 
 `radius_neighbors(x,radius)` retains its dense logical adjacency return. Both
 arguments are optional; omission uses fitted samples with own indices excluded,
 and the public `radius` parameter (default 1). `radius_neighbors_graph` returns
 CSR for arbitrary dense queries with `mode='connectivity'` or `'distance'`.
+Optional `sort_results=.true.` sorts distance-mode rows; connectivity mode
+ignores this flag, following Source. Numeric brute queries sort reduced keys
+before converting them to distances, so distinct keys can retain their order
+even when square roots round to equal values.
 The original bound `kneighbors_graph` returns dense storage; the typed
 `kneighbors_graph_csr` adapter returns CSR. Both accept optional query arrays,
 mode and a named `n_neighbors` override. Explicit zero-distance edges are stored
@@ -10393,6 +10399,9 @@ calculation for 8*n_samples_Y bytes per row, capped by n_samples_X, with at
 least one row even when the budget is too small. `chunk_rows()` exposes the
 selected height; `exceeds_working_memory()` reports the source warning case.
 The budget bounds the output block rather than all intermediate storage.
+The internal dense-cosine adapter `set_reference_memory(mib)` selects numerical
+chunks independently of storage buffers; NearestNeighbors uses it to preserve
+Source's default numerical order while keeping its 8 MiB output buffers.
 Iteration is single-pass; next returns false after exhaustion. Each chunk owns
 its output. CSR feature matrices remain sparse, with dense distance blocks.
 Precomputed input yields one complete block regardless of the budget, and CSR

@@ -365,11 +365,13 @@ contains
       call self%query_%kneighbors(self%x_,x,distances,indices,k)
     end if
   end subroutine
-  function neighbors_radius_graph(self,x,radius,mode)result(graph)
+  function neighbors_radius_graph(self,x,radius,mode,sort_results)result(graph)
     class(nearest_neighbors),target,intent(in)::self
     real(dp),target,optional,intent(in)::x(:,:)
     real(dp),optional,intent(in)::radius
     character(*),optional,intent(in)::mode
+    logical,optional,intent(in)::sort_results
+    logical::sorted
     type(csr_matrix)::graph
     real(dp)::r
     character(16)::kind
@@ -377,10 +379,11 @@ contains
     r=self%radius;if(present(radius))r=radius
     kind='connectivity';if(present(mode))kind=mode
     call require(kind=='connectivity'.or.kind=='distance','unknown graph mode')
+    sorted=.false.;if(present(sort_results))sorted=sort_results.and.kind=='distance'
     if(same_neighbor_data(self,x))then
-      graph=self%query_%radius_graph(self%x_,radius=r,exclude_self=.false.)
+      graph=self%query_%radius_graph(self%x_,radius=r,exclude_self=.false.,sort_results=sorted)
     else
-      graph=self%query_%radius_graph(self%x_,x,r)
+      graph=self%query_%radius_graph(self%x_,x,r,sort_results=sorted)
     end if
     if(kind=='connectivity')graph%data=1
   end function

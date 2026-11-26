@@ -14034,3 +14034,19 @@ with 250 compiled-unit fingerprints (199 library units). Inventories, oracle
 entries, numerical tolerances and rejection checks are preserved across both
 profiles. Implementation is committed as ed145c0. This remains a dense serial
 API subset. The historical intermittent optimized KNC crash remains unresolved.
+
+### Sorted radius graphs and cosine products (verification in progress)
+
+Bound `nearest_neighbors%radius_neighbors_graph` accepts `sort_results` for
+distance rows, following Source's reduced-key, tree and stable pairwise orders.
+Connectivity mode ignores sorting. Dense cosine products now model NumPy's
+self-transpose SYRK route and preserve Source numerical chunks independently
+of the 8 MiB storage buffers. Small-matrix tail reductions are also corrected.
+
+The saved, audited public executable fails 52 fields in a new 360-configuration
+cosine suite. Private revised engines pass the same inputs exactly, along with
+5,424 sorted-radius configurations / 19,620 fields and 48 numerical/storage
+chunk configurations / 137,504 values. The checked fpm rebuild, all 288 native
+programs and three selected examples pass. Reference verification includes the
+previous neighbor suites, pairwise/kernel checks and the new comparisons;
+checked reference verification and the optimized rebuild are running.

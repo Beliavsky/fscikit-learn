@@ -2590,3 +2590,24 @@ and fitted functional graphs. Source alias checks and numeric brute radius
 validation follow `_base.py` and `_radius_neighbors.pyx.tp`. The existing sklearn
 BSD, Intel BSD and Microsoft STL notices apply. Owned Fortran buffers, CSR/dense
 return adapters and temporary identity checks are native MIT contributions.
+
+Sorted bound radius graphs follow sklearn 1.6.1 `neighbors/_base.py`,
+`metrics/_pairwise_distances_reduction/_radius_neighbors.pyx.tp` and
+`neighbors/_binary_tree.pxi.tp`: reduced-key sorting in numeric brute queries,
+tree distance sorting, stable pairwise fallback order and own-index removal.
+The existing scikit-learn BSD notice and attributed simultaneous-sort helper
+apply. Connectivity-mode handling follows `_base.py` as well.
+
+Dense cosine self-products follow NumPy 2.2.6
+`numpy/_core/src/umath/matmul.c.src` self-transpose SYRK dispatch, with the
+retained NumPy BSD notice in `LICENSES/numpy-COPYING`. Scalar accumulation in
+`sklearn_kernel_dispatch` follows OpenBLAS 0.3.29
+`driver/level3/syrk_kernel.c`, `driver/level3/level3_syrk.c`, `param.h`,
+`kernel/x86_64/KERNEL.SKYLAKEX` and `kernel/x86_64/dgemm_kernel_16x2.c`.
+The existing `LICENSES/OpenBLAS-LICENSE` and `LICENSES/OpenBLAS-level3-BSD`
+retain the project and University of Texas at Austin notices. Small-matrix
+tail reductions follow `dgemm_small_kernel_tn_skylakex.c`, with the 2021
+OpenBLAS Project notice in `LICENSES/OpenBLAS-small-kernel-BSD`.
+These are scalar Fortran adaptations; no OpenBLAS binary is linked or shipped.
+Independent numerical/storage chunk adapters and owned Fortran results are
+native MIT contributions, not additional estimator algorithms.
