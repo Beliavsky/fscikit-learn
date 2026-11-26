@@ -170,7 +170,11 @@ controlled error. These are explicit adapters, not numerical parity. Optimized
 metric probes pass native replays against the same captured Source cases. The
 688-case public and 456-case raw-CSR grids and 23 existing input checks also
 pass on the refined checked metric. These follow-up probes are separate from
-the initial full-package audits above.
+the initial full-package audits above. Following refinement c37362b, the full
+checked fpm rebuild and all 289 native programs, four selected examples and
+the 216-case package replay pass. Its audit verifies 501 compiled-unit
+fingerprints. The optimized follow-up scope remains the metric module and
+parameter replays described above.
 
 Discrete clustering mutual information: `mutual_info_score` returns nats from
 integer label pairs, with source contingency and zero-entropy contracts.
