@@ -13843,9 +13843,9 @@ argpartition/argsort implementation. Selection precedes conversion from squared
 Euclidean/reduced Minkowski distances; unfilled slots preserve Source's finite
 DBL_MAX sentinel and initial index. No dependency or public estimator was added.
 
-The complete checked fpm verification passes all 44 jobs. All 25 selected native
-tests and three examples pass, and the audit validates 233 compiled fingerprints
-(194 library units and 39 programs). The original KNN classification grid now
+Both complete fpm verifications pass all 44 jobs per profile. All 25 selected
+native tests and three examples pass, and each audit validates 233 compiled
+fingerprints (194 library units and 39 programs). The original classification grid now
 passes all 17,320 groups/2,240 fits, resolving its 383 recorded failures. The
 neighbor regression grid passes all 23,088 groups/5,280 fits, resolving its 492
 recorded failures. Inventories, input/oracle hashes and validators are unchanged.
@@ -13859,11 +13859,12 @@ regression groups across 856 configurations each, covering all supported named
 metrics, scalar/joint targets, self queries and finite-input distance overflow.
 The six initially rejected overflow evaluations in each extra grid are resolved.
 
-The checked radius grid (25,851 groups), strict sorting (1,332), older
+Both profiles pass the radius grid (25,851 groups), strict sorting (1,332), older
 transformers (5,550), graph checks (120), core checks (192) and 162 input checks
 also pass. Functional graphs retain their identical 625 failures; the public
 nearest_neighbors query and graph builders retain separate selection limits.
 The original intermittent native crash remains unresolved, and its exact
-optimized executable is preserved. Both full fpm builds succeed; the complete
-optimized verification matrix is still running. Evidence is retained under
-`validation/results/neighbor_selection_*`.
+optimized executable is preserved. Both full fpm builds succeed and all 88
+selected verification jobs complete normally. Cross-profile audits confirm
+identical new comparison results, input/oracle hashes and maximum scaled errors.
+Evidence is retained under `validation/results/neighbor_selection_*`.

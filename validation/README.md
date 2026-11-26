@@ -7769,21 +7769,23 @@ respectively. Initial reports retain six native overflow rejections per family;
 the correction returns unfilled heap values rather than gathering distances
 using their initial index. No oracle values, cases or tolerances were changed.
 
-The full checked fpm run completes all 44 selected jobs normally, including
-25 native tests, three examples and 162 guards. Its original classification
+Both full fpm runs complete all 44 selected jobs per profile normally, including
+25 native tests, three examples and 162 guards. Their original classification
 and regression grids pass all 17,320 and 23,088 groups, resolving the previously
 retained 383 and 492 failures. The audit confirms identical original inventories,
 input/oracle hashes and validator versions. Radius, sorting, transformer,
 legacy graph and core checks pass. Functional graph diagnostics retain all
 625 original differences. Early private consumer probes mixed module
 generations and produced five compile-time interface mismatches; full fpm
-rebuilds compile every consumer consistently, and all 25 checked native tests
+rebuilds compile every consumer consistently, and all 25 native tests per profile
 pass. Those initial private logs remain retained.
 
 Both complete fpm builds succeed with the established GNU Fortran 17 checked
-and optimized flags. The checked audit validates 233 compiled fingerprints
-(194 library units and 39 programs). Complete optimized verification is still
-running. Per-profile manifests, outcomes, logs, reference reports and audits
+and optimized flags. Each audit validates 233 compiled fingerprints
+(194 library units and 39 programs). The cross-profile audit confirms identical
+new comparison results, input/oracle hashes and maximum scaled errors. All 88
+selected jobs finish with expected outcomes. Per-profile manifests, outcomes,
+logs, reference reports and audits
 are ignored under `validation/results/neighbor_selection_*`. The original
 intermittent crash is not declared repaired; the exact historical optimized
 KNN executable is separately preserved as
