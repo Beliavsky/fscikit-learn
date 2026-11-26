@@ -29,6 +29,15 @@ python validation/check_invalid_inputs.py
 
 The reference validator requires NumPy, SciPy and scikit-learn in Python.
 
+`compare_joint_classification.py` compares 642 actual CART/ExtraTree classification
+fits, ragged classes/probabilities, full nodes, pruning and supported scores.
+Pass `--executable <reference_joint_classification_driver.exe> --report <report.json>`.
+`check_joint_classification_invalid_inputs.py` uses the corresponding invalid
+driver for 13 actual Source errors and two native result-rank adapters. All
+integer outputs match exactly; numeric bounds remain 2e-10 / 2e-12. Zero-weight
+classes, empty effective training, signed weights and Source's unsupported
+multiclass-multioutput score behavior are recorded explicitly.
+
 `compare_joint_trees.py` compares 736 actual sklearn CART/ExtraTree regression
 fits with one or more outputs, all four criteria, growth controls and pruning.
 Use `--executable <reference_joint_tree_driver.exe> --report <report.json>`.

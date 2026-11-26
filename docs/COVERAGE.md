@@ -87,7 +87,7 @@ tracked separately in [EXTENSIONS.md](EXTENSIONS.md) and excluded from the
 selective, clearly identified extensions while prioritizing core correctness.
 
 Global scope: dense real64 CPU arrays, integer classification labels, generally one target
-per sample; cross-decomposition, multi-task regression, joint CART/ExtraTree regression, joint MLP and neighbor regression, joint KNN/radius classification, KernelRidge, Dummy baselines and independent multioutput wrappers explicitly accept multiple response columns. General sparse estimator inputs, pandas integration, Python estimator cloning,
+per sample; cross-decomposition, multi-task regression, joint CART/ExtraTree regression and classification, joint MLP and neighbor regression, joint KNN/radius classification, KernelRidge, Dummy baselines and independent multioutput wrappers explicitly accept multiple response columns. General sparse estimator inputs, pandas integration, Python estimator cloning,
 metadata routing, parallel backends and binary model persistence are outside the
 initial translation. The neighbor graph transformers provide CSR graph outputs and
 accept CSR precomputed distances, as do Isomap and Barnes-Hut TSNE. Randomized TruncatedSVD and direct Multinomial/
@@ -145,6 +145,25 @@ Fortran identifiers use snake_case rather than CamelCase.
 | calibration | `calibrated_classifier_cv`; `calibration_curve` | Sigmoid/isotonic CV ensembles, out-of-fold calibration and prefit calibration with logistic, Gaussian NB or KNN bases; uniform/quantile reliability bins |
 | datasets | `make_classification`, `make_multilabel_classification`, `make_sparse_coded_signal`, `make_sparse_spd_matrix`, `make_biclusters`, `make_checkerboard`, `make_hastie_10_2`, `make_blobs`, `make_regression`, `make_low_rank_matrix`, `make_moons`, `make_circles`, `make_friedman1/2/3`, `make_sparse_uncorrelated`, `make_s_curve`, `make_swiss_roll`, `make_gaussian_quantiles` | Native synthetic generators with seeded legacy NumPy draws; scalar/joint regression, low-rank profiles, unequal blob/curve counts, per-cluster blob scales and center outputs; no bundled real-world datasets |
 
+## Joint CART and ExtraTree classification
+
+Both classifier counterparts now fit integer target matrices with shared splits,
+per-output label sets, ragged probability matrices and matrix predictions.
+Gini/entropy/log-loss average output impurities; growth controls, sample weights
+and pruning act on the joint tree. Source multilabel subset accuracy is exposed
+for matrix targets; unsupported multiclass-multioutput accuracy remains a
+controlled error rather than an extension score.
+
+The checked 642-case actual Source grid passes all tree, class, prediction,
+probability and pruning fields, plus supported scores. It exercises one, two,
+three and five outputs, varied class counts, constant outputs, signed weights,
+zero-weight-only classes and empty effective training. Initial 432 cases remain
+in the expanded grid. Numeric bounds stay at 2e-10 / 2e-12 and integer fields
+match exactly. Checked native tests and 15 guards (13 Source errors and two
+native rank adapters) pass. Package and optimized verification are in progress.
+There is no additional estimator type or extension algorithm; forest joint
+classification remains outside this increment.
+
 ## Joint CART and ExtraTree regression
 
 DecisionTreeRegressor and ExtraTreeRegressor counterparts now fit matrix targets
@@ -167,8 +186,7 @@ older tree reference suites and 192 core comparisons pass. Its audit verifies
 305 jobs and 516 compiled-unit fingerprints (201 library units). Optimized
 verification covers the changed tree module and direct public tree API rather
 than a full optimized package rebuild. This adds no estimator type
-or extension algorithm; joint classification and forest fitting remain outside
-this increment.
+or extension algorithm; joint forest fitting remains outside this increment.
 
 ## Weighted dense and sparse DBSCAN
 

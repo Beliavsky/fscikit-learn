@@ -1,5 +1,14 @@
 # Third-party notices and provenance
 
+Joint classification in `src/sklearn_tree.f90` follows sklearn 1.6.1
+`tree/_criterion.pyx` ClassificationCriterion/Gini/Entropy per-output class
+counts and averaged impurities, `tree/_classes.py` label encoding and ragged
+probability results, and the previously attributed splitter/pruning kernels.
+Scikit-learn BSD-3-Clause notices are retained in `LICENSES/scikit-learn-COPYING`.
+Owned label sets, packed node probability vectors and typed matrix/ragged
+Fortran adapters are native MIT integration. No dependency or extension
+algorithm is added.
+
 Joint regression in `src/sklearn_tree.f90` follows sklearn 1.6.1
 `tree/_criterion.pyx` multioutput RegressionCriterion/MSE/FriedmanMSE/MAE/Poisson
 statistics, split proxies, output averaging and weighted-median streams;

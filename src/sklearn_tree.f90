@@ -2,6 +2,7 @@ module sklearn_tree
   use sklearn_sparse, only: csr_matrix
   use sklearn_tree_pruning, only: tree_pruning_path,weakest_link_pruning
   use sklearn_tree_median, only: tree_median_queue
+  use sklearn_label_binarization,only:label_set
   use sklearn_legacy_rng, only: legacy_random_state
   use sklearn_ieee_math, only: ieee_difference,ieee_product,ieee_quotient,ieee_total,ieee_mean,ieee_argmax
   use, intrinsic :: iso_fortran_env, only: int64,real32
@@ -13,6 +14,10 @@ module sklearn_tree
   private
   public :: tree_pruning_path
   public :: decision_tree_classifier,decision_tree_regressor,extra_tree_classifier,extra_tree_regressor
+  public :: tree_probability
+  type::tree_probability
+    real(dp),allocatable::values(:,:)
+  end type
   type :: tree_node
     integer :: left=0,right=0,feature=0,n_samples=0,depth=0
     logical :: missing_go_left=.false.
@@ -37,12 +42,20 @@ module sklearn_tree
   type, extends(tree_storage) :: decision_tree_classifier
     character(16) :: criterion='gini'
     integer, allocatable :: classes_(:)
+    type(label_set),allocatable::classes_multi_(:)
+    integer,allocatable::n_classes_(:)
+    integer,allocatable,private::class_offsets_(:)
   contains
-    procedure :: cost_complexity_pruning_path=>classifier_pruning_path
-    procedure :: fit=>classifier_fit
+    procedure,private::pruning_single=>classifier_pruning_path,pruning_multi=>classifier_pruning_multi
+    generic::cost_complexity_pruning_path=>pruning_single,pruning_multi
+    procedure,private::fit_single=>classifier_fit,fit_multi=>classifier_fit_multi
+    generic::fit=>fit_single,fit_multi
     procedure :: predict_proba=>classifier_proba
+    procedure :: predict_proba_multi=>classifier_proba_multi
     procedure :: predict=>classifier_predict
-    procedure :: score=>classifier_score
+    procedure :: predict_multi=>classifier_predict_multi
+    procedure,private::score_single=>classifier_score,score_multi=>classifier_score_multi
+    generic::score=>score_single,score_multi
   end type
   type, extends(tree_storage) :: decision_tree_regressor
     character(16) :: criterion='squared_error'
@@ -58,7 +71,7 @@ module sklearn_tree
   end type
   type, extends(decision_tree_classifier) :: extra_tree_classifier
   contains
-    procedure :: fit=>extra_classifier_fit
+    procedure,private::fit_single=>extra_classifier_fit,fit_multi=>extra_classifier_fit_multi
   end type
   type, extends(decision_tree_regressor) :: extra_tree_regressor
   contains
@@ -94,7 +107,7 @@ contains
     end if
   end function
   ! Weighted/randomized splitter follows sklearn 1.6.1 tree/_splitter.pyx and _criterion.pyx.
-  subroutine build_weighted_tree(self,x,y,classes,criterion,w,max_features,targets)
+  subroutine build_weighted_tree(self,x,y,classes,criterion,w,max_features,targets,class_targets,class_offsets)
     type :: frontier_record
       integer :: node=0,first=0,last=0,pos=0,depth=0
       logical :: is_leaf=.true.
@@ -106,6 +119,7 @@ contains
     character(*), intent(in) :: criterion
     integer, intent(in), optional :: max_features
     real(dp),optional,intent(in)::targets(:,:)
+    integer,optional,intent(in)::class_targets(:,:),class_offsets(:)
     type(legacy_random_state) :: rng
     real(dp), allocatable :: z(:,:)
     integer, allocatable :: active(:),frontier_samples(:)
@@ -120,6 +134,12 @@ contains
       call require(size(classes)==0,'joint targets require regression')
       call require(size(targets,1)==size(y).and.size(targets,2)>0,'invalid joint tree target shape')
       call check_x(targets);nout=size(targets,2)
+    end if
+    if(present(class_targets))then
+      call require(.not.present(targets).and.present(class_offsets),'invalid joint classification parameters')
+      call require(size(classes)>0.and.size(class_targets,1)==size(y),'invalid joint classification shape')
+      nout=size(class_targets,2)
+      call require(nout>0.and.size(class_offsets)==nout+1,'invalid joint class offsets')
     end if
     self%n_outputs_=nout
     if(size(classes)==0) then
@@ -197,6 +217,14 @@ contains
       end if
     end if
   contains
+    integer function classification_bin(i,k)result(index)
+      integer,intent(in)::i,k
+      if(nout==1)then
+        index=label_index(classes,int(y(i)))
+      else
+        index=class_offsets(k)-1+label_index(classes(class_offsets(k):class_offsets(k+1)-1),class_targets(i,k))
+      end if
+    end function
     real(dp) function target_value(i,k)result(value)
       integer,intent(in)::i,k
       value=y(i)
@@ -234,9 +262,16 @@ contains
             squares=ieee_difference(squares,-ieee_product(wy,target_value(idx,k)))
           end do
         else
-          do c=1,size(classes)
-            if(y(idx)==real(classes(c),dp)) sums(c)=ieee_difference(sums(c),-w(idx))
-          end do
+          if(nout==1)then
+            do c=1,size(classes)
+              if(y(idx)==real(classes(c),dp)) sums(c)=ieee_difference(sums(c),-w(idx))
+            end do
+          else
+            do k=1,nout
+              c=class_offsets(k)-1+label_index(classes(class_offsets(k):class_offsets(k+1)-1),class_targets(idx,k))
+              sums(c)=ieee_difference(sums(c),-w(idx))
+            end do
+          end if
         end if
       end do
     end subroutine
@@ -291,6 +326,17 @@ contains
         end do
         if(nout>1)value=ieee_quotient(value,real(nout,dp))
       else if(criterion=='gini') then
+        if(nout>1)then
+          value=0
+          do k=1,nout
+            total=0
+            do c=class_offsets(k),class_offsets(k+1)-1
+              total=ieee_difference(total,-ieee_product(sums(c),sums(c)))
+            end do
+            value=ieee_difference(value,-ieee_difference(1._dp,ieee_quotient(total,ieee_product(mass,mass))))
+          end do
+          value=ieee_quotient(value,real(nout,dp));return
+        end if
         total=0
         do c=1,size(classes)
           total=ieee_difference(total,-ieee_product(sums(c),sums(c)))
@@ -308,6 +354,7 @@ contains
           end if
           value=ieee_difference(value,term)
         end do
+        if(nout>1)value=ieee_quotient(value,real(nout,dp))
       end if
     end function
     subroutine sort_swap(values,ids,a,b)
@@ -421,7 +468,9 @@ contains
               sl(k)=ieee_difference(sl(k),-ieee_product(w(index),target_value(index,k)))
             end do
           else
-            c=label_index(classes,int(y(index)));sl(c)=ieee_difference(sl(c),-w(index))
+            do k=1,nout
+              c=classification_bin(index,k);sl(c)=ieee_difference(sl(c),-w(index))
+            end do
           end if
           wl=ieee_difference(wl,-w(index))
         end do
@@ -434,7 +483,9 @@ contains
               sl(k)=ieee_difference(sl(k),ieee_product(w(index),target_value(index,k)))
             end do
           else
-            c=label_index(classes,int(y(index)));sl(c)=ieee_difference(sl(c),w(index))
+            do k=1,nout
+              c=classification_bin(index,k);sl(c)=ieee_difference(sl(c),w(index))
+            end do
           end if
           wl=ieee_difference(wl,w(index))
         end do
@@ -668,10 +719,16 @@ contains
         end if
         self%nodes_(node)%value=self%nodes_(node)%values(1)
       else
-        allocate(self%nodes_(node)%probability(size(classes)))
-        do c=1,size(classes)
+        c=size(classes)
+        if(nout>1)c=class_offsets(2)-1
+        allocate(self%nodes_(node)%probability(c))
+        do c=1,size(self%nodes_(node)%probability)
           self%nodes_(node)%probability(c)=ieee_quotient(sums(c),mass)
         end do
+        if(nout>1)then
+          allocate(self%nodes_(node)%values(size(classes)))
+          do c=1,size(classes);self%nodes_(node)%values(c)=ieee_quotient(sums(c),mass);end do
+        end if
       end if
       if(depth>=self%max_depth.or.n<self%min_samples_split.or.n/2<self%min_samples_leaf) return
       if(less(mass,ieee_product(2._dp,min_weight))) return
@@ -845,9 +902,10 @@ contains
     real(dp), intent(in) :: x(:,:)
     integer, intent(in) :: y(:)
     real(dp), intent(in), optional :: sample_weight(:)
+    integer,allocatable::flat(:)
     call check_xy(x,size(y))
     call require(any(self%criterion==['gini    ','entropy ','log_loss']),'unknown tree criterion')
-    self%classes_=unique_labels(y)
+    call prepare_class_labels(self,reshape(y,[size(y),1]),flat)
     if(present(sample_weight)) then
       call build_weighted_tree(self,x,real(y,dp),self%classes_,self%criterion,sample_weight)
     else
@@ -862,6 +920,41 @@ contains
       call build_weighted_tree(self,x,y,[integer::],self%criterion,sample_weight)
     else
       call build_weighted_tree(self,x,y,[integer::],self%criterion,spread(1._dp,1,size(y)))
+    end if
+  end subroutine
+  subroutine prepare_class_labels(self,y,flat)
+    class(decision_tree_classifier),intent(inout)::self
+    integer,intent(in)::y(:,:)
+    integer,allocatable,intent(out)::flat(:)
+    integer::k,q
+    q=size(y,2);call require(q>0,'classification targets require at least one output')
+    if(allocated(self%classes_multi_))deallocate(self%classes_multi_,self%n_classes_,self%class_offsets_)
+    allocate(self%classes_multi_(q),self%n_classes_(q),self%class_offsets_(q+1))
+    self%class_offsets_(1)=1
+    do k=1,q
+      self%classes_multi_(k)%values=unique_labels(y(:,k));self%n_classes_(k)=size(self%classes_multi_(k)%values)
+      call require(self%class_offsets_(k)<=huge(1)-self%n_classes_(k),'joint class count exceeds integer capacity')
+      self%class_offsets_(k+1)=self%class_offsets_(k)+self%n_classes_(k)
+    end do
+    self%classes_=self%classes_multi_(1)%values
+    allocate(flat(self%class_offsets_(q+1)-1))
+    do k=1,q;flat(self%class_offsets_(k):self%class_offsets_(k+1)-1)=self%classes_multi_(k)%values;end do
+  end subroutine
+  subroutine classifier_fit_multi(self,x,y,sample_weight)
+    class(decision_tree_classifier),intent(inout)::self
+    real(dp),intent(in)::x(:,:)
+    integer,intent(in)::y(:,:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    integer,allocatable::flat(:)
+    call check_xy(x,size(y,1))
+    call require(any(self%criterion==['gini    ','entropy ','log_loss']),'unknown tree criterion')
+    call prepare_class_labels(self,y,flat)
+    if(present(sample_weight))then
+      call build_weighted_tree(self,x,real(y(:,1),dp),flat,self%criterion,sample_weight, &
+        class_targets=y,class_offsets=self%class_offsets_)
+    else
+      call build_weighted_tree(self,x,real(y(:,1),dp),flat,self%criterion,spread(1._dp,1,size(y,1)), &
+        class_targets=y,class_offsets=self%class_offsets_)
     end if
   end subroutine
   subroutine regressor_fit_multi(self,x,y,sample_weight)
@@ -882,9 +975,10 @@ contains
     real(dp), intent(in), optional :: sample_weight(:)
     real(dp) :: weights(size(y))
     integer :: nf
+    integer,allocatable::flat(:)
     call check_xy(x,size(y)); self%random_thresholds=.true.
     call require(any(self%criterion==['gini    ','entropy ','log_loss']),'unknown tree criterion')
-    self%classes_=unique_labels(y); weights=1
+    call prepare_class_labels(self,reshape(y,[size(y),1]),flat);weights=1
     if(present(sample_weight)) then
       call require(size(sample_weight)==size(y),'tree sample weight length mismatch'); weights=sample_weight
     end if
@@ -901,6 +995,25 @@ contains
       call require(size(sample_weight)==size(y),'tree sample weight length mismatch'); weights=sample_weight
     end if
     call build_weighted_tree(self,x,y,[integer::],self%criterion,weights)
+  end subroutine
+  subroutine extra_classifier_fit_multi(self,x,y,sample_weight)
+    class(extra_tree_classifier),intent(inout)::self
+    real(dp),intent(in)::x(:,:)
+    integer,intent(in)::y(:,:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    integer,allocatable::flat(:)
+    integer::nf
+    call check_xy(x,size(y,1));self%random_thresholds=.true.
+    call require(any(self%criterion==['gini    ','entropy ','log_loss']),'unknown tree criterion')
+    call prepare_class_labels(self,y,flat)
+    nf=self%max_features;if(nf==0)nf=max(1,int(sqrt(real(size(x,2),dp))))
+    if(present(sample_weight))then
+      call build_weighted_tree(self,x,real(y(:,1),dp),flat,self%criterion,sample_weight,nf, &
+        class_targets=y,class_offsets=self%class_offsets_)
+    else
+      call build_weighted_tree(self,x,real(y(:,1),dp),flat,self%criterion,spread(1._dp,1,size(y,1)),nf, &
+        class_targets=y,class_offsets=self%class_offsets_)
+    end if
   end subroutine
   subroutine extra_regressor_fit_multi(self,x,y,sample_weight)
     class(extra_tree_regressor),intent(inout)::self
@@ -974,6 +1087,16 @@ contains
     real(dp), optional, intent(in) :: sample_weight(:)
     type(tree_pruning_path) :: path
     class(decision_tree_regressor), allocatable :: copied
+    allocate(copied,source=self);copied%ccp_alpha=0
+    call copied%fit(x,y,sample_weight);path=fitted_pruning_path(copied)
+  end function
+  function classifier_pruning_multi(self,x,y,sample_weight)result(path)
+    class(decision_tree_classifier),intent(in)::self
+    real(dp),intent(in)::x(:,:)
+    integer,intent(in)::y(:,:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    type(tree_pruning_path)::path
+    class(decision_tree_classifier),allocatable::copied
     allocate(copied,source=self);copied%ccp_alpha=0
     call copied%fit(x,y,sample_weight);path=fitted_pruning_path(copied)
   end function
@@ -1100,6 +1223,7 @@ contains
     real(dp), intent(in) :: x(:,:)
     real(dp), allocatable :: prob(:,:)
     integer :: leaves(size(x,1)),i
+    call require(self%n_outputs_==1,'joint classification probabilities require predict_proba_multi')
     leaves=self%apply(x); allocate(prob(size(x,1),size(self%classes_)))
     do i=1,size(x,1)
       prob(i,:)=self%nodes_(leaves(i))%probability
@@ -1110,6 +1234,7 @@ contains
     real(dp), intent(in) :: x(:,:)
     integer :: y(size(x,1)),i
     real(dp), allocatable :: prob(:,:)
+    call require(self%n_outputs_==1,'joint classification prediction requires predict_multi')
     prob=self%predict_proba(x)
     do i=1,size(y)
       if(self%weighted_fit_) then
@@ -1147,6 +1272,44 @@ contains
     do i=1,size(y)
       y(i)=self%nodes_(leaves(i))%value
     end do
+  end function
+  function classifier_proba_multi(self,x)result(prob)
+    class(decision_tree_classifier),intent(in)::self
+    real(dp),intent(in)::x(:,:)
+    type(tree_probability),allocatable::prob(:)
+    integer::leaves(size(x,1)),i,k,first,last
+    leaves=self%apply(x);allocate(prob(self%n_outputs_))
+    do k=1,self%n_outputs_
+      allocate(prob(k)%values(size(x,1),self%n_classes_(k)))
+      first=self%class_offsets_(k);last=self%class_offsets_(k+1)-1
+      do i=1,size(x,1)
+        if(self%n_outputs_==1)then
+          prob(k)%values(i,:)=self%nodes_(leaves(i))%probability
+        else
+          prob(k)%values(i,:)=self%nodes_(leaves(i))%values(first:last)
+        end if
+      end do
+    end do
+  end function
+  function classifier_predict_multi(self,x)result(y)
+    class(decision_tree_classifier),intent(in)::self
+    real(dp),intent(in)::x(:,:)
+    integer,allocatable::y(:,:)
+    type(tree_probability),allocatable::prob(:)
+    integer::i,k
+    prob=self%predict_proba_multi(x);allocate(y(size(x,1),self%n_outputs_))
+    do k=1,self%n_outputs_
+      do i=1,size(x,1)
+        y(i,k)=self%classes_multi_(k)%values(ieee_argmax(prob(k)%values(i,:)))
+      end do
+    end do
+  end function
+  real(dp)function classifier_score_multi(self,x,y,sample_weight)result(value)
+    class(decision_tree_classifier),intent(in)::self
+    real(dp),intent(in)::x(:,:)
+    integer,intent(in)::y(:,:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    value=accuracy_score(y,self%predict_multi(x),sample_weight=sample_weight)
   end function
   function regressor_predict_multi(self,x)result(y)
     class(decision_tree_regressor),intent(in)::self

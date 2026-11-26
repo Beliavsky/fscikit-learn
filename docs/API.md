@@ -3796,8 +3796,8 @@ float32 range. Except for absolute-error regression, queries may contain
 NaNs: each missing feature follows the
 larger active-row child, with ties going right, matching a source tree trained
 without missing values. Query infinities and float32 overflow are rejected.
-NaN training, sparse input, monotonic constraints, fractional feature
-counts and joint multioutput classification
+NaN training, sparse input, monotonic constraints and fractional feature
+counts
 remain outside this subset. Native max_depth=0 retains its existing root-only
 meaning; sklearn requires a positive depth.
 
@@ -3844,6 +3844,41 @@ the retained scalar `value` mirrors the first output at fitting time.
 Matrix prediction on a single-output fit agrees with the vector prediction.
 This does not add joint targets to forest or other ensemble fitting interfaces.
 See `example/joint_tree_regression.f90`.
+
+### Joint classification targets
+
+`decision_tree_classifier` and `extra_tree_classifier` accept integer target
+matrices `(n_samples,n_outputs)` through `fit`. Gini, entropy and log-loss
+criteria choose one shared partition using output-averaged impurity. Weights,
+feature selection, leaf budgets, impurity thresholds and pruning retain their
+single-tree controls.
+
+```fortran
+type(decision_tree_classifier) :: model
+type(tree_probability), allocatable :: probabilities(:)
+integer, allocatable :: predicted(:,:)
+call model%fit(x,y_matrix,sample_weight=weights)
+predicted=model%predict_multi(x_query)
+probabilities=model%predict_proba_multi(x_query)
+```
+
+`classes_multi_(k)%values` contains the sorted labels for output k;
+`n_classes_(k)` records its width. Each `probabilities(k)%values` owns a matrix
+of shape `(n_query,n_classes_(k))`, so constant and differently sized class sets
+retain their natural widths. `classes_` retains the first output's labels for
+compatibility. `n_outputs_`, class metadata and probability storage reset when
+refitting, including a later vector-target fit. Matrix prediction helpers also
+accept single-output fitted models.
+
+`predict` and `predict_proba` retain their vector-target result ranks and reject
+joint fits; use the explicit matrix/ragged helpers for those fits.
+`cost_complexity_pruning_path` accepts either target rank. Matrix `score` follows
+Source accuracy semantics: multilabel indicators use exact row matching, while
+multiclass-multioutput targets are rejected by the classification metric even
+though fitting and prediction support them. Fitted joint-classification nodes
+store concatenated per-output probabilities in `nodes_(i)%values`; output class
+widths define its segments. This does not change ensemble fitting interfaces.
+See `example/joint_tree_classification.f90`.
 
 
 ## BaggingClassifier and BaggingRegressor
