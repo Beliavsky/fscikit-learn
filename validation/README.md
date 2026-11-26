@@ -7498,3 +7498,30 @@ tree calls / 696 duplicate reuses and 9,955 estimator fits / 1,931 reuses, plus
 the fitted suite's 36 source threshold-fixture trees per run. Tree reports
 retain 2,885 source warnings and fitted reports retain 6,561 per profile.
 Artifacts remain ignored under validation/results/single_*.
+
+## Joint neighbor regression
+
+`compare_neighbor_outputs.py` compares actual installed sklearn 1.6.1
+KNeighborsRegressor and RadiusNeighborsRegressor (`algorithm='brute'`) with the
+Fortran vector/matrix overloads. Pass `--executable`, `--report` and optionally
+`--reference-cache`. The full 5,280-configuration inventory covers three seeds,
+four training shapes, regular/duplicate points, five metrics, uniform/distance
+weights, one/three targets, explicit/self queries, neighbor counts and radius
+zero/.8/infinity. Metadata and retained targets are compared even when Source
+rejects prediction; rejected score calls retain prediction comparisons and
+receive separate native rejection probes. Native stdout uses bounded file-backed
+batches. Reference caches preserve Source versions, source hashes and requests.
+
+Default execution remains strict at 3e-8 absolute/relative tolerances, with exact
+metadata and matching NaNs. `--record-differences` retains every failed field;
+`--regular` explicitly selects regular-point fixtures. Fixed-count cutoff ties
+can select different target rows: native stable training order differs from
+Source brute selection. No conditioned oracle or broadened tolerance hides
+those differences. `check_neighbor_regression_invalid_inputs.py` checks 28
+actual Source rejections and the native vector-prediction rank contract.
+
+`test_neighbor_outputs` checks analytic joint predictions, weighted scores,
+IEEE state, self exclusion, zero-distance weighting, precomputed geometry,
+radius limits and vector refits. `test_neighbor_frozen_outputs` checks borrowed
+fitted-state detection, joint prediction/scoring and vector/matrix refits.
+`neighbor_outputs` demonstrates the public facade.

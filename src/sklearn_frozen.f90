@@ -122,7 +122,7 @@ contains
     type is(mlp_regressor);ok=allocated(model%layers_)
     class is(linear_regression);ok=allocated(model%coef_)
     type is(sgd_regressor);ok=allocated(model%coef_)
-    type is(kneighbors_regressor);ok=allocated(model%y_)
+    type is(kneighbors_regressor);ok=allocated(model%y_matrix_)
     class is(decision_tree_regressor);ok=allocated(model%nodes_)
     type is(kernel_ridge);ok=allocated(model%dual_coef_)
     type is(dummy_regressor);ok=model%fitted_
@@ -323,6 +323,7 @@ contains
     select type(model=>self%estimator)
     class is(dense_transformer);y=model%bridge_matrix(x)
     type is(mlp_regressor);y=model%predict_multioutput(x)
+    type is(kneighbors_regressor);y=model%predict_matrix(x)
     class default;v=regression(model,x);y=reshape(v,[size(v),1])
     end select
   end function
@@ -402,6 +403,8 @@ contains
     type is(pca)
       call require(.not.present(sample_weight),'PCA score does not accept sample weights')
       value=model%score(x);return
+    type is(kneighbors_regressor)
+      value=model%score(x,y,sample_weight);return
     end select
     if(.not.present(sample_weight)) then
       select type(model=>self%estimator)
@@ -472,6 +475,7 @@ contains
     end if
     select type(model=>self%estimator)
     class is(dense_transformer);value=model%bridge_score_matrix(x,y,sample_weight)
+    type is(kneighbors_regressor);value=model%score(x,y,sample_weight)
     class default
       pred=self%predict_matrix(x);call require(size(pred,2)==size(y,2),'frozen response width mismatch')
       value=0

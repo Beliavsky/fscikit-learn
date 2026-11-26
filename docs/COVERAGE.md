@@ -13590,3 +13590,23 @@ reference cache provenance and comparison counts, and distinct checked/optimized
 reference executable hashes. Maximum errors also agree between profiles.
 Artifacts remain ignored under `validation/results/qda_package_*`. The broader
 translation remains unfinished.
+
+## Joint KNN and radius-neighbor regression
+
+Both regressors now accept dense joint targets, retain target-rank and fitted
+shape metadata, predict matrices, and support weighted uniform-average R2 for
+vector/matrix truth. Optional query matrices implement training-set prediction
+with self exclusion; passing training rows explicitly retains self neighbors.
+Dense precomputed geometry, positive fractional/infinite Minkowski powers,
+radius zero/infinity and per-target NaNs for empty radius neighborhoods are
+supported. Feature distances are streamed with an 8 MiB block budget, with a
+minimum of one query row. KNN frozen wrappers detect joint fitted targets and
+forward matrix prediction and weighted scoring. Scalar APIs remain available.
+
+This extends algorithms already present in sklearn. Callable weights, CSR
+features/precomputed matrices, tree backends and metric_params remain outside
+this increment. Fixed-count neighbor selection uses stable training-order ties;
+sklearn brute selection can choose different tied target rows. Full numerical
+parity is not claimed. The new direct Source validator retains these output
+differences at unchanged tolerances, including their effects on R2, rather than
+substituting native-selected expected outputs.

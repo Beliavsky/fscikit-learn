@@ -227,6 +227,32 @@ query without neighbors; opt in to numeric outlier labels using
 query. Nearest centroid supports `metric='euclidean'` or `'manhattan'`, uniform
 priors, and nonnegative `shrink_threshold`; the default zero disables shrinkage.
 
+### Joint neighbor regression
+
+`kneighbors_regressor` and `radius_neighbors_regressor` accept vector or matrix
+targets in `fit(x,y)`. Use `predict_matrix(x)` for matrix targets; its shape is
+`(n_query,n_outputs)`. Vector fits retain `predict(x)` and also support the
+matrix helper. Omitting `x` from either prediction method queries training rows
+with each row's own index excluded. This differs from explicitly passing the
+training matrix. Fixed-count training queries require `n_neighbors<n_samples`.
+
+Both target ranks support `score(x,y,sample_weight=...)`, using uniform-average
+R2; `score(y=...)` scores self-excluding training predictions. Fitted metadata
+includes `n_features_in_`, `n_samples_fit_`, `n_outputs_`, `matrix_target_` and
+owned `y_matrix_`. Vector fits additionally retain `y_`. Frozen KNN wrappers
+support matrix prediction, weighted scoring and fitted-state detection.
+
+Supported dense regression metrics are `minkowski` (positive `p`, including
+infinity), `euclidean`, `sqeuclidean`, `l2`, `manhattan`, `cityblock`, `l1`,
+`chebyshev`, `cosine` and `precomputed`. Precomputed fit matrices must be square
+and nonnegative; query columns refer to training rows. Radius zero and infinity
+are accepted. An empty radius neighborhood returns NaN for every target.
+Feature-distance queries stream blocks with an 8 MiB distance budget (at least
+one row); dense precomputed queries use their supplied matrix. Callable weights,
+CSR input, tree backends and `metric_params` are not provided here. Fixed-count
+distance ties retain training order and can produce different outputs from
+scikit-learn's brute-force selection. See `example/neighbor_outputs.f90`.
+
 ## Bayesian and sparse regression
 
 `bayesian_ridge`, `ard_regression`, and `orthogonal_matching_pursuit` are in

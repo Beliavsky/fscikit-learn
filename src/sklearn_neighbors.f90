@@ -1,4 +1,7 @@
 module sklearn_neighbors
+  use,intrinsic::ieee_exceptions
+  use sklearn_pairwise_reductions,only:row_distance
+  use sklearn_pairwise_chunks,only:pairwise_distances_chunked,pairwise_distance_iterator,distance_chunk
   use sklearn_nca, only: neighborhood_components_analysis
   use sklearn_neighbor_graph, only: kneighbors_transformer,radius_neighbors_transformer
   use sklearn_sparse, only: csr_matrix,csr_from_dense,csr_from_arrays
@@ -43,11 +46,15 @@ module sklearn_neighbors
     character(16) :: weights='uniform',metric='minkowski'
     real(dp) :: p=2
     type(nearest_neighbors) :: search_
-    real(dp), allocatable :: y_(:)
+    real(dp), allocatable :: y_(:),y_matrix_(:,:)
+    logical::matrix_target_=.false.
+    integer::n_features_in_=0,n_outputs_=0,n_samples_fit_=0
   contains
-    procedure :: fit=>knr_fit
-    procedure :: predict=>knr_predict
-    procedure :: score=>knr_score
+    procedure :: fit_dense=>knr_fit,fit_matrix=>knr_fit_matrix
+    generic::fit=>fit_dense,fit_matrix
+    procedure :: predict=>knr_predict,predict_matrix=>knr_predict_matrix
+    procedure :: score_dense=>knr_score,score_matrix=>knr_score_matrix
+    generic::score=>score_dense,score_matrix
   end type
   type :: radius_neighbors_classifier
     real(dp) :: radius=1,p=2
@@ -65,11 +72,17 @@ module sklearn_neighbors
   type :: radius_neighbors_regressor
     real(dp) :: radius=1,p=2
     character(16) :: weights='uniform',metric='minkowski'
-    real(dp), allocatable :: x_(:,:),y_(:)
+    real(dp), allocatable :: x_(:,:),y_(:),y_matrix_(:,:)
+    logical::matrix_target_=.false.
+    integer::n_features_in_=0,n_outputs_=0,n_samples_fit_=0
+    character(16),private::metric_='minkowski'
+    real(dp),private::p_=2
   contains
-    procedure :: fit=>radius_regressor_fit
-    procedure :: predict=>radius_regressor_predict
-    procedure :: score=>radius_regressor_score
+    procedure :: fit_dense=>radius_regressor_fit,fit_matrix=>radius_regressor_fit_matrix
+    generic::fit=>fit_dense,fit_matrix
+    procedure :: predict=>radius_regressor_predict,predict_matrix=>radius_regressor_predict_matrix
+    procedure :: score_dense=>radius_regressor_score,score_matrix=>radius_regressor_score_matrix
+    generic::score=>score_dense,score_matrix
   end type
   type :: nearest_centroid
     character(16) :: metric='euclidean',prior_mode='uniform'
@@ -197,30 +210,243 @@ contains
     integer, intent(in) :: y(:)
     v=accuracy_score(y,self%predict(x))
   end function
-  subroutine knr_fit(self,x,y)
-    class(kneighbors_regressor), intent(inout) :: self
-    real(dp), intent(in) :: x(:,:),y(:)
-    call check_xy(x,size(y)); call check_x(reshape(y,[size(y),1])); self%y_=y
-    self%search_%n_neighbors=self%n_neighbors; self%search_%metric=self%metric; self%search_%p=self%p
-    call self%search_%fit(x)
-  end subroutine
-  function knr_predict(self,x) result(y)
-    class(kneighbors_regressor), intent(in) :: self
-    real(dp), intent(in) :: x(:,:)
-    real(dp) :: y(size(x,1))
-    real(dp), allocatable :: d(:,:),w(:)
-    integer, allocatable :: idx(:,:)
-    integer :: i
-    call require(allocated(self%y_),'kneighbors_regressor is not fitted')
-    call self%search_%kneighbors(x,d,idx)
-    do i=1,size(y)
-      w=get_weights(d(i,:),self%weights); y(i)=dot_product(w,self%y_(idx(i,:)))/sum(w)
-    end do
+  ! Regression prediction follows sklearn 1.6.1 neighbors/_regression.py and
+  ! _base.py (BSD). Owned matrix targets and streaming adapters are native MIT.
+  recursive real(dp)function neighbor_sum(a)result(value)
+    real(dp),intent(in)::a(:)
+    real(dp)::lane(8)
+    integer::n,i,whole,half
+    n=size(a);value=-0._dp
+    if(n<8)then
+      do i=1,n
+        value=value+a(i)
+      end do
+    else if(n<=128)then
+      lane=a(:8);whole=n-mod(n,8)
+      do i=9,whole,8
+        lane=lane+a(i:i+7)
+      end do
+      value=((lane(1)+lane(2))+(lane(3)+lane(4)))+((lane(5)+lane(6))+(lane(7)+lane(8)))
+      do i=whole+1,n
+        value=value+a(i)
+      end do
+    else
+      half=n/2;half=half-mod(half,8);value=neighbor_sum(a(:half))+neighbor_sum(a(half+1:))
+    end if
   end function
-  real(dp) function knr_score(self,x,y) result(v)
-    class(kneighbors_regressor), intent(in) :: self
-    real(dp), intent(in) :: x(:,:),y(:)
-    v=r2_score(y,self%predict(x))
+  subroutine regression_parameters(x,metric,p,weights)
+    real(dp),intent(in)::x(:,:),p
+    character(*),intent(in)::metric,weights
+    call check_x(x)
+    call require(weights=='uniform'.or.weights=='distance','unknown neighbor weights')
+    call require(any(metric==[character(16)::'minkowski','euclidean','sqeuclidean','l2','manhattan', &
+      'cityblock','l1','chebyshev','cosine','precomputed']),'unsupported neighbor regression metric')
+    call require(.not.ieee_is_nan(p),'neighbor regression p is NaN')
+    call require(p>0,'neighbor regression p must be positive')
+    if(metric=='precomputed')then
+      call require(size(x,1)==size(x,2),'precomputed neighbor fit must be square')
+      call require(all(x>=0),'precomputed neighbor distances must be nonnegative')
+    end if
+  end subroutine
+  function regression_average(targets,d,weights,knn)result(value)
+    real(dp),intent(in)::targets(:,:),d(:)
+    character(*),intent(in)::weights
+    logical,intent(in)::knn
+    real(dp)::value(size(targets,2)),w(size(d)),denom
+    logical::infmask(size(d))
+    integer::i,j
+    if(weights=='uniform')then
+      if(size(targets,2)==1)then
+        value(1)=neighbor_sum(targets(:,1))/size(d)
+      else
+        value=0
+        do i=1,size(d)
+          value=value+targets(i,:)
+        end do
+        value=value/size(d)
+      end if
+      return
+    end if
+    call require(weights=='distance','unknown neighbor weights')
+    if(knn)then
+      w=1/d;infmask=.not.ieee_is_finite(w).and..not.ieee_is_nan(w)
+      if(any(infmask))w=merge(1._dp,0._dp,infmask)
+    else if(any(d==0))then
+      w=merge(1._dp,0._dp,d==0)
+    else
+      w=1/d
+    end if
+    denom=neighbor_sum(w)
+    if(knn.or.size(targets,2)==1)then
+      do j=1,size(value)
+        value(j)=neighbor_sum(w*targets(:,j))/denom
+      end do
+    else
+      value=0
+      do i=1,size(d)
+        value=value+w(i)*targets(i,:)
+      end do
+      value=value/denom
+    end if
+  end function
+  function regression_predict(training,targets,metric,p,weights,k,radius,by_radius,x)result(prediction)
+    real(dp),intent(in)::training(:,:),targets(:,:),p,radius
+    character(*),intent(in)::metric,weights
+    integer,intent(in)::k
+    logical,intent(in)::by_radius
+    real(dp),optional,intent(in)::x(:,:)
+    real(dp),allocatable::prediction(:,:),dist(:,:)
+    integer,allocatable::order(:),ids(:)
+    logical,allocatable::keep(:)
+    type(pairwise_distance_iterator)::state
+    type(distance_chunk)::chunk
+    character(16)::kind
+    logical::self_query,available,modes(size(ieee_all)),flags(size(ieee_all))
+    integer::n,m,first,i,row,j,take,span,blockrow,trainrow,qrow,count_rows
+    n=size(training,1);self_query=.not.present(x);m=n
+    call require(weights=='uniform'.or.weights=='distance','unknown neighbor weights')
+    if(present(x))then
+      call check_x(x);m=size(x,1)
+      call require(size(x,2)==size(training,2),'neighbor regression query feature count mismatch')
+      if(metric=='precomputed')call require(all(x>=0),'precomputed neighbor distances must be nonnegative')
+    end if
+    if(.not.by_radius)then
+      call require(k>0,'n_neighbors must be positive')
+      call require(k<=n,'n_neighbors exceeds available training neighbors')
+      if(self_query)call require(k<n,'training prediction needs fewer neighbors than training samples')
+      take=k;if(self_query)take=k+1
+    else
+      call require(.not.ieee_is_nan(radius),'radius is NaN')
+      call require(radius>=0,'radius must be nonnegative')
+    end if
+    call ieee_get_halting_mode(ieee_all,modes);call ieee_get_flag(ieee_all,flags)
+    call ieee_set_halting_mode(ieee_all,.false.)
+    allocate(prediction(m,size(targets,2)))
+    kind=metric
+    if(kind=='minkowski')then
+      if(p==1)kind='manhattan'
+      if(p==2)kind='euclidean'
+      if(.not.ieee_is_finite(p))kind='chebyshev'
+    end if
+    if(metric=='precomputed')then
+      dist=training;if(present(x))dist=x
+      first=0;call apply_block(dist,first)
+    else if(kind=='euclidean'.or.kind=='l2'.or.kind=='sqeuclidean')then
+      ! Neighbor reductions use ordered row norms, rather than the general
+      ! pairwise GEMM path. Keep exact zero geometry for coincident rows.
+      span=max(1,min(m,1048576/n))
+      do first=0,m-1,span
+        count_rows=min(span,m-first)
+        if(allocated(dist))deallocate(dist)
+        allocate(dist(count_rows,n))
+        do trainrow=1,n
+          do blockrow=1,count_rows
+            qrow=first+blockrow
+            if(present(x))then
+              dist(blockrow,trainrow)=row_distance(x(qrow,:),training(trainrow,:),1,p,.false.,.false.,.false.)
+            else
+              dist(blockrow,trainrow)=row_distance(training(qrow,:),training(trainrow,:),1,p,.false.,.false.,.false.)
+            end if
+            if(kind/='sqeuclidean')dist(blockrow,trainrow)=sqrt(dist(blockrow,trainrow))
+          end do
+        end do
+        call apply_block(dist,first)
+      end do
+    else
+      if(present(x))then
+        if(kind=='minkowski')then
+          state=pairwise_distances_chunked(x,training,kind,working_memory=8._dp,p=p)
+        else
+          state=pairwise_distances_chunked(x,training,kind,working_memory=8._dp)
+        end if
+      else
+        if(kind=='minkowski')then
+          state=pairwise_distances_chunked(training,metric=kind,working_memory=8._dp,p=p)
+        else
+          state=pairwise_distances_chunked(training,metric=kind,working_memory=8._dp)
+        end if
+      end if
+      do
+        available=state%next(chunk);if(.not.available)exit
+        call apply_block(chunk%distance%values,chunk%distance%start)
+      end do
+    end if
+    call ieee_set_flag(ieee_all,flags);call ieee_set_halting_mode(ieee_all,modes)
+  contains
+    subroutine apply_block(d,start)
+      real(dp),intent(in)::d(:,:)
+      integer,intent(in)::start
+      do i=1,size(d,1)
+        row=start+i
+        if(by_radius)then
+          keep=d(i,:)<=radius
+          if(self_query)keep(row)=.false.
+          ids=pack([(j,j=1,n)],keep)
+        else
+          order=argsort(d(i,:));ids=order(:take)
+          if(self_query)then
+            keep=ids/=row
+            if(all(keep))keep(1)=.false.
+            ids=pack(ids,keep)
+          end if
+        end if
+        if(size(ids)==0)then
+          prediction(row,:)=ieee_value(0._dp,ieee_quiet_nan)
+        else
+          prediction(row,:)=regression_average(targets(ids,:),d(i,ids),weights,.not.by_radius)
+        end if
+      end do
+    end subroutine
+  end function
+  subroutine knr_fit(self,x,y)
+    class(kneighbors_regressor),intent(inout)::self
+    real(dp),intent(in)::x(:,:),y(:)
+    call knr_fit_common(self,x,reshape(y,[size(y),1]),.false.)
+  end subroutine
+  subroutine knr_fit_matrix(self,x,y)
+    class(kneighbors_regressor),intent(inout)::self
+    real(dp),intent(in)::x(:,:),y(:,:)
+    call knr_fit_common(self,x,y,.true.)
+  end subroutine
+  subroutine knr_fit_common(self,x,y,matrix_target)
+    class(kneighbors_regressor),intent(inout)::self
+    real(dp),intent(in)::x(:,:),y(:,:)
+    logical,intent(in)::matrix_target
+    call check_xy(x,size(y,1));call check_x(y)
+    call regression_parameters(x,self%metric,self%p,self%weights)
+    self%search_%n_neighbors=self%n_neighbors;self%search_%metric=self%metric;self%search_%p=self%p
+    call self%search_%fit(x)
+    self%y_matrix_=y;self%matrix_target_=matrix_target
+    self%n_outputs_=size(y,2);self%n_features_in_=size(x,2);self%n_samples_fit_=size(x,1)
+    if(allocated(self%y_))deallocate(self%y_)
+    if(.not.matrix_target)self%y_=y(:,1)
+  end subroutine
+  function knr_predict_matrix(self,x)result(y)
+    class(kneighbors_regressor),intent(in)::self
+    real(dp),optional,intent(in)::x(:,:)
+    real(dp),allocatable::y(:,:)
+    call require(allocated(self%y_matrix_),'kneighbors_regressor is not fitted')
+    y=regression_predict(self%search_%x_,self%y_matrix_,self%search_%metric,self%search_%p, &
+      self%weights,self%n_neighbors,0._dp,.false.,x)
+  end function
+  function knr_predict(self,x)result(y)
+    class(kneighbors_regressor),intent(in)::self
+    real(dp),optional,intent(in)::x(:,:)
+    real(dp),allocatable::y(:),matrix(:,:)
+    call require(.not.self%matrix_target_,'matrix-target neighbor regression requires predict_matrix')
+    matrix=self%predict_matrix(x);y=matrix(:,1)
+  end function
+  real(dp)function knr_score(self,x,y,sample_weight)result(v)
+    class(kneighbors_regressor),intent(in)::self
+    real(dp),optional,intent(in)::x(:,:),sample_weight(:)
+    real(dp),intent(in)::y(:)
+    v=r2_score(y,self%predict_matrix(x),sample_weight=sample_weight)
+  end function
+  real(dp)function knr_score_matrix(self,x,y,sample_weight)result(v)
+    class(kneighbors_regressor),intent(in)::self
+    real(dp),optional,intent(in)::x(:,:),sample_weight(:)
+    real(dp),intent(in)::y(:,:)
+    v=r2_score(y,self%predict_matrix(x),sample_weight=sample_weight)
   end function
   subroutine radius_classifier_fit(self,x,y)
     class(radius_neighbors_classifier), intent(inout) :: self
@@ -275,37 +501,54 @@ contains
     v=accuracy_score(y,self%predict(x))
   end function
   subroutine radius_regressor_fit(self,x,y)
-    class(radius_neighbors_regressor), intent(inout) :: self
-    real(dp), intent(in) :: x(:,:),y(:)
-    call check_xy(x,size(y)); call check_x(reshape(y,[size(y),1]))
-    call require(self%radius>0,'radius must be positive')
-    call require(self%weights=='uniform'.or.self%weights=='distance','unknown neighbor weights')
-    self%x_=x; self%y_=y
+    class(radius_neighbors_regressor),intent(inout)::self
+    real(dp),intent(in)::x(:,:),y(:)
+    call radius_regressor_fit_common(self,x,reshape(y,[size(y),1]),.false.)
   end subroutine
-  function radius_regressor_predict(self,x) result(y)
-    use, intrinsic :: ieee_arithmetic, only: ieee_value,ieee_quiet_nan
-    class(radius_neighbors_regressor), intent(in) :: self
-    real(dp), intent(in) :: x(:,:)
-    real(dp) :: y(size(x,1))
-    real(dp), allocatable :: d(:,:),weights(:)
-    integer, allocatable :: ids(:)
-    integer :: i,j,n
-    call require(allocated(self%x_),'radius regressor is not fitted')
-    d=pairwise_distances(x,self%x_,self%metric,self%p); n=size(self%y_)
-    do i=1,size(x,1)
-      ids=pack([(j,j=1,n)],d(i,:)<=self%radius)
-      if(size(ids)==0) then
-        y(i)=ieee_value(0._dp,ieee_quiet_nan)
-      else
-        weights=get_weights(d(i,ids),self%weights)
-        y(i)=dot_product(weights,self%y_(ids))/sum(weights)
-      end if
-    end do
+  subroutine radius_regressor_fit_matrix(self,x,y)
+    class(radius_neighbors_regressor),intent(inout)::self
+    real(dp),intent(in)::x(:,:),y(:,:)
+    call radius_regressor_fit_common(self,x,y,.true.)
+  end subroutine
+  subroutine radius_regressor_fit_common(self,x,y,matrix_target)
+    class(radius_neighbors_regressor),intent(inout)::self
+    real(dp),intent(in)::x(:,:),y(:,:)
+    logical,intent(in)::matrix_target
+    call check_xy(x,size(y,1));call check_x(y)
+    call regression_parameters(x,self%metric,self%p,self%weights)
+    call require(.not.ieee_is_nan(self%radius),'radius is NaN')
+    call require(self%radius>=0,'radius must be nonnegative')
+    self%x_=x;self%y_matrix_=y;self%matrix_target_=matrix_target
+    self%metric_=self%metric;self%p_=self%p
+    self%n_features_in_=size(x,2);self%n_outputs_=size(y,2);self%n_samples_fit_=size(x,1)
+    if(allocated(self%y_))deallocate(self%y_)
+    if(.not.matrix_target)self%y_=y(:,1)
+  end subroutine
+  function radius_regressor_predict_matrix(self,x)result(y)
+    class(radius_neighbors_regressor),intent(in)::self
+    real(dp),optional,intent(in)::x(:,:)
+    real(dp),allocatable::y(:,:)
+    call require(allocated(self%y_matrix_),'radius regressor is not fitted')
+    y=regression_predict(self%x_,self%y_matrix_,self%metric_,self%p_,self%weights,0,self%radius,.true.,x)
   end function
-  real(dp) function radius_regressor_score(self,x,y) result(v)
-    class(radius_neighbors_regressor), intent(in) :: self
-    real(dp), intent(in) :: x(:,:),y(:)
-    v=r2_score(y,self%predict(x))
+  function radius_regressor_predict(self,x)result(y)
+    class(radius_neighbors_regressor),intent(in)::self
+    real(dp),optional,intent(in)::x(:,:)
+    real(dp),allocatable::y(:),matrix(:,:)
+    call require(.not.self%matrix_target_,'matrix-target neighbor regression requires predict_matrix')
+    matrix=self%predict_matrix(x);y=matrix(:,1)
+  end function
+  real(dp)function radius_regressor_score(self,x,y,sample_weight)result(v)
+    class(radius_neighbors_regressor),intent(in)::self
+    real(dp),optional,intent(in)::x(:,:),sample_weight(:)
+    real(dp),intent(in)::y(:)
+    v=r2_score(y,self%predict_matrix(x),sample_weight=sample_weight)
+  end function
+  real(dp)function radius_regressor_score_matrix(self,x,y,sample_weight)result(v)
+    class(radius_neighbors_regressor),intent(in)::self
+    real(dp),optional,intent(in)::x(:,:),sample_weight(:)
+    real(dp),intent(in)::y(:,:)
+    v=r2_score(y,self%predict_matrix(x),sample_weight=sample_weight)
   end function
   ! NearestCentroid 1.6.1: sklearn/neighbors/_nearest_centroid.py.
   ! BSD attribution retained in THIRD_PARTY_NOTICES.md.

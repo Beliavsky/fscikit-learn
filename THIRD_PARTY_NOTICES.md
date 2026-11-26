@@ -2460,3 +2460,14 @@ implementations. Pairwise reductions follow NumPy 2.2.6 under its retained BSD
 notice; matrix products reuse the attributed scalar OpenBLAS reconstruction.
 Owned ragged-factor storage and IEEE composition are original MIT contributions.
 No dependency or algorithm outside scikit-learn was added.
+
+## Joint neighbor regression
+
+Joint-target KNN/radius regression, self-excluding training queries, inverse
+distance weighting and empty-radius behavior adapt installed scikit-learn
+1.6.1 `neighbors/_regression.py`, `neighbors/_base.py` and `base.py`
+RegressorMixin under the retained scikit-learn BSD notice. Pairwise summation
+follows NumPy 2.2.6 under its retained BSD notice. Ordered Euclidean geometry
+reuses the existing attributed pairwise-reduction implementation. Typed target
+storage, streaming integration, stable native tie selection and frozen wrapper
+dispatch are original MIT contributions. No additional dependency was imported.

@@ -743,3 +743,9 @@ multilabel targets. See [the API](docs/API.md#classification-reports) and
 features, with named or callable metrics and typed reductions. See
 [the API](docs/API.md#chunked-pairwise-distances) and
 [example/pairwise_chunks.f90](example/pairwise_chunks.f90).
+
+KNN and radius-neighbor regression also accept joint matrix targets, weighted
+R2 scoring, dense precomputed distances and self-excluding training queries.
+See [the API](docs/API.md#joint-neighbor-regression) and
+[example/neighbor_outputs.f90](example/neighbor_outputs.f90). Fixed-count
+distance ties can differ from scikit-learn's selected neighbors.
