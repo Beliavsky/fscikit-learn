@@ -171,6 +171,16 @@ verification covers the changed DBSCAN module and reference replays rather
 than a full optimized package rebuild. This extends the existing DBSCAN
 counterpart and does not add a type or an extension algorithm.
 
+A further sparse-precomputed DBSCAN probe exercises SciPy's almost-diagonal
+insertion fast path. The original implementation fails 48 of 168 configurations,
+including 16 label/core-membership differences caused by signed-weight
+cancellation. Source row ordering is now retained for sorted and unsorted
+columns, including the strict insertion threshold and duplicate-diagonal
+canonicalization. Both checked and optimized DBSCAN-module builds pass all
+168 actual Source cases exactly, with unchanged input hashes and oracle values.
+The new 2,000-row native regression also passes. Package verification is in
+progress; the preceding full-package audit describes the earlier revision.
+
 ## Metrics and kernels
 
 The public `distance_metric` / `get_metric` factory adds the sklearn 1.6.1

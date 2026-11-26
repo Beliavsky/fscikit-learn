@@ -4,7 +4,8 @@
 signed neighborhood weights, sparse precomputed diagonal handling, fitted
 outputs and `cluster/_dbscan_inner.pyx` depth-first expansion by Lars Buitinck
 (BSD-3-Clause). Sparse diagonal/canonicalization behavior follows SciPy 1.15.3
-`sparse/_compressed.py` and `sparsetools/csr.h`; NumPy 2.2.6 pairwise summation
+`sparse/_compressed.py` (`_setdiag`/`_insert_many`) and `sparsetools/csr.h`;
+NumPy 2.2.6 pairwise summation
 conventions follow the existing attributed scalar adapters. Existing sklearn,
 SciPy and NumPy BSD notices in `LICENSES` are retained. Owned dense/CSR Fortran
 storage, typed overloads and backend integration are native MIT contributions.

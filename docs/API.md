@@ -268,7 +268,10 @@ Manhattan, cosine and precomputed distances, including applicable aliases and
 Minkowski powers one/two. Sparse precomputed missing edges remain missing;
 explicit diagonal distances are inserted on an owned copy as in sklearn.
 Stored off-diagonal duplicates are preserved unless duplicate diagonal entries
-trigger SciPy's whole-matrix canonicalization.
+trigger SciPy's whole-matrix canonicalization. Nearly diagonal sparse matrices
+also retain Source's fast insertion order, including its distinction between
+sorted and unsorted columns. This order can affect cancellation in signed
+neighborhood-weight sums.
 
 Expansion follows Source's depth-first stack order. `labels_` contains zero-based
 cluster IDs or noise `-1`; `core_sample_indices_` contains one-based row indices.

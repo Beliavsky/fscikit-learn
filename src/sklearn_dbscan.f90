@@ -197,6 +197,7 @@ contains
   type(csr_matrix)::work
   real(dp)::diagonal(x%n_rows)
   integer::i,j,k,missing,diagonal_counts(x%n_rows)
+  logical::fast_insert,sorted,added
   call require(x%n_rows==x%n_cols,'DBSCAN precomputed distances must be square')
   diagonal=0;diagonal_counts=0
   do i=1,x%n_rows
@@ -211,18 +212,37 @@ contains
   work=x
   if(any(diagonal_counts>1))work=canonical_rows(x)
   missing=count(diagonal_counts==0)
+  ! SciPy uses _insert_many for an almost diagonal matrix. Unlike the COO
+  ! path, this preserves existing diagonal positions and prepends new entries
+  ! before optionally sorting columns. Row order matters for signed sums.
+  fast_insert=.false.;sorted=.true.
+  if(missing>0)fast_insert=real(size(work%data)-(x%n_rows-missing),dp)<real(size(work%data),dp)*.001_dp
+  if(fast_insert)then
+   do i=1,x%n_rows
+    do j=work%indptr(i)+1,work%indptr(i+1)-1
+     if(work%indices(j)<work%indices(j-1))sorted=.false.
+    end do
+   end do
+  end if
   call require(size(work%data)<=huge(1)-missing-1,'DBSCAN diagonal exceeds integer capacity')
   value%n_rows=x%n_rows;value%n_cols=x%n_cols
   allocate(value%indptr(x%n_rows+1),value%indices(size(work%data)+missing),value%data(size(work%data)+missing))
   k=1;value%indptr(1)=1
   do i=1,x%n_rows
+   added=diagonal_counts(i)>0
+   if(fast_insert.and..not.sorted.and..not.added)then
+    value%indices(k)=i;value%data(k)=diagonal(i);k=k+1;added=.true.
+   end if
    do j=work%indptr(i),work%indptr(i+1)-1
-    if(missing>0.and.work%indices(j)==i)cycle
+    if(missing>0.and..not.fast_insert.and.work%indices(j)==i)cycle
+    if(fast_insert.and..not.added.and.work%indices(j)>i)then
+     value%indices(k)=i;value%data(k)=diagonal(i);k=k+1;added=.true.
+    end if
     value%indices(k)=work%indices(j);value%data(k)=work%data(j)
     if(work%indices(j)==i)value%data(k)=diagonal(i)
     k=k+1
    end do
-   if(missing>0)then
+   if((missing>0.and..not.fast_insert).or.(fast_insert.and..not.added))then
     value%indices(k)=i;value%data(k)=diagonal(i);k=k+1
    end if
    value%indptr(i+1)=k

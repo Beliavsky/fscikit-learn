@@ -36,6 +36,12 @@ Both take `--executable <driver.exe>` and `--report <report.json>`; build
 The numerical grid compares exact labels/core rows and CSR structure, with
 2e-12 tolerances for component values. Dense versus CSR cosine self-identity,
 negative weights and sparse precomputed duplicate diagonals are included.
+
+`compare_dbscan_diagonal.py` takes `--executable <reference_dbscan_csr_driver.exe>`
+and `--report <report.json>`. Its 168 cases cover sparse diagonal-insertion
+thresholds through 3,001 rows, sorted/unsorted columns, duplicate diagonals and
+cancellation-sensitive signed weights. Labels, core rows and CSR structure/data
+are compared exactly. The driver consumes CSR directly without a dense matrix.
 compare_lda.py and compare_discriminant_auto.py additionally require mpmath for high-precision certificates
 (`python -m pip install mpmath`). The
 Fortran package itself does not. It generates three seeded 80-by-5 datasets,

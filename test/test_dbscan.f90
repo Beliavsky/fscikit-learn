@@ -6,7 +6,9 @@ program test_dbscan
  type(dbscan)::model
  type(csr_matrix)::sparse
  real(dp)::x(5,1),weights(5)
+ real(dp),allocatable::large_weights(:)
  integer,allocatable::labels(:)
+ integer::i
  x(:,1)=[0._dp,.1_dp,.2_dp,2._dp,4._dp]
  weights=[2._dp,-1._dp,2._dp,3._dp,0._dp]
  model%eps=.15_dp;model%min_samples=3
@@ -35,5 +37,12 @@ program test_dbscan
  call require(all(labels==[-1]),'unweighted singleton is noise')
  call require(allocated(model%components_).and..not.allocated(model%components_csr_),'Source empty components storage')
  call require(size(model%components_,1)==0.and.size(model%components_,2)==2,'empty components retain feature width')
+ model%metric='precomputed';model%eps=.1_dp;model%min_samples=1
+ sparse=csr_from_arrays(2000,2000,[1,(i+1,i=2,2001)],[2,3,(i,i=2,2000)],spread(0._dp,1,2001))
+ allocate(large_weights(2000));large_weights=0;large_weights(:3)=[1.e16_dp,-1.e16_dp,1._dp]
+ labels=model%fit_predict(sparse,large_weights)
+ call require(all(labels(:3)==0),'fast sparse diagonal insertion preserves cancellation-sensitive core')
+ call require(all(model%core_sample_indices_==[1,3]),'fast insertion Source core indices')
+ call require(all(model%components_csr_%indices(:3)==[1,2,3]),'fast insertion preserves sorted row structure')
  print *,'Weighted dense/CSR DBSCAN, sparse precomputed self edges and refits passed'
 end program
