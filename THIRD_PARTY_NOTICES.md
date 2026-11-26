@@ -1,5 +1,11 @@
 # Third-party notices and provenance
 
+Fractional forest bootstrap counts follow scikit-learn 1.6.1
+`ensemble/_forest.py` (`_get_n_samples_bootstrap`): fraction validation,
+nearest-even rounding, a minimum of one draw and warm-start regeneration.
+The typed `set_max_samples` overloads and search dispatch are native MIT
+integration. The retained scikit-learn BSD notice applies; no dependency is added.
+
 The investigation of Windows libgfortran locale-name lifetime failures was
 informed by Julien Marrec's upstream report for GCC PR128183 and
 https://github.com/jmarrec/libgfortran-ucrt-setlocale. The optional

@@ -11,6 +11,9 @@ separate `fsklearn_extra_*` modules and are listed in the
 [extension inventory](docs/EXTENSIONS.md); none are currently implemented.
 See the [scope policy](docs/SCOPE.md) for admission and attribution rules.
 
+Random-forest and ExtraTrees models support integer or fractional bootstrap
+draw counts via `set_max_samples`; see the [API recipe](docs/API.md#package-use).
+
 ## Build and test
 
 With fpm 0.14 or newer, `fpm test -j 4` permits four concurrent build jobs.

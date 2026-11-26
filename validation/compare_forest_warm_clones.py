@@ -8,13 +8,16 @@ from sklearn.ensemble import RandomForestRegressor,ExtraTreesRegressor,RandomFor
 from sklearn.model_selection import GridSearchCV
 from sklearn.feature_selection import SelectFromModel
 ap=argparse.ArgumentParser(description=__doc__);ap.add_argument('--executable',type=Path,required=True);ap.add_argument('--report',type=Path,required=True)
+ap.add_argument('--fractional',action='store_true')
 a=ap.parse_args();records=[];payloads=[]
 for family,mode,seed,n in itertools.product([0,1],[0,1],[0,7,42],[24,31]):
  rng=np.random.RandomState(1913+n);x=rng.normal(size=(n,3));yr=2*x[:,0]+x[:,1]*x[:,2];yi=(x[:,0]+.2*x[:,2]>0).astype(int);y=yr if family==0 else yi
  cls=([RandomForestRegressor,ExtraTreesRegressor] if family==0 else [RandomForestClassifier,ExtraTreesClassifier])[mode]
  with warnings.catch_warnings():
-  warnings.simplefilter('ignore');base=cls(warm_start=True,n_estimators=5,random_state=seed,max_depth=3,bootstrap=True,oob_score=True,n_jobs=1).fit(x,np.zeros_like(y))
-  search=GridSearchCV(base,dict(bootstrap=[False,True],n_estimators=[3,5],oob_score=[False],warm_start=[True]),cv=3,error_score='raise',n_jobs=1).fit(x,y)
+  warnings.simplefilter('ignore');base=cls(warm_start=True,n_estimators=5,random_state=seed,max_depth=3,bootstrap=True,oob_score=True,n_jobs=1,max_samples=.7 if a.fractional else None).fit(x,np.zeros_like(y))
+  grid=dict(bootstrap=[False,True],n_estimators=[3,5],oob_score=[False],warm_start=[True])
+  if a.fractional:grid.update(bootstrap=[True],max_samples=[1,1.,.5,.01,None])
+  search=GridSearchCV(base,grid,cv=3,error_score='raise',n_jobs=1).fit(x,y)
   selector=SelectFromModel(base).fit(x,y);prefit=SelectFromModel(base,prefit=True).fit(x)
  best=search.best_estimator_;cv=search.cv_results_
  expected=dict(mean=cv['mean_test_score'].tolist(),std=cv['std_test_score'].tolist(),
@@ -28,7 +31,7 @@ for family,mode,seed,n in itertools.product([0,1],[0,1],[0,7,42],[24,31]):
  text=f'{n} 3 {family} {mode} {seed}\n'+'\n'.join(' '.join(map(str,row)) for row in x)+'\n'
  text+=' '.join(map(str,yr))+'\n'+' '.join(map(str,yi))+'\n';payloads.append(text)
 payload=''.join(payloads);a.report.parent.mkdir(parents=True,exist_ok=True);a.report.with_suffix('.in').write_text(payload)
-p=subprocess.run([str(a.executable)],input=payload,text=True,capture_output=True)
+p=subprocess.run([str(a.executable)]+(['--fractional'] if a.fractional else []),input=payload,text=True,capture_output=True)
 a.report.with_suffix('.stdout').write_text(p.stdout);a.report.with_suffix('.stderr').write_text(p.stderr);lines=p.stdout.splitlines()
 for i,r in enumerate(records):
  chunk=lines[14*i:14*(i+1)];r['native']={}
@@ -39,6 +42,6 @@ for i,r in enumerate(records):
   ok=got.shape==want.shape and (np.array_equal(got,want) if integer else np.allclose(got,want,rtol=2e-10,atol=2e-12,equal_nan=True))
   if not ok:r['differences'].append(key)
 sha=lambda path:hashlib.sha256(Path(path).read_bytes()).hexdigest()
-report=dict(configurations=len(records),records=records,failed_configurations=sum(bool(r['differences']) for r in records),native_returncode=p.returncode,
+report=dict(fractional=a.fractional,configurations=len(records),records=records,failed_configurations=sum(bool(r['differences']) for r in records),native_returncode=p.returncode,
             input_sha256=hashlib.sha256(payload.encode()).hexdigest(),sklearn=sklearn.__version__,sha256={str(path):sha(path) for path in [Path(__file__),a.executable,Path('src/sklearn_ensemble.f90'),Path('src/sklearn_search_adapters.f90'),Path('src/sklearn_model_selection_features.f90')]})
 a.report.write_text(json.dumps(report,indent=2)+'\n');print({k:v for k,v in report.items() if k not in ['records','sha256']});assert not p.returncode and not report['failed_configurations']

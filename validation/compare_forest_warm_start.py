@@ -36,6 +36,24 @@ def fixtures(kind):
                        depth=3 if path==0 else 2+step%3,budget=0 if path==0 or step%2==0 else 5,nf=0 if path==0 or step%2==0 else 2,
                        leaf=1,alpha=.01 if step%2 else 0.,decrease=0.,cw=cw,path=path),x,y,w
 
+def fractional_fixtures(kind):
+    criteria=['gini','entropy','log_loss'] if kind=='classification' else ['squared_error','friedman_mse','absolute_error','poisson']
+    for sequence,(mode,criterion,q,seed,path) in enumerate(itertools.product([0,1],criteria,[1,2],[0,7],range(4))):
+        for step in range(4):
+            n=[5,7,9,11][step] if path==2 else 17
+            rng=np.random.RandomState(1131+q+step)
+            x=rng.normal(size=(n,3));w=np.resize([1.,.5,2.,3.],n)
+            y=np.abs(rng.normal(size=(n,q)))+.1 if kind=='regression' else rng.randint(2,size=(n,q))
+            # Keep label spaces stable: changing class widths is covered by
+            # the separate warm guard grid and can fail sklearn prediction.
+            if kind=='classification':y[0,:]=0;y[1,:]=1
+            ns=[[.5,.3,.001,1.0],[1,1.0,0,.7],[.5,.5,.5,.5],
+                [np.nextafter(.5,0),.5,np.nextafter(.5,1),.9]][path][step]
+            yield dict(sequence=sequence,step=step,reset=int(step==0),warm=1,mode=mode,criterion=criterion,
+                       seed=seed,q=q,n=n,p=3,nt=[2,2,5,8][step],boot=1,ns=ns,oob=1,
+                       weighted=seed==7,depth=3,budget=0,nf=0,leaf=1,alpha=0.,decrease=0.,
+                       cw=2 if path%2 else 0,path=path),x,y,w
+
 def snapshot(model,x,y,w,c,coverage,kind):
     q=c['q'];trees=[e.tree_ for e in model.estimators_];bags=model.estimators_samples_
     expected=dict(metadata=[model.n_features_in_,model.n_outputs_,len(trees)])
@@ -76,16 +94,18 @@ def main():
     ap.add_argument('--kind',choices=['classification','regression'],required=True)
     ap.add_argument('--executable',type=Path,required=True);ap.add_argument('--report',type=Path,required=True)
     ap.add_argument('--reuse-report',type=Path)
+    ap.add_argument('--fractional',action='store_true',help='Fractional counts, ties, typed resets and warm OOB state')
     a=ap.parse_args();records=[];payloads=[];coverage=None
     sha=lambda p:hashlib.sha256(Path(p).read_bytes()).hexdigest()
     if a.reuse_report:
         old=json.loads(a.reuse_report.read_text());assert old['kind']==a.kind and old['sklearn']==sklearn.__version__
+        assert old.get('fractional',False)==a.fractional
         assert old['validator_sha256']==sha(__file__)
         records=old['records'];payload=a.reuse_report.with_suffix('.in').read_text()
         assert hashlib.sha256(payload.encode()).hexdigest()==old['input_sha256']
         for r in records:r['differences']=[];r.pop('native',None)
     else:
-        for c,x,y,w in fixtures(a.kind):
+        for c,x,y,w in (fractional_fixtures(a.kind) if a.fractional else fixtures(a.kind)):
             if c['reset']:
                 cls=([RandomForestClassifier,ExtraTreesClassifier] if a.kind=='classification' else [RandomForestRegressor,ExtraTreesRegressor])[c['mode']]
                 model=cls(n_jobs=1);coverage=None
@@ -124,7 +144,7 @@ def main():
             got=np.fromstring(line,sep=' ');want=np.asarray(r['source'][key]);r['native'][key]=got.tolist()
             passed=got.shape==want.shape and (np.array_equal(got,want) if key in integer else np.allclose(got,want,rtol=2e-10,atol=2e-12,equal_nan=True))
             if not passed:r['differences'].append(key)
-    report=dict(kind=a.kind,configurations=len(records),sequences=sum(r['case']['reset'] for r in records),records=records,
+    report=dict(kind=a.kind,fractional=a.fractional,configurations=len(records),sequences=sum(r['case']['reset'] for r in records),records=records,
                 failed_configurations=sum(bool(r['differences']) for r in records),native_returncode=native.returncode,
                 input_sha256=hashlib.sha256(payload.encode()).hexdigest(),sklearn=sklearn.__version__,runtime=tree_runtime_provenance(),validator_sha256=sha(__file__),
                 sha256={str(p):sha(p) for p in [a.executable,Path('src/sklearn_ensemble.f90')]})

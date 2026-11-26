@@ -147,6 +147,13 @@ Fortran identifiers use snake_case rather than CamelCase.
 
 ## Warm-start random forests and ExtraTrees
 
+All four types additionally accept fractional bootstrap counts through
+`set_max_samples(real(dp))`, including nearest-even rounding and the minimum
+of one draw. The integer overload selects exact counts; integer zero restores
+sklearn's `None` default. Typed search parameters retain the distinction between
+integer one and real one. Fractions also apply to regenerated warm-start sample
+indices and recomputed OOB state. This extends existing sklearn algorithms.
+
 All four forest types support retained-tree growth with integer-seed advancement,
 updated controls for new trees, unchanged-count fits and full resets. Scalar and
 joint targets, class presets/maps, changing training rows/weights, bootstrap

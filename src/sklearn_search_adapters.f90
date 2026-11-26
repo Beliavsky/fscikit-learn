@@ -237,7 +237,12 @@ contains
       case('ccp_alpha');model%ccp_alpha=value%as_real()
       case('criterion');model%criterion=value%as_text()
       case('class_weight');model%class_weight=value%as_text()
-      case('max_samples');model%max_samples=value%as_integer()
+      case('max_samples')
+        if(value%kind==1)then
+          call model%set_max_samples(value%as_real())
+        else
+          call model%set_max_samples(value%as_integer())
+        end if
       case('min_impurity_decrease');model%min_impurity_decrease=value%as_real()
       case('n_estimators');model%n_estimators=value%as_integer()
       case('max_depth');model%max_depth=value%as_integer()
@@ -256,7 +261,12 @@ contains
       case('min_weight_fraction_leaf');model%min_weight_fraction_leaf=value%as_real()
       case('ccp_alpha');model%ccp_alpha=value%as_real()
       case('criterion');model%criterion=value%as_text()
-      case('max_samples');model%max_samples=value%as_integer()
+      case('max_samples')
+        if(value%kind==1)then
+          call model%set_max_samples(value%as_real())
+        else
+          call model%set_max_samples(value%as_integer())
+        end if
       case('min_impurity_decrease');model%min_impurity_decrease=value%as_real()
       case('n_estimators');model%n_estimators=value%as_integer()
       case('max_depth');model%max_depth=value%as_integer()

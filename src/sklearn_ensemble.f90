@@ -59,6 +59,8 @@ module sklearn_ensemble
     integer :: max_leaf_nodes=0
     integer :: max_samples=0,n_features_in_=0,n_classes_=0,n_outputs_=1
     integer,private::n_samples_fit_=0,n_samples_bootstrap_=0
+    real(dp),private::max_samples_fraction_=0
+    logical,private::fractional_samples_=.false.
     integer,allocatable::n_classes_multi_(:)
     type(label_set),allocatable::classes_multi_(:)
     character(16) :: criterion='gini'
@@ -89,6 +91,8 @@ module sklearn_ensemble
     procedure::predict_multi=>forest_classifier_predict_multi
     procedure::predict_proba_multi=>forest_proba_multi,predict_log_proba_multi=>forest_log_proba_multi
     procedure::set_bootstrap=>forest_classifier_set_bootstrap,estimators_samples=>forest_classifier_samples
+    procedure,private::samples_integer=>classifier_samples_integer,samples_real=>classifier_samples_real
+    generic::set_max_samples=>samples_integer,samples_real
   end type
   type, extends(random_forest_classifier) :: extra_trees_classifier
   contains
@@ -100,6 +104,8 @@ module sklearn_ensemble
     integer :: max_leaf_nodes=0
     integer :: max_samples=0,n_features_in_=0,n_outputs_=1
     integer,private::n_samples_fit_=0,n_samples_bootstrap_=0
+    real(dp),private::max_samples_fraction_=0
+    logical,private::fractional_samples_=.false.
     character(16) :: criterion='squared_error'
     real(dp) :: min_impurity_decrease=0,ccp_alpha=0,min_weight_fraction_leaf=0
     logical :: bootstrap=.true.,random_thresholds=.false.,warm_start=.false.
@@ -121,6 +127,8 @@ module sklearn_ensemble
     generic::score=>score_single,score_multi
     procedure::set_bootstrap=>forest_regressor_set_bootstrap
     procedure::estimators_samples=>forest_regressor_samples
+    procedure,private::samples_integer=>regressor_samples_integer,samples_real=>regressor_samples_real
+    generic::set_max_samples=>samples_integer,samples_real
   end type
   type, extends(random_forest_regressor) :: extra_trees_regressor
   contains
@@ -137,6 +145,44 @@ module sklearn_ensemble
     procedure :: score=>boost_score
   end type
 contains
+  subroutine classifier_samples_integer(self,value)
+    class(random_forest_classifier),intent(inout)::self
+    integer,intent(in)::value
+    self%max_samples=value;self%fractional_samples_=.false.
+  end subroutine
+  subroutine classifier_samples_real(self,value)
+    class(random_forest_classifier),intent(inout)::self
+    real(dp),intent(in)::value
+    self%max_samples=0;self%fractional_samples_=.true.;self%max_samples_fraction_=value
+  end subroutine
+  subroutine regressor_samples_integer(self,value)
+    class(random_forest_regressor),intent(inout)::self
+    integer,intent(in)::value
+    self%max_samples=value;self%fractional_samples_=.false.
+  end subroutine
+  subroutine regressor_samples_real(self,value)
+    class(random_forest_regressor),intent(inout)::self
+    real(dp),intent(in)::value
+    self%max_samples=0;self%fractional_samples_=.true.;self%max_samples_fraction_=value
+  end subroutine
+  ! sklearn ensemble/_forest.py: Python round uses nearest, ties to even.
+  integer function forest_sample_count(n,count,fractional,fraction,bootstrap) result(ns)
+    integer,intent(in)::n,count
+    logical,intent(in)::fractional,bootstrap
+    real(dp),intent(in)::fraction
+    real(dp)::draws,remainder
+    call require(count>=0.and.count<=n,'invalid forest max_samples')
+    call require(bootstrap.or.(count==0.and..not.fractional),'forest max_samples requires bootstrap')
+    ns=n
+    if(fractional.and.count==0)then
+      call require(ieee_is_finite(fraction),'forest max_samples fraction must be finite')
+      call require(fraction>0.and.fraction<=1,'forest max_samples fraction must be in (0,1]')
+      draws=real(n,dp)*fraction;ns=floor(draws);remainder=draws-real(ns,dp)
+      if(remainder>.5_dp.or.(remainder==.5_dp.and.mod(ns,2)==1))ns=ns+1
+      ns=max(1,ns)
+    end if
+    if(count>0)ns=count
+  end function
   subroutine reset_forest_fit(model)
     class(*),intent(inout)::model
     select type(model)
@@ -205,8 +251,7 @@ contains
     type(tree_probability),allocatable::oob(:),prob(:)
     real(dp),allocatable::query(:,:)
     call check_xy(x,size(y,1));call require(self%n_estimators>0,'forest needs positive n_estimators')
-    call require(self%max_samples>=0.and.self%max_samples<=size(y,1),'invalid forest max_samples')
-    call require(self%bootstrap.or.self%max_samples==0,'forest max_samples requires bootstrap')
+    ns=forest_sample_count(size(y,1),self%max_samples,self%fractional_samples_,self%max_samples_fraction_,self%bootstrap)
     call require(any(self%class_weight==[character(20)::'none','balanced','balanced_subsample']),'invalid forest class weight mode')
     call require(.not.(allocated(self%class_weight_values).and.self%class_weight/='none'), &
       'forest class weight map conflicts with preset')
@@ -265,7 +310,6 @@ contains
       end do
     end if
     n=size(y,1);p=size(x,2);self%n_features_in_=p
-    ns=n;if(self%max_samples>0) ns=self%max_samples
     self%n_samples_fit_=n;self%n_samples_bootstrap_=ns
     if(recompute_oob)then
       allocate(oob(q),self%oob_counts_(n));self%oob_counts_=0
@@ -649,8 +693,7 @@ contains
     integer :: i,j,k,n,p,seed,ns,nontrivial,at,counts(size(y)),q
     call check_xy(x,size(y));call check_x(reshape(y,[size(y),1]))
     call require(self%n_estimators>0,'forest needs positive n_estimators')
-    call require(self%max_samples>=0.and.self%max_samples<=size(y),'invalid forest max_samples')
-    call require(self%bootstrap.or.self%max_samples==0,'forest max_samples requires bootstrap')
+    ns=forest_sample_count(size(y),self%max_samples,self%fractional_samples_,self%max_samples_fraction_,self%bootstrap)
     call require(self%bootstrap.or..not.self%oob_score,'forest OOB scoring requires bootstrap')
     q=1
     if(present(targets))then
@@ -693,7 +736,6 @@ contains
       w=sample_weight
     end if
     n=size(y);p=size(x,2);self%n_features_in_=p
-    ns=n;if(self%max_samples>0) ns=self%max_samples
     self%n_samples_fit_=n;self%n_samples_bootstrap_=ns
     if(recompute_oob)then
       allocate(oob(n,q),self%oob_counts_(n));oob=0;self%oob_counts_=0

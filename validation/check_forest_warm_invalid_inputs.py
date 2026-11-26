@@ -5,12 +5,17 @@ os.environ.update(OMP_NUM_THREADS='1',OPENBLAS_NUM_THREADS='1')
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier,ExtraTreesClassifier,RandomForestRegressor,ExtraTreesRegressor
 ap=argparse.ArgumentParser(description=__doc__);ap.add_argument('--executable',type=Path,required=True);ap.add_argument('--report',type=Path,required=True)
+ap.add_argument('--fractional',action='store_true')
 a=ap.parse_args();checks=[]
 controls=dict(shrink=dict(n_estimators=2),zero=dict(n_estimators=0),criterion=dict(criterion='invalid'),depth=dict(max_depth=-1),
               leaf=dict(min_samples_leaf=0),split=dict(min_samples_split=1),budget=dict(max_leaf_nodes=1),features=dict(max_features=-1),
               decrease=dict(min_impurity_decrease=-.1),alpha=dict(ccp_alpha=-.1),fraction=dict(min_weight_fraction_leaf=.6),
               max_samples_no_bootstrap=dict(bootstrap=False,max_samples=2),oob_no_bootstrap=dict(bootstrap=False,oob_score=True),
               weights_length={},weights_nan={},input_inf={},feature_count={},output_count={})
+if a.fractional:
+ controls.update({f'samples_{name}':dict(bootstrap=True,max_samples=value) for name,value in
+                  [('zero',0.),('negative',-.1),('large',1.01),('nan',np.nan),('inf',np.inf)]})
+ controls['samples_no_bootstrap']=dict(bootstrap=False,max_samples=.5)
 for kind,classes in [('classification',[RandomForestClassifier,ExtraTreesClassifier]),('regression',[RandomForestRegressor,ExtraTreesRegressor])]:
  for extra,cls in enumerate(classes):
   cases=controls|({'class_width_shrink':{}} if kind=='classification' else {'poisson_negative':dict(criterion='poisson'),'poisson_zero':dict(criterion='poisson')})

@@ -25,6 +25,28 @@ subroutine; `predict`, `transform`, `predict_proba` and `score` are functions.
 Most outputs are allocatable arrays that are allocated by ordinary assignment.
 There is no Python runtime or external library required to use the package.
 
+For random-forest and ExtraTrees classifiers/regressors, use the overloaded
+`set_max_samples` to select a bootstrap count or fraction:
+
+```fortran
+call model%set_bootstrap(.true.) ! required for ExtraTrees, too
+call model%set_max_samples(.5_dp) ! nearest-even round(n_samples * .5), at least 1
+call model%set_max_samples(1)     ! exactly one draw
+call model%set_max_samples(1._dp) ! n_samples draws
+call model%set_max_samples(0)     ! default: n_samples draws (sklearn None)
+```
+
+Fractions must be finite and in `(0,1]`. Integer counts must be in
+`[1,n_samples]`, with zero reserved for the default. The existing public integer
+`max_samples` field remains available; use the setter when switching modes,
+especially when resetting a fraction to the default. A nonzero public integer
+count takes precedence over a previously selected fraction. Explicit counts or
+fractions require bootstrap sampling. Search accepts both `param(integer)` and
+`param(real(dp))` for `max_samples`, preserving their different meanings.
+Unfitted clones preserve the sampling mode. Warm-start sample getters regenerate
+draws using the current count, including for retained trees; no-growth fits
+preserve cached OOB estimates, as in sklearn.
+
 All feature arrays have shape `(n_samples,n_features)`. A one-feature input is
 still rank two, for example `reshape(values,[size(values),1])`. A regressor's
 target/prediction is a rank-one real array. Classification labels/predictions are
@@ -8113,7 +8135,7 @@ predictions/targets and a nonzero score-weight sum. Fitting weights and their
 bootstrap-multiplied values must be finite. Query NaNs use each component's
 finite-training missing-value routing, except absolute-error models reject
 query NaNs as sklearn does. Training NaNs, sparse inputs,
-fractional max_samples/max_features and monotonic constraints
+fractional max_features and monotonic constraints
 remain outside this interface. Matrix targets and OOB scores are supported
 as described under joint regression forests above.
 
@@ -8187,7 +8209,7 @@ class/bootstrap-multiplied weights must be finite. Score weights need nonzero
 total mass.
 
 Queries may contain NaNs after finite training, using component-tree routing.
-Training NaNs, sparse inputs, fractional sample/feature controls,
+Training NaNs, sparse inputs, fractional feature controls,
 monotonic constraints remain unsupported. Joint targets, warm starts and OOB
 estimates are described under joint classification forests above.
 Parameter search accepts criterion, class_weight,

@@ -10,6 +10,9 @@ program reference_forest_warm_clone_driver
  real(dp),allocatable::x(:,:),yr(:),prob(:,:)
  integer,allocatable::yi(:)
  integer::n,p,family,mode,seed,status,i
+ logical::fractional
+ character(32)::argument
+ call get_command_argument(1,argument);fractional=trim(argument)=='--fractional'
  do
   read(*,*,iostat=status)n,p,family,mode,seed
   if(status/=0)exit
@@ -32,17 +35,26 @@ program reference_forest_warm_clone_driver
   select type(base)
   class is(random_forest_regressor)
    base%warm_start=.true.;base%n_estimators=5;base%random_state=seed;base%max_depth=3;base%oob_score=.true.
-   call base%set_bootstrap(.true.);call base%fit(x,0*yr)
+   call base%set_bootstrap(.true.)
+   if(fractional)call base%set_max_samples(.7_dp)
+   call base%fit(x,0*yr)
   class is(random_forest_classifier)
    base%warm_start=.true.;base%n_estimators=5;base%random_state=seed;base%max_depth=3;base%oob_score=.true.
-   call base%set_bootstrap(.true.);call base%fit(x,0*yi)
+   call base%set_bootstrap(.true.)
+   if(fractional)call base%set_max_samples(.7_dp)
+   call base%fit(x,0*yi)
   end select
   search=grid_search_cv();allocate(search%estimator,source=base);search%cv=3
-  allocate(search%param_grid(1));allocate(search%param_grid(1)%axes(4))
+  allocate(search%param_grid(1));allocate(search%param_grid(1)%axes(merge(5,4,fractional)))
   search%param_grid(1)%axes(1)%name='bootstrap';search%param_grid(1)%axes(1)%values=[param(.false.),param(.true.)]
   search%param_grid(1)%axes(2)%name='n_estimators';search%param_grid(1)%axes(2)%values=[param(3),param(5)]
   search%param_grid(1)%axes(3)%name='oob_score';search%param_grid(1)%axes(3)%values=[param(.false.)]
   search%param_grid(1)%axes(4)%name='warm_start';search%param_grid(1)%axes(4)%values=[param(.true.)]
+  if(fractional)then
+   search%param_grid(1)%axes(1)%values=[param(.true.)]
+   search%param_grid(1)%axes(5)%name='max_samples'
+   search%param_grid(1)%axes(5)%values=[param(1),param(1._dp),param(.5_dp),param(.01_dp),param(0)]
+  end if
   selector=select_from_model();prefit=select_from_model();prefit%prefit=.true.
   if(family==0)then
    call search%fit(x,yr);call selector%fit(x,yr,base)

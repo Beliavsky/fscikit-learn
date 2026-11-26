@@ -1,5 +1,25 @@
 # Validation
 
+Fractional forest bootstrap checks use the existing warm-state drivers:
+
+```text
+python validation/compare_forest_warm_start.py --kind regression --fractional --executable PATH --report validation/results/forest_fraction_regression.json
+python validation/compare_forest_warm_start.py --kind classification --fractional --executable PATH --report validation/results/forest_fraction_classification.json
+python validation/compare_forest_warm_clones.py --fractional --executable PATH --report validation/results/forest_fraction_clones.json
+python validation/check_forest_warm_invalid_inputs.py --fractional --executable PATH --report validation/results/forest_fraction_guards.json
+```
+
+Use `reference_warm_joint_forest_driver`, `reference_warm_joint_class_forest_driver`,
+`reference_forest_warm_clone_driver`, and `reference_forest_warm_invalid_driver`,
+respectively. The fractional grids retain all regression criteria, all classifier
+criteria, both forest families, weights, scalar/joint targets, integer/real
+one, default resets, tiny fractions, halfway rounding and adjacent binary64
+values. Classification labels are deliberately stable across these warm fits;
+the existing guard grid separately covers unusable changing class widths.
+Original warm fixtures remain available without `--fractional`. Comparisons use
+actual installed sklearn, exact integer fields and unchanged rtol/atol
+2e-10 / 2e-12. Local checked/optimized reports are under `validation/results/forest_fraction_*`.
+
 Run from the package root:
 
 ```
