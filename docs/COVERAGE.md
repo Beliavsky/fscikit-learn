@@ -178,8 +178,13 @@ cancellation. Source row ordering is now retained for sorted and unsorted
 columns, including the strict insertion threshold and duplicate-diagonal
 canonicalization. Both checked and optimized DBSCAN-module builds pass all
 168 actual Source cases exactly, with unchanged input hashes and oracle values.
-The new 2,000-row native regression also passes. Package verification is in
-progress; the preceding full-package audit describes the earlier revision.
+The new 2,000-row native regression also passes. Following implementation
+9064dae, the checked fpm rebuild and targeted package audit pass two native
+tests, the weighted example, all 168 insertion cases, the preceding 2,331-case
+replay, 19 guards and 192 core comparisons. The audit verifies 208 compiled-unit
+fingerprints, including all 201 library units. Optimized checks cover the changed
+module, rebuilt facade and unit test, insertion grid, prior replay and guards;
+the preceding full-package audit describes the earlier revision.
 
 ## Metrics and kernels
 
