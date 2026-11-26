@@ -7723,3 +7723,29 @@ repair for the GNU Fortran 17 failure. The independent evidence is retained in
 `fng_gcc15_*`, including build logs, manifests, reports, audit and stress outputs.
 Artifacts remain ignored under `validation/results/fng_*`. Other historical
 suites were not rerun.
+
+### Neighbor batch reader failure checks
+
+Run `python validation/check_neighbor_reference_frames.py` to exercise all four
+neighbor reference readers with injected native output. Its 12 checks cover a
+nonzero exit during a partial second frame, truncated output despite a zero
+exit, and a nonzero exit after all frames have been written. Small actual
+scikit-learn fixtures still supply the reference expectations; the injected
+output only checks protocol and failure reporting, not numerical parity.
+
+All four readers count complete fixed-width frames rather than CASE headers.
+They save anomalous batch inputs, stdout, stderr, exit codes, frame/header counts
+and executable hashes beside the requested report before rejecting the batch.
+The check reproduced the original misattribution before the correction and now
+passes, including correct attribution to the partial second case. It also
+checks that no successful comparison report is emitted for these failures.
+
+The three corrected readers' complete GNU Fortran 17 optimized reruns finish
+normally. The audit compares inventories, input/cache and executable hashes,
+every retained difference, field errors and maximum scaled errors with the
+original runs: functional graphs retain 625 failures across 26,478 groups,
+radius classification passes all 25,851 groups, and regression retains 492
+failures across 23,088 groups. No Source cases, expected results or tolerances
+change. Original validator snapshots are retained for historical manifest
+audits; the new runs have separate current-validator manifests and outcomes
+under `validation/results/fng_reader_optimized_*`.

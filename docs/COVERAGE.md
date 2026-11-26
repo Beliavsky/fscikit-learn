@@ -13825,3 +13825,11 @@ match GNU Fortran 17 exactly. Forty exact replays of the previously crashing
 runs do not establish a cause or repair for the original intermittent crash.
 Artifacts remain ignored under `validation/results/fng_*`; broader translation
 is unfinished.
+
+All four neighbor reference readers now preserve failed-batch evidence and count
+complete frames. Twelve failure-injection checks cover partial output with both
+zero/nonzero exits and failure after complete output. Full optimized reruns of
+the functional, radius and regression grids retain identical inventories,
+input/cache hashes, numerical errors and differences across 75,417 groups
+(625, zero and 492 failed comparisons respectively). These reader changes do
+not repair or reclassify the historical native crash.
