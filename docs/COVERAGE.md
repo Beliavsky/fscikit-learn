@@ -13899,9 +13899,10 @@ are identical to the old cache. The old cache's additional 52 smoke entries are
 preserved. Only provenance metadata changed in the existing comparison reader.
 
 Implementation and attribution are committed as 8f65a22. Both fpm rebuilds
-succeed. All 50 checked verification jobs pass; the audit validates 241 compiled
-fingerprints (197 library units and 44 programs), every selected binary and
-the unchanged full-grid oracle entries. The optimized run passes all 27 native
-tests, three examples and the 125,304 new direct comparisons; its remaining
-verification jobs are still running. The earlier intermittent native crash
-remains unresolved. Evidence is ignored under `validation/results/neighbor_tree_*`.
+succeed. All 50 verification jobs pass in each profile (100 total), including
+27 native tests, three examples and 125,304 new direct comparisons per profile.
+The final audit validates 241 compiled fingerprints per profile (197 library
+units and 44 programs), every selected binary and the unchanged full-grid
+oracle entries. Checked and optimized comparison results agree. The earlier
+intermittent native crash remains unresolved. Evidence is ignored under
+`validation/results/neighbor_tree_*`.
