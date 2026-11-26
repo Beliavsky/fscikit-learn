@@ -13929,4 +13929,9 @@ are now unnecessary: score comparisons pass directly at unchanged tolerances.
 The original 1,708 nonfinite reference fields are retained unchanged. Six
 selected native tests, the seeded sampling example, 231 related mode/spectral/
 density groups and 192 integration groups also pass (21,591 groups total).
-The optimized rebuild and verification are pending.
+The optimized build passes the same checks. Both profiles pass the final audit
+of 207 compiled fingerprints (197 library units and ten programs), selected
+binary/source hashes, original fixture and nonfinite inventories, and identical
+input digests. Each profile passes ten verification jobs; no roundoff
+certificate is needed in either. Implementation and attribution are committed
+as 4f2762b. The historical intermittent native crash remains unresolved.

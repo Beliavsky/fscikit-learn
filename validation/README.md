@@ -7854,5 +7854,11 @@ diagnostics. None of the previous 116 roundoff certificates is needed; the
 score comparisons pass directly at unchanged tolerances. Original nonfinite
 reference outcomes are unchanged. Six native tests, the seeded example,
 231 mode/spectral/density groups and 192 integration groups also pass.
-The optimized rebuild and verification are pending. Reports include exact-order
-mode, the input payload digest, source/binary hashes and the complete inventory.
+The optimized build passes the same checks. The final audit passes for both
+profiles: 207 compiled fingerprints per profile (197 library units and ten
+programs), selected source/binary hashes, retained original fixture/nonfinite
+inventories and matching input digests. Each profile passes ten verification
+jobs and 21,591 comparison groups; neither needs a roundoff certificate.
+Reports include exact-order mode, the input payload digest, source/binary hashes
+and the complete inventory. Implementation is committed as 4f2762b. The
+historical intermittent native crash remains unresolved.
