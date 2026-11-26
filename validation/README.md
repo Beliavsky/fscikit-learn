@@ -7831,10 +7831,12 @@ The norm/middle-term oracles call actual sklearn BLAS wrappers, and record
 loaded BLAS/OpenMP binary hashes and versions. No BLAS runtime is linked into
 the Fortran package; upstream BSD/Apache notices remain retained.
 
-The checked fpm rebuild succeeds, with all 27 selected native tests and three
-examples passing. Full 50-job checked verification and the optimized rebuild
-and verification are still running. The planned per-profile fingerprint scope
-is 241 units (197 library units and 44 programs). Current logs, outcomes,
-manifests, cache migration evidence and initial/final reports remain ignored
+Both fpm rebuilds succeed. All 50 checked verification jobs pass, including
+27 selected native tests and three examples. The checked audit validates all
+241 compiled fingerprints (197 library units and 44 programs), selected binary
+hashes and oracle-cache migration. The optimized run also passes the 27 native
+tests, three examples and all 125,304 new direct comparisons; its remaining
+verification jobs are still running. Current logs, outcomes, manifests, cache
+migration evidence and initial/final reports remain ignored
 under `validation/results/neighbor_tree_*`. This increment does not declare the
 historical native crash repaired.
