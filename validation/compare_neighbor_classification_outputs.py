@@ -70,8 +70,14 @@ def main():
   chunk=cases[offset:offset+64]
   with tempfile.TemporaryFile(mode='w+',encoding='utf-8')as output:
    proc=subprocess.run([a.executable],input=''.join(c[3]for c in chunk),text=True,stdout=output,stderr=subprocess.PIPE);output.seek(0);proc.stdout=output.read()
-  lines=proc.stdout.splitlines();completed=sum(row.startswith('CASE ')for row in lines)
+  lines=proc.stdout.splitlines();completed=len(lines)//width
+  if proc.returncode or len(lines)!=len(chunk)*width:
+   artifact=a.report.with_name(a.report.stem+f'_batch_{offset}')
+   Path(str(artifact)+'.in').write_text(''.join(c[3]for c in chunk))
+   Path(str(artifact)+'.stdout').write_text(proc.stdout);Path(str(artifact)+'.stderr').write_text(proc.stderr)
+   Path(str(artifact)+'.json').write_text(json.dumps(dict(offset=offset,requested=len(chunk),returncode=proc.returncode,complete_frames=completed,lines=len(lines),case_headers=sum(row.startswith('CASE ')for row in lines),executable_sha256=sha(a.executable)),indent=2)+'\n')
   if not proc.returncode:assert len(lines)==len(chunk)*width,(offset,len(chunk),len(lines))
+  else:assert completed<len(chunk),(offset,'native failure after full output',proc.returncode,proc.stderr)
   for j in range(completed):
    assert lines[j*width]==f'CASE {j+1}'
    by_request[cases[offset+j][0]]=subprocess.CompletedProcess([],0,'\n'.join(lines[j*width:j*width+width])+'\n','')
