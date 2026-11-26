@@ -5,6 +5,7 @@ module sklearn_neighbors
   use sklearn_nca, only: neighborhood_components_analysis
   use sklearn_label_binarization,only:label_set
   use sklearn_neighbor_graph, only: kneighbors_transformer,radius_neighbors_transformer
+  use sklearn_neighbor_functions,only:kneighbors_graph,radius_neighbors_graph,sort_graph_by_row_values
   use sklearn_sparse, only: csr_matrix,csr_from_dense,csr_from_arrays
   use sklearn_common
   use sklearn_outlier, only: local_outlier_factor
@@ -24,11 +25,15 @@ module sklearn_neighbors
   public :: local_outlier_factor
   public :: kernel_density
   public :: kneighbors_transformer,radius_neighbors_transformer,csr_matrix,csr_from_dense,csr_from_arrays
+  public :: kneighbors_graph,radius_neighbors_graph,sort_graph_by_row_values
   type :: nearest_neighbors
     integer :: n_neighbors=5
     character(16) :: metric='minkowski'
     real(dp) :: p=2
     real(dp), allocatable :: x_(:,:)
+    character(16),private::metric_='minkowski'
+    real(dp),private::p_=2
+    integer::n_features_in_=0,n_samples_fit_=0
   contains
     procedure :: fit=>neighbors_fit
     procedure :: kneighbors=>neighbors_query
@@ -125,12 +130,206 @@ module sklearn_neighbors
     procedure :: predict=>centroid_predict
     procedure :: score=>centroid_score
   end type
+  interface kneighbors_graph
+    module procedure kn_functional_nearest
+    module procedure kn_functional_nearest_auto
+    module procedure kn_functional_classifier
+    module procedure kn_functional_classifier_auto
+    module procedure kn_functional_regressor
+    module procedure kn_functional_regressor_auto
+  end interface
+  interface radius_neighbors_graph
+    module procedure rn_functional_nearest
+    module procedure rn_functional_nearest_auto
+    module procedure rn_functional_classifier
+    module procedure rn_functional_classifier_auto
+    module procedure rn_functional_regressor
+    module procedure rn_functional_regressor_auto
+  end interface
 contains
+  subroutine functional_model_parameters(fitted,fit_metric,fit_p,metric,p)
+    logical,intent(in)::fitted
+    character(*),intent(in)::fit_metric
+    real(dp),intent(in)::fit_p
+    character(*),optional,intent(in)::metric
+    real(dp),optional,intent(in)::p
+    character(16)::wanted
+    real(dp)::power
+    call require(fitted,'functional neighbor graph estimator is not fitted')
+    wanted='minkowski';if(present(metric))wanted=metric
+    power=2;if(present(p))power=p
+    call require(wanted==fit_metric,'functional graph metric differs from fitted estimator parameter')
+    call require(.not.ieee_is_nan(power).and..not.ieee_is_nan(fit_p),'functional graph p is NaN')
+    call require(power==fit_p,'functional graph p differs from fitted estimator parameter')
+  end subroutine
+  function kn_functional_nearest(x,n_neighbors,mode,metric,p,include_self)result(graph)
+    class(nearest_neighbors),intent(in)::x
+    integer,intent(in)::n_neighbors
+    character(*),optional,intent(in)::mode,metric
+    real(dp),optional,intent(in)::p
+    logical,optional,intent(in)::include_self
+    type(csr_matrix)::graph
+    logical::same
+    same=.false.;if(present(include_self))same=include_self
+    call functional_model_parameters(allocated(x%x_),x%metric,x%p,metric,p)
+    graph=kneighbors_graph(x%x_,n_neighbors,mode=mode,metric=x%metric_, &
+      p=x%p_,include_self=same)
+  end function
+  function kn_functional_nearest_auto(x,n_neighbors,mode,metric,p,include_self)result(graph)
+    class(nearest_neighbors),intent(in)::x
+    integer,intent(in)::n_neighbors
+    character(*),optional,intent(in)::mode,metric
+    real(dp),optional,intent(in)::p
+    character(*),intent(in)::include_self
+    type(csr_matrix)::graph
+    logical::same
+    call require(include_self=='auto','include_self string must be auto')
+    same=.true.;if(present(mode))same=mode=='connectivity'
+    call functional_model_parameters(allocated(x%x_),x%metric,x%p,metric,p)
+    graph=kneighbors_graph(x%x_,n_neighbors,mode=mode,metric=x%metric_, &
+      p=x%p_,include_self=same)
+  end function
+  function kn_functional_classifier(x,n_neighbors,mode,metric,p,include_self)result(graph)
+    class(kneighbors_classifier),intent(in)::x
+    integer,intent(in)::n_neighbors
+    character(*),optional,intent(in)::mode,metric
+    real(dp),optional,intent(in)::p
+    logical,optional,intent(in)::include_self
+    type(csr_matrix)::graph
+    logical::same
+    same=.false.;if(present(include_self))same=include_self
+    call functional_model_parameters(allocated(x%search_%x_),x%metric,x%p,metric,p)
+    graph=kneighbors_graph(x%search_%x_,n_neighbors,mode=mode,metric=x%search_%metric_, &
+      p=x%search_%p_,include_self=same)
+  end function
+  function kn_functional_classifier_auto(x,n_neighbors,mode,metric,p,include_self)result(graph)
+    class(kneighbors_classifier),intent(in)::x
+    integer,intent(in)::n_neighbors
+    character(*),optional,intent(in)::mode,metric
+    real(dp),optional,intent(in)::p
+    character(*),intent(in)::include_self
+    type(csr_matrix)::graph
+    logical::same
+    call require(include_self=='auto','include_self string must be auto')
+    same=.true.;if(present(mode))same=mode=='connectivity'
+    call functional_model_parameters(allocated(x%search_%x_),x%metric,x%p,metric,p)
+    graph=kneighbors_graph(x%search_%x_,n_neighbors,mode=mode,metric=x%search_%metric_, &
+      p=x%search_%p_,include_self=same)
+  end function
+  function kn_functional_regressor(x,n_neighbors,mode,metric,p,include_self)result(graph)
+    class(kneighbors_regressor),intent(in)::x
+    integer,intent(in)::n_neighbors
+    character(*),optional,intent(in)::mode,metric
+    real(dp),optional,intent(in)::p
+    logical,optional,intent(in)::include_self
+    type(csr_matrix)::graph
+    logical::same
+    same=.false.;if(present(include_self))same=include_self
+    call functional_model_parameters(allocated(x%search_%x_),x%metric,x%p,metric,p)
+    graph=kneighbors_graph(x%search_%x_,n_neighbors,mode=mode,metric=x%search_%metric_, &
+      p=x%search_%p_,include_self=same)
+  end function
+  function kn_functional_regressor_auto(x,n_neighbors,mode,metric,p,include_self)result(graph)
+    class(kneighbors_regressor),intent(in)::x
+    integer,intent(in)::n_neighbors
+    character(*),optional,intent(in)::mode,metric
+    real(dp),optional,intent(in)::p
+    character(*),intent(in)::include_self
+    type(csr_matrix)::graph
+    logical::same
+    call require(include_self=='auto','include_self string must be auto')
+    same=.true.;if(present(mode))same=mode=='connectivity'
+    call functional_model_parameters(allocated(x%search_%x_),x%metric,x%p,metric,p)
+    graph=kneighbors_graph(x%search_%x_,n_neighbors,mode=mode,metric=x%search_%metric_, &
+      p=x%search_%p_,include_self=same)
+  end function
+  function rn_functional_nearest(x,radius,mode,metric,p,include_self)result(graph)
+    class(nearest_neighbors),intent(in)::x
+    real(dp),intent(in)::radius
+    character(*),optional,intent(in)::mode,metric
+    real(dp),optional,intent(in)::p
+    logical,optional,intent(in)::include_self
+    type(csr_matrix)::graph
+    logical::same
+    same=.false.;if(present(include_self))same=include_self
+    call functional_model_parameters(allocated(x%x_),x%metric,x%p,metric,p)
+    graph=radius_neighbors_graph(x%x_,radius,mode=mode,metric=x%metric_, &
+      p=x%p_,include_self=same)
+  end function
+  function rn_functional_nearest_auto(x,radius,mode,metric,p,include_self)result(graph)
+    class(nearest_neighbors),intent(in)::x
+    real(dp),intent(in)::radius
+    character(*),optional,intent(in)::mode,metric
+    real(dp),optional,intent(in)::p
+    character(*),intent(in)::include_self
+    type(csr_matrix)::graph
+    logical::same
+    call require(include_self=='auto','include_self string must be auto')
+    same=.true.;if(present(mode))same=mode=='connectivity'
+    call functional_model_parameters(allocated(x%x_),x%metric,x%p,metric,p)
+    graph=radius_neighbors_graph(x%x_,radius,mode=mode,metric=x%metric_, &
+      p=x%p_,include_self=same)
+  end function
+  function rn_functional_classifier(x,radius,mode,metric,p,include_self)result(graph)
+    class(radius_neighbors_classifier),intent(in)::x
+    real(dp),intent(in)::radius
+    character(*),optional,intent(in)::mode,metric
+    real(dp),optional,intent(in)::p
+    logical,optional,intent(in)::include_self
+    type(csr_matrix)::graph
+    logical::same
+    same=.false.;if(present(include_self))same=include_self
+    call functional_model_parameters(allocated(x%x_),x%metric,x%p,metric,p)
+    graph=radius_neighbors_graph(x%x_,radius,mode=mode,metric=x%metric_, &
+      p=x%p_,include_self=same)
+  end function
+  function rn_functional_classifier_auto(x,radius,mode,metric,p,include_self)result(graph)
+    class(radius_neighbors_classifier),intent(in)::x
+    real(dp),intent(in)::radius
+    character(*),optional,intent(in)::mode,metric
+    real(dp),optional,intent(in)::p
+    character(*),intent(in)::include_self
+    type(csr_matrix)::graph
+    logical::same
+    call require(include_self=='auto','include_self string must be auto')
+    same=.true.;if(present(mode))same=mode=='connectivity'
+    call functional_model_parameters(allocated(x%x_),x%metric,x%p,metric,p)
+    graph=radius_neighbors_graph(x%x_,radius,mode=mode,metric=x%metric_, &
+      p=x%p_,include_self=same)
+  end function
+  function rn_functional_regressor(x,radius,mode,metric,p,include_self)result(graph)
+    class(radius_neighbors_regressor),intent(in)::x
+    real(dp),intent(in)::radius
+    character(*),optional,intent(in)::mode,metric
+    real(dp),optional,intent(in)::p
+    logical,optional,intent(in)::include_self
+    type(csr_matrix)::graph
+    logical::same
+    same=.false.;if(present(include_self))same=include_self
+    call functional_model_parameters(allocated(x%x_),x%metric,x%p,metric,p)
+    graph=radius_neighbors_graph(x%x_,radius,mode=mode,metric=x%metric_, &
+      p=x%p_,include_self=same)
+  end function
+  function rn_functional_regressor_auto(x,radius,mode,metric,p,include_self)result(graph)
+    class(radius_neighbors_regressor),intent(in)::x
+    real(dp),intent(in)::radius
+    character(*),optional,intent(in)::mode,metric
+    real(dp),optional,intent(in)::p
+    character(*),intent(in)::include_self
+    type(csr_matrix)::graph
+    logical::same
+    call require(include_self=='auto','include_self string must be auto')
+    same=.true.;if(present(mode))same=mode=='connectivity'
+    call functional_model_parameters(allocated(x%x_),x%metric,x%p,metric,p)
+    graph=radius_neighbors_graph(x%x_,radius,mode=mode,metric=x%metric_, &
+      p=x%p_,include_self=same)
+  end function
   subroutine neighbors_fit(self,x)
     class(nearest_neighbors), intent(inout) :: self
     real(dp), intent(in) :: x(:,:)
     call check_x(x); call require(self%n_neighbors>0,'n_neighbors must be positive')
-    self%x_=x
+    self%x_=x;self%metric_=self%metric;self%p_=self%p
+    self%n_features_in_=size(x,2);self%n_samples_fit_=size(x,1)
   end subroutine
   subroutine neighbors_query(self,x,distances,indices,n_neighbors)
     class(nearest_neighbors), intent(in) :: self
@@ -144,7 +343,7 @@ contains
     call require(allocated(self%x_),'nearest_neighbors is not fitted')
     k=self%n_neighbors; if(present(n_neighbors)) k=n_neighbors
     call require(k>0.and.k<=size(self%x_,1),'n_neighbors exceeds training size')
-    d=pairwise_distances(x,self%x_,self%metric,self%p)
+    d=pairwise_distances(x,self%x_,self%metric_,self%p_)
     allocate(distances(size(x,1),k),indices(size(x,1),k))
     do i=1,size(x,1)
       order=argsort(d(i,:)); indices(i,:)=order(:k); distances(i,:)=d(i,order(:k))
@@ -156,7 +355,7 @@ contains
     logical, allocatable :: mask(:,:)
     call require(allocated(self%x_),'nearest_neighbors is not fitted')
     call require(radius>=0,'radius must be nonnegative')
-    mask=pairwise_distances(x,self%x_,self%metric,self%p)<=radius
+    mask=pairwise_distances(x,self%x_,self%metric_,self%p_)<=radius
   end function
   function neighbors_graph(self,x,mode) result(graph)
     class(nearest_neighbors), intent(in) :: self

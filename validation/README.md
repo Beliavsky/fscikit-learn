@@ -7642,3 +7642,32 @@ source/validator/API/attribution manifests, matching inputs and Source caches,
 unchanged old failure records and distinct executables. Artifacts remain
 ignored under `validation/results/rnc_package_*`. No dependency or licensing
 change was introduced.
+
+## Functional neighbor graphs and CSR row-value sorting
+
+`compare_functional_neighbor_graphs.py` calls the actual installed sklearn 1.6.1
+free graph builders and sorter. Pass `--executable`, `--report` and optionally
+`--reference-cache`. The full 3,972-case inventory covers two seeds, four shapes
+through 65 rows, regular/duplicated geometry, dense/CSR features and precomputed
+graphs, multiple neighbor counts/radii, boolean/auto self inclusion, mode controls
+and fitted neighbor models. Additional cases cross the automatic KD-tree leaf
+boundary, mutate fitted public parameters, omit stored diagonals, and retain
+noncanonical CSR coordinate buffers. Sort cases include rectangular/empty shapes,
+copy/warning flags, duplicate columns, explicit zeros, NaNs and infinities.
+
+Rows/columns/counts/pointers and initial sortedness compare exactly; data and
+dense graph values use unchanged 3e-8 absolute/relative tolerances and matching
+NaNs. Raw CSR indices/data are never canonicalized in the comparison. Dense
+graphs are an additional field, not a replacement oracle. Default full execution
+is strict; `--record-differences` retains every failed field. `--sort-only`
+independently checks the complete sorting inventory. Source cache provenance
+records graph/base source hashes and owned-return, warning and brute-backend
+adapters. Native output uses bounded file-backed batches; Source rejection cases
+receive isolated native calls.
+
+`check_functional_neighbor_graphs_invalid_inputs.py` pairs 42 live Source
+rejections with native diagnostics and adds two native-only malformed-CSR safety
+contracts. It avoids passing unsafe CSR buffers into SciPy compiled kernels.
+Native tests check graph semantics, all supported fitted families, parameter
+snapshots, exact-k/self controls, raw CSR arithmetic, stable mutation/copy and
+NaN/leading-empty sortedness behavior with preserved IEEE flags/modes.

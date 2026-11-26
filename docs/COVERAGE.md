@@ -13741,3 +13741,29 @@ reference executables. A private compile probe verifies the ordinary radius
 classifier constructor remains usable. Artifacts remain ignored under
 `validation/results/rnc_package_*`. Other historical reference suites were not
 rerun; the broader translation remains unfinished.
+
+## Functional neighbor graphs and stable CSR value sorting
+
+Public `kneighbors_graph` and `radius_neighbors_graph` return owned CSR graphs
+from dense/CSR features, dense/CSR precomputed distances and supported fitted
+neighbor objects. Boolean/auto include-self rules, exactly-k distance graphs,
+zero/infinite radii and sparse missing-edge semantics follow installed sklearn.
+Fitted metric/p compatibility checks use public parameter values, while geometry
+uses fitted snapshots; NearestNeighbors now retains fitted dimensions and metric
+settings. CSR Euclidean raw norms and Manhattan/l2 stored traversals preserve
+Source behavior for unsorted and duplicated feature buffers. Distances stream
+with an 8 MiB block budget; row buffers and returned graphs are additional storage.
+
+`sort_graph_by_row_values` retains explicit zeros, duplicates, stable ties,
+nonfinite ordering, mutation/copy controls and the Source sortedness fast path,
+including leading-empty-row quirks and empty-boundary rejections. Native returns
+always own their arrays; Python identity, warning objects and other sparse
+formats are not represented. Named dense metrics match the recent neighbor
+regression scope, with the Source sparse feature metric restrictions. Callable
+metrics, metric_params, parallelism, fitted graph-transformer overloads and
+CSR-fitted model objects are not added here.
+
+Native graph selection remains brute force with stable cutoff ties. Source
+heap/tree selection can change edge identities, and automatic trees can change
+CSR storage order. Direct full comparisons retain these failures; the dense
+graph comparison distinguishes changed edge placement from storage permutations.

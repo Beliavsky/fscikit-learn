@@ -2495,3 +2495,19 @@ pairwise distances, NumPy-style reductions and accuracy retain their notices.
 Owned probability storage, legacy parameter adapters, streaming integration and
 IEEE composition are original MIT contributions. Fixed-kind Fortran labels do
 not implement Python dtype promotion or warning objects. No dependency was added.
+
+## Functional neighbor graphs and CSR value sorting
+
+`src/sklearn_neighbor_functions.f90` and fitted overloads in
+`sklearn_neighbors.f90` adapt scikit-learn 1.6.1 `neighbors/_graph.py` free graph
+builders and `_check_params`, and `neighbors/_base.py` include-self queries,
+stored precomputed selection, `sort_graph_by_row_values` and `_is_sorted_by_data`.
+The Source fast-path empty-boundary behavior is retained. Raw CSR Manhattan/l2
+traversals follow `metrics/_dist_metrics.pyx.tp`; sparse Euclidean dispatch follows
+`metrics/_pairwise_distances_reduction/_dispatcher.py`. These retain the existing
+scikit-learn BSD notice. Numerical row kernels, raw norms, sparse products and
+streaming reuse the already attributed pairwise implementations. The portable
+stable merge sorter follows NumPy's ordering contract without importing a new
+implementation. Owned CSR returns, fitted-metadata adapters and IEEE composition
+are original MIT contributions. No dependency or algorithm outside sklearn was
+added.

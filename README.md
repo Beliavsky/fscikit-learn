@@ -758,3 +758,8 @@ class probabilities, weighted subset accuracy and self-excluding queries. See
 Radius classification supports joint targets, per-output outlier labels and
 most-frequent-class fallback. See [the API](docs/API.md#joint-radius-neighbor-classification)
 and [example/radius_classification_outputs.f90](example/radius_classification_outputs.f90).
+
+Functional KNN/radius CSR graphs and stable CSR value sorting are available for
+dense/CSR data and supported fitted neighbor estimators. See
+[the API](docs/API.md#functional-neighbor-graphs-and-csr-value-sorting) and
+[example/functional_neighbor_graphs.f90](example/functional_neighbor_graphs.f90).

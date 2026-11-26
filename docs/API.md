@@ -82,6 +82,61 @@ Indices are one-based training sample indices. Passing training data explicitly
 includes the sample itself; there is no implicit leave-one-out query mode.
 `radius_neighbors(x,radius)` returns a dense logical adjacency matrix.
 
+### Functional neighbor graphs and CSR value sorting
+
+Import `kneighbors_graph`, `radius_neighbors_graph` and
+`sort_graph_by_row_values` from `sklearn` or `sklearn_neighbors`.
+
+```fortran
+type(csr_matrix) :: graph, ordered
+graph=kneighbors_graph(x,3,mode='distance',include_self=.false.)
+graph=radius_neighbors_graph(x,1.5_dp,include_self='auto')
+ordered=sort_graph_by_row_values(graph,copy=.true.)
+```
+
+The graph functions return owned square CSR matrices. Unlike distance-mode
+KNeighborsTransformer, the free KNN function requests exactly `n_neighbors`
+edges per row. `include_self` defaults to false; `'auto'` includes self for
+connectivity and excludes it for distance mode. Self-excluding fixed-count
+queries require fewer neighbors than fitted samples, including the Source
+first-candidate removal rule when duplicates prevent selection of the own index.
+Radius zero and infinity are supported. Explicit zero distances remain stored.
+
+Dense feature arrays support `minkowski` (positive `p`, including infinity),
+`euclidean`, `sqeuclidean`, `l2`, `manhattan`, `cityblock`, `l1`, `chebyshev` and
+`cosine`. Dense/CSR precomputed input uses `metric='precomputed'` and must be
+square, finite and nonnegative. Only stored CSR precomputed entries are eligible;
+missing diagonals are not synthesized. CSR features support Euclidean/l2,
+Manhattan/cityblock/l1, cosine and Minkowski powers 1/2. Raw CSR Euclidean norms
+and Manhattan/l2 stored-buffer traversal follow the installed Source behavior,
+including noncanonical indices and duplicates. Feature distance blocks use an
+8 MiB budget with at least one row; outputs and row buffers are additional storage.
+
+Fitted overloads accept `nearest_neighbors` for either function,
+`kneighbors_classifier`/`kneighbors_regressor` for KNN graphs, and
+`radius_neighbors_classifier`/`radius_neighbors_regressor` for radius graphs.
+Requested `metric` and `p` must equal the object's public parameter values,
+including defaults; geometry uses the fitted metric/p snapshot. NearestNeighbors
+now retains `n_features_in_` and `n_samples_fit_`. Refit applies changed geometry
+parameters. Fitted transformer objects, CSR-fitted estimator objects, callable
+metrics, metric_params and parallel backends are not included in these overloads.
+
+Native graph selection is brute force with stable training-order cutoff ties.
+Source heap/tree selections can choose different tied edges, and automatic tree
+backends can return a different CSR storage order. These remain failures in the
+direct reference report. The earlier bound `search%kneighbors_graph(...)` still
+returns a dense array; the free functions return CSR.
+
+The sorter mutates its CSR argument by default; `copy=true` preserves it.
+Every returned Fortran value owns its arrays, including Source fast paths that
+return the same Python object. The argument must be a variable. Tied values,
+duplicate columns, explicit zeros and NaNs retain stable Source ordering.
+Optional `was_sorted` reports the initial Source fast-path decision. Its global
+boundary/NaN check is retained, including leading-empty-row behavior and some
+empty-boundary rejections. Other sparse formats and Python warning objects are
+not represented; `warn_when_not_sorted` is accepted without emitting warnings.
+IEEE flags/halting modes are preserved. See `example/functional_neighbor_graphs.f90`.
+
 ## Dimensionality reduction and clustering
 
 ```fortran
