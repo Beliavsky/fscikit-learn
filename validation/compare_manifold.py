@@ -33,11 +33,10 @@ def reference(x, init, actual):
             options.update(normalized_stress=True, max_iter=2)
         train = x if j in (1, 6, 8) else (d if j in (2, 3) else missing)
         if j == 8:
-            models = []
-            for k in (1, 2, 3):
-                start = actual[f"start{k}"].reshape((n, 2), order="F")
-                models.append(MDS(**options).fit(train, init=start))
-            m = min(models, key=lambda item: item.stress_)
+            generator=np.random.RandomState(42)
+            for k in (1,2,3):expected[f'start{k}']=generator.uniform(size=(n,2))
+            options['n_init']=3
+            m=MDS(**options).fit(train)
         else:
             start = np.column_stack([init, np.sin(.3*np.arange(1, n+1))]) if j == 3 else init
             m = MDS(**options).fit(train, init=start)
@@ -85,7 +84,7 @@ def main():
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             expected = reference(x, init, actual)
-        assert actual.keys()-{"start1", "start2", "start3"} == expected.keys()
+        assert actual.keys() == expected.keys()
         for name, want in expected.items():
             np.testing.assert_allclose(actual[name], np.asarray(want).ravel(order="F"), atol=2e-7, rtol=2e-7,
                                        err_msg=f"{seed} {name}")

@@ -484,8 +484,10 @@ stress is evaluated before the final Guttman coordinate update, so it can
 differ from stress recomputed from the returned embedding. Nonmetric updates
 also preserve that version's upper-triangle isotonic update and full-matrix
 normalization. Newer sklearn versions can use different SMACOF semantics.
-All-zero metric dissimilarities return a zero embedding and zero stress; a
-collapsed initialization with positive dissimilarities fails diagnostically.
+The estimator's native all-zero metric shortcut returns a zero embedding and
+zero stress in one iteration. Collapsed starts otherwise follow sklearn's
+numerical behavior rather than being rejected up front. The public functional
+SMACOF interface and its broader input contract are documented in API.md.
 There is no new-observation transform, inverse transform or threaded backend.
 
 LLE supports `method='standard'` (default), `hessian`, `modified` and `ltsa`, with a native

@@ -6512,7 +6512,7 @@ program invalid_input_driver
   case('mds_diagonal'); scaling%dissimilarity='precomputed'; z=spread(y,2,4); call scaling%fit(z)
   case('mds_init'); call scaling%fit(x,x(:3,:))
   case('mds_collapsed')
-    x(:,1)=[1._dp,2._dp,3._dp,4._dp]; z=0*x; call scaling%fit(x,z)
+    scaling%metric=.false.;x(:,1)=[1._dp,2._dp,3._dp,4._dp];z=0*x;call scaling%fit(x,z)
   case('mds_nonmetric_zero'); scaling%metric=.false.; call scaling%fit(x)
   case('lle_neighbors'); lle%n_neighbors=0; call lle%fit(x)
   case('lle_size'); lle%n_neighbors=4; call lle%fit(x)

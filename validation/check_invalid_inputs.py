@@ -2347,7 +2347,7 @@ CASES = {
     "mds_metric": "unsupported MDS dissimilarity", "mds_square": "dissimilarities must be square",
     "mds_symmetry": "dissimilarities must be symmetric", "mds_negative": "dissimilarities must be nonnegative",
     "mds_diagonal": "zero diagonal", "mds_init": "initial sample count mismatch",
-    "mds_collapsed": "collapsed initial configuration", "mds_nonmetric_zero": "needs positive dissimilarities",
+    "mds_collapsed": "nearest-pair inputs must be finite", "mds_nonmetric_zero": "nonzero upper-triangle dissimilarities",
     "lle_neighbors": "0 < n_neighbors < n_samples", "lle_size": "0 < n_neighbors < n_samples",
     "lle_components": "invalid LLE n_components", "lle_reg": "invalid LLE regularization",
     "lle_method": "unsupported LLE method", "lle_ltsa_neighbors": "n_neighbors > n_components",

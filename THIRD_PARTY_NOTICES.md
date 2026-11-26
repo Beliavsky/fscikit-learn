@@ -2381,3 +2381,16 @@ fused multiply-add operations. Vendor provenance records both these updates
 and a print-control patch; upstream license notices are retained. Typed fit,
 prediction, scoring and composition integration are original MIT contributions.
 The project remains MIT and adds no runtime dependency.
+
+## Functional SMACOF and seeded MDS
+
+The metric/nonmetric SMACOF implementation and restart selection adapt
+scikit-learn 1.6.1 `manifold/_mds.py`, copyright the scikit-learn developers,
+under the retained BSD notice in `LICENSES/scikit-learn-COPYING`. Isotonic
+regression reuses the existing attributed native implementation. Row-major
+pairwise sums follow NumPy 2.2.6 reduction loops with the retained NumPy BSD
+notice. Initialization reuses the attributed legacy NumPy RandomState adapter.
+Distance and Guttman products reuse the attributed scalar OpenBLAS kernel
+reconstruction and NumPy row norms. Existing NumPy and OpenBLAS notices apply.
+Owned results, typed keyword adapters and estimator integration are original
+MIT contributions. No dependency or algorithm outside scikit-learn was added.

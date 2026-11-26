@@ -1,11 +1,12 @@
 program reference_manifold_driver
   use sklearn
-  use sklearn_common, only: seed_rng
+  use sklearn_legacy_rng,only:legacy_random_state
   implicit none
   type(mds) :: scaling
   type(locally_linear_embedding) :: lle
+  type(legacy_random_state)::rng
   real(dp), allocatable :: x(:,:),init(:,:),init3(:,:),d(:,:),missing(:,:),z(:,:),query(:,:),starts(:,:)
-  integer :: n,p,i,j,input,output
+  integer :: n,p,i,j,input,output,row,col
   character(1024) :: path
   character(32) :: prefix
   call get_command_argument(1,path); open(newunit=input,file=trim(path),status='old')
@@ -33,9 +34,13 @@ program reference_manifold_driver
     case(3); scaling%max_iter=1; z=scaling%fit_transform(d,init3)
     case(4,5,7); z=scaling%fit_transform(missing,init)
     case(8)
-      call seed_rng(42)
+      call rng%seed(42)
       do i=1,3
-        call random_number(starts)
+        do row=1,n
+          do col=1,2
+            starts(row,col)=rng%uniform()
+          end do
+        end do
         write(prefix,'(a,i0)') 'start',i; call matrix(trim(prefix),starts)
       end do
       prefix='mds8'; z=scaling%fit_transform(x)

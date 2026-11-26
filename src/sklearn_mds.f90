@@ -2,8 +2,8 @@
 ! See THIRD_PARTY_NOTICES.md for upstream BSD-3-Clause attribution.
 module sklearn_mds
   use sklearn_common
-  use sklearn_metrics, only: pairwise_distances
-  use sklearn_isotonic, only: isotonic_regression
+  use sklearn_smacof,only:smacof,smacof_result
+  use sklearn_pairwise_chunks,only:pairwise_distances_chunked,pairwise_distance_iterator,distance_chunk
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
   implicit none
   private
@@ -24,12 +24,11 @@ contains
     class(mds), intent(inout) :: self
     real(dp), intent(in) :: x(:,:)
     real(dp), intent(in), optional :: init(:,:)
-    type(isotonic_regression) :: monotone
-    real(dp), allocatable :: position(:,:),distances(:,:),disparities(:,:),b(:,:),ratio(:,:),values(:)
-    logical, allocatable :: observed(:,:)
-    real(dp) :: stress,old,scaled,norm,denom
-    integer :: n,k,runs,run,it,i,j
-    logical :: normalized,done
+    type(smacof_result)::fit
+    type(pairwise_distance_iterator)::stream
+    type(distance_chunk)::chunk
+    integer::n,k,i
+    logical::normalized,ok
     call check_x(x); n=size(x,1); k=self%n_components
     call require(n>=2,'MDS requires at least two samples')
     call require(k>0.and.self%n_init>0.and.self%max_iter>0,'invalid MDS iteration/dimension controls')
@@ -40,7 +39,10 @@ contains
     normalized=self%normalized_stress=='true'.or.(self%normalized_stress=='auto'.and..not.self%metric)
     call require(.not.(normalized.and.self%metric),'normalized stress requires nonmetric MDS')
     select case(self%dissimilarity)
-    case('euclidean'); self%dissimilarity_matrix_=pairwise_distances(x,x)
+    case('euclidean')
+      stream=pairwise_distances_chunked(x,working_memory=8._dp*real(n,dp)**2/1048576+1)
+      ok=stream%next(chunk);call require(ok,'MDS distance calculation produced no block')
+      self%dissimilarity_matrix_=chunk%distance%values
     case('precomputed')
       call require(size(x,2)==n,'MDS dissimilarities must be square')
       call require(all(x>=0),'MDS dissimilarities must be nonnegative')
@@ -52,70 +54,20 @@ contains
       self%dissimilarity_matrix_=x
     case default; call require(.false.,'unsupported MDS dissimilarity')
     end select
-    runs=self%n_init
-    if(present(init)) then
-      call check_x(init); call require(size(init,1)==n,'MDS initial sample count mismatch')
-      k=size(init,2); runs=1
+    if(present(init))then
+      call check_x(init);call require(size(init,1)==n,'MDS initial sample count mismatch')
+      k=size(init,2)
     end if
-    allocate(position(n,k),observed(n,n)); observed=.false.
-    do j=1,n
-      do i=1,j-1
-        observed(i,j)=self%dissimilarity_matrix_(i,j)>0
-      end do
-    end do
-    if(.not.self%metric) call require(any(observed),'nonmetric MDS needs positive dissimilarities')
-    if(self%metric.and.maxval(self%dissimilarity_matrix_)==0) then
-      position=0; self%embedding_=position; self%stress_=0; self%n_iter_=1; self%converged_=.true.; return
+    ! Preserve the established native zero-dissimilarity shortcut.
+    if(self%metric.and.maxval(self%dissimilarity_matrix_)==0)then
+      if(allocated(self%embedding_))deallocate(self%embedding_)
+      allocate(self%embedding_(n,k));self%embedding_=0;self%stress_=0
+      self%n_iter_=1;self%converged_=.true.;return
     end if
-    call seed_rng(self%random_state); self%stress_=huge(1._dp)
-    do run=1,runs
-      if(present(init)) then
-        position=init
-      else
-        call random_number(position)
-      end if
-      old=huge(1._dp); done=.false.
-      do it=1,self%max_iter
-        distances=pairwise_distances(position,position)
-        if(self%metric) then
-          disparities=self%dissimilarity_matrix_
-        else
-          values=monotone%fit_transform(pack(self%dissimilarity_matrix_,observed),pack(distances,observed))
-          ! Preserve sklearn 1.6.1's upper-triangle isotonic update and scaling.
-          disparities=unpack(values,observed,distances)
-          denom=sum(disparities**2)
-          call require(denom>tiny(1._dp),'MDS collapsed initial configuration')
-          disparities=disparities*sqrt(real(n,dp)*(n-1)/2/denom)
-        end if
-        stress=sum((distances-disparities)**2)/2
-        if(normalized) then
-          denom=sum(disparities**2)/2
-          call require(denom>tiny(1._dp),'MDS zero disparity norm')
-          stress=sqrt(stress/denom)
-        end if
-        where(distances==0) distances=1.e-5_dp
-        ratio=disparities/distances; b=-ratio
-        do i=1,n
-          b(i,i)=b(i,i)+sum(ratio(i,:))
-        end do
-        position=matmul(b,position)/n
-        norm=sum(sqrt(sum(position**2,dim=2)))
-        if(norm<=tiny(1._dp)) then
-          call require(stress<=tiny(1._dp),'MDS collapsed initial configuration')
-          done=.true.; exit
-        end if
-        scaled=stress/norm
-        if(it>1) then
-          if(old-scaled<self%eps) then
-            done=.true.; exit
-          end if
-        end if
-        old=scaled
-      end do
-      if(stress<self%stress_) then
-        self%embedding_=position; self%stress_=stress; self%n_iter_=min(it,self%max_iter); self%converged_=done
-      end if
-    end do
+    fit=smacof(self%dissimilarity_matrix_,n_components=self%n_components,metric=self%metric, &
+      init=init,n_init=self%n_init,max_iter=self%max_iter,eps=self%eps,random_state=self%random_state, &
+      normalized_stress=self%normalized_stress)
+    self%embedding_=fit%embedding;self%stress_=fit%stress;self%n_iter_=fit%n_iter;self%converged_=fit%converged
   end subroutine
   function mds_fit_transform(self,x,init) result(z)
     class(mds), intent(inout) :: self

@@ -541,6 +541,39 @@ uses a dense eigensolver and one-based fitted neighbor indices. See
 `COVERAGE.md` for rank/connectivity limits and the sklearn 1.6.1 MDS stress
 convention. Run the `manifold_coordinates` example.
 
+## Functional SMACOF
+
+`smacof(dissimilarities,...)` returns an owned `smacof_result` containing
+`embedding(samples,components)`, `stress`, `n_iter`, `n_init_effective`,
+`normalized_stress` and a native `converged` flag for the stopping criterion.
+Defaults are metric=true, n_components=2, n_init=8, max_iter=300, eps=1e-3,
+random_state=0 and normalized_stress='auto'. The seed is a nonnegative native
+integer; initialization uses private NumPy-compatible RandomState draws in
+row order and does not change Fortran's global random stream.
+
+Optional `init(samples,components)` is copied, determines the embedding
+dimension and forces one run. Other runs share the seeded stream and the
+first lowest-stress run is retained. `normalized_stress` accepts logical
+values or the strings auto/true/false. Normalized stress requires nonmetric
+fitting. Nonmetric dissimilarities with zero in the upper triangle are
+missing; nonzero entries are fitted by isotonic regression in row order.
+The sklearn 1.6.1 asymmetric upper-triangle disparity update, full-matrix
+normalization, pre-update stress and scaled-stress stopping are retained.
+
+The function accepts finite square matrices with sklearn's symmetry tolerance
+(absolute 1e-10 and relative 1e-5), including negative values and nonzero
+diagonals as permitted by that Source API. It accepts one sample. Degenerate
+numerical outputs and iteration counts follow Source behavior; an all-zero
+metric matrix runs to the cap with a zero embedding and stress. Explicit
+warnings, verbosity, n_jobs and Python RandomState objects are not exposed.
+Successful calls preserve caller IEEE flags and halting modes.
+
+The `mds` estimator now uses this solver and the same seeded stream. Its
+established stricter precomputed-input checks and one-step all-zero metric
+shortcut remain native adaptations: at least two samples, nonnegative
+distances, zero diagonal and tighter symmetry. Its default n_init remains 4.
+See `example/smacof_embedding.f90`.
+
 ## Kernel regression and one-class SVM
 
 ```fortran
