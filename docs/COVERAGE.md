@@ -292,9 +292,10 @@ distances; cosine similarity; linear, RBF, polynomial and sigmoid kernels.
   cost-complexity pruning are supported as described below.
 - K-means++ uses one draw per center, not sklearn's greedy local trials. Empty
   cluster relocation may differ. DBSCAN/agglomerative tie ordering may differ.
-- LDA has no SVD solver or discriminant transform. QDA requires positive-definite
-  (possibly regularized) class covariance. Gaussian NB retains zero-variance
-  statistics and source-compatible undefined posteriors, as described below.
+- LDA supports LSQR, SVD and eigen solvers with discriminant transforms. QDA
+  accepts singular and unregularized SVD fits; native null-space/rank choices
+  can change wide or rank-deficient predictions, as detailed below. Gaussian NB
+  retains zero-variance statistics and source-compatible undefined posteriors.
 - SVC exposes one decision column per class pair, positive toward the pair's
   second class. This differs from sklearn's multiclass decision conventions.
   SVR, NuSVC and one-class SVM are separate native types. Platt probability
@@ -13536,3 +13537,56 @@ This adds one native test, two drivers, one example, one comparison suite and on
 invalid-input registry, plus the internal owned-factor helper. No core estimator
 type or algorithm outside scikit-learn was added. The broader translation remains
 unfinished.
+
+
+Both final full fpm builds, including test compilation, pass with private fpm
+0.14.0 and GNU Fortran 17.0.0 20260510, using four jobs and flags
+`-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow` and
+`-O3 -funroll-loops -fcoarray=single`. Each profile passes six selected native
+discriminant regressions, two examples, 19 actual Source rejection probes and
+192 core comparisons. Private compile probes verify QDA and LDA keyword
+constructors, including the shared inherited tolerance. Earlier checked build
+attempts were intentionally stopped while correcting LDA probability boundaries;
+the final builds and executions use the corrected sources.
+
+The direct reference suite uses actual installed sklearn 1.6.1, NumPy 2.2.6 and
+SciPy 1.15.3. The full-rank selection passes 11,340 groups across 810 fits and
+162 Source query rejections. Maximum scaled error is 8.82953333903135e-15 in
+both profiles, at unchanged 3e-8 absolute/relative tolerances with exact class,
+direction-count and rank metadata.
+
+The full grid preserves 3,240 fits: three seeds, four class-size/feature shapes,
+regular/duplicate/zero designs, regularization 0/.2/1, tolerance 0/1e-4/1e3 and
+ten prior modes. All fits complete and all 648 query rejection outcomes match.
+Metadata/factor comparisons still run for fits whose prior length makes queries
+invalid. Both profiles check 45,360 groups and retain 2,859 failed fields across
+720 configurations: 540 projectors, 360 covariance matrices, 360 log determinants,
+513 decision scores, 288 log posteriors, 288 posterior matrices, 270 predictions,
+210 accuracy scores and 30 diagnostic ranks. Thus 42,501 groups pass. Classes,
+means, priors, retained direction counts and variance-value comparisons pass.
+All failures are wide or duplicate-column cases. Maximum scaled error is
+1.3654576982442935e33, a material log-posterior difference from nearly zero
+unregularized variances; numerical parity is not claimed. Source warnings total
+19,110. Default full strict execution fails on an actual comparison difference.
+The optional diagnostic mode records all failures without case deletion,
+conditioned expected outputs, tolerance changes or new certificates.
+
+Retained LDA suites pass 11,084 SVD groups across 652 fixtures, 13,452 eigen groups
+across 708 fixtures and 6,650 automatic-shrinkage groups across 357 fixtures.
+The expanded prior suite passes 14,435 groups across 841 fixtures, retaining its
+48 thin-QDA certificates, 841 input/normalization certificates, 210 zero-prior
+cases and 27 undefined-ratio certificates as separate evidence. Its 17 original
+input fixtures remain: ten rejection checks and seven Source-accepted QDA fit
+checks. The new direct QDA grid does not reuse those conditioned thin bases.
+The new log checks exposed and corrected an older binary-LDA softmax-tail
+mismatch: Source uses sigmoid/complement rounding, then clips exact zeros before
+logs. Other historical reference suites were not rerun.
+
+Both profiles complete 17 verification jobs with expected outcomes, including
+the deliberately failing full strict comparison. The final audit checks 207
+compiled fingerprints per profile (192 library units and 15 programs), matching
+current source/validator/API/attribution manifests, matching input inventories,
+reference cache provenance and comparison counts, and distinct checked/optimized
+reference executable hashes. Maximum errors also agree between profiles.
+Artifacts remain ignored under `validation/results/qda_package_*`. The broader
+translation remains unfinished.
