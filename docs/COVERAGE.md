@@ -159,8 +159,14 @@ probability and pruning fields, plus supported scores. It exercises one, two,
 three and five outputs, varied class counts, constant outputs, signed weights,
 zero-weight-only classes and empty effective training. Initial 432 cases remain
 in the expanded grid. Numeric bounds stay at 2e-10 / 2e-12 and integer fields
-match exactly. Checked native tests and 15 guards (13 Source errors and two
-native rank adapters) pass. Package and optimized verification are in progress.
+match exactly. Checked and optimized module tests and 15 guards (13 Source
+errors and two native rank adapters) pass. Following implementation 0c9b425,
+the full checked fpm rebuild and all 292 native programs, seven examples,
+642 classification cases, 736 regression cases, both guard suites, older tree
+reference suites and 192 core comparisons pass. The package audit verifies
+309 jobs and 520 compiled-unit fingerprints (201 library units). Optimized
+verification covers the changed module and direct public tree API rather than
+a full optimized package rebuild.
 There is no additional estimator type or extension algorithm; forest joint
 classification remains outside this increment.
 
