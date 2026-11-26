@@ -13767,3 +13767,53 @@ Native graph selection remains brute force with stable cutoff ties. Source
 heap/tree selection can change edge identities, and automatic trees can change
 CSR storage order. Direct full comparisons retain these failures; the dense
 graph comparison distinguishes changed edge placement from storage permutations.
+
+Both GNU Fortran 17 profiles' full direct grids retain 3,972 configurations: 2,942 successful
+calls and 1,030 matching Source rejections. It checks 26,478 groups and retains
+625 failed fields: 435 raw column-index fields, 184 dense graph fields and six
+raw data fields. Thus 25,853 groups pass. The six data-order differences are
+explicit automatic-tree fixtures; changed edge placements remain material
+failures rather than being certified as equivalent. Maximum scaled errors are
+30 for column IDs, 11.227754979715137 for raw data order and
+10.940319379974252 for dense graph entries. Shape/nnz, pointers, copied/mutated
+inputs and initial-sortedness comparisons pass. All noncanonical CSR probes and
+fitted-parameter mutation probes pass at unchanged tolerances.
+
+The complete strict sorting selection passes 1,332 groups across 180 calls,
+including 32 matching Source rejections and 148 successful results. Values,
+storage indices and input mutation/copy results match exactly, including NaNs,
+infinities, duplicate entries and the Source empty-boundary behavior. The
+standalone diagnostics pair 42 actual Source rejections and check two native
+malformed-CSR safety contracts. Default full graph execution fails on an actual
+comparison difference. No expected values were replaced with native results,
+no cases were removed and no tolerances were widened.
+
+Both full GNU Fortran 17 fpm builds succeed. Each profile passes 24 selected
+native tests, the example, 162 input/contract checks, the 25,851-group radius
+classification grid, 5,550 transformer groups across 1,110 fixtures, 120 legacy
+graph/neighbor groups and 192 core groups. The older transformer suite retains
+245 exact-distance tie certificates separately from the new direct failures.
+The checked primary run completes 39 jobs with expected outcomes. The optimized
+primary run completes 38 jobs with one unexpected failure described below.
+
+The optimized legacy KNN comparison stopped on an incomplete output frame at
+configuration 2,136. An exact 64-case batch replay reproduced a native SIGSEGV
+(exit 3); its partial output is a byte prefix of later successful output. No
+root cause or numerical repair is established. Forty further batch stress
+runs, two ordinary replays, 13 debugger launches, eight attach-debugger runs,
+six isolated-case runs, six 24-case-prefix runs and six output-only probes
+completed normally. Initial logs, request payloads, stderr and failed primary
+outcomes remain retained. This intermittent experimental-toolchain/native
+runtime failure remains unresolved; successful reruns do not reclassify it.
+
+The KNN frame reader now counts complete frames rather than CASE headers and
+saves failed batch inputs/stdout/stderr/exit metadata. Full checked and optimized
+KNN reruns with that reader pass their expected diagnostic outcomes, retaining
+the identical 383 tied fields across 17,320 groups/2,240 fits. The regression
+grid retains its identical 492 failures across 23,088 groups/5,280 fits. The audit
+distinguishes the primary failure from these reruns, validates 228 compiled-unit
+fingerprints per profile (193 library units and 35 programs), primary/current
+validator manifests, reference caches, identical new failure records and distinct
+executables. Constructor compile probes cover the three nearest/KNN types.
+An independent GNU Fortran 15.2 build is being evaluated separately. Artifacts
+remain ignored under `validation/results/fng_*`; broader translation is unfinished.

@@ -7671,3 +7671,35 @@ contracts. It avoids passing unsafe CSR buffers into SciPy compiled kernels.
 Native tests check graph semantics, all supported fitted families, parameter
 snapshots, exact-k/self controls, raw CSR arithmetic, stable mutation/copy and
 NaN/leading-empty sortedness behavior with preserved IEEE flags/modes.
+
+GNU Fortran 17 checked/optimized full functional reports agree: 3,972 cases,
+2,942 successful calls, 1,030 matching rejections and 26,478 comparison groups.
+They retain 625 failed fields across 435 configurations (435 index fields,
+184 dense graph fields, six raw data fields). Thus 25,853 groups pass. Six
+explicit automatic-tree cases differ in storage order; changed edge placement
+remains a material failure. Maximum scaled index/data/dense errors are
+30, 11.227754979715137 and 10.940319379974252. All noncanonical CSR probes and
+fitted-parameter mutation probes pass. The strict sort selection passes 1,332
+groups exactly, with 148 successful calls and 32 matched Source rejections.
+
+Both full fpm builds succeed. Each profile passes 24 selected native tests,
+the example, 162 input/contract checks, 25,851 radius groups, 5,550 transformer
+groups (1,110 fixtures and 245 retained tie certificates), 120 graph/neighbor
+groups and 192 core groups. The checked primary run completes 39 jobs with
+expected outcomes; optimized primary verification completes 38 jobs with one
+unexpected incomplete-frame failure in the legacy KNN grid.
+
+That native SIGSEGV reproduced once in an exact batch replay, with partial
+output matching a later successful output prefix. The root cause remains
+unresolved. Forty stress batch runs, two ordinary replays, 13 debugger launches,
+eight attach-debugger runs, six isolated-case runs, six prefix runs and six
+output-only runs then completed normally. Original failure evidence remains
+under `fng_knc_*` and the initial primary manifests/outcomes are preserved.
+The KNN reader now records only complete frames and saves failed-batch input,
+stdout, stderr and return-code evidence. Both complete KNN reruns pass with the
+same 383 tied fields; the regression grids retain the same 492 failed fields.
+These reruns do not erase the original crash. The audit checks 228 compiled
+fingerprints per profile, primary/current manifests, Source caches and distinct
+executables. An independent stable GNU Fortran 15.2 build is being evaluated;
+its results will be recorded separately. Artifacts remain ignored under
+`validation/results/fng_*`. Other historical suites were not rerun.
