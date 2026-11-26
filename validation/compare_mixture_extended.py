@@ -1,6 +1,6 @@
 """Actual sklearn GaussianMixture initialization, warm EM and seeded samples."""
 from pathlib import Path
-import argparse,hashlib,json,os,sys,subprocess,warnings,concurrent.futures
+import argparse,hashlib,json,os,sys,subprocess,warnings,concurrent.futures,tempfile
 os.environ.update(OMP_NUM_THREADS='1',OPENBLAS_NUM_THREADS='1',LOKY_MAX_CPU_COUNT='1')
 import numpy as np,scipy,sklearn
 from sklearn.mixture import GaussianMixture
@@ -83,8 +83,14 @@ def main():
   if 'sample_error'not in c[1]:return c[0]
   lines=c[0].splitlines();header=lines[0].split();header[11]='0';lines[0]=' '.join(header);return '\n'.join(lines)+'\n'
  while offset<len(good):
-  proc=subprocess.run([args.executable],input=''.join(fit_request(c)for c in good[offset:]),text=True,capture_output=True)
+  chunk=good[offset:offset+64]
+  # Bound each result stream and read file-backed output after process exit.
+  # This avoids intermittent truncation of the large Windows pipe capture.
+  with tempfile.TemporaryFile(mode='w+',encoding='utf-8')as output:
+   proc=subprocess.run([args.executable],input=''.join(fit_request(c)for c in chunk),text=True,stdout=output,stderr=subprocess.PIPE)
+   output.seek(0);proc.stdout=output.read()
   lines=proc.stdout.splitlines();completed=sum(row.startswith('CASE ')for row in lines)
+  if not proc.returncode:assert len(lines)==len(chunk)*width,(offset,len(chunk),len(lines))
   for j in range(completed):
    assert lines[j*width]==f'CASE {j+1}'
    by_request[good[offset+j][0]]=subprocess.CompletedProcess([],0,'\n'.join(lines[j*width:j*width+width])+'\n','')
@@ -92,7 +98,7 @@ def main():
   if proc.returncode:
    if not args.record_differences:raise RuntimeError(str(good[offset][2])+'\n'+proc.stdout[-500:]+'\n'+proc.stderr)
    by_request[good[offset][0]]=proc;offset+=1
-  else:assert offset==len(good)
+  else:assert completed==len(chunk)
  def native(c):return subprocess.run([args.executable],input=c[0],text=True,capture_output=True)
  with concurrent.futures.ThreadPoolExecutor(max_workers=4)as pool:
   for c,proc in zip(bad,pool.map(native,bad)):by_request[c[0]]=proc
