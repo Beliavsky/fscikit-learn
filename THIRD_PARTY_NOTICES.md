@@ -2511,3 +2511,17 @@ stable merge sorter follows NumPy's ordering contract without importing a new
 implementation. Owned CSR returns, fitted-metadata adapters and IEEE composition
 are original MIT contributions. No dependency or algorithm outside sklearn was
 added.
+
+## Serial KNN selection
+
+`src/sklearn_neighbor_selection.f90` adapts sklearn 1.6.1
+`utils/_heap.pyx` fixed-size max-heap comparisons, `utils/_sorting.pyx`
+simultaneous median-of-three quicksort and
+`metrics/_pairwise_distances_reduction/_argkmin.pyx.tp` serial heap merge.
+The automatic one-thread strategy follows `_base.pyx.tp` with the default
+256-row chunk size. These adaptations retain the existing scikit-learn BSD
+notice. Cosine/dense precomputed fallback selection reuses the already
+attributed NumPy ordering implementation. KNN classification/regression select
+on Source surrogate distances and preserve unfilled finite heap sentinels.
+One-based owned buffers and integration with native streaming and IEEE
+preservation are original MIT contributions. No dependency was added.

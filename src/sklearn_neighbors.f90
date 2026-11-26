@@ -2,6 +2,7 @@ module sklearn_neighbors
   use,intrinsic::ieee_exceptions
   use sklearn_pairwise_reductions,only:row_distance
   use sklearn_pairwise_chunks,only:pairwise_distances_chunked,pairwise_distance_iterator,distance_chunk
+  use sklearn_neighbor_selection,only:argkmin_order,pairwise_knn_order
   use sklearn_nca, only: neighborhood_components_analysis
   use sklearn_label_binarization,only:label_set
   use sklearn_neighbor_graph, only: kneighbors_transformer,radius_neighbors_transformer
@@ -626,14 +627,14 @@ contains
     integer,optional,intent(in)::class_sizes(:)
     logical,optional,intent(in)::vote_mode
     logical,allocatable,optional,intent(out)::empty_neighbors(:)
-    real(dp),allocatable::prediction(:,:),dist(:,:)
-    integer,allocatable::order(:),ids(:)
+    real(dp),allocatable::prediction(:,:),dist(:,:),selected_distances(:)
+    integer,allocatable::ids(:)
     logical,allocatable::keep(:)
     type(pairwise_distance_iterator)::state
     type(distance_chunk)::chunk
     character(16)::kind
     logical::self_query,available,modes(size(ieee_all)),flags(size(ieee_all)),mode
-    integer::n,m,first,i,row,j,take,span,blockrow,trainrow,qrow,count_rows,outputs
+    integer::n,m,first,i,row,j,take,span,blockrow,trainrow,qrow,count_rows,outputs,distance_kind
     n=size(training,1);self_query=.not.present(x);m=n
     call require(weights=='uniform'.or.weights=='distance','unknown neighbor weights')
     if(present(x))then
@@ -668,10 +669,13 @@ contains
     if(metric=='precomputed')then
       dist=training;if(present(x))dist=x
       first=0;call apply_block(dist,first)
-    else if(kind=='euclidean'.or.kind=='l2'.or.kind=='sqeuclidean')then
+    else if(kind=='euclidean'.or.kind=='l2'.or.kind=='sqeuclidean'.or.(kind=='minkowski'.and..not.by_radius))then
       ! Neighbor reductions use ordered row norms, rather than the general
       ! pairwise GEMM path. Keep exact zero geometry for coincident rows.
       span=max(1,min(m,1048576/n))
+      distance_kind=1
+      if(kind=='l2'.and..not.by_radius)distance_kind=3
+      if(kind=='minkowski')distance_kind=6
       do first=0,m-1,span
         count_rows=min(span,m-first)
         if(allocated(dist))deallocate(dist)
@@ -680,11 +684,11 @@ contains
           do blockrow=1,count_rows
             qrow=first+blockrow
             if(present(x))then
-              dist(blockrow,trainrow)=row_distance(x(qrow,:),training(trainrow,:),1,p,.false.,.false.,.false.)
+              dist(blockrow,trainrow)=row_distance(x(qrow,:),training(trainrow,:),distance_kind,p,.false.,.false.,.false.)
             else
-              dist(blockrow,trainrow)=row_distance(training(qrow,:),training(trainrow,:),1,p,.false.,.false.,.false.)
+              dist(blockrow,trainrow)=row_distance(training(qrow,:),training(trainrow,:),distance_kind,p,.false.,.false.,.false.)
             end if
-            if(kind/='sqeuclidean')dist(blockrow,trainrow)=sqrt(dist(blockrow,trainrow))
+            if(by_radius.and.kind/='sqeuclidean')dist(blockrow,trainrow)=sqrt(dist(blockrow,trainrow))
           end do
         end do
         call apply_block(dist,first)
@@ -719,13 +723,25 @@ contains
           keep=d(i,:)<=radius
           if(self_query)keep(row)=.false.
           ids=pack([(j,j=1,n)],keep)
+          selected_distances=d(i,ids)
         else
-          order=argsort(d(i,:));ids=order(:take)
+          if(kind=='cosine'.or.kind=='precomputed')then
+            ids=pairwise_knn_order(d(i,:),take)
+            selected_distances=d(i,ids)
+          else
+            selected_distances=d(i,:take)
+            ids=argkmin_order(d(i,:),take,m,selected_distances)
+          end if
           if(self_query)then
             keep=ids/=row
             if(all(keep))keep(1)=.false.
             ids=pack(ids,keep)
+            selected_distances=pack(selected_distances,keep)
           end if
+        end if
+        if(.not.by_radius)then
+          if(kind=='euclidean'.or.kind=='l2')selected_distances=sqrt(max(selected_distances,0._dp))
+          if(kind=='minkowski')selected_distances=max(selected_distances,0._dp)**(1._dp/p)
         end if
         if(present(empty_neighbors))empty_neighbors(row)=size(ids)==0
         if(size(ids)==0)then
@@ -735,9 +751,9 @@ contains
             prediction(row,:)=ieee_value(0._dp,ieee_quiet_nan)
           end if
         else if(present(class_sizes))then
-          prediction(row,:)=classification_reduce(targets(ids,:),d(i,ids),weights,class_sizes,mode,by_radius)
+          prediction(row,:)=classification_reduce(targets(ids,:),selected_distances,weights,class_sizes,mode,by_radius)
         else
-          prediction(row,:)=regression_average(targets(ids,:),d(i,ids),weights,.not.by_radius)
+          prediction(row,:)=regression_average(targets(ids,:),selected_distances,weights,.not.by_radius)
         end if
       end do
     end subroutine

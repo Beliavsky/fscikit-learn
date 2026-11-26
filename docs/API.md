@@ -305,8 +305,14 @@ are accepted. An empty radius neighborhood returns NaN for every target.
 Feature-distance queries stream blocks with an 8 MiB distance budget (at least
 one row); dense precomputed queries use their supplied matrix. Callable weights,
 CSR input, tree backends and `metric_params` are not provided here. Fixed-count
-distance ties retain training order and can produce different outputs from
-scikit-learn's brute-force selection. See `example/neighbor_outputs.f90`.
+predictions follow sklearn 1.6.1's serial brute-force selection: max-heaps,
+the automatic heap-merge strategy and simultaneous sorting for the named
+distance metrics; NumPy argpartition/argsort for cosine and dense precomputed
+distances. Selection uses squared Euclidean or reduced Minkowski distances
+before converting selected values. Unfilled heap slots retain the Source
+finite DBL_MAX sentinel and initial training index, including distance overflow
+from finite inputs. The native settings correspond to one effective thread
+and Source's default chunk size 256. See `example/neighbor_outputs.f90`.
 
 ### Joint KNN classification
 
@@ -332,7 +338,7 @@ Fitted metadata includes `outputs_2d_`, `n_outputs_`, `n_features_in_`,
 Scalar fits additionally retain `y_` and `classes_`; joint refits clear these
 scalar arrays. Weighted prediction uses class-wise masked sums; probability
 prediction uses sequential neighbor votes followed by class normalization.
-Dense metrics, precomputed query shape, streaming and stable cutoff ties have
+Dense metrics, precomputed query shape, streaming and serial cutoff selection have
 the same limits as joint neighbor regression above. Callable weights, sparse
 inputs, tree backends and joint meta-estimator adapters are outside this
 increment. Frozen wrappers recognize joint fitted state; their existing
