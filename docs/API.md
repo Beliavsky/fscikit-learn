@@ -10376,6 +10376,64 @@ class labels and Python warning objects are outside this native binding.
 Successful calls preserve caller IEEE flags and halting modes. See
 `example/classification_report.f90`.
 
+## DistanceMetric factory
+
+`distance_metric` and `get_metric` correspond to sklearn 1.6.1
+`metrics.DistanceMetric.get_metric` and its float64 pairwise/conversion methods.
+They are exported by `sklearn_metrics` and `sklearn`.
+
+```fortran
+type(distance_metric) :: metric
+real(dp), allocatable :: d(:,:)
+metric=get_metric('minkowski',p=2._dp,w=[1._dp,2._dp])
+d=metric%pairwise(x,y)
+metric=get_metric('seuclidean',v=[1._dp,4._dp])
+d=metric%pairwise(x) ! upper triangle including the diagonal, then mirrored
+```
+
+Names are `euclidean`/`l2`, `minkowski`/`p`, `manhattan`/`cityblock`/`l1`,
+`chebyshev`/`infinity`, `seuclidean`, `mahalanobis`, `hamming`, `canberra`,
+`braycurtis`, `matching`, `jaccard`, `dice`, `kulsinski`, `rogerstanimoto`,
+`russellrao`, `sokalmichener`, `sokalsneath`, `haversine` and `pyfunc`.
+Minkowski accepts optional positive `p` and nonnegative finite `w(:)`; its
+unweighted powers one, two and either infinity canonicalize as in Source.
+Fractional positive powers and Source's NaN-power behavior are retained.
+SEuclidean requires rank-one `v`; Mahalanobis accepts square `vi` or rank-two
+`v`, with `vi` taking precedence. Native covariance inversion rejects an exact
+zero pivot. Variance/precision signs and nonfinite values follow Source rather
+than imposing positive-definiteness checks.
+
+`pairwise` accepts dense real64 and `csr_matrix` inputs in all four storage
+combinations. Omit Y or pass the same target for self comparisons. CSR entries
+are processed in their stored order, including explicit zeros, duplicates and
+unsorted indices. This preserves Source behavior rather than merging entries.
+Factory weights and covariance parameters are owned copies. Input matrices are
+borrowed during each call and the result is owned. `get_metric(func)` or
+`get_metric('pyfunc',func=func)` accepts a two-vector real64 function; host
+association can supply additional callback context.
+
+Source quirks are retained: CSR Mahalanobis leaves missing coordinates in its
+work buffer unchanged, including across successive calls; mixed Canberra uses
+the Cython sparse path; sparse Haversine follows its coordinate conventions;
+CSR `pyfunc` returns the Source base-class sentinel -999 without invoking the
+callback. Dense callbacks run on the upper triangle including the diagonal
+for self data. A distance equal to the reserved Cython error value -1 produces
+a controlled native error instead of the observed Source access violation.
+
+CSR Bray-Curtis reproduces the Source cursor algorithm when accesses stay
+within the complete input allocation, including reads into the next row.
+Where Source accesses beyond that allocation, the native result is NaN and
+`metric%undefined_pairs()` marks the affected cells. This diagnostic is a
+Fortran adaptation, resets on each call and returns a 0-by-0 mask before the
+first call. Those cells do not establish scikit-learn numerical parity.
+
+`dist_to_rdist(d)` and `rdist_to_dist(d)` accept scalar or array real64 data,
+preserving shape and quiet IEEE behavior. They use Source's squared, powered,
+haversine or identity conversions, including NumPy's half-power sqrt rule.
+`type_name()` is a native diagnostic for canonical factory selection. Float32,
+Python class/instance factory arguments, arbitrary keyword dictionaries and
+Python object persistence are outside this interface.
+
 ## Chunked pairwise distances
 
 `pairwise_distances_chunked` returns an owned `pairwise_distance_iterator`,

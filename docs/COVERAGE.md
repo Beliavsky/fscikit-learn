@@ -147,6 +147,17 @@ Fortran identifiers use snake_case rather than CamelCase.
 
 ## Metrics and kernels
 
+The public `distance_metric` / `get_metric` factory adds the sklearn 1.6.1
+DistanceMetric float64 counterpart: named/weighted/covariance distances, dense
+and raw CSR pairs, callbacks and reduced-distance conversions. Source stored-row
+quirks and persistent Mahalanobis state are retained. Defined source reads pass
+the private 688-configuration and 456-configuration raw-CSR grids; unresolved
+Source out-of-allocation reads remain explicit NaN/mask adaptations. The checked
+fpm rebuild, all 289 native programs, four selected examples, both public metric
+grids and 23 input checks pass. Broader checked and optimized package verification
+is in progress. This low-level metric type does not change the estimator/
+transformer/splitter count above.
+
 Discrete clustering mutual information: `mutual_info_score` returns nats from
 integer label pairs, with source contingency and zero-entropy contracts.
 Normalized/adjusted MI, expected MI, Fowlkes-Mallows, entropy, dense contingency

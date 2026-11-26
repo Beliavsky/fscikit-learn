@@ -7950,3 +7950,22 @@ programs, three examples, original neighbor grids and the new comparisons.
 Inventories, oracle entries, tolerances and rejection checks are preserved.
 Reports and audits remain under ignored `validation/results/nearest_sorted_radius_*`.
 The historical intermittent GNU17 optimized KNC crash remains unresolved.
+
+DistanceMetric factory (verification in progress, 2026-11-26):
+`compare_distance_metrics.py` retains 688 Source configurations, including
+589 accepted queries and 99 matching rejections, two calls on each metric state
+and scalar/array reduced-distance conversions. `compare_distance_metric_csr.py`
+adds 456 canonical, explicit-zero, unsorted and duplicate-entry CSR configurations.
+Private raw-CSR work eliminated 1,466 defined-cell differences from an earlier
+dense-row reconstruction. Both comparators retain every numeric reference and
+failure, independently trace Cython cursor bounds, and require all defined
+cells to match at unchanged rtol/atol 2e-12. Reports distinguish defined-contract
+success from strict parity, which remains false for Source out-of-allocation
+Bray-Curtis reads. Native undefined cells return NaN plus a diagnostic mask.
+
+`check_distance_metric_invalid_inputs.py` checks 22 actual Source errors and
+one identified native adapter for the reserved Cython -1 return. Isolated Source
+reproductions and original failed probe reports remain under ignored
+`validation/results/distance_*`. The checked fpm rebuild, all 289 native programs,
+four examples, both public metric grids and 23 input checks pass. Broader checked
+and optimized package verification is running.

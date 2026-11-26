@@ -2611,3 +2611,16 @@ OpenBLAS Project notice in `LICENSES/OpenBLAS-small-kernel-BSD`.
 These are scalar Fortran adaptations; no OpenBLAS binary is linked or shipped.
 Independent numerical/storage chunk adapters and owned Fortran results are
 native MIT contributions, not additional estimator algorithms.
+
+`sklearn_distance_metrics.f90` adapts sklearn 1.6.1
+`metrics/_dist_metrics.pyx.tp` factory aliases and specialization, scalar and
+raw CSR metric kernels, pairwise traversal, persistent Mahalanobis work buffers,
+callback behavior and reduced-distance conversions. The scikit-learn BSD terms
+remain in `LICENSES/scikit-learn-COPYING`. The NumPy half-power conversion rule
+uses the existing NumPy BSD notice in `LICENSES/numpy-COPYING`. Existing scalar
+distance helpers retain their SciPy/Damian Eads notices where reused.
+Owned Fortran state, assumed-rank parameter dispatch, native covariance inversion,
+controlled Cython-sentinel errors and undefined-access diagnostic masks are MIT
+integration. No native out-of-allocation access is performed to imitate Source
+undefined behavior; those results are explicitly marked rather than claimed as
+reference parity. No dependency or additional estimator algorithm was introduced.
