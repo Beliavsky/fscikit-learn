@@ -7840,3 +7840,19 @@ agree. Current logs, outcomes, manifests, cache migration evidence and
 initial/final reports remain ignored
 under `validation/results/neighbor_tree_*`. This increment does not declare the
 historical native crash repaired.
+
+KernelDensity partition-order verification (2026-11-26):
+`compare_density_extended.py` now checks exact stored indices in addition to
+the existing node-membership checks. All original 1,144 fixtures and tolerances
+are retained, with 32 appended duplicate-coordinate/reversed fixtures. The
+old checked binary fails at fixture 192 (69/100 stored indices); its raw source,
+binary, baseline results and strict failure are retained under ignored
+`validation/results/density_partition_*`.
+
+The updated checked build passes all 1,176 fixtures / 21,168 groups and 34 input
+diagnostics. None of the previous 116 roundoff certificates is needed; the
+score comparisons pass directly at unchanged tolerances. Original nonfinite
+reference outcomes are unchanged. Six native tests, the seeded example,
+231 mode/spectral/density groups and 192 integration groups also pass.
+The optimized rebuild and verification are pending. Reports include exact-order
+mode, the input payload digest, source/binary hashes and the complete inventory.

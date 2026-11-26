@@ -4,6 +4,7 @@
 module sklearn_density
   use sklearn_common, only: dp,require,check_x
   use sklearn_legacy_rng, only: legacy_random_state
+  use sklearn_tree_partition, only: partition_node
   use sklearn_ieee_math, only: ieee_difference,ieee_product,ieee_quotient
   use, intrinsic :: iso_fortran_env, only: int64
   use, intrinsic :: ieee_arithmetic, only: ieee_value,ieee_negative_inf,ieee_positive_inf,ieee_quiet_nan, &
@@ -294,39 +295,6 @@ contains
     if(leq(a,b)) return
     value=plus(a,quiet_log(ieee_difference(1._dp,exp(ieee_difference(b,a)))))
   end function
-    subroutine sort_indices(self,first,last,feature)
-      class(kernel_density), intent(inout) :: self
-      integer, intent(in) :: first,last,feature
-      integer, allocatable :: ids(:)
-      integer :: root,finish,swap
-      ids=self%order_(first:last)
-      do root=size(ids)/2,1,-1
-        call sift(root,size(ids))
-      end do
-      do finish=size(ids),2,-1
-        swap=ids(1);ids(1)=ids(finish);ids(finish)=swap;call sift(1,finish-1)
-      end do
-      self%order_(first:last)=ids
-    contains
-      subroutine sift(start,finish)
-        integer, intent(in) :: start,finish
-        integer :: at,child,swap
-        at=start
-        do while(2*at<=finish)
-          child=2*at
-          if(child<finish) then
-            if(greater(ids(child+1),ids(child))) child=child+1
-          end if
-          if(.not.greater(ids(child),ids(at))) exit
-          swap=ids(at);ids(at)=ids(child);ids(child)=swap;at=child
-        end do
-      end subroutine
-      logical function greater(a,b) result(value)
-        integer, intent(in) :: a,b
-        value=self%x_(a,feature)>self%x_(b,feature)
-        if(self%x_(a,feature)==self%x_(b,feature)) value=a>b
-      end function
-    end subroutine
   subroutine build_tree(self)
     class(kernel_density), intent(inout) :: self
     integer :: levels,ratio,i,t
@@ -352,7 +320,7 @@ contains
       integer, intent(in) :: node,first,last
       real(dp), allocatable :: spread(:)
       real(dp) :: term,dist,power
-      integer :: j,t,k,feature,key,at,middle
+      integer :: j,t,k,feature,middle
       self%nodes_(node)%first=first;self%nodes_(node)%last=last
       allocate(self%nodes_(node)%low(self%n_features_in_),self%nodes_(node)%high(self%n_features_in_), &
         self%nodes_(node)%center(self%n_features_in_))
@@ -403,8 +371,9 @@ contains
         spread(j)=ieee_difference(self%nodes_(node)%high(j),self%nodes_(node)%low(j))
       end do
       feature=maxloc(spread,dim=1)
-      call sort_indices(self,first,last,feature)
       middle=first+(last-first+1)/2
+      ! Source nth_element preserves the partial order used by child centroids.
+      call partition_node(self%x_(:,feature),self%order_(first:last),middle-first+1)
       call grow(2*node,first,middle-1);call grow(2*node+1,middle,last)
     end subroutine
   end subroutine

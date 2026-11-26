@@ -2543,6 +2543,10 @@ Apache-2.0 WITH LLVM-exception and NOTICE remain in the existing Microsoft-STL
 license files. This preserves partial leaf storage order rather than replacing
 it with a full coordinate sort.
 
+`src/sklearn_density.f90` also uses this shared partition implementation for
+KernelDensity KDTree and BallTree construction, including the stored index
+order used to accumulate child centroids and node weights.
+
 `src/sklearn_neighbor_gram.f90` adapts the accumulation used by the installed
 SciPy OpenBLAS 0.3.28 SkylakeX backend: the TN small kernel's vector-lane
 reductions and tail ordering, and generic GEMM depth blocking. Primary sources:

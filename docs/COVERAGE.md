@@ -13906,3 +13906,27 @@ units and 44 programs), every selected binary and the unchanged full-grid
 oracle entries. Checked and optimized comparison results agree. The earlier
 intermittent native crash remains unresolved. Evidence is ignored under
 `validation/results/neighbor_tree_*`.
+
+### KernelDensity partial partition order (2026-11-26)
+
+KernelDensity KDTree and BallTree construction now use the shared Source
+nth-element partition implementation instead of fully sorting every node.
+Stored leaf order, child centroid accumulation and final node mass accumulation
+therefore follow the installed sklearn 1.6.1 Windows tree order. Existing
+Microsoft STL and scikit-learn attribution applies; no public algorithm,
+extension or dependency was added.
+
+The density validator retains every original fixture and comparison tolerance,
+adds exact stored-index equality, and appends 32 duplicate-coordinate/reversed
+fixtures with 65 or 257 points, one or three features, both trees and leaf sizes
+30/40. The old binary fails the stronger check at original fixture 192, with
+69 of 100 stored indices differing. Its source, binary, baseline report and
+failure log remain preserved in ignored `validation/results/density_partition_*`.
+
+All 1,176 checked fixtures pass 21,168 groups and 34 input diagnostics. All 116
+previous roundoff certificates (102 density-space and 14 score-sum identities)
+are now unnecessary: score comparisons pass directly at unchanged tolerances.
+The original 1,708 nonfinite reference fields are retained unchanged. Six
+selected native tests, the seeded sampling example, 231 related mode/spectral/
+density groups and 192 integration groups also pass (21,591 groups total).
+The optimized rebuild and verification are pending.

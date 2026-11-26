@@ -100,11 +100,26 @@ def compare(actual,expected,index,field):
  np.testing.assert_allclose(actual[finite],expected[finite],rtol=3e-11,atol=3e-12,err_msg=f'{index} {field}')
  return float(np.max(np.abs(actual[finite]-expected[finite]),initial=0))
 
+def partition_fixtures():
+ # Larger leaves expose nth_element storage order; duplicate cuts retain IDs.
+ rng=np.random.RandomState(312)
+ for n,p in [(65,1),(65,3),(257,1),(257,3)]:
+  for layout in ['duplicates','reversed']:
+   x=rng.randint(-4,5,size=(n,p)).astype(float)
+   if layout=='reversed':x=np.sort(rng.normal(size=(n,p)),axis=0)[::-1].copy()
+   q=np.vstack([x[:3],np.mean(x,axis=0)]);w=rng.uniform(.1,2,size=n);w[::7]=0
+   for algorithm in ['kd_tree','ball_tree']:
+    for leaf in [30,40]:
+     yield dict(seed=312,case='partition_'+layout,x=x,q=q,w=w,fw=np.ones(p),weighted=True,
+       feature_weighted=False,kernel='gaussian',metric='euclidean',power=2.,bandwidth=.8,rule=0,
+       draws=0,mutate=0,algorithm=algorithm,leaf_size=leaf,breadth=True,atol=0.,rtol=0.)
+
 def main():
  parser=argparse.ArgumentParser();parser.add_argument('--executable',type=Path,required=True)
  parser.add_argument('--profile',choices=['development','checked','release'],required=True)
  parser.add_argument('--report',type=Path,required=True);parser.add_argument('--start-fixture',type=int,default=0)
- args=parser.parse_args();exe=args.executable.resolve();cases=list(fixtures())+list(backend_fixtures());checks=[];inventory=[];nonfinite=[];warns={};certificates=[]
+ args=parser.parse_args();exe=args.executable.resolve();cases=list(fixtures())+list(backend_fixtures())+list(partition_fixtures());checks=[];inventory=[];nonfinite=[];warns={};certificates=[]
+ inputs=hashlib.sha256()
  for index,cfg in enumerate(cases):
   if index<args.start_fixture:continue
   for k,v in dict(algorithm='auto',leaf_size=40,breadth=True,atol=0.,rtol=0.).items():cfg.setdefault(k,v)
@@ -149,6 +164,7 @@ def main():
     ['auto','kd_tree','ball_tree'].index(cfg['algorithm']),cfg['leaf_size'],int(cfg['breadth']),cfg['atol'],cfg['rtol']]
   payload=' '.join(map(str,header))+'\n'+'\n'.join(' '.join(format(v,'.17g') for v in arr.ravel(order='F'))
                                                for arr in [x,q,w,fw])+'\n'
+  inputs.update(payload.encode())
   proc=subprocess.run([str(exe)],input=payload,text=True,capture_output=True)
   assert proc.returncode==0,(index,cfg['case'],proc.stderr)
   actual=fields(proc.stdout);assert len(actual)==len(expected),(index,len(actual),len(expected))
@@ -162,6 +178,7 @@ def main():
      np.testing.assert_array_equal(np.sort(native.ravel()),np.arange(1,n+1))
      for start,end,is_leaf in spans:
       np.testing.assert_array_equal(np.sort(native[int(start)-1:int(end),0]),np.sort(reference[int(start)-1:int(end),0]))
+     np.testing.assert_array_equal(native,reference,err_msg=f'{index} exact stored tree order')
      error=0.
     else:error=compare(native,reference,index,field)
    except AssertionError:
@@ -208,6 +225,7 @@ def main():
   assert 'SIGFPE' not in proc.stderr and 'Fortran runtime error' not in proc.stderr,(case,proc.stderr)
  source=Path(sklearn.__file__).parent
  report=dict(profile=args.profile,fixtures=len(cases),start_fixture=args.start_fixture,checks=checks,inventories=inventory,
+  partition_order='exact',input_sha256=inputs.hexdigest(),native_source_sha256=sha(Path(__file__).parents[1]/'src/sklearn_density.f90'),
   nonfinite_reference_results=nonfinite,source_warnings=warns,roundoff_certificates=certificates,rejections=list(REJECTIONS),sklearn_version=sklearn.__version__,
   numpy_version=np.__version__,scipy_version=scipy.__version__,executable=str(exe),executable_sha256=sha(exe),validator_sha256=sha(__file__),
   parser_sha256=sha(Path(__file__).with_name('compare_image_graph.py')),
