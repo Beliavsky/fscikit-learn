@@ -13,6 +13,8 @@ See the [scope policy](docs/SCOPE.md) for admission and attribution rules.
 
 Random-forest and ExtraTrees models support integer or fractional bootstrap
 draw counts via `set_max_samples`; see the [API recipe](docs/API.md#package-use).
+Trees and forests also support integer, fractional, `sqrt`, `log2`, and all-feature
+budgets through `set_max_features`, including typed parameter searches.
 
 ## Build and test
 

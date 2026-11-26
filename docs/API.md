@@ -25,6 +25,32 @@ subroutine; `predict`, `transform`, `predict_proba` and `score` are functions.
 Most outputs are allocatable arrays that are allocated by ordinary assignment.
 There is no Python runtime or external library required to use the package.
 
+CART, ExtraTree, random-forest and ExtraTrees classifiers/regressors accept
+typed feature budgets through `set_max_features`:
+
+```fortran
+call model%set_max_features(.5_dp) ! max(1, int(.5 * n_features))
+call model%set_max_features(1)     ! one feature
+call model%set_max_features(1._dp) ! all features
+call model%set_max_features('sqrt')
+call model%set_max_features('log2')
+call model%set_max_features('none') ! Python None: all features
+call model%set_max_features(0)      ! restore the native default
+```
+
+Fractions must be finite and in `(0,1]`; positive integer budgets may exceed
+the input width, as in sklearn. The learned `max_features_` retains that budget,
+while the splitter visits available features. Integer zero remains the native
+default sentinel: square root for ExtraTreeClassifier and classification forests,
+all features for the other tree/regression-forest types. The string `none`
+explicitly selects all features in every type. Use the setter to switch modes
+or reset a fractional/named control; a nonzero public integer `max_features`
+takes precedence. Search accepts integer, real and text `max_features` parameters
+for all eight types; `param('none')` represents Python's None. Warm fits retain
+old component budgets and apply updated controls to new trees. Unfitted clones
+and pruning-path copies preserve the selected mode. Gradient boosting retains
+its existing integer interface.
+
 For random-forest and ExtraTrees classifiers/regressors, use the overloaded
 `set_max_samples` to select a bootstrap count or fraction:
 

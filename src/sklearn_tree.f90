@@ -1,4 +1,5 @@
 module sklearn_tree
+  use sklearn_tree_features,only:feature_count_control
   use sklearn_sparse, only: csr_matrix
   use sklearn_tree_pruning, only: tree_pruning_path,weakest_link_pruning
   use sklearn_tree_median, only: tree_median_queue
@@ -29,11 +30,15 @@ module sklearn_tree
     integer :: random_state=0,node_count_=0,n_features_in_=0,n_outputs_=1
     logical :: random_thresholds=.false.
     logical, private :: weighted_fit_=.false.
+    type(feature_count_control),private::feature_control_
     integer :: max_features_=0
     real(dp) :: min_impurity_decrease=0,ccp_alpha=0,min_weight_fraction_leaf=0
     real(dp), allocatable :: feature_importances_(:)
     type(tree_node), allocatable :: nodes_(:)
   contains
+    procedure,private::features_integer=>tree_features_integer,features_real=>tree_features_real
+    procedure,private::features_name=>tree_features_name
+    generic::set_max_features=>features_integer,features_real,features_name
     procedure :: decision_path=>tree_decision_path
     procedure :: apply=>tree_apply
     procedure :: get_depth=>tree_depth
@@ -79,6 +84,21 @@ module sklearn_tree
   end type
 
 contains
+  subroutine tree_features_integer(self,value)
+    class(tree_storage),intent(inout)::self
+    integer,intent(in)::value
+    self%max_features=value;call self%feature_control_%reset()
+  end subroutine
+  subroutine tree_features_real(self,value)
+    class(tree_storage),intent(inout)::self
+    real(dp),intent(in)::value
+    self%max_features=0;call self%feature_control_%set(value)
+  end subroutine
+  subroutine tree_features_name(self,value)
+    class(tree_storage),intent(inout)::self
+    character(*),intent(in)::value
+    self%max_features=0;call self%feature_control_%set(value)
+  end subroutine
   recursive real(dp) function tree_numpy_sum(a) result(total)
     real(dp), intent(in) :: a(:)
     real(dp) :: partial(8),left,right
@@ -163,7 +183,7 @@ contains
     call require(self%max_depth>=0.and.self%min_samples_split>=2.and.self%min_samples_leaf>=1, &
       'invalid tree size controls')
     call require(self%max_leaf_nodes>=0.and.self%max_leaf_nodes/=1,'tree max_leaf_nodes must be zero or at least two')
-    call require(self%max_features>=0.and.self%max_features<=size(x,2),'invalid tree max_features')
+    call require(self%max_features>=0,'invalid tree max_features')
     call require(ieee_is_finite(self%min_impurity_decrease),'tree impurity decrease must be finite')
     call require(self%min_impurity_decrease>=0,'negative impurity decrease')
     call require(ieee_is_finite(self%min_weight_fraction_leaf),'tree minimum weighted leaf fraction must be finite')
@@ -172,7 +192,7 @@ contains
     call require(ieee_is_finite(self%ccp_alpha),'tree ccp_alpha must be finite')
     call require(self%ccp_alpha>=0,'tree ccp_alpha must be nonnegative')
     call require(self%random_state>=0,'weighted tree random_state must be nonnegative')
-    nf=self%max_features; if(nf==0) nf=size(x,2)
+    nf=self%feature_control_%resolve(self%max_features,size(x,2),.false.)
     if(present(max_features)) nf=max_features
     self%max_features_=nf; self%weighted_fit_=.true.; self%n_features_in_=size(x,2); self%node_count_=0
     if(allocated(self%nodes_)) deallocate(self%nodes_)
@@ -982,7 +1002,7 @@ contains
     if(present(sample_weight)) then
       call require(size(sample_weight)==size(y),'tree sample weight length mismatch'); weights=sample_weight
     end if
-    nf=self%max_features; if(nf==0) nf=max(1,int(sqrt(real(size(x,2),dp))))
+    nf=self%feature_control_%resolve(self%max_features,size(x,2),.true.)
     call build_weighted_tree(self,x,real(y,dp),self%classes_,self%criterion,weights,nf)
   end subroutine
   subroutine extra_regressor_fit(self,x,y,sample_weight)
@@ -1006,7 +1026,7 @@ contains
     call check_xy(x,size(y,1));self%random_thresholds=.true.
     call require(any(self%criterion==['gini    ','entropy ','log_loss']),'unknown tree criterion')
     call prepare_class_labels(self,y,flat)
-    nf=self%max_features;if(nf==0)nf=max(1,int(sqrt(real(size(x,2),dp))))
+    nf=self%feature_control_%resolve(self%max_features,size(x,2),.true.)
     if(present(sample_weight))then
       call build_weighted_tree(self,x,real(y(:,1),dp),flat,self%criterion,sample_weight,nf, &
         class_targets=y,class_offsets=self%class_offsets_)

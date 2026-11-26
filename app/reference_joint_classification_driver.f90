@@ -9,9 +9,13 @@ program reference_joint_classification_driver
  integer,allocatable::y(:,:),prediction(:,:),classes(:)
  integer::n,p,q,mode,seed,depth,budget,nf,leaf,weighted,score_flag,i,k,first,total,status
  real(dp)::alpha,decrease
+ character(64)::feature_token,argument
+ real(dp)::feature_fraction
+ logical::feature_metadata
  character(16)::criterion
+ call get_command_argument(1,argument);feature_metadata=trim(argument)=='--features'
  do
-  read(*,*,iostat=status)n,p,q,mode,criterion,seed,depth,budget,nf,leaf,alpha,decrease,weighted,score_flag
+  read(*,*,iostat=status)n,p,q,mode,criterion,seed,depth,budget,feature_token,leaf,alpha,decrease,weighted,score_flag
   if(status/=0)exit
   allocate(x(n,p),y(n,q),w(n))
   do i=1,n;read(*,*)x(i,:);end do
@@ -23,7 +27,16 @@ program reference_joint_classification_driver
    allocate(extra_tree_classifier::model)
   end if
   model%criterion=criterion;model%random_state=seed;model%max_depth=depth;model%max_leaf_nodes=budget
-  model%max_features=nf;model%min_samples_leaf=leaf;model%ccp_alpha=alpha;model%min_impurity_decrease=decrease
+  model%min_samples_leaf=leaf;model%ccp_alpha=alpha;model%min_impurity_decrease=decrease
+  select case(trim(feature_token))
+  case('sqrt','log2','none');call model%set_max_features(trim(feature_token))
+  case default
+   if(scan(trim(feature_token),'.eEdD')>0)then
+    read(feature_token,*)feature_fraction;call model%set_max_features(feature_fraction)
+   else
+    read(feature_token,*)nf;call model%set_max_features(nf)
+   end if
+  end select
   if(weighted==1)then
    call model%fit(x,y,w);path=model%cost_complexity_pruning_path(x,y,w)
   else
@@ -75,6 +88,7 @@ program reference_joint_classification_driver
   else
    write(*,*)
   end if
+  if(feature_metadata)write(*,'(*(i0,1x))')model%max_features_
   deallocate(model,x,y,w,values,threshold,classes,probabilities)
  end do
 end program

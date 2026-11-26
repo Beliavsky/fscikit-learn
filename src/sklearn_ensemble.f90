@@ -1,4 +1,5 @@
 module sklearn_ensemble
+  use sklearn_tree_features,only:feature_count_control
   use sklearn_sparse, only: csr_matrix
   use sklearn_class_weight, only: class_weight_map,compute_sample_weight
   use sklearn_label_binarization,only:label_set
@@ -59,6 +60,7 @@ module sklearn_ensemble
     integer :: max_leaf_nodes=0
     integer :: max_samples=0,n_features_in_=0,n_classes_=0,n_outputs_=1
     integer,private::n_samples_fit_=0,n_samples_bootstrap_=0
+    type(feature_count_control),private::feature_control_
     real(dp),private::max_samples_fraction_=0
     logical,private::fractional_samples_=.false.
     integer,allocatable::n_classes_multi_(:)
@@ -93,6 +95,10 @@ module sklearn_ensemble
     procedure::set_bootstrap=>forest_classifier_set_bootstrap,estimators_samples=>forest_classifier_samples
     procedure,private::samples_integer=>classifier_samples_integer,samples_real=>classifier_samples_real
     generic::set_max_samples=>samples_integer,samples_real
+    procedure,private::features_integer=>classifier_features_integer,features_real=>classifier_features_real
+    procedure,private::features_name=>classifier_features_name
+    generic::set_max_features=>features_integer,features_real,features_name
+
   end type
   type, extends(random_forest_classifier) :: extra_trees_classifier
   contains
@@ -104,6 +110,7 @@ module sklearn_ensemble
     integer :: max_leaf_nodes=0
     integer :: max_samples=0,n_features_in_=0,n_outputs_=1
     integer,private::n_samples_fit_=0,n_samples_bootstrap_=0
+    type(feature_count_control),private::feature_control_
     real(dp),private::max_samples_fraction_=0
     logical,private::fractional_samples_=.false.
     character(16) :: criterion='squared_error'
@@ -129,6 +136,10 @@ module sklearn_ensemble
     procedure::estimators_samples=>forest_regressor_samples
     procedure,private::samples_integer=>regressor_samples_integer,samples_real=>regressor_samples_real
     generic::set_max_samples=>samples_integer,samples_real
+    procedure,private::features_integer=>regressor_features_integer,features_real=>regressor_features_real
+    procedure,private::features_name=>regressor_features_name
+    generic::set_max_features=>features_integer,features_real,features_name
+
   end type
   type, extends(random_forest_regressor) :: extra_trees_regressor
   contains
@@ -145,6 +156,36 @@ module sklearn_ensemble
     procedure :: score=>boost_score
   end type
 contains
+  subroutine classifier_features_integer(self,value)
+    class(random_forest_classifier),intent(inout)::self
+    integer,intent(in)::value
+    self%max_features=value;call self%feature_control_%reset()
+  end subroutine
+  subroutine classifier_features_real(self,value)
+    class(random_forest_classifier),intent(inout)::self
+    real(dp),intent(in)::value
+    self%max_features=0;call self%feature_control_%set(value)
+  end subroutine
+  subroutine classifier_features_name(self,value)
+    class(random_forest_classifier),intent(inout)::self
+    character(*),intent(in)::value
+    self%max_features=0;call self%feature_control_%set(value)
+  end subroutine
+  subroutine regressor_features_integer(self,value)
+    class(random_forest_regressor),intent(inout)::self
+    integer,intent(in)::value
+    self%max_features=value;call self%feature_control_%reset()
+  end subroutine
+  subroutine regressor_features_real(self,value)
+    class(random_forest_regressor),intent(inout)::self
+    real(dp),intent(in)::value
+    self%max_features=0;call self%feature_control_%set(value)
+  end subroutine
+  subroutine regressor_features_name(self,value)
+    class(random_forest_regressor),intent(inout)::self
+    character(*),intent(in)::value
+    self%max_features=0;call self%feature_control_%set(value)
+  end subroutine
   subroutine classifier_samples_integer(self,value)
     class(random_forest_classifier),intent(inout)::self
     integer,intent(in)::value
@@ -212,7 +253,7 @@ contains
     real(dp),intent(in)::decrease,alpha,fraction
     call require(depth>=0.and.split>=2.and.leaf>=1,'invalid forest tree size controls')
     call require(budget>=0.and.budget/=1,'forest max_leaf_nodes must be zero or at least two')
-    call require(features>=0.and.features<=p,'invalid forest max_features')
+    call require(features>=0,'invalid forest max_features')
     call require(seed>=0,'forest random_state must be nonnegative')
     call require(ieee_is_finite(decrease),'forest impurity decrease must be finite')
     call require(decrease>=0,'forest impurity decrease must be nonnegative')
@@ -251,6 +292,7 @@ contains
     type(tree_probability),allocatable::oob(:),prob(:)
     real(dp),allocatable::query(:,:)
     call check_xy(x,size(y,1));call require(self%n_estimators>0,'forest needs positive n_estimators')
+    features=self%feature_control_%resolve(self%max_features,size(x,2),.true.)
     ns=forest_sample_count(size(y,1),self%max_samples,self%fractional_samples_,self%max_samples_fraction_,self%bootstrap)
     call require(any(self%class_weight==[character(20)::'none','balanced','balanced_subsample']),'invalid forest class weight mode')
     call require(.not.(allocated(self%class_weight_values).and.self%class_weight/='none'), &
@@ -316,7 +358,7 @@ contains
       do k=1,q;allocate(oob(k)%values(n,self%n_classes_multi_(k)));oob(k)%values=0;end do
     end if
     allocate(indices(ns));call seeds%seed(self%random_state)
-    features=self%max_features;if(features==0) features=max(1,int(sqrt(real(p,dp))))
+
     if(old==0)then
       if(allocated(self%estimators_))deallocate(self%estimators_)
       allocate(self%estimators_(self%n_estimators))
@@ -348,7 +390,7 @@ contains
       self%estimators_(i)%max_depth=self%max_depth
       self%estimators_(i)%min_samples_leaf=self%min_samples_leaf
       self%estimators_(i)%min_samples_split=self%min_samples_split
-      self%estimators_(i)%max_features=features
+      call self%estimators_(i)%set_max_features(features)
       self%estimators_(i)%max_leaf_nodes=self%max_leaf_nodes
       self%estimators_(i)%min_weight_fraction_leaf=self%min_weight_fraction_leaf
       self%estimators_(i)%ccp_alpha=self%ccp_alpha
@@ -690,9 +732,10 @@ contains
     real(dp) :: w(size(y)),tree_weights(size(y)),normalizer
     real(dp),allocatable::oob(:,:),prediction(:,:),query(:,:)
     integer,allocatable::unsampled(:)
-    integer :: i,j,k,n,p,seed,ns,nontrivial,at,counts(size(y)),q
+    integer :: i,j,k,n,p,seed,ns,nontrivial,at,counts(size(y)),q,features
     call check_xy(x,size(y));call check_x(reshape(y,[size(y),1]))
     call require(self%n_estimators>0,'forest needs positive n_estimators')
+    features=self%feature_control_%resolve(self%max_features,size(x,2),.false.)
     ns=forest_sample_count(size(y),self%max_samples,self%fractional_samples_,self%max_samples_fraction_,self%bootstrap)
     call require(self%bootstrap.or..not.self%oob_score,'forest OOB scoring requires bootstrap')
     q=1
@@ -766,7 +809,7 @@ contains
       self%estimators_(i)%max_depth=self%max_depth
       self%estimators_(i)%min_samples_leaf=self%min_samples_leaf
       self%estimators_(i)%min_samples_split=self%min_samples_split
-      self%estimators_(i)%max_features=self%max_features
+      call self%estimators_(i)%set_max_features(features)
       self%estimators_(i)%max_leaf_nodes=self%max_leaf_nodes
       self%estimators_(i)%min_weight_fraction_leaf=self%min_weight_fraction_leaf
       self%estimators_(i)%ccp_alpha=self%ccp_alpha

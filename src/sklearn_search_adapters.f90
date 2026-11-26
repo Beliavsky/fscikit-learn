@@ -156,7 +156,12 @@ contains
       case('max_depth');model%max_depth=value%as_integer()
       case('min_samples_leaf');model%min_samples_leaf=value%as_integer()
       case('min_samples_split');model%min_samples_split=value%as_integer()
-      case('max_features');model%max_features=value%as_integer()
+      case('max_features')
+        select case(value%kind)
+        case(1);call model%set_max_features(value%as_real())
+        case(4);call model%set_max_features(value%as_text())
+        case default;call model%set_max_features(value%as_integer())
+        end select
       case('random_state');model%random_state=value%as_integer()
       case('criterion');model%criterion=value%as_text()
       case('min_impurity_decrease');model%min_impurity_decrease=value%as_real()
@@ -171,7 +176,12 @@ contains
       case('max_depth');model%max_depth=value%as_integer()
       case('min_samples_leaf');model%min_samples_leaf=value%as_integer()
       case('min_samples_split');model%min_samples_split=value%as_integer()
-      case('max_features');model%max_features=value%as_integer()
+      case('max_features')
+        select case(value%kind)
+        case(1);call model%set_max_features(value%as_real())
+        case(4);call model%set_max_features(value%as_text())
+        case default;call model%set_max_features(value%as_integer())
+        end select
       case('random_state');model%random_state=value%as_integer()
       case('min_impurity_decrease');model%min_impurity_decrease=value%as_real()
       case default;done=.false.
@@ -248,7 +258,12 @@ contains
       case('max_depth');model%max_depth=value%as_integer()
       case('min_samples_leaf');model%min_samples_leaf=value%as_integer()
       case('min_samples_split');model%min_samples_split=value%as_integer()
-      case('max_features');model%max_features=value%as_integer()
+      case('max_features')
+        select case(value%kind)
+        case(1);call model%set_max_features(value%as_real())
+        case(4);call model%set_max_features(value%as_text())
+        case default;call model%set_max_features(value%as_integer())
+        end select
       case('random_state');model%random_state=value%as_integer()
       case default;done=.false.
       end select
@@ -272,7 +287,12 @@ contains
       case('max_depth');model%max_depth=value%as_integer()
       case('min_samples_leaf');model%min_samples_leaf=value%as_integer()
       case('min_samples_split');model%min_samples_split=value%as_integer()
-      case('max_features');model%max_features=value%as_integer()
+      case('max_features')
+        select case(value%kind)
+        case(1);call model%set_max_features(value%as_real())
+        case(4);call model%set_max_features(value%as_text())
+        case default;call model%set_max_features(value%as_integer())
+        end select
       case('random_state');model%random_state=value%as_integer()
       case default;done=.false.
       end select

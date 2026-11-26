@@ -1,5 +1,13 @@
 # Third-party notices and provenance
 
+Typed feature budgets for CART/ExtraTree and random-forest/ExtraTrees models
+follow scikit-learn 1.6.1 `tree/_classes.py` max_features resolution, including
+fraction truncation, square root, base-two logarithm and positive oversized
+integer budgets; `ensemble/_forest.py` supplies per-tree/warm-start propagation.
+`src/sklearn_tree_features.f90` provides original MIT typed storage and native
+None/default adapters. Existing sklearn BSD notices remain retained in
+`LICENSES/scikit-learn-COPYING`. No external implementation is imported.
+
 Fractional forest bootstrap counts follow scikit-learn 1.6.1
 `ensemble/_forest.py` (`_get_n_samples_bootstrap`): fraction validation,
 nearest-even rounding, a minimum of one draw and warm-start regeneration.

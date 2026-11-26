@@ -10,11 +10,15 @@ program reference_warm_joint_class_forest_driver
  integer,allocatable::y(:,:),labels(:),samples(:,:)
  integer::n,p,q,mode,seed,nt,boot,ns,oob,weighted,depth,budget,nf,leaf,cw,score_flag,status,i,j,k,first,total
  real(dp)::alpha,decrease
+ character(64)::feature_token,argument
+ real(dp)::feature_fraction
+ logical::feature_metadata
  character(16)::criterion
  character(64)::sample_token
  real(dp)::sample_fraction
+ call get_command_argument(1,argument);feature_metadata=trim(argument)=='--features'
  do
-  read(*,*,iostat=status)n,p,q,mode,criterion,seed,nt,boot,sample_token,oob,weighted,depth,budget,nf,leaf,alpha,decrease,cw,score_flag,warm,reset
+  read(*,*,iostat=status)n,p,q,mode,criterion,seed,nt,boot,sample_token,oob,weighted,depth,budget,feature_token,leaf,alpha,decrease,cw,score_flag,warm,reset
   if(status/=0)exit
   allocate(x(n,p),y(n,q),w(n))
   do i=1,n;read(*,*)x(i,:);end do
@@ -37,7 +41,7 @@ program reference_warm_joint_class_forest_driver
    read(sample_token,*)ns;call model%set_max_samples(ns)
   end if
   model%oob_score=oob==1;model%max_depth=depth;model%max_leaf_nodes=budget
-  model%max_features=nf;model%min_samples_leaf=leaf;model%ccp_alpha=alpha;model%min_impurity_decrease=decrease
+  model%min_samples_leaf=leaf;model%ccp_alpha=alpha;model%min_impurity_decrease=decrease
   model%class_weight='none'
   if(allocated(model%class_weight_values))deallocate(model%class_weight_values)
   if(allocated(model%class_weight_values_multi))deallocate(model%class_weight_values_multi)
@@ -56,6 +60,15 @@ program reference_warm_joint_class_forest_driver
     end do
    end if
   end if
+  select case(trim(feature_token))
+  case('sqrt','log2','none');call model%set_max_features(trim(feature_token))
+  case default
+   if(scan(trim(feature_token),'.eEdD')>0)then
+    read(feature_token,*)feature_fraction;call model%set_max_features(feature_fraction)
+   else
+    read(feature_token,*)nf;call model%set_max_features(nf)
+   end if
+  end select
   if(weighted==1)then
    call model%fit(x,y,w)
   else
@@ -124,6 +137,7 @@ program reference_warm_joint_class_forest_driver
   else
    write(*,*)
   end if
+  if(feature_metadata)write(*,'(*(i0,1x))')model%estimators_%max_features_
   deallocate(x,y,w)
  end do
 end program

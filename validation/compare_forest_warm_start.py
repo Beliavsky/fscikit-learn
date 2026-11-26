@@ -6,6 +6,7 @@ import numpy as np
 import sklearn
 from sklearn.ensemble import RandomForestClassifier,ExtraTreesClassifier,RandomForestRegressor,ExtraTreesRegressor
 from sklearn_tree_runtime import tree_runtime_provenance
+from sklearn_feature_fixtures import forest_feature_fixtures
 
 def fixtures(kind):
     criteria=['gini','entropy','log_loss'] if kind=='classification' else ['squared_error','friedman_mse','absolute_error','poisson']
@@ -94,24 +95,25 @@ def main():
     ap.add_argument('--kind',choices=['classification','regression'],required=True)
     ap.add_argument('--executable',type=Path,required=True);ap.add_argument('--report',type=Path,required=True)
     ap.add_argument('--reuse-report',type=Path)
+    ap.add_argument('--features',action='store_true')
     ap.add_argument('--fractional',action='store_true',help='Fractional counts, ties, typed resets and warm OOB state')
     a=ap.parse_args();records=[];payloads=[];coverage=None
     sha=lambda p:hashlib.sha256(Path(p).read_bytes()).hexdigest()
     if a.reuse_report:
         old=json.loads(a.reuse_report.read_text());assert old['kind']==a.kind and old['sklearn']==sklearn.__version__
-        assert old.get('fractional',False)==a.fractional
+        assert old.get('fractional',False)==a.fractional and old.get('features',False)==a.features
         assert old['validator_sha256']==sha(__file__)
         records=old['records'];payload=a.reuse_report.with_suffix('.in').read_text()
         assert hashlib.sha256(payload.encode()).hexdigest()==old['input_sha256']
         for r in records:r['differences']=[];r.pop('native',None)
     else:
-        for c,x,y,w in (fractional_fixtures(a.kind) if a.fractional else fixtures(a.kind)):
+        for c,x,y,w in (forest_feature_fixtures(a.kind) if a.features else fractional_fixtures(a.kind) if a.fractional else fixtures(a.kind)):
             if c['reset']:
                 cls=([RandomForestClassifier,ExtraTreesClassifier] if a.kind=='classification' else [RandomForestRegressor,ExtraTreesRegressor])[c['mode']]
                 model=cls(n_jobs=1);coverage=None
             params=dict(n_estimators=c['nt'],warm_start=bool(c['warm']),criterion=c['criterion'],random_state=c['seed'],bootstrap=bool(c['boot']),
                         max_samples=c['ns'] or None,oob_score=bool(c['oob']),max_depth=c['depth'],max_leaf_nodes=c['budget'] or None,
-                        max_features=c['nf'] or ('sqrt' if a.kind=='classification' else 1.),min_samples_leaf=c['leaf'],ccp_alpha=c['alpha'],min_impurity_decrease=c['decrease'])
+                        max_features=None if c['nf']=='none' else c['nf'] or ('sqrt' if a.kind=='classification' else 1.),min_samples_leaf=c['leaf'],ccp_alpha=c['alpha'],min_impurity_decrease=c['decrease'])
             if a.kind=='classification':
                 maps=[{v:i+1.25 for i,v in enumerate(np.unique(y[:,k]))} for k in range(c['q'])]
                 params['class_weight']=[None,'balanced','balanced_subsample',maps[0] if c['q']==1 else maps][c['cw']]
@@ -122,6 +124,7 @@ def main():
                 warnings.simplefilter('ignore');model.fit(x,y,sample_weight=fit_weights)
                 if recompute:coverage=np.sum([np.bincount(b,minlength=c['n'])==0 for b in model.estimators_samples_],axis=0)
                 expected,error=snapshot(model,x,y,fit_weights,c,coverage,a.kind)
+            if a.features:expected['resolved_features']=[e.max_features_ for e in model.estimators_]
             if a.kind=='regression':assert error is None,(c,error)
             records.append(dict(case=c,source=expected,score_error=error,differences=[]))
             keys=['n','p','q','mode','criterion','seed','nt','boot','ns','oob','weighted','depth','budget','nf','leaf','alpha','decrease']
@@ -132,10 +135,10 @@ def main():
             text+=' '.join(map(str,w))+'\n';payloads.append(text)
         payload=''.join(payloads)
     a.report.parent.mkdir(parents=True,exist_ok=True);a.report.with_suffix('.in').write_text(payload)
-    native=subprocess.run([str(a.executable)],input=payload,text=True,capture_output=True)
+    native=subprocess.run([str(a.executable)]+(['--features'] if a.features else []),input=payload,text=True,capture_output=True)
     a.report.with_suffix('.stdout').write_text(native.stdout);a.report.with_suffix('.stderr').write_text(native.stderr)
-    lines=native.stdout.splitlines();fields=list(records[0]['source']);width=len(fields);assert width==(26 if a.kind=='classification' else 20)
-    integer={'metadata','class_counts','classes','prediction','leaves','seeds','samples','oob_counts','tree_metadata','tree_class_counts','tree_classes','count','left','right','feature'}
+    lines=native.stdout.splitlines();fields=list(records[0]['source']);width=len(fields);assert width==(26 if a.kind=='classification' else 20)+int(a.features)
+    integer={'resolved_features','metadata','class_counts','classes','prediction','leaves','seeds','samples','oob_counts','tree_metadata','tree_class_counts','tree_classes','count','left','right','feature'}
     if a.kind=='regression':integer.remove('prediction')
     for i,r in enumerate(records):
         chunk=lines[width*i:width*(i+1)];r['native']={}
@@ -144,10 +147,10 @@ def main():
             got=np.fromstring(line,sep=' ');want=np.asarray(r['source'][key]);r['native'][key]=got.tolist()
             passed=got.shape==want.shape and (np.array_equal(got,want) if key in integer else np.allclose(got,want,rtol=2e-10,atol=2e-12,equal_nan=True))
             if not passed:r['differences'].append(key)
-    report=dict(kind=a.kind,fractional=a.fractional,configurations=len(records),sequences=sum(r['case']['reset'] for r in records),records=records,
+    report=dict(kind=a.kind,features=a.features,fractional=a.fractional,configurations=len(records),sequences=sum(r['case']['reset'] for r in records),records=records,
                 failed_configurations=sum(bool(r['differences']) for r in records),native_returncode=native.returncode,
                 input_sha256=hashlib.sha256(payload.encode()).hexdigest(),sklearn=sklearn.__version__,runtime=tree_runtime_provenance(),validator_sha256=sha(__file__),
-                sha256={str(p):sha(p) for p in [a.executable,Path('src/sklearn_ensemble.f90')]})
+                sha256={str(p):sha(p) for p in [a.executable,Path('src/sklearn_ensemble.f90'),Path('src/sklearn_tree.f90'),Path('src/sklearn_tree_features.f90'),Path('validation/sklearn_feature_fixtures.py')]})
     a.report.write_text(json.dumps(report,indent=2)+'\n');print({k:v for k,v in report.items() if k not in ['records','sha256','runtime','validator_sha256']})
     assert not native.returncode and not report['failed_configurations']
 
