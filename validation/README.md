@@ -29,6 +29,15 @@ python validation/check_invalid_inputs.py
 
 The reference validator requires NumPy, SciPy and scikit-learn in Python.
 
+`compare_joint_forests.py` compares 984 actual sklearn 1.6.1 regression forests,
+including all component-tree fields, seeds, bootstrap indices, training and OOB
+predictions/scores, and OOB coverage. Use
+`--executable <reference_joint_forest_driver.exe> --report <report.json>`.
+`check_joint_forest_invalid_inputs.py` uses `reference_joint_forest_invalid_driver`
+to check 15 Source errors and two native API guards. Numeric tolerances remain
+rtol=2e-10 / atol=2e-12; integer structure, samples and coverage are exact.
+The first 768 fixtures remain unchanged in the expanded 984-case grid.
+
 `compare_joint_classification.py` compares 642 actual CART/ExtraTree classification
 fits, ragged classes/probabilities, full nodes, pruning and supported scores.
 Pass `--executable <reference_joint_classification_driver.exe> --report <report.json>`.

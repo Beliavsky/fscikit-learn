@@ -1,5 +1,13 @@
 # Third-party notices and provenance
 
+Joint regression forests and OOB estimates in `src/sklearn_ensemble.f90`
+follow scikit-learn 1.6.1 `ensemble/_forest.py`: shared output trees, seeded
+bootstrap generation, sample-weight multiplicities, unsampled-row prediction
+averages, feature-importance aggregation and unweighted OOB R2. The native
+matrix, owned-sample and explicit-bootstrap adapters are MIT. The existing
+scikit-learn BSD notice in `LICENSES/scikit-learn-COPYING` applies to these
+adaptations; the project remains MIT with the retained third-party notices.
+
 Joint classification in `src/sklearn_tree.f90` follows sklearn 1.6.1
 `tree/_criterion.pyx` ClassificationCriterion/Gini/Entropy per-output class
 counts and averaged impurities, `tree/_classes.py` label encoding and ragged

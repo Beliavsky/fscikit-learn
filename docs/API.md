@@ -3842,8 +3842,49 @@ the retained scalar `value` mirrors the first output at fitting time.
 
 `n_outputs_` resets on refitting, including a subsequent vector-target fit.
 Matrix prediction on a single-output fit agrees with the vector prediction.
-This does not add joint targets to forest or other ensemble fitting interfaces.
-See `example/joint_tree_regression.f90`.
+See `example/joint_tree_regression.f90`. Joint regression forests are described below.
+
+### Joint regression forests and out-of-bag estimates
+
+`random_forest_regressor` and `extra_trees_regressor` accept vector or matrix
+targets through `fit(x,y,sample_weight)`. Matrix targets use shared component
+trees for squared error, Friedman MSE, absolute error and Poisson criteria.
+`predict_multi(x)` returns `(n_query,n_outputs_)`; retained vector `predict(x)`
+requires one fitted output. Matrix `score(x,y,sample_weight)` uses uniform-average
+R2. `apply` and `decision_path` retain their per-tree shared partitions.
+
+```fortran
+type(extra_trees_regressor) :: forest
+real(dp), allocatable :: predicted(:,:)
+integer, allocatable :: samples(:,:)
+forest%n_estimators=100
+forest%random_state=7
+call forest%set_bootstrap(.true.)
+forest%oob_score=.true.
+call forest%fit(x,y_matrix,sample_weight=weights)
+predicted=forest%predict_multi(x_query)
+samples=forest%estimators_samples()
+print *, forest%oob_score_
+```
+
+Random forests default to bootstrap sampling; ExtraTrees default to no
+bootstrap. Use `set_bootstrap` to configure ExtraTrees explicitly: assigning
+`extra%bootstrap=.true.` alone retains the historical default-reset behavior
+on fitting. `max_samples=0` selects the full training count; positive integers
+select the bootstrap draw count. Nonzero `max_samples` and OOB scoring require
+bootstrap. Fractional draw counts, warm starts and callable OOB scorers remain
+outside this interface.
+
+`estimators_samples()` returns an owned integer matrix `(n_draws,n_trees)` of
+one-based training indices, regenerated from component seeds. With bootstrap
+disabled, each column contains the ordered training indices.
+OOB prediction averages only trees that did not sample a row. A row with no
+OOB trees has a zero prediction, matching sklearn's warning-path result;
+`oob_counts_` exposes that coverage. `oob_prediction_` stores one-output
+predictions (including a one-column target fit), while
+`oob_prediction_multi_` stores multiple outputs. OOB R2 uses uniform output
+averaging and ignores fitting sample weights, as sklearn does. Refits clear
+old OOB arrays and reset output metadata. See `example/joint_forest_regression.f90`.
 
 ### Joint classification targets
 
@@ -7965,8 +8006,8 @@ is unchanged. This corrects the former native-RNG/duplicated-row behavior,
 and changes seeded regression-forest predictions to their sklearn counterparts.
 Random-forest `max_samples=0` means all training rows per bootstrap draw;
 a positive integer selects a bootstrap sample count no larger than the input.
-Nonzero max_samples requires bootstrap. ExtraTrees retains this package's
-existing forced non-bootstrap fitting behavior.
+Nonzero max_samples requires bootstrap. ExtraTrees defaults to non-bootstrap
+fitting; call `set_bootstrap(.true.)` to enable bootstrap explicitly.
 
 Only trees with more than one node contribute to forest impurity importance,
 matching sklearn. All-stump forests return zero importances. Signed/zero
@@ -7975,8 +8016,9 @@ predictions/targets and a nonzero score-weight sum. Fitting weights and their
 bootstrap-multiplied values must be finite. Query NaNs use each component's
 finite-training missing-value routing, except absolute-error models reject
 query NaNs as sklearn does. Training NaNs, sparse inputs,
-fractional max_samples/max_features, OOB scores, warm starts,
-monotonic constraints and multioutput forests are not implemented here.
+fractional max_samples/max_features, warm starts and monotonic constraints
+remain outside this interface. Matrix targets and OOB scores are supported
+as described under joint regression forests above.
 
 Parameter search accepts regression-forest `criterion`, `max_samples` and
 `min_impurity_decrease` alongside existing size/seed controls, and forwards

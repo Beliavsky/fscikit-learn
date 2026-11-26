@@ -145,6 +145,29 @@ Fortran identifiers use snake_case rather than CamelCase.
 | calibration | `calibrated_classifier_cv`; `calibration_curve` | Sigmoid/isotonic CV ensembles, out-of-fold calibration and prefit calibration with logistic, Gaussian NB or KNN bases; uniform/quantile reliability bins |
 | datasets | `make_classification`, `make_multilabel_classification`, `make_sparse_coded_signal`, `make_sparse_spd_matrix`, `make_biclusters`, `make_checkerboard`, `make_hastie_10_2`, `make_blobs`, `make_regression`, `make_low_rank_matrix`, `make_moons`, `make_circles`, `make_friedman1/2/3`, `make_sparse_uncorrelated`, `make_s_curve`, `make_swiss_roll`, `make_gaussian_quantiles` | Native synthetic generators with seeded legacy NumPy draws; scalar/joint regression, low-rank profiles, unequal blob/curve counts, per-cluster blob scales and center outputs; no bundled real-world datasets |
 
+## Joint regression forests and out-of-bag estimates
+
+RandomForestRegressor and ExtraTreesRegressor counterparts now accept matrix
+targets with shared component trees, matrix predictions and weighted R2 for
+all four regression criteria. Both expose reproducible bootstrap sample indices
+and OOB predictions/scores for scalar and matrix targets. Coverage counts make
+uncovered rows explicit; their OOB prediction remains zero. ExtraTrees bootstrap
+is configured with `set_bootstrap`, preserving its existing no-bootstrap default.
+
+The 984-case actual sklearn 1.6.1 comparison checks every component tree,
+seeds, exact bootstrap samples, leaves, predictions, importances, training scores,
+OOB coverage, predictions and scores. It includes one through four outputs,
+weights containing zeros, tiny datasets, constant targets, zero-column Poisson
+targets, all-stump forests, pruning, leaf budgets and reduced bootstrap draws.
+Numeric bounds are rtol=2e-10 / atol=2e-12; integer fields match exactly.
+The initial 768 cases remain in the expanded grid. Native tests cover independent
+OOB reconstruction, owned sample arrays, default/explicit ExtraTrees bootstrap
+and vector/matrix refits. Guard tests compare 15 Source errors and two explicit
+native API errors. This extends existing sklearn estimators without adding an
+extension algorithm or dependency. Classification forests, sparse features,
+fractional bootstrap draw counts, callable OOB scoring and warm starts are
+outside this increment.
+
 ## Joint CART and ExtraTree classification
 
 Both classifier counterparts now fit integer target matrices with shared splits,
@@ -192,7 +215,7 @@ older tree reference suites and 192 core comparisons pass. Its audit verifies
 305 jobs and 516 compiled-unit fingerprints (201 library units). Optimized
 verification covers the changed tree module and direct public tree API rather
 than a full optimized package rebuild. This adds no estimator type
-or extension algorithm; joint forest fitting remains outside this increment.
+or extension algorithm; joint forest regression was added subsequently above.
 
 ## Weighted dense and sparse DBSCAN
 

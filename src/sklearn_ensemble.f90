@@ -81,22 +81,33 @@ module sklearn_ensemble
     integer :: n_estimators=100,max_depth=100,min_samples_leaf=1,min_samples_split=2
     integer :: max_features=0,random_state=0
     integer :: max_leaf_nodes=0
-    integer :: max_samples=0,n_features_in_=0
+    integer :: max_samples=0,n_features_in_=0,n_outputs_=1
+    integer,private::n_samples_fit_=0,n_samples_bootstrap_=0
     character(16) :: criterion='squared_error'
     real(dp) :: min_impurity_decrease=0,ccp_alpha=0,min_weight_fraction_leaf=0
     logical :: bootstrap=.true.,random_thresholds=.false.
+    logical :: oob_score=.false.
+    logical,private::bootstrap_set_=.false.
+    real(dp)::oob_score_=0
+    real(dp),allocatable::oob_prediction_(:),oob_prediction_multi_(:,:)
+    integer,allocatable::oob_counts_(:)
     type(decision_tree_regressor), allocatable :: estimators_(:)
     real(dp), allocatable :: feature_importances_(:)
   contains
-    procedure :: fit=>forest_regressor_fit
+    procedure,private::fit_single=>forest_regressor_fit,fit_multi=>forest_regressor_fit_multi
+    generic::fit=>fit_single,fit_multi
     procedure :: decision_path=>forest_regressor_path
     procedure :: apply=>forest_regressor_apply
     procedure :: predict=>forest_regressor_predict
-    procedure :: score=>forest_regressor_score
+    procedure :: predict_multi=>forest_regressor_predict_multi
+    procedure,private::score_single=>forest_regressor_score,score_multi=>forest_regressor_score_multi
+    generic::score=>score_single,score_multi
+    procedure::set_bootstrap=>forest_regressor_set_bootstrap
+    procedure::estimators_samples=>forest_regressor_samples
   end type
   type, extends(random_forest_regressor) :: extra_trees_regressor
   contains
-    procedure :: fit=>extra_regressor_fit
+    procedure,private::fit_single=>extra_regressor_fit,fit_multi=>extra_regressor_fit_multi
   end type
   type :: gradient_boosting_regressor
     integer :: n_estimators=100,max_depth=3,min_samples_leaf=1,random_state=0
@@ -341,13 +352,38 @@ contains
     class(random_forest_regressor), intent(inout) :: self
     real(dp), intent(in) :: x(:,:),y(:)
     real(dp), optional, intent(in) :: sample_weight(:)
+    call forest_regressor_fit_body(self,x,y,sample_weight)
+  end subroutine
+  subroutine forest_regressor_fit_multi(self,x,y,sample_weight)
+    class(random_forest_regressor),intent(inout)::self
+    real(dp),intent(in)::x(:,:),y(:,:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    call check_xy(x,size(y,1));call require(size(y,2)>0,'forest targets require at least one output')
+    call forest_regressor_fit_body(self,x,y(:,1),sample_weight,targets=y)
+  end subroutine
+  subroutine forest_regressor_fit_body(self,x,y,sample_weight,targets)
+    class(random_forest_regressor),intent(inout)::self
+    real(dp),intent(in)::x(:,:),y(:)
+    real(dp),optional,intent(in)::sample_weight(:),targets(:,:)
     type(legacy_random_state) :: seeds,draws
     real(dp) :: w(size(y)),tree_weights(size(y)),normalizer
-    integer :: i,j,n,p,seed,ns,nontrivial,at,counts(size(y))
+    real(dp),allocatable::oob(:,:),prediction(:,:),query(:,:)
+    integer,allocatable::unsampled(:)
+    integer :: i,j,k,n,p,seed,ns,nontrivial,at,counts(size(y)),q
     call check_xy(x,size(y));call check_x(reshape(y,[size(y),1]))
     call require(self%n_estimators>0,'forest needs positive n_estimators')
     call require(self%max_samples>=0.and.self%max_samples<=size(y),'invalid forest max_samples')
     call require(self%bootstrap.or.self%max_samples==0,'forest max_samples requires bootstrap')
+    call require(self%bootstrap.or..not.self%oob_score,'forest OOB scoring requires bootstrap')
+    q=1
+    if(present(targets))then
+      call check_x(targets);call require(size(targets,1)==size(y),'forest target row mismatch')
+      q=size(targets,2)
+    end if
+    self%n_outputs_=q;self%oob_score_=0
+    if(allocated(self%oob_prediction_))deallocate(self%oob_prediction_)
+    if(allocated(self%oob_prediction_multi_))deallocate(self%oob_prediction_multi_)
+    if(allocated(self%oob_counts_))deallocate(self%oob_counts_)
     w=1
     if(present(sample_weight)) then
       call require(size(sample_weight)==size(y),'forest sample weight length mismatch')
@@ -356,6 +392,10 @@ contains
     end if
     n=size(y);p=size(x,2);self%n_features_in_=p
     ns=n;if(self%max_samples>0) ns=self%max_samples
+    self%n_samples_fit_=n;self%n_samples_bootstrap_=ns
+    if(self%oob_score)then
+      allocate(oob(n,q),self%oob_counts_(n));oob=0;self%oob_counts_=0
+    end if
     call seeds%seed(self%random_state)
     if(allocated(self%estimators_)) deallocate(self%estimators_)
     allocate(self%estimators_(self%n_estimators));self%feature_importances_=spread(0._dp,1,p);nontrivial=0
@@ -382,7 +422,21 @@ contains
       self%estimators_(i)%min_impurity_decrease=self%min_impurity_decrease
       self%estimators_(i)%random_thresholds=self%random_thresholds
       self%estimators_(i)%random_state=seed
-      call self%estimators_(i)%fit(x,y,sample_weight=tree_weights)
+      if(present(targets))then
+        call self%estimators_(i)%fit(x,targets,sample_weight=tree_weights)
+      else
+        call self%estimators_(i)%fit(x,y,sample_weight=tree_weights)
+      end if
+      if(self%oob_score)then
+        unsampled=pack([(j,j=1,n)],counts==0)
+        if(size(unsampled)>0)then
+          query=x(unsampled,:);prediction=self%estimators_(i)%predict_multi(query)
+          do j=1,size(unsampled)
+            at=unsampled(j);self%oob_counts_(at)=self%oob_counts_(at)+1
+            do k=1,q;oob(at,k)=ieee_difference(oob(at,k),-prediction(j,k));end do
+          end do
+        end if
+      end if
       if(self%estimators_(i)%node_count_>1) then
         nontrivial=nontrivial+1
         do j=1,p
@@ -391,27 +445,71 @@ contains
         end do
       end if
     end do
-    if(nontrivial==0) return
-    do j=1,p
-      self%feature_importances_(j)=ieee_quotient(self%feature_importances_(j),real(nontrivial,dp))
-    end do
-    normalizer=ieee_total(self%feature_importances_)
-    do j=1,p
-      self%feature_importances_(j)=ieee_quotient(self%feature_importances_(j),normalizer)
-    end do
+    if(nontrivial>0)then
+      do j=1,p
+        self%feature_importances_(j)=ieee_quotient(self%feature_importances_(j),real(nontrivial,dp))
+      end do
+      normalizer=ieee_total(self%feature_importances_)
+      do j=1,p
+        self%feature_importances_(j)=ieee_quotient(self%feature_importances_(j),normalizer)
+      end do
+    end if
+    if(self%oob_score)then
+      do j=1,n
+        do k=1,q;oob(j,k)=ieee_quotient(oob(j,k),real(max(1,self%oob_counts_(j)),dp));end do
+      end do
+      if(q==1)then
+        self%oob_prediction_=oob(:,1);self%oob_score_=r2_score(y,self%oob_prediction_)
+      else
+        self%oob_prediction_multi_=oob;self%oob_score_=r2_score(targets,oob)
+      end if
+    end if
   end subroutine
   subroutine extra_regressor_fit(self,x,y,sample_weight)
     class(extra_trees_regressor), intent(inout) :: self
     real(dp), intent(in) :: x(:,:),y(:)
     real(dp), optional, intent(in) :: sample_weight(:)
-    self%bootstrap=.false.;self%random_thresholds=.true.
+    if(.not.self%bootstrap_set_)self%bootstrap=.false.
+    self%random_thresholds=.true.
     call forest_regressor_fit(self,x,y,sample_weight)
   end subroutine
+  subroutine extra_regressor_fit_multi(self,x,y,sample_weight)
+    class(extra_trees_regressor),intent(inout)::self
+    real(dp),intent(in)::x(:,:),y(:,:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    if(.not.self%bootstrap_set_)self%bootstrap=.false.
+    self%random_thresholds=.true.
+    call forest_regressor_fit_multi(self,x,y,sample_weight)
+  end subroutine
+  subroutine forest_regressor_set_bootstrap(self,value)
+    class(random_forest_regressor),intent(inout)::self
+    logical,intent(in)::value
+    self%bootstrap=value;self%bootstrap_set_=.true.
+  end subroutine
+  function forest_regressor_samples(self)result(indices)
+    class(random_forest_regressor),intent(in)::self
+    integer,allocatable::indices(:,:)
+    type(legacy_random_state)::draws
+    integer::i,j,n
+    call require(allocated(self%estimators_),'forest is not fitted')
+    n=self%n_samples_fit_
+    if(self%bootstrap)then
+      allocate(indices(self%n_samples_bootstrap_,size(self%estimators_)))
+      do i=1,size(self%estimators_)
+        call draws%seed(self%estimators_(i)%random_state)
+        do j=1,self%n_samples_bootstrap_;indices(j,i)=draws%integer_index(n);end do
+      end do
+    else
+      allocate(indices(n,size(self%estimators_)))
+      do i=1,size(self%estimators_);indices(:,i)=[(j,j=1,n)];end do
+    end if
+  end function
   function forest_regressor_predict(self,x) result(y)
     class(random_forest_regressor), intent(in) :: self
     real(dp), intent(in) :: x(:,:)
     real(dp) :: y(size(x,1)),values(size(x,1))
     integer :: i,j
+    call require(self%n_outputs_==1,'joint forest prediction requires predict_multi')
     call require(allocated(self%estimators_),'forest is not fitted');y=0
     do i=1,size(self%estimators_)
       values=self%estimators_(i)%predict(x)
@@ -422,6 +520,29 @@ contains
     do j=1,size(y)
       y(j)=ieee_quotient(y(j),real(size(self%estimators_),dp))
     end do
+  end function
+  function forest_regressor_predict_multi(self,x)result(y)
+    class(random_forest_regressor),intent(in)::self
+    real(dp),intent(in)::x(:,:)
+    real(dp),allocatable::y(:,:),values(:,:)
+    integer::i,j,k
+    call require(allocated(self%estimators_),'forest is not fitted')
+    allocate(y(size(x,1),self%n_outputs_));y=0
+    do i=1,size(self%estimators_)
+      values=self%estimators_(i)%predict_multi(x)
+      do k=1,self%n_outputs_
+        do j=1,size(x,1);y(j,k)=ieee_difference(y(j,k),-values(j,k));end do
+      end do
+    end do
+    do k=1,self%n_outputs_
+      do j=1,size(x,1);y(j,k)=ieee_quotient(y(j,k),real(size(self%estimators_),dp));end do
+    end do
+  end function
+  real(dp)function forest_regressor_score_multi(self,x,y,sample_weight)result(value)
+    class(random_forest_regressor),intent(in)::self
+    real(dp),intent(in)::x(:,:),y(:,:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    value=r2_score(y,self%predict_multi(x),sample_weight=sample_weight)
   end function
   function forest_regressor_apply(self,x) result(leaves)
     class(random_forest_regressor), intent(in) :: self
