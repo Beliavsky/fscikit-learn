@@ -162,8 +162,13 @@ unsorted, duplicate and explicit-zero CSR storage, and duplicate/partial
 precomputed diagonals. Initial probes retained 312 differences; correcting
 dense/CSR cosine identity, tree validation and component storage resolves them.
 Final optimized module replays and all 19 constructor/input guards pass. The
-public checked unit test and 192 core reference comparisons also pass. Full
-checked package verification is in progress. This extends the existing DBSCAN
+public checked unit test and 192 core reference comparisons also pass.
+Following implementation c8da8de, the checked fpm rebuild and all 290 native
+programs, five selected examples, the 2,331-case package replay, 19 input guards
+and 192 core reference comparisons pass. The package audit verifies all 298
+jobs and 506 compiled-unit fingerprints (201 library units). Optimized follow-up
+verification covers the changed DBSCAN module and reference replays rather
+than a full optimized package rebuild. This extends the existing DBSCAN
 counterpart and does not add a type or an extension algorithm.
 
 ## Metrics and kernels
