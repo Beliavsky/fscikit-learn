@@ -33,6 +33,7 @@ module sklearn_ridge_solver
     type(csr_matrix)::sparse
     integer::n=0,p=0
     logical::is_sparse=.false.
+    logical::unweighted_sum=.false.
   end type
   interface ridge_regression
     module procedure dense_vs,dense_vv,dense_ms,dense_mv,sparse_vs,sparse_vv,sparse_ms,sparse_mv
@@ -45,15 +46,42 @@ module sklearn_ridge_solver
     end function
   end interface
 contains
-  function ridge_centered_sparse(x,y,alpha,offset,options,sample_weight)result(fit)
+  recursive real(dp)function numpy_sum(a)result(v)
+    ! NumPy pairwise sum for LinearRegression's unweighted sparse adjoint.
+    real(dp),intent(in)::a(:)
+    real(dp)::lane(8)
+    integer::n,i,j,whole,split
+    n=size(a);v=-0._dp
+    if(n<8)then
+      do i=1,n
+        v=v+a(i)
+      end do
+    else if(n<=128)then
+      lane=a(:8);whole=n-mod(n,8)
+      do i=9,whole,8
+        do j=1,8
+          lane(j)=lane(j)+a(i+j-1)
+        end do
+      end do
+      v=((lane(1)+lane(2))+(lane(3)+lane(4)))+((lane(5)+lane(6))+(lane(7)+lane(8)))
+      do i=whole+1,n
+        v=v+a(i)
+      end do
+    else
+      split=n/2;split=split-mod(split,8);v=numpy_sum(a(:split))+numpy_sum(a(split+1:))
+    end if
+  end function
+  function ridge_centered_sparse(x,y,alpha,offset,options,sample_weight,unweighted_sum)result(fit)
     type(csr_matrix),intent(in)::x
     real(dp),intent(in)::y(:,:),alpha(:),offset(:)
     type(ridge_solver_options),intent(in)::options
     real(dp),optional,intent(in)::sample_weight(:)
+    logical,optional,intent(in)::unweighted_sum
     type(ridge_solution)::fit
     type(ridge_operator)::op
     call require(.not.stochastic_options(options),'centered CSR operator requires a deterministic ridge solver')
     op=prepare_sparse(x,sample_weight,options)
+    if(present(unweighted_sum))op%unweighted_sum=unweighted_sum
     call require(size(offset)==op%p,'ridge centering offset feature count differs')
     op%offset=offset;allocate(op%root_weight(op%n));op%root_weight=1
     if(present(sample_weight))op%root_weight=sqrt(sample_weight)
@@ -250,7 +278,11 @@ contains
     end if
     if(allocated(op%offset))then
       if(transpose)then
-        out=out-op%offset*kernel_blas_inner_product(op%root_weight,v)
+        if(op%unweighted_sum)then
+          out=out-op%offset*numpy_sum(v)
+        else
+          out=out-op%offset*kernel_blas_inner_product(op%root_weight,v)
+        end if
       else
         out=out-op%root_weight*kernel_blas_inner_product(op%offset,v)
       end if

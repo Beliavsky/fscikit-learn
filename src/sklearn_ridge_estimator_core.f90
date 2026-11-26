@@ -10,6 +10,8 @@ module sklearn_ridge_estimator_core
  implicit none
  private
  public::fit_ridge_estimator
+ ! Internal preprocessing helper shared with ordinary least squares.
+ public::column_means
  interface fit_ridge_estimator
   module procedure dense_fit,sparse_fit
  end interface

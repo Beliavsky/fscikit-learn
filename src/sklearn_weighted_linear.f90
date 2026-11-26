@@ -20,6 +20,12 @@ contains
     real(dp),allocatable::saved_penalties(:)
     integer :: i,j
     select type(model)
+    type is(linear_regression)
+      if(ieee_is_finite(alpha))then
+        if(alpha==0)then
+          call model%fit(x,y,sample_weight=w);return
+        end if
+      end if
     type is(ridge)
       call require(ieee_is_finite(alpha),'bagging ridge alpha must be finite')
       call require(alpha>=0,'bagging ridge alpha must be nonnegative')

@@ -10282,3 +10282,39 @@ records every failed comparison and fit-status difference. The separate
 `--regularized` grid checks finite positive penalties and finite eps, without
 replacing or deleting cases from the full grid. See COVERAGE.md for evidence
 and the retained limitations.
+
+
+## Weighted, sparse and multiple-target LinearRegression
+
+`linear_regression%fit(x,y[,sample_weight])` accepts dense or CSR features,
+vector or matrix targets, and scalar or vector nonnegative sample weights.
+Matrix targets have shape (samples, targets). Use `predict` for vector targets
+and `predict_matrix` for matrix targets; both accept dense or CSR queries.
+Weighted `score` accepts vector weights and averages R2 uniformly over targets.
+`coef_matrix_` has shape (targets, features), and `intercepts_` holds one entry
+per target. These fields are populated for either target rank. Vector fits also
+populate `coef_` and `intercept_`; matrix fits leave `coef_` unallocated.
+Refitting clears diagnostics and updates `matrix_target_`, `n_targets_` and
+`n_features_in_`. See `example/ols_sparse_targets.f90`.
+
+Dense unconstrained fits use SVD with cutoff max(samples,features)*epsilon.
+They expose `rank_` and `singular_` (length min(samples,features)). Positive
+fits require dense features and use the existing NNLS solver. CSR fits use
+an implicit centered LSQR operator with sklearn 1.6.1 defaults (atol=btol=1e-6,
+iteration limit twice the feature count); the feature matrix is never densified.
+`least_squares_solver_` is svd, nnls or lsqr. Sparse fits expose native
+`lsqr_iterations_` and `lsqr_stop_code_`, one entry per target. Sparse and
+positive fits leave `singular_` unallocated and use `rank_=0` as an unavailable
+sentinel. No configurable LinearRegression tol is provided for the 1.6.1 API.
+
+The new weighted/CSR/matrix overloads require exact `linear_regression`.
+`ridge` overrides them with its existing solver-aware implementation. Other
+subclasses reject inherited use rather than silently fitting OLS. Shared matrix
+storage and feature-count fields now belong to the parent type. Existing dense
+vector subclass bindings remain available. Weighted composition with exact OLS
+uses the same new estimator fit path. Successful fits preserve IEEE state.
+
+NNLS can choose different coefficients for duplicate training columns than
+SciPy. Such coefficients also produce different predictions on queries outside
+the training column constraints. These differences remain explicit in the full
+reference suite; unconstrained SVD/LSQR comparisons are checked separately.

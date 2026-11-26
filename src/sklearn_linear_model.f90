@@ -1,4 +1,5 @@
 module sklearn_linear_model
+  use sklearn_ols_core,only:fit_ols_estimator,ols_solution
   use sklearn_ridge_estimator_core,only:fit_ridge_estimator
   use sklearn_sparse,only:csr_matrix
   use sklearn_ridge_solver,only:ridge_regression,ridge_solver_options,ridge_solution
@@ -47,38 +48,45 @@ module sklearn_linear_model
     logical :: fit_intercept=.true.,positive=.false.
     real(dp), allocatable :: coef_(:)
     real(dp) :: intercept_=0
-    integer :: rank_=0
+    integer :: rank_=0,n_features_in_=0,n_targets_=0
+    real(dp),allocatable::coef_matrix_(:,:),intercepts_(:),singular_(:)
+    integer,allocatable::lsqr_iterations_(:),lsqr_stop_code_(:)
+    logical::matrix_target_=.false.
+    character(8)::least_squares_solver_=''
   contains
     procedure :: fit_dense=>ols_fit
-    generic :: fit=>fit_dense
-    procedure :: predict_dense=>linear_predict
-    generic :: predict=>predict_dense
-    procedure :: score_dense=>linear_score
-    generic :: score=>score_dense
+    procedure :: fit_dense_weighted=>ols_fit_dw,fit_sparse=>ols_fit_sv,fit_matrix=>ols_fit_dm
+    procedure :: fit_sparse_matrix=>ols_fit_sm
+    procedure :: fit_scalar_dw=>ols_fit_dws,fit_scalar_dm=>ols_fit_dms
+    procedure :: fit_scalar_sv=>ols_fit_svs,fit_scalar_sm=>ols_fit_sms
+    generic :: fit=>fit_dense,fit_dense_weighted,fit_sparse,fit_matrix,fit_sparse_matrix, &
+      fit_scalar_dw,fit_scalar_dm,fit_scalar_sv,fit_scalar_sm
+    procedure :: predict_dense=>linear_predict,predict_sparse=>ols_predict_sparse
+    generic :: predict=>predict_dense,predict_sparse
+    procedure :: predict_matrix_dense=>ols_predict_dm,predict_matrix_sparse=>ols_predict_sm
+    generic :: predict_matrix=>predict_matrix_dense,predict_matrix_sparse
+    procedure :: score_dense=>linear_score,score_dw=>ols_score_dw,score_sv=>ols_score_sv
+    procedure :: score_dm=>ols_score_dm,score_sm=>ols_score_sm
+    generic :: score=>score_dense,score_dw,score_sv,score_dm,score_sm
   end type
   type, extends(linear_regression) :: ridge
     real(dp) :: alpha=1,tol=1.e-4_dp
-    integer :: max_iter=-1,random_state=0,n_features_in_=0,n_targets_=0
+    integer :: max_iter=-1,random_state=0
     character(16) :: solver='auto',solver_=''
-    real(dp),allocatable::alpha_per_target(:),coef_matrix_(:,:),intercepts_(:)
+    real(dp),allocatable::alpha_per_target(:)
     integer,allocatable::n_iter_(:),native_iterations_(:),stop_code_(:)
     logical,allocatable::converged_per_target_(:)
-    logical::converged_=.false.,matrix_target_=.false.
+    logical::converged_=.false.
   contains
     procedure :: fit_dense=>ridge_fit
     procedure :: fit_dense_weighted=>ridge_fit_dw,fit_sparse=>ridge_fit_sv,fit_matrix=>ridge_fit_dm
     procedure :: fit_sparse_matrix=>ridge_fit_sm
     procedure :: fit_scalar_dw=>ridge_fit_dws,fit_scalar_dm=>ridge_fit_dms
     procedure :: fit_scalar_sv=>ridge_fit_svs,fit_scalar_sm=>ridge_fit_sms
-    generic :: fit=>fit_dense_weighted,fit_sparse,fit_matrix,fit_sparse_matrix, &
-      fit_scalar_dw,fit_scalar_dm,fit_scalar_sv,fit_scalar_sm
     procedure :: predict_dense=>ridge_predict_dense,predict_sparse=>ridge_predict_sparse
-    generic :: predict=>predict_sparse
     procedure :: predict_matrix_dense=>ridge_predict_dm,predict_matrix_sparse=>ridge_predict_sm
-    generic :: predict_matrix=>predict_matrix_dense,predict_matrix_sparse
     procedure :: score_dense=>ridge_score_dense,score_dw=>ridge_score_dw,score_sv=>ridge_score_sv
     procedure :: score_dm=>ridge_score_dm,score_sm=>ridge_score_sm
-    generic :: score=>score_dw,score_sv,score_dm,score_sm
   end type
   type, extends(linear_regression) :: elastic_net
     real(dp) :: alpha=1, l1_ratio=0.5_dp,tol=1.e-8_dp
@@ -93,7 +101,7 @@ module sklearn_linear_model
   end type
   ! CV contracts: sklearn 1.6.1 linear_model/_coordinate_descent.py (BSD).
   type, extends(elastic_net) :: elastic_net_cv
-    integer :: cv=5,n_alphas=100,n_features_in_=0
+    integer :: cv=5,n_alphas=100
     real(dp) :: eps=1.e-3_dp,alpha_=0,l1_ratio_=0,best_mse_=0
     real(dp), allocatable :: alphas(:),l1_ratios(:),alphas_(:,:),mse_path_(:,:,:)
     logical :: all_cv_converged_=.false.
@@ -1067,8 +1075,177 @@ contains
   subroutine ols_fit(self,x,y)
     class(linear_regression), intent(inout) :: self
     real(dp), intent(in) :: x(:,:),y(:)
-    call spectral_fit(self,x,y,0._dp)
+    call ols_fit_common(self,reshape(y,[size(y),1]),.false.,dense=x)
   end subroutine
+  subroutine ols_fit_dw(self,x,y,sample_weight)
+    class(linear_regression),intent(inout)::self
+    real(dp),intent(in)::x(:,:)
+    real(dp),intent(in)::y(:)
+    real(dp),intent(in)::sample_weight(:)
+    call ols_direct_only(self)
+    call ols_fit_common(self,reshape(y,[size(y),1]),.false.,sample_weight,dense=x)
+  end subroutine
+  subroutine ols_fit_dws(self,x,y,sample_weight)
+    class(linear_regression),intent(inout)::self
+    real(dp),intent(in)::x(:,:)
+    real(dp),intent(in)::y(:),sample_weight
+    real(dp)::weights(size(x,1))
+    weights=sample_weight
+    call ols_fit_dw(self,x,y,weights)
+  end subroutine
+  subroutine ols_fit_sv(self,x,y,sample_weight)
+    class(linear_regression),intent(inout)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),intent(in)::y(:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    call ols_direct_only(self)
+    call ols_fit_common(self,reshape(y,[size(y),1]),.false.,sample_weight,sparse=x)
+  end subroutine
+  subroutine ols_fit_svs(self,x,y,sample_weight)
+    class(linear_regression),intent(inout)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),intent(in)::y(:),sample_weight
+    real(dp)::weights(x%n_rows)
+    weights=sample_weight
+    call ols_fit_sv(self,x,y,weights)
+  end subroutine
+  subroutine ols_fit_dm(self,x,y,sample_weight)
+    class(linear_regression),intent(inout)::self
+    real(dp),intent(in)::x(:,:)
+    real(dp),intent(in)::y(:,:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    call ols_direct_only(self)
+    call ols_fit_common(self,y,.true.,sample_weight,dense=x)
+  end subroutine
+  subroutine ols_fit_dms(self,x,y,sample_weight)
+    class(linear_regression),intent(inout)::self
+    real(dp),intent(in)::x(:,:)
+    real(dp),intent(in)::y(:,:),sample_weight
+    real(dp)::weights(size(x,1))
+    weights=sample_weight
+    call ols_fit_dm(self,x,y,weights)
+  end subroutine
+  subroutine ols_fit_sm(self,x,y,sample_weight)
+    class(linear_regression),intent(inout)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),intent(in)::y(:,:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    call ols_direct_only(self)
+    call ols_fit_common(self,y,.true.,sample_weight,sparse=x)
+  end subroutine
+  subroutine ols_fit_sms(self,x,y,sample_weight)
+    class(linear_regression),intent(inout)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),intent(in)::y(:,:),sample_weight
+    real(dp)::weights(x%n_rows)
+    weights=sample_weight
+    call ols_fit_sm(self,x,y,weights)
+  end subroutine
+  subroutine ols_direct_only(self)
+    class(linear_regression),intent(in)::self
+    select type(self)
+    type is(linear_regression)
+    class default
+      call require(.false.,'these LinearRegression overloads require a direct LinearRegression estimator')
+    end select
+  end subroutine
+  subroutine ols_fit_common(self,y,matrix_target,sample_weight,dense,sparse)
+    class(linear_regression),intent(inout)::self
+    real(dp),intent(in)::y(:,:)
+    logical,intent(in)::matrix_target
+    real(dp),optional,intent(in)::sample_weight(:),dense(:,:)
+    type(csr_matrix),optional,intent(in)::sparse
+    type(ols_solution)::fit
+    if(present(dense))then
+      fit=fit_ols_estimator(dense,y,self%fit_intercept,self%positive,sample_weight)
+    else
+      fit=fit_ols_estimator(sparse,y,self%fit_intercept,self%positive,sample_weight)
+    end if
+    self%coef_matrix_=fit%coefficients;self%intercepts_=fit%intercept
+    self%n_targets_=size(y,2);self%n_features_in_=size(fit%coefficients,2)
+    self%matrix_target_=matrix_target;self%rank_=fit%rank;self%least_squares_solver_=fit%solver
+    if(allocated(self%singular_))deallocate(self%singular_)
+    if(allocated(fit%singular))self%singular_=fit%singular
+    if(allocated(self%lsqr_iterations_))deallocate(self%lsqr_iterations_,self%lsqr_stop_code_)
+    if(allocated(fit%iterations))then
+      self%lsqr_iterations_=fit%iterations;self%lsqr_stop_code_=fit%stop_code
+    end if
+    self%intercept_=0
+    if(allocated(self%coef_))deallocate(self%coef_)
+    if(.not.matrix_target)then
+      self%coef_=fit%coefficients(1,:);self%intercept_=fit%intercept(1)
+    end if
+  end subroutine
+  function ols_predict_sparse(self,x)result(y)
+    class(linear_regression),intent(in)::self
+    type(csr_matrix),intent(in)::x
+    real(dp)::y(x%n_rows)
+    real(dp),allocatable::matrix(:,:)
+    call ols_direct_only(self)
+    call require(.not.self%matrix_target_,'matrix-target LinearRegression requires predict_matrix')
+    call require(allocated(self%coef_),'LinearRegression is not fitted')
+    call x%validate();call require(x%n_rows>0,'LinearRegression query must be nonempty')
+    call require(x%n_cols==size(self%coef_),'LinearRegression query feature count differs')
+    call require(all(ieee_is_finite(x%data)),'LinearRegression query data must be finite')
+    matrix=x%matmul(reshape(self%coef_,[size(self%coef_),1]));y=matrix(:,1)+self%intercept_
+  end function
+  function ols_predict_dm(self,x)result(y)
+    class(linear_regression),intent(in)::self
+    real(dp),intent(in)::x(:,:)
+    real(dp),allocatable::y(:,:)
+    call ols_direct_only(self)
+    call require(allocated(self%coef_matrix_),'matrix LinearRegression is not fitted')
+    call check_x(x);call require(size(x,2)==size(self%coef_matrix_,2),'LinearRegression query feature count differs')
+    y=matmul(x,transpose(self%coef_matrix_))+spread(self%intercepts_,1,size(x,1))
+  end function
+  function ols_predict_sm(self,x)result(y)
+    class(linear_regression),intent(in)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),allocatable::y(:,:)
+    call ols_direct_only(self)
+    call require(allocated(self%coef_matrix_),'matrix LinearRegression is not fitted')
+    call x%validate();call require(x%n_rows>0,'LinearRegression query must be nonempty')
+    call require(x%n_cols==size(self%coef_matrix_,2),'LinearRegression query feature count differs')
+    call require(all(ieee_is_finite(x%data)),'LinearRegression query data must be finite')
+    y=x%matmul(transpose(self%coef_matrix_))+spread(self%intercepts_,1,x%n_rows)
+  end function
+  real(dp)function ols_score_dense(self,x,y)result(value)
+    class(linear_regression),intent(in)::self
+    real(dp),intent(in)::x(:,:),y(:)
+    value=r2_score(y,self%predict(x))
+  end function
+  real(dp)function ols_score_dw(self,x,y,sample_weight)result(value)
+    class(linear_regression),intent(in)::self
+    real(dp),intent(in)::x(:,:)
+    real(dp),intent(in)::y(:)
+    real(dp),intent(in)::sample_weight(:)
+    call ols_direct_only(self)
+    value=r2_score(y,self%predict(x),sample_weight=sample_weight)
+  end function
+  real(dp)function ols_score_sv(self,x,y,sample_weight)result(value)
+    class(linear_regression),intent(in)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),intent(in)::y(:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    call ols_direct_only(self)
+    value=r2_score(y,self%predict(x),sample_weight=sample_weight)
+  end function
+  real(dp)function ols_score_dm(self,x,y,sample_weight)result(value)
+    class(linear_regression),intent(in)::self
+    real(dp),intent(in)::x(:,:)
+    real(dp),intent(in)::y(:,:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    call ols_direct_only(self)
+    value=r2_score(y,self%predict_matrix(x),sample_weight=sample_weight)
+  end function
+  real(dp)function ols_score_sm(self,x,y,sample_weight)result(value)
+    class(linear_regression),intent(in)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),intent(in)::y(:,:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    call ols_direct_only(self)
+    value=r2_score(y,self%predict_matrix(x),sample_weight=sample_weight)
+  end function
   subroutine ridge_fit(self,x,y)
     class(ridge),intent(inout)::self
     real(dp),intent(in)::x(:,:),y(:)
@@ -1166,6 +1343,9 @@ contains
     end if
     self%coef_matrix_=fit%coefficients;self%intercepts_=fit%intercept
     self%n_iter_=fit%n_iter;self%native_iterations_=fit%native_iterations;self%stop_code_=fit%stop_code
+    if(allocated(self%singular_))deallocate(self%singular_)
+    if(allocated(self%lsqr_iterations_))deallocate(self%lsqr_iterations_,self%lsqr_stop_code_)
+    self%least_squares_solver_=''
     self%converged_per_target_=fit%converged;self%converged_=all(fit%converged);self%solver_=fit%solver
     self%n_targets_=size(y,2);self%n_features_in_=size(fit%coefficients,2);self%matrix_target_=matrix_target
     self%rank_=0;self%intercept_=0
@@ -1249,6 +1429,7 @@ contains
     real(dp), intent(in) :: x(:,:)
     real(dp) :: y(size(x,1))
     integer :: i
+    call require(.not.self%matrix_target_,'matrix-target linear model requires predict_matrix')
     call require(allocated(self%coef_),'linear model is not fitted')
     call check_xy(transpose(x),size(self%coef_))
     if(self%positive) then

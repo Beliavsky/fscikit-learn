@@ -26,6 +26,7 @@ fpm run --example coordinate_paths
 fpm run --example sparse_coordinate_paths
 fpm run --example ridge_solvers
 fpm run --example ridge_estimator_solvers
+fpm run --example ols_sparse_targets
 fpm run --example smacof_embedding
 fpm run --example graphical_function
 fpm run --example fastica_sources

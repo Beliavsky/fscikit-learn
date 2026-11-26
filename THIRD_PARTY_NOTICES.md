@@ -2418,3 +2418,15 @@ BSD notice. Matrix products reuse the attributed scalar OpenBLAS reconstruction;
 the existing OpenBLAS notices apply. Typed callback/result storage and IEEE
 composition are original MIT contributions. The native eigensolver/SVD remain
 existing package implementations. No dependency or algorithm extension was added.
+
+
+## Weighted and sparse LinearRegression
+
+Weighted centering, square-root rescaling, dense SVD cutoff and implicit sparse
+LSQR routing adapt scikit-learn 1.6.1 `linear_model/_base.py`, under the retained
+BSD notice in `LICENSES/scikit-learn-COPYING`. The implementation reuses the
+attributed native SVD, NNLS, LSQR, sparse moments and Ridge preprocessing.
+The unweighted sparse adjoint reduction follows NumPy 2.2.6 pairwise sums;
+the retained NumPy BSD notice applies. Typed overloads, owned target storage,
+large sparse regression tests and IEEE integration are original MIT contributions.
+No new dependency or algorithm outside scikit-learn was added.
