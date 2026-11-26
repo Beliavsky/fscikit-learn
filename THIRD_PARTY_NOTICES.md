@@ -1,5 +1,18 @@
 # Third-party notices and provenance
 
+The investigation of Windows libgfortran locale-name lifetime failures was
+informed by Julien Marrec's upstream report for GCC PR128183 and
+https://github.com/jmarrec/libgfortran-ucrt-setlocale. The optional
+`validation/windows_locale_copy.c` interposer is original MIT validation code;
+no GCC runtime source or upstream reproducer code is included in the library.
+
+Warm-start forests in `src/sklearn_ensemble.f90` follow scikit-learn 1.6.1
+`ensemble/_forest.py` retained-estimator growth, skipped random-state draws,
+unchanged-count fitting and cached/recomputed OOB state; unfitted clone
+semantics follow `base.py` for search and feature selection. Tree-array value
+preservation, typed geometry guards and interfaces are native MIT integration.
+The existing sklearn BSD notice in `LICENSES/scikit-learn-COPYING` remains.
+
 Joint classification forests and OOB estimates in `src/sklearn_ensemble.f90`
 follow scikit-learn 1.6.1 `ensemble/_forest.py`: global per-output label encoding,
 shared component trees, seeded bootstraps, class-weight expansion, probability

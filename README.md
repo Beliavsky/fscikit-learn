@@ -25,6 +25,7 @@ fpm run --example joint_tree_regression
 fpm run --example joint_tree_classification
 fpm run --example joint_forest_regression
 fpm run --example joint_forest_classification
+fpm run --example warm_start_forests
 fpm run --example coordinate_descent_nmf
 fpm run --example omp_paths
 fpm run --example coordinate_paths

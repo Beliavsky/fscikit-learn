@@ -3872,7 +3872,7 @@ bootstrap. Use `set_bootstrap` to configure ExtraTrees explicitly: assigning
 `extra%bootstrap=.true.` alone retains the historical default-reset behavior
 on fitting. `max_samples=0` selects the full training count; positive integers
 select the bootstrap draw count. Nonzero `max_samples` and OOB scoring require
-bootstrap. Fractional draw counts, warm starts and callable OOB scorers remain
+bootstrap. Fractional draw counts and callable OOB scorers remain
 outside this interface.
 
 `estimators_samples()` returns an owned integer matrix `(n_draws,n_trees)` of
@@ -3883,8 +3883,10 @@ OOB trees has a zero prediction, matching sklearn's warning-path result;
 `oob_counts_` exposes that coverage. `oob_prediction_` stores one-output
 predictions (including a one-column target fit), while
 `oob_prediction_multi_` stores multiple outputs. OOB R2 uses uniform output
-averaging and ignores fitting sample weights, as sklearn does. Refits clear
-old OOB arrays and reset output metadata. See `example/joint_forest_regression.f90`.
+averaging and ignores fitting sample weights, as sklearn does. Output metadata
+resets on refitting. OOB attributes retain their most recently computed values
+until a later fit recomputes them, as described under warm-start forests below.
+See `example/joint_forest_regression.f90`.
 
 ### Joint classification targets
 
@@ -3967,10 +3969,55 @@ Following sklearn 1.6.1, joint OOB scoring rejects multiclass-multioutput target
 and unequal per-output class widths. Ordinary joint fit/predict can still use
 ragged class sets. Matrix `score` delegates the classification metric: indicator
 targets use subset accuracy, while unsupported multiclass-multioutput scoring
-raises a controlled error. Refits reset class metadata and OOB arrays.
-Sparse input, warm starts, fractional draw/feature counts, monotonic constraints,
+raises a controlled error. Refits reset class metadata; OOB arrays retain the
+last computed estimates until OOB is recomputed.
+Sparse input, fractional draw/feature counts, monotonic constraints,
 callable OOB scores and joint meta-estimator adapters remain outside this subset.
 See `example/joint_forest_classification.f90`.
+
+### Warm-start random forests and ExtraTrees
+
+All four forest types accept `warm_start=.true.`. Increasing `n_estimators`
+retains existing fitted trees and appends new trees. With an integer
+`random_state`, the RNG skips one seed draw for every retained tree, matching
+sklearn's staged-growth contract. If training data and controls stay fixed,
+staged growth agrees with a one-shot fit. Updating tree controls, the seed,
+sample weights, class weights or training rows affects newly fitted trees;
+existing trees retain their learned values and settings. Setting `warm_start`
+to false requests an entirely new ensemble, and permits reducing its size.
+Decreasing the requested count while reusing trees is an error.
+
+```fortran
+forest%warm_start=.true.
+forest%random_state=7
+forest%n_estimators=20
+call forest%fit(x,y)
+forest%n_estimators=100
+call forest%fit(x,y)
+```
+
+A warm fit with an unchanged tree count validates inputs and updates forest
+metadata, but does not train trees. OOB is recomputed over the whole ensemble
+when OOB is enabled and trees were added, or when no OOB estimate exists yet.
+Otherwise cached OOB predictions, coverage and score persist, even when OOB
+is disabled or a later fit resets the trees. They can therefore describe an
+earlier dataset or ensemble. This corrects the earlier native behavior that
+cleared OOB attributes on non-OOB refits. Bootstrap-index access uses current
+training-row and draw counts with each retained tree's stored seed, as sklearn
+does. Matrix output and OOB storage keep their explicit native rank adapters.
+
+Feature width and output count must remain unchanged while reusing trees;
+the native adapter rejects heterogeneous geometry early. Changes in class
+labels and compatible class widths use sklearn's positional probability
+aggregation, including broadcasting retained one-class trees. Incompatible
+class-probability widths produce a controlled error. Warm fitting grows the
+ensemble while preserving existing trees.
+GridSearchCV and non-prefit SelectFromModel clear learned forest state when
+cloning a template, while preserving warm-start and other parameters. Prefit
+selection retains the supplied fitted forest. Search accepts logical
+`warm_start`, `bootstrap` and `oob_score` parameters for both forest families.
+`reset_forest_fit(model)` exposes the native unfitted-clone reset for adapters.
+See `example/warm_start_forests.f90`.
 
 ## BaggingClassifier and BaggingRegressor
 
@@ -8066,7 +8113,7 @@ predictions/targets and a nonzero score-weight sum. Fitting weights and their
 bootstrap-multiplied values must be finite. Query NaNs use each component's
 finite-training missing-value routing, except absolute-error models reject
 query NaNs as sklearn does. Training NaNs, sparse inputs,
-fractional max_samples/max_features, warm starts and monotonic constraints
+fractional max_samples/max_features and monotonic constraints
 remain outside this interface. Matrix targets and OOB scores are supported
 as described under joint regression forests above.
 
@@ -8141,7 +8188,7 @@ total mass.
 
 Queries may contain NaNs after finite training, using component-tree routing.
 Training NaNs, sparse inputs, fractional sample/feature controls,
-warm starts and monotonic constraints remain unsupported. Joint targets and OOB
+monotonic constraints remain unsupported. Joint targets, warm starts and OOB
 estimates are described under joint classification forests above.
 Parameter search accepts criterion, class_weight,
 max_samples and min_impurity_decrease, and forwards fitting weights.

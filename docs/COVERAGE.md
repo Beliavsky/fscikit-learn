@@ -145,6 +145,46 @@ Fortran identifiers use snake_case rather than CamelCase.
 | calibration | `calibrated_classifier_cv`; `calibration_curve` | Sigmoid/isotonic CV ensembles, out-of-fold calibration and prefit calibration with logistic, Gaussian NB or KNN bases; uniform/quantile reliability bins |
 | datasets | `make_classification`, `make_multilabel_classification`, `make_sparse_coded_signal`, `make_sparse_spd_matrix`, `make_biclusters`, `make_checkerboard`, `make_hastie_10_2`, `make_blobs`, `make_regression`, `make_low_rank_matrix`, `make_moons`, `make_circles`, `make_friedman1/2/3`, `make_sparse_uncorrelated`, `make_s_curve`, `make_swiss_roll`, `make_gaussian_quantiles` | Native synthetic generators with seeded legacy NumPy draws; scalar/joint regression, low-rank profiles, unequal blob/curve counts, per-cluster blob scales and center outputs; no bundled real-world datasets |
 
+## Warm-start random forests and ExtraTrees
+
+All four forest types support retained-tree growth with integer-seed advancement,
+updated controls for new trees, unchanged-count fits and full resets. Scalar and
+joint targets, class presets/maps, changing training rows/weights, bootstrap
+configuration and OOB updates follow the staged sklearn contract within the
+existing dense interfaces. Feature/output widths must remain fixed during reuse;
+these native geometry guards reject unusable heterogeneous ensembles early.
+Compatible class-space changes preserve Source broadcasting of one-class trees.
+
+The actual sklearn 1.6.1 grid passes 2,304 regression and 2,016 classification
+checkpoints across 1,080 four-fit sequences. It compares every component tree,
+predictions, class probabilities/logs, seeds, regenerated sample indices,
+importances, supported scores and cached/recomputed OOB fields. Cases change
+seeds, criteria, depth, pruning, feature sampling, sample/class weights, row
+counts, bootstrap settings and class labels/widths. It also tests OOB enabling
+without growth, stale OOB retention, warm/cold toggles, and no-growth fits.
+Numeric bounds remain 2e-10 / 2e-12; integer fields match exactly. Seventy-eight
+error checks cover count reduction, no-growth parameter validation, incompatible
+probability shapes and geometry adapters (some Source failures occur only at
+prediction). Native tests independently check one-shot equivalence for all four
+types, unchanged prefixes and OOB caching. The previous OOB-clearing refit
+behavior is corrected to retain the last computed estimates, matching Source.
+An additional 24 Source fixtures compare CV scores/ranks, best-estimator state,
+predictions and feature selection from fitted warm-start templates. Clones drop
+learned trees and OOB state; prefit selectors and caller models retain theirs.
+Search forwards the logical warm-start, bootstrap and OOB controls.
+No estimator type, extension algorithm or dependency is added; MIT and retained
+sklearn BSD notices are unchanged.
+
+Large Windows batches exposed a separate libgfortran numeric-locale lifetime
+defect on both installed GNU 15 and GNU 17 builds. A standalone non-ML probe
+reproduced it, and observing the failing forest process detected invalidated
+locale names immediately before the crash. A validation-only locale-copy
+interposer with static libgfortran preserves the name and passes the same full
+inputs and numerical checks. This changes neither the Fortran library nor its
+algorithms; `validation/windows_locale_copy.c` is optional MIT validation code.
+The original failing executables and inputs remain preserved. Details and the
+upstream report are linked in the validation guide.
+
 ## Joint classification forests and out-of-bag estimates
 
 RandomForestClassifier and ExtraTreesClassifier counterparts now fit matrix
@@ -179,8 +219,8 @@ records 310 successful jobs and 835 verified source fingerprints, including all
 201 library units and reference-driver helpers. Optimized GNU 15.2 verification
 rebuilds tree and ensemble objects against matching checked dependencies; its
 native test, example, 1,908 cases and 24 guards pass. This is not a full optimized
-package rebuild. The GNU 17 development snapshot's intermittent batch-driver
-input crashes remain unresolved and preserved; see `validation/README.md`.
+package rebuild. The original batch-driver input crashes remain preserved;
+the later locale-lifetime investigation above also reproduced them on GNU 15.
 
 ## Joint regression forests and out-of-bag estimates
 

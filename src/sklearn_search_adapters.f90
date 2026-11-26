@@ -11,7 +11,7 @@ module sklearn_search_adapters
   use sklearn_neighbors, only: kneighbors_classifier,kneighbors_regressor
   use sklearn_tree, only: decision_tree_classifier,decision_tree_regressor
   use sklearn_ensemble, only: random_forest_classifier,random_forest_regressor, &
-    gradient_boosting_classifier,gradient_boosting_regressor
+    gradient_boosting_classifier,gradient_boosting_regressor,reset_forest_fit
   use sklearn_preprocessing, only: standard_scaler,minmax_scaler
   use sklearn_decomposition, only: pca
   use sklearn_feature_selection, only: select_k_best,variance_threshold,select_from_model
@@ -40,6 +40,7 @@ contains
       end if
     class default
       call reset_sgd_fit(model)
+      call reset_forest_fit(model)
     end select
   end subroutine
   recursive logical function search_classifier(model) result(classifier)
@@ -228,6 +229,9 @@ contains
       end select
     class is(random_forest_classifier)
       select case(name)
+      case('warm_start');model%warm_start=value%as_logical()
+      case('oob_score');model%oob_score=value%as_logical()
+      case('bootstrap');call model%set_bootstrap(value%as_logical())
       case('max_leaf_nodes');model%max_leaf_nodes=value%as_integer()
       case('min_weight_fraction_leaf');model%min_weight_fraction_leaf=value%as_real()
       case('ccp_alpha');model%ccp_alpha=value%as_real()
@@ -245,6 +249,9 @@ contains
       end select
     class is(random_forest_regressor)
       select case(name)
+      case('warm_start');model%warm_start=value%as_logical()
+      case('oob_score');model%oob_score=value%as_logical()
+      case('bootstrap');call model%set_bootstrap(value%as_logical())
       case('max_leaf_nodes');model%max_leaf_nodes=value%as_integer()
       case('min_weight_fraction_leaf');model%min_weight_fraction_leaf=value%as_real()
       case('ccp_alpha');model%ccp_alpha=value%as_real()

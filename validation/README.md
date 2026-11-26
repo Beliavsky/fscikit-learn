@@ -29,6 +29,43 @@ python validation/check_invalid_inputs.py
 
 The reference validator requires NumPy, SciPy and scikit-learn in Python.
 
+The installed MinGW/UCRT libgfortran builds have a formatted-I/O locale-name
+lifetime defect, reproduced independently of the ML code. The runtime retains
+a borrowed `setlocale` result across a call that invalidates it, then restores
+through that pointer. This is visible in the [GNU 15.2 runtime source](https://raw.githubusercontent.com/gcc-mirror/gcc/releases/gcc-15.2.0/libgfortran/io/transfer.c)
+and described by the [upstream reproducer and report](https://github.com/jmarrec/libgfortran-ucrt-setlocale).
+It can affect GNU 15 as well as the GNU 17 development snapshot; the earlier
+compiler-version association below was incomplete.
+
+`windows_locale_copy.c` is an original MIT validation-only interposer. Compile
+it with the matching C compiler and link single-threaded validation programs
+with its object, `-static-libgfortran` and `-Wl,--wrap=setlocale`. It returns a
+stable copy of queried numeric-locale names. It does not alter installed
+runtimes, the Fortran library, datasets, algorithms or comparison tolerances.
+It is not part of the fpm library dependency graph. Use a fresh build directory
+when changing link flags: the private fpm version can otherwise leave old
+executables cached. Prefer a toolchain with the upstream runtime fix for
+general multithreaded applications.
+
+`compare_forest_warm_start.py` compares actual sklearn 1.6.1 retained-tree fits.
+Use `--kind regression --executable <reference_warm_joint_forest_driver.exe>` or
+`--kind classification --executable <reference_warm_joint_class_forest_driver.exe>`,
+with `--report <report.json>`. It covers 2,304 regression and 2,016 classification
+checkpoints in 1,080 sequences, retaining complete component-tree fields and
+cached OOB state. `--reuse-report <report.json>` replays the identical saved
+inputs and Source oracles against another native profile, checking the validator
+fingerprint and input hash. Both profiles retain the same tolerances and cases.
+`check_forest_warm_invalid_inputs.py` uses `reference_forest_warm_invalid_driver`
+for 78 count/parameter/state diagnostics, including no-growth validation and
+early native geometry errors for changes that fail during Source prediction.
+The native warm-start test also checks one-shot equivalence, old-tree parameter
+retention, no-growth predictions, OOB cache retention and cold resets.
+`compare_forest_warm_clones.py` uses `reference_forest_warm_clone_driver` to
+compare search CV results, refitted predictions, feature-selection importances,
+prefit selection and unchanged caller state for fitted warm-start templates.
+These cases test that cloned models discard learned trees/OOB state while
+retaining parameters, including logical search controls.
+
 `compare_joint_class_forests.py` compares 1,908 actual sklearn 1.6.1 classification
 forests, including component trees/class sets, ragged probabilities and logs,
 labels, seeds, bootstrap samples, importances, supported scores and OOB fields.
@@ -46,8 +83,9 @@ retained locally under `validation/results/joint_class_forest_*`. File-backed
 input and line-header parsing did not reliably eliminate the failure. A
 diagnostic guarded allocator completed all 1,908 cases / 49,608 field groups
 without memory-guard violations or numerical differences. This does not prove
-the cause of the uninstrumented crashes; compiler/runtime stability is recorded
-separately from numerical parity, and full GNU 17 stability is not claimed.
+the cause of the uninstrumented crashes by itself. The subsequent locale probe
+and interposition test above identify the runtime defect; original failed
+reports remain intact, and unmodified runtime stability is not claimed.
 
 A fresh GNU Fortran 15.2.0 checked fpm build passes all 294 native programs,
 nine selected examples, the full 1,908-case / 24-guard classification forest

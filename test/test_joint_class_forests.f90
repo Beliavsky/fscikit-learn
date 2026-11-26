@@ -45,8 +45,8 @@ program test_joint_class_forests
  model%oob_score=.false.;model%class_weight='none';model%max_samples=0;call model%set_bootstrap(.false.)
  call model%fit(x,y(:,1));prob=model%predict_proba_multi(x)
  call require(model%n_outputs_==1.and.all(model%predict(x)==y(:,1)),'scalar classifier forest refit')
- call require(.not.allocated(model%oob_counts_).and..not.allocated(model%oob_decision_function_multi_), &
-  'classifier refit clears OOB arrays')
+ call require(allocated(model%oob_counts_).and.allocated(model%oob_decision_function_multi_), &
+  'classifier refit retains cached OOB arrays')
  call require(maxval(abs(prob(1)%values-model%predict_proba(x)))==0,'single-output probability adapter')
  extra%n_estimators=3;extra%random_state=42
  call extra%fit(x,y);prediction=extra%predict_multi(x)

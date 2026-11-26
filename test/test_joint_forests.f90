@@ -38,8 +38,8 @@ program test_joint_forests
  forest%oob_score=.false.;forest%max_samples=0;call forest%set_bootstrap(.false.)
  call forest%fit(x,y(:,1),w);scalar=forest%predict(x);prediction=forest%predict_multi(x)
  call require(forest%n_outputs_==1.and.all(scalar==prediction(:,1)),'scalar forest refit and matrix adapter')
- call require(.not.allocated(forest%oob_counts_).and..not.allocated(forest%oob_prediction_multi_), &
-  'non-OOB refit clears prior OOB storage')
+ call require(allocated(forest%oob_counts_).and.allocated(forest%oob_prediction_multi_), &
+  'non-OOB refit retains cached OOB storage')
  bags=forest%estimators_samples()
  do j=1,7
   call require(all(bags(:,j)==[(k,k=1,12)]),'nonbootstrap samples preserve training order')

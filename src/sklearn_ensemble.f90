@@ -27,6 +27,7 @@ module sklearn_ensemble
   public :: isolation_forest
   public :: adaboost_classifier,adaboost_regressor
   public :: random_forest_classifier,random_forest_regressor,extra_trees_classifier,extra_trees_regressor
+  public :: reset_forest_fit
   public :: gradient_boosting_regressor,gradient_boosting_classifier
   ! sklearn 1.6.1 ensemble/_gb.py and _loss/: gradient trees and Newton leaves.
   type :: gradient_boosting_classifier
@@ -65,7 +66,7 @@ module sklearn_ensemble
     type(class_weight_map), allocatable :: class_weight_values
     type(class_weight_map),allocatable::class_weight_values_multi(:)
     real(dp) :: min_impurity_decrease=0,ccp_alpha=0,min_weight_fraction_leaf=0
-    logical :: bootstrap=.true.,random_thresholds=.false.
+    logical :: bootstrap=.true.,random_thresholds=.false.,warm_start=.false.
     logical::oob_score=.false.
     logical,private::bootstrap_set_=.false.
     real(dp)::oob_score_=0
@@ -101,7 +102,7 @@ module sklearn_ensemble
     integer,private::n_samples_fit_=0,n_samples_bootstrap_=0
     character(16) :: criterion='squared_error'
     real(dp) :: min_impurity_decrease=0,ccp_alpha=0,min_weight_fraction_leaf=0
-    logical :: bootstrap=.true.,random_thresholds=.false.
+    logical :: bootstrap=.true.,random_thresholds=.false.,warm_start=.false.
     logical :: oob_score=.false.
     logical,private::bootstrap_set_=.false.
     real(dp)::oob_score_=0
@@ -136,6 +137,44 @@ module sklearn_ensemble
     procedure :: score=>boost_score
   end type
 contains
+  subroutine reset_forest_fit(model)
+    class(*),intent(inout)::model
+    select type(model)
+    class is(random_forest_classifier)
+      if(allocated(model%estimators_))deallocate(model%estimators_)
+      if(allocated(model%feature_importances_))deallocate(model%feature_importances_)
+      if(allocated(model%classes_))deallocate(model%classes_)
+      if(allocated(model%classes_multi_))deallocate(model%classes_multi_)
+      if(allocated(model%n_classes_multi_))deallocate(model%n_classes_multi_)
+      if(allocated(model%oob_decision_function_))deallocate(model%oob_decision_function_)
+      if(allocated(model%oob_decision_function_multi_))deallocate(model%oob_decision_function_multi_)
+      if(allocated(model%oob_counts_))deallocate(model%oob_counts_)
+      model%n_features_in_=0;model%n_outputs_=1;model%n_classes_=0;model%oob_score_=0
+      model%n_samples_fit_=0;model%n_samples_bootstrap_=0
+    class is(random_forest_regressor)
+      if(allocated(model%estimators_))deallocate(model%estimators_)
+      if(allocated(model%feature_importances_))deallocate(model%feature_importances_)
+      if(allocated(model%oob_prediction_))deallocate(model%oob_prediction_)
+      if(allocated(model%oob_prediction_multi_))deallocate(model%oob_prediction_multi_)
+      if(allocated(model%oob_counts_))deallocate(model%oob_counts_)
+      model%n_features_in_=0;model%n_outputs_=1;model%oob_score_=0
+      model%n_samples_fit_=0;model%n_samples_bootstrap_=0
+    end select
+  end subroutine
+  subroutine check_forest_controls(depth,split,leaf,budget,features,seed,decrease,alpha,fraction,p)
+    integer,intent(in)::depth,split,leaf,budget,features,seed,p
+    real(dp),intent(in)::decrease,alpha,fraction
+    call require(depth>=0.and.split>=2.and.leaf>=1,'invalid forest tree size controls')
+    call require(budget>=0.and.budget/=1,'forest max_leaf_nodes must be zero or at least two')
+    call require(features>=0.and.features<=p,'invalid forest max_features')
+    call require(seed>=0,'forest random_state must be nonnegative')
+    call require(ieee_is_finite(decrease),'forest impurity decrease must be finite')
+    call require(decrease>=0,'forest impurity decrease must be nonnegative')
+    call require(ieee_is_finite(alpha),'forest ccp_alpha must be finite')
+    call require(alpha>=0,'forest ccp_alpha must be nonnegative')
+    call require(ieee_is_finite(fraction),'forest minimum weighted leaf fraction must be finite')
+    call require(fraction>=0.and.fraction<=.5_dp,'forest minimum weighted leaf fraction must be in [0,0.5]')
+  end subroutine
   subroutine forest_classifier_fit(self,x,y,sample_weight)
     class(random_forest_classifier),intent(inout)::self
     real(dp),intent(in)::x(:,:)
@@ -155,6 +194,9 @@ contains
     real(dp), intent(in) :: x(:,:)
     integer, intent(in) :: y(:,:)
     real(dp), optional, intent(in) :: sample_weight(:)
+    type(decision_tree_classifier),allocatable::grown(:)
+    logical::recompute_oob
+    integer::old
     type(legacy_random_state) :: seeds,draws
     real(dp) :: w(size(y,1)),tree_weights(size(y,1)),normalizer
     real(dp), allocatable :: factors(:)
@@ -169,6 +211,18 @@ contains
     call require(.not.(allocated(self%class_weight_values).and.self%class_weight/='none'), &
       'forest class weight map conflicts with preset')
     q=size(y,2);call require(q>0,'forest targets require at least one output')
+    old=0
+    if(self%warm_start.and.allocated(self%estimators_))old=size(self%estimators_)
+    call require(self%n_estimators>=old,'warm-start n_estimators cannot decrease')
+    if(old>0)then
+      call require(size(x,2)==self%n_features_in_,'warm-start forest feature count must remain unchanged')
+      call require(q==self%n_outputs_,'warm-start forest output count must remain unchanged')
+    end if
+    recompute_oob=self%oob_score.and.(self%n_estimators>old.or..not.allocated(self%oob_counts_))
+    call check_forest_controls(self%max_depth,self%min_samples_split,self%min_samples_leaf,self%max_leaf_nodes, &
+      self%max_features,self%random_state,self%min_impurity_decrease,self%ccp_alpha,self%min_weight_fraction_leaf,size(x,2))
+    call require(maxval(abs(x))<=real(huge(0._real32),dp),'forest training features exceed float32 range')
+    call require(any(self%criterion==['gini    ','entropy ','log_loss']),'unknown forest classification criterion')
     call require(self%bootstrap.or..not.self%oob_score,'forest OOB scoring requires bootstrap')
     call require(.not.(allocated(self%class_weight_values).and.allocated(self%class_weight_values_multi)), &
       'forest scalar and per-output class weight maps conflict')
@@ -182,11 +236,13 @@ contains
       do j=1,size(y,1);encoded(j,k)=label_index(self%classes_multi_(k)%values,y(j,k))-1;end do
     end do
     self%classes_=self%classes_multi_(1)%values;self%n_classes_=self%n_classes_multi_(1)
-    self%oob_score_=0
+    if(recompute_oob)then
+      self%oob_score_=0
     if(allocated(self%oob_decision_function_))deallocate(self%oob_decision_function_)
     if(allocated(self%oob_decision_function_multi_))deallocate(self%oob_decision_function_multi_)
     if(allocated(self%oob_counts_))deallocate(self%oob_counts_)
-    if(self%oob_score.and.q>1)then
+    end if
+    if(recompute_oob.and.q>1)then
       call require(all(self%n_classes_multi_<=2),'multiclass-multioutput forest OOB scoring is unsupported')
       call require(all(self%n_classes_multi_==self%n_classes_),'forest OOB class widths must agree')
     end if
@@ -211,16 +267,24 @@ contains
     n=size(y,1);p=size(x,2);self%n_features_in_=p
     ns=n;if(self%max_samples>0) ns=self%max_samples
     self%n_samples_fit_=n;self%n_samples_bootstrap_=ns
-    if(self%oob_score)then
+    if(recompute_oob)then
       allocate(oob(q),self%oob_counts_(n));self%oob_counts_=0
       do k=1,q;allocate(oob(k)%values(n,self%n_classes_multi_(k)));oob(k)%values=0;end do
     end if
     allocate(indices(ns));call seeds%seed(self%random_state)
     features=self%max_features;if(features==0) features=max(1,int(sqrt(real(p,dp))))
-    if(allocated(self%estimators_)) deallocate(self%estimators_)
-    allocate(self%estimators_(self%n_estimators));self%feature_importances_=spread(0._dp,1,p);nontrivial=0
+    if(old==0)then
+      if(allocated(self%estimators_))deallocate(self%estimators_)
+      allocate(self%estimators_(self%n_estimators))
+    else if(self%n_estimators>old)then
+      allocate(grown(self%n_estimators));grown(:old)=self%estimators_
+      call move_alloc(grown,self%estimators_)
+    end if
+    self%feature_importances_=spread(0._dp,1,p);nontrivial=0
     do i=1,self%n_estimators
-      seed=seeds%integer_index(2147483647)-1;tree_weights=w
+      seed=seeds%integer_index(2147483647)-1
+      if(i>old)then
+      tree_weights=w
       if(self%bootstrap) then
         call draws%seed(seed);counts=0
         do j=1,ns
@@ -252,15 +316,24 @@ contains
       else
         call self%estimators_(i)%fit(x,encoded,sample_weight=tree_weights)
       end if
-      if(self%oob_score)then
+      end if
+      if(recompute_oob)then
+        if(i<=old)then
+          call draws%seed(self%estimators_(i)%random_state);counts=0
+          do j=1,ns
+            at=draws%integer_index(n);counts(at)=counts(at)+1
+          end do
+        end if
         unsampled=pack([(j,j=1,n)],counts==0)
         if(size(unsampled)>0)then
           query=x(unsampled,:);prob=self%estimators_(i)%predict_proba_multi(query)
           do j=1,size(unsampled)
             at=unsampled(j);self%oob_counts_(at)=self%oob_counts_(at)+1
             do k=1,q
+              call require(size(prob(k)%values,2)==1.or.size(prob(k)%values,2)==self%n_classes_multi_(k), &
+                'warm-start forest class probabilities cannot broadcast')
               do c=1,self%n_classes_multi_(k)
-                oob(k)%values(at,c)=ieee_difference(oob(k)%values(at,c),-prob(k)%values(j,c))
+                oob(k)%values(at,c)=ieee_difference(oob(k)%values(at,c),-prob(k)%values(j,min(c,size(prob(k)%values,2))))
               end do
             end do
           end do
@@ -283,7 +356,7 @@ contains
       self%feature_importances_(j)=ieee_quotient(self%feature_importances_(j),normalizer)
     end do
     end if
-    if(self%oob_score)then
+    if(recompute_oob)then
       allocate(oob_labels(n,q))
       do k=1,q
         do j=1,n
@@ -356,9 +429,11 @@ contains
     do t=1,size(self%estimators_)
       part=self%estimators_(t)%predict_proba_multi(x)
       do k=1,self%n_outputs_
+        call require(size(part(k)%values,2)==1.or.size(part(k)%values,2)==self%n_classes_multi_(k), &
+          'warm-start forest class probabilities cannot broadcast')
         do c=1,self%n_classes_multi_(k)
           do i=1,size(x,1)
-            prob(k)%values(i,c)=ieee_difference(prob(k)%values(i,c),-part(k)%values(i,c))
+            prob(k)%values(i,c)=ieee_difference(prob(k)%values(i,c),-part(k)%values(i,min(c,size(part(k)%values,2))))
           end do
         end do
       end do
@@ -420,9 +495,11 @@ contains
     allocate(prob(size(x,1),self%n_classes_));prob=0
     do i=1,size(self%estimators_)
       tree_prob=self%estimators_(i)%predict_proba(x)
+      call require(size(tree_prob,2)==1.or.size(tree_prob,2)==self%n_classes_, &
+        'warm-start forest class probabilities cannot broadcast')
       do c=1,self%n_classes_
         do j=1,size(x,1)
-          prob(j,c)=ieee_difference(prob(j,c),-tree_prob(j,c))
+          prob(j,c)=ieee_difference(prob(j,c),-tree_prob(j,min(c,size(tree_prob,2))))
         end do
       end do
     end do
@@ -562,6 +639,9 @@ contains
     class(random_forest_regressor),intent(inout)::self
     real(dp),intent(in)::x(:,:),y(:)
     real(dp),optional,intent(in)::sample_weight(:),targets(:,:)
+    type(decision_tree_regressor),allocatable::grown(:)
+    logical::recompute_oob
+    integer::old
     type(legacy_random_state) :: seeds,draws
     real(dp) :: w(size(y)),tree_weights(size(y)),normalizer
     real(dp),allocatable::oob(:,:),prediction(:,:),query(:,:)
@@ -577,10 +657,35 @@ contains
       call check_x(targets);call require(size(targets,1)==size(y),'forest target row mismatch')
       q=size(targets,2)
     end if
-    self%n_outputs_=q;self%oob_score_=0
+    old=0
+    if(self%warm_start.and.allocated(self%estimators_))old=size(self%estimators_)
+    call require(self%n_estimators>=old,'warm-start n_estimators cannot decrease')
+    if(old>0)then
+      call require(size(x,2)==self%n_features_in_,'warm-start forest feature count must remain unchanged')
+      call require(q==self%n_outputs_,'warm-start forest output count must remain unchanged')
+    end if
+    recompute_oob=self%oob_score.and.(self%n_estimators>old.or..not.allocated(self%oob_counts_))
+    call check_forest_controls(self%max_depth,self%min_samples_split,self%min_samples_leaf,self%max_leaf_nodes, &
+      self%max_features,self%random_state,self%min_impurity_decrease,self%ccp_alpha,self%min_weight_fraction_leaf,size(x,2))
+    call require(maxval(abs(x))<=real(huge(0._real32),dp),'forest training features exceed float32 range')
+    call require(any(self%criterion==[character(16)::'squared_error','friedman_mse','absolute_error','poisson']), &
+      'unknown forest regression criterion')
+    if(self%criterion=='poisson')then
+      if(present(targets))then
+        call require(all(targets>=0),'Poisson forest targets must be nonnegative')
+        call require(ieee_total(reshape(targets,[size(targets)]))>0,'Poisson forest target sum must be positive')
+      else
+        call require(all(y>=0),'Poisson forest targets must be nonnegative')
+        call require(ieee_total(y)>0,'Poisson forest target sum must be positive')
+      end if
+    end if
+    self%n_outputs_=q
+    if(recompute_oob)then
+      self%oob_score_=0
     if(allocated(self%oob_prediction_))deallocate(self%oob_prediction_)
     if(allocated(self%oob_prediction_multi_))deallocate(self%oob_prediction_multi_)
     if(allocated(self%oob_counts_))deallocate(self%oob_counts_)
+    end if
     w=1
     if(present(sample_weight)) then
       call require(size(sample_weight)==size(y),'forest sample weight length mismatch')
@@ -590,14 +695,21 @@ contains
     n=size(y);p=size(x,2);self%n_features_in_=p
     ns=n;if(self%max_samples>0) ns=self%max_samples
     self%n_samples_fit_=n;self%n_samples_bootstrap_=ns
-    if(self%oob_score)then
+    if(recompute_oob)then
       allocate(oob(n,q),self%oob_counts_(n));oob=0;self%oob_counts_=0
     end if
     call seeds%seed(self%random_state)
-    if(allocated(self%estimators_)) deallocate(self%estimators_)
-    allocate(self%estimators_(self%n_estimators));self%feature_importances_=spread(0._dp,1,p);nontrivial=0
+    if(old==0)then
+      if(allocated(self%estimators_))deallocate(self%estimators_)
+      allocate(self%estimators_(self%n_estimators))
+    else if(self%n_estimators>old)then
+      allocate(grown(self%n_estimators));grown(:old)=self%estimators_
+      call move_alloc(grown,self%estimators_)
+    end if
+    self%feature_importances_=spread(0._dp,1,p);nontrivial=0
     do i=1,self%n_estimators
       seed=seeds%integer_index(2147483647)-1
+      if(i>old)then
       tree_weights=w
       if(self%bootstrap) then
         call draws%seed(seed);counts=0
@@ -624,7 +736,14 @@ contains
       else
         call self%estimators_(i)%fit(x,y,sample_weight=tree_weights)
       end if
-      if(self%oob_score)then
+      end if
+      if(recompute_oob)then
+        if(i<=old)then
+          call draws%seed(self%estimators_(i)%random_state);counts=0
+          do j=1,ns
+            at=draws%integer_index(n);counts(at)=counts(at)+1
+          end do
+        end if
         unsampled=pack([(j,j=1,n)],counts==0)
         if(size(unsampled)>0)then
           query=x(unsampled,:);prediction=self%estimators_(i)%predict_multi(query)
@@ -651,7 +770,7 @@ contains
         self%feature_importances_(j)=ieee_quotient(self%feature_importances_(j),normalizer)
       end do
     end if
-    if(self%oob_score)then
+    if(recompute_oob)then
       do j=1,n
         do k=1,q;oob(j,k)=ieee_quotient(oob(j,k),real(max(1,self%oob_counts_(j)),dp));end do
       end do

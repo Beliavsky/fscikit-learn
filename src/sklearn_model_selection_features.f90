@@ -9,7 +9,7 @@ module sklearn_model_selection_features
     multi_task_elastic_net_cv,multi_task_lasso_cv,perceptron,passive_aggressive_classifier,ridge_classifier
   use sklearn_tree, only: decision_tree_regressor,decision_tree_classifier
   use sklearn_ensemble, only: random_forest_regressor,random_forest_classifier, &
-    gradient_boosting_regressor,gradient_boosting_classifier
+    gradient_boosting_regressor,gradient_boosting_classifier,reset_forest_fit
   use sklearn_base_dispatch, only: train_regressor,train_classifier,base_supported,base_fitted
   use sklearn_weighted_linear, only: weighted_linear
   use sklearn_ieee_math, only: ieee_mean,ieee_product
@@ -426,6 +426,7 @@ contains
   subroutine reset_incremental(model)
     class(*), intent(inout) :: model
     call reset_sgd_fit(model)
+    call reset_forest_fit(model)
   end subroutine
   subroutine fit_regression(self,x,y,estimator,sample_weight,feature_names)
     class(select_from_model), intent(inout) :: self
