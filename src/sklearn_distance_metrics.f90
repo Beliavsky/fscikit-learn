@@ -131,17 +131,39 @@ contains
   real(dp)::value(size(a,1),size(a,2)),work(size(a,1),size(a,2)),row(size(a,2)),pivot,factor
   integer::i,k,j,n
   n=size(a,1);call require(size(a,2)==n,'Mahalanobis V must be square')
+  ! NumPy inv solves A X = I through GESV. Preserve partial pivoting and
+  ! reciprocal scaling: Gauss-Jordan changes cancellation in CSR distances.
   work=a;value=0
   do i=1,n;value(i,i)=1;end do
   do k=1,n
-   j=k-1+maxloc(abs(work(k:,k)),dim=1);pivot=work(j,k)
-   if(.not.ieee_is_nan(pivot))call require(pivot/=0,'singular Mahalanobis covariance')
+   ! Ordered comparison retains an initial NaN, as BLAS IDAMAX does.
+   j=k
+   do i=k+1,n
+    if(abs(work(i,k))>abs(work(j,k)))j=i
+   end do
+   pivot=work(j,k)
+   call require(pivot/=0,'singular Mahalanobis covariance')
    row=work(k,:);work(k,:)=work(j,:);work(j,:)=row
    row=value(k,:);value(k,:)=value(j,:);value(j,:)=row
-   work(k,:)=work(k,:)/pivot;value(k,:)=value(k,:)/pivot
-   do i=1,n
-    if(i==k)cycle
-    factor=work(i,k);work(i,:)=work(i,:)-factor*work(k,:);value(i,:)=value(i,:)-factor*value(k,:)
+   if(abs(pivot)>=tiny(pivot))then
+    factor=1._dp/pivot;work(k+1:,k)=work(k+1:,k)*factor
+   else
+    work(k+1:,k)=work(k+1:,k)/pivot
+   end if
+   do i=k+1,n
+    work(i,k+1:)=work(i,k+1:)-work(i,k)*work(k,k+1:)
+   end do
+  end do
+  ! Unit lower solve followed by an upper solve with reciprocal diagonals.
+  do k=1,n
+   do i=k+1,n
+    value(i,:)=value(i,:)-work(i,k)*value(k,:)
+   end do
+  end do
+  do k=n,1,-1
+   factor=1._dp/work(k,k);value(k,:)=value(k,:)*factor
+   do i=1,k-1
+    value(i,:)=value(i,:)-work(i,k)*value(k,:)
    end do
   end do
  end function
@@ -327,6 +349,7 @@ contains
       case(22);value=value+(tmp*tmp)/self%variance(k)
       end select
      end do
+     call check_reduced(value)
      value=self%rdist_to_dist(value)
     case(9)
      tmp=sin(.5_dp*(hu(1)-hv(1)));den=sin(.5_dp*(hu(2)-hv(2)))
@@ -345,7 +368,7 @@ contains
       do l=1,a%p;tmp=tmp+self%precision(k,l)*self%buffer(l);end do
       value=value+tmp*self%buffer(k)
      end do
-     value=sqrt(value)
+     call check_reduced(value);value=sqrt(value)
     case(24)
      tt=count(u/=0.and.v/=0);neq=count((u/=0).neqv.(v/=0))
      value=(neq-tt+a%p)/(neq+a%p)
@@ -416,7 +439,7 @@ contains
    end select
   end do
   select case(self%kind)
-  case(3,22);value=sqrt(value)
+  case(3,22);call check_reduced(value);value=sqrt(value)
   case(6);value=value**(1._dp/self%power)
   case(13);value=value/a%p
   case(14);value=neq/(2*tt+neq)
@@ -433,10 +456,14 @@ contains
     do l=1,a%p;tmp=tmp+self%precision(k,l)*self%buffer(l);end do
     value=value+tmp*self%buffer(k)
    end do
-   value=sqrt(value)
+   call check_reduced(value);value=sqrt(value)
   case(24);value=(neq-tt+a%p)/(neq+a%p)
   end select
  end function
+ subroutine check_reduced(value)
+  real(dp),intent(in)::value
+  call require(value/=-1,'DistanceMetric returned the reserved Cython reduced error value -1')
+ end subroutine
  function undefined_pairs(self)result(mask)
   class(distance_metric),intent(in)::self
   logical,allocatable::mask(:,:)

@@ -154,10 +154,23 @@ quirks and persistent Mahalanobis state are retained. Defined source reads pass
 the private 688-configuration and 456-configuration raw-CSR grids; unresolved
 Source out-of-allocation reads remain explicit NaN/mask adaptations. The checked
 fpm rebuild, all 289 native programs, four selected examples, both public metric
-grids and 23 input checks pass. The full checked audit passes all 302 jobs and
-501 compiled-unit fingerprints (200 library units); optimized verification is
-in progress. Implementation is committed as da27942. This low-level metric type does not change the estimator/
-transformer/splitter count above.
+grids and 23 input checks pass. Initial checked and optimized package audits pass
+all 302 jobs per profile and 501 compiled-unit fingerprints (200 library units).
+Implementation is committed as da27942. This low-level metric type does not
+change the estimator/transformer/splitter count above.
+
+A subsequent covariance refinement replaces Gauss-Jordan inversion with
+partial-pivoted LU and triangular solves, preserving NaN parameters, small
+nonzero pivots and cancellation-sensitive sparse results. A new 216-case
+variance/precision grid includes covariance sizes through 12 features. Checked
+metric probes pass 184 numerical comparisons and eight matching constructor
+rejections at the unchanged 2e-12 tolerances. Twenty-four Source processes
+access-violate at a reserved reduced distance of -1; native calls return a
+controlled error. These are explicit adapters, not numerical parity. Optimized
+metric probes pass native replays against the same captured Source cases. The
+688-case public and 456-case raw-CSR grids and 23 existing input checks also
+pass on the refined checked metric. These follow-up probes are separate from
+the initial full-package audits above.
 
 Discrete clustering mutual information: `mutual_info_score` returns nats from
 integer label pairs, with source contingency and zero-entropy contracts.

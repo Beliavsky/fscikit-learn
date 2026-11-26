@@ -31,6 +31,15 @@ program test_distance_metrics
  call require(d(2,2)==1.and.abs(d(3,3)-sqrt(3.4_dp))<1.e-15_dp,'Source CSR work buffer persists')
  d=metric%pairwise(sparse)
  call require(d(1,1)==sqrt(2._dp),'Source CSR metric state persists across calls')
+ precision(1,:)=[1._dp,2._dp];precision(2,:)=[3._dp,4._dp]
+ metric=get_metric('mahalanobis',v=precision);d=metric%pairwise(sparse)
+ call require(abs(d(3,3)-1.0536712127723509e-8_dp)<1.e-22_dp,'LU covariance inverse preserves CSR cancellation')
+ precision=0;precision(1,1)=ieee_value(0._dp,ieee_quiet_nan);precision(2,2)=1
+ metric=get_metric('mahalanobis',v=precision);d=metric%pairwise(x)
+ call require(all(ieee_is_nan(d)),'NaN covariance is accepted and propagated')
+ precision=0;precision(1,1)=1;precision(2,2)=1.e-300_dp
+ metric=get_metric('mahalanobis',v=precision);d=metric%pairwise(x,zero)
+ call require(abs(d(2,1)/1.e150_dp-1)<1.e-14_dp,'small nonzero covariance pivot is accepted')
  duplicates%n_rows=2;duplicates%n_cols=1
  duplicates%indptr=[1,3,3];duplicates%indices=[1,1];duplicates%data=[.25_dp,.75_dp]
  metric=get_metric('euclidean');d=metric%pairwise(duplicates)

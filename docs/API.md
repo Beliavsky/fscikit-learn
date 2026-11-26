@@ -10399,8 +10399,9 @@ Minkowski accepts optional positive `p` and nonnegative finite `w(:)`; its
 unweighted powers one, two and either infinity canonicalize as in Source.
 Fractional positive powers and Source's NaN-power behavior are retained.
 SEuclidean requires rank-one `v`; Mahalanobis accepts square `vi` or rank-two
-`v`, with `vi` taking precedence. Native covariance inversion rejects an exact
-zero pivot. Variance/precision signs and nonfinite values follow Source rather
+`v`, with `vi` taking precedence. Covariance inversion uses partial-pivoted LU
+and triangular solves, rejecting an exact zero pivot without an epsilon cutoff.
+Variance/precision signs and nonfinite values follow Source rather
 than imposing positive-definiteness checks.
 
 `pairwise` accepts dense real64 and `csr_matrix` inputs in all four storage
@@ -10417,8 +10418,10 @@ work buffer unchanged, including across successive calls; mixed Canberra uses
 the Cython sparse path; sparse Haversine follows its coordinate conventions;
 CSR `pyfunc` returns the Source base-class sentinel -999 without invoking the
 callback. Dense callbacks run on the upper triangle including the diagonal
-for self data. A distance equal to the reserved Cython error value -1 produces
-a controlled native error instead of the observed Source access violation.
+for self data. A distance or intermediate reduced distance equal to the reserved
+Cython error value -1 produces a controlled native error instead of the observed
+Source access violation. Other negative reduced distances retain Source's quiet
+NaN behavior; standalone conversion methods retain their IEEE behavior at -1.
 
 CSR Bray-Curtis reproduces the Source cursor algorithm when accesses stay
 within the complete input allocation, including reads into the next row.
