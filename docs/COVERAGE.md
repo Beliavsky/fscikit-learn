@@ -13261,3 +13261,81 @@ one native test, two app drivers, one example, one reference suite, one
 invalid-input registry and an owned result helper. No dependency, source
 module or core public estimator type was added. The broader translation
 remains unfinished.
+
+## Functional FastICA, seeded starts and eigh whitening
+
+The fitted FastICA solver now supports SVD/eigh whitening, private
+NumPy-compatible normal starts and typed callable contrasts. The public
+`fastica` function returns owned whitening, unmixing, source and mean arrays
+plus iteration metadata. Unit-variance scaling is retained in the stored
+unmixing matrix. Source None results are unallocated arrays, including
+arbitrary-variance/no-whitening sources when compute_sources=false. The
+sklearn 1.6.1 quirk returning unit-variance sources with that flag false is
+explicitly retained. Named contrasts and callbacks share the existing solver.
+
+Eigh whitening uses the lower-triangle centered cross-product, descending
+eigenpairs and Source's eigenvalue floor; both whitening solvers retain Source
+phase selection. Symmetric decorrelation clips small eigenvalues instead of
+rejecting them unconditionally. Reductions follow the attributed NumPy
+pairwise/einsum contracts; products reuse the scalar OpenBLAS reconstruction.
+Deflation projects against all previously extracted components together.
+Source and native numerical eigensolver/SVD backends can still diverge during
+longer fixed-point trajectories. Existing retained-rank SVD and unwhitened
+samples>=features restrictions remain native adaptations.
+
+The typed contrast interface supplies a matrix and returns matching contrast
+values plus a mean derivative per component, with one row in deflation. This
+adapts Source's rank-dependent Python callable contract. A legacy singular-
+initialization guard now checks a zero start with unit-variance fitting,
+matching an actual Source rejection. Source allows the zero unwhitened start;
+the implementation no longer rejects every singular decorrelation matrix.
+
+Fit and functional calls preserve IEEE flags/modes and the global Fortran RNG.
+A boundary probe exposed an inexact flag set during post-fit source
+reconstruction; the whole functional call is now bracketed and the native test
+starts with cleared flags. The corrected probe returns all flags unchanged.
+Analytic/native checks also cover repeatability, optional source allocation,
+unit variance, callback parity and shared fitted/functional unmixing.
+
+Both checked and optimized strict single-step grids check 11,520 direct groups across 2,304
+configurations against actual sklearn 1.6.1, NumPy 2.2.6 and SciPy 1.15.3.
+It covers three seeds, three shapes, both whitening solvers and algorithms,
+four contrasts including a callable, both whitening variance conventions and
+raw/prewhitened no-whitening input, multiple component widths, explicit and
+seeded starts, and both source-computation flags. All groups pass at unchanged
+3e-8 tolerances with exact iteration/allocation metadata. Maximum scaled error
+is 6.647272605890344e-11; the report retains 2,007 Source warnings.
+
+The separate full grid retains the original 25-iteration fits and all raw
+unwhitened configurations. Its default strict execution fails on a real
+comparison difference; diagnostic mode records every failed field without
+changing expected outputs or tolerances. In both profiles, all 2,304 fits
+complete, with 155 failures across 99 configurations out of 11,520 comparisons:
+94 unmixing and 61 source fields. Thus 11,365 comparisons pass. Whitening,
+mean, iteration and allocation fields agree. Maximum scaled error is
+11.259882400258132, so these are material trajectory differences, not a parity
+claim. The report retains 1,581 Source warnings. No cases were deleted,
+tolerances widened, native expected outputs substituted or certificates added.
+
+Each package profile passed six selected native tests, two examples, 16 new
+Source-matched invalid-input probes, ten legacy ICA guards, the established
+648-comparison converged/capped ICA suite at its unchanged 2e-6 tolerance, and
+192 core comparisons. Other historical reference suites were not rerun.
+Artifacts remain ignored under validation/results/fastica_*.
+
+Both full fpm builds including tests passed using private fpm 0.14.0 and
+GNU Fortran 17.0.0 20260510. Flags are
+`-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow` and
+`-O3 -funroll-loops -fcoarray=single`. Each profile completed 14 verification
+jobs, including the expected strict longer-fit failure. The final audit checks
+204 compiled fingerprints per profile (191 library units and 13 programs),
+identical current source/validator/API/attribution manifests, matching inputs,
+provenance and cache hashes, and distinct reference executables. Comparison
+counts, maximum errors and affected longer-fit configuration counts match
+between profiles. Existing ICA tolerances and cases remain unchanged.
+
+The package remains MIT with retained sklearn, NumPy and OpenBLAS notices.
+No dependency, source module or core estimator type was added. This increment
+adds one native test, two app drivers, one example, one reference validator,
+one invalid-input registry and owned result/callback helpers. The broader
+translation remains unfinished.
