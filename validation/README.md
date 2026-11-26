@@ -7891,6 +7891,10 @@ expected values or tolerances were replaced or widened.
 The expanded suite adds 28 invalid haversine-width/unsupported-CSR cases.
 Original oracle cache entries, failed batches, source/binary snapshots and
 initial/final reports are retained under ignored `validation/results/ball_graphs_*`.
-The checked fpm rebuild and new graph test pass; complete package verification
-is running in checked and optimized profiles. The historical intermittent
-native crash remains unresolved.
+The checked fpm rebuild, 30 selected native tests and three examples pass.
+The expanded checked graph suite passes 7,210 configurations / 63,018 exact
+fields, with 7,002 successful calls and 208 matching rejections. All 1,296 direct
+NaN-ordering arrays also pass. Original selection, partition, tree, norm/GEMM,
+radius-boundary and KNN-classification comparisons pass. Remaining legacy
+suites and optimized build/verification are still running. Implementation is
+committed as fdb0edf. The historical intermittent native crash remains unresolved.

@@ -13985,7 +13985,11 @@ through 1,025. Existing Intel/Microsoft attribution is retained.
 
 Private checked probes pass 7,182 graph configurations: 7,002 successful calls,
 180 matching Source rejections and 63,018 exact fields. No fixture or tolerance
-was removed or widened. The expanded package suite adds 28 invalid-width/CSR
-probes and retains every original neighbor comparison. The checked rebuild
-and new native graph test pass. Full checked/optimized verification is running;
-evidence is ignored under `validation/results/ball_graphs_*`.
+was removed or widened. The expanded checked package suite also passes all
+28 added invalid-width/CSR probes: 7,210 configurations, 7,002 successful calls,
+208 matching rejections and 63,018 exact fields. Its 1,296 direct NaN ordering
+arrays also pass. The checked rebuild, all 30 selected native tests and three
+examples pass, as do the original selection, partition, tree-query, norm/GEMM,
+radius-boundary and KNN-classification comparisons. Remaining legacy suites
+and the optimized build/verification are still running. Implementation is
+committed as fdb0edf. Evidence is ignored under `validation/results/ball_graphs_*`.
