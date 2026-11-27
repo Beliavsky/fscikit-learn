@@ -10079,3 +10079,38 @@ The archives and canonical build remain intact; the deletion manifest is in
 ignored validation/results/bayesian_archived_binary_cleanup.json. Installed
 compilers and user files were untouched. Validation continues to use GNU
 Fortran 15.2.0 with the existing validation-only Windows locale-copy shim.
+
+
+### BayesianRidge final verification
+
+Implementation commit: 81e3837. The checked package completes 344 audit jobs,
+336 passing: all 311 native programs and eleven selected examples pass. Eight
+strict reference suites intentionally remain nonzero, preserving the previous
+seven inventories plus the new BayesianRidge 26-case inventory. All 908 build
+fingerprints match current sources, including 208 library units. No fixture,
+expected output or comparison tolerance was relaxed.
+
+Checked and scoped optimized BayesianRidge comparisons cover 186 configurations
+with identical Source inputs/oracles and the same 26 strict differences. All
+twenty new input guards and six selected legacy guards pass. IterativeImputer
+passes all 324 fixtures / 2,592 groups in each profile; Source file hashes agree.
+Scoped optimization rebuilds fourteen modules, passes twenty-two selected
+native programs and runs twenty reference suites, plus Pipeline and memory
+supplements. This is not a full optimized package rebuild. Cross-profile
+verification confirms all 194 non-overridden baseline archive members and
+source/object/report hashes.
+
+The existing GLM, Huber, RANSAC and Ridge checks retain their prior inventories.
+The 156 Pipeline fixtures / 1,755 groups pass in both profiles. The 40,000-feature
+CSR memory check peaks at 20,131,840 bytes checked / 19,423,232 bytes optimized.
+All jobs are terminal; evidence and helper scripts are under ignored
+validation/results/bayesian_*. Validation retains static libgfortran and the
+validation-only locale-copy shim; unwrapped runtime stability is not claimed.
+The retained covariance/history differences and the broader translation remain
+open, and commits remain local.
+
+The verified evidence backup is bayesian_evidence_81e3837.zip,
+374,176,078 bytes / 3,796 entries, SHA256
+fca6f2ed5787b3cc47bb54504174f892400b3b139cc4942f507916db43c9fe88.
+ZIP CRCs and critical source/report hashes were verified. The receipt is
+validation/results/bayesian_archive_receipt.json (ignored local evidence).
