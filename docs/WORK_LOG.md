@@ -10320,3 +10320,56 @@ unchanged. Both legacy profiles will be rerun with isolated files; the scoped
 optimized audit will be rerun and the checked audit will explicitly record
 its replay and validator hash. Fortran sources and the completed build are
 unchanged by this harness correction.
+
+
+### QuantileRegressor integration final verification
+
+Fortran implementation: ad80b80; validation file-isolation correction: 174b2ed.
+The completed checked build passes all 314 native programs and eleven selected
+examples. Its 330 defined audit jobs pass, with 331 actual checked executions
+including the explicit isolated legacy replay. The initial audit and replay
+provenance are retained; the overlapping legacy result is not accepted as
+independent evidence. All 917 build fingerprints match current sources,
+including 209 library units. No Fortran rebuild was needed for the Python-only
+file-isolation correction.
+
+The scoped optimized build covers seven modules, seven passing native programs
+and five focused reference/memory jobs, all passing after the isolated rerun.
+Both profiles pass 96 new clone/CV/grid/randomized/Pipeline configurations,
+240 dense/CSR configurations / 3,720 groups, 120 legacy dense configurations /
+2,089 groups, and sixteen Source/native CSR rejection cases. All 22 selected
+legacy guards pass. The public use-sklearn facade smoke test accepts the new
+scalar-weight cross_val_score overload. Candidate order, scores, ranks, refits,
+constructor resets and caller preservation agree with actual sklearn 1.6.1.
+Fit weights and unweighted held-out scoring follow its default routing.
+
+The corrected legacy validator uses isolated per-report files. Source inputs
+and oracles agree across fresh checked/optimized runs. Some earlier JSON reports
+and the previous quantile CSR ZIP/receipt are absent on disk, including the
+initial 96-case probe JSON; no availability or byte-preservation claim is made
+for those missing artifacts. Instead, Git verifies that the original CSR
+validator, CSR driver and quantile solver match 6283d00 exactly, and that the
+legacy validator differs only in its two temporary-file paths. The new
+integration fixture/driver also match ad80b80. Current comparisons rerun Source
+and do not depend on unavailable historical outputs. Their recorded Source
+hashes agree across profiles. The missing-artifact inventory and Git checks are
+preserved in quantile_integration_historical_evidence.json.
+
+Cross-profile checks pass source/object/report hashes, explicit replay hashes,
+and all 202 non-overridden library members. The optimized baseline is verified
+identical to the terminal completed checked library before linking. This is a
+scoped optimized build, not a full optimized package rebuild. The wide-query
+memory checks stay below 128 MiB for a 1.28 GB dense equivalent; fitting still
+uses its documented dense simplex tableau. All build/audit jobs are terminal.
+Validation retains the private GNU Fortran 15.2.0 setup, static libgfortran and
+validation-only locale-copy shim; unwrapped Windows runtime stability is not
+claimed. Evidence is under ignored validation/results/quantile_integration_*.
+The broader translation and prior numerical gaps remain open; commits are local.
+
+The newly verified archive is quantile_integration_evidence_174b2ed.zip,
+115,305,671 bytes / 2,044 entries, SHA256
+8b5d4100258643012ca35f274d0f6c7ed8e99534656679fd1223fbeaee2cac87.
+ZIP CRCs and critical source/report/object/binary hashes pass. The receipt is
+validation/results/quantile_integration_archive_receipt.json. This backup
+contains current evidence and the preserved race diagnostics; it does not
+restore the unavailable historical JSON/ZIP artifacts described above.
