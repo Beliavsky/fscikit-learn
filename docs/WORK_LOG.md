@@ -10555,3 +10555,47 @@ caught it; the probe log is preserved. It was corrected before validation.
 These source/test changes occurred during the initial full build, so that
 build will not be used as final evidence: a fresh incremental fpm rebuild will
 follow its terminal completion. No Source fixture or tolerance was changed.
+
+### CSR KernelPCA final verification
+
+Implementation commits cb4c673, c83fd35 and e22d0e9 are verified against the
+completed final checked build. All 317 native programs, 11 selected examples
+and six focused reference/memory jobs pass (334 jobs). All 925 compiled source
+fingerprints match the current worktree; the library contains 209 units.
+The runtime configuration remains static libgfortran with the validation-only
+Windows locale-copy shim; this does not establish unwrapped runtime stability.
+
+A fresh scoped -O3 build covers kernel_pca, randomized_svd_core and
+kernel_dispatch, using a byte-identical copy of the completed checked archive
+(SHA256 73d2898d5fbf1188c801aaa78a33f26aa1d6a688ad1b120126c419b66c42648d).
+All six optimized native regressions and six focused jobs pass. Cross-profile
+checks confirm identical reference inputs/oracles, current source/object/report
+hashes, and 206 unchanged archive members outside the three selected modules.
+This is scoped optimized verification, not a full optimized package rebuild.
+The first optimized invocation lacked the compiler runtime directory on PATH
+and failed before compilation; the corrected invocation and original failure
+logs are retained separately.
+
+Both profiles pass all 216 sparse/mixed-storage configurations, 274 randomized
+KernelPCA configurations, 12 sparse-input guards, and the existing 452 legacy
+preimage fixtures / 4,520 groups / 452 ridge certificates / 14 rejections.
+The shared dispatcher passes 2,005 configurations / 6,015 groups and 276 Source
+rejection probes in both profiles, with maximum scaled error
+3.3306690738754696e-16. No reference cases or tolerances were relaxed.
+
+The final wide-query memory peaks are 12,890,112 bytes checked and 12,214,272
+bytes optimized, below the 128 MiB limit. The query is 1,000 by 50,000 with two
+stored entries per row; a dense query alone would occupy 400,000,000 bytes.
+Training kernels remain dense and quadratic in training sample count.
+
+Evidence: validation/results/kernel_sparse_package_audit.json,
+kernel_sparse_optimized_audit.json and kernel_sparse_cross_profile_audit.json,
+plus their focused reports and logs. Overall sklearn parity remains incomplete;
+previously documented gaps remain open. MIT licensing and upstream BSD notices
+are retained, and all commits remain local.
+
+Verified evidence backup: kernel_sparse_evidence_e22d0e9.zip,
+51,656,326 bytes / 2,059 entries, SHA256
+537e4bac79717cc147decf6bf3ee414724faae94988bebeea3bcbb7a815117fc.
+ZIP CRCs and critical source/report/object/binary hashes pass; receipt:
+validation/results/kernel_sparse_archive_receipt.json (ignored evidence).
