@@ -2234,8 +2234,15 @@ optimal dual has (quantile-1)*w <= dual_coef_ <= quantile*w,
 abs(matmul(transpose(x),dual_coef_)) <= alpha and, with an intercept,
 sum(dual_coef_)=0. Its objective dot_product(y,dual_coef_) agrees with the
 primal objective. See COVERAGE.md for numerical tolerance, scaling, nonunique
-solutions, solver differences and convergence behavior. score is unweighted R2
-and requires at least two query samples.
+solutions, solver differences and convergence behavior. Dense and CSR designs
+support vector or one-column targets and optional scalar/vector fitting weights.
+Prediction accepts dense or CSR queries; score accepts vector/column targets
+and optional vector sample weights. CSR rows may be unsorted and contain
+explicit zeros or duplicate entries; fitting accumulates them directly into
+the required dense tableau. No separate dense design is created. All-zero
+weights return a zero model, zero diagnostics and zero pivots, as in Source.
+The inherited native solver still uses dense tableau storage, so CSR fitting
+has the same O(n*(p+n)) memory limitation as dense fitting.
 
 
 ## NuSVC

@@ -2385,11 +2385,13 @@ nonfinite updated weight sum. Parameters and finite dense inputs are validated.
 
 `quantile_regressor` implements sklearn 1.6.1 QuantileRegressor's weighted
 pinball-loss plus alpha * L1 objective, optional unpenalized intercept, dense
-single-target fit/predict and unweighted R2 score. Quantile must lie strictly
+or CSR vector/column target fit, dense/CSR prediction and weighted R2 score.
+Quantile must lie strictly
 between zero and one; alpha may be zero. Sample weights must be finite,
-nonnegative and have a positive finite sum. Weights are normalized to sum one,
+nonnegative and have a finite sum. Positive weights are normalized to sum one,
 and zero-weight rows are removed before optimization. The objective matches
-sklearn's sum-weight-rescaled penalty convention.
+sklearn's sum-weight-rescaled penalty convention. Scalar weights are accepted.
+All-zero weights return a zero model with zero iterations and diagnostics.
 
 The independent native solver is a dense primal simplex with a residual-slack
 initial feasible basis, Bland entering/leaving index rules, row sign changes,
@@ -2397,8 +2399,11 @@ feature/target scaling and an iteration limit. It optimizes the full piecewise
 linear objective; no smoothed approximation or external LP runtime is used.
 For n positive-weight samples and p parameters (including an intercept), the
 tableau has n rows and 2*p+2*n+1 columns. Storage is quadratic in n, and simplex
-can take many pivots. This implementation targets moderate dense problems.
-SciPy/HiGHS solver selection and solver_options, sparse arrays, multioutput,
+can take many pivots. CSR rows are accumulated directly into this tableau,
+including unsorted duplicates and explicit zeros; no dense design copy is
+created. Query prediction traverses stored entries directly. This targets
+moderate optimization problems, with efficient sparse queries. SciPy/HiGHS
+solver selection and solver_options, multioutput,
 metadata routing and estimator cloning are outside this subset. There is no
 claim that pivot counts or nonunique optima match HiGHS.
 

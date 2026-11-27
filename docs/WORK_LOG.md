@@ -10198,3 +10198,36 @@ The verified archive is ard_evidence_dc78194.zip,
 ecb2496642335a3a0b56bb4c9d46a33a846ab3b145f9254f179237a2c1643c15.
 ZIP CRCs and critical source/report/object/binary hashes pass. The receipt is
 validation/results/ard_archive_receipt.json (ignored local evidence).
+
+
+### QuantileRegressor CSR designs, rank adapters and weight contracts
+
+Added direct CSR fitting/prediction, dense/CSR vector and one-column targets,
+scalar/vector fitting weights, and optional weighted R2 scores. Unsorted
+stored columns, duplicate entries and explicit zeros are accumulated directly
+into the existing simplex tableau without constructing a separate dense design.
+Sparse prediction traverses stored entries. The Bland-rule simplex and its
+dense O(n*(p+n)) tableau remain the native solver; HiGHS-scale sparse LP
+performance is not claimed. Existing native tol/max_iter and certificate
+attributes remain explicitly documented extensions.
+
+Actual sklearn 1.6.1 accepts all-zero fitting weights and returns a zero model
+with zero pivots. Implemented that result and removed only the obsolete
+qr_weights_zero rejection expectation; the driver case remains callable as a
+valid case. Weight-sum overflow now reaches a controlled finite-sum diagnostic
+under floating-point traps, using IEEE-safe accumulation. Dense and CSR finite
+input/shape checks remain in place. MIT licensing and Source BSD attribution
+are retained; no HiGHS code is linked or adapted.
+
+An isolated checked probe passes all 240 configurations / 3,720 groups against
+Source, including twelve dense/CSR, vector/column, scalar/vector/default-weight
+adapters across five designs and four quantile/penalty/intercept settings.
+It covers all-zero weights and noncanonical CSR storage. Nonunique fits retain
+the established objective/primal-dual comparison policy, while unique fits
+also compare coefficients and predictions. All sixteen actual Source/native
+CSR rejection cases pass. A new native test passes a wide sparse fit and a
+40,000-by-4,000 query (1.28 GB if dense), plus input preservation, certificates,
+weighted scoring and zero-weight reset. Full package rebuilding is in progress;
+final checked/optimized and memory validation remains outstanding at this commit.
+The legacy dense validator adds only an optional report destination and Source
+input/oracle records; fixtures, comparisons and tolerances are unchanged.

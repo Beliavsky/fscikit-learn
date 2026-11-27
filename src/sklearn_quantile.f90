@@ -1,6 +1,8 @@
 module sklearn_quantile
   use sklearn_common, only: dp,require,check_x,check_xy
   use sklearn_metrics, only: r2_score
+  use sklearn_sparse,only:csr_matrix
+  use sklearn_ieee_math,only:ieee_difference,ieee_product,ieee_total
   use ieee_arithmetic, only: ieee_is_finite
   implicit none
   private
@@ -13,20 +15,91 @@ module sklearn_quantile
     real(dp) :: intercept_=0,objective_=0,dual_gap_=0,optimality_=0
     real(dp), allocatable :: coef_(:),dual_coef_(:)
   contains
-    procedure :: fit=>quantile_fit
-    procedure :: predict=>quantile_predict
-    procedure :: score=>quantile_score
+    procedure :: fit_dense=>quantile_fit,fit_csr,fit_scalar_dense,fit_scalar_csr
+    procedure :: fit_column_dense,fit_column_csr,fit_column_scalar_dense,fit_column_scalar_csr
+    generic :: fit=>fit_dense,fit_csr,fit_scalar_dense,fit_scalar_csr, &
+      fit_column_dense,fit_column_csr,fit_column_scalar_dense,fit_column_scalar_csr
+    procedure :: predict_dense=>quantile_predict,predict_csr
+    generic :: predict=>predict_dense,predict_csr
+    procedure :: score_dense=>quantile_score,score_csr,score_column_dense,score_column_csr
+    generic :: score=>score_dense,score_csr,score_column_dense,score_column_csr
   end type
 contains
+  subroutine check_sparse(x)
+    type(csr_matrix),intent(in)::x
+    call x%validate()
+    call require(x%n_rows>0.and.x%n_cols>0,'quantile sparse design must be nonempty')
+    call require(all(ieee_is_finite(x%data)),'quantile sparse design must be finite')
+  end subroutine
+  subroutine fit_csr(self,x,y,sample_weight)
+    class(quantile_regressor),intent(inout)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),intent(in)::y(:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    call fit_common(self,y,sample_weight,x_sparse=x)
+  end subroutine
+  subroutine fit_scalar_dense(self,x,y,sample_weight)
+    class(quantile_regressor),intent(inout)::self
+    real(dp),intent(in)::x(:,:),y(:),sample_weight
+    call fit_common(self,y,spread(sample_weight,1,size(y)),x=x)
+  end subroutine
+  subroutine fit_scalar_csr(self,x,y,sample_weight)
+    class(quantile_regressor),intent(inout)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),intent(in)::y(:),sample_weight
+    call fit_common(self,y,spread(sample_weight,1,size(y)),x_sparse=x)
+  end subroutine
+  subroutine fit_column_dense(self,x,y,sample_weight)
+    class(quantile_regressor),intent(inout)::self
+    real(dp),intent(in)::x(:,:),y(:,:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    call require(size(y,2)==1,'QuantileRegressor requires one target column')
+    call fit_common(self,y(:,1),sample_weight,x=x)
+  end subroutine
+  subroutine fit_column_csr(self,x,y,sample_weight)
+    class(quantile_regressor),intent(inout)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),intent(in)::y(:,:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    call require(size(y,2)==1,'QuantileRegressor requires one target column')
+    call fit_common(self,y(:,1),sample_weight,x_sparse=x)
+  end subroutine
+  subroutine fit_column_scalar_dense(self,x,y,sample_weight)
+    class(quantile_regressor),intent(inout)::self
+    real(dp),intent(in)::x(:,:),y(:,:),sample_weight
+    call require(size(y,2)==1,'QuantileRegressor requires one target column')
+    call fit_common(self,y(:,1),spread(sample_weight,1,size(y,1)),x=x)
+  end subroutine
+  subroutine fit_column_scalar_csr(self,x,y,sample_weight)
+    class(quantile_regressor),intent(inout)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),intent(in)::y(:,:),sample_weight
+    call require(size(y,2)==1,'QuantileRegressor requires one target column')
+    call fit_common(self,y(:,1),spread(sample_weight,1,size(y,1)),x_sparse=x)
+  end subroutine
   subroutine quantile_fit(self,x,y,sample_weight)
     class(quantile_regressor), intent(inout) :: self
     real(dp), intent(in) :: x(:,:),y(:)
     real(dp), optional, intent(in) :: sample_weight(:)
+    call fit_common(self,y,sample_weight,x=x)
+  end subroutine
+  subroutine fit_common(self,y,sample_weight,x,x_sparse)
+    class(quantile_regressor),intent(inout)::self
+    real(dp),intent(in)::y(:)
+    real(dp),optional,intent(in)::sample_weight(:),x(:,:)
+    type(csr_matrix),optional,intent(in)::x_sparse
     real(dp), allocatable :: weights(:),a(:,:),cost(:),reduced(:),solution(:),scale(:),target(:),dual(:),residual(:)
     real(dp) :: total,yscale,signrow,pivot,factor,ratio,best,pivot_tol,feas_tol
     integer, allocatable :: indices(:),basis(:)
-    integer :: n,p,q,m,i,j,enter,leave,offset
-    call check_xy(x,size(y)); call check_x(reshape(y,[size(y),1]))
+    integer :: n,p,q,m,i,j,k,enter,leave,offset
+    if(present(x))then
+      call check_xy(x,size(y));p=size(x,2)
+    else
+      call require(present(x_sparse),'quantile design is absent')
+      call check_sparse(x_sparse)
+      call require(x_sparse%n_rows==size(y),'quantile target length mismatch');p=x_sparse%n_cols
+    end if
+    call check_x(reshape(y,[size(y),1]))
     call require(ieee_is_finite(self%quantile),'quantile must be finite and strictly between zero and one')
     call require(self%quantile>0.and.self%quantile<1,'quantile must be finite and strictly between zero and one')
     call require(ieee_is_finite(self%alpha),'quantile alpha must be finite and nonnegative')
@@ -41,18 +114,33 @@ contains
       call require(all(sample_weight>=0),'quantile weights must be finite and nonnegative')
       weights=sample_weight
     end if
-    total=sum(weights)
-    call require(ieee_is_finite(total),'quantile weights must have positive finite sum')
-    call require(total>0,'quantile weights must have positive finite sum')
+    total=ieee_total(weights)
+    call require(ieee_is_finite(total),'quantile weights must have finite sum')
+    if(total==0)then
+      self%coef_=spread(0._dp,1,p);self%intercept_=0;self%dual_coef_=spread(0._dp,1,size(y))
+      self%n_features_in_=p;self%n_iter_=0;self%converged_=.true.
+      self%objective_=0;self%dual_gap_=0;self%optimality_=0;return
+    end if
     weights=weights/total
     indices=pack([(i,i=1,size(y))],weights>0)
-    weights=weights(indices); n=size(indices); p=size(x,2); offset=merge(1,0,self%fit_intercept); q=p+offset
+    weights=weights(indices); n=size(indices); offset=merge(1,0,self%fit_intercept); q=p+offset
     m=2*q+2*n; allocate(a(n,m+1),cost(m),reduced(m),solution(m),basis(n),scale(q),target(n),dual(n))
     a=0; cost=0; scale=1; target=y(indices); yscale=max(1._dp,maxval(abs(target))); target=target/yscale
     if(self%fit_intercept) a(:,1)=1
+    if(present(x))then
+      a(:,offset+1:q)=x(indices,:)
+    else
+      do i=1,n
+        do k=x_sparse%indptr(indices(i)),x_sparse%indptr(indices(i)+1)-1
+          j=x_sparse%indices(k)+offset
+          a(i,j)=ieee_difference(a(i,j),-x_sparse%data(k))
+        end do
+      end do
+    end if
+    call require(all(ieee_is_finite(a(:,offset+1:q))),'quantile design accumulation must be finite')
     do j=1,p
-      scale(j+offset)=max(1._dp,maxval(abs(x(indices,j))))
-      a(:,j+offset)=x(indices,j)/scale(j+offset)
+      scale(j+offset)=max(1._dp,maxval(abs(a(:,j+offset))))
+      a(:,j+offset)=a(:,j+offset)/scale(j+offset)
       cost(j+offset)=self%alpha/scale(j+offset)
     end do
     a(:,q+1:2*q)=-a(:,:q); cost(q+1:2*q)=cost(:q)
@@ -118,7 +206,16 @@ contains
     self%optimality_=max(0._dp,-minval(reduced))
     dual=matmul(cost(basis),a(:,2*q+1:2*q+n))
     self%dual_coef_=spread(0._dp,1,size(y)); self%dual_coef_(indices)=dual
-    residual=y(indices)-matmul(x(indices,:),self%coef_)-self%intercept_
+    residual=y(indices)-self%intercept_
+    if(present(x))then
+      residual=residual-matmul(x(indices,:),self%coef_)
+    else
+      do i=1,n
+        do k=x_sparse%indptr(indices(i)),x_sparse%indptr(indices(i)+1)-1
+          residual(i)=ieee_difference(residual(i),ieee_product(x_sparse%data(k),self%coef_(x_sparse%indices(k))))
+        end do
+      end do
+    end if
     self%objective_=sum(weights*max(self%quantile*residual,(self%quantile-1)*residual))+ &
       self%alpha*sum(abs(self%coef_))
     self%dual_gap_=max(0._dp,self%objective_-dot_product(y(indices),dual))
@@ -132,9 +229,46 @@ contains
     call require(size(x,2)==self%n_features_in_,'quantile feature count mismatch')
     y=matmul(x,self%coef_)+self%intercept_
   end function
-  real(dp) function quantile_score(self,x,y) result(v)
+  real(dp) function quantile_score(self,x,y,sample_weight) result(v)
     class(quantile_regressor), intent(in) :: self
     real(dp), intent(in) :: x(:,:),y(:)
-    v=r2_score(y,self%predict(x))
+    real(dp),optional,intent(in)::sample_weight(:)
+    v=r2_score(y,self%predict(x),sample_weight=sample_weight)
+  end function
+  function predict_csr(self,x)result(y)
+    class(quantile_regressor),intent(in)::self
+    type(csr_matrix),intent(in)::x
+    real(dp)::y(x%n_rows)
+    integer::i,k
+    call require(allocated(self%coef_),'QuantileRegressor is not fitted');call check_sparse(x)
+    call require(x%n_cols==self%n_features_in_,'quantile feature count mismatch')
+    y=self%intercept_
+    do i=1,x%n_rows
+      do k=x%indptr(i),x%indptr(i+1)-1
+        y(i)=ieee_difference(y(i),-ieee_product(x%data(k),self%coef_(x%indices(k))))
+      end do
+    end do
+  end function
+  real(dp)function score_csr(self,x,y,sample_weight)result(value)
+    class(quantile_regressor),intent(in)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),intent(in)::y(:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    value=r2_score(y,self%predict(x),sample_weight=sample_weight)
+  end function
+  real(dp)function score_column_dense(self,x,y,sample_weight)result(value)
+    class(quantile_regressor),intent(in)::self
+    real(dp),intent(in)::x(:,:),y(:,:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    call require(size(y,2)==1,'QuantileRegressor score requires one target column')
+    value=r2_score(y(:,1),self%predict(x),sample_weight=sample_weight)
+  end function
+  real(dp)function score_column_csr(self,x,y,sample_weight)result(value)
+    class(quantile_regressor),intent(in)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),intent(in)::y(:,:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    call require(size(y,2)==1,'QuantileRegressor score requires one target column')
+    value=r2_score(y(:,1),self%predict(x),sample_weight=sample_weight)
   end function
 end module

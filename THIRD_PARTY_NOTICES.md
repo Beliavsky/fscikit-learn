@@ -2852,3 +2852,10 @@ lower-triangle convention follow SciPy 1.15.3 `scipy/linalg/_basic.py` pinvh.
 Retained BSD notices are in `LICENSES/scikit-learn-COPYING` and
 `LICENSES/scipy-COPYING`. The native Jacobi integration, signed log determinant,
 Fortran target adapters and clone/parameter integration are MIT implementations.
+
+
+QuantileRegressor dense/CSR target and sample-weight adapters and the all-zero
+weight result follow sklearn 1.6.1 `linear_model/_quantile.py` and `_base.py`.
+Direct CSR tableau assembly, sparse prediction, IEEE-safe accumulation and
+native diagnostic integration are independent MIT implementations. The
+existing scikit-learn BSD notice is retained; no HiGHS code is linked/adapted.

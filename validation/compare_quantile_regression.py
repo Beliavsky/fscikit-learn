@@ -15,6 +15,7 @@ FLAGS = "-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow"
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--executable", type=Path, help="Use an already compiled reference driver")
+    parser.add_argument("--report", type=Path)
     args = parser.parse_args()
     RESULTS.mkdir(exist_ok=True)
     if args.executable:
@@ -27,7 +28,7 @@ def main():
         candidates = [path for path in candidates if path.is_file()]
         assert len(candidates) == 1, resolved.stdout
         executable = candidates[0].resolve()
-    checks = []
+    checks = []; records = []
     for seed, n, p in ((7, 57, 3), (42, 71, 4), (2026, 43, 5), (19, 9, 15), (321, 31, 30)):
         rng = np.random.default_rng(seed)
         original = rng.normal(size=(n, p))
@@ -101,8 +102,9 @@ def main():
                 check("intercept", actual["intercept"], model.intercept_, 2e-7*scale)
                 check("prediction", actual["predict"], model.predict(x), 2e-7*scale)
                 check("query", actual["query"], model.predict(x+.137), 2e-7*scale)
-    (RESULTS / "quantile_regression.json").write_text(json.dumps(
-        dict(sklearn=sklearn.__version__, checks=checks), indent=2)+"\n")
+            records.append(dict(seed=seed,case=case,input=data.read_text(),source=dict(coef=model.coef_.tolist(),intercept=float(model.intercept_),predict=model.predict(x).tolist(),query=model.predict(x+.137).tolist(),objective=float(expected_objective))))
+    (args.report or RESULTS / "quantile_regression.json").write_text(json.dumps(
+        dict(sklearn=sklearn.__version__, checks=checks,records=records), indent=2)+"\n")
     print(f"{len(checks)} QuantileRegressor result groups passed")
 
 
