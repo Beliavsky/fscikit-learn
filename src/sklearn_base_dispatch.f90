@@ -1,6 +1,7 @@
 ! Internal native base dispatch shared by voting and bagging ensembles.
 ! Existing voting dispatch semantics and diagnostics are retained.
 module sklearn_base_dispatch
+  use sklearn_quantile,only:quantile_regressor
   use sklearn_classic_gradient_boosting,only:gradient_boosting_regressor,gradient_boosting_classifier
   use sklearn_model_selection, only: ridge_cv
   use sklearn_weighted_linear, only: weighted_ridge_loo
@@ -29,6 +30,8 @@ contains
     class(*), intent(in) :: model
     ok=.false.
     select type(model)
+    type is(quantile_regressor)
+      ok=allocated(model%coef_)
     class is(logistic_regression)
       ok=allocated(model%classes_)
     type is(gaussian_nb)
@@ -112,6 +115,8 @@ contains
     real(dp), intent(in) :: y(:)
     real(dp), intent(in), optional :: weights(:)
     select type(model)
+    type is(quantile_regressor)
+      call model%fit(x,y,weights)
     type is(sgd_regressor)
       call model%fit(x,y,weights)
     type is(ridge_cv)
@@ -217,6 +222,8 @@ contains
     real(dp), intent(in) :: x(:,:)
     real(dp), allocatable :: values(:)
     select type(model)
+    type is(quantile_regressor)
+      values=model%predict(x)
     type is(sgd_regressor)
       values=model%predict(x)
     class is(linear_regression)
@@ -296,6 +303,7 @@ contains
       end select
     else
       select type(model)
+      type is(quantile_regressor)
       type is(sgd_regressor)
       class is(linear_regression)
       type is(kneighbors_regressor)
@@ -313,6 +321,7 @@ contains
     class(*), intent(in) :: model
     ok=.true.
     select type(model)
+    type is(quantile_regressor)
     class is(logistic_regression)
     type is(gaussian_nb)
     class is(multinomial_nb)

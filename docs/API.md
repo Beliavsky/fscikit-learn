@@ -11337,3 +11337,17 @@ than exposing Python copy ownership controls. Native `converged_` also denotes
 an all-pruned stop; sklearn exposes iteration counts but no such boolean.
 Native Jacobi and Source LAPACK inverses can follow different numerical paths
 for ill-conditioned centered wide data; strict differences remain recorded.
+
+
+QuantileRegressor integrates with dense Pipeline final-regressor dispatch and
+GridSearchCV/RandomizedSearchCV parameter adapters. Supported Source parameters
+are quantile, alpha and fit_intercept; native tol and max_iter remain explicitly
+identified solver extensions. Cloning preserves constructor controls and drops
+coefficients, dual variables and fitted diagnostics. The internal helper
+clone_quantile_parameters is available from sklearn_sgd_clone.
+`cross_val_score(model,x,y,cv=4,sample_weight=weights)` accepts optional scalar
+or vector fitting weights for QuantileRegressor, fits a fresh clone in each
+KFold split, and returns unweighted held-out R2 scores. Model-selection and
+Pipeline adapters here use dense vector targets; direct CSR/column-target
+methods remain available on the estimator. Weighted Pipeline fitting routes
+weights to its final estimator, leaving preceding transforms unweighted.

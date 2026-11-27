@@ -2859,3 +2859,10 @@ weight result follow sklearn 1.6.1 `linear_model/_quantile.py` and `_base.py`.
 Direct CSR tableau assembly, sparse prediction, IEEE-safe accumulation and
 native diagnostic integration are independent MIT implementations. The
 existing scikit-learn BSD notice is retained; no HiGHS code is linked/adapted.
+
+
+QuantileRegressor constructor-only cloning, per-fold fit weights, dense
+GridSearchCV/RandomizedSearchCV parameter handling and final-estimator Pipeline
+dispatch follow sklearn 1.6.1 base.py, model_selection/_validation.py,
+model_selection/_search.py and pipeline.py. Typed Fortran adapters are independent
+MIT code; the retained scikit-learn BSD notice remains applicable.

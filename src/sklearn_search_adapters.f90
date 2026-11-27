@@ -1,5 +1,6 @@
 ! Internal typed estimator adapters for sklearn-style parameter search (MIT).
 module sklearn_search_adapters
+  use sklearn_quantile,only:quantile_regressor
   use sklearn_adaboost,only:adaboost_classifier
   use sklearn_adaboost_regression,only:adaboost_regressor
   use sklearn_classic_gradient_boosting,only:reset_boosting_fit
@@ -114,6 +115,15 @@ contains
     end if
     done=.true.
     select type(model)
+    type is(quantile_regressor)
+      select case(name)
+      case('quantile');model%quantile=value%as_real()
+      case('alpha');model%alpha=value%as_real()
+      case('fit_intercept');model%fit_intercept=value%as_logical()
+      case('tol');model%tol=value%as_real()
+      case('max_iter');model%max_iter=value%as_integer()
+      case default;done=.false.
+      end select
     type is(pipeline)
       step=model%named_step_index(name);call require(step>0,'search unknown Pipeline parameter')
       call require(value%as_text()=='passthrough','search Pipeline replacement requires passthrough or a callback')

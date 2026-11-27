@@ -10270,3 +10270,34 @@ The verified backup is quantile_csr_evidence_6283d00.zip,
 5652af1635467150504ba5ba99daf36eba8f39cef3c33226b126b2cc441b6cf0.
 ZIP CRCs and critical source/report/object/binary hashes pass. The receipt is
 validation/results/quantile_csr_archive_receipt.json (ignored local evidence).
+
+
+### QuantileRegressor clones, CV, search and composite dispatch
+
+Added QuantileRegressor to shared regressor recognition, weighted fitting,
+prediction and fitted-state dispatch. Constructor-only cloning preserves its
+five controls and drops learned coefficients, dual variables and diagnostics.
+Typed search supports Source quantile/alpha/fit_intercept and the documented
+native tol/max_iter extensions. Dense Pipeline final-estimator dispatch now
+accepts weighted QuantileRegressor fits. A dedicated cross_val_score overload
+fits a fresh constructor clone per KFold split, accepts scalar/vector fitting
+weights and returns unweighted held-out R2, matching Source default routing.
+Dense vector targets are supported here; direct CSR/column estimator methods
+remain available separately. MIT licensing and Source BSD notices are retained.
+
+An isolated checked comparison passes all 96 configurations across three
+seeds, grid/randomized search, direct/Pipeline models, R2/MSE scoring and four
+fit-weight modes (default, vector, scalar and all zero). It checks standalone
+CV scores, explicit candidate parameter order, split/mean/std/train scores,
+ranks, selected candidate, refit predictions, caller preservation and clone
+reset state. All-zero scores cannot conceal incorrect sampled candidate order.
+The new native integration test also passes. Full checked rebuilding and final
+optimized/package validation are in progress at this commit.
+
+Early partial-module probes exposed GNU module-cache coherence diagnostics
+when mixing updated search metadata with cached facade/validation imports.
+The probe now compiles its search dependency and uses explicit imports; those
+diagnostics and logs are retained. Final validation will use the completed
+coherent fpm library, including a separate public-facade CV smoke check.
+Existing Source fixtures/tolerances are unchanged. The broader translation
+and previously documented numerical gaps remain open; commits stay local.

@@ -1,4 +1,5 @@
 module sklearn_model_selection
+  use sklearn_sgd_clone,only:clone_quantile_parameters
   use sklearn_weighted_linear, only: weighted_ridge_loo
   use sklearn_common
   use sklearn_resampling
@@ -54,6 +55,7 @@ module sklearn_model_selection
     procedure :: fit_dense=>ridge_cv_fit
   end type
   interface cross_val_score
+    module procedure cross_val_quantile,cross_val_quantile_scalar
     module procedure cross_val_regression,cross_val_logistic
   end interface
 contains
@@ -303,6 +305,36 @@ contains
       call model%fit(x(folds(i)%train,:),y(folds(i)%train))
       scores(i)=model%score(x(folds(i)%test,:),y(folds(i)%test))
     end do
+  end function
+  function cross_val_quantile(estimator,x,y,cv,sample_weight)result(scores)
+    type(quantile_regressor),intent(in)::estimator
+    real(dp),intent(in)::x(:,:),y(:)
+    integer,optional,intent(in)::cv
+    real(dp),optional,intent(in)::sample_weight(:)
+    real(dp),allocatable::scores(:)
+    type(quantile_regressor)::model
+    type(kfold)::splitter
+    type(index_split),allocatable::folds(:)
+    integer::i
+    call check_xy(x,size(y));if(present(cv))splitter%n_splits=cv
+    if(present(sample_weight))call require(size(sample_weight)==size(y),'CV sample_weight length mismatch')
+    folds=splitter%split(size(y));allocate(scores(size(folds)))
+    do i=1,size(folds)
+      model=clone_quantile_parameters(estimator)
+      if(present(sample_weight))then
+        call model%fit(x(folds(i)%train,:),y(folds(i)%train),sample_weight(folds(i)%train))
+      else
+        call model%fit(x(folds(i)%train,:),y(folds(i)%train))
+      end if
+      scores(i)=model%score(x(folds(i)%test,:),y(folds(i)%test))
+    end do
+  end function
+  function cross_val_quantile_scalar(estimator,x,y,cv,sample_weight)result(scores)
+    type(quantile_regressor),intent(in)::estimator
+    real(dp),intent(in)::x(:,:),y(:),sample_weight
+    integer,optional,intent(in)::cv
+    real(dp),allocatable::scores(:)
+    scores=cross_val_quantile(estimator,x,y,cv,spread(sample_weight,1,size(y)))
   end function
   function cross_val_logistic(estimator,x,y,cv) result(scores)
     class(logistic_regression), intent(in) :: estimator

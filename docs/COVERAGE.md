@@ -2404,7 +2404,9 @@ including unsorted duplicates and explicit zeros; no dense design copy is
 created. Query prediction traverses stored entries directly. This targets
 moderate optimization problems, with efficient sparse queries. SciPy/HiGHS
 solver selection and solver_options, multioutput,
-metadata routing and estimator cloning are outside this subset. There is no
+Python metadata routing remains outside this subset. Constructor-only clones,
+dense cross-validation, typed parameter search and weighted Pipeline dispatch
+are supported. There is no
 claim that pivot counts or nonunique optima match HiGHS.
 
 Native max_iter (default 10000) and tol (default 1e-10) control pivot count and

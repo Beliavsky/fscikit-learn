@@ -3,14 +3,22 @@
 ! Preserve constructor controls and discard learned state, as sklearn.base.clone.
 module sklearn_sgd_clone
   use sklearn_sgd, only: sgd_regressor,sgd_classifier
+  use sklearn_quantile,only:quantile_regressor
   use sklearn_linear_model,only:ard_regression,bayesian_ridge,huber_regressor,tweedie_regressor,poisson_regressor,gamma_regressor
   implicit none
   private
   public :: clone_sgd_parameters,reset_sgd_fit
+  public :: clone_quantile_parameters
   interface clone_sgd_parameters
     module procedure clone_sgdr_parameters,clone_sgdc_parameters
   end interface
 contains
+  function clone_quantile_parameters(source)result(model)
+    type(quantile_regressor),intent(in)::source
+    type(quantile_regressor)::model
+    model%quantile=source%quantile;model%alpha=source%alpha;model%fit_intercept=source%fit_intercept
+    model%tol=source%tol;model%max_iter=source%max_iter
+  end function
   function clone_sgdr_parameters(source) result(model)
     type(sgd_regressor), intent(in) :: source
     type(sgd_regressor) :: model
@@ -34,6 +42,8 @@ contains
   subroutine reset_sgd_fit(model)
     class(*), intent(inout) :: model
     select type(model)
+    type is(quantile_regressor)
+      model=clone_quantile_parameters(model)
     type is(ard_regression)
       block
         type(ard_regression)::copy
