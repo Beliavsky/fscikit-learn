@@ -9906,3 +9906,47 @@ suite expands to 32 dense/CSR Source/native guards. Full checked and optimized
 reference inventories and evidence verification are recorded in the follow-up
 entry. MIT licensing and BSD reference attribution are retained; commits are
 local and the broader translation remains open.
+
+
+### GLM L-BFGS checked/optimized verification and evidence
+
+Implementation commit: a41644f. The checked fpm build and the refresh of the
+two input-test executables succeed. The package audit completes 334 jobs, with
+328 passing: all 308 native programs and eleven selected examples pass.
+All 898 audited build fingerprints match current sources, including 206
+library units. Six fitted reference suites deliberately retain strict failures:
+the new L-BFGS suite has nine boundary-score cases, the older GLM Newton suite
+has three, Huber retains six/four cases, and RANSAC retains seventeen cases and
+two exact rank cases. These inventories match across checked and optimized
+builds. No fixture geometry, tolerance or expected output was loosened.
+
+The final L-BFGS comparison covers 492 configurations / 921 successful Source
+fits. Coefficients, predictions, iteration counts and convergence status match;
+only the nine documented scores differ (indices
+450,451,452,453,454,455,459,460,461). All 32 actual dense/CSR Source/native guards
+pass. Both profiles pass all 192 new loss/gradient/IEEE-state probes, all 156
+Poisson Pipeline fixtures / 1,755 groups, all 213 original robust/GLM groups,
+672 Ridge groups, 1,514 Huber objective checks and 86 RANSAC guards. Original
+Source inputs and fitted oracles remain unchanged. Four surviving generic GLM
+diagnostics pass after migrating the obsolete accepted cases.
+
+Scoped O3 validation rebuilds eleven modules, passes seventeen native programs
+and runs thirteen reference suites, with the same retained differences. Two
+supplemental checks cover Pipeline and memory. Peak working set for the
+40,000-feature sparse test is 20,099,072 bytes checked and 19,333,120 bytes
+optimized; the 256 MiB cap passes. This is scoped optimization against checked
+dependencies, not a full optimized package rebuild. The cross-profile audit
+verifies source/object/report hashes and all 195 non-overridden baseline
+archive members. Validation uses GNU Fortran 15.2.0 with static libgfortran and
+the existing validation-only Windows locale-copy shim; installed tools are
+unchanged, and unwrapped runtime stability is not established.
+
+Evidence, initial IEEE failure artifacts, corrected binaries, optimized objects,
+source/license snapshots and stable/final libraries are retained under ignored
+validation/results/glm_*. The verified compressed archive is
+glm_lbfgs_evidence_a41644f.zip: 267,719,582 bytes,
+2,612 entries, SHA256
+13764f64cb881a9d46bf08a2d449de08e43761bc2b4bf655d3428a023af297b3.
+ZIP CRCs and critical source/report/binary hashes were verified. Commits remain
+local. Source Newton-Cholesky, out-of-domain scoring, remaining numerical
+mismatches and the broader sklearn translation remain open.
