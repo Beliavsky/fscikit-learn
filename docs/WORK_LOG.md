@@ -9502,3 +9502,65 @@ provenance are retained under ignored `validation/results/min_samples_*`,
 including `min_samples_package_audit.json` and
 `min_samples_cross_profile_audit.json`. Both implementation and verification
 commits are local; no push was made.
+
+
+## Classic boosting validation stopping and NaN losses (2026-11-27)
+
+Implementation `2d60731` adds validation stopping to both classic gradient
+boosters through `n_iter_no_change`, `validation_fraction` and `tol`. Native
+patience zero represents sklearn None. Regression uses seeded shuffle splits;
+classification uses stratified splits, validates weighted class retention on
+all rows before splitting, and checks that training rows retain every raw class.
+Initializers and component controls use the training partition. The Source
+circular window, retained stopping stage, trimmed histories and independent
+split/tree RNG streams are preserved. Warm fits recreate the split and window
+while retaining the tree RNG; validation starts at the first retained stage,
+matching the sklearn 1.6.1 warm-generator convention. Search and clone resets
+retain the new controls. Original integration remains MIT with retained BSD
+attribution, without a new dependency or extension algorithm.
+
+The checked build initially trapped on a Source-accepted NaN validation loss
+with signed weights. Fix `8cc9229` makes this comparison false without raising
+an invalid floating-point exception. A native regression test reproduces the
+actual RandomState fixture. All 96 signed-weight configurations pass: 77
+successful fits and 19 matching fit rejections, including seven regression
+fits with NaN training/validation losses that stop after one stage. The initial
+SIGFPE executable, inputs, raw output and Source oracles remain retained;
+the final audit verifies that the reference data was not changed by the fix.
+
+Nine new reference/guard suites pass all 1,968 configurations in checked and
+scoped optimized profiles: 384 regression/396 classification cold fits, 512
+warm snapshots per kind, 96 signed-weight fixtures, 28 fitted-template
+composition fixtures and 40 parameter/split checks. Compositions include 25
+numeric matches and three controlled rejections matching Source zero-total
+OOB-weight errors. Source-undefined scores are recorded separately. Tree
+structures, metadata and labels remain integer-exact; floating tolerances
+remain rtol 2e-10 / atol 2e-12, including matching nonfinite masks.
+
+The final checked fpm build and all 347 package jobs pass: all 303 native
+programs, ten selected examples, fourteen earlier boosting suites, two earlier
+tree suites, all 6,332 fractional-sample configurations and 240 parameter cases,
+510 legacy classifier groups and 192 core comparisons. All 876 compiled-unit
+fingerprints (204 library units) are verified. The optimized scope rebuilds
+fifteen affected modules with matching checked dependencies and passes eight
+native programs plus all nine new suites; this is not a full optimized package
+rebuild. Final manifests verify current source, executable and object hashes.
+
+Older ignored numeric JSON reports were missing when the initial audit tried
+to replay them. Their raw inputs and native outputs were still available.
+The final audit regenerates the six fractional-sample suites from installed
+sklearn, verifies byte-identical retained inputs, and checks every retained
+native output against the fresh Source arrays at the unchanged bounds. It
+makes no claim to have compared unavailable historical Source JSON arrays.
+Current-turn pre-fix Source arrays for fourteen boosting/two tree suites and
+the original 384-case classification prefix are retained and compared directly.
+Python set-order differences in error messages are recorded separately without
+changing error types, phases, cases or allowed set members.
+
+GNU Fortran 15.2.0 validation uses the existing static libgfortran/locale-copy
+wrapper for the separately reproduced Windows numeric-locale lifetime defect;
+installed compilers remain unchanged. Evidence is retained under ignored
+`validation/results/gb_early_*`, including the final package/cross-profile
+manifests, initial failures and compressed backup
+`validation/results/gb_early_evidence_8cc9229.zip`. All commits are local;
+no push was made. The overall sklearn translation remains incomplete.
