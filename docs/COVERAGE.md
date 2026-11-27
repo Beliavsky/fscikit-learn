@@ -145,6 +145,28 @@ Fortran identifiers use snake_case rather than CamelCase.
 | calibration | `calibrated_classifier_cv`; `calibration_curve` | Sigmoid/isotonic CV ensembles, out-of-fold calibration and prefit calibration with logistic, Gaussian NB or KNN bases; uniform/quantile reliability bins |
 | datasets | `make_classification`, `make_multilabel_classification`, `make_sparse_coded_signal`, `make_sparse_spd_matrix`, `make_biclusters`, `make_checkerboard`, `make_hastie_10_2`, `make_blobs`, `make_regression`, `make_low_rank_matrix`, `make_moons`, `make_circles`, `make_friedman1/2/3`, `make_sparse_uncorrelated`, `make_s_curve`, `make_swiss_roll`, `make_gaussian_quantiles` | Native synthetic generators with seeded legacy NumPy draws; scalar/joint regression, low-rank profiles, unequal blob/curve counts, per-cluster blob scales and center outputs; no bundled real-world datasets |
 
+## Typed minimum sample counts
+
+DecisionTree, ExtraTree, RandomForest, ExtraTrees and classic GradientBoosting
+classifiers/regressors support integer and real `set_min_samples_leaf` and
+`set_min_samples_split`. Fractions resolve with `ceil(fraction * n_samples)`
+using the full input row count, including zero-weight and out-of-bag rows.
+Split counts retain a minimum of two, and both children must satisfy the leaf
+count. Leaf fractions are strictly below one; split fractions may equal one.
+
+Typed search parameters, parameter-only clones, pruning paths, warm-start
+growth and extracted-tree refits preserve the parameter type. Existing public
+integer fields remain supported; typed setters explicitly switch modes. These
+are sklearn capabilities, with no public extension algorithm added.
+
+Reference comparisons cover complete trees, multioutput targets, both CART
+and randomized splits, all implemented tree criteria, weights, pruning,
+bootstrap and warm-start forest histories, and full/stochastic boosting.
+`check_min_sample_controls.py` compares 240 accepted/rejected parameter cases
+across all ten estimator types against installed sklearn 1.6.1. Native tests
+also cover search, clone resets, mode changes and component refits on new rows.
+Evidence is retained under ignored `validation/results/min_samples_*`.
+
 ## Typed feature budgets for trees and forests
 
 CART, ExtraTree, random-forest and ExtraTrees classifiers/regressors support

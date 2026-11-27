@@ -5,7 +5,15 @@ module sklearn_tree_features
  use,intrinsic::ieee_arithmetic,only:ieee_is_finite
  implicit none
  private
- public::feature_count_control
+ public::feature_count_control,sample_count_control
+ type::sample_count_control
+  private
+  logical::fractional_=.false.
+  real(dp)::value_=0
+ contains
+  procedure::reset=>sample_reset,set=>sample_set,resolve=>sample_resolve
+  procedure::fractional=>sample_fractional,value=>sample_value
+ end type
  type::feature_count_control
   private
   integer::mode=0
@@ -18,6 +26,42 @@ module sklearn_tree_features
   procedure::resolve=>feature_resolve
  end type
 contains
+ subroutine sample_reset(self)
+  class(sample_count_control),intent(inout)::self
+  self%fractional_=.false.
+ end subroutine
+ subroutine sample_set(self,value)
+  class(sample_count_control),intent(inout)::self
+  real(dp),intent(in)::value
+  self%fractional_=.true.;self%value_=value
+ end subroutine
+ logical function sample_fractional(self,count)result(active)
+  class(sample_count_control),intent(in)::self
+  integer,intent(in)::count
+  active=self%fractional_.and.count==0
+ end function
+ real(dp)function sample_value(self)result(value)
+  class(sample_count_control),intent(in)::self
+  value=self%value_
+ end function
+ integer function sample_resolve(self,count,n,minimum,include_one)result(value)
+  class(sample_count_control),intent(in)::self
+  integer,intent(in)::count,n,minimum
+  logical,intent(in)::include_one
+  value=count
+  if(.not.self%fractional(count))then
+   call require(count>=minimum,'minimum sample count is below its integer bound')
+   return
+  end if
+  call require(ieee_is_finite(self%value_),'minimum sample fraction must be finite')
+  call require(self%value_>0,'minimum sample fraction must be positive')
+  if(include_one)then
+   call require(self%value_<=1,'minimum split fraction must be in (0,1]')
+  else
+   call require(self%value_<1,'minimum leaf fraction must be in (0,1)')
+  end if
+  value=max(minimum,ceiling(self%value_*real(n,dp)))
+ end function
  subroutine feature_reset(self)
   class(feature_count_control),intent(inout)::self
   self%mode=0

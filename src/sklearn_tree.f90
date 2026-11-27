@@ -1,5 +1,5 @@
 module sklearn_tree
-  use sklearn_tree_features,only:feature_count_control
+  use sklearn_tree_features,only:feature_count_control,sample_count_control
   use sklearn_sparse, only: csr_matrix
   use sklearn_tree_pruning, only: tree_pruning_path,weakest_link_pruning
   use sklearn_tree_median, only: tree_median_queue
@@ -31,11 +31,16 @@ module sklearn_tree
     logical :: random_thresholds=.false.
     logical, private :: weighted_fit_=.false.
     type(feature_count_control),private::feature_control_
+    type(sample_count_control),private::leaf_control_,split_control_
     integer :: max_features_=0
     real(dp) :: min_impurity_decrease=0,ccp_alpha=0,min_weight_fraction_leaf=0
     real(dp), allocatable :: feature_importances_(:)
     type(tree_node), allocatable :: nodes_(:)
   contains
+    procedure,private::leaf_integer=>tree_leaf_integer,leaf_real=>tree_leaf_real
+    procedure,private::split_integer=>tree_split_integer,split_real=>tree_split_real
+    generic::set_min_samples_leaf=>leaf_integer,leaf_real
+    generic::set_min_samples_split=>split_integer,split_real
     procedure,private::features_integer=>tree_features_integer,features_real=>tree_features_real
     procedure,private::features_name=>tree_features_name
     generic::set_max_features=>features_integer,features_real,features_name
@@ -85,6 +90,26 @@ module sklearn_tree
   end type
 
 contains
+  subroutine tree_leaf_integer(self,value)
+    class(tree_storage),intent(inout)::self
+    integer,intent(in)::value
+    self%min_samples_leaf=value;call self%leaf_control_%reset()
+  end subroutine
+  subroutine tree_leaf_real(self,value)
+    class(tree_storage),intent(inout)::self
+    real(dp),intent(in)::value
+    self%min_samples_leaf=0;call self%leaf_control_%set(value)
+  end subroutine
+  subroutine tree_split_integer(self,value)
+    class(tree_storage),intent(inout)::self
+    integer,intent(in)::value
+    self%min_samples_split=value;call self%split_control_%reset()
+  end subroutine
+  subroutine tree_split_real(self,value)
+    class(tree_storage),intent(inout)::self
+    real(dp),intent(in)::value
+    self%min_samples_split=0;call self%split_control_%set(value)
+  end subroutine
   subroutine tree_features_integer(self,value)
     class(tree_storage),intent(inout)::self
     integer,intent(in)::value
@@ -145,7 +170,7 @@ contains
     type(legacy_random_state) :: rng
     real(dp), allocatable :: z(:,:)
     integer, allocatable :: active(:),frontier_samples(:)
-    integer :: all_features(size(x,2)),constants(size(x,2)),i,root,nf,nout
+    integer :: all_features(size(x,2)),constants(size(x,2)),i,root,nf,nout,min_leaf,min_split
     integer(int64) :: state
     real(dp) :: root_weight,min_weight,normalizer,contribution
     type(tree_median_queue),allocatable :: median_left(:),median_right(:)
@@ -187,7 +212,9 @@ contains
     call require(all(ieee_is_finite(w)),'tree sample weights must be finite')
     call require(size(y)<=huge(1)/2,'tree node capacity exceeds integer range')
     call require(maxval(abs(x))<=real(huge(0._real32),dp),'tree training features exceed float32 range')
-    call require(self%max_depth>=0.and.self%min_samples_split>=2.and.self%min_samples_leaf>=1, &
+    min_leaf=self%leaf_control_%resolve(self%min_samples_leaf,size(y),1,.false.)
+    min_split=self%split_control_%resolve(self%min_samples_split,size(y),2,.true.)
+    call require(self%max_depth>=0.and.min_split>=2.and.min_leaf>=1, &
       'invalid tree size controls')
     call require(self%max_leaf_nodes>=0.and.self%max_leaf_nodes/=1,'tree max_leaf_nodes must be zero or at least two')
     call require(self%max_features>=0,'invalid tree max_features')
@@ -798,7 +825,7 @@ contains
           do c=1,size(classes);self%nodes_(node)%values(c)=ieee_quotient(sums(c),mass);end do
         end if
       end if
-      if(depth>=self%max_depth.or.n<self%min_samples_split.or.n/2<self%min_samples_leaf) return
+      if(depth>=self%max_depth.or.n<min_split.or.n/2<min_leaf) return
       if(less(mass,ieee_product(2._dp,min_weight))) return
       if(.not.ieee_is_nan(parent)) then
         if(parent<=epsilon(1._dp)) return
@@ -826,7 +853,7 @@ contains
           call swap(all_features(fj+1),all_features(nconstant+1)); found=found+1; nconstant=nconstant+1; cycle
         end if
         fi=fi-1; call swap(all_features(fi+1),all_features(fj+1))
-        first=self%min_samples_leaf; last=n-self%min_samples_leaf
+        first=min_leaf; last=n-min_leaf
         if(self%random_thresholds) then
           threshold=(high-low)*real(next_random(),dp)/2147483647._dp+low
           if(threshold==high) threshold=low
@@ -848,7 +875,7 @@ contains
         pos=0;wl=0;sl=0
         if(criterion=='absolute_error') call reset_medians()
         do cut=first,last
-          if(cut<self%min_samples_leaf.or.n-cut<self%min_samples_leaf) cycle
+          if(cut<min_leaf.or.n-cut<min_leaf) cycle
           if(.not.self%random_thresholds) then
             if(z(ordered(cut+1),f)<=z(ordered(cut),f)) cycle
             threshold=z(ordered(cut),f)/2+z(ordered(cut+1),f)/2

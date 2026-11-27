@@ -1,5 +1,14 @@
 # Third-party notices and provenance
 
+Typed minimum sample counts for CART/ExtraTree, random forests/ExtraTrees and
+classic gradient boosting follow scikit-learn 1.6.1 `tree/_classes.py`
+`BaseDecisionTree._fit`: fractional counts use the ceiling of the full input
+row count, split counts have a minimum of two, and each split must accommodate
+both minimum-size leaves. `ensemble/_forest.py` and `ensemble/_gb.py` supply
+full-input propagation with masked/multiplicity sample weights. Typed storage,
+overloaded setters and search adapters are original MIT contributions. The
+existing BSD notice is retained in `LICENSES/scikit-learn-COPYING`.
+
 Classic gradient boosting in `src/sklearn_classic_gradient_boosting.f90`
 follows sklearn 1.6.1 `ensemble/_gb.py`, `_loss/loss.py`, `_loss/_loss.pyx.tp`,
 `_loss/link.py`, `dummy.py` and `utils/stats.py`: shared RandomState tree fitting,

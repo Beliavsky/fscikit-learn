@@ -3,7 +3,7 @@
 module sklearn_classic_gradient_boosting
   use sklearn_common
   use sklearn_tree,only:decision_tree_regressor
-  use sklearn_tree_features,only:feature_count_control
+  use sklearn_tree_features,only:feature_count_control,sample_count_control
   use sklearn_legacy_rng,only:legacy_random_state
   use sklearn_boosting_loss,only:boosting_sum,boosting_mean,boosting_quantile,boosting_regression_loss,boosting_logit
   use sklearn_ieee_math,only:ieee_difference,ieee_product,ieee_quotient
@@ -22,6 +22,7 @@ module sklearn_classic_gradient_boosting
     real(dp),allocatable::oob_scores_(:),oob_improvement_(:)
     integer::max_features_=0
     type(feature_count_control),private::feature_control_
+    type(sample_count_control),private::leaf_control_,split_control_
     character(16)::criterion='friedman_mse'
     character(16) :: loss='log_loss'
     logical :: init_zero=.false.,warm_start=.false.
@@ -33,6 +34,10 @@ module sklearn_classic_gradient_boosting
     real(dp), private :: fitted_rate=.1_dp
     character(16), private :: fitted_loss='log_loss'
   contains
+    procedure,private::leaf_integer=>gbc_leaf_integer,leaf_real=>gbc_leaf_real
+    procedure,private::split_integer=>gbc_split_integer,split_real=>gbc_split_real
+    generic::set_min_samples_leaf=>leaf_integer,leaf_real
+    generic::set_min_samples_split=>split_integer,split_real
     procedure,private::features_integer=>gbc_features_integer,features_real=>gbc_features_real,features_name=>gbc_features_name
     generic::set_max_features=>features_integer,features_real,features_name
     procedure :: fit=>gbc_fit
@@ -56,9 +61,14 @@ module sklearn_classic_gradient_boosting
     logical::init_zero=.false.,warm_start=.false.
     type(legacy_random_state),private::rng_
     type(feature_count_control),private::feature_control_
+    type(sample_count_control),private::leaf_control_,split_control_
     type(decision_tree_regressor), allocatable :: estimators_(:)
     real(dp), allocatable :: train_score_(:),feature_importances_(:),huber_delta_(:)
   contains
+    procedure,private::leaf_integer=>gbr_leaf_integer,leaf_real=>gbr_leaf_real
+    procedure,private::split_integer=>gbr_split_integer,split_real=>gbr_split_real
+    generic::set_min_samples_leaf=>leaf_integer,leaf_real
+    generic::set_min_samples_split=>split_integer,split_real
     procedure :: fit=>boost_fit
     procedure :: predict=>boost_predict
     procedure :: score=>boost_score
@@ -67,6 +77,46 @@ module sklearn_classic_gradient_boosting
     generic::set_max_features=>features_integer,features_real,features_name
   end type
 contains
+  subroutine gbr_leaf_integer(self,value)
+    class(gradient_boosting_regressor),intent(inout)::self
+    integer,intent(in)::value
+    self%min_samples_leaf=value;call self%leaf_control_%reset()
+  end subroutine
+  subroutine gbr_leaf_real(self,value)
+    class(gradient_boosting_regressor),intent(inout)::self
+    real(dp),intent(in)::value
+    self%min_samples_leaf=0;call self%leaf_control_%set(value)
+  end subroutine
+  subroutine gbr_split_integer(self,value)
+    class(gradient_boosting_regressor),intent(inout)::self
+    integer,intent(in)::value
+    self%min_samples_split=value;call self%split_control_%reset()
+  end subroutine
+  subroutine gbr_split_real(self,value)
+    class(gradient_boosting_regressor),intent(inout)::self
+    real(dp),intent(in)::value
+    self%min_samples_split=0;call self%split_control_%set(value)
+  end subroutine
+  subroutine gbc_leaf_integer(self,value)
+    class(gradient_boosting_classifier),intent(inout)::self
+    integer,intent(in)::value
+    self%min_samples_leaf=value;call self%leaf_control_%reset()
+  end subroutine
+  subroutine gbc_leaf_real(self,value)
+    class(gradient_boosting_classifier),intent(inout)::self
+    real(dp),intent(in)::value
+    self%min_samples_leaf=0;call self%leaf_control_%set(value)
+  end subroutine
+  subroutine gbc_split_integer(self,value)
+    class(gradient_boosting_classifier),intent(inout)::self
+    integer,intent(in)::value
+    self%min_samples_split=value;call self%split_control_%reset()
+  end subroutine
+  subroutine gbc_split_real(self,value)
+    class(gradient_boosting_classifier),intent(inout)::self
+    real(dp),intent(in)::value
+    self%min_samples_split=0;call self%split_control_%set(value)
+  end subroutine
   ! Native clone sites keep constructor parameters and discard fitted state.
   subroutine reset_boosting_fit(model)
     class(*),intent(inout)::model
@@ -190,7 +240,9 @@ contains
     call require(self%alpha>0.and.self%alpha<1,'GradientBoostingRegressor alpha must be in (0,1)')
     call require(any(self%loss==[character(16)::'squared_error','absolute_error','quantile','huber']),'unknown boosting regression loss')
     call require(any(self%criterion==[character(16)::'friedman_mse','squared_error']),'invalid boosting tree criterion')
-    call check_boosting_controls(self%max_depth,self%min_samples_split,self%min_samples_leaf,self%max_leaf_nodes, &
+    call check_boosting_controls(self%max_depth, &
+      self%split_control_%resolve(self%min_samples_split,size(x,1),2,.true.), &
+      self%leaf_control_%resolve(self%min_samples_leaf,size(x,1),1,.false.),self%max_leaf_nodes, &
       self%max_features,self%random_state,self%min_impurity_decrease,self%ccp_alpha,self%min_weight_fraction_leaf,size(x,2))
     call require(self%max_depth>0,'gradient boosting max_depth must be positive')
     self%max_features_=self%feature_control_%resolve(self%max_features,size(x,2),.false.)
@@ -260,7 +312,11 @@ contains
       self%huber_delta_(i)=delta
       self%estimators_(i)%max_depth=self%max_depth
       self%estimators_(i)%min_samples_leaf=self%min_samples_leaf
+      if(self%leaf_control_%fractional(self%min_samples_leaf)) &
+        call self%estimators_(i)%set_min_samples_leaf(self%leaf_control_%value())
       self%estimators_(i)%min_samples_split=self%min_samples_split
+      if(self%split_control_%fractional(self%min_samples_split)) &
+        call self%estimators_(i)%set_min_samples_split(self%split_control_%value())
       self%estimators_(i)%criterion=self%criterion;self%estimators_(i)%random_state=self%random_state
       self%estimators_(i)%max_leaf_nodes=self%max_leaf_nodes;self%estimators_(i)%ccp_alpha=self%ccp_alpha
       self%estimators_(i)%min_weight_fraction_leaf=self%min_weight_fraction_leaf
@@ -417,7 +473,9 @@ contains
     call require(self%n_estimators>=1,'GradientBoostingClassifier n_estimators must be positive')
     call require(ieee_is_finite(self%learning_rate),'nonfinite GradientBoostingClassifier learning_rate')
     call require(self%learning_rate>=0,'GradientBoostingClassifier learning_rate must be nonnegative')
-    call check_boosting_controls(self%max_depth,self%min_samples_split,self%min_samples_leaf,self%max_leaf_nodes, &
+    call check_boosting_controls(self%max_depth, &
+      self%split_control_%resolve(self%min_samples_split,size(x,1),2,.true.), &
+      self%leaf_control_%resolve(self%min_samples_leaf,size(x,1),1,.false.),self%max_leaf_nodes, &
       self%max_features,self%random_state,self%min_impurity_decrease,self%ccp_alpha,self%min_weight_fraction_leaf,p)
     self%max_features_=self%feature_control_%resolve(self%max_features,p,.false.)
     call require(any(self%criterion==[character(16)::'friedman_mse','squared_error']),'invalid boosting tree criterion')
@@ -544,7 +602,11 @@ contains
       do k=1,self%n_trees_per_iteration_
         self%estimators_(t,k)%max_depth=self%max_depth
         self%estimators_(t,k)%min_samples_leaf=self%min_samples_leaf
+        if(self%leaf_control_%fractional(self%min_samples_leaf)) &
+          call self%estimators_(t,k)%set_min_samples_leaf(self%leaf_control_%value())
         self%estimators_(t,k)%min_samples_split=self%min_samples_split
+        if(self%split_control_%fractional(self%min_samples_split)) &
+          call self%estimators_(t,k)%set_min_samples_split(self%split_control_%value())
         self%estimators_(t,k)%max_leaf_nodes=self%max_leaf_nodes;self%estimators_(t,k)%ccp_alpha=self%ccp_alpha
         self%estimators_(t,k)%min_weight_fraction_leaf=self%min_weight_fraction_leaf
         call self%estimators_(t,k)%set_max_features(self%max_features_)

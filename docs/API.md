@@ -49,7 +49,31 @@ takes precedence. Search accepts integer, real and text `max_features` parameter
 for all eight types; `param('none')` represents Python's None. Warm fits retain
 old component budgets and apply updated controls to new trees. Unfitted clones
 and pruning-path copies preserve the selected mode. Gradient boosting retains
-its existing integer interface.
+its own typed feature-budget interface.
+
+CART, ExtraTree, random-forest, ExtraTrees and classic gradient-boosting
+classifiers/regressors accept typed minimum sample counts:
+
+```fortran
+call model%set_min_samples_leaf(.1_dp)  ! ceil(.1 * n_samples)
+call model%set_min_samples_split(.4_dp) ! max(2, ceil(.4 * n_samples))
+call model%set_min_samples_leaf(1)      ! restore integer leaf count
+call model%set_min_samples_split(2)     ! restore integer split count
+```
+
+Leaf fractions must be finite and in `(0,1)`; split fractions are in `(0,1]`.
+Integer bounds are one and two respectively. Fractions use the full input row
+count passed to each tree, including zero-weight rows, regardless of bootstrap
+draw counts or boosting subsampling. Splits also need enough rows for both
+minimum-size leaves. Fractions resolve again on each fit, including refitting
+an extracted component tree on a new dataset. Warm fits retain existing trees
+and apply updated parameters to new trees. Search and parameter-only clones
+preserve integer versus real parameter types.
+
+Real setters store zero in the corresponding public integer field as a native
+mode sentinel. A positive direct integer assignment overrides the fraction;
+use the integer setter to clear fractional state explicitly. Integer zero is
+not a valid sample-count setting. Use the typed setters when switching modes.
 
 For random-forest and ExtraTrees classifiers/regressors, use the overloaded
 `set_max_samples` to select a bootstrap count or fraction:
@@ -1289,7 +1313,7 @@ Learned fields also include `n_features_in_`, `n_estimators_`,
 threshold used before fitting each tree; it is zero for other losses.
 
 Controls include `criterion='friedman_mse'` (default) or `squared_error`,
-`max_depth`, integer `min_samples_leaf`/`min_samples_split`, `max_leaf_nodes`
+`max_depth`, typed `set_min_samples_leaf`/`set_min_samples_split`, `max_leaf_nodes`
 (zero means None), `min_weight_fraction_leaf`, `min_impurity_decrease`,
 `ccp_alpha`, and typed `set_max_features`. Learning rate must be finite and
 nonnegative; zero fits component trees while leaving all predictions at the

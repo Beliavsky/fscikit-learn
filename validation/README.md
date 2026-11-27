@@ -1,5 +1,23 @@
 # Validation
 
+Typed minimum sample controls (2026-11-27): run
+`compare_min_samples_tree_regression.py`, `compare_min_samples_tree_classification.py`,
+`compare_min_samples_gbr.py`, `compare_min_samples_gbc.py`, and
+`check_min_sample_controls.py` with `--executable PATH --report PATH`.
+Their matching fpm drivers are `reference_min_samples_tree_regression_driver`,
+`reference_min_samples_tree_classification_driver`, `reference_min_samples_gbr_driver`,
+`reference_min_samples_gbc_driver`, and `reference_min_samples_invalid_driver`.
+Use `compare_min_samples_forests.py --kind regression/classification` with
+`reference_min_samples_forest_driver` or `reference_min_samples_class_forest_driver`.
+The suites compare complete tree state and predictions against unmodified
+installed sklearn 1.6.1, retaining integer-exact checks and floating tolerances
+of rtol 2e-10 / atol 2e-12. Forest sequences vary data size, bootstrap settings,
+weights, class weights and typed controls during warm growth. Input validation
+compares 240 Source-accepted/rejected typed parameters across all ten models.
+`test_min_sample_controls` covers search, clones, mode changes, full-row
+denominators, extracted-tree refits and boosting warm prefixes. Checked and
+optimized evidence is retained under ignored `validation/results/min_samples_*`.
+
 Classic gradient boosting warm starts (2026-11-27, implementation `b581013`):
 run `compare_gb_warm_start.py --kind regression/classification` with
 `--executable PATH --report PATH`, using `reference_gbr_warm_driver` or

@@ -1,6 +1,6 @@
 module sklearn_ensemble
   use sklearn_classic_gradient_boosting,only:gradient_boosting_regressor,gradient_boosting_classifier
-  use sklearn_tree_features,only:feature_count_control
+  use sklearn_tree_features,only:feature_count_control,sample_count_control
   use sklearn_sparse, only: csr_matrix
   use sklearn_class_weight, only: class_weight_map,compute_sample_weight
   use sklearn_label_binarization,only:label_set
@@ -39,6 +39,7 @@ module sklearn_ensemble
     integer :: max_samples=0,n_features_in_=0,n_classes_=0,n_outputs_=1
     integer,private::n_samples_fit_=0,n_samples_bootstrap_=0
     type(feature_count_control),private::feature_control_
+    type(sample_count_control),private::leaf_control_,split_control_
     real(dp),private::max_samples_fraction_=0
     logical,private::fractional_samples_=.false.
     integer,allocatable::n_classes_multi_(:)
@@ -59,6 +60,10 @@ module sklearn_ensemble
     type(decision_tree_classifier), allocatable :: estimators_(:)
     real(dp), allocatable :: feature_importances_(:)
   contains
+    procedure,private::leaf_integer=>forest_classifier_leaf_integer,leaf_real=>forest_classifier_leaf_real
+    procedure,private::split_integer=>forest_classifier_split_integer,split_real=>forest_classifier_split_real
+    generic::set_min_samples_leaf=>leaf_integer,leaf_real
+    generic::set_min_samples_split=>split_integer,split_real
     procedure,private::fit_single=>forest_classifier_fit,fit_multi=>forest_classifier_fit_multi
     generic::fit=>fit_single,fit_multi
     procedure :: decision_path=>forest_classifier_path
@@ -89,6 +94,7 @@ module sklearn_ensemble
     integer :: max_samples=0,n_features_in_=0,n_outputs_=1
     integer,private::n_samples_fit_=0,n_samples_bootstrap_=0
     type(feature_count_control),private::feature_control_
+    type(sample_count_control),private::leaf_control_,split_control_
     real(dp),private::max_samples_fraction_=0
     logical,private::fractional_samples_=.false.
     character(16) :: criterion='squared_error'
@@ -102,6 +108,10 @@ module sklearn_ensemble
     type(decision_tree_regressor), allocatable :: estimators_(:)
     real(dp), allocatable :: feature_importances_(:)
   contains
+    procedure,private::leaf_integer=>forest_regressor_leaf_integer,leaf_real=>forest_regressor_leaf_real
+    procedure,private::split_integer=>forest_regressor_split_integer,split_real=>forest_regressor_split_real
+    generic::set_min_samples_leaf=>leaf_integer,leaf_real
+    generic::set_min_samples_split=>split_integer,split_real
     procedure,private::fit_single=>forest_regressor_fit,fit_multi=>forest_regressor_fit_multi
     generic::fit=>fit_single,fit_multi
     procedure :: decision_path=>forest_regressor_path
@@ -124,6 +134,46 @@ module sklearn_ensemble
     procedure,private::fit_single=>extra_regressor_fit,fit_multi=>extra_regressor_fit_multi
   end type
 contains
+  subroutine forest_regressor_leaf_integer(self,value)
+    class(random_forest_regressor),intent(inout)::self
+    integer,intent(in)::value
+    self%min_samples_leaf=value;call self%leaf_control_%reset()
+  end subroutine
+  subroutine forest_regressor_leaf_real(self,value)
+    class(random_forest_regressor),intent(inout)::self
+    real(dp),intent(in)::value
+    self%min_samples_leaf=0;call self%leaf_control_%set(value)
+  end subroutine
+  subroutine forest_regressor_split_integer(self,value)
+    class(random_forest_regressor),intent(inout)::self
+    integer,intent(in)::value
+    self%min_samples_split=value;call self%split_control_%reset()
+  end subroutine
+  subroutine forest_regressor_split_real(self,value)
+    class(random_forest_regressor),intent(inout)::self
+    real(dp),intent(in)::value
+    self%min_samples_split=0;call self%split_control_%set(value)
+  end subroutine
+  subroutine forest_classifier_leaf_integer(self,value)
+    class(random_forest_classifier),intent(inout)::self
+    integer,intent(in)::value
+    self%min_samples_leaf=value;call self%leaf_control_%reset()
+  end subroutine
+  subroutine forest_classifier_leaf_real(self,value)
+    class(random_forest_classifier),intent(inout)::self
+    real(dp),intent(in)::value
+    self%min_samples_leaf=0;call self%leaf_control_%set(value)
+  end subroutine
+  subroutine forest_classifier_split_integer(self,value)
+    class(random_forest_classifier),intent(inout)::self
+    integer,intent(in)::value
+    self%min_samples_split=value;call self%split_control_%reset()
+  end subroutine
+  subroutine forest_classifier_split_real(self,value)
+    class(random_forest_classifier),intent(inout)::self
+    real(dp),intent(in)::value
+    self%min_samples_split=0;call self%split_control_%set(value)
+  end subroutine
   subroutine classifier_features_integer(self,value)
     class(random_forest_classifier),intent(inout)::self
     integer,intent(in)::value
@@ -274,7 +324,9 @@ contains
       call require(q==self%n_outputs_,'warm-start forest output count must remain unchanged')
     end if
     recompute_oob=self%oob_score.and.(self%n_estimators>old.or..not.allocated(self%oob_counts_))
-    call check_forest_controls(self%max_depth,self%min_samples_split,self%min_samples_leaf,self%max_leaf_nodes, &
+    call check_forest_controls(self%max_depth, &
+      self%split_control_%resolve(self%min_samples_split,size(x,1),2,.true.), &
+      self%leaf_control_%resolve(self%min_samples_leaf,size(x,1),1,.false.),self%max_leaf_nodes, &
       self%max_features,self%random_state,self%min_impurity_decrease,self%ccp_alpha,self%min_weight_fraction_leaf,size(x,2))
     call require(maxval(abs(x))<=real(huge(0._real32),dp),'forest training features exceed float32 range')
     call require(any(self%criterion==['gini    ','entropy ','log_loss']),'unknown forest classification criterion')
@@ -357,7 +409,11 @@ contains
       self%estimators_(i)%criterion=self%criterion
       self%estimators_(i)%max_depth=self%max_depth
       self%estimators_(i)%min_samples_leaf=self%min_samples_leaf
+      if(self%leaf_control_%fractional(self%min_samples_leaf)) &
+        call self%estimators_(i)%set_min_samples_leaf(self%leaf_control_%value())
       self%estimators_(i)%min_samples_split=self%min_samples_split
+      if(self%split_control_%fractional(self%min_samples_split)) &
+        call self%estimators_(i)%set_min_samples_split(self%split_control_%value())
       call self%estimators_(i)%set_max_features(features)
       self%estimators_(i)%max_leaf_nodes=self%max_leaf_nodes
       self%estimators_(i)%min_weight_fraction_leaf=self%min_weight_fraction_leaf
@@ -719,7 +775,9 @@ contains
       call require(q==self%n_outputs_,'warm-start forest output count must remain unchanged')
     end if
     recompute_oob=self%oob_score.and.(self%n_estimators>old.or..not.allocated(self%oob_counts_))
-    call check_forest_controls(self%max_depth,self%min_samples_split,self%min_samples_leaf,self%max_leaf_nodes, &
+    call check_forest_controls(self%max_depth, &
+      self%split_control_%resolve(self%min_samples_split,size(x,1),2,.true.), &
+      self%leaf_control_%resolve(self%min_samples_leaf,size(x,1),1,.false.),self%max_leaf_nodes, &
       self%max_features,self%random_state,self%min_impurity_decrease,self%ccp_alpha,self%min_weight_fraction_leaf,size(x,2))
     call require(maxval(abs(x))<=real(huge(0._real32),dp),'forest training features exceed float32 range')
     call require(any(self%criterion==[character(16)::'squared_error','friedman_mse','absolute_error','poisson']), &
@@ -776,7 +834,11 @@ contains
       self%estimators_(i)%criterion=self%criterion
       self%estimators_(i)%max_depth=self%max_depth
       self%estimators_(i)%min_samples_leaf=self%min_samples_leaf
+      if(self%leaf_control_%fractional(self%min_samples_leaf)) &
+        call self%estimators_(i)%set_min_samples_leaf(self%leaf_control_%value())
       self%estimators_(i)%min_samples_split=self%min_samples_split
+      if(self%split_control_%fractional(self%min_samples_split)) &
+        call self%estimators_(i)%set_min_samples_split(self%split_control_%value())
       call self%estimators_(i)%set_max_features(features)
       self%estimators_(i)%max_leaf_nodes=self%max_leaf_nodes
       self%estimators_(i)%min_weight_fraction_leaf=self%min_weight_fraction_leaf
