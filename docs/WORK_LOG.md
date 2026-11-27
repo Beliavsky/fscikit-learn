@@ -10694,3 +10694,12 @@ The new native singleton, constant-data, CSR-singleton and streaming checks pass
 under bounds/IEEE traps. Full checked rebuilding is running. Scoped optimized,
 complete native and legacy dense/CSR reference audits remain pending. MIT/BSD
 attribution is retained; commits remain local. Overall Source parity is open.
+
+During native-test review, the pre-existing IncrementalPCA test was found to
+assert zero ratios on constant data. That assertion encoded the old deviation
+from Source. Updated it to require NaN ratios while retaining zero population
+variance; the independent new native regression and actual Source grid prove
+the expected behavior. No numerical tolerance was changed. The audit monitor
+was stopped before it launched, using its identified process 24264; the active
+fpm build is retained. After that build terminates, a final incremental rebuild
+will include the updated assertion before the audits run.

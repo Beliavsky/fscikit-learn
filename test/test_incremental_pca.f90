@@ -1,6 +1,7 @@
 program test_incremental_pca
   use sklearn, only: dp,incremental_pca,pca
   use sklearn_common, only: require
+  use,intrinsic::ieee_arithmetic,only:ieee_is_nan
   implicit none
   type(incremental_pca) :: model,stream
   type(pca) :: full
@@ -27,6 +28,7 @@ program test_incremental_pca
   y=x+10; call model%fit(y)
   call require(model%n_samples_seen_==8.and.maxval(abs(model%mean_-sum(y,dim=1)/8))<1.e-12_dp,'fit resets state')
   y=5; model%whiten=.false.; call model%fit(y)
-  call require(all(model%var_==0).and.all(model%explained_variance_ratio_==0),'constant data finite ratios')
+  call require(all(model%var_==0).and.all(ieee_is_nan(model%explained_variance_ratio_)), &
+    'constant data has zero population variance and Source NaN ratios')
   print *, 'IncrementalPCA tests passed'
 end program
