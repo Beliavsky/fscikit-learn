@@ -10467,3 +10467,44 @@ Source without equating them. The first failing test log is retained; no Source
 fixture or tolerance was relaxed. Full checked rebuilding and final scoped
 optimized/legacy-inverse validation are in progress at this commit. The larger
 translation and previously documented gaps remain open; commits remain local.
+
+
+### Randomized KernelPCA final verification
+
+Implementation commit: 06e0306. All 330 checked audit jobs pass: 316 native
+programs, eleven selected examples and three focused comparison/guard suites.
+All 922 build fingerprints match current sources, including 209 library units.
+Both profiles pass all 274 dense/randomized Source cases and twelve new input
+rejections. The unchanged legacy inverse validator passes 452 fixtures / 4,520
+groups, 452 ridge residual certificates and fourteen rejections in each profile.
+It includes dense kernels, clipped/all/zero components and learned pre-images.
+No Source fixture, comparison criterion or tolerance was relaxed.
+
+Scoped optimization rebuilds the KernelPCA and randomized-SVD modules, passes
+four selected native tests (including Isomap and the existing kernel tests),
+and passes all three focused Source suites. This is not a full optimized package
+rebuild. Source inputs/oracles and primary file hashes agree across profiles.
+Cross-profile verification passes source/object/report hashes and all 207
+non-overridden library members. Its baseline is a byte-verified copy of the
+terminal completed checked library. The initial list/dictionary mismatch in
+the audit helper was corrected; the original helper error log is preserved.
+
+The new path follows Source randomized selection by eigenvalue magnitude,
+including signed recovery and PSD rejection of indefinite selected spectra.
+Approximate fit_transform coordinates and kernel-projected transform coordinates
+are checked separately against Source. Native defaults remain explicitly dense
+and seed 0; ARPACK/auto routing, sparse input and Source None RNG are not claimed.
+Both solver paths retain dense Gram storage. Existing dense inverse behavior
+and Isomap integration pass after the derived-type dependency rebuild.
+
+All build/audit jobs are terminal. Private GNU Fortran 15.2.0 validation retains
+static libgfortran and the validation-only Windows locale-copy shim; unwrapped
+runtime stability is not claimed. Evidence is under ignored validation/results/
+kernel_randomized_* plus current kernel_preimage_* reports. The larger sklearn
+translation and previously documented gaps remain open. Commits remain local.
+
+The verified backup is kernel_randomized_evidence_06e0306.zip,
+39,586,825 bytes / 2,006 entries, SHA256
+a3370d10a5fd3deb22b027f94fc7566661f909a8a1127869245ccb5110cad3cd.
+ZIP CRCs and critical source/report/object/binary hashes pass. Receipt:
+validation/results/kernel_randomized_archive_receipt.json (ignored evidence).
