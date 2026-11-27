@@ -9,7 +9,7 @@ module sklearn_classic_gradient_boosting
   use sklearn_boosting_loss,only:boosting_sum,boosting_mean,boosting_quantile,boosting_regression_loss,boosting_logit
   use sklearn_ieee_math,only:ieee_difference,ieee_product,ieee_quotient
   use sklearn_metrics,only:accuracy_score,r2_score
-  use,intrinsic::ieee_arithmetic,only:ieee_is_finite,ieee_value,ieee_quiet_nan,ieee_positive_inf,ieee_negative_inf
+  use,intrinsic::ieee_arithmetic,only:ieee_is_finite,ieee_is_nan,ieee_value,ieee_quiet_nan,ieee_positive_inf,ieee_negative_inf
   use,intrinsic::iso_fortran_env,only:real32
   implicit none
   private
@@ -82,6 +82,14 @@ module sklearn_classic_gradient_boosting
     generic::set_max_features=>features_integer,features_real,features_name
   end type
 contains
+  ! NumPy comparison with a NaN validation loss is false, without trapping.
+  logical function boosting_validation_improved(loss,tolerance,history)result(improved)
+    real(dp),intent(in)::loss,tolerance,history(:)
+    real(dp)::candidate
+    candidate=ieee_difference(loss,-tolerance);improved=.false.
+    if(ieee_is_nan(candidate))return
+    improved=any(candidate<history)
+  end function
   subroutine check_boosting_stopping(patience,fraction,tolerance)
     integer,intent(in)::patience
     real(dp),intent(in)::fraction,tolerance
@@ -450,7 +458,7 @@ contains
           validation_raw(j)=ieee_difference(validation_raw(j),-ieee_product(self%learning_rate,increment(j)))
         end do
         validation_loss=boosting_regression_loss(self%loss,y_val,validation_raw,weight_val,self%alpha,delta)
-        if(any(ieee_difference(validation_loss,-self%tol)<history))then
+        if(boosting_validation_improved(validation_loss,self%tol,history))then
           history(mod(i-1,self%n_iter_no_change)+1)=validation_loss
         else
           fitted=i;exit
@@ -783,7 +791,7 @@ contains
         end do
         validation_terms=gbc_loss_values(validation_raw,validation_encoded,self%loss)
         validation_loss=boosting_mean(validation_terms,weight_val)
-        if(any(ieee_difference(validation_loss,-self%tol)<history))then
+        if(boosting_validation_improved(validation_loss,self%tol,history))then
           history(mod(t-1,self%n_iter_no_change)+1)=validation_loss
         else
           fitted=t;exit

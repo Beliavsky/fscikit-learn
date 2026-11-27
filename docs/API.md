@@ -1392,7 +1392,10 @@ clones preserve these controls. Each warm fit recreates the split from the
 current seed and resets the validation history, while retaining the tree RNG
 state. As in sklearn 1.6.1, warm validation predictions advance from the first
 retained stage on each fit. Changing or disabling stopping during warm growth
-uses the current controls for the new fit.
+uses the current controls for the new fit. A NaN validation loss fails the
+improvement comparison and stops fitting without a floating-point trap,
+matching sklearn's accepted signed-weight fits. Source-undefined scores remain
+identified separately in the validation reports.
 
 Both classic boosters accept `subsample` in `(0,1]` (default one), including
 through parameter search. Each stochastic stage samples

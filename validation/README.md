@@ -16,7 +16,10 @@ Add `--early-stopping` to both classic boosting integration comparators and
 drivers; it can be combined with `--subsample --warm-start`. Source zero-weight
 errors are retained and compared with controlled native rejections. Default
 integration inputs and numeric oracles are unchanged. New evidence remains
-under ignored `validation/results/gb_early_*`.
+under ignored `validation/results/gb_early_*`. `compare_gb_early_signed.py
+--kind regression/classification` uses the corresponding early-warm driver for
+96 signed-weight fixtures, including seven accepted NaN-loss regressions and
+19 controlled Source fit errors. Undefined scores are recorded explicitly.
 
 Typed minimum sample controls (2026-11-27): run
 `compare_min_samples_tree_regression.py`, `compare_min_samples_tree_classification.py`,

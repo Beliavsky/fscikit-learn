@@ -167,7 +167,11 @@ New reference suites compare 384 regression and 396 classification cold fits,
 Fitted-template composition suites retain all 16 regression/12 classification
 fixtures, including controlled Source failures caused by zero-total OOB weights.
 Numeric fields retain rtol 2e-10 / atol 2e-12; integer structures remain exact.
-Evidence is retained under ignored `validation/results/gb_early_*`.
+An additional 96 signed-weight fixtures retain 77 successful fits and 19
+matching fit rejections. Seven regression fits have Source-accepted NaN losses;
+validation comparisons stop after the first stage without trapping. The initial
+checked SIGFPE report and executable are retained. Evidence is retained under
+ignored `validation/results/gb_early_*`.
 
 ## Typed minimum sample counts
 

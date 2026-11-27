@@ -3,10 +3,15 @@ program test_gradient_boosting_early_stopping
  use sklearn_ensemble,only:gradient_boosting_regressor,gradient_boosting_classifier
  use sklearn_search_adapters,only:set_search_params,reset_search_clone
  use sklearn_parameter_space,only:parameter_set,param
+ use sklearn_legacy_rng,only:legacy_random_state
+ use,intrinsic::ieee_arithmetic,only:ieee_is_nan
  implicit none
  type(gradient_boosting_regressor)::reg,copy
  type(gradient_boosting_classifier)::cls,copy_cls
  type(parameter_set)::params
+ type(legacy_random_state)::rng
+ type(gradient_boosting_regressor)::signed_model
+ real(dp)::signed_x(30,3),signed_y(30),signed_w(30)
  real(dp)::x(43,3),y(43),w(43)
  integer::labels(43),i,j
  do i=1,43
@@ -43,5 +48,18 @@ program test_gradient_boosting_early_stopping
  reg%n_iter_no_change=0;reg%n_estimators=10;call reg%fit(x,y,w)
  cls%n_iter_no_change=0;cls%n_estimators=10;call cls%fit(x,labels,w)
  call require(size(reg%estimators_)==10.and.size(cls%estimators_,1)==10,'native zero disables validation stopping')
+ ! Source RandomState(19): valid signed weights produce NaN validation loss.
+ call rng%seed(19)
+ do i=1,30
+  do j=1,3;signed_x(i,j)=rng%normal();end do
+ end do
+ do i=1,30
+  signed_y(i)=rng%normal();signed_w(i)=merge(1._dp,-1._dp,mod(i,2)==1)
+ end do
+ signed_model%n_estimators=6;signed_model%n_iter_no_change=2;signed_model%validation_fraction=.3_dp
+ signed_model%random_state=2;signed_model%init_zero=.true.
+ call signed_model%fit(signed_x,signed_y,signed_w)
+ call require(signed_model%n_estimators_==1.and.size(signed_model%estimators_)==1,'NaN validation stops at first stage')
+ call require(ieee_is_nan(signed_model%train_score_(1)),'Source-accepted NaN training loss is retained without trapping')
  print *,'Classic boosting early stopping, histories, search controls, clones and warm transitions PASS'
 end program
