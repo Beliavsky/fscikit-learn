@@ -1287,6 +1287,19 @@ Exponential loss requires two distinct integer classes; log loss supports
 multiple classes. Existing entry points and retained MIT/BSD notices remain;
 no public extension algorithm is added.
 
+Stochastic support in `f3a0e4b` passes 972 direct configurations (908
+successful fits and 64 matching zero-weight subset rejections), 28 stochastic
+composition fixtures and 84 input checks in checked/scoped optimized builds.
+The tests cover complete stage trees, OOB histories, tiny fractions, zero
+learning rates, signed weights and weighted search/ensemble propagation. The
+full checked package passes 300 native tests and ten examples, all prior
+tree/forest/boosting gates, 510 legacy classifier groups and 192 core comparisons.
+The audit verifies 344 jobs, 859 compiled fingerprints and 204 library units;
+initial fixtures/oracles and strict numeric bounds are preserved. Ten wrong
+harness-derived priors were replaced by actual sklearn DummyClassifier priors;
+all native fits and other reference fields remain unchanged. Evidence and
+original failures are retained under `validation/results/gb_subsample_*`.
+
 Both classic boosters now implement stochastic row subsampling. `subsample`
 defaults to one and must lie in `(0,1]`; each stage selects exactly
 `max(1,int(subsample*n_samples))` rows without replacement. The mask consumes

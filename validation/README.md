@@ -1,5 +1,38 @@
 # Validation
 
+Stochastic classic gradient boosting (2026-11-27, implementation `f3a0e4b`):
+run `compare_gbr_subsample.py` and `compare_gbc_subsample.py` with
+`--executable PATH --report PATH` and the corresponding
+`reference_gbr_subsample_driver` / `reference_gbc_subsample_driver`. Add
+`--subsample` to the existing regression/classifier integration comparators
+to exercise stochastic search, selection, pipelines, voting, bagging and stacking.
+
+Checked and scoped optimized runs pass all 972 direct configurations: 432
+regression and 540 classification cases, comprising 908 successful fits and 64
+matching sklearn zero-total-weight subset rejections. Complete tree structures,
+values, stages, losses, importances and OOB histories receive strict comparisons
+(exact integers, rtol 2e-10 / atol 2e-12). Cases cover all four regression losses,
+binary/multiclass log loss through nine classes, binary exponential loss,
+pruning/leaf controls, zero/signed weights, zero initialization, zero learning
+rate, fractions near one, and the one-in-bag-row floor. The original 400/500
+fixture prefixes and their authoritative Source results remain preserved.
+Ten initially misderived unweighted class priors in the harness were corrected
+using sklearn's fitted DummyClassifier; all native fits and all other expected
+fields were already correct. The original failure reports remain retained.
+
+All 28 stochastic composition fixtures pass, including weighted three-fold
+search with 64 regression or 32 classifier candidates, nested seed propagation,
+bagging sample/feature indices and OOB outputs, and stacking responses. All 84
+input checks, earlier full-data boosting/forest/tree gates, 510 legacy classifier
+result groups and 192 core comparisons pass. The full checked fpm build passes
+300 native tests and ten selected examples. The final audit verifies 344 jobs,
+859 compiled-source fingerprints, 204 library units, Source/binary hashes and
+saved oracle identities. Optimized checks cover seven freshly compiled modules
+with matching unchanged checked dependencies. Both profiles use the documented
+validation-only static-libgfortran locale-copy link; unprotected Windows runtime
+stability is not established. Evidence is under ignored
+`validation/results/gb_subsample_*`.
+
 Weighted GradientBoostingClassifier (2026-11-27, implementation `c25b474`):
 run `compare_gbc_weighted.py` and `compare_gbc_integration.py` with
 `--executable PATH --report PATH`, using `reference_gbc_weighted_driver` and
