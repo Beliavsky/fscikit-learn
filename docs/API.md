@@ -787,9 +787,24 @@ state while preserving constructor controls, including the solver.
 
 `solver='native-newton'` is an identified native extension retaining the earlier
 dense damped eigen/Newton implementation. It requires positive nonzero-power
-identity trials. It is not Source's Newton-Cholesky solver, which remains
-unsupported. Earlier Newton-specific reference/unit fixtures select this
-option explicitly; their geometry, tolerances and expected values are retained.
+identity trials. Earlier Newton-specific reference/unit fixtures select this option explicitly;
+their geometry, tolerances and expected values are retained.
+
+`solver='newton-cholesky'` implements Source's Newton iteration contract for
+dense and CSR fits. It uses weighted pointwise curvature, the Source 25%
+curvature-warning rule, absolute curvature in the Hessian, 21 backtracking
+attempts, and joint gradient/Newton-decrement convergence checks. It falls back
+to L-BFGS on curvature, singular/ill-conditioned Hessian or failed line search,
+with Source's remaining-iteration accounting. `optimization_message_` identifies
+the fallback reason. The CSR path builds the feature-square Hessian directly;
+it does not densify the design. This solver has quadratic feature memory.
+
+The native PSD Hessian solve uses Cholesky and an exact inverse one-norm
+condition check. SciPy uses LAPACK symmetric factorization and a condition
+estimate. Those numerical kernels can choose different paths near singularity;
+universal fitted/iteration parity is not claimed. Some identity-link fallback
+fixtures retain strict coefficient/iteration differences, in addition to the
+known boundary-power score differences.
 See [COVERAGE.md](COVERAGE.md) for validation and remaining differences.
 
 ## Mode seeking, spectral methods and kernel density

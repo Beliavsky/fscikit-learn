@@ -2811,3 +2811,24 @@ CSR integration, IEEE-state preservation, typed APIs and status adapters are
 MIT code. The existing L-BFGS-B vendor license/notices remain unchanged;
 its optional `MaxLineSearch` argument preserves the existing 20-step default
 for all callers while allowing the GLM's Source-compatible limit of 50.
+
+## GLM Newton-Cholesky contracts and projected-gradient NaNs
+
+`src/sklearn_glm_newton.f90` follows sklearn 1.6.1
+`linear_model/_glm/_newton_solver.py`, `linear_model/_linear_loss.py`, and
+`_loss/_loss.pyx.tp` for curvature treatment, backtracking, convergence and
+fallback accounting. The scikit-learn BSD notice is retained. The native
+Cholesky solve, exact inverse one-norm condition computation and direct CSR
+integration are independent MIT implementations, not copies of LAPACK.
+
+The projected-gradient NaN check in `vendor/lbfgsb/src/lbfgsb.f90` follows
+SciPy 1.15.3 `scipy/optimize/__lbfgsb.c` (projgr), copyright 2024 SciPy
+developers, BSD-3-Clause. See `LICENSES/scipy-lbfgsb-BSD` and the primary source
+https://github.com/scipy/scipy/blob/v1.15.3/scipy/optimize/__lbfgsb.c .
+This preserves an undefined norm instead of reporting false convergence.
+
+The same vendor file now evaluates lower/upper Cauchy bound distances only
+inside their corresponding bound branches. This is an independent native
+Fortran correction: logical AND does not require short-circuit evaluation,
+and an absent bound's local distance was previously uninitialized. Original
+vendor licenses and attribution remain intact.

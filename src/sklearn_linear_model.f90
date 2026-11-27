@@ -6,6 +6,7 @@ module sklearn_linear_model
   use sklearn_boosting_loss,only:numpy_sum=>boosting_sum
   use sklearn_huber_solver,only:huber_solve
   use sklearn_glm_lbfgs,only:glm_lbfgs_solve
+  use sklearn_glm_newton,only:glm_newton_solve
   use sklearn_sparse,only:csr_matrix
   use sklearn_ridge_solver,only:ridge_regression,ridge_solver_options,ridge_solution
   use sklearn_coordinate_paths,only:enet_path,lasso_path,coordinate_path_options,coordinate_path_result
@@ -1235,7 +1236,8 @@ contains
       call require(sparse%n_rows==size(y).and.sparse%n_rows>0.and.sparse%n_cols>0,'invalid GLM CSR shape')
       call require(all(ieee_is_finite(sparse%data)),'GLM CSR data must be finite');p=sparse%n_cols
     end if
-    call require(self%solver=='lbfgs'.or.self%solver=='native-newton','unsupported GLM solver')
+    call require(self%solver=='lbfgs'.or.self%solver=='native-newton'.or. &
+      self%solver=='newton-cholesky','unsupported GLM solver')
     if(self%solver=='native-newton')call require(present(dense),'native-newton currently requires dense GLM input')
     select type(self)
     class is(poisson_regressor)
@@ -1271,6 +1273,9 @@ contains
     end if
     if(self%solver=='lbfgs')then
       call glm_lbfgs_solve(w,y,weight,self%power,self%link_,self%alpha,self%tol,self%max_iter, &
+        self%n_iter_,self%converged_,self%optimization_message_,dense,sparse)
+    else if(self%solver=='newton-cholesky')then
+      call glm_newton_solve(w,y,weight,self%power,self%link_,self%alpha,self%tol,self%max_iter, &
         self%n_iter_,self%converged_,self%optimization_message_,dense,sparse)
     else
       allocate(design(n,q),trial(q),g(q),h(q,q),gt(q),ht(q,q),step(q),s(q),v(q,q))

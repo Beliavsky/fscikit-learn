@@ -616,8 +616,10 @@ distances; cosine similarity; linear, RBF, polynomial and sigmoid kernels.
   or feature-square Hessian. Raw duplicate/explicit-zero storage is retained.
   Native solver status/message fields replace Source convergence warnings.
   The former dense damped eigen/Newton solver remains available through the
-  explicitly identified `native-newton` extension; Source Newton-Cholesky and
-  universal iteration/trajectory parity remain gaps. Tweedie supports finite
+  explicitly identified `native-newton` extension. The Source-contract
+  `newton-cholesky` path supports dense/CSR Hessians, backtracking, decrement
+  checks and L-BFGS fallbacks. Native Cholesky/condition computation differs
+  from SciPy LAPACK kernels, so universal trajectory parity remains a gap. Tweedie supports finite
   real powers and auto/identity/log links with documented domain/range limits.
   Weighted D2 uses the fitted power; one-column score flattening is a native
   convenience extension. Boundary-power score cancellation retains strict

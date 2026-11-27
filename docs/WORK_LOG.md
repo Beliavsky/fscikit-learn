@@ -9950,3 +9950,48 @@ glm_lbfgs_evidence_a41644f.zip: 267,719,582 bytes,
 ZIP CRCs and critical source/report/binary hashes were verified. Commits remain
 local. Source Newton-Cholesky, out-of-domain scoring, remaining numerical
 mismatches and the broader sklearn translation remain open.
+
+
+## Dense/CSR GLM Newton-Cholesky and shared L-BFGS corrections (2026-11-27)
+
+Added solver='newton-cholesky' to Poisson, Gamma and Tweedie using the sklearn
+1.6.1 Newton contract: weighted pointwise curvature, the weighted 25% warning
+rule, absolute curvature in the Hessian, 21 backtracking attempts, incremental
+raw predictions, gradient/decrement convergence checks, and L-BFGS fallback
+with Source iteration accounting. Dense and raw CSR are supported without
+densifying CSR designs; Hessian storage is quadratic in features as expected.
+The native PSD linear solve uses Cholesky and an exact inverse one-norm
+condition check; Source uses LAPACK symmetric factorization and a condition
+estimate. This distinction and remaining numeric-path differences are explicit.
+The existing default L-BFGS and native-newton extension remain available.
+
+Direct Source comparisons pass 192 gradient/Hessian/curvature-warning/IEEE
+probes and fifteen low-level fallback paths. The latter include exhausting all
+21 line-search attempts, a zero remaining iteration budget, singular matrices
+and negative curvature, without filtering through prediction-domain guards.
+A preliminary 507-configuration public fit comparison retains twelve strict
+cases: nine known boundary-power scores and three identity-link fallback
+coefficient/iteration/public-score differences. Geometry, expectations and
+3e-8 fitted / 3e-12 derivative tolerances remain unchanged.
+
+The failure probes exposed a vendor projected-gradient NaN being collapsed by
+MAX into apparent convergence. NaNs now propagate as in SciPy 1.15.3 projgr;
+the Source BSD license and attribution are retained. A checked robust-regression
+run subsequently trapped intermittently. Its signal was traced to Cauchy's
+one-sided bound tests: an unused tl/tu local could be evaluated because Fortran
+logical AND need not short circuit. A deterministic -finit-real=snan build and
+debugger stopped at the exact upper-bound comparison with tu unset. The fix
+evaluates distances only within the corresponding bound branch. A native test
+covers free/lower/both/upper bounds. The hardened bound test and 32 concurrent
+robust-regression replays all pass after the fix. Initial binaries, sources,
+logs, debugger output and failed-audit evidence are retained, not dismissed as
+an unexplained runtime/compiler issue. Earlier Windows locale-wrapper limits
+remain separate.
+
+The corrected full fpm build succeeds; the final package and optimized
+reference audits are recorded below when complete. Scoped optimization has
+passed all nineteen native programs, including the new tests and existing
+optimizer callers. Source Newton controls reuse the typed solver, clone and
+parameter adapters; no new external dependency is required. Package MIT
+licensing and Source BSD notices are retained. This is progress toward the
+broader sklearn translation, not a completion claim.

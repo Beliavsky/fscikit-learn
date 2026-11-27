@@ -8,7 +8,9 @@ program reference_glm_invalid_driver
   real(dp)::x(4,2),y(4),weight(4),value
   character(64)::arg
   integer::which
+  character(32)::solver_arg
   call get_command_argument(1,arg);read(arg,*)which
+  call get_command_argument(2,solver_arg);if(len_trim(solver_arg)>0)model%solver=trim(solver_arg)
   x=0;x(:,1)=[.1_dp,.2_dp,.3_dp,.4_dp];x(:,2)=[.4_dp,.1_dp,.2_dp,.3_dp]
   y=[1._dp,2._dp,3._dp,4._dp];weight=1
   sparse=csr_from_dense(x)

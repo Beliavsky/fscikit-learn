@@ -6,9 +6,9 @@ import numpy as np
 from scipy.sparse import csr_matrix
 from sklearn.linear_model import TweedieRegressor
 
-def source(which):
+def source(which,solver='lbfgs'):
     x=np.array([[.1,.4],[.2,.1],[.3,.2],[.4,.3]])
-    y=np.arange(1.,5.);w=np.ones(4);m=TweedieRegressor(solver='newton-cholesky')
+    y=np.arange(1.,5.);w=np.ones(4);m=TweedieRegressor(solver=solver)
     if which==24:m.solver='unknown'
     if which>=25:
         x=csr_matrix(x)
@@ -47,13 +47,13 @@ def source(which):
     return m.fit(x,y,sample_weight=w)
 
 def main():
-    ap=argparse.ArgumentParser();ap.add_argument('--executable',type=Path,required=True);ap.add_argument('--report',type=Path,required=True);a=ap.parse_args();records=[]
+    ap=argparse.ArgumentParser();ap.add_argument('--executable',type=Path,required=True);ap.add_argument('--report',type=Path,required=True);ap.add_argument('--solver',choices=['lbfgs','newton-cholesky'],default='lbfgs');a=ap.parse_args();records=[]
     for which in range(32):
         error=None
         try:
-            with warnings.catch_warnings():warnings.simplefilter('ignore');source(which)
+            with warnings.catch_warnings():warnings.simplefilter('ignore');source(which,a.solver)
         except Exception as exc:error=f'{type(exc).__name__}: {exc}'
-        p=subprocess.run([str(a.executable),str(which)],capture_output=True,text=True)
+        p=subprocess.run([str(a.executable),str(which),a.solver],capture_output=True,text=True)
         passed=error is not None and p.returncode==1 and 'fscikit-learn:' in p.stdout
         records.append(dict(case=which,source_error=error,returncode=p.returncode,stdout=p.stdout,stderr=p.stderr,passed=passed))
     a.report.write_text(json.dumps(records,indent=2)+'\n');print('GLM guards:',sum(r['passed'] for r in records),'/',len(records));raise SystemExit(not all(r['passed'] for r in records))

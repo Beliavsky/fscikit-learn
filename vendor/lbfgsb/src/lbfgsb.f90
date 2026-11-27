@@ -36,6 +36,7 @@
     module lbfgsb_module
 
     use lbfgsb_kinds_module, only: wp => lbfgsb_wp
+    use,intrinsic::ieee_arithmetic,only:ieee_is_nan
     use lbfgsb_linpack_module
     use lbfgsb_blas_module
 
@@ -1301,13 +1302,18 @@
          if ( Iwhere(i)/=3 .and. Iwhere(i)/=-1 ) then
             ! if x(i) is not a constant and has bounds,
             ! compute the difference between x(i) and its bounds.
-            if ( Nbd(i)<=2 ) tl = x(i) - l(i)
-            if ( Nbd(i)>=2 ) tu = u(i) - x(i)
-
-            ! If a variable is close enough to a bound
-            ! we treat it as at bound.
-            xlower = Nbd(i)<=2 .and. tl<=zero
-            xupper = Nbd(i)>=2 .and. tu<=zero
+            ! Fortran need not short circuit logical expressions. Evaluate
+            ! only distances for bounds that exist; the other scalar is unset.
+            xlower=.false.
+            xupper=.false.
+            if ( Nbd(i)<=2 ) then
+               tl = x(i) - l(i)
+               xlower=tl<=zero
+            end if
+            if ( Nbd(i)>=2 ) then
+               tu = u(i) - x(i)
+               xupper=tu<=zero
+            end if
 
             ! reset iwhere(i).
             Iwhere(i) = 0
@@ -2645,6 +2651,12 @@
       Sbgnrm = zero
       do i = 1 , n
          gi = g(i)
+         ! SciPy 1.15.3 __lbfgsb.c propagates a NaN projected gradient.
+         ! MAX can otherwise turn an undefined norm into apparent convergence.
+         if(ieee_is_nan(gi))then
+            Sbgnrm=gi
+            return
+         end if
          if ( Nbd(i)/=0 ) then
             if ( gi<zero ) then
                if ( Nbd(i)>=2 ) gi = max((x(i)-u(i)),gi)

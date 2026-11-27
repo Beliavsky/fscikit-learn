@@ -11,29 +11,27 @@ module sklearn_glm_lbfgs
   use,intrinsic::iso_fortran_env,only:int64
   implicit none
   private
-  public::glm_lbfgs_solve,glm_loss_gradient
+  public::glm_lbfgs_solve,glm_loss_gradient,glm_raw_prediction,glm_suspend_ieee,glm_restore_ieee
 contains
-  subroutine glm_loss_gradient(point,y,weight,power,link,alpha,loss,g,dense,sparse)
+  subroutine glm_loss_gradient(point,y,weight,power,link,alpha,loss,g,dense,sparse,raw_prediction)
     real(dp),intent(in)::point(:),y(:),weight(:),power,alpha
     character(*),intent(in)::link
     real(dp),intent(out)::loss,g(:)
     real(dp),optional,intent(in)::dense(:,:)
     type(csr_matrix),optional,intent(in)::sparse
+    real(dp),optional,intent(in)::raw_prediction(:)
     real(dp)::raw(size(y)),value(size(y)),gradient(size(y)),mu,tmp,first,second,mass
-    real(dp),allocatable::prediction(:,:)
     integer::p,i,j,k
     logical::halting(size(ieee_all)),raised(size(ieee_all))
-    call suspend(halting,raised)
+    call glm_suspend_ieee(halting,raised)
     p=0
-    if(present(dense))then
-      p=size(dense,2)
-      do i=1,size(y)
-        raw(i)=kernel_blas_dot(dense(i,:),point(:p),size(y),1,i,1)
-      end do
+    if(present(dense))p=size(dense,2)
+    if(present(sparse))p=sparse%n_cols
+    if(present(raw_prediction))then
+      raw=raw_prediction
     else
-      p=sparse%n_cols;prediction=sparse%matmul(reshape(point(:p),[p,1]));raw=prediction(:,1)
+      call glm_raw_prediction(point,raw,dense,sparse)
     end if
-    if(size(point)>p)raw=raw+point(p+1)
     do i=1,size(y)
       if(link=='log')then
         mu=exp(raw(i))
@@ -81,7 +79,24 @@ contains
     end if
     g(:p)=g(:p)+alpha*point(:p)
     if(size(point)>p)g(p+1)=numpy_sum(gradient)
-    call restore(halting,raised)
+    call glm_restore_ieee(halting,raised)
+  end subroutine
+  subroutine glm_raw_prediction(point,raw,dense,sparse)
+    real(dp),intent(in)::point(:)
+    real(dp),intent(out)::raw(:)
+    real(dp),optional,intent(in)::dense(:,:)
+    type(csr_matrix),optional,intent(in)::sparse
+    real(dp),allocatable::prediction(:,:)
+    integer::i,p
+    if(present(dense))then
+      p=size(dense,2)
+      do i=1,size(raw)
+        raw(i)=kernel_blas_dot(dense(i,:),point(:p),size(raw),1,i,1)
+      end do
+    else
+      p=sparse%n_cols;prediction=sparse%matmul(reshape(point(:p),[p,1]));raw=prediction(:,1)
+    end if
+    if(size(point)>p)raw=raw+point(p+1)
   end subroutine
   subroutine glm_lbfgs_solve(point,y,weight,power,link,alpha,tol,max_iter,n_iter,converged,message,dense,sparse)
     real(dp),intent(inout)::point(:)
@@ -107,7 +122,7 @@ contains
     n_iter=0;evaluations=0
     ! Source permits nonfinite trial losses and reports line-search failure as
     ! a warning/status. Preserve caller IEEE modes/flags around that arithmetic.
-    call suspend(halting,raised)
+    call glm_suspend_ieee(halting,raised)
     do
       call setulb(q,memory,point,lower,upper,nbd,loss,g,64._dp,tol,wa,iwa,task,-1,csave,lsave,isave,dsave, &
         ScipyNorm=.true.,MaxLineSearch=50)
@@ -125,10 +140,10 @@ contains
         exit
       end if
     end do
-    call restore(halting,raised)
+    call glm_restore_ieee(halting,raised)
     converged=task(:4)=='CONV';message=task
   end subroutine
-  subroutine suspend(halting,raised)
+  subroutine glm_suspend_ieee(halting,raised)
     logical,intent(out)::halting(:),raised(:)
     integer::i
     do i=1,size(ieee_all)
@@ -141,7 +156,7 @@ contains
       call ieee_set_halting_mode(ieee_all(i),.false.)
     end do
   end subroutine
-  subroutine restore(halting,raised)
+  subroutine glm_restore_ieee(halting,raised)
     logical,intent(in)::halting(:),raised(:)
     integer::i
     do i=1,size(ieee_all)
