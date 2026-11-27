@@ -9995,3 +9995,54 @@ optimizer callers. Source Newton controls reuse the typed solver, clone and
 parameter adapters; no new external dependency is required. Package MIT
 licensing and Source BSD notices are retained. This is progress toward the
 broader sklearn translation, not a completion claim.
+
+
+### Newton-Cholesky final verification and evidence
+
+Implementation commit: 83c4b92. After correcting the demonstrated vendor bound
+bug, the rebuilt checked package completes 340 audit jobs with 333 passing.
+All 310 native programs and eleven selected examples pass, including the
+robust-regression test that originally trapped. All 904 audited build
+fingerprints match current sources, including 207 library units. Seven fitted
+reference suites remain deliberately nonzero: the new Newton suite retains
+twelve cases, L-BFGS nine scores, the legacy native-Newton suite three scores,
+Huber six/four cases, and RANSAC seventeen cases plus two exact rank cases.
+The inventories agree across checked and scoped optimized builds; fixtures,
+expected outputs and tolerances remain unchanged.
+
+The Newton public comparison covers 507 configurations / 936 successful Source
+fits, retaining indices 450,451,452,453,454,455,459,460,461,486,487,488. Nine are
+known boundary-power scores; the three identity-link fallback cases include
+coefficient/iteration differences and one nonconverged CSR fit whose nonpositive
+predictions are rejected by native scoring. Its partial fitted coefficients,
+predictions and solver status are retained explicitly. These are unresolved
+strict failures, not passing compatibility adapters.
+
+Both profiles pass 192 new Hessian/gradient/curvature-warning/IEEE probes and
+fifteen low-level fallback cases, including all 21 backtracking attempts and
+zero remaining budget. All 32 GLM input guards pass for each solver. Existing
+192 loss/gradient checks, 492 L-BFGS configurations / 921 Source fits, all 156
+Poisson Pipeline fixtures / 1,755 groups, 213 original robust/GLM groups, 672
+Ridge groups, 1,514 Huber objective checks and 86 RANSAC guards are rechecked.
+Original Source inputs/oracles remain unchanged. Scoped optimization uses
+twelve modules, passes nineteen selected native programs and runs seventeen
+reference suites, plus Pipeline/memory supplements. Wide CSR peak working set
+is 19,603,456 bytes checked / 19,394,560 bytes optimized. This is not a full
+optimized package rebuild. All 195 non-overridden baseline library members
+and source/object/report hashes pass cross-profile verification.
+
+The deterministic signaling-NaN bound test fails before the correction and
+passes afterward. The debugger identifies the unset upper-distance comparison;
+32 hardened robust-regression replays pass after fixing it. Initial failing
+binaries, vendor sources, debugger/replay logs and the failed first package
+audit are preserved separately. GNU Fortran 15.2.0 checks retain static
+libgfortran and the validation-only Windows locale-copy shim; installed tools
+are unchanged. The demonstrated bound bug is separate from that runtime
+workaround, and unwrapped Windows runtime stability is not claimed.
+
+The verified compressed backup is glm_newton_evidence_83c4b92.zip,
+317,423,537 bytes / 3,196 entries, SHA256
+c4f3b72333ec35e563f67c8778d035f328d4fa987fae3dc8f2e45879eec29ace.
+ZIP CRCs and critical source/report/binary hashes were verified. Evidence is
+under ignored validation/results/glm_*. Commits remain local; the retained
+numerical/domain gaps and broader translation remain open.
