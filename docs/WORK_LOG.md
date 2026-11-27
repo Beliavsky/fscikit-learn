@@ -10150,3 +10150,51 @@ the cleanup manifest is validation/results/ard_archived_binary_cleanup.json.
 Validation retains the private GNU Fortran 15.2.0 setup, static libgfortran and
 validation-only Windows locale-copy shim; installed tools and user files are
 untouched. The larger translation goal and retained numerical gaps remain open.
+
+
+### ARDRegression final verification and coherent library baseline
+
+Implementation commit: dc78194. The completed checked build passes all 312
+native programs and eleven selected examples. Its 329-job focused audit has
+327 passes; ARD and BayesianRidge strict fitted comparisons intentionally exit
+nonzero. All 912 build fingerprints match current sources, including 209
+library units. The 152 ARD configurations retain exactly eight failures in
+both profiles: 54,59,66,71,102,107,114,119. Fitted support sizes, iteration counts,
+input acceptance and controlled termination match throughout. All sixteen
+Source/native ARD rejection cases and three selected legacy guards pass.
+No fixture, oracle or tolerance was relaxed.
+
+Both profiles preserve the previous BayesianRidge Source inputs/oracles and
+its 186-configuration / 26-failure inventory; all twenty Bayesian input guards
+pass. IterativeImputer passes all 324 fixtures / 2,592 groups in each profile,
+with identical Source file hashes. Scoped optimization covers eight modules,
+seven passing native programs and six reference suites. This is not a full
+optimized package rebuild. Cross-profile verification confirms Source/object/
+report hashes and all 201 non-overridden library members.
+
+The first optimized baseline, although a complete prior archive, was not
+coherent with the newly compiled type metadata. Direct member comparison found
+31 differing old objects, including generated dispatch/type metadata in otherwise
+unchanged sources. This caused two native failures: the Bayesian sparse test
+reached an OLS-overload rejection and the search test reported an unfitted
+forest. Both pass in the completed checked build and after optimized relinking
+against its exact 209-member library, without changing implementation or tests.
+The affected audit was stopped explicitly; its old archive, two failing binaries
+and diagnostics are preserved in ard_stale_baseline_failure.zip with verified
+CRCs/hashes. The final optimized helper now requires a successful terminal
+checked build and a byte-identical baseline before compiling/linking. Prior
+archive completeness alone is insufficient when derived-type metadata changes.
+
+All build/audit jobs are terminal. The protected user files remain untouched;
+the 62 archived executable copies removed earlier totaled 884,593,630 bytes.
+Validation continues to use the private GNU Fortran 15.2.0 environment, static
+libgfortran and validation-only Windows locale-copy shim. Runtime behavior
+without that shim is not claimed. Evidence is in ignored validation/results/
+ard_*. Commits remain local; strict numerical gaps and the larger sklearn
+translation remain open.
+
+The verified archive is ard_evidence_dc78194.zip,
+147,811,161 bytes / 2,017 entries, SHA256
+ecb2496642335a3a0b56bb4c9d46a33a846ab3b145f9254f179237a2c1643c15.
+ZIP CRCs and critical source/report/object/binary hashes pass. The receipt is
+validation/results/ard_archive_receipt.json (ignored local evidence).
