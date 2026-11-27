@@ -1,5 +1,37 @@
 # Validation
 
+Weighted GradientBoostingClassifier (2026-11-27, implementation `c25b474`):
+run `compare_gbc_weighted.py` and `compare_gbc_integration.py` with
+`--executable PATH --report PATH`, using `reference_gbc_weighted_driver` and
+`reference_gbc_integration_driver`. The existing
+`check_classic_boosting_inputs.py` also covers the new controls and weights.
+
+Checked and scoped optimized runs pass 932 full-stage classifier cases,
+12 composition fixtures and 74 rejection checks. Cases include binary and
+multiclass log loss, binary exponential loss, zero/signed weights, zero-weight
+class retention, clipped priors, unit weights, pruning, leaf budgets and weighted
+leaf limits. They compare complete trees, staged predictions, losses, metadata,
+importances and weighted accuracy. Compositions check weighted search (16
+candidates, three folds), SelectFromModel, pipelines, soft voting, bagging
+samples/features/seeds/OOB probabilities and stacking with probability or
+decision features. Integer outputs remain exact; numeric rtol/atol remain
+2e-10 / 2e-12. All 932 initial weighted and 12 composition Source oracles and
+inputs are preserved. The initial composition driver called regressor prediction
+APIs; its saved binary, failure report and stack trace remain under results.
+The corrected driver uses classifier APIs, with no oracle or tolerance changes.
+
+The full checked fpm build, 299 native tests and ten selected examples pass.
+Previous tree/forest/feature/bootstrap checks, 240 regression cases, 140 strict
+classifier cases, 16 regression compositions, 510 legacy classifier result
+groups and 192 core comparisons pass. The audit records 339 successful jobs,
+856 compiled-source fingerprints and 204 library units, verifies source/binary
+hashes and preserves earlier tree/forest and boosting Source oracles. Optimized
+checks use seven freshly compiled tree/loss/boosting/dispatch/ensemble/selection/
+search modules with matching unchanged checked dependencies. Both profiles use
+the documented validation-only static-libgfortran locale-copy link; unprotected
+Windows runtime stability is not established. Evidence is under ignored
+`validation/results/gbc_weighted_*`.
+
 Classic gradient boosting (2026-11-26, implementation `d5117c4`, aligned legacy
 tie test `7148798`): run `compare_gbr_losses.py`, `compare_gbc_stages.py`,
 `check_classic_boosting_inputs.py` and `compare_gbr_integration.py` with

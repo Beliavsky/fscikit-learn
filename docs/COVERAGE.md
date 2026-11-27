@@ -1231,6 +1231,20 @@ objects, fractional sample-size controls and sparse input remain unimplemented.
 
 ## GradientBoostingClassifier
 
+Weighted fitting and composition support in `c25b474` pass 932 full-stage
+reference cases, 12 integration fixtures and 74 actual sklearn rejection checks,
+in checked and scoped optimized builds. Comparisons cover complete tree
+structures/values, class retention, losses, stages, weighted scores, pruning,
+search ranks, selection, pipeline and ensemble outputs, including bagging seeds,
+samples and OOB probabilities. Initial inputs/Source oracles and strict
+2e-10 / 2e-12 numeric bounds remain unchanged. The full checked package passes
+299 native tests, ten examples, all earlier tree/forest/boosting gates, 510 legacy
+classifier result groups and 192 core comparisons. The audit verifies 339 jobs,
+856 compiled fingerprints and 204 library units. Optimized checks cover seven
+fresh modules with matching unchanged checked dependencies; both profiles use
+the documented validation-only Windows locale-copy link. Evidence and the
+initial driver failure are retained under `validation/results/gbc_weighted_*`.
+
 `gradient_boosting_classifier` fits negative-gradient regression trees and
 Newton leaf updates for binary/multiclass log loss and binary exponential loss.
 Gradients are frozen at the start of each stage and include sklearn's (K-1)/K
