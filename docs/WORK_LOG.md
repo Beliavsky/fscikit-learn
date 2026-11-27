@@ -9620,3 +9620,78 @@ Evidence, initial failures and manifests are retained under ignored
 `validation/results/ada_controls_*`, with a compressed backup in
 `validation/results/ada_controls_evidence_05defcf.zip`. Commits remain local;
 the overall sklearn translation remains incomplete.
+
+
+### 2026-11-27 ? Weighted, sparse and warm-start Huber regression
+
+Implementation `6971c92` replaces Huber's full-memory BFGS with the existing
+bounded limited-memory L-BFGS-B dependency, using the Source weighted total
+objective, scale floor, default function-value stopping and zero-iteration
+counter convention. Dense/CSR features accept vector or one-column targets
+and scalar/vector weights. CSR fitting traverses stored entries, including
+unsorted duplicates and explicit zeros, without densifying the design.
+Warm fits preserve Source's old-intercept initial-vector convention, including
+when the public fit_intercept flag is false. Clone sites clear learned Huber
+state while retaining controls. Common weighted dispatch, parameter search and
+compositions now reach Huber-specific methods. The package remains MIT with
+retained sklearn, SciPy, OpenBLAS and vendored L-BFGS-B BSD attribution; no new
+estimator name, extension algorithm or runtime dependency is added.
+
+The observed Windows norm-square updates are opt-in to the vendored solver;
+existing callers retain their original default arithmetic path. The existing
+Ridge transpose-vector helper is moved to shared kernel dispatch with its
+finite arithmetic body unchanged after renaming. All 336 Ridge fixtures /
+672 groups pass with maximum scaled error below 1.8e-14. A norm diagnostic
+matches SciPy exactly on 3,355 vectors, including extreme magnitudes.
+
+Source/native comparisons retain all 528 sequences / 744 fits at unchanged
+rtol/atol 3e-8. The 522 non-wide sequences match; six wide, near-interpolating
+fits capped at 100 iterations still fail strict comparison. Both Source and
+native report nonconvergence on these cases. They remain failures, without
+exclusions, changed expected arrays, relaxed bounds or fitted certificates.
+Direct objectives/gradients match exactly at 1,442 real Source optimization
+points plus 72 signed/negative/zero-weight probes, across C/F dense reduction
+orders and canonical/raw CSR. This does not certify fitted-path parity.
+
+The twelve fitted-template composition fixtures retain four strict numeric
+mismatches in weighted CV, bagging/OOB or stacking, including Source inner fits
+that report function-value convergence. Remaining errors in the retained grid
+are below 4.9e-5. Eight fixtures match fully; integer rankings, selected models,
+sample/feature indices and seeds match in every fixture. Correcting an initial
+pipeline test-construction mismatch preserves the original Source oracle;
+the native child now receives the same parameter-only clone as Python. The
+internal bagging column-selection adapter reproduces NumPy's F-contiguous
+BLAS route and reduces the initial large bagging prediction difference from
+about 0.151 to 2.94e-7 in the unweighted eight-feature fixture. The adapter is
+excluded from the public facade. All original failures remain retained.
+
+All 70 actual Source parameter/weight/shape/query acceptance checks pass in
+checked and scoped optimized profiles. Source cases run in isolated processes;
+an earlier combined Source process terminated with a Windows heap error, whose
+cause is not established. Its exit record is retained. A private probe also
+encountered stale derived-type module metadata; complete dependency rebuilds
+resolve it. No installed compiler or DLL was modified.
+
+The final checked fpm build succeeds. The package audit completes 323 jobs:
+305 native programs, eleven examples, 192 core comparisons, 213 original
+robust/GLM groups, 672 Ridge groups, 1,514 objective/gradient cases and 70 guards
+pass. Two strict fitted-comparison suites deliberately exit nonzero with the
+six and four retained mismatches. Thus 321 jobs pass; strict Source parity is
+false. All 888 compiled-unit fingerprints (205 library units) match current
+sources. Scoped O3 validation rebuilds nine modules against matching checked
+dependencies and runs thirteen native programs plus the same seven reference
+suites, retaining the same strict mismatch inventories. It is not a full
+optimized package rebuild.
+
+The cross-profile audit verifies current source/executable/object hashes and
+that every original fitted Source oracle and input, including all 213 legacy
+robust/GLM groups, is unchanged. GNU Fortran 15.2.0 validation retains static
+libgfortran and the locale-copy wrapper for the separately reproduced Windows
+formatted-I/O lifetime defect. Redundant temporary executable copies from the
+previous completed audit were byte-verified against their canonical build
+before deletion, recovering about 4.13 GB; failure evidence was retained.
+
+Evidence remains under ignored validation/results/huber_* with the verified
+compressed backup huber_evidence_6971c92.zip. All commits are local. Remaining
+strict fitted-path differences and the broader sklearn translation are still
+unfinished work.
