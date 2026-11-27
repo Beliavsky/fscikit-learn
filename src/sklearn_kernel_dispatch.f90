@@ -308,6 +308,21 @@ contains
    call ieee_set_halting_mode(ieee_all(i),.false.)
   end do
  end subroutine
+ subroutine cosine_row(a,i,norm,row)
+  type(row_view),intent(in)::a
+  integer,intent(in)::i
+  real(dp),intent(in)::norm
+  real(dp),intent(out)::row(:)
+  integer::e,j
+  if(associated(a%sparse))then
+   row=0
+   do e=a%sparse%indptr(i),a%sparse%indptr(i+1)-1
+    j=a%sparse%indices(e);row(j)=row(j)+a%sparse%data(e)/norm
+   end do
+  else
+   call get_row(a,i,row);row=row/norm
+  end if
+ end subroutine
  subroutine restore(halting,raised)
   logical,intent(in)::halting(size(ieee_all)),raised(size(ieee_all))
   integer::i
@@ -433,10 +448,18 @@ contains
     end do
    end if
    do i=1,a%n
-    call get_row(a,i,u)
+    if(kind==5)then
+     call cosine_row(a,i,nx(i),u)
+    else
+     call get_row(a,i,u)
+    end if
     if(kind==7.or.kind==8)call require(all(u>=0),'chi-squared kernel inputs must be nonnegative')
     do j=1,b%n
-     call get_row(b,j,v)
+     if(kind==5)then
+      call cosine_row(b,j,ny(j),v)
+     else
+      call get_row(b,j,v)
+     end if
      if(kind==7.or.kind==8)call require(all(v>=0),'chi-squared kernel inputs must be nonnegative')
      xy=0
      if(kind>=1.and.kind<=4.and.associated(a%dense).and.associated(b%dense))then
@@ -444,7 +467,7 @@ contains
      else if(kind<=5)then
       do k=1,a%p
        if(kind==5)then
-        xy=xy+(u(k)/nx(i))*(v(k)/ny(j))
+        xy=xy+u(k)*v(k)
        else
         xy=xy+u(k)*v(k)
        end if

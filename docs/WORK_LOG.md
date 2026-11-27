@@ -10538,3 +10538,20 @@ isolated checked memory probe. Full checked rebuilding and scoped optimized,
 legacy inverse and shared kernel-dispatch comparisons remain in progress at
 this commit. The broader translation and documented gaps remain open; commits
 stay local.
+
+
+### Stored-entry cosine normalization order
+
+An additional Source probe with two finite 1e308 duplicate CSR entries returns
+cosine zero: normalization divides stored entries by an infinite row norm before
+duplicate accumulation. Coalescing first would overflow and produce NaN after
+division. The shared cosine path now normalizes each stored entry before logical
+row accumulation, preserving Source operation order as well as its norm. Dense
+rows are normalized before their dot product. A native regression asserts the
+Source zero result. All 216 KernelPCA storage comparisons still pass.
+
+The first edit applied normalization at the wrong loop and the native test
+caught it; the probe log is preserved. It was corrected before validation.
+These source/test changes occurred during the initial full build, so that
+build will not be used as final evidence: a fresh incremental fpm rebuild will
+follow its terminal completion. No Source fixture or tolerance was changed.

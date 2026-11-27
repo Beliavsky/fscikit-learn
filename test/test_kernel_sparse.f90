@@ -2,6 +2,7 @@ program test_kernel_sparse
   use sklearn_kernel_pca,only:kernel_pca
   use sklearn_sparse,only:csr_matrix,csr_from_dense,csr_from_arrays
   use sklearn_common,only:dp,require
+  use sklearn_kernel_dispatch,only:pairwise_kernels
   implicit none
   type(kernel_pca)::dense,sparse
   type(csr_matrix)::s,before,q
@@ -26,6 +27,8 @@ program test_kernel_sparse
   call require(.not.sparse%sparse_fit_.and..not.allocated(sparse%x_fit_csr_),'KernelPCA dense refit clears CSR cache')
   sparse%eigen_solver='randomized';call sparse%fit(s)
   call require(.not.allocated(sparse%x_fit_),'KernelPCA sparse refit clears dense cache')
+  q=csr_from_arrays(1,1,[1,3],[1,1],[1.e308_dp,1.e308_dp]);a=pairwise_kernels(q,metric='cosine')
+  call require(a(1,1)==0,'CSR cosine normalizes stored entries before duplicate accumulation')
   if(arg=='--memory')then
     s=csr_from_arrays(8,50000,[(2*i+1,i=0,8)],[(i,i=1,16)],spread(0._dp,1,16))
     do i=1,8
