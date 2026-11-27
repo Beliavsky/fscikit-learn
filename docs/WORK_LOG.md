@@ -9822,3 +9822,36 @@ full optimized package rebuild. GNU Fortran 15.2.0 validation retains static
 libgfortran and the validation-only locale-copy wrapper; installed tools are
 unchanged. Full checked package verification is recorded in the follow-up
 verification entry.
+
+
+### Weighted GLM checked verification and evidence
+
+Implementation commit: 5955340. The final checked fpm build succeeds, and the
+package audit completes 329 jobs with 324 passing. All 307 native programs and
+eleven selected examples pass, together with core comparisons, all 672 Ridge
+groups, all 213 original robust/GLM groups, 1,514 Huber objective/gradient
+checks, 86 RANSAC guards and 24 new GLM guards. Five fitted reference suites
+remain deliberately nonzero: the new GLM scores retain exactly three cases;
+earlier Huber suites retain six/four cases, and RANSAC retains seventeen
+numeric/acceptance/counter cases and two exact rank cases. These inventories
+are unchanged across checked and scoped optimized builds. Tolerances, fixtures
+and expected outputs were not loosened to make them pass.
+
+All 894 audited build fingerprints match current sources, including 205
+library units. The cross-profile audit verifies source/object hashes, matching
+Source inputs and fitted oracles, the original legacy groups and all 195
+non-overridden baseline archive members. The ten-module O3 build passes all
+sixteen native programs and retains the same reference failure inventories.
+Validation uses GNU Fortran 15.2.0, static libgfortran and the existing
+validation-only Windows locale-copy wrapper; this does not establish stability
+for an unwrapped Windows formatted-I/O runtime.
+
+Reports, initial failure evidence, binaries, optimized objects, stable/final
+libraries and source/license snapshots are retained under ignored
+validation/results/glm_*. The compressed backup is
+glm_evidence_5955340.zip: 218,687,787 bytes,
+2,115 entries, SHA256
+c550e628102d4f0c8758bfd9ccc57fb01205b853b9df7f6336de2eb397c844d5.
+ZIP CRCs and critical source/report/binary hashes were verified. Commits remain
+local. The three new score differences, existing mismatches, remaining solver
+and sparse options, and the broader translation remain open.
