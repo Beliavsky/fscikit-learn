@@ -9452,3 +9452,53 @@ No runtime dependency, public core estimator type or algorithm outside sklearn
 was added. Inventory: 222 public core types, 178 source modules, 248 native
 programs, 221 reference suites / 4,281,536 retained groups and 120 invalid
 registries / 6,416 cases. The broader translation remains unfinished.
+
+
+## Fractional minimum sample counts (2026-11-27)
+
+Implementation `23862e6` adds typed integer/real `set_min_samples_leaf` and
+`set_min_samples_split` to DecisionTree, ExtraTree, RandomForest, ExtraTrees
+and classic GradientBoosting classifiers/regressors. Fractions resolve with
+ceil(full input row count), including zero-weight/out-of-bag rows; split counts
+retain a minimum of two and require enough rows for both leaves. Leaf fractions
+are in (0,1), split fractions in (0,1]. Search, clone resets, pruning paths,
+warm growth and extracted component refits preserve the selected parameter
+type. Integer setters reset fractional state; positive direct integer fields
+override it. This adds sklearn compatibility without an extension algorithm.
+Original typed integration is MIT with retained sklearn BSD attribution.
+
+Checked and scoped optimized comparisons pass all 6,332 fitted configurations:
+896 regression/672 classification trees, 768 regression/576 classification
+forest warm snapshots, and 1,520 regression/1,900 classification boosting fits.
+Complete tree state, pruning, predictions, scores, class probabilities, staged
+outputs and OOB histories match actual sklearn 1.6.1. All 240 typed parameter
+acceptance/rejection cases pass in both profiles. Integer fields remain exact;
+floating comparisons retain rtol 2e-10 / atol 2e-12. No cases or numeric oracles
+were removed or altered. The final fpm executables replay the preserved
+Source-generated inputs/oracles; the optimized suites regenerate them
+independently, and the cross-profile audit confirms their identities.
+
+The full checked fpm build and 337-job package audit pass, including all 302
+native programs, ten selected examples, fourteen earlier boosting suites, two
+earlier tree suites, 510 legacy classifier groups and 192 core comparisons.
+All 870 compiled fingerprints (204 library units) are verified. The optimized
+scope rebuilds fifteen affected modules at O3, links matching checked
+unchanged dependencies, and passes seven native tests plus all seven new
+reference/guard suites. This is a scoped optimized audit, not a complete
+optimized rebuild of the package.
+
+Two initial audit commands used a mistyped validator filename. Both corrected
+warm-start jobs pass; their failed command logs are retained. Earlier numeric
+oracles and input identities are preserved. Python's process-dependent set
+ordering in parameter-error messages is recorded separately; the preservation
+audit compares identical set members, error types, phases and cases while
+retaining the original raw messages. No library correction was needed.
+
+GNU Fortran 15.2.0 verification uses the existing validation-only static
+libgfortran/locale-copy wrapper for the separately reproduced Windows numeric
+locale lifetime defect. Installed compilers remain unchanged. Reports, build
+logs, original failed runner evidence, fingerprints and immutable oracle
+provenance are retained under ignored `validation/results/min_samples_*`,
+including `min_samples_package_audit.json` and
+`min_samples_cross_profile_audit.json`. Both implementation and verification
+commits are local; no push was made.
