@@ -1,5 +1,14 @@
 # Third-party notices and provenance
 
+Classic boosting validation stopping follows scikit-learn 1.6.1
+`ensemble/_gb.py` `BaseGradientBoosting.fit` and `_fit_stages`: training/holdout
+partitioning, pre-split weighted class validation, the circular loss window,
+warm validation-stage order and history trimming. Seeded and stratified splits
+reuse the existing translation of `model_selection/_split.py` and
+`utils/extmath.py` `_approximate_mode`. Typed controls, clone/search integration
+and native zero-for-None adaptation are original MIT contributions. Existing
+sklearn/NumPy notices remain retained; no external implementation is imported.
+
 Typed minimum sample counts for CART/ExtraTree, random forests/ExtraTrees and
 classic gradient boosting follow scikit-learn 1.6.1 `tree/_classes.py`
 `BaseDecisionTree._fit`: fractional counts use the ceiling of the full input

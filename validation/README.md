@@ -1,5 +1,23 @@
 # Validation
 
+Classic boosting validation stopping (2026-11-27):
+`compare_gbr_early_stopping.py` and `compare_gbc_early_stopping.py` use
+`reference_gbr_early_driver` and `reference_gbc_early_driver` to compare full
+fitted trees, staged predictions, training/OOB histories and stopping counts.
+`compare_gb_early_warm.py --kind regression/classification` uses the matching
+`reference_gbr_early_warm_driver` / `reference_gbc_early_warm_driver` for split
+changes, equal-count fits, warm/cold switches and enabling/disabling stopping.
+All take `--executable PATH --report PATH`. `check_gb_early_stopping.py` uses
+`reference_gb_early_invalid_driver` for 40 actual Source acceptance/rejection
+cases. Native `test_gradient_boosting_early_stopping` also covers typed search
+controls and parameter-only clone resets.
+
+Add `--early-stopping` to both classic boosting integration comparators and
+drivers; it can be combined with `--subsample --warm-start`. Source zero-weight
+errors are retained and compared with controlled native rejections. Default
+integration inputs and numeric oracles are unchanged. New evidence remains
+under ignored `validation/results/gb_early_*`.
+
 Typed minimum sample controls (2026-11-27): run
 `compare_min_samples_tree_regression.py`, `compare_min_samples_tree_classification.py`,
 `compare_min_samples_gbr.py`, `compare_min_samples_gbc.py`, and

@@ -145,6 +145,30 @@ Fortran identifiers use snake_case rather than CamelCase.
 | calibration | `calibrated_classifier_cv`; `calibration_curve` | Sigmoid/isotonic CV ensembles, out-of-fold calibration and prefit calibration with logistic, Gaussian NB or KNN bases; uniform/quantile reliability bins |
 | datasets | `make_classification`, `make_multilabel_classification`, `make_sparse_coded_signal`, `make_sparse_spd_matrix`, `make_biclusters`, `make_checkerboard`, `make_hastie_10_2`, `make_blobs`, `make_regression`, `make_low_rank_matrix`, `make_moons`, `make_circles`, `make_friedman1/2/3`, `make_sparse_uncorrelated`, `make_s_curve`, `make_swiss_roll`, `make_gaussian_quantiles` | Native synthetic generators with seeded legacy NumPy draws; scalar/joint regression, low-rank profiles, unequal blob/curve counts, per-cluster blob scales and center outputs; no bundled real-world datasets |
 
+## Validation stopping for classic gradient boosting
+
+Classic GradientBoostingRegressor and GradientBoostingClassifier support
+`n_iter_no_change`, `validation_fraction` and `tol`. Native patience zero
+represents sklearn None; positive values enable a deterministic holdout split,
+stratified for classification. The initializer and components fit the training
+partition. Classification validates weighted class retention before splitting,
+then checks that the training rows cover every raw class. A class may have zero
+training weight when its positive weight occurs only in validation, as in Source.
+
+The circular validation-loss window, retained stopping stage, learned-history
+trimming, independent split/tree RNG streams and warm/cold transitions follow
+sklearn 1.6.1 `ensemble/_gb.py`. Warm validation starts at the first retained
+stage on each fit, preserving the Source behavior rather than substituting the
+current ensemble prediction. Search and parameter-only clones retain stopping
+controls. No extension algorithm or runtime dependency is added.
+
+New reference suites compare 384 regression and 396 classification cold fits,
+512 warm snapshots for each target kind, and 40 actual parameter/split checks.
+Fitted-template composition suites retain all 16 regression/12 classification
+fixtures, including controlled Source failures caused by zero-total OOB weights.
+Numeric fields retain rtol 2e-10 / atol 2e-12; integer structures remain exact.
+Evidence is retained under ignored `validation/results/gb_early_*`.
+
 ## Typed minimum sample counts
 
 DecisionTree, ExtraTree, RandomForest, ExtraTrees and classic GradientBoosting
@@ -1236,7 +1260,7 @@ fitting, exact lower weighted percentiles, Huber threshold/leaf corrections,
 staged predictions, leaf assignments, weighted R2 and training-loss histories.
 Unweighted and explicitly weighted default initializers retain sklearn's
 different percentile conventions. Components use configurable Friedman MSE or
-squared-error criteria, integer depth/leaf/split controls, weighted minimum
+squared-error criteria, integer depth and typed leaf/split controls, weighted minimum
 leaves, leaf budgets, pruning and typed integer/fractional/named feature budgets.
 Feature importances aggregate unnormalized component reductions before final
 normalization. Learning rate is finite and nonnegative, including zero, and
@@ -1248,8 +1272,8 @@ ensemble facade so both weighted boosters can use the shared registry for
 pipelines, voting, bagging and stacking. Search and SelectFromModel forward fit
 weights. `init_` is a native scalar constant; `huber_delta_` records each stage's
 pre-fit threshold as a native diagnostic. All generators materialize arrays.
-Validation stopping, custom initializer
-objects, fractional sample-size controls and sparse input remain unimplemented.
+Custom initializer objects and sparse input remain unimplemented. Validation
+stopping and fractional sample counts are described in the current sections above.
 
 ## GradientBoostingClassifier
 

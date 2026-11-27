@@ -4,6 +4,7 @@ module sklearn_classic_gradient_boosting
   use sklearn_common
   use sklearn_tree,only:decision_tree_regressor
   use sklearn_tree_features,only:feature_count_control,sample_count_control
+  use sklearn_resampling,only:shuffle_split,stratified_shuffle_split,index_split
   use sklearn_legacy_rng,only:legacy_random_state
   use sklearn_boosting_loss,only:boosting_sum,boosting_mean,boosting_quantile,boosting_regression_loss,boosting_logit
   use sklearn_ieee_math,only:ieee_difference,ieee_product,ieee_quotient
@@ -18,6 +19,8 @@ module sklearn_classic_gradient_boosting
     integer :: n_estimators=100,max_depth=3,min_samples_leaf=1,min_samples_split=2,max_features=0,random_state=0
     integer :: n_estimators_=0,n_trees_per_iteration_=0,n_features_in_=0,n_classes_=0,max_leaf_nodes=0
     real(dp) :: learning_rate=.1_dp,min_impurity_decrease=0,ccp_alpha=0,min_weight_fraction_leaf=0
+    integer::n_iter_no_change=0 ! Native zero represents sklearn None.
+    real(dp)::validation_fraction=.1_dp,tol=1.e-4_dp
     real(dp)::subsample=1,oob_score_=0
     real(dp),allocatable::oob_scores_(:),oob_improvement_(:)
     integer::max_features_=0
@@ -55,6 +58,8 @@ module sklearn_classic_gradient_boosting
     integer :: n_estimators=100,max_depth=3,min_samples_leaf=1,min_samples_split=2,random_state=0
     integer::max_features=0,max_leaf_nodes=0,n_features_in_=0,n_estimators_=0,n_trees_per_iteration_=1,max_features_=0
     real(dp) :: learning_rate=0.1_dp,init_=0,alpha=.9_dp,min_impurity_decrease=0,min_weight_fraction_leaf=0,ccp_alpha=0
+    integer::n_iter_no_change=0 ! Native zero represents sklearn None.
+    real(dp)::validation_fraction=.1_dp,tol=1.e-4_dp
     real(dp)::subsample=1,oob_score_=0
     real(dp),allocatable::oob_scores_(:),oob_improvement_(:)
     character(16)::loss='squared_error',criterion='friedman_mse'
@@ -77,6 +82,79 @@ module sklearn_classic_gradient_boosting
     generic::set_max_features=>features_integer,features_real,features_name
   end type
 contains
+  subroutine check_boosting_stopping(patience,fraction,tolerance)
+    integer,intent(in)::patience
+    real(dp),intent(in)::fraction,tolerance
+    call require(patience>=0,'gradient boosting n_iter_no_change must be positive or native zero (None)')
+    call require(ieee_is_finite(fraction),'gradient boosting validation_fraction must be finite')
+    call require(fraction>0.and.fraction<1,'gradient boosting validation_fraction must be in (0,1)')
+    call require(ieee_is_finite(tolerance),'gradient boosting tol must be finite')
+    call require(tolerance>=0,'gradient boosting tol must be nonnegative')
+  end subroutine
+  subroutine boost_fit(self,x,y,sample_weight)
+    class(gradient_boosting_regressor),intent(inout)::self
+    real(dp),intent(in)::x(:,:),y(:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    type(shuffle_split)::splitter
+    type(index_split),allocatable::folds(:)
+    real(dp)::w(size(y))
+    integer,allocatable::train(:),validation(:)
+    call check_boosting_stopping(self%n_iter_no_change,self%validation_fraction,self%tol)
+    if(self%n_iter_no_change==0)then
+      call boost_fit_core(self,x,y,sample_weight)
+      return
+    end if
+    call check_xy(x,size(y));call check_x(reshape(y,[size(y),1]))
+    w=1
+    if(present(sample_weight))then
+      call require(size(sample_weight)==size(y),'gradient boosting sample weight length mismatch')
+      call require(all(ieee_is_finite(sample_weight)),'gradient boosting sample weights must be finite')
+      w=sample_weight
+    end if
+    splitter%n_splits=1;splitter%random_state=self%random_state;splitter%test_size=self%validation_fraction
+    folds=splitter%split(size(y));train=folds(1)%train;validation=folds(1)%test
+    if(present(sample_weight))then
+      call boost_fit_core(self,x(train,:),y(train),w(train),x(validation,:),y(validation),w(validation))
+    else
+      call boost_fit_core(self,x(train,:),y(train),x_val=x(validation,:),y_val=y(validation),weight_val=w(validation))
+    end if
+  end subroutine
+  subroutine gbc_fit(self,x,y,sample_weight)
+    class(gradient_boosting_classifier),intent(inout)::self
+    real(dp),intent(in)::x(:,:)
+    integer,intent(in)::y(:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    type(stratified_shuffle_split)::splitter
+    type(index_split),allocatable::folds(:)
+    real(dp)::w(size(y))
+    real(dp),allocatable::mass(:)
+    integer,allocatable::train(:),validation(:),classes(:),encoded(:)
+    integer::i
+    call check_boosting_stopping(self%n_iter_no_change,self%validation_fraction,self%tol)
+    if(self%n_iter_no_change==0)then
+      call gbc_fit_core(self,x,y,sample_weight)
+      return
+    end if
+    call check_xy(x,size(y));classes=unique_labels(y)
+    call require(size(classes)>=2,'GradientBoostingClassifier requires at least two classes')
+    w=1
+    if(present(sample_weight))then
+      call require(size(sample_weight)==size(y),'GradientBoostingClassifier sample weight length mismatch')
+      call require(all(ieee_is_finite(sample_weight)),'GradientBoostingClassifier sample weights must be finite')
+      w=sample_weight
+    end if
+    allocate(mass(size(classes)));mass=0;encoded=[(label_index(classes,y(i)),i=1,size(y))]
+    do i=1,size(y);mass(encoded(i))=ieee_difference(mass(encoded(i)),-w(i));end do
+    call require(count(mass/=0)>=2,'GradientBoostingClassifier weights must retain at least two classes')
+    splitter%n_splits=1;splitter%random_state=self%random_state;splitter%test_size=self%validation_fraction
+    folds=splitter%split(y);train=folds(1)%train;validation=folds(1)%test
+    call require(size(unique_labels(y(train)))==size(classes),'early stopping training split is missing classes')
+    if(present(sample_weight))then
+      call gbc_fit_core(self,x(train,:),y(train),w(train),x(validation,:),y(validation),w(validation))
+    else
+      call gbc_fit_core(self,x(train,:),y(train),x_val=x(validation,:),y_val=y(validation),weight_val=w(validation))
+    end if
+  end subroutine
   subroutine gbr_leaf_integer(self,value)
     class(gradient_boosting_regressor),intent(inout)::self
     integer,intent(in)::value
@@ -220,10 +298,14 @@ contains
     character(*),intent(in)::value
     self%max_features=0;call self%feature_control_%set(value)
   end subroutine
-  subroutine boost_fit(self,x,y,sample_weight)
+  subroutine boost_fit_core(self,x,y,sample_weight,x_val,y_val,weight_val)
     class(gradient_boosting_regressor), intent(inout) :: self
     real(dp), intent(in) :: x(:,:),y(:)
     real(dp),optional,intent(in)::sample_weight(:)
+    real(dp),optional,intent(in)::x_val(:,:),y_val(:),weight_val(:)
+    real(dp),allocatable::validation_raw(:),history(:),increment(:)
+    real(dp)::validation_loss
+    integer::fitted,validation_stage
     type(legacy_random_state)::rng
     type(decision_tree_regressor),allocatable::grown(:)
     real(dp)::residual(size(y)),prediction(size(y)),gradient(size(y)),w(size(y)),terms(size(y)),delta,median,value,total
@@ -292,6 +374,11 @@ contains
     if(begin<self%n_estimators.and.self%subsample==1) &
       call require(boosting_sum(w)/=0,'gradient boosting weights must have nonzero total')
     if(do_oob.and.begin>0)previous_loss=self%oob_scores_(begin)
+    fitted=self%n_estimators
+    if(present(x_val))then
+      allocate(history(self%n_iter_no_change));history=ieee_value(0._dp,ieee_positive_inf)
+      validation_raw=spread(self%init_,1,size(y_val))
+    end if
     do i=begin+1,self%n_estimators
       if(do_oob)then
         sample_mask=boosting_sample_mask(rng,size(y),n_inbag)
@@ -356,7 +443,28 @@ contains
       else
         self%train_score_(i)=boosting_regression_loss(self%loss,y,prediction,w,self%alpha,delta)
       end if
+      if(present(x_val))then
+        validation_stage=i-begin
+        increment=self%estimators_(validation_stage)%predict(x_val)
+        do j=1,size(y_val)
+          validation_raw(j)=ieee_difference(validation_raw(j),-ieee_product(self%learning_rate,increment(j)))
+        end do
+        validation_loss=boosting_regression_loss(self%loss,y_val,validation_raw,weight_val,self%alpha,delta)
+        if(any(ieee_difference(validation_loss,-self%tol)<history))then
+          history(mod(i-1,self%n_iter_no_change)+1)=validation_loss
+        else
+          fitted=i;exit
+        end if
+      end if
     end do
+    if(fitted<self%n_estimators)then
+      self%estimators_=self%estimators_(:fitted);self%train_score_=self%train_score_(:fitted)
+      self%huber_delta_=self%huber_delta_(:fitted)
+      if(allocated(self%oob_scores_))then
+        self%oob_scores_=self%oob_scores_(:fitted);self%oob_improvement_=self%oob_improvement_(:fitted)
+        self%oob_score_=self%oob_scores_(fitted)
+      end if
+    end if
     do i=1,size(self%estimators_)
       if(self%estimators_(i)%node_count_>1)then
         self%feature_importances_=self%feature_importances_+boost_tree_importances(self%estimators_(i))
@@ -367,7 +475,7 @@ contains
       self%feature_importances_=self%feature_importances_/nontrivial;total=boosting_sum(self%feature_importances_)
       do j=1,size(x,2);self%feature_importances_(j)=ieee_quotient(self%feature_importances_(j),total);end do
     end if
-    self%rng_=rng;self%n_estimators_=self%n_estimators
+    self%rng_=rng;self%n_estimators_=fitted
     if(begin==self%n_estimators)then
       self%n_estimators_=begin+1
       if(allocated(self%oob_scores_))self%oob_score_=self%oob_scores_(self%n_estimators)
@@ -454,11 +562,17 @@ contains
     end if
   end function
 
-  subroutine gbc_fit(self,x,y,sample_weight)
+  subroutine gbc_fit_core(self,x,y,sample_weight,x_val,y_val,weight_val)
     class(gradient_boosting_classifier), intent(inout) :: self
     real(dp), intent(in) :: x(:,:)
     integer, intent(in) :: y(:)
     real(dp),optional,intent(in)::sample_weight(:)
+    real(dp),optional,intent(in)::x_val(:,:),weight_val(:)
+    integer,optional,intent(in)::y_val(:)
+    real(dp),allocatable::validation_raw(:,:),history(:),validation_terms(:)
+    real(dp)::validation_loss
+    integer,allocatable::validation_encoded(:)
+    integer::fitted,validation_stage
     real(dp)::w(size(y)),loss_values(size(y)),fit_w(size(y)),previous_loss
     real(dp), allocatable :: raw(:,:),prob(:,:),gradient(:,:),indicator(:),hessian(:),logs(:),class_mass(:)
     integer, allocatable :: encoded(:),leaves(:)
@@ -491,7 +605,8 @@ contains
     encoded=[(label_index(self%classes_,y(i)),i=1,n)];allocate(class_mass(c));class_mass=0
     ! Match DummyClassifier class_distribution's sequential weighted bincount.
     do i=1,n;class_mass(encoded(i))=ieee_difference(class_mass(encoded(i)),-w(i));end do
-    call require(count(class_mass/=0)>=2,'GradientBoostingClassifier weights must retain at least two classes')
+    if(.not.present(x_val)) &
+      call require(count(class_mass/=0)>=2,'GradientBoostingClassifier weights must retain at least two classes')
     continuing=self%warm_start.and.allocated(self%estimators_);begin=0
     if(continuing)then
       begin=size(self%estimators_,1)
@@ -563,6 +678,12 @@ contains
       if(continuing)self%oob_score_=ieee_value(0._dp,ieee_quiet_nan)
     end if
     if(do_oob.and.begin>0)previous_loss=self%oob_scores_(begin)
+    fitted=self%n_estimators
+    if(present(x_val))then
+      allocate(history(self%n_iter_no_change));history=ieee_value(0._dp,ieee_positive_inf)
+      validation_raw=spread(self%init_,1,size(y_val))
+      validation_encoded=[(label_index(self%classes_,y_val(i)),i=1,size(y_val))]
+    end if
     do t=begin+1,self%n_estimators
       if(do_oob)then
         sample_mask=boosting_sample_mask(rng,n,n_inbag)
@@ -655,7 +776,27 @@ contains
       else
         self%train_score_(t)=boosting_mean(loss_values,w)
       end if
+      if(present(x_val))then
+        validation_stage=t-begin
+        do k=1,self%n_trees_per_iteration_
+          validation_raw(:,k)=validation_raw(:,k)+self%learning_rate*self%estimators_(validation_stage,k)%predict(x_val)
+        end do
+        validation_terms=gbc_loss_values(validation_raw,validation_encoded,self%loss)
+        validation_loss=boosting_mean(validation_terms,weight_val)
+        if(any(ieee_difference(validation_loss,-self%tol)<history))then
+          history(mod(t-1,self%n_iter_no_change)+1)=validation_loss
+        else
+          fitted=t;exit
+        end if
+      end if
     end do
+    if(fitted<self%n_estimators)then
+      self%estimators_=self%estimators_(:fitted,:);self%train_score_=self%train_score_(:fitted)
+      if(allocated(self%oob_scores_))then
+        self%oob_scores_=self%oob_scores_(:fitted);self%oob_improvement_=self%oob_improvement_(:fitted)
+        self%oob_score_=self%oob_scores_(fitted)
+      end if
+    end if
     self%feature_importances_=0;nontrivial=0
     do t=1,size(self%estimators_,1)
       do k=1,self%n_trees_per_iteration_
@@ -668,7 +809,7 @@ contains
       self%feature_importances_=self%feature_importances_/nontrivial;v=boosting_sum(self%feature_importances_)
       do k=1,p;self%feature_importances_(k)=ieee_quotient(self%feature_importances_(k),v);end do
     end if
-    self%rng_=rng;self%n_estimators_=self%n_estimators
+    self%rng_=rng;self%n_estimators_=fitted
     if(begin==self%n_estimators)then
       self%n_estimators_=begin+1
       if(allocated(self%oob_scores_))self%oob_score_=self%oob_scores_(self%n_estimators)

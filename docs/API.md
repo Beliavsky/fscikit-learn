@@ -1320,9 +1320,9 @@ nonnegative; zero fits component trees while leaving all predictions at the
 initializer. Prediction uses the current `learning_rate`, including changes
 after fitting. Score accepts optional sample weights. Weighted regression
 boosters are supported by search, SelectFromModel, pipelines and the shared
-regression ensemble dispatcher. Dense finite input only;
-validation stopping, custom initializers, fractional
-sample-size controls and sparse input remain outside this interface.
+regression ensemble dispatcher. Dense finite input only; custom initializers
+and sparse input remain outside this interface. Both classic boosters support
+the validation stopping controls described below.
 
 ## GradientBoostingClassifier
 
@@ -1365,8 +1365,34 @@ min_samples_split, typed set_max_features (zero restores all), criterion
 Both classic boosters share sklearn's advancing NumPy-compatible RandomState
 across component trees. Binary ties at a zero decision select the positive class.
 Learning rate is finite and nonnegative; prediction uses its current value.
-Early stopping remains unimplemented;
 see COVERAGE.md for loss, tree-backend and staged-memory conventions.
+
+Both classic boosters support sklearn validation-based early stopping:
+
+```fortran
+model%n_iter_no_change=5    ! native 0 (default) represents sklearn None
+model%validation_fraction=.1_dp
+model%tol=1.e-4_dp
+call model%fit(x,y,sample_weight=weights)
+```
+
+The validation fraction must be finite and strictly between zero and one;
+`tol` must be finite and nonnegative. These bounds apply even when stopping is
+disabled. A positive patience enables a seeded shuffle split for regression
+or a stratified split for classification. Initializers, tree sample-count
+fractions, gradients and training/OOB losses use the training partition.
+Class validation uses all input rows and weights before the split; every raw
+class must also occur in the training partition.
+
+Stopping compares validation loss plus `tol` with the last patience entries.
+The first stage that fails this comparison remains in the model. Learned
+tree arrays and training/OOB histories shrink to the fitted stage count;
+the requested `n_estimators` remains unchanged. Search and parameter-only
+clones preserve these controls. Each warm fit recreates the split from the
+current seed and resets the validation history, while retaining the tree RNG
+state. As in sklearn 1.6.1, warm validation predictions advance from the first
+retained stage on each fit. Changing or disabling stopping during warm growth
+uses the current controls for the new fit.
 
 Both classic boosters accept `subsample` in `(0,1]` (default one), including
 through parameter search. Each stochastic stage samples

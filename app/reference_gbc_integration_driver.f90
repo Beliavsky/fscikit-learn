@@ -21,12 +21,13 @@ program reference_gbc_integration_driver
  integer::n,p,seed,weighted,status,i,j
  character(16)::loss
  character(32)::argument
- logical::stochastic,warm_template
- stochastic=.false.;warm_template=.false.
+ logical::stochastic,warm_template,early_stopping
+ stochastic=.false.;warm_template=.false.;early_stopping=.false.
  do i=1,command_argument_count()
   call get_command_argument(i,argument)
   if(trim(argument)=='--subsample')stochastic=.true.
   if(trim(argument)=='--warm-start')warm_template=.true.
+  if(trim(argument)=='--early-stopping')early_stopping=.true.
  end do
  do
   read(*,*,iostat=status)n,p,seed,loss,weighted
@@ -35,6 +36,9 @@ program reference_gbc_integration_driver
   do i=1,n;read(*,*)x(i,:);end do
   read(*,*)y;read(*,*)w;query=x+.137_dp
   base=gradient_boosting_classifier();base%n_estimators=3;base%max_depth=2;base%random_state=seed
+  if(early_stopping)then
+   base%n_iter_no_change=1;base%validation_fraction=.3_dp;base%tol=1.e6_dp
+  end if
   base%warm_start=warm_template
   if(stochastic)base%subsample=merge(.65_dp,.8_dp,seed==42)
   base%loss=loss;call base%set_max_features(.7_dp)

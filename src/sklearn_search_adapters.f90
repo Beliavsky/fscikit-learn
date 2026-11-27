@@ -340,6 +340,9 @@ contains
       end select
     type is(gradient_boosting_classifier)
       select case(name)
+      case('n_iter_no_change');model%n_iter_no_change=value%as_integer()
+      case('validation_fraction');model%validation_fraction=value%as_real()
+      case('tol');model%tol=value%as_real()
       case('subsample');model%subsample=value%as_real()
       case('warm_start');model%warm_start=value%as_logical()
       case('criterion');model%criterion=value%as_text()
@@ -375,6 +378,9 @@ contains
       end select
     type is(gradient_boosting_regressor)
       select case(name)
+      case('n_iter_no_change');model%n_iter_no_change=value%as_integer()
+      case('validation_fraction');model%validation_fraction=value%as_real()
+      case('tol');model%tol=value%as_real()
       case('subsample');model%subsample=value%as_real()
       case('warm_start');model%warm_start=value%as_logical()
       case('n_estimators');model%n_estimators=value%as_integer()
