@@ -631,9 +631,11 @@ distances; cosine similarity; linear, RBF, polynomial and sigmoid kernels.
   weights, nonnegative hyperpriors and initial precisions, likelihood history,
   weighted R2, predictive uncertainty and constructor-only cloning. Weighted
   centering/square-root rescaling and Source n_samples precision updates are
-  implemented. ARD remains unweighted with positive hyperpriors and no score
-  history; its active-feature Cholesky inverse differs from Source's wide-data
-  Woodbury/SVD path. BayesianRidge follows Source's thin-SVD covariance
+  implemented. ARD remains unweighted, as in Source; it accepts nonnegative
+  hyperpriors and pruning thresholds, records optional likelihood histories,
+  and uses Hermitian pseudoinverses with the Source tall/Woodbury branch.
+  The native Jacobi eigensolver can retain numerical differences from LAPACK
+  on ill-conditioned centered wide fits. BayesianRidge follows Source's thin-SVD covariance
   convention. For rank-deficient wide matrices, null-space bases can differ,
   affecting covariance and uncertainties outside the data row space. Some
   single-sample likelihood histories also retain strict differences. Sparse

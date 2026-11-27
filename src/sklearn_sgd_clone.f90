@@ -3,7 +3,7 @@
 ! Preserve constructor controls and discard learned state, as sklearn.base.clone.
 module sklearn_sgd_clone
   use sklearn_sgd, only: sgd_regressor,sgd_classifier
-  use sklearn_linear_model,only:bayesian_ridge,huber_regressor,tweedie_regressor,poisson_regressor,gamma_regressor
+  use sklearn_linear_model,only:ard_regression,bayesian_ridge,huber_regressor,tweedie_regressor,poisson_regressor,gamma_regressor
   implicit none
   private
   public :: clone_sgd_parameters,reset_sgd_fit
@@ -34,6 +34,14 @@ contains
   subroutine reset_sgd_fit(model)
     class(*), intent(inout) :: model
     select type(model)
+    type is(ard_regression)
+      block
+        type(ard_regression)::copy
+        copy%fit_intercept=model%fit_intercept;copy%positive=model%positive;copy%compute_score=model%compute_score
+        copy%max_iter=model%max_iter;copy%tol=model%tol;copy%alpha_1=model%alpha_1;copy%alpha_2=model%alpha_2
+        copy%lambda_1=model%lambda_1;copy%lambda_2=model%lambda_2;copy%threshold_lambda=model%threshold_lambda
+        model=copy
+      end block
     type is(bayesian_ridge)
       block
         type(bayesian_ridge)::copy

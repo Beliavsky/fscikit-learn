@@ -10114,3 +10114,39 @@ The verified evidence backup is bayesian_evidence_81e3837.zip,
 fca6f2ed5787b3cc47bb54504174f892400b3b139cc4942f507916db43c9fe88.
 ZIP CRCs and critical source/report hashes were verified. The receipt is
 validation/results/bayesian_archive_receipt.json (ignored local evidence).
+
+
+### ARDRegression posterior paths, likelihood history and controls
+
+Replaced the ARD active-feature Cholesky inverse with the sklearn 1.6.1
+Hermitian pseudoinverse and original-design tall/Woodbury branch. The native
+Jacobi inverse uses SciPy pinvh's lower-triangle convention and n*eps cutoff;
+it is an independent MIT numerical integration. Source update order, precision
+updates, pruning and likelihood scores are preserved. Optional histories have
+exactly n_iter_ entries; final posterior recomputation adds no extra score.
+Added nonnegative hyperpriors/thresholds, two-sample validation, dense one-column
+targets, fitted metadata, constructor-only clones and typed search controls.
+Predictive uncertainty follows the raw Source expression without clipping.
+ARD remains unweighted, as in Source. MIT licensing and BSD notices are retained.
+
+An isolated checked probe covers 152 Source configurations, including tall,
+square, wide, rank-deficient, two-sample, zero/constant-target, constant-design,
+large-offset, zero-prior, zero-threshold and iteration-limit cases. Eight strict
+failures remain at 54,59,66,71,102,107,114,119: centered wide/two-sample Woodbury
+fits retain coefficient, precision, prediction, covariance/uncertainty and/or
+history differences from Source LAPACK paths. Iteration counts and support
+sizes match. No tolerance or oracle was relaxed. All sixteen actual Source/native
+input-rejection cases pass. Full checked rebuilding and scoped optimization
+are running; no final package verification is claimed at this commit.
+
+A snapshot of the rebuilding fpm archive was detected to contain only the
+8-byte archive header. It was replaced before any optimized link by the
+previous complete baseline verified against its recorded SHA256. Final evidence
+will verify all non-overridden library members against the completed build.
+Removed 62 generated Bayesian checked/optimized executable copies only after
+matching every file hash to its archived entry and verifying the full preserved
+Bayesian evidence ZIP SHA256. The archive and library objects remain intact;
+the cleanup manifest is validation/results/ard_archived_binary_cleanup.json.
+Validation retains the private GNU Fortran 15.2.0 setup, static libgfortran and
+validation-only Windows locale-copy shim; installed tools and user files are
+untouched. The larger translation goal and retained numerical gaps remain open.

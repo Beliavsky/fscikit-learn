@@ -6594,7 +6594,7 @@ program invalid_input_driver
   case('spreading_alpha'); ls%alpha=1; call ls%fit(x,[0,-1,-1,1])
   case('bayes_prior'); br%alpha_1=-1; call br%fit(x,y)
   case('bayes_unfitted'); pred=br%predict_std(x)
-  case('ard_threshold'); ar%threshold_lambda=0; call ar%fit(x,y)
+  case('ard_threshold'); ar%threshold_lambda=-1; call ar%fit(x,y)
   case('omp_sparsity'); omp%n_nonzero_coefs=3; call omp%fit(x,y)
   case('factor_components'); fa%n_components=3; call fa%fit(x)
   case('factor_noise'); fa%noise_variance_init=[1._dp,0._dp]; call fa%fit(x)

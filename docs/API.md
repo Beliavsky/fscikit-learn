@@ -11314,3 +11314,19 @@ subspaces can therefore have different factors and predictions. The new direct
 reference grid uses actual unmodified Source fits; it does not replace Source
 rotations with native rotations. The older prior suite retains its explicitly
 identified thin-basis certificates as separate evidence.
+
+
+ARDRegression now supports `compute_score`, `scores_`, `x_offset_`, `x_scale_`,
+and one-column target fitting. Histories contain exactly `n_iter_` values,
+computed after precision updates and pruning with the preceding covariance,
+as in sklearn 1.6.1. Zero hyperpriors, zero tolerance and a zero pruning threshold
+are accepted. The original design shape selects the Hermitian pseudoinverse
+or Woodbury branch; pruning does not change that choice. Covariance only covers
+features whose precision is below `threshold_lambda`; an all-pruned posterior
+is empty and predictive uncertainty is the noise standard deviation.
+Constructor-only clones and typed search controls are supported. ARD fit does
+not accept sample weights or sparse input. Input arrays are preserved rather
+than exposing Python copy ownership controls. Native `converged_` also denotes
+an all-pruned stop; sklearn exposes iteration counts but no such boolean.
+Native Jacobi and Source LAPACK inverses can follow different numerical paths
+for ill-conditioned centered wide data; strict differences remain recorded.

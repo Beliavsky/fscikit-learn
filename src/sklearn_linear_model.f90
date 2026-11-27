@@ -1,4 +1,5 @@
 module sklearn_linear_model
+  use sklearn_ard_core,only:ard_solve
   use sklearn_bayesian_ridge_core,only:bayesian_ridge_solve,bayesian_posterior_std
   use sklearn_ols_core,only:fit_ols_estimator,ols_solution
   use sklearn_ridge_estimator_core,only:fit_ridge_estimator
@@ -200,9 +201,11 @@ module sklearn_linear_model
     real(dp) :: tol=1.e-3_dp,alpha_1=1.e-6_dp,alpha_2=1.e-6_dp
     real(dp) :: lambda_1=1.e-6_dp,lambda_2=1.e-6_dp,threshold_lambda=1.e4_dp,alpha_=0
     logical :: converged_=.false.
-    real(dp), allocatable :: lambda_(:),sigma_(:,:)
+    real(dp), allocatable :: lambda_(:),sigma_(:,:),scores_(:),x_offset_(:),x_scale_(:)
+    logical::compute_score=.false.
   contains
     procedure :: fit_dense=>ard_fit
+    procedure :: fit_matrix=>ard_fit_dm
     procedure :: predict_std=>ard_std
   end type
   type, extends(linear_regression) :: orthogonal_matching_pursuit
@@ -1510,62 +1513,23 @@ contains
     call check_xy(transpose(x),size(self%coef_))
     std=bayesian_posterior_std(x,self%sigma_,self%alpha_)
   end function
-  function positive_inverse(a) result(inv)
-    real(dp), intent(in) :: a(:,:)
-    real(dp) :: inv(size(a,1),size(a,2)),l(size(a,1),size(a,2)),e(size(a,1))
-    integer :: j
-    l=cholesky_factor(a)
-    do j=1,size(a,1)
-      e=0; e(j)=1; inv(:,j)=solve_upper(transpose(l),solve_lower(l,e))
-    end do
-  end function
-  subroutine ard_posterior(x,y,alpha,lambda,keep,sigma,coef)
-    real(dp), intent(in) :: x(:,:),y(:),alpha,lambda(:)
-    integer, intent(in) :: keep(:)
-    real(dp), allocatable, intent(out) :: sigma(:,:)
-    real(dp), intent(out) :: coef(:)
-    real(dp) :: a(size(keep),size(keep))
-    integer :: j
-    coef=0
-    a=alpha*matmul(transpose(x(:,keep)),x(:,keep))
-    do j=1,size(keep)
-      a(j,j)=a(j,j)+lambda(keep(j))
-    end do
-    sigma=positive_inverse(a)
-    coef(keep)=alpha*matmul(sigma,matmul(transpose(x(:,keep)),y))
-  end subroutine
   subroutine ard_fit(self,x,y)
-    class(ard_regression), intent(inout) :: self
-    real(dp), intent(in) :: x(:,:),y(:)
-    real(dp) :: xc(size(x,1),size(x,2)),yc(size(y)),xm(size(x,2)),ym
-    real(dp) :: old(size(x,2)),gamma(size(x,2)),rss
-    integer, allocatable :: keep(:)
-    integer :: it,j,p
+    class(ard_regression),intent(inout)::self
+    real(dp),intent(in)::x(:,:),y(:)
     call check_positive_regression(self)
-    call require(self%max_iter>0.and.self%tol>=0.and.self%threshold_lambda>0,'invalid ARD parameters')
-    call require(min(self%alpha_1,self%alpha_2,self%lambda_1,self%lambda_2)>0,'ARD hyperpriors must be positive')
-    call centered(x,y,self%fit_intercept,xc,yc,xm,ym); p=size(x,2)
-    self%lambda_=spread(1._dp,1,p); self%coef_=spread(0._dp,1,p)
-    self%alpha_=1/(sum((yc-sum(yc)/size(yc))**2)/size(yc)+epsilon(1._dp))
-    keep=[(j,j=1,p)]; old=0; self%converged_=.false.
-    do it=1,self%max_iter
-      call ard_posterior(xc,yc,self%alpha_,self%lambda_,keep,self%sigma_,self%coef_)
-      rss=sum((yc-matmul(xc,self%coef_))**2)
-      do j=1,size(keep)
-        gamma(j)=1-self%lambda_(keep(j))*self%sigma_(j,j)
-      end do
-      self%lambda_(keep)=(gamma(:size(keep))+2*self%lambda_1)/(self%coef_(keep)**2+2*self%lambda_2)
-      self%alpha_=(size(y)-sum(gamma(:size(keep)))+2*self%alpha_1)/(rss+2*self%alpha_2)
-      keep=pack([(j,j=1,p)],self%lambda_<self%threshold_lambda)
-      where(self%lambda_>=self%threshold_lambda) self%coef_=0
-      self%n_iter_=it
-      if((it>1.and.sum(abs(old-self%coef_))<self%tol).or.size(keep)==0) then
-        self%converged_=.true.; exit
-      end if
-      old=self%coef_
-    end do
-    call ard_posterior(xc,yc,self%alpha_,self%lambda_,keep,self%sigma_,self%coef_)
-    self%intercept_=ym-dot_product(xm,self%coef_); self%rank_=size(keep)
+    call ard_solve(x,y,self%fit_intercept,self%max_iter,self%tol,self%alpha_1,self%alpha_2, &
+      self%lambda_1,self%lambda_2,self%threshold_lambda,self%compute_score,self%coef_,self%intercept_, &
+      self%alpha_,self%lambda_,self%sigma_,self%scores_,self%x_offset_,self%n_iter_,self%rank_,self%converged_)
+    self%x_scale_=spread(1._dp,1,size(x,2));self%n_features_in_=size(x,2)
+    self%n_targets_=1;self%matrix_target_=.false.
+  end subroutine
+  subroutine ard_fit_dm(self,x,y,sample_weight)
+    class(ard_regression),intent(inout)::self
+    real(dp),intent(in)::x(:,:),y(:,:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    call require(.not.present(sample_weight),'ARDRegression does not accept sample weights')
+    call require(size(y,2)==1,'ARDRegression requires one target column')
+    call ard_fit(self,x,y(:,1))
   end subroutine
   function ard_std(self,x) result(std)
     class(ard_regression), intent(in) :: self
@@ -1576,7 +1540,7 @@ contains
     call require(allocated(self%sigma_),'ARDRegression is not fitted')
     call check_xy(transpose(x),size(self%coef_))
     keep=pack([(j,j=1,size(self%coef_))],self%lambda_<self%threshold_lambda)
-    std=sqrt(max(0._dp,sum(matmul(x(:,keep),self%sigma_)*x(:,keep),dim=2))+1/self%alpha_)
+    std=bayesian_posterior_std(x(:,keep),self%sigma_,self%alpha_)
   end function
   subroutine omp_fit(self,x,y)
     class(orthogonal_matching_pursuit), intent(inout) :: self

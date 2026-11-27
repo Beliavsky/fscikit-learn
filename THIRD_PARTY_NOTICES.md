@@ -2841,3 +2841,14 @@ row rescaling, MacKay precision updates, posterior covariance and marginal
 likelihood history. The scikit-learn BSD-3-Clause notice is retained in
 `LICENSES/scikit-learn-COPYING`. Native SVD integration, IEEE-state handling,
 Fortran rank/weight adapters and clone/parameter integration are MIT code.
+
+
+## ARDRegression posterior paths and likelihood history
+
+`src/sklearn_ard_core.f90` follows scikit-learn 1.6.1
+`linear_model/_bayes.py` for ARD update order, pruning, evidence scores and
+Woodbury covariance construction. The Hermitian pseudoinverse cutoff and
+lower-triangle convention follow SciPy 1.15.3 `scipy/linalg/_basic.py` pinvh.
+Retained BSD notices are in `LICENSES/scikit-learn-COPYING` and
+`LICENSES/scipy-COPYING`. The native Jacobi integration, signed log determinant,
+Fortran target adapters and clone/parameter integration are MIT implementations.
