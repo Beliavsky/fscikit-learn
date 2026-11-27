@@ -35,7 +35,7 @@ program test_kernel_sparse
       s%indices(2*i-1:2*i)=[50000,1];s%data(2*i-1:2*i)=[sin(real(i,dp)),cos(real(i,dp))]
     end do
     call sparse%fit(s)
-    q%n_rows=1000;q%n_cols=50000;q%indptr=[(2*i+1,i=0,1000)]
+    q=csr_matrix();q%n_rows=1000;q%n_cols=50000;q%indptr=[(2*i+1,i=0,1000)]
     allocate(q%indices(2000),q%data(2000))
     do i=1,1000
       q%indices(2*i-1:2*i)=[50000,1];q%data(2*i-1:2*i)=[.3_dp,-.2_dp]
