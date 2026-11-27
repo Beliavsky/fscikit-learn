@@ -1,6 +1,7 @@
 """Dense streaming PCA comparisons against installed scikit-learn."""
 from pathlib import Path
 import json
+import argparse
 import subprocess
 import numpy as np
 import sklearn
@@ -9,17 +10,24 @@ ROOT = Path(__file__).resolve().parents[1]
 RESULTS = ROOT / "validation/results"
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--executable', type=Path)
+    parser.add_argument('--report', type=Path, default=RESULTS/'incremental_pca.json')
+    args = parser.parse_args()
     RESULTS.mkdir(exist_ok=True)
     checks = []
     for seed, n, p in ((7, 37, 5), (42, 43, 4), (2026, 29, 8)):
         rng = np.random.default_rng(seed)
         x = rng.normal(size=(n, p))*np.arange(1, p+1)+np.arange(p)*3
-        data, output = RESULTS/f"ipca_{seed}.txt", RESULTS/f"ipca_actual_{seed}.txt"
+        data = args.report.with_name(args.report.stem+f'_{seed}.in')
+        output = args.report.with_name(args.report.stem+f'_{seed}.out')
         with data.open("w") as stream:
             stream.write(f"{n} {p}\n")
             np.savetxt(stream, x, fmt="%.17g")
-        subprocess.run(["fpm", "run", "--flag", "-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow",
-                        "--target", "reference_incremental_pca_driver", "--", str(data), str(output)], cwd=ROOT, check=True)
+        command = ([str(args.executable), str(data), str(output)] if args.executable else
+                   ["fpm", "run", "--flag", "-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow",
+                    "--target", "reference_incremental_pca_driver", "--", str(data), str(output)])
+        subprocess.run(command, cwd=ROOT, check=True)
         actual, expected = {}, {}
         for line in output.read_text().splitlines():
             name, *values = line.split(); actual[name] = np.array(values, dtype=float)
@@ -52,7 +60,7 @@ def main():
             assert actual[name].shape == want.shape, (seed, name)
             np.testing.assert_allclose(actual[name], want, atol=3e-8, rtol=3e-8, err_msg=f"{seed} {name}")
             checks.append(dict(seed=seed, name=name, passed=True))
-    (RESULTS/"incremental_pca.json").write_text(json.dumps(dict(sklearn=sklearn.__version__, checks=checks), indent=2)+"\n")
+    args.report.write_text(json.dumps(dict(sklearn=sklearn.__version__, checks=checks), indent=2)+"\n")
     print(f"{len(checks)} IncrementalPCA result groups passed")
 
 if __name__ == "__main__":

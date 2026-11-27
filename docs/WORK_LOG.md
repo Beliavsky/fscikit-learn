@@ -10622,3 +10622,10 @@ query memory peak is 56,827,904 bytes against a 128 MiB limit and 400 MB dense
 query equivalent. Full rebuilding is running; scoped optimized and complete
 native/package audits remain pending. Commits stay local; MIT/BSD notices
 are retained. The overall sklearn translation remains incomplete.
+
+The legacy dense IncrementalPCA validator now accepts an explicit executable
+and report path, preserving its default fpm route. Input/output scratch files
+are derived from that report path so concurrent checked/optimized runs cannot
+collide. The eight original dense cases per seed and all tolerances remain
+unchanged. This lets both profiles verify the actual completed binaries
+without triggering an unrelated fpm invocation during package audits.
