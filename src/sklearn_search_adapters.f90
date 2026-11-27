@@ -7,7 +7,7 @@ module sklearn_search_adapters
   use sklearn_parameter_space, only: parameter_set,parameter_value
   use sklearn_base_dispatch, only: base_supported,train_classifier,train_regressor,labels,regression, &
     probabilities,decisions,base_classes,base_decision
-  use sklearn_linear_model, only: linear_regression,ridge,elastic_net,logistic_regression,tweedie_regressor,huber_regressor
+  use sklearn_linear_model, only: linear_regression,ridge,elastic_net,logistic_regression,tweedie_regressor,huber_regressor,ransac_regressor
   use sklearn_sgd, only: sgd_classifier,sgd_regressor
   use sklearn_sgd_clone, only: reset_sgd_fit
   use sklearn_naive_bayes, only: gaussian_nb,multinomial_nb
@@ -25,6 +25,7 @@ module sklearn_search_adapters
   use sklearn_composite_scores, only: regression_score
   use sklearn_metrics, only: accuracy_score,balanced_accuracy_score,f1_score,roc_auc_score
   use sklearn_ieee_math, only: ieee_mean,ieee_product,ieee_difference
+  use,intrinsic::ieee_arithmetic,only:ieee_is_finite
   implicit none
   private
   public :: search_classifier,set_search_params,fit_search_native,search_regression,search_labels
@@ -81,6 +82,10 @@ contains
         call require(name(:separator-1)=='estimator','search unknown SelectFromModel child')
         call require(allocated(model%estimator),'search selector estimator is unallocated')
         call set_parameter(model%estimator,name(separator+2:),value);return
+      type is(ransac_regressor)
+        call require(name(:separator-1)=='estimator','search unknown RANSAC child')
+        call require(name(separator+2:)=='fit_intercept','search unsupported RANSAC OLS parameter')
+        call set_parameter(model,'fit_intercept',value);return
       type is(adaboost_classifier)
         call require(name(:separator-1)=='estimator','search unknown AdaBoost child')
         if(name(separator+2:)=='random_state')then
@@ -119,6 +124,36 @@ contains
       case('tol');model%tol=value%as_real()
       case('max_iter');model%max_iter=value%as_integer()
       case('fit_intercept');model%fit_intercept=value%as_logical()
+      case default;done=.false.
+      end select
+    type is(ransac_regressor)
+      select case(name)
+      case('min_samples')
+        select case(value%kind)
+        case(1);call model%set_min_samples(value%as_real())
+        case(2);call model%set_min_samples(value%as_integer())
+        case(4)
+          call require(value%as_text()=='none','RANSAC min_samples text must be none')
+          call model%clear_min_samples()
+        case default;done=.false.
+        end select
+      case('residual_threshold')
+        if(value%kind==4)then
+          call require(value%as_text()=='none','RANSAC threshold text must be none')
+          model%residual_threshold=-1
+        else
+          model%residual_threshold=value%as_real()
+          call require(ieee_is_finite(model%residual_threshold),'RANSAC threshold must be finite')
+          call require(model%residual_threshold>=0,'RANSAC threshold must be nonnegative')
+        end if
+      case('max_trials');model%max_trials=value%as_integer()
+      case('max_skips');model%max_skips=value%as_integer()
+      case('stop_n_inliers');model%stop_n_inliers=value%as_integer()
+      case('stop_score');model%stop_score=value%as_real()
+      case('stop_probability');model%stop_probability=value%as_real()
+      case('random_state');model%random_state=value%as_integer()
+      case('fit_intercept');model%fit_intercept=value%as_logical()
+      case('loss');model%loss=value%as_text()
       case default;done=.false.
       end select
     type is(huber_regressor)

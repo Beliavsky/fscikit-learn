@@ -1,6 +1,9 @@
 module sklearn_linear_model
   use sklearn_ols_core,only:fit_ols_estimator,ols_solution
   use sklearn_ridge_estimator_core,only:fit_ridge_estimator
+  use sklearn_legacy_rng,only:legacy_random_state
+  use sklearn_bagging_sampling,only:sample_indices
+  use sklearn_boosting_loss,only:numpy_sum=>boosting_sum
   use sklearn_huber_solver,only:huber_solve
   use sklearn_sparse,only:csr_matrix
   use sklearn_ridge_solver,only:ridge_regression,ridge_solver_options,ridge_solution
@@ -20,7 +23,7 @@ module sklearn_linear_model
   use sklearn_ridge_classification, only: ridge_classifier,ridge_classifier_cv
   use sklearn_common
   use sklearn_metrics, only: r2_score,accuracy_score,roc_auc_score
-  use, intrinsic :: ieee_arithmetic, only: ieee_is_finite,ieee_is_nan
+  use, intrinsic :: ieee_arithmetic, only: ieee_is_finite,ieee_is_nan,ieee_value,ieee_negative_inf
   implicit none
   private
   public::ridge_regression,ridge_solver_options,ridge_solution
@@ -218,13 +221,32 @@ module sklearn_linear_model
     procedure :: score_dm=>huber_score_dm,score_sm=>huber_score_sm
   end type
   type, extends(linear_regression) :: ransac_regressor
-    integer :: min_samples=0,max_trials=100,random_state=0,stop_n_inliers=huge(1)
-    integer :: n_trials_=0,n_skips_no_inliers_=0
-    real(dp) :: residual_threshold=-1,stop_probability=0.99_dp,stop_score=huge(1._dp)
+    integer :: min_samples=0,max_trials=100,random_state=0,stop_n_inliers=huge(1),max_skips=huge(1)
+    integer :: n_trials_=0,n_skips_no_inliers_=0,n_skips_invalid_data_=0,n_skips_invalid_model_=0
+    integer :: min_samples_=0
+    real(dp) :: residual_threshold=-1,stop_probability=.99_dp,stop_score=huge(1._dp),residual_threshold_=0
     character(20) :: loss='absolute_error'
     logical, allocatable :: inlier_mask_(:)
+    logical::skips_exceeded_=.false.
+    type(linear_regression)::estimator_
+    logical,private::fractional_min_samples_=.false.,explicit_min_samples_=.false.
+    real(dp),private::min_samples_fraction_=0
+    procedure(ransac_data_check),pointer,nopass::is_data_valid=>null()
+    procedure(ransac_model_check),pointer,nopass::is_model_valid=>null()
+    procedure(ransac_loss_callback),pointer,nopass::loss_callback=>null()
   contains
     procedure :: fit_dense=>ransac_fit
+    procedure :: fit_dense_weighted=>ransac_fit_dw,fit_scalar_dw=>ransac_fit_dws
+    procedure :: fit_sparse=>ransac_fit_sv,fit_scalar_sv=>ransac_fit_svs
+    procedure :: fit_matrix=>ransac_fit_dm,fit_scalar_dm=>ransac_fit_dms
+    procedure :: fit_sparse_matrix=>ransac_fit_sm,fit_scalar_sm=>ransac_fit_sms
+    procedure :: predict_sparse=>ransac_predict_sv
+    procedure :: predict_matrix_dense=>ransac_predict_dm,predict_matrix_sparse=>ransac_predict_sm
+    procedure :: score_dw=>ransac_score_dw,score_sv=>ransac_score_sv
+    procedure :: score_dm=>ransac_score_dm,score_sm=>ransac_score_sm
+    procedure,private::ransac_set_min_integer,ransac_set_min_fraction
+    generic::set_min_samples=>ransac_set_min_integer,ransac_set_min_fraction
+    procedure::clear_min_samples=>ransac_clear_min
   end type
   type, extends(linear_regression) :: theil_sen_regressor
     integer :: n_subsamples=0,max_subpopulation=10000,max_iter=300,random_state=0
@@ -253,6 +275,23 @@ module sklearn_linear_model
   contains
     procedure :: fit_dense=>gamma_fit
   end type
+  abstract interface
+    logical function ransac_data_check(x,y)
+      import dp
+      real(dp),intent(in)::x(:,:),y(:,:)
+    end function
+    logical function ransac_model_check(model,x,y)
+      import dp,linear_regression
+      type(linear_regression),intent(in)::model
+      real(dp),intent(in)::x(:,:),y(:,:)
+    end function
+    function ransac_loss_callback(y_true,y_pred)result(residual)
+      import dp
+      real(dp),intent(in)::y_true(:,:),y_pred(:,:)
+      real(dp)::residual(size(y_true,1))
+    end function
+  end interface
+
 contains
   subroutine check_positive_regression(self)
     class(linear_regression), intent(in) :: self
@@ -737,58 +776,300 @@ contains
     n=size(values); order=argsort(values)
     median=0.5_dp*(values(order((n+1)/2))+values(order(n/2+1)))
   end function
-  subroutine ransac_fit(self,x,y)
-    class(ransac_regressor), intent(inout) :: self
-    real(dp), intent(in) :: x(:,:),y(:)
-    type(linear_regression) :: candidate
-    integer :: n,p,m,j,k,t,best_count,n_inliers,cap
-    integer, allocatable :: indices(:),inliers(:)
-    real(dp) :: threshold,coin,score,best_score,den,bound,residual(size(y))
-    logical :: mask(size(y))
-    call check_positive_regression(self)
-    call check_xy(x,size(y)); call check_x(reshape(y,[size(y),1]))
-    n=size(y); p=size(x,2); m=self%min_samples
-    if(m==0) m=p+1
-    call require(m>=1.and.m<=n.and.self%max_trials>0,'invalid RANSAC sample/trial controls')
-    call require(self%stop_probability>=0.and.self%stop_probability<=1.and.self%stop_n_inliers>=1, &
-      'invalid RANSAC stopping controls')
-    call require(self%residual_threshold>=0.or.self%residual_threshold==-1,'invalid RANSAC residual threshold')
-    call require(self%loss=='absolute_error'.or.self%loss=='squared_error','invalid RANSAC loss')
-    threshold=self%residual_threshold
-    if(threshold==-1) threshold=sample_median(abs(y-sample_median(y)))
-    cap=self%max_trials; best_count=0; best_score=-huge(1._dp)
-    self%n_trials_=0; self%n_skips_no_inliers_=0; self%inlier_mask_=spread(.false.,1,n)
-    candidate%fit_intercept=self%fit_intercept
-    call seed_rng(self%random_state)
-    do while(self%n_trials_<cap)
-      self%n_trials_=self%n_trials_+1; indices=[(j,j=1,n)]
-      do j=1,m
-        call random_number(coin); k=j+int(coin*(n-j+1))
-        t=indices(j); indices(j)=indices(k); indices(k)=t
-      end do
-      call candidate%fit(x(indices(:m),:),y(indices(:m)))
-      residual=abs(y-candidate%predict(x))
-      if(self%loss=='squared_error') residual=residual**2
-      mask=residual<=threshold; n_inliers=count(mask)
-      if(n_inliers<max(1,best_count)) then
-        self%n_skips_no_inliers_=self%n_skips_no_inliers_+1; cycle
-      end if
-      inliers=pack([(j,j=1,n)],mask); score=-huge(1._dp)
-      if(n_inliers>1) score=candidate%score(x(inliers,:),y(inliers))
-      if(n_inliers==best_count.and.score<best_score) cycle
-      best_count=n_inliers; best_score=score; self%inlier_mask_=mask
-      den=max(epsilon(1._dp),1-(real(n_inliers,dp)/n)**m)
-      if(den<1) then
-        bound=log(max(epsilon(1._dp),1-self%stop_probability))/log(den)
-        cap=ceiling(min(real(cap,dp),max(1._dp,bound)))
-      end if
-      if(n_inliers>=self%stop_n_inliers.or.score>=self%stop_score) exit
-    end do
-    call require(best_count>0,'RANSAC could not find a consensus set')
-    inliers=pack([(j,j=1,n)],self%inlier_mask_)
-    call candidate%fit(x(inliers,:),y(inliers))
-    self%coef_=candidate%coef_; self%intercept_=candidate%intercept_; self%rank_=candidate%rank_
+  subroutine ransac_set_min_integer(self,value)
+    class(ransac_regressor),intent(inout)::self
+    integer,intent(in)::value
+    self%min_samples=value;self%explicit_min_samples_=.true.;self%fractional_min_samples_=.false.
   end subroutine
+  subroutine ransac_set_min_fraction(self,value)
+    class(ransac_regressor),intent(inout)::self
+    real(dp),intent(in)::value
+    self%min_samples=0;self%explicit_min_samples_=.true.;self%fractional_min_samples_=.true.
+    self%min_samples_fraction_=value
+  end subroutine
+  subroutine ransac_clear_min(self)
+    class(ransac_regressor),intent(inout)::self
+    self%min_samples=0;self%explicit_min_samples_=.false.;self%fractional_min_samples_=.false.
+  end subroutine
+  subroutine ransac_fit(self,x,y)
+    class(ransac_regressor),intent(inout)::self
+    real(dp),intent(in)::x(:,:),y(:)
+    call ransac_fit_common(self,reshape(y,[size(y),1]),.false.,dense=x)
+  end subroutine
+  subroutine ransac_fit_dw(self,x,y,sample_weight)
+    class(ransac_regressor),intent(inout)::self
+    real(dp),intent(in)::x(:,:),y(:),sample_weight(:)
+    call ransac_fit_common(self,reshape(y,[size(y),1]),.false.,sample_weight,dense=x)
+  end subroutine
+  subroutine ransac_fit_dws(self,x,y,sample_weight)
+    class(ransac_regressor),intent(inout)::self
+    real(dp),intent(in)::x(:,:),y(:),sample_weight
+    call ransac_fit_common(self,reshape(y,[size(y),1]),.false.,spread(sample_weight,1,size(y)),dense=x)
+  end subroutine
+  subroutine ransac_fit_sv(self,x,y,sample_weight)
+    class(ransac_regressor),intent(inout)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),intent(in)::y(:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    call ransac_fit_common(self,reshape(y,[size(y),1]),.false.,sample_weight,sparse=x)
+  end subroutine
+  subroutine ransac_fit_svs(self,x,y,sample_weight)
+    class(ransac_regressor),intent(inout)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),intent(in)::y(:),sample_weight
+    call ransac_fit_common(self,reshape(y,[size(y),1]),.false.,spread(sample_weight,1,size(y)),sparse=x)
+  end subroutine
+  subroutine ransac_fit_dm(self,x,y,sample_weight)
+    class(ransac_regressor),intent(inout)::self
+    real(dp),intent(in)::x(:,:)
+    real(dp),intent(in)::y(:,:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    call ransac_fit_common(self,y,.true.,sample_weight,dense=x)
+  end subroutine
+  subroutine ransac_fit_dms(self,x,y,sample_weight)
+    class(ransac_regressor),intent(inout)::self
+    real(dp),intent(in)::x(:,:)
+    real(dp),intent(in)::y(:,:),sample_weight
+    call ransac_fit_common(self,y,.true.,spread(sample_weight,1,size(y,1)),dense=x)
+  end subroutine
+  subroutine ransac_fit_sm(self,x,y,sample_weight)
+    class(ransac_regressor),intent(inout)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),intent(in)::y(:,:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    call ransac_fit_common(self,y,.true.,sample_weight,sparse=x)
+  end subroutine
+  subroutine ransac_fit_sms(self,x,y,sample_weight)
+    class(ransac_regressor),intent(inout)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),intent(in)::y(:,:),sample_weight
+    call ransac_fit_common(self,y,.true.,spread(sample_weight,1,size(y,1)),sparse=x)
+  end subroutine
+  function ransac_csr_rows(x,rows)result(subset)
+    type(csr_matrix),intent(in)::x
+    integer,intent(in)::rows(:)
+    type(csr_matrix)::subset
+    integer::i,k,first,last,total
+    subset%n_rows=size(rows);subset%n_cols=x%n_cols
+    allocate(subset%indptr(size(rows)+1));subset%indptr(1)=1;total=0
+    do i=1,size(rows)
+      total=total+x%indptr(rows(i)+1)-x%indptr(rows(i));subset%indptr(i+1)=total+1
+    end do
+    allocate(subset%indices(total),subset%data(total));k=1
+    do i=1,size(rows)
+      first=x%indptr(rows(i));last=x%indptr(rows(i)+1)-1
+      subset%indices(k:k+last-first)=x%indices(first:last)
+      subset%data(k:k+last-first)=x%data(first:last);k=k+last-first+1
+    end do
+  end function
+  subroutine ransac_fit_common(self,y,matrix_target,sample_weight,dense,sparse)
+    class(ransac_regressor),intent(inout)::self
+    real(dp),intent(in)::y(:,:)
+    logical,intent(in)::matrix_target
+    real(dp),optional,intent(in)::sample_weight(:),dense(:,:)
+    type(csr_matrix),optional,intent(in)::sparse
+    type(linear_regression)::candidate
+    type(legacy_random_state)::rng
+    type(csr_matrix)::subset
+    integer::n,p,m,i,best_count,n_inliers,cap
+    integer,allocatable::ids(:),inliers(:)
+    real(dp),allocatable::callback_x(:,:),prediction(:,:),residual(:),weights(:)
+    logical,allocatable::mask(:)
+    real(dp)::threshold,score,best_score,nom,den,bound
+    logical::found
+    call check_positive_regression(self)
+    call require(present(dense).neqv.present(sparse),'RANSAC requires one feature representation')
+    n=size(y,1);call check_x(y)
+    if(present(dense))then
+      call check_xy(dense,n);p=size(dense,2)
+    else
+      call sparse%validate();p=sparse%n_cols
+      call require(sparse%n_rows==n.and.n>0.and.p>0,'invalid RANSAC CSR shape')
+      call require(all(ieee_is_finite(sparse%data)),'RANSAC CSR data must be finite')
+    end if
+    if(present(sample_weight))then
+      call require(size(sample_weight)==n,'RANSAC sample_weight length mismatch')
+      call require(all(ieee_is_finite(sample_weight)),'RANSAC sample_weight must be finite')
+    end if
+    m=self%min_samples
+    if(m==0)then
+      if(self%fractional_min_samples_)then
+        call require(ieee_is_finite(self%min_samples_fraction_),'RANSAC min_samples must be finite')
+        call require(self%min_samples_fraction_>0.and.self%min_samples_fraction_<=1, &
+          'RANSAC min_samples fraction must be in (0,1]')
+        m=1
+        if(self%min_samples_fraction_<1)m=ceiling(self%min_samples_fraction_*n)
+      else
+        call require(.not.self%explicit_min_samples_,'RANSAC integer min_samples must be positive')
+        m=p+1
+      end if
+    end if
+    call require(m>=1.and.m<=n.and.self%max_trials>=0.and.self%max_skips>=0,'invalid RANSAC sample/trial controls')
+    call require(ieee_is_finite(self%stop_probability),'RANSAC probability must be finite')
+    call require(self%stop_probability>=0.and.self%stop_probability<=1.and.self%stop_n_inliers>=0, &
+      'invalid RANSAC stopping controls')
+    call require(.not.ieee_is_nan(self%stop_score),'RANSAC stop_score must not be NaN')
+    call require(ieee_is_finite(self%residual_threshold),'RANSAC threshold must be finite')
+    call require(self%residual_threshold>=0.or.self%residual_threshold==-1,'invalid RANSAC residual threshold')
+    call require(associated(self%loss_callback).or.self%loss=='absolute_error'.or.self%loss=='squared_error', &
+      'invalid RANSAC loss')
+    threshold=self%residual_threshold
+    if(threshold==-1)threshold=sample_median(abs(reshape(y,[size(y)])-sample_median(reshape(y,[size(y)]))))
+    self%min_samples_=m;self%residual_threshold_=threshold
+    self%n_trials_=0;self%n_skips_no_inliers_=0;self%n_skips_invalid_data_=0;self%n_skips_invalid_model_=0
+    self%inlier_mask_=spread(.false.,1,n);self%skips_exceeded_=.false.
+    allocate(mask(n))
+    cap=self%max_trials;best_count=1;best_score=ieee_value(0._dp,ieee_negative_inf);found=.false.
+    candidate%fit_intercept=self%fit_intercept;call rng%seed(self%random_state)
+    do while(self%n_trials_<cap)
+      self%n_trials_=self%n_trials_+1
+      if(self%n_skips_no_inliers_+self%n_skips_invalid_data_+self%n_skips_invalid_model_>self%max_skips)exit
+      ids=sample_indices(rng,n,m,.false.)
+      if(present(sparse))subset=ransac_csr_rows(sparse,ids)
+      if(associated(self%is_data_valid).or.associated(self%is_model_valid))then
+        if(present(dense))then
+          callback_x=dense(ids,:)
+        else
+          callback_x=subset%to_dense()
+        end if
+      end if
+      if(associated(self%is_data_valid))then
+        if(.not.self%is_data_valid(callback_x,y(ids,:)))then
+          self%n_skips_invalid_data_=self%n_skips_invalid_data_+1;cycle
+        end if
+      end if
+      call fit_candidate(ids)
+      if(associated(self%is_model_valid))then
+        if(.not.self%is_model_valid(candidate,callback_x,y(ids,:)))then
+          self%n_skips_invalid_model_=self%n_skips_invalid_model_+1;cycle
+        end if
+      end if
+      if(present(dense))then
+        prediction=candidate%predict_matrix(dense)
+      else
+        prediction=candidate%predict_matrix(sparse)
+      end if
+      if(associated(self%loss_callback))then
+        residual=self%loss_callback(y,prediction)
+        call require(size(residual)==n,'RANSAC loss callback shape mismatch')
+      else
+        allocate(residual(n))
+        do i=1,n
+          if(self%loss=='absolute_error')then
+            residual(i)=numpy_sum(abs(y(i,:)-prediction(i,:)))
+          else
+            residual(i)=numpy_sum((y(i,:)-prediction(i,:))**2)
+          end if
+        end do
+      end if
+      mask=.false.
+      do i=1,n
+        if(.not.ieee_is_nan(residual(i)))mask(i)=residual(i)<=threshold
+      end do
+      deallocate(residual);n_inliers=count(mask)
+      if(n_inliers<best_count)then
+        self%n_skips_no_inliers_=self%n_skips_no_inliers_+1;cycle
+      end if
+      inliers=pack([(i,i=1,n)],mask)
+      if(present(dense))then
+        score=candidate%score(dense(inliers,:),y(inliers,:))
+      else
+        subset=ransac_csr_rows(sparse,inliers);score=candidate%score(subset,y(inliers,:))
+      end if
+      if(n_inliers==best_count)then
+        if(.not.ieee_is_nan(score).and..not.ieee_is_nan(best_score))then
+          if(score<best_score)cycle
+        end if
+      end if
+      best_count=n_inliers;best_score=score;self%inlier_mask_=mask;found=.true.
+      nom=max(epsilon(1._dp),1-self%stop_probability)
+      den=max(epsilon(1._dp),1-(real(n_inliers,dp)/n)**m)
+      if(nom==1)then
+        cap=0
+      else if(den/=1)then
+        bound=abs(log(nom)/log(den))
+        if(bound<cap)cap=ceiling(bound)
+      end if
+      if(n_inliers>=self%stop_n_inliers)exit
+      if(.not.ieee_is_nan(score))then
+        if(score>=self%stop_score)exit
+      end if
+    end do
+    self%skips_exceeded_=self%n_skips_no_inliers_+self%n_skips_invalid_data_+self%n_skips_invalid_model_>self%max_skips
+    call require(found,'RANSAC could not find a valid consensus set')
+    inliers=pack([(i,i=1,n)],self%inlier_mask_);call fit_candidate(inliers)
+    self%estimator_=candidate;self%linear_regression=candidate
+  contains
+    subroutine fit_candidate(rows)
+      integer,intent(in)::rows(:)
+      if(allocated(weights))deallocate(weights)
+      if(present(sample_weight))weights=sample_weight(rows)
+      if(present(dense))then
+        if(matrix_target)then
+          call candidate%fit(dense(rows,:),y(rows,:),weights)
+        else
+          if(allocated(weights))then
+            call candidate%fit(dense(rows,:),y(rows,1),weights)
+          else
+            call candidate%fit(dense(rows,:),y(rows,1))
+          end if
+        end if
+      else
+        subset=ransac_csr_rows(sparse,rows)
+        if(matrix_target)then
+          call candidate%fit(subset,y(rows,:),weights)
+        else
+          call candidate%fit(subset,y(rows,1),weights)
+        end if
+      end if
+    end subroutine
+  end subroutine
+  function ransac_predict_sv(self,x)result(y)
+    class(ransac_regressor),intent(in)::self
+    type(csr_matrix),intent(in)::x
+    real(dp)::y(x%n_rows)
+    y=self%estimator_%predict(x)
+  end function
+  function ransac_predict_dm(self,x)result(y)
+    class(ransac_regressor),intent(in)::self
+    real(dp),intent(in)::x(:,:)
+    real(dp),allocatable::y(:,:)
+    y=self%estimator_%predict_matrix(x)
+  end function
+  function ransac_predict_sm(self,x)result(y)
+    class(ransac_regressor),intent(in)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),allocatable::y(:,:)
+    y=self%estimator_%predict_matrix(x)
+  end function
+  real(dp)function ransac_score_dw(self,x,y,sample_weight)result(value)
+    class(ransac_regressor),intent(in)::self
+    real(dp),intent(in)::x(:,:)
+    real(dp),intent(in)::y(:)
+    real(dp),intent(in)::sample_weight(:)
+    value=self%estimator_%score(x,y,sample_weight)
+  end function
+  real(dp)function ransac_score_sv(self,x,y,sample_weight)result(value)
+    class(ransac_regressor),intent(in)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),intent(in)::y(:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    value=self%estimator_%score(x,y,sample_weight)
+  end function
+  real(dp)function ransac_score_dm(self,x,y,sample_weight)result(value)
+    class(ransac_regressor),intent(in)::self
+    real(dp),intent(in)::x(:,:)
+    real(dp),intent(in)::y(:,:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    value=self%estimator_%score(x,y,sample_weight)
+  end function
+  real(dp)function ransac_score_sm(self,x,y,sample_weight)result(value)
+    class(ransac_regressor),intent(in)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),intent(in)::y(:,:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    value=self%estimator_%score(x,y,sample_weight)
+  end function
   subroutine poisson_fit(self,x,y)
     class(poisson_regressor), intent(inout) :: self
     real(dp), intent(in) :: x(:,:),y(:)

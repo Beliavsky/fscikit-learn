@@ -684,15 +684,56 @@ Bagging uses an internal column-selection adapter to reproduce NumPy's
 Fortran-contiguous matrix reduction order; it is not a constructor parameter
 and is excluded from the `sklearn` facade.
 
-RANSAC fits ordinary least squares to random subsets and refits the best
-consensus. `inlier_mask_` holds that consensus before the final refit;
-`n_trials_` and `n_skips_no_inliers_` report sampling diagnostics. Defaults are
-`min_samples=0` for `n_features+1`, `residual_threshold=-1` for the unscaled MAD
-of targets, `max_trials=100`, and `stop_probability=0.99`. Choose
-`loss='absolute_error'` or `'squared_error'`; thresholds apply to that loss.
-Set `stop_n_inliers` or `stop_score` for early stopping and `random_state` for
-repeatability on a given compiler. Fitted coefficients/intercept are stored
-directly on the Fortran object. See `example/robust_regression.f90`.
+RANSAC fits ordinary least squares to NumPy-compatible random subsets and
+refits the best consensus. Vector and joint matrix targets support dense and
+CSR features. `estimator_` is the fitted OLS model; inherited coefficients,
+intercepts and shape attributes mirror it. Use `predict_matrix` for matrix
+targets. Scalar/vector sample weights reach each selected subset and the
+final inlier refit; consensus scores remain unweighted, matching Source with
+metadata routing disabled. Explicit weighted `score` delegates to the fitted
+base, corresponding to Source's metadata-routed scoring request.
+
+`min_samples=0` retains the default `n_features+1`. `set_min_samples(integer)`
+and `set_min_samples(real)` preserve parameter type across refits;
+`clear_min_samples()` restores the default. Real values strictly between zero
+and one resolve with `ceil(fraction*n_samples)`. **Real 1.0 means one sample**,
+matching RANSAC's Source convention; it does not mean all samples. Real zero
+produces a controlled diagnostic for Source's invalid/unbound subset count.
+
+`residual_threshold=-1` selects MAD over all target entries. Choose
+`loss='absolute_error'` or `'squared_error'`; multioutput residuals sum over
+response columns. A `loss_callback(y_true,y_pred)` procedure can replace this
+with one residual per row; NaN residuals are excluded from the inlier mask.
+Callbacks receive two-dimensional targets, including a column for vector
+inputs. `is_data_valid(x_subset,y_subset)` and
+`is_model_valid(ols_model,x_subset,y_subset)` are optional read-only logical
+procedures. CSR callback features are a dense copy of the selected subset;
+normal sparse fitting does not densify the full feature matrix.
+
+`max_trials`, `max_skips`, `stop_n_inliers`, `stop_score`, `stop_probability`
+and `random_state` control trials. Integer `huge(1)` represents practically
+unbounded count limits. `n_trials_`, `n_skips_no_inliers_`,
+`n_skips_invalid_data_` and `n_skips_invalid_model_` follow Source counters,
+including the trial counted before a skip-limit exit. `skips_exceeded_` records
+a valid early result for which Source emits a convergence warning.
+`min_samples_` and `residual_threshold_` expose resolved native diagnostics.
+The local NumPy RNG does not modify Fortran's global random stream.
+
+Search supports these scalar controls, named built-in loss, typed minimum
+samples, None via `param('none')`, and `estimator__fit_intercept`. Arbitrary
+base-estimator objects and Python metadata-routing infrastructure remain
+unsupported. Native arrays use a per-target intercept vector when Source
+broadcasts a scalar zero. Zero-threshold, one-observation dense least-squares
+fits can differ at the last bit and therefore change exact-zero consensus or
+fit acceptance. Seventeen retained reference configurations currently exceed
+the strict comparison contract; they remain failures without adjusted
+thresholds or expected outputs. In composition validation, all eight fixtures
+match predictions, scores, sampling metadata and selected best models; two
+retain exact rank differences between candidates whose mean scores differ by
+about 1e-15. Their ranks remain strict failures. The inherited coefficient
+aliases allow native SelectFromModel auto-importance; Source requires the
+explicit `importance_getter='estimator_.coef_'` for this meta-estimator.
+See `example/robust_regression.f90`.
 
 ```fortran
 type(poisson_regressor) :: counts

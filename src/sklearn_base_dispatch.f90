@@ -123,6 +123,12 @@ contains
         call require(.not.present(weights),'voting base has no native weighted fit')
         call model%fit(x,y)
       end if
+    type is(ransac_regressor)
+      if(present(weights))then
+        call model%fit(x,y,weights)
+      else
+        call model%fit(x,y)
+      end if
     type is(huber_regressor)
       if(present(weights))then
         call model%fit(x,y,weights)
@@ -299,6 +305,7 @@ contains
     type is(gaussian_nb)
     class is(multinomial_nb)
     type is(sgd_classifier)
+    type is(ransac_regressor)
     type is(huber_regressor)
     type is(sgd_regressor)
     type is(kernel_ridge)

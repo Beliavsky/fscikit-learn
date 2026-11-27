@@ -2773,3 +2773,19 @@ Primary references:
 - https://github.com/scikit-learn/scikit-learn/blob/1.6.1/sklearn/linear_model/_huber.py
 - https://github.com/scipy/scipy/blob/v1.15.3/scipy/optimize/__lbfgsb.c
 - https://github.com/OpenMathLib/OpenBLAS/blob/v0.3.29/kernel/x86_64/nrm2.S
+
+
+## Weighted and multioutput RANSAC controls
+
+The RANSAC bindings and iteration loop in `src/sklearn_linear_model.f90`
+adapt scikit-learn 1.6.1 `linear_model/_ransac.py`: typed minimum samples,
+weighted subset/final fitting, joint residual reductions, callback phases,
+best-consensus comparisons (including NaN scores), dynamic trial limits,
+skip budgets and diagnostics. Upstream BSD terms remain in
+`LICENSES/scikit-learn-COPYING`. Sampling reuses the existing attributed
+`sklearn_bagging_sampling` implementation of sklearn `utils/_random.pyx`
+and the NumPy 2.2.6 RandomState stream. Existing NumPy BSD/MIT notices apply.
+Typed callbacks, CSR row copies, owned result/parameter state and native
+search/dispatch bindings are original MIT integration. The base solver is
+the existing attributed dense/CSR LinearRegression backend. No new runtime
+dependency or extension algorithm is introduced.

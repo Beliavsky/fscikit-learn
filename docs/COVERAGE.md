@@ -597,12 +597,18 @@ distances; cosine similarity; linear, RBF, polynomial and sigmoid kernels.
   `optimization_message_`; the direct objective/gradient and norm proofs do
   not certify fitted-path parity. Dense/CSR storage stays linear in stored
   features and the fixed optimizer memory budget.
-- RANSAC supports a built-in ordinary least-squares estimator only. It accepts
-  an integer `min_samples` (zero means `n_features+1`), absolute/squared residual
-  loss, a scalar threshold (negative-one means target MAD), and probability,
-  inlier-count and score stopping controls. There are no estimator/callback
-  hooks, fractional sample counts, sample weights or maximum-skip control.
-  Seeded trials use the Fortran RNG; consensus sets can differ from NumPy's.
+- RANSAC supports a built-in ordinary least-squares estimator with dense/CSR
+  features, vector/matrix targets, scalar/vector weights, typed fractional
+  subset counts, custom losses and data/model validation callbacks. Sampling,
+  dynamic trial limits and skip counters follow the installed Source NumPy
+  stream. The local RNG preserves Fortran's global RNG state. CSR callbacks
+  receive a dense selected subset. Arbitrary base-estimator objects remain
+  unsupported. Seventeen retained zero-threshold, one-observation dense fits
+  differ in exact-zero consensus/acceptance due to least-squares rounding;
+  these remain strict comparison failures. Two composition fixtures retain
+  exact CV-rank differences for nearly tied scores; predictions and selected
+  best models match. Integer huge bounds are native
+  adapters for unbounded Source count controls.
 - Poisson, Gamma and Tweedie use damped Newton updates with a symmetric-eigen
   pseudoinverse Hessian, supporting singular unpenalized designs. Tweedie
   powers are limited to zero (identity link) or `[1,2]` (log link). Other powers,

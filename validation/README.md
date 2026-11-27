@@ -1,5 +1,31 @@
 # Validation
 
+RANSAC OLS controls (2026-11-27): `compare_ransac_controls.py --executable PATH
+--report PATH` uses `reference_ransac_controls_driver` for 714 configurations:
+dense/canonical/raw CSR, vector/column/joint targets, scalar/vector weights,
+typed minimum samples, all three sampling strategies, callbacks and skip/stop
+limits. The original 498-case prefix is preserved; 216 raw-CSR cases append to
+it. All 216 appended cases match. Of the full grid, 17 zero-threshold dense
+cases remain strict differences, including Source/native fit acceptance;
+the validator retains these failures and exits nonzero. Float bounds remain
+rtol/atol 3e-8; subset traces, counters and masks require exact integer comparison.
+Scalar Source intercepts broadcast to native target vectors, and subset indices
+shift to one-based storage. Weighted scoring uses actual Source metadata routing;
+fit-time consensus scores remain unweighted under the ordinary Source mode.
+
+`check_ransac_controls.py` checks 86 actual Source parameter/weight cases,
+including negative weights used or excluded by the selected OLS rows.
+`compare_ransac_integration.py` / `reference_ransac_integration_driver` cover
+eight fitted-prototype graph fixtures. Numeric results, selected best models
+and sampling metadata match in every fixture; two strict CV-rank comparisons
+remain false for nearly tied candidate scores. The Source selector uses its
+explicit estimator_.coef_ getter, corresponding to native inherited aliases.
+All tools accept `--executable PATH --report PATH`. Native `test_ransac_controls`
+checks CSR/matrix overloads, callbacks, typed controls, RNG isolation and search.
+Original failed mask-allocation and reference-harness evidence remains retained
+under ignored validation/results/ransac_* alongside current audits.
+
+
 Huber weighted/sparse/warm controls (2026-11-27):
 `compare_huber_controls.py --executable PATH --report PATH` uses
 `reference_huber_controls_driver` for 528 sequences / 744 fits, retaining all
