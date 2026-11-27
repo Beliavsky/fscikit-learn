@@ -10629,3 +10629,37 @@ are derived from that report path so concurrent checked/optimized runs cannot
 collide. The eight original dense cases per seed and all tolerances remain
 unchanged. This lets both profiles verify the actual completed binaries
 without triggering an unrelated fpm invocation during package audits.
+
+### IncrementalPCA CSR final verification
+
+Implementation 656acc8 and harness isolation 972b2b7 are verified against the
+completed checked fpm build. All 318 native programs, 11 selected examples and
+four focused jobs pass (333 jobs); 928 dependency-aware source fingerprints
+match the current worktree, including all 209 library units. All four selected
+optimized native programs and four focused jobs pass after rebuilding only
+sklearn_incremental_pca with -O3 -funroll-loops. This is scoped optimized
+verification, not a complete optimized rebuild. The copied checked archive
+is byte-identical before/after copying, SHA256
+4b6b35ec99fa73bebbd918ff8a9c5c1cdda2cf7d192a625beae8c7c0a9d1e5c5.
+All 208 other archive members are unchanged.
+
+Both profiles pass 324 CSR/mixed-storage configurations, twelve Source/native
+rejection checks and the unchanged 264 legacy dense result groups (eight
+cases per seed, three seeds, eleven fields). Reference inputs and Source
+oracles match across profiles; source/object/report hashes are verified.
+No cases or tolerances were removed or relaxed. The final million-by-50
+sparse-query memory peaks are 59,256,832 bytes checked and 56,799,232 bytes
+optimized, below 128 MiB and the 400,000,000-byte dense query equivalent.
+
+Evidence: validation/results/incremental_sparse_package_audit.json,
+incremental_sparse_optimized_audit.json and incremental_sparse_cross_profile_audit.json,
+plus focused reports, build log and audit logs. The checked runtime remains
+static libgfortran with the validation-only Windows locale-copy shim; these
+results do not prove unwrapped runtime stability. The broader translation
+and existing numerical/degenerate-data gaps remain open. Commits remain local.
+
+Verified backup: incremental_sparse_evidence_972b2b7.zip,
+48,216,112 bytes / 2,033 entries, SHA256
+03a7df2125db1cf51b77380be667257d6e2e4803cdefc5767043595feac5ef86.
+ZIP CRCs and critical source/report/object/binary hashes pass. Receipt:
+validation/results/incremental_sparse_archive_receipt.json (ignored evidence).

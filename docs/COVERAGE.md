@@ -14639,3 +14639,13 @@ and relative tolerances. Twelve actual Source/native rejection checks pass.
 A million-by-50 sparse query peaks at 56,827,904 bytes in the isolated checked
 probe, below 128 MiB; its dense array would occupy 400,000,000 bytes. Output
 projections remain dense. Full package and optimized verification is pending.
+
+Final verification: 333 checked jobs pass (318 native programs, eleven examples
+and four focused jobs), with 928 current source fingerprints / 209 library
+units. Scoped -O3 verification passes four native programs plus all four focused
+jobs, including the unchanged 264 legacy dense result groups. Both profiles
+pass all 324 new configurations and twelve rejection checks. Final memory
+peaks are 59,256,832 bytes checked and 56,799,232 bytes optimized. Complete
+cross-profile evidence is in incremental_sparse_cross_profile_audit.json.
+These use the documented validation-only Windows locale shim; general Source
+parity and previously documented numerical/degenerate-data gaps remain open.
