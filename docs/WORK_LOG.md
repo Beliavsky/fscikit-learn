@@ -10231,3 +10231,42 @@ weighted scoring and zero-weight reset. Full package rebuilding is in progress;
 final checked/optimized and memory validation remains outstanding at this commit.
 The legacy dense validator adds only an optional report destination and Source
 input/oracle records; fixtures, comparisons and tolerances are unchanged.
+
+
+### QuantileRegressor CSR final verification
+
+Implementation commit: 6283d00. The completed checked package passes all 328
+audit jobs: 313 native programs, eleven selected examples, three focused
+reference suites and one memory check. All 915 build fingerprints match
+current sources, including 209 library units. The scoped optimized build
+recompiles the changed quantile module and passes both selected native tests,
+all three reference suites and its memory check. This is not a full optimized
+package rebuild. Its baseline is copied from the terminal completed checked
+library and verified byte-for-byte before linking.
+
+Both profiles pass all 240 new configurations / 3,720 groups, the original
+120 dense configurations / 2,089 groups, and sixteen actual Source/native CSR
+rejection cases. Source inputs/oracles agree across profiles; the new results
+also agree with the isolated probe. Legacy fixtures, expected comparisons and
+tolerances are unchanged. Nonunique solutions continue to use objective and
+primal-dual checks; they do not imply identical arbitrary coefficients. All
+22 remaining legacy QuantileRegressor guards pass. The retired zero-weight
+case returns successfully, matching actual Source behavior. Additional checked
+probes confirm controlled Source/native failures for overflowing weight sums
+and overflowing duplicate CSR accumulation under floating-point traps.
+
+The 40,000-by-4,000 query test peaks at 11,616,256 bytes checked / 11,046,912
+bytes optimized, below its 1.28 GB dense representation. This demonstrates
+sparse query storage; it does not remove the native fitting tableau's dense
+O(n*(p+n)) cost. Cross-profile verification confirms all 208 non-overridden
+library members and source/object/report hashes. All build/audit jobs are
+terminal. Validation retains private GNU Fortran 15.2.0, static libgfortran and
+the validation-only Windows locale-copy shim; unwrapped runtime stability is
+not claimed. The broader project's previously documented numerical gaps remain
+open, despite these focused quantile comparisons passing. Commits remain local.
+
+The verified backup is quantile_csr_evidence_6283d00.zip,
+47,340,609 bytes / 1,997 entries, SHA256
+5652af1635467150504ba5ba99daf36eba8f39cef3c33226b126b2cc441b6cf0.
+ZIP CRCs and critical source/report/object/binary hashes pass. The receipt is
+validation/results/quantile_csr_archive_receipt.json (ignored local evidence).
