@@ -2,6 +2,8 @@
 ! Upstream BSD notice: LICENSES/scikit-learn-COPYING; original contributions MIT.
 module sklearn_incremental_pca
   use sklearn_common, only: dp,require,check_x,dense_svd
+  use sklearn_sparse, only: csr_matrix
+  use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
   implicit none
   private
   public :: incremental_pca
@@ -12,13 +14,86 @@ module sklearn_incremental_pca
     real(dp), allocatable :: components_(:,:),mean_(:),var_(:),singular_values_(:)
     real(dp), allocatable :: explained_variance_(:),explained_variance_ratio_(:)
   contains
-    procedure :: fit=>ipca_fit
-    procedure :: partial_fit=>ipca_partial
-    procedure :: transform=>ipca_transform
+    procedure :: fit_dense=>ipca_fit,fit_csr
+    generic :: fit=>fit_dense,fit_csr
+    procedure :: partial_fit_dense=>ipca_partial,partial_fit_csr
+    generic :: partial_fit=>partial_fit_dense,partial_fit_csr
+    procedure :: transform_dense=>ipca_transform,transform_csr
+    generic :: transform=>transform_dense,transform_csr
     procedure :: inverse_transform=>ipca_inverse
-    procedure :: fit_transform=>ipca_fit_transform
+    procedure :: fit_transform_dense=>ipca_fit_transform,fit_transform_csr
+    generic :: fit_transform=>fit_transform_dense,fit_transform_csr
   end type
 contains
+  subroutine check_csr(x)
+    type(csr_matrix),intent(in)::x
+    call x%validate()
+    call require(x%n_rows>0.and.x%n_cols>0,'IncrementalPCA sparse input must be nonempty')
+    call require(all(ieee_is_finite(x%data)),'IncrementalPCA sparse input must be finite')
+  end subroutine
+
+  function dense_batch(x,first,last)result(batch)
+    type(csr_matrix),intent(in)::x
+    integer,intent(in)::first,last
+    real(dp),allocatable::batch(:,:)
+    integer::i,j
+    allocate(batch(last-first+1,x%n_cols));batch=0
+    do i=first,last
+      do j=x%indptr(i),x%indptr(i+1)-1
+        batch(i-first+1,x%indices(j))=batch(i-first+1,x%indices(j))+x%data(j)
+      end do
+    end do
+  end function
+
+  subroutine fit_csr(self,x)
+    class(incremental_pca),intent(inout)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),allocatable::batch(:,:)
+    integer::first,last,b
+    call check_csr(x)
+    call require(self%batch_size>=0,'IncrementalPCA batch_size must be nonnegative')
+    b=self%batch_size;if(b==0)b=5*x%n_cols
+    self%batch_size_=b;self%n_samples_seen_=0
+    first=1
+    do while(first<=x%n_rows)
+      last=min(x%n_rows,first+b-1)
+      if(x%n_rows-last<self%n_components)last=x%n_rows
+      batch=dense_batch(x,first,last);call self%partial_fit(batch)
+      first=last+1
+    end do
+  end subroutine
+
+  subroutine partial_fit_csr(self,x)
+    class(incremental_pca),intent(inout)::self
+    type(csr_matrix),intent(in)::x
+    call require(.false.,'IncrementalPCA.partial_fit does not support sparse input; use fit for batched conversion')
+  end subroutine
+
+  function transform_csr(self,x)result(z)
+    class(incremental_pca),intent(in)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),allocatable::z(:,:),batch(:,:)
+    integer::first,last
+    call require(self%n_samples_seen_>0,'IncrementalPCA is not fitted')
+    call check_csr(x)
+    call require(x%n_cols==self%n_features_in_,'IncrementalPCA feature count mismatch')
+    call require(self%batch_size_>0,'IncrementalPCA sparse transform requires a fitted batch size')
+    allocate(z(x%n_rows,self%n_components_));first=1
+    do while(first<=x%n_rows)
+      last=min(x%n_rows,first+self%batch_size_-1)
+      if(x%n_rows-last<self%n_components)last=x%n_rows
+      batch=dense_batch(x,first,last);z(first:last,:)=self%transform(batch)
+      first=last+1
+    end do
+  end function
+
+  function fit_transform_csr(self,x)result(z)
+    class(incremental_pca),intent(inout)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),allocatable::z(:,:)
+    call self%fit(x);z=self%transform(x)
+  end function
+
   subroutine ipca_fit(self,x)
     class(incremental_pca), intent(inout) :: self
     real(dp), intent(in) :: x(:,:)

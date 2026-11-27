@@ -2890,3 +2890,10 @@ accumulation in the shared kernel dispatcher follows stored-entry semantics of
 `utils/extmath.py` row_norms and CSR normalization. Existing BSD notices are
 retained. Owned Fortran CSR caches, common centered-kernel projection and
 storage adapters are independent MIT integration.
+
+IncrementalPCA CSR batching follows sklearn 1.6.1
+sklearn/decomposition/_incremental_pca.py (fit and transform): convert each
+sparse row batch to dense and reuse the existing incremental decomposition.
+The Source rejection of sparse partial_fit is retained. Source BSD-3-Clause
+copyright/license is preserved in LICENSES/scikit-learn-COPYING. The native
+Fortran adapter and tests are original MIT-licensed contributions.

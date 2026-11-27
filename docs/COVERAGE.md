@@ -14622,3 +14622,20 @@ weights are supported by regression-family models that implement weighted fit.
 Held-out scoring is unweighted and uses the estimator's own score definition.
 This corrects prior fitted-caller and cross-fold warm-state leakage; general
 Python exception/error-score semantics remain outside the terminating typed API.
+
+### IncrementalPCA CSR batching (2026-11-27)
+
+Added CSR fit/fit_transform and transform with bounded dense batches, including
+mixed training/query storage and dense/sparse refits. Direct sparse partial_fit
+remains a matching Source rejection. This extends the existing incremental SVD
+algorithm rather than substituting a different sparse decomposition.
+
+The initial isolated checked comparison passes all 324 configurations across
+two datasets, three component settings, three batch sizes, whitening on/off,
+and nine dense/canonical/noncanonical training/query storage pairs. It checks
+components, moments, singular/explained variances, noise, training/query
+projections, inverse transforms and fitted metadata at unchanged 3e-8 absolute
+and relative tolerances. Twelve actual Source/native rejection checks pass.
+A million-by-50 sparse query peaks at 56,827,904 bytes in the isolated checked
+probe, below 128 MiB; its dense array would occupy 400,000,000 bytes. Output
+projections remain dense. Full package and optimized verification is pending.

@@ -10599,3 +10599,26 @@ Verified evidence backup: kernel_sparse_evidence_e22d0e9.zip,
 537e4bac79717cc147decf6bf3ee414724faae94988bebeea3bcbb7a815117fc.
 ZIP CRCs and critical source/report/object/binary hashes pass; receipt:
 validation/results/kernel_sparse_archive_receipt.json (ignored evidence).
+
+### IncrementalPCA CSR fits and batched queries
+
+The preceding goal turn made verified progress: CSR KernelPCA implementation
+and checked/optimized evidence were committed through bf0bbf4. Continued from
+the authoritative clean tracked worktree, retaining the protected untracked
+scratch files unchanged.
+
+Added CSR fit/fit_transform and query overloads to IncrementalPCA, with the
+Source dense-per-batch algorithm and matching sparse partial_fit rejection.
+Finite stored data, nonempty shapes and query width are checked. Dense/CSR
+refits reset the sample counter; input CSR buffers are not mutated. Duplicate
+entries accumulate in stored order. Dense update/whitening formulas remain
+the established native implementation, with its existing numerical limits.
+
+The isolated checked native test and 324 actual sklearn configurations pass
+at unchanged 3e-8 tolerances, covering all fitted outputs, projections/inverses,
+whitening, batch/component settings, mixed storage and noncanonical CSR.
+All twelve actual Source/native rejection checks pass. The million-by-50
+query memory peak is 56,827,904 bytes against a 128 MiB limit and 400 MB dense
+query equivalent. Full rebuilding is running; scoped optimized and complete
+native/package audits remain pending. Commits stay local; MIT/BSD notices
+are retained. The overall sklearn translation remains incomplete.

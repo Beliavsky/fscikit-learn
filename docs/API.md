@@ -11392,3 +11392,16 @@ CSR designs and sparse precomputed fit/query matrices are rejected. Other
 supported kernels include linear, RBF, polynomial, cosine and sigmoid.
 Noncanonical RBF/cosine row norms follow Source stored-entry semantics, including
 duplicates; this can differ from converting the same CSR matrix to dense first.
+
+IncrementalPCA accepts CSR matrices for fit, fit_transform and transform.
+Like sklearn 1.6.1, it converts each batch to dense storage, preserving the
+existing dense incremental SVD update; it does not densify the entire design
+or query. batch_size=0 retains the native spelling of Source batch_size=None
+(5*n_features); n_components=0 denotes None. Final short batches are merged
+when required by the explicit component count. Transform returns a dense
+n_query-by-n_components matrix, so that output storage remains unavoidable.
+Unsorted duplicate entries are accumulated in stored order during conversion;
+explicit zeros are accepted. Inputs are retained unchanged. Sparse partial_fit
+is rejected, matching Source; use fit for batched CSR conversion. Sparse
+transform after partial_fit alone requires a prior fit to establish batch_size_,
+as in the Source API. Existing dense numerical/degenerate-data limits remain.
