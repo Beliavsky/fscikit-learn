@@ -2873,3 +2873,12 @@ supported warm-started models and training-only weight slicing follow sklearn
 1.6.1 base.py and model_selection/_validation.py clone/fit-and-score semantics.
 The Fortran CV overloads and regression test are independent MIT integration;
 retained scikit-learn BSD notices remain applicable.
+
+
+KernelPCA randomized eigensolving follows sklearn 1.6.1
+`decomposition/_kernel_pca.py`, `utils/extmath.py` _randomized_eigsh and
+`utils/validation.py` PSD checks. Signed singular-value recovery, selected-spectrum
+validation and eigenpair ordering retain the scikit-learn BSD attribution in
+LICENSES/scikit-learn-COPYING. Native integration reuses the existing MIT/BSD
+randomized-SVD and seeded NumPy-compatible RNG modules; no external eigensolver
+runtime is linked.

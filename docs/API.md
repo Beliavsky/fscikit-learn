@@ -11364,3 +11364,18 @@ remain unweighted estimator scores (R2 for Huber, deviance scores for GLMs).
 Weights require an estimator with a native weighted fit; unsupported derived
 estimators retain terminating diagnostics. Caller state is preserved. The typed
 logistic path also allocates a separate model for each stratified fold.
+
+
+KernelPCA supports eigen_solver='dense' (the retained native default) or
+'randomized'. The randomized path uses the existing seeded randomized-SVD core,
+ten oversamples, signed eigenvalue recovery, PSD repair and sorted deterministic
+signs. Set iterated_power to a nonnegative count or -1 for Source 'auto'
+(7 iterations when components < 10% of samples, otherwise 4). random_state is a
+nonnegative integer seed, default 0. These dense/seeded defaults differ from
+Source auto/None; ARPACK and Source's automatic solver routing remain unsupported.
+Both paths retain a dense centered Gram matrix. A low-power approximate fit can
+have fit_transform(X) different from transform(X), as in Source; neither result
+is replaced by the other. Existing query transforms and learned inverse fitting
+use the selected fitted eigensystem. Randomized selection is by eigenvalue
+magnitude, so indefinite kernels may fail PSD checks even when dense selection
+of the largest algebraic eigenvalues succeeds.

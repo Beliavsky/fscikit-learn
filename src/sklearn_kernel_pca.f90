@@ -3,11 +3,15 @@ module sklearn_kernel_pca
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
   use sklearn_common
   use sklearn_metrics, only: linear_kernel,rbf_kernel,polynomial_kernel,sigmoid_kernel,cosine_similarity
+  use sklearn_randomized_svd_core,only:randomized_svd
+  use sklearn_legacy_rng,only:legacy_random_state
   implicit none
   private
   public :: kernel_pca
   type :: kernel_pca
     integer :: n_components=0,degree=3
+    integer :: iterated_power=-1,random_state=0
+    character(16)::eigen_solver='dense'
     real(dp) :: gamma=-1,coef0=1,gamma_=0,k_fit_all_=0
     real(dp) :: alpha=1
     logical :: remove_zero_eig=.false.,fit_inverse_transform=.false.
@@ -38,11 +42,16 @@ contains
   subroutine kpca_fit(self,x)
     class(kernel_pca), intent(inout) :: self
     real(dp), intent(in) :: x(:,:)
-    real(dp), allocatable :: k(:,:),values(:),vectors(:,:),l(:,:),upper(:,:)
+    real(dp), allocatable :: k(:,:),values(:),vectors(:,:),l(:,:),upper(:,:),right(:,:)
+    integer,allocatable::order(:)
+    type(legacy_random_state)::rng
     integer :: n,c,j,p
-    real(dp) :: largest,negative_limit
+    real(dp) :: largest,negative_limit,orientation
     call check_x(x); n=size(x,1)
     call require(self%n_components>=0,'kernel PCA n_components must be nonnegative')
+    call require(self%eigen_solver=='dense'.or.self%eigen_solver=='randomized','unsupported kernel PCA eigen_solver')
+    call require(self%iterated_power>=-1,'kernel PCA iterated_power must be nonnegative or -1 for auto')
+    call require(self%random_state>=0,'kernel PCA random_state must be nonnegative')
     call require(ieee_is_finite(self%alpha),'kernel PCA alpha must be finite and nonnegative')
     call require(self%alpha>=0,'kernel PCA alpha must be finite and nonnegative')
     call require(ieee_is_finite(self%gamma).and.ieee_is_finite(self%coef0),'kernel PCA controls must be finite')
@@ -59,12 +68,34 @@ contains
       'kernel PCA requires a symmetric training kernel')
     self%k_fit_rows_=sum(k,dim=1)/n; self%k_fit_all_=sum(self%k_fit_rows_)/n
     k=k-spread(self%k_fit_rows_,1,n)-spread(sum(k,dim=2)/n,2,n)+self%k_fit_all_
-    allocate(values(n),vectors(n,n)); call symmetric_eigen(k,values,vectors)
     c=self%n_components; if(c==0) c=n
-    c=min(c,n); largest=max(0._dp,values(1))
+    c=min(c,n)
+    if(self%eigen_solver=='randomized')then
+      call rng%seed(self%random_state)
+      if(self%iterated_power==-1)then
+        call randomized_svd(k,c,rng,values,vectors,right,flip_sign=.false.)
+      else
+        call randomized_svd(k,c,rng,values,vectors,right,n_iter=self%iterated_power,flip_sign=.false.)
+      end if
+      ! sklearn.utils.extmath._randomized_eigsh: sign(diag(Vt @ U)).
+      do j=1,c
+        orientation=dot_product(right(j,:),vectors(:,j))
+        if(orientation==0)then
+          values(j)=0
+        else if(orientation<0)then
+          values(j)=-values(j)
+        end if
+      end do
+    else
+      allocate(values(n),vectors(n,n));call symmetric_eigen(k,values,vectors)
+    end if
+    largest=maxval(values(:c))
+    call require(largest>=0,'kernel PCA selected only negative eigenvalues')
     negative_limit=max(1.e-10_dp,largest*1.e-5_dp)
     call require(minval(values(:c))>=-negative_limit,'kernel PCA selected significant negative eigenvalues')
     where(values<max(largest*1.e-12_dp,0._dp)) values=0
+    order=argsort(values(:c));order=order(c:1:-1)
+    values(:c)=values(order);vectors(:,:c)=vectors(:,order)
     if(self%remove_zero_eig.or.self%n_components==0) c=count(values(:c)>0)
     self%eigenvalues_=values(:c); self%eigenvectors_=vectors(:,:c)
     do j=1,c

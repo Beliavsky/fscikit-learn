@@ -10436,3 +10436,34 @@ The verified backup is cv_clone_evidence_7968d25.zip,
 b4359cace5fd47a25dd7ea7ee9e498742ecdb09138e90db049b70468eebe2307.
 ZIP CRCs and critical source/report/object/binary hashes pass. Receipt:
 validation/results/cv_clone_archive_receipt.json (ignored local evidence).
+
+
+### Randomized KernelPCA eigensolving
+
+Added eigen_solver='randomized' using the existing seeded randomized-SVD core,
+Source ten-oversample defaults and sign(diag(Vt*U)) eigenvalue recovery.
+Selected eigenvalues undergo Source PSD validation, deterministic orientation
+and descending ordering before zero filtering and transform/inverse fitting.
+The dense path also rejects an entirely negative selected spectrum, as Source
+does. Added iterated_power (nonnegative or -1 for Source auto) and nonnegative
+random_state controls. Native defaults remain dense and seed 0; Source auto/
+None and ARPACK routing are explicitly unsupported. Both paths retain a dense
+centered Gram matrix; the new path avoids a full dense eigenvector solve.
+MIT integration and Source BSD attribution are retained.
+
+The isolated checked comparison passes all 274 cases over six kernels, dense/
+randomized solvers, auto/0/1/3 powers, integer seeds, clipped/all components,
+zero designs, transforms and learned inverses. Signed indefinite precomputed
+selection is compared against actual Source acceptance/rejection. All twelve
+Source/native input guards pass. Native tests pass seeded repeats, changed-seed
+behavior, convergence toward the dense spectrum/coordinates and inverse shapes.
+
+An initial test incorrectly assumed approximate fit_transform(X) equals
+transform(X). The Source algorithm returns scaled approximate eigenvectors for
+the former and a kernel projection for the latter; they can differ at low power.
+The test now checks that observable approximation behavior and separately checks
+high-power convergence. The differential validator compares both outputs to
+Source without equating them. The first failing test log is retained; no Source
+fixture or tolerance was relaxed. Full checked rebuilding and final scoped
+optimized/legacy-inverse validation are in progress at this commit. The larger
+translation and previously documented gaps remain open; commits remain local.
