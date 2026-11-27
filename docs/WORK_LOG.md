@@ -9564,3 +9564,59 @@ installed compilers remain unchanged. Evidence is retained under ignored
 manifests, initial failures and compressed backup
 `validation/results/gb_early_evidence_8cc9229.zip`. All commits are local;
 no push was made. The overall sklearn translation remains incomplete.
+
+### 2026-11-27 — AdaBoost tree controls and shared regression trees
+
+Commit `05defcf` extends both AdaBoost estimators with typed integer/fractional
+minimum-sample and feature controls, named feature budgets, leaf budgets,
+minimum weighted leaf fractions and cost-complexity pruning. AdaBoost.R2 now
+uses the shared DecisionTreeRegressor backend, including all four criteria and
+both splitters. Extracted component estimators retain their parameter modes
+when independently refitted on a new sample/feature shape. The public
+unfitted prototype stays unfitted, and oversized integer feature budgets
+follow sklearn acceptance.
+
+AdaBoostRegressor now participates in the common fit/predict/weighted/seed
+registry, nested estimator search parameters, pipelines, feature selection,
+voting, bagging and stacking. Explicit CART-base seeding matches sklearn's
+nested parameter order. Original MIT integration and BSD attribution are
+retained, without a new runtime dependency or extension algorithm.
+
+The checked implementation initially trapped on two NaN input comparisons in
+AdaBoost.R2. Sequential finite and bound checks fix these actual failures;
+all 158 Source parameter/sample-weight cases now pass. Initial inputs,
+Source results, failing executable and diagnostics are retained. An overlapping
+build and validator also caused a Windows linker lock and invalid executable;
+those harness failures are retained, and the complete comparison was rerun
+using stable executable copies after the build finished.
+
+Both checked and scoped optimized profiles pass 1,344 new full-tree fixtures
+(768 regression, 576 classification), 158 guards and 24 fitted-template
+composition fixtures. The 36 original AdaBoost.R2 fixtures and all 1,649
+comparison groups still pass at their original 3e-8 tolerance; their input
+and Source arrays match the preserved pre-change oracle exactly. Both
+profiles pass all 1,460 original SAMME classifier fixtures. Its former
+native-only oversized-feature rejection is retained as Source acceptance;
+the other thirteen diagnostics still reject. Raw new tree floats use
+rtol 2e-11 / atol 2e-12, compositions retain 2e-10 / 2e-12, and integer tree
+structure, labels and seeds remain exact. Source undefined zero-ensemble
+importance is recorded explicitly with the existing native zero-vector
+adaptation.
+
+The final checked fpm build and all 355 package jobs pass: 304 native programs,
+ten selected examples, fourteen previous boosting/two tree suites, 6,332
+fractional-sample configurations and 240 parameter checks, the eight earlier
+early-stopping suites plus 40 guards, seven AdaBoost suites, 510 legacy
+classifier groups and 192 core comparisons. All 881 compiled-unit fingerprints
+(204 library units) match the current sources. The optimized validation rebuilds
+17 affected modules against matching checked dependencies and passes seven
+native programs and all seven AdaBoost suites; it is a scoped optimized check.
+Cross-profile manifests verify current source, executable and object hashes
+and preserve the original Source oracles and inputs.
+
+GNU Fortran 15.2.0 checks continue to use static libgfortran and the validation
+locale-copy wrapper for the separately reproduced Windows runtime defect.
+Evidence, initial failures and manifests are retained under ignored
+`validation/results/ada_controls_*`, with a compressed backup in
+`validation/results/ada_controls_evidence_05defcf.zip`. Commits remain local;
+the overall sklearn translation remains incomplete.

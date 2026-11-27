@@ -18,6 +18,14 @@ search, selection, pipelines, voting, bagging and stacking. Each uses
 these arguments while preserving all 36 original fixtures and bounds. The
 legacy SAMME comparator retains its former oversized-feature diagnostic as
 actual Source acceptance. Evidence remains in ignored `ada_controls_*` files.
+Both checked and scoped optimized checks pass all 1,344 tree configurations,
+158 input checks, 24 composition fixtures, 36 original regression fixtures
+and 1,460 original SAMME fixtures. The final checked package audit passes
+355 jobs and verifies 881 compiled-unit fingerprints (204 library units),
+including all 304 native programs and ten examples. Scoped optimization covers
+17 modules and seven native programs. GNU Fortran 15.2.0 validation uses the
+existing static-libgfortran locale-copy wrapper; initial failures and the
+`ada_controls_evidence_05defcf.zip` backup remain retained.
 
 Classic boosting validation stopping (2026-11-27):
 `compare_gbr_early_stopping.py` and `compare_gbc_early_stopping.py` use
