@@ -1,7 +1,9 @@
-! Parameter-only SGD copies for native sklearn-style clone sites (MIT).
+! Parameter-only copies at native sklearn-style clone sites (MIT).
+! The historical reset_sgd_fit entry point also resets Huber warm-fit state.
 ! Preserve constructor controls and discard learned state, as sklearn.base.clone.
 module sklearn_sgd_clone
   use sklearn_sgd, only: sgd_regressor,sgd_classifier
+  use sklearn_linear_model,only:huber_regressor
   implicit none
   private
   public :: clone_sgd_parameters,reset_sgd_fit
@@ -32,6 +34,14 @@ contains
   subroutine reset_sgd_fit(model)
     class(*), intent(inout) :: model
     select type(model)
+    type is(huber_regressor)
+      block
+        type(huber_regressor)::copy
+        copy%fit_intercept=model%fit_intercept;copy%positive=model%positive
+        copy%epsilon=model%epsilon;copy%alpha=model%alpha;copy%tol=model%tol
+        copy%max_iter=model%max_iter;copy%warm_start=model%warm_start
+        model=copy
+      end block
     type is(sgd_regressor)
       model=clone_sgd_parameters(model)
     type is(sgd_classifier)

@@ -643,10 +643,46 @@ and `tweedie_regressor` are in `sklearn_linear_model` and the `sklearn` facade.
 All support `fit`, `predict`, `score`, `fit_intercept` and `cross_val_score`.
 Huber and RANSAC use R2 scoring; GLMs use explained deviance (D2).
 
-Huber jointly estimates `coef_`, `intercept_` and positive `scale_`. Set
-`epsilon>=1` (default 1.35), `alpha>=0`, `max_iter` and `tol`. `outliers_` marks
-training residuals exceeding `epsilon*scale_`; `loss_` is the total fitted Huber
-objective including its L2 penalty. Inspect `converged_` and `n_iter_`.
+Huber jointly estimates `coef_`, `intercept_` and positive `scale_` using
+bounded limited-memory L-BFGS-B. Set finite `epsilon>=1` (default 1.35),
+`alpha>=0`, `max_iter>=0` and `tol>=0`. Dense and CSR features accept vector
+or one-column targets. `fit(x,y,sample_weight)` accepts scalar or vector
+weights, including zero and signed weights under the Source objective.
+Sparse fitting traverses CSR entries without constructing a dense design;
+unsorted entries, explicit zeros and duplicates are retained.
+
+`warm_start=true` initializes from the previous fitted coefficients, intercept
+and scale. As in sklearn 1.6.1, the warm initial point includes the old intercept
+even when `fit_intercept=false`; the public fitted intercept is still zero in
+that case. Compatible shape changes follow Source's parameter-vector shape
+inference; incompatible shapes are diagnosed. Native clone sites clear learned
+Huber state and retain constructor controls. Search accepts `epsilon`, `alpha`,
+`tol`, `max_iter`, `fit_intercept` and `warm_start`, including nested pipeline
+parameters. Weighted dense fitting participates in common native compositions.
+
+`outliers_` marks training residuals exceeding `epsilon*scale_`; `loss_` is the
+optimizer's final total objective including its L2 penalty. In the warm
+no-intercept convention this objective includes the optimizer's internal
+intercept, following Source. Inspect `converged_`, `n_iter_` and
+`optimization_message_`; capped fits remain usable, and abnormal line searches
+produce a diagnostic. The zero-iteration control performs Source's initial
+step while reporting `n_iter_=0`. Dense/CSR predictions and weighted R2 scores
+are supported through the common scoring contracts.
+
+Floating-point paths depend on the BLAS/optimizer implementation. Six retained
+wide, near-interpolating fits capped at 100 iterations currently differ from
+Source at the strict comparison bounds; neither implementation converges on
+those fixtures. They remain failures in the reference report. Direct objectives
+and gradients agree exactly at all 1,092 recorded Source evaluation points,
+and the norm helper matches 3,355 observed Source vectors. This does not imply
+full fitted-path parity on degenerate designs. Four retained composition fixtures
+also exceed the strict bounds in weighted CV, bagging/OOB or stacking results,
+including fits where Source reports function-value convergence. Their largest
+remaining score/prediction discrepancy is about 4.9e-5 in the retained grid.
+These are numerical limits, not passing comparisons or altered oracles.
+Bagging uses an internal column-selection adapter to reproduce NumPy's
+Fortran-contiguous matrix reduction order; it is not a constructor parameter
+and is excluded from the `sklearn` facade.
 
 RANSAC fits ordinary least squares to random subsets and refits the best
 consensus. `inlier_mask_` holds that consensus before the final refit;

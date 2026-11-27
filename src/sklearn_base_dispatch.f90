@@ -6,7 +6,7 @@ module sklearn_base_dispatch
   use sklearn_weighted_linear, only: weighted_ridge_loo
   use sklearn_common, only: dp,require,check_x,check_xy,unique_labels,label_index
   use sklearn_linear_model, only: linear_regression,elastic_net,logistic_regression,perceptron, &
-    passive_aggressive_classifier,passive_aggressive_regressor,ransac_regressor,theil_sen_regressor
+    passive_aggressive_classifier,passive_aggressive_regressor,ransac_regressor,theil_sen_regressor,huber_regressor
   use sklearn_ridge_classification, only: ridge_classifier
   use sklearn_sgd, only: sgd_classifier,sgd_regressor
   use sklearn_naive_bayes, only: gaussian_nb,multinomial_nb
@@ -121,6 +121,12 @@ contains
         model%alpha=model%alpha_
       else
         call require(.not.present(weights),'voting base has no native weighted fit')
+        call model%fit(x,y)
+      end if
+    type is(huber_regressor)
+      if(present(weights))then
+        call model%fit(x,y,weights)
+      else
         call model%fit(x,y)
       end if
     class is(linear_regression)
@@ -293,6 +299,7 @@ contains
     type is(gaussian_nb)
     class is(multinomial_nb)
     type is(sgd_classifier)
+    type is(huber_regressor)
     type is(sgd_regressor)
     type is(kernel_ridge)
     type is(dummy_classifier)

@@ -6,7 +6,7 @@ module sklearn_bagging
   use sklearn_composite_scores, only: score_weights,regression_score
   use sklearn_weighted_linear, only: weighted_linear
   use sklearn_common, only: dp,require,check_xy,check_x,unique_labels,label_index,dense_svd
-  use sklearn_linear_model, only: linear_regression,ridge
+  use sklearn_linear_model, only: linear_regression,ridge,huber_regressor,fit_huber_column_subset
   use sklearn_tree, only: decision_tree_classifier,decision_tree_regressor
   use sklearn_base_dispatch, only: train_classifier,train_regressor,labels,regression,probabilities, &
     base_weighted,base_supported,base_proba,base_classes,seed_base
@@ -67,6 +67,8 @@ contains
     class(*), intent(inout) :: model
     real(dp), intent(in) :: x(:,:),y(:),w(:)
     select type(model)
+    type is(huber_regressor)
+      call fit_huber_column_subset(model,x,y,w)
     type is(linear_regression)
       call weighted_linear(model,x,y,w,0._dp)
     type is(ridge)

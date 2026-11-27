@@ -1,5 +1,42 @@
 # Validation
 
+Huber weighted/sparse/warm controls (2026-11-27):
+`compare_huber_controls.py --executable PATH --report PATH` uses
+`reference_huber_controls_driver` for 528 sequences / 744 fits, retaining all
+Source fields, inputs, warnings, iteration counts and outlier masks. Integer
+state is exact; floats use rtol/atol 3e-8. **Six wide capped fits remain strict
+mismatches**, and the comparator deliberately exits nonzero for them. Its
+528-case inventory and original bounds remain unchanged. These failures do
+not invalidate the separate objective checks and are not certified by them.
+
+`compare_huber_objective.py` / `reference_huber_objective_driver` compare actual
+Source objectives and gradients at 1,442 Source optimization points, plus 72
+signed/negative/zero-weight direct probes, across both dense BLAS orders and
+CSR storage. `check_huber_controls.py` /
+`reference_huber_invalid_driver` compare 70 actual Source acceptance/rejection
+cases across dense and CSR inputs. All use `--executable PATH --report PATH`.
+`compare_huber_integration.py` / `reference_huber_integration_driver` exercise
+fitted warm-start prototypes in search, selection, pipelines, voting, weighted
+bagging/OOB and stacking. The original robust/GLM comparator now accepts those
+same arguments while retaining all 213 original comparison groups and bounds.
+Four of the twelve composition fixtures still exceed the strict 3e-8 bounds;
+all numeric fields and failures remain retained. The checked package audit
+completes 323 jobs: all 305 native programs, eleven examples and five reference
+suites pass; the two strict fitted comparisons retain six and four mismatches.
+It verifies 888 compiled-unit fingerprints (205 library units). Scoped
+optimized validation rebuilds nine modules and exercises thirteen native
+programs and the same seven reference suites. Neither audit claims full
+Source parity. Input-validation Source cases execute in isolated processes;
+the earlier combined-process heap termination remains retained separately.
+
+The norm diagnostic, Source/native optimizer traces, original failing numeric
+reports and pre-change robust/GLM source/binary are retained under ignored
+`validation/results/huber_*`. The Source Windows norm helper is verified on
+3,355 vectors; its bounded-optimizer use is opt-in. The existing validation
+locale-copy wrapper remains required for the observed GNU Fortran Windows
+formatted-I/O runtime defect. The broader translation remains incomplete.
+
+
 AdaBoost CART controls (2026-11-27): `compare_ada_tree_controls.py --kind
 regression/classification --executable PATH --report PATH` uses
 `reference_ada_tree_controls_driver` for 768 regression/576 classification

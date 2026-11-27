@@ -7,7 +7,7 @@ module sklearn_search_adapters
   use sklearn_parameter_space, only: parameter_set,parameter_value
   use sklearn_base_dispatch, only: base_supported,train_classifier,train_regressor,labels,regression, &
     probabilities,decisions,base_classes,base_decision
-  use sklearn_linear_model, only: linear_regression,ridge,elastic_net,logistic_regression,tweedie_regressor
+  use sklearn_linear_model, only: linear_regression,ridge,elastic_net,logistic_regression,tweedie_regressor,huber_regressor
   use sklearn_sgd, only: sgd_classifier,sgd_regressor
   use sklearn_sgd_clone, only: reset_sgd_fit
   use sklearn_naive_bayes, only: gaussian_nb,multinomial_nb
@@ -119,6 +119,16 @@ contains
       case('tol');model%tol=value%as_real()
       case('max_iter');model%max_iter=value%as_integer()
       case('fit_intercept');model%fit_intercept=value%as_logical()
+      case default;done=.false.
+      end select
+    type is(huber_regressor)
+      select case(name)
+      case('epsilon');model%epsilon=value%as_real()
+      case('alpha');model%alpha=value%as_real()
+      case('tol');model%tol=value%as_real()
+      case('max_iter');model%max_iter=value%as_integer()
+      case('fit_intercept');model%fit_intercept=value%as_logical()
+      case('warm_start');model%warm_start=value%as_logical()
       case default;done=.false.
       end select
     class is(linear_regression)

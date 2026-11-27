@@ -2744,3 +2744,32 @@ controlled Cython-sentinel errors and undefined-access diagnostic masks are MIT
 integration. No native out-of-allocation access is performed to imitate Source
 undefined behavior; those results are explicitly marked rather than claimed as
 reference parity. No dependency or additional estimator algorithm was introduced.
+
+
+## Weighted dense/CSR Huber regression and warm optimization
+
+`src/sklearn_huber_solver.f90` and the Huber-specific bindings in
+`src/sklearn_linear_model.f90` adapt scikit-learn 1.6.1
+`linear_model/_huber.py`: the weighted Huber objective/gradient, scale bound,
+warm initial point, outlier mask and optimizer settings. The original BSD
+notice is retained in `LICENSES/scikit-learn-COPYING`. Native typed overloads,
+CSR traversal and clone/registry/search integration are MIT contributions.
+
+The opt-in norm-square updates in `vendor/lbfgsb/src/lbfgsb.f90` follow SciPy
+1.15.3 `scipy/optimize/__lbfgsb.c`, Copyright (C) 2024 SciPy developers; full
+terms are retained in `LICENSES/scipy-lbfgsb-BSD`. They are enabled for Huber;
+existing callers retain the original default update path. The observed
+Windows norm reduction follows OpenBLAS `kernel/x86_64/nrm2.S`, Copyright
+2009, 2010 The University of Texas at Austin, with full retained terms in
+`LICENSES/OpenBLAS-nrm2-BSD`. Scalar exponent rescaling is native integration.
+The shared transpose-vector accumulation in `sklearn_kernel_dispatch` moves
+the existing attributed Ridge OpenBLAS microkernel reconstruction without
+changing its finite arithmetic order. The internal Huber bagging adapter
+preserves NumPy advanced-column-selection's F-contiguous reduction route;
+it is excluded from the public facade. Existing OpenBLAS and vendored
+L-BFGS-B notices continue to apply. No new runtime dependency is introduced.
+
+Primary references:
+- https://github.com/scikit-learn/scikit-learn/blob/1.6.1/sklearn/linear_model/_huber.py
+- https://github.com/scipy/scipy/blob/v1.15.3/scipy/optimize/__lbfgsb.c
+- https://github.com/OpenMathLib/OpenBLAS/blob/v0.3.29/kernel/x86_64/nrm2.S

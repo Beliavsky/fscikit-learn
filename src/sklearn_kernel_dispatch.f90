@@ -10,6 +10,7 @@ module sklearn_kernel_dispatch
  implicit none
  private
  ! Internal accumulation helpers shared with the OPTICS brute backend.
+ public::kernel_blas_transpose_column
  public::kernel_blas_dot,kernel_blas_inner_product,kernel_blas_self_product,kernel_blas_self_dot
  interface kernel_blas_dot
   module procedure dense_dot
@@ -522,6 +523,40 @@ contains
    end do
   end if
  end function
+  real(dp)function kernel_blas_transpose_column(a,x,index,outputs)result(total)
+    ! OpenBLAS 0.3.29 dgemv_n_4 / SkylakeX microkernel, 2014 OpenBLAS Project (BSD).
+    ! X.T is Fortran-contiguous in NumPy, unlike the forward C-contiguous route.
+    real(dp),intent(in)::a(:),x(:)
+    integer,intent(in)::index,outputs
+    real(dp)::part
+    integer::i,n,whole
+    n=size(a);whole=n-mod(n,4);total=0
+    if(outputs==1)then
+      total=kernel_blas_inner_product(a,x)
+    else if(outputs<=3)then
+      do i=1,whole,2
+        part=ieee_fma(a(i),x(i),a(i+1)*x(i+1));total=total+part
+      end do
+      do i=whole+1,n
+        total=ieee_fma(a(i),x(i),total)
+      end do
+    else if(index<=outputs-mod(outputs,4))then
+      do i=1,whole,4
+        part=ieee_fma(a(i),x(i),a(i+1)*x(i+1))
+        part=ieee_fma(a(i+2),x(i+2),part);part=ieee_fma(a(i+3),x(i+3),part)
+        total=total+part
+      end do
+      i=whole+1
+      if(n-whole>=2)then
+        total=total+ieee_fma(a(i),x(i),a(i+1)*x(i+1));i=i+2
+      end if
+      if(i<=n)total=total+a(i)*x(i)
+    else
+      do i=1,n
+        total=ieee_fma(a(i),x(i),total)
+      end do
+    end if
+  end function
  real(dp) function ddot_lanes(x,y) result(value)
   real(dp),intent(in)::x(:),y(:)
   real(dp)::wide(8,4),narrow(4,4),v(4)

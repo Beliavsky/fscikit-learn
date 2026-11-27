@@ -585,11 +585,18 @@ distances; cosine similarity; linear, RBF, polynomial and sigmoid kernels.
   Other BallTree metrics, sparse features and parallel execution are absent.
   Detailed backend behavior and numerical comparison limits appear below.
 
-- HuberRegressor uses bounded full-memory BFGS for coefficients, intercept and
-  scale, with the sklearn Huber objective and L2 penalty. It has no warm start,
-  sample weighting or sparse inputs. Its projected-gradient stopping rule and
-  iterations can differ from sklearn's L-BFGS-B relative-loss stopping; inspect
-  `converged_` and `n_iter_`. Full BFGS uses quadratic storage in feature count.
+- HuberRegressor uses bounded limited-memory L-BFGS-B for coefficients,
+  intercept and scale, with scalar/vector sample weights, dense/CSR features,
+  vector/one-column targets and Source warm-initialization conventions. Native
+  clone sites discard learned Huber state. Search and weighted compositions
+  use the Huber-specific fit paths. Six capped wide near-interpolating fixtures
+  retain strict fitted-path differences from Source; these cases remain in the
+  validator as failures. Four composition fixtures also retain strict numeric
+  differences, including Source-converged inner fits. Bagging preserves the
+  observed NumPy column-selection reduction order. Inspect `converged_`, `n_iter_` and
+  `optimization_message_`; the direct objective/gradient and norm proofs do
+  not certify fitted-path parity. Dense/CSR storage stays linear in stored
+  features and the fixed optimizer memory budget.
 - RANSAC supports a built-in ordinary least-squares estimator only. It accepts
   an integer `min_samples` (zero means `n_features+1`), absolute/squared residual
   loss, a scalar threshold (negative-one means target MAD), and probability,

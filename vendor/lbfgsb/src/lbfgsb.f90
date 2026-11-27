@@ -85,8 +85,12 @@
 !    R.H. Byrd, P. Lu-Chen and J. Nocedal.
 
       subroutine setulb(n,m,x,l,u,Nbd,f,g,Factr,Pgtol,Wa,Iwa,Task, &
-                        Iprint,Csave,Lsave,Isave,Dsave)
+                        Iprint,Csave,Lsave,Isave,Dsave,ScipyNorm)
       implicit none
+      ! Opt-in SciPy 1.15.3 norm-square updates; existing callers retain
+      ! the original L-BFGS-B DDOT updates.
+      logical,optional,intent(in)::ScipyNorm
+
 
       integer,intent(in) :: n !! the dimension of the problem (the number of variables).
       integer,intent(in) :: m !! the maximum number of variable metric corrections
@@ -278,7 +282,7 @@
       call mainlb(n,m,x,l,u,Nbd,f,g,Factr,Pgtol,Wa(lws),Wa(lwy),Wa(lsy),&
                   Wa(lss),Wa(lwt),Wa(lwn),Wa(lsnd),Wa(lz),Wa(lr),Wa(ld),&
                   Wa(lt),Wa(lxp),Wa(lwa),Iwa(1),Iwa(n+1),Iwa(2*n+1),    &
-                  Task,Iprint,Csave,Lsave,Isave(22),Dsave)
+                  Task,Iprint,Csave,Lsave,Isave(22),Dsave,ScipyNorm)
 
       end subroutine setulb
 !*******************************************************************************
@@ -306,11 +310,41 @@
 !    Argonne National Laboratory and Northwestern University.
 !    Written by Ciyou Zhu in collaboration with R.H. Byrd, P. Lu-Chen and J. Nocedal.
 
+      ! OpenBLAS x86_64/nrm2.S four-accumulator order. Copyright
+      ! 2009, 2010 The University of Texas at Austin; retained BSD terms in
+      ! LICENSES/OpenBLAS-nrm2-BSD. The reference Windows x87 backend uses
+      ! a 53-bit significand. Power-of-two rescaling protects exponent range.
+      real(wp)function scipy_nrm2(n,x)result(value)
+      integer,intent(in)::n
+      real(wp),intent(in)::x(n)
+      real(wp)::partial(4),term,largest
+      integer::i,j,whole,power
+      partial=zero;whole=n-mod(n,8);power=0
+      if(n==0)then
+         value=zero;return
+      end if
+      largest=maxval(abs(x))
+      if(largest>zero)then
+         if(abs(exponent(largest))>450)power=exponent(largest)
+      end if
+      do i=1,whole
+         j=mod(i-1,4)+1;term=scale(x(i),-power)
+         partial(j)=partial(j)+term*term
+      end do
+      do i=whole+1,n
+         term=scale(x(i),-power);partial(1)=partial(1)+term*term
+      end do
+      value=scale(sqrt(((partial(3)+partial(1))+partial(2))+partial(4)),power)
+      end function
+
       subroutine mainlb(n,m,x,l,u,Nbd,f,g,Factr,Pgtol,Ws,Wy,Sy,Ss,Wt,Wn, &
                         Snd,z,r,d,t,Xp,Wa,Index,Iwhere,Indx2,Task, &
-                        Iprint,Csave,Lsave,Isave,Dsave)
+                        Iprint,Csave,Lsave,Isave,Dsave,ScipyNorm)
 
       implicit none
+      logical,optional,intent(in)::ScipyNorm
+      logical::source_norm
+
 
       character(len=60),intent(inout) :: Task !! indicates the current job when
                                               !! entering and leaving this subroutine.
@@ -422,6 +456,8 @@
       logical :: prelims
       logical :: linesearch
 
+      source_norm=.false.
+      if(present(ScipyNorm))source_norm=ScipyNorm
       if ( Task=='START' ) then
 
          epsmch = epsilon(one)
@@ -720,7 +756,7 @@
 
             call lnsrlb(n,l,u,Nbd,x,f,fold,gd,gdold,g,d,r,t,z,stp,dnorm,dtd, &
                         xstep,stpmx,iter,ifun,iback,nfgv,info,Task,boxed,    &
-                        cnstnd,Csave,Isave(22),Dsave(17),Iprint)
+                        cnstnd,Csave,Isave(22),Dsave(17),Iprint,source_norm)
             if ( info/=0 .or. iback>=20 ) then
                ! restore the previous iterate.
                call dcopy(n,t,1,x,1)
@@ -803,7 +839,11 @@
          do i = 1 , n
             r(i) = g(i) - r(i)
          enddo
-         rr = ddot(n,r,1,r,1)
+         if(source_norm)then
+            rr=scipy_nrm2(n,r)**2
+         else
+            rr = ddot(n,r,1,r,1)
+         end if
          if ( stp==one ) then
             dr = gd - gdold
             ddum = -gdold
@@ -2157,8 +2197,10 @@
 
       subroutine lnsrlb(n,l,u,Nbd,x,f,Fold,Gd,Gdold,g,d,r,t,z,Stp,Dnorm,&
                         Dtd,Xstep,Stpmx,Iter,Ifun,Iback,Nfgv,Info,Task, &
-                        Boxed,Cnstnd,Csave,Isave,Dsave,Iprint)
+                        Boxed,Cnstnd,Csave,Isave,Dsave,Iprint,ScipyNorm)
       implicit none
+      logical,intent(in)::ScipyNorm
+
 
       character(len=60) :: Task , Csave
       logical :: Boxed , Cnstnd
@@ -2178,8 +2220,12 @@
 
       if ( Task(1:5)/='FG_LN' ) then
 
-         Dtd = ddot(n,d,1,d,1)
-         Dnorm = sqrt(Dtd)
+         if(ScipyNorm)then
+            Dnorm=scipy_nrm2(n,d);Dtd=Dnorm**2
+         else
+            Dtd = ddot(n,d,1,d,1)
+            Dnorm = sqrt(Dtd)
+         end if
 
          ! Determine the maximum step length.
 

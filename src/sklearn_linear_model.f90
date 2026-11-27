@@ -1,6 +1,7 @@
 module sklearn_linear_model
   use sklearn_ols_core,only:fit_ols_estimator,ols_solution
   use sklearn_ridge_estimator_core,only:fit_ridge_estimator
+  use sklearn_huber_solver,only:huber_solve
   use sklearn_sparse,only:csr_matrix
   use sklearn_ridge_solver,only:ridge_regression,ridge_solver_options,ridge_solution
   use sklearn_coordinate_paths,only:enet_path,lasso_path,coordinate_path_options,coordinate_path_result
@@ -36,6 +37,7 @@ module sklearn_linear_model
   public :: linear_regression, ridge, lasso, elastic_net, logistic_regression, perceptron
   public :: logistic_regression_cv
   public :: bayesian_ridge, ard_regression, orthogonal_matching_pursuit
+  public :: fit_huber_column_subset
   public :: huber_regressor,ransac_regressor,tweedie_regressor,poisson_regressor,gamma_regressor
   public :: theil_sen_regressor
   public :: passive_aggressive_classifier,passive_aggressive_regressor
@@ -202,10 +204,18 @@ module sklearn_linear_model
   type, extends(linear_regression) :: huber_regressor
     real(dp) :: epsilon=1.35_dp,alpha=1.e-4_dp,tol=1.e-5_dp,scale_=1,loss_=0
     integer :: max_iter=100,n_iter_=0
-    logical :: converged_=.false.
+    logical :: converged_=.false.,warm_start=.false.
+    character(60)::optimization_message_=''
     logical, allocatable :: outliers_(:)
   contains
     procedure :: fit_dense=>huber_fit
+    procedure :: fit_dense_weighted=>huber_fit_dw,fit_scalar_dw=>huber_fit_dws
+    procedure :: fit_sparse=>huber_fit_sv,fit_scalar_sv=>huber_fit_svs
+    procedure :: fit_matrix=>huber_fit_dm,fit_scalar_dm=>huber_fit_dms
+    procedure :: fit_sparse_matrix=>huber_fit_sm,fit_scalar_sm=>huber_fit_sms
+    procedure :: predict_sparse=>huber_predict_sparse
+    procedure :: score_dw=>huber_score_dw,score_sv=>huber_score_sv
+    procedure :: score_dm=>huber_score_dm,score_sm=>huber_score_sm
   end type
   type, extends(linear_regression) :: ransac_regressor
     integer :: min_samples=0,max_trials=100,random_state=0,stop_n_inliers=huge(1)
@@ -583,79 +593,144 @@ contains
 
   ! sklearn 1.6.1 _huber.py, _ransac.py and _glm/glm.py are the references
   ! for these objectives and estimator contracts. See THIRD_PARTY_NOTICES.md.
-  subroutine huber_objective(design,y,w,p,epsilon,alpha,loss,gradient)
-    real(dp), intent(in) :: design(:,:),y(:),w(:),epsilon,alpha
-    integer, intent(in) :: p
-    real(dp), intent(out) :: loss,gradient(:)
-    real(dp) :: r(size(y)),force(size(y)),sigma,quadratic
-    logical :: out(size(y))
-    integer :: q,n
-    n=size(y); q=size(w); sigma=w(q)
-    r=y-matmul(design,w(:q-1)); out=abs(r)>epsilon*sigma
-    force=0; where(out) force=2*epsilon*sign(1._dp,r)
-    where(.not.out) force=2*r/sigma
-    quadratic=sum(pack(r,.not.out)**2)/sigma
-    loss=(n*sigma+quadratic+2*epsilon*sum(pack(abs(r),out))-count(out)*sigma*epsilon**2 &
-      +alpha*sum(w(:p)**2))/n
-    gradient(:q-1)=-matmul(transpose(design),force)/n
-    gradient(:p)=gradient(:p)+2*alpha*w(:p)/n
-    gradient(q)=(n-count(out)*epsilon**2-quadratic/sigma)/n
-  end subroutine
   subroutine huber_fit(self,x,y)
-    class(huber_regressor), intent(inout) :: self
-    real(dp), intent(in) :: x(:,:),y(:)
-    real(dp), allocatable :: design(:,:),w(:),trial(:),g(:),gt(:),pg(:),h(:,:),direction(:),s(:),v(:),hv(:)
-    real(dp) :: loss,next,rate,sy,lower,slope
-    integer :: n,p,q,j,it,ls
-    call check_positive_regression(self)
-    call check_xy(x,size(y)); call check_x(reshape(y,[size(y),1]))
-    call require(self%epsilon>=1.and.self%alpha>=0.and.self%tol>0.and.self%max_iter>0, &
-      'invalid HuberRegressor controls')
-    n=size(y); p=size(x,2); q=p+1
-    if(self%fit_intercept) q=q+1
-    allocate(design(n,q-1),w(q),trial(q),g(q),gt(q),pg(q),h(q,q),direction(q),s(q),v(q),hv(q))
-    design(:,1:p)=x; if(self%fit_intercept) design(:,p+1)=1
-    lower=10*epsilon(1._dp); w=0; w(q)=1; h=0
-    do j=1,q
-      h(j,j)=1
-    end do
-    call huber_objective(design,y,w,p,self%epsilon,self%alpha,loss,g)
-    self%converged_=.false.; self%n_iter_=0
-    do it=1,self%max_iter
-      pg=g
-      if(w(q)<=lower.and.g(q)>0) pg(q)=0
-      if(maxval(abs(pg))*n<=self%tol) then
-        self%converged_=.true.; exit
-      end if
-      direction=-matmul(h,pg)
-      if(w(q)<=lower.and.direction(q)<0) direction(q)=0
-      if(dot_product(g,direction)>=0) direction=-pg
-      rate=1
-      do ls=1,80
-        trial=w+rate*direction; trial(q)=max(lower,trial(q))
-        slope=dot_product(g,trial-w)
-        call huber_objective(design,y,trial,p,self%epsilon,self%alpha,next,gt)
-        if(slope<0.and.next<=loss+1.e-4_dp*slope) exit
-        if(slope<0.and.abs(next-loss)<=8*epsilon(1._dp)*max(1._dp,abs(loss)) &
-          .and.maxval(abs(gt))<maxval(abs(g))) exit
-        rate=rate*0.5_dp
-      end do
-      if(ls>80) exit
-      s=trial-w; v=gt-g; sy=dot_product(s,v)
-      if(sy>epsilon(1._dp)*sqrt(sum(s*s)*sum(v*v))) then
-        hv=matmul(h,v)
-        h=h+(1+dot_product(v,hv)/sy)*spread(s,2,q)*spread(s,1,q)/sy &
-          -(spread(hv,2,q)*spread(s,1,q)+spread(s,2,q)*spread(hv,1,q))/sy
-      end if
-      w=trial; loss=next; g=gt; self%n_iter_=it
-    end do
-    pg=g; if(w(q)<=lower.and.g(q)>0) pg(q)=0
-    if(maxval(abs(pg))*n<=self%tol) self%converged_=.true.
-    self%coef_=w(:p); self%intercept_=0
-    if(self%fit_intercept) self%intercept_=w(p+1)
-    self%scale_=w(q); self%loss_=loss*n
-    self%outliers_=abs(y-self%predict(x))>self%epsilon*self%scale_
+    class(huber_regressor),intent(inout)::self
+    real(dp),intent(in)::x(:,:),y(:)
+    call huber_fit_common(self,y,dense=x)
   end subroutine
+  subroutine huber_fit_dw(self,x,y,sample_weight)
+    class(huber_regressor),intent(inout)::self
+    real(dp),intent(in)::x(:,:),y(:),sample_weight(:)
+    call huber_fit_common(self,y,sample_weight,dense=x)
+  end subroutine
+  subroutine huber_fit_dws(self,x,y,sample_weight)
+    class(huber_regressor),intent(inout)::self
+    real(dp),intent(in)::x(:,:),y(:),sample_weight
+    call huber_fit_common(self,y,spread(sample_weight,1,size(y)),dense=x)
+  end subroutine
+  subroutine huber_fit_sv(self,x,y,sample_weight)
+    class(huber_regressor),intent(inout)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),intent(in)::y(:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    call huber_fit_common(self,y,sample_weight,sparse=x)
+  end subroutine
+  subroutine huber_fit_svs(self,x,y,sample_weight)
+    class(huber_regressor),intent(inout)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),intent(in)::y(:),sample_weight
+    call huber_fit_common(self,y,spread(sample_weight,1,size(y)),sparse=x)
+  end subroutine
+  subroutine huber_fit_dm(self,x,y,sample_weight)
+    class(huber_regressor),intent(inout)::self
+    real(dp),intent(in)::x(:,:)
+    real(dp),intent(in)::y(:,:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    call require(size(y,2)==1,'Huber requires one target column')
+    call huber_fit_common(self,y(:,1),sample_weight,dense=x)
+  end subroutine
+  subroutine huber_fit_dms(self,x,y,sample_weight)
+    class(huber_regressor),intent(inout)::self
+    real(dp),intent(in)::x(:,:)
+    real(dp),intent(in)::y(:,:),sample_weight
+    call require(size(y,2)==1,'Huber requires one target column')
+    call huber_fit_common(self,y(:,1),spread(sample_weight,1,size(y,1)),dense=x)
+  end subroutine
+  subroutine huber_fit_sm(self,x,y,sample_weight)
+    class(huber_regressor),intent(inout)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),intent(in)::y(:,:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    call require(size(y,2)==1,'Huber requires one target column')
+    call huber_fit_common(self,y(:,1),sample_weight,sparse=x)
+  end subroutine
+  subroutine huber_fit_sms(self,x,y,sample_weight)
+    class(huber_regressor),intent(inout)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),intent(in)::y(:,:),sample_weight
+    call require(size(y,2)==1,'Huber requires one target column')
+    call huber_fit_common(self,y(:,1),spread(sample_weight,1,size(y,1)),sparse=x)
+  end subroutine
+  ! Internal bagging adapter: NumPy advanced column indexing produces an
+  ! F-contiguous dense design, which changes BLAS reduction order.
+  subroutine fit_huber_column_subset(self,x,y,sample_weight)
+    type(huber_regressor),intent(inout)::self
+    real(dp),intent(in)::x(:,:),y(:),sample_weight(:)
+    call huber_fit_common(self,y,sample_weight,dense=x,dense_fortran=.true.)
+  end subroutine
+  subroutine huber_fit_common(self,y,sample_weight,dense,sparse,dense_fortran)
+    class(huber_regressor),intent(inout)::self
+    real(dp),intent(in)::y(:)
+    real(dp),optional,intent(in)::sample_weight(:),dense(:,:)
+    type(csr_matrix),optional,intent(in)::sparse
+    logical,optional,intent(in)::dense_fortran
+    real(dp),allocatable::point(:),weight(:),pred(:,:)
+    integer::p,q
+    call check_positive_regression(self)
+    p=0;if(present(dense))p=size(dense,2)
+    if(present(sparse))p=sparse%n_cols
+    if(self%warm_start.and.allocated(self%coef_))then
+      ! Source always includes the previous intercept in a warm initial point,
+      ! even when the public fit_intercept flag is false.
+      point=[self%coef_,self%intercept_,self%scale_]
+    else
+      q=p+1;if(self%fit_intercept)q=q+1
+      allocate(point(q));point=0;point(q)=1
+    end if
+    allocate(weight(size(y)));weight=1
+    if(present(sample_weight))then
+      call require(size(sample_weight)==size(y),'Huber sample_weight length mismatch');weight=sample_weight
+    end if
+    call huber_solve(y,self%epsilon,self%alpha,self%tol,self%max_iter,point,weight,self%n_iter_, &
+      self%loss_,self%converged_,self%optimization_message_,dense,sparse,dense_fortran)
+    self%coef_=point(:p);self%scale_=point(size(point));self%intercept_=0
+    if(self%fit_intercept)self%intercept_=point(size(point)-1)
+    self%n_features_in_=p;self%n_targets_=1;self%matrix_target_=.false.;self%rank_=0
+    if(present(dense))then
+      self%outliers_=abs(y-matmul(dense,self%coef_)-self%intercept_)>self%epsilon*self%scale_
+    else
+      pred=sparse%matmul(reshape(self%coef_,[p,1]))
+      self%outliers_=abs(y-pred(:,1)-self%intercept_)>self%epsilon*self%scale_
+    end if
+  end subroutine
+  function huber_predict_sparse(self,x)result(y)
+    class(huber_regressor),intent(in)::self
+    type(csr_matrix),intent(in)::x
+    real(dp)::y(x%n_rows)
+    real(dp),allocatable::pred(:,:)
+    call require(allocated(self%coef_),'HuberRegressor is not fitted')
+    call x%validate();call require(x%n_rows>0.and.x%n_cols==size(self%coef_),'Huber query shape differs')
+    call require(all(ieee_is_finite(x%data)),'Huber query data must be finite')
+    pred=x%matmul(reshape(self%coef_,[size(self%coef_),1]));y=pred(:,1)+self%intercept_
+  end function
+  real(dp)function huber_score_dw(self,x,y,sample_weight)result(value)
+    class(huber_regressor),intent(in)::self
+    real(dp),intent(in)::x(:,:),y(:),sample_weight(:)
+    value=r2_score(y,self%predict(x),sample_weight=sample_weight)
+  end function
+  real(dp)function huber_score_sv(self,x,y,sample_weight)result(value)
+    class(huber_regressor),intent(in)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),intent(in)::y(:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    value=r2_score(y,self%predict(x),sample_weight=sample_weight)
+  end function
+  real(dp)function huber_score_dm(self,x,y,sample_weight)result(value)
+    class(huber_regressor),intent(in)::self
+    real(dp),intent(in)::x(:,:)
+    real(dp),intent(in)::y(:,:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    call require(size(y,2)==1,'Huber score requires one target column')
+    value=r2_score(y(:,1),self%predict(x),sample_weight=sample_weight)
+  end function
+  real(dp)function huber_score_sm(self,x,y,sample_weight)result(value)
+    class(huber_regressor),intent(in)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),intent(in)::y(:,:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    call require(size(y,2)==1,'Huber score requires one target column')
+    value=r2_score(y(:,1),self%predict(x),sample_weight=sample_weight)
+  end function
   real(dp) function sample_median(values) result(median)
     real(dp), intent(in) :: values(:)
     integer :: order(size(values)),n

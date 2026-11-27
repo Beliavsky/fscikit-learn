@@ -1,6 +1,8 @@
 """Compare robust linear and generalized linear regressors with sklearn 1.6.1."""
 from pathlib import Path
 import json
+import argparse
+import hashlib
 import os
 import subprocess
 import warnings
@@ -64,8 +66,12 @@ def reference(x, yr, yp, yg, yt):
 
 
 def main():
+    parser=argparse.ArgumentParser()
+    parser.add_argument('--executable',type=Path)
+    parser.add_argument('--report',type=Path,default=RESULTS/'robust_glm_report.json')
+    args=parser.parse_args()
     RESULTS.mkdir(exist_ok=True)
-    report = {"sklearn_version": sklearn.__version__, "checks": []}
+    report = {"sklearn_version": sklearn.__version__, "checks": [], "records": []}
     for seed, n, p in ((7, 90, 3), (42, 84, 4), (2026, 96, 5)):
         rng = np.random.default_rng(seed)
         x = rng.normal(size=(n, p))*.5 + np.linspace(-.2, .3, p)
@@ -76,17 +82,21 @@ def main():
         yg = rate*rng.gamma(shape=3, scale=1/3, size=n)
         yt = rate*rng.gamma(shape=3, scale=1/3, size=n)
         yt[::7] = 0
-        data, output = RESULTS/f"robust_glm_case_{seed}.txt", RESULTS/f"robust_glm_actual_{seed}.txt"
+        data, output = args.report.with_name(f"{args.report.stem}_case_{seed}.txt"), args.report.with_name(f"{args.report.stem}_actual_{seed}.txt")
         with data.open("w") as f:
             f.write(f"{n} {p}\n")
             np.savetxt(f, np.column_stack([x, yr, yp, yg, yt]), fmt="%.17g")
-        subprocess.run(["fpm", "run", "--target", "reference_robust_glm_driver", "--", str(data), str(output)],
-                       cwd=ROOT, check=True)
+        command=([str(args.executable),str(data),str(output)] if args.executable else
+                 ["fpm","run","--target","reference_robust_glm_driver","--",str(data),str(output)])
+        subprocess.run(command,cwd=ROOT,check=True)
         actual = {}
         for line in output.read_text().splitlines():
             name, *values = line.split()
             actual[name] = np.array(values, dtype=float)
         expected = reference(x, yr, yp, yg, yt)
+        report['records'].append(dict(seed=seed,input=data.read_text(),
+            source={k:np.asarray(v).ravel().tolist() for k,v in expected.items()},
+            native={k:v.tolist() for k,v in actual.items()}))
         assert actual.keys() == expected.keys(), actual.keys() ^ expected.keys()
         for name, values in expected.items():
             tolerance = 1e-4 if name.startswith("huber") else 3e-8
@@ -94,7 +104,9 @@ def main():
                                        err_msg=f"seed={seed} {name}")
             report["checks"].append({"seed": seed, "api": name, "passed": True})
             print(f"PASS seed={seed} {name}", flush=True)
-    (RESULTS/"robust_glm_report.json").write_text(json.dumps(report, indent=2)+"\n")
+    files=[Path(__file__),ROOT/'src/sklearn_linear_model.f90']+([args.executable] if args.executable else [])
+    report['sha256']={str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in files}
+    args.report.write_text(json.dumps(report,indent=2)+"\n")
     print(f"{len(report['checks'])} robust/GLM reference comparisons passed against sklearn {sklearn.__version__}")
 
 

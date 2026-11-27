@@ -49,4 +49,5 @@ module sklearn
   use sklearn_frozen, only: frozen_estimator,frozen_parameters
   implicit none
   public
+  private::fit_huber_column_subset
 end module

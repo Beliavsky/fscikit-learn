@@ -5,7 +5,7 @@ module sklearn_ridge_solver
   use sklearn_common,only:dp,require,check_x,check_xy,dense_svd,solve_lower,solve_upper
   use sklearn_sparse,only:csr_matrix
   use sklearn_legacy_rng,only:legacy_random_state
-  use sklearn_kernel_dispatch,only:kernel_blas_inner_product,kernel_blas_dot
+  use sklearn_kernel_dispatch,only:kernel_blas_inner_product,kernel_blas_dot,kernel_blas_transpose_column
   use,intrinsic::iso_fortran_env,only:int64
   use,intrinsic::iso_c_binding,only:c_double
   use lbfgsb_module,only:setulb
@@ -289,38 +289,9 @@ contains
     end if
   end function
   real(dp)function gemv_n_column(a,x,index,outputs)result(total)
-    ! OpenBLAS 0.3.29 dgemv_n_4 / SkylakeX microkernel, 2014 OpenBLAS Project (BSD).
-    ! X.T is Fortran-contiguous in NumPy, unlike the forward C-contiguous route.
     real(dp),intent(in)::a(:),x(:)
     integer,intent(in)::index,outputs
-    real(dp)::part
-    integer::i,n,whole
-    n=size(a);whole=n-mod(n,4);total=0
-    if(outputs==1)then
-      total=kernel_blas_inner_product(a,x)
-    else if(outputs<=3)then
-      do i=1,whole,2
-        part=ridge_fma(a(i),x(i),a(i+1)*x(i+1));total=total+part
-      end do
-      do i=whole+1,n
-        total=ridge_fma(a(i),x(i),total)
-      end do
-    else if(index<=outputs-mod(outputs,4))then
-      do i=1,whole,4
-        part=ridge_fma(a(i),x(i),a(i+1)*x(i+1))
-        part=ridge_fma(a(i+2),x(i+2),part);part=ridge_fma(a(i+3),x(i+3),part)
-        total=total+part
-      end do
-      i=whole+1
-      if(n-whole>=2)then
-        total=total+ridge_fma(a(i),x(i),a(i+1)*x(i+1));i=i+2
-      end if
-      if(i<=n)total=total+a(i)*x(i)
-    else
-      do i=1,n
-        total=ridge_fma(a(i),x(i),total)
-      end do
-    end if
+    total=kernel_blas_transpose_column(a,x,index,outputs)
   end function
   function transpose_matrix(a)result(b)
     real(dp),intent(in)::a(:,:)
