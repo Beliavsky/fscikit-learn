@@ -7,6 +7,9 @@ regression loss gradients and terminal-region updates, weighted percentiles,
 weighted classification Newton updates and initialization, and raw impurity
 aggregation. Weighted class priors and zero-weight class retention also follow
 `utils/multiclass.py` class_distribution and `ensemble/_gb.py` _encode_y.
+Stochastic sampling follows `ensemble/_gradient_boosting.pyx`
+`_random_sample_mask`; in-bag terminal updates, weighted Huber threshold timing,
+and OOB loss histories follow `ensemble/_gb.py` `_fit_stage`/`_fit_stages`.
 The binary logit adapter follows SciPy 1.15.3
 [`special/xsf/log_exp.h`](https://github.com/scipy/scipy/blob/v1.15.3/scipy/special/xsf/log_exp.h).
 Sklearn/SciPy BSD notices remain in `LICENSES/scikit-learn-COPYING` and

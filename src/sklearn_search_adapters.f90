@@ -298,6 +298,7 @@ contains
       end select
     type is(gradient_boosting_classifier)
       select case(name)
+      case('subsample');model%subsample=value%as_real()
       case('criterion');model%criterion=value%as_text()
       case('max_leaf_nodes');model%max_leaf_nodes=value%as_integer()
       case('min_weight_fraction_leaf');model%min_weight_fraction_leaf=value%as_real()
@@ -321,6 +322,7 @@ contains
       end select
     type is(gradient_boosting_regressor)
       select case(name)
+      case('subsample');model%subsample=value%as_real()
       case('n_estimators');model%n_estimators=value%as_integer()
       case('max_depth');model%max_depth=value%as_integer()
       case('min_samples_leaf');model%min_samples_leaf=value%as_integer()

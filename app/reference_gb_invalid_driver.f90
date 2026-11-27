@@ -30,6 +30,11 @@ contains
   write(*,'(a)')'BASE_FIT_PASSED'
   select case(trim(name))
   case('count');model%n_estimators=0;call model%fit(x,y)
+  case('subsample_zero');model%subsample=0;call model%fit(x,y)
+  case('subsample_negative');model%subsample=-.1_dp;call model%fit(x,y)
+  case('subsample_large');model%subsample=1.01_dp;call model%fit(x,y)
+  case('subsample_nan');model%subsample=bad;call model%fit(x,y)
+  case('subsample_inf');model%subsample=inf;call model%fit(x,y)
   case('depth');model%max_depth=0;call model%fit(x,y)
   case('leaf');model%min_samples_leaf=0;call model%fit(x,y)
   case('split');model%min_samples_split=1;call model%fit(x,y)
@@ -85,6 +90,11 @@ contains
   write(*,'(a)')'BASE_FIT_PASSED'
   select case(trim(name))
   case('count');model%n_estimators=0;call model%fit(x,y)
+  case('subsample_zero');model%subsample=0;call model%fit(x,y)
+  case('subsample_negative');model%subsample=-.1_dp;call model%fit(x,y)
+  case('subsample_large');model%subsample=1.01_dp;call model%fit(x,y)
+  case('subsample_nan');model%subsample=bad;call model%fit(x,y)
+  case('subsample_inf');model%subsample=inf;call model%fit(x,y)
   case('depth');model%max_depth=0;call model%fit(x,y)
   case('leaf');model%min_samples_leaf=0;call model%fit(x,y)
   case('split');model%min_samples_split=1;call model%fit(x,y)

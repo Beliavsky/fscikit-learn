@@ -11,14 +11,16 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import GridSearchCV
 from sklearn.feature_selection import SelectFromModel
 ap=argparse.ArgumentParser(description=__doc__);ap.add_argument('--executable',type=Path,required=True);ap.add_argument('--report',type=Path,required=True)
+ap.add_argument('--subsample',action='store_true')
 a=ap.parse_args();records=[];payload=[]
 for (loss,classes),seed,n in itertools.product([('log_loss',2),('log_loss',3),('exponential',2)],[0,42],[24,31]):
  p=3 if n==24 else 8;rng=np.random.RandomState(2917+n);x=rng.normal(size=(n,p));y=(np.arange(n)%classes)*17-9;rng.shuffle(y)
  w=np.resize([1.,0.,.5,2.,3.],n);weights=w if seed==42 else None;query=x+.137
  with warnings.catch_warnings():
   warnings.simplefilter('ignore')
-  base=GradientBoostingClassifier(loss=loss,n_estimators=3,max_depth=2,random_state=seed,max_features=.7).fit(x,y,sample_weight=weights)
+  base=GradientBoostingClassifier(loss=loss,n_estimators=3,max_depth=2,random_state=seed,max_features=.7,subsample=(.65 if seed==42 else .8) if a.subsample else 1.).fit(x,y,sample_weight=weights)
   grid=dict(ccp_alpha=[0.,.01],criterion=['friedman_mse','squared_error'],max_features=[.5,None],max_leaf_nodes=[None,3])
+  if a.subsample:grid['subsample']=[.5,.8]
   search=GridSearchCV(base,grid,cv=3,error_score='raise',n_jobs=1).fit(x,y,sample_weight=weights)
   selector=SelectFromModel(base).fit(x,y,sample_weight=weights);prefit=SelectFromModel(base,prefit=True).fit(x)
   pipe=Pipeline([('scale',StandardScaler()),('boost',clone(base))]).fit(x,y,boost__sample_weight=weights)
@@ -42,7 +44,7 @@ for (loss,classes),seed,n in itertools.product([('log_loss',2),('log_loss',3),('
  text=f'{n} {p} {seed} {loss} {int(weights is not None)}\n'+'\n'.join(' '.join(map(str,row)) for row in x)+'\n'
  text+=' '.join(map(str,y))+'\n'+' '.join(map(str,w))+'\n';payload.append(text)
 text=''.join(payload);a.report.parent.mkdir(parents=True,exist_ok=True);a.report.with_suffix('.in').write_text(text)
-p=subprocess.run([str(a.executable)],input=text,text=True,capture_output=True,timeout=180)
+p=subprocess.run([str(a.executable)]+(['--subsample'] if a.subsample else []),input=text,text=True,capture_output=True,timeout=180)
 a.report.with_suffix('.stdout').write_text(p.stdout);a.report.with_suffix('.stderr').write_text(p.stderr)
 lines=p.stdout.splitlines();fields=list(records[0]['source']);width=len(fields);assert width==28
 integer={'best_prediction','original_prediction','pipeline','voting','bagging','stacking','ranks','best_index','selector_mask','prefit_mask','bagging_samples','bagging_features','bagging_seeds','component_seeds'}

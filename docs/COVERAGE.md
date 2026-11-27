@@ -1207,7 +1207,7 @@ Both profiles use the documented validation-only Windows runtime workaround.
 Reports and original failure evidence remain under `validation/results/classic_boosting_*`
 and the associated `gb*_probe_*` files. No unprotected-runtime claim is made.
 
-`gradient_boosting_regressor` implements full-data dense fitting with squared,
+`gradient_boosting_regressor` implements dense fitting with squared,
 absolute, quantile and Huber losses. It supports finite sample weights,
 loss-appropriate default or zero initialization, shared seeded RandomState tree
 fitting, exact lower weighted percentiles, Huber threshold/leaf corrections,
@@ -1226,7 +1226,7 @@ ensemble facade so both weighted boosters can use the shared registry for
 pipelines, voting, bagging and stacking. Search and SelectFromModel forward fit
 weights. `init_` is a native scalar constant; `huber_delta_` records each stage's
 pre-fit threshold as a native diagnostic. All generators materialize arrays.
-Subsampling/OOB histories, warm starts, validation stopping, custom initializer
+Warm starts, validation stopping, custom initializer
 objects, fractional sample-size controls and sparse input remain unimplemented.
 
 ## GradientBoostingClassifier
@@ -1269,7 +1269,7 @@ rate. Learning rate may be zero. Training scores retain sklearn's binary
 log-loss deviance factor of two. Native per-tree scalar and vector leaf storage
 remain synchronized after Newton updates.
 
-Classification supports full-data fitting with finite sample weights, including
+Classification supports fitting with finite sample weights, including
 zero and signed weights where sklearn accepts them. Weighted class priors follow
 DummyClassifier's bincount normalization; classes with zero total weight retain
 their output columns, and at least two classes must have nonzero total weight.
@@ -1281,11 +1281,31 @@ Search, SelectFromModel, pipelines, voting, bagging and stacking forward weights
 the shared registry exposes class labels, probabilities, decisions and seed
 assignment for this classifier.
 
-Subsampling/OOB histories in the booster itself, early stopping, warm starts,
+Early stopping, warm starts,
 custom initializers, feature-name metadata and sparse input remain unimplemented.
 Exponential loss requires two distinct integer classes; log loss supports
 multiple classes. Existing entry points and retained MIT/BSD notices remain;
 no public extension algorithm is added.
+
+Both classic boosters now implement stochastic row subsampling. `subsample`
+defaults to one and must lie in `(0,1]`; each stage selects exactly
+`max(1,int(subsample*n_samples))` rows without replacement. The mask consumes
+NumPy-compatible uniform draws before the shared random stream supplies each
+component tree's splitter seed. Multiclass channels reuse one stage mask.
+Weighted tree fitting and Newton/percentile/Huber terminal updates exclude
+out-of-bag rows, while predictions update all rows. Huber thresholds continue
+to use the full weighted residual distribution, matching sklearn.
+
+Stochastic training records in-bag `train_score_`, `oob_scores_`,
+`oob_improvement_` and final `oob_score_`. The first improvement uses the
+pre-stage loss (Huber's default threshold is 0.5 there); later improvements
+compare successive OOB losses whose held-out subsets may differ. Full-data
+refits clear the OOB arrays; the native scalar resets to zero where Python
+omits the attribute. Zero-total-weight subsets are rejected when their weighted
+loss or leaf update needs normalization. Search, selection, pipelines, voting,
+bagging and stacking retain the configured subsample fraction. These are
+sklearn algorithm features; no extension algorithm or runtime dependency is
+introduced.
 
 
 ## Ridge classification and leave-one-out selection

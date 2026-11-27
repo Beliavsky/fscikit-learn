@@ -17,6 +17,8 @@ module sklearn_classic_gradient_boosting
     integer :: n_estimators=100,max_depth=3,min_samples_leaf=1,min_samples_split=2,max_features=0,random_state=0
     integer :: n_estimators_=0,n_trees_per_iteration_=0,n_features_in_=0,n_classes_=0,max_leaf_nodes=0
     real(dp) :: learning_rate=.1_dp,min_impurity_decrease=0,ccp_alpha=0,min_weight_fraction_leaf=0
+    real(dp)::subsample=1,oob_score_=0
+    real(dp),allocatable::oob_scores_(:),oob_improvement_(:)
     integer::max_features_=0
     type(feature_count_control),private::feature_control_
     character(16)::criterion='friedman_mse'
@@ -45,6 +47,8 @@ module sklearn_classic_gradient_boosting
     integer :: n_estimators=100,max_depth=3,min_samples_leaf=1,min_samples_split=2,random_state=0
     integer::max_features=0,max_leaf_nodes=0,n_features_in_=0,n_estimators_=0,n_trees_per_iteration_=1,max_features_=0
     real(dp) :: learning_rate=0.1_dp,init_=0,alpha=.9_dp,min_impurity_decrease=0,min_weight_fraction_leaf=0,ccp_alpha=0
+    real(dp)::subsample=1,oob_score_=0
+    real(dp),allocatable::oob_scores_(:),oob_improvement_(:)
     character(16)::loss='squared_error',criterion='friedman_mse'
     logical::init_zero=.false.
     type(feature_count_control),private::feature_control_
@@ -59,6 +63,23 @@ module sklearn_classic_gradient_boosting
     generic::set_max_features=>features_integer,features_real,features_name
   end type
 contains
+  ! sklearn ensemble/_gradient_boosting.pyx _random_sample_mask (BSD-3-Clause).
+  function boosting_sample_mask(rng,n,n_inbag)result(mask)
+    type(legacy_random_state),intent(inout)::rng
+    integer,intent(in)::n,n_inbag
+    logical::mask(n)
+    integer::i,bagged
+    bagged=0
+    do i=1,n
+      mask(i)=ieee_product(rng%uniform(),real(n-i+1,dp))<real(n_inbag-bagged,dp)
+      if(mask(i))bagged=bagged+1
+    end do
+  end function
+  subroutine check_boosting_subsample(value)
+    real(dp),intent(in)::value
+    call require(ieee_is_finite(value),'gradient boosting subsample must be finite')
+    call require(value>0.and.value<=1,'gradient boosting subsample must be in (0,1]')
+  end subroutine
   subroutine check_boosting_controls(depth,split,leaf,budget,features,seed,decrease,alpha,fraction,p)
     integer,intent(in)::depth,split,leaf,budget,features,seed,p
     real(dp),intent(in)::decrease,alpha,fraction
@@ -109,9 +130,12 @@ contains
     real(dp),optional,intent(in)::sample_weight(:)
     type(legacy_random_state)::rng
     real(dp)::residual(size(y)),prediction(size(y)),gradient(size(y)),w(size(y)),terms(size(y)),delta,median,value,total
-    integer::i,j,leaf,nontrivial
+    real(dp)::fit_w(size(y)),previous_loss
+    logical::sample_mask(size(y)),do_oob
+    integer::i,j,leaf,nontrivial,n_inbag
     integer,allocatable::leaves(:),indices(:)
     call check_xy(x,size(y));call check_x(reshape(y,[size(y),1]))
+    call check_boosting_subsample(self%subsample)
     call require(self%n_estimators>0,'GradientBoostingRegressor needs positive n_estimators')
     call require(ieee_is_finite(self%learning_rate),'GradientBoostingRegressor learning_rate must be finite')
     call require(self%learning_rate>=0,'GradientBoostingRegressor learning_rate must be nonnegative')
@@ -144,7 +168,17 @@ contains
     allocate(self%estimators_(self%n_estimators)); self%train_score_=spread(0._dp,1,self%n_estimators)
     self%feature_importances_=spread(0._dp,1,size(x,2))
     self%huber_delta_=spread(0._dp,1,self%n_estimators);nontrivial=0
+    do_oob=self%subsample<1;n_inbag=max(1,int(self%subsample*size(y)))
+    sample_mask=.true.;self%oob_score_=0
+    if(allocated(self%oob_scores_))deallocate(self%oob_scores_,self%oob_improvement_)
+    if(do_oob)allocate(self%oob_scores_(self%n_estimators),self%oob_improvement_(self%n_estimators))
     do i=1,self%n_estimators
+      if(do_oob)then
+        sample_mask=boosting_sample_mask(rng,size(y),n_inbag)
+        if(i==1)previous_loss=boosting_regression_loss(self%loss,pack(y,.not.sample_mask), &
+          pack(prediction,.not.sample_mask),pack(w,.not.sample_mask),self%alpha,.5_dp)
+      end if
+      fit_w=merge(w,0._dp,sample_mask)
       do j=1,size(y);residual(j)=ieee_difference(y(j),prediction(j));end do
       delta=0
       select case(self%loss)
@@ -164,12 +198,12 @@ contains
       self%estimators_(i)%min_weight_fraction_leaf=self%min_weight_fraction_leaf
       self%estimators_(i)%min_impurity_decrease=self%min_impurity_decrease
       call self%estimators_(i)%set_max_features(self%max_features_)
-      call self%estimators_(i)%fit_with_rng(x,gradient,rng,w)
+      call self%estimators_(i)%fit_with_rng(x,gradient,rng,fit_w)
       leaves=self%estimators_(i)%apply(x)
       if(self%loss/='squared_error')then
         do leaf=1,self%estimators_(i)%node_count_
           if(self%estimators_(i)%nodes_(leaf)%left/=0)cycle
-          indices=pack([(j,j=1,size(y))],leaves==leaf)
+          indices=pack([(j,j=1,size(y))],leaves==leaf.and.sample_mask)
           if(self%loss=='quantile')then
             value=boosting_quantile(residual(indices),w(indices),self%alpha,.true.)
           else
@@ -188,7 +222,16 @@ contains
       end if
       terms=self%estimators_(i)%predict(x)
       do j=1,size(y);prediction(j)=ieee_difference(prediction(j),-ieee_product(self%learning_rate,terms(j)));end do
-      self%train_score_(i)=boosting_regression_loss(self%loss,y,prediction,w,self%alpha,delta)
+      if(do_oob)then
+        self%train_score_(i)=boosting_regression_loss(self%loss,pack(y,sample_mask), &
+          pack(prediction,sample_mask),pack(w,sample_mask),self%alpha,delta)
+        self%oob_scores_(i)=boosting_regression_loss(self%loss,pack(y,.not.sample_mask), &
+          pack(prediction,.not.sample_mask),pack(w,.not.sample_mask),self%alpha,delta)
+        self%oob_improvement_(i)=ieee_difference(previous_loss,self%oob_scores_(i))
+        previous_loss=self%oob_scores_(i);self%oob_score_=previous_loss
+      else
+        self%train_score_(i)=boosting_regression_loss(self%loss,y,prediction,w,self%alpha,delta)
+      end if
       if(self%estimators_(i)%node_count_>1)then
         self%feature_importances_=self%feature_importances_+boost_tree_importances(self%estimators_(i))
         nontrivial=nontrivial+1
@@ -285,14 +328,16 @@ contains
     real(dp), intent(in) :: x(:,:)
     integer, intent(in) :: y(:)
     real(dp),optional,intent(in)::sample_weight(:)
-    real(dp)::w(size(y)),loss_values(size(y))
+    real(dp)::w(size(y)),loss_values(size(y)),fit_w(size(y)),previous_loss
     real(dp), allocatable :: raw(:,:),prob(:,:),gradient(:,:),indicator(:),hessian(:),logs(:),class_mass(:)
     integer, allocatable :: encoded(:),leaves(:)
     type(legacy_random_state)::rng
-    logical, allocatable :: mask(:)
+    logical, allocatable :: mask(:),sample_mask(:)
+    logical::do_oob
     real(dp) :: floor_prior,numerator,denominator,factor,v
-    integer :: n,p,c,k,t,i,leaf,left,nontrivial
+    integer :: n,p,c,k,t,i,leaf,left,nontrivial,n_inbag
     call check_xy(x,size(y)); n=size(y); p=size(x,2)
+    call check_boosting_subsample(self%subsample)
     call require(self%n_estimators>=1,'GradientBoostingClassifier n_estimators must be positive')
     call require(ieee_is_finite(self%learning_rate),'nonfinite GradientBoostingClassifier learning_rate')
     call require(self%learning_rate>=0,'GradientBoostingClassifier learning_rate must be nonnegative')
@@ -342,7 +387,19 @@ contains
     if(allocated(self%estimators_)) deallocate(self%estimators_)
     allocate(self%estimators_(self%n_estimators_,self%n_trees_per_iteration_))
     self%train_score_=spread(0._dp,1,self%n_estimators_); self%feature_importances_=spread(0._dp,1,p)
+    do_oob=self%subsample<1;n_inbag=max(1,int(self%subsample*n))
+    allocate(sample_mask(n));sample_mask=.true.;self%oob_score_=0
+    if(allocated(self%oob_scores_))deallocate(self%oob_scores_,self%oob_improvement_)
+    if(do_oob)allocate(self%oob_scores_(self%n_estimators_),self%oob_improvement_(self%n_estimators_))
     do t=1,self%n_estimators_
+      if(do_oob)then
+        sample_mask=boosting_sample_mask(rng,n,n_inbag)
+        if(t==1)then
+          loss_values=gbc_loss_values(raw,encoded,self%loss)
+          previous_loss=boosting_mean(pack(loss_values,.not.sample_mask),pack(w,.not.sample_mask))
+        end if
+      end if
+      fit_w=merge(w,0._dp,sample_mask)
       prob=gbc_probabilities(self,raw)
       do k=1,self%n_trees_per_iteration_
         if(c==2) then
@@ -380,7 +437,7 @@ contains
         self%estimators_(t,k)%criterion=self%criterion
         self%estimators_(t,k)%min_impurity_decrease=self%min_impurity_decrease
         self%estimators_(t,k)%random_state=self%random_state
-        call self%estimators_(t,k)%fit_with_rng(x,gradient(:,k),rng,w)
+        call self%estimators_(t,k)%fit_with_rng(x,gradient(:,k),rng,fit_w)
         leaves=self%estimators_(t,k)%apply(x)
         if(c==2) then
           if(self%loss=='exponential') then
@@ -402,7 +459,7 @@ contains
         do leaf=1,self%estimators_(t,k)%node_count_
           left=self%estimators_(t,k)%nodes_(leaf)%left
           if(left>0)cycle
-          mask=leaves==leaf
+          mask=leaves==leaf.and.sample_mask
           numerator=boosting_mean(pack(gradient(:,k),mask),pack(w,mask))
           numerator=factor*numerator
           denominator=boosting_mean(pack(hessian,mask),pack(w,mask))
@@ -413,18 +470,15 @@ contains
         end do
         raw(:,k)=raw(:,k)+self%learning_rate*self%estimators_(t,k)%predict(x)
       end do
-      do i=1,n
-        if(c>2) then
-          loss_values(i)=logsumexp(raw(i,:))-raw(i,encoded(i))
-        else if(self%loss=='exponential') then
-          v=exp(raw(i,1))
-          loss_values(i)=ieee_difference(ieee_quotient(merge(1._dp,0._dp,encoded(i)==2),v), &
-            -ieee_product(merge(1._dp,0._dp,encoded(i)/=2),v))
-        else
-          loss_values(i)=2*gbc_softplus(merge(-raw(i,1),raw(i,1),encoded(i)==2))
-        end if
-      end do
-      self%train_score_(t)=boosting_mean(loss_values,w)
+      loss_values=gbc_loss_values(raw,encoded,self%loss)
+      if(do_oob)then
+        self%train_score_(t)=boosting_mean(pack(loss_values,sample_mask),pack(w,sample_mask))
+        self%oob_scores_(t)=boosting_mean(pack(loss_values,.not.sample_mask),pack(w,.not.sample_mask))
+        self%oob_improvement_(t)=ieee_difference(previous_loss,self%oob_scores_(t))
+        previous_loss=self%oob_scores_(t);self%oob_score_=previous_loss
+      else
+        self%train_score_(t)=boosting_mean(loss_values,w)
+      end if
     end do
     self%feature_importances_=0;nontrivial=0
     do t=1,self%n_estimators_
@@ -439,6 +493,25 @@ contains
       do k=1,p;self%feature_importances_(k)=ieee_quotient(self%feature_importances_(k),v);end do
     end if
   end subroutine
+
+  function gbc_loss_values(raw,encoded,loss)result(values)
+    real(dp),intent(in)::raw(:,:)
+    integer,intent(in)::encoded(:)
+    character(*),intent(in)::loss
+    real(dp)::values(size(encoded)),v
+    integer::i
+    do i=1,size(encoded)
+      if(size(raw,2)>1)then
+        values(i)=logsumexp(raw(i,:))-raw(i,encoded(i))
+      else if(loss=='exponential')then
+        v=exp(raw(i,1))
+        values(i)=ieee_difference(ieee_quotient(merge(1._dp,0._dp,encoded(i)==2),v), &
+          -ieee_product(merge(1._dp,0._dp,encoded(i)/=2),v))
+      else
+        values(i)=2*gbc_softplus(merge(-raw(i,1),raw(i,1),encoded(i)==2))
+      end if
+    end do
+  end function
 
   function gbc_decision(self,x) result(raw)
     class(gradient_boosting_classifier), intent(in) :: self

@@ -19,6 +19,9 @@ program reference_gbc_integration_driver
  integer,allocatable::y(:)
  integer::n,p,seed,weighted,status,i,j
  character(16)::loss
+ character(32)::argument
+ logical::stochastic
+ call get_command_argument(1,argument);stochastic=trim(argument)=='--subsample'
  do
   read(*,*,iostat=status)n,p,seed,loss,weighted
   if(status/=0)exit
@@ -26,6 +29,7 @@ program reference_gbc_integration_driver
   do i=1,n;read(*,*)x(i,:);end do
   read(*,*)y;read(*,*)w;query=x+.137_dp
   base=gradient_boosting_classifier();base%n_estimators=3;base%max_depth=2;base%random_state=seed
+  if(stochastic)base%subsample=merge(.65_dp,.8_dp,seed==42)
   base%loss=loss;call base%set_max_features(.7_dp)
   if(weighted==1)then
    call base%fit(x,y,w)
@@ -33,13 +37,16 @@ program reference_gbc_integration_driver
    call base%fit(x,y)
   end if
   search=grid_search_cv();search%cv=3;allocate(search%estimator,source=base)
-  allocate(search%param_grid(1));allocate(search%param_grid(1)%axes(4))
+  allocate(search%param_grid(1));allocate(search%param_grid(1)%axes(merge(5,4,stochastic)))
   search%param_grid(1)%axes(1)%name='ccp_alpha'
   search%param_grid(1)%axes(1)%values=[param(0._dp),param(.01_dp)]
   search%param_grid(1)%axes(2)%name='criterion'
   search%param_grid(1)%axes(2)%values=[param('friedman_mse'),param('squared_error')]
   search%param_grid(1)%axes(3)%name='max_features';search%param_grid(1)%axes(3)%values=[param(.5_dp),param('none')]
   search%param_grid(1)%axes(4)%name='max_leaf_nodes';search%param_grid(1)%axes(4)%values=[param(0),param(3)]
+  if(stochastic)then
+   search%param_grid(1)%axes(5)%name='subsample';search%param_grid(1)%axes(5)%values=[param(.5_dp),param(.8_dp)]
+  end if
   selector=select_from_model();prefit=select_from_model();prefit%prefit=.true.
   pipe=pipeline();allocate(pipe%steps(2));pipe%steps(1)%name='scale';allocate(pipe%steps(1)%model,source=scale)
   pipe%steps(2)%name='boost';allocate(pipe%steps(2)%model,source=base)

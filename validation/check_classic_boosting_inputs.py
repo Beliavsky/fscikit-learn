@@ -11,7 +11,9 @@ common=dict(count=dict(n_estimators=0),depth=dict(max_depth=0),leaf=dict(min_sam
  decrease=dict(min_impurity_decrease=-.1),criterion=dict(criterion='invalid'),loss=dict(loss='invalid'),
  feature_integer=dict(max_features=-1),feature_zero=dict(max_features=0.),feature_large=dict(max_features=1.01),
  feature_nan=dict(max_features=np.nan),feature_inf=dict(max_features=np.inf),feature_name=dict(max_features='invalid'),
- input_nan={},input_inf={},float32_overflow={},query_nan={},query_inf={},query_width={},target_size={},unfit={})
+ input_nan={},input_inf={},float32_overflow={},query_nan={},query_inf={},query_width={},target_size={},unfit={},
+ subsample_zero=dict(subsample=0.),subsample_negative=dict(subsample=-.1),subsample_large=dict(subsample=1.01),
+ subsample_nan=dict(subsample=np.nan),subsample_inf=dict(subsample=np.inf))
 reg=dict(alpha_zero=dict(alpha=0.),alpha_one=dict(alpha=1.),alpha_nan=dict(alpha=np.nan),alpha_inf=dict(alpha=np.inf),
  budget=dict(max_leaf_nodes=1),ccp=dict(ccp_alpha=-.1),weight_fraction=dict(min_weight_fraction_leaf=.6),
  weights_shape={},weights_zero={},weights_nan={},weights_inf={},target_nan={},target_inf={})

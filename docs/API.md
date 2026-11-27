@@ -1296,8 +1296,8 @@ nonnegative; zero fits component trees while leaving all predictions at the
 initializer. Prediction uses the current `learning_rate`, including changes
 after fitting. Score accepts optional sample weights. Weighted regression
 boosters are supported by search, SelectFromModel, pipelines and the shared
-regression ensemble dispatcher. Dense finite input only; stochastic subsampling,
-OOB histories, warm starts, validation stopping, custom initializers, fractional
+regression ensemble dispatcher. Dense finite input only; warm starts,
+validation stopping, custom initializers, fractional
 sample-size controls and sparse input remain outside this interface.
 
 ## GradientBoostingClassifier
@@ -1341,8 +1341,22 @@ min_samples_split, typed set_max_features (zero restores all), criterion
 Both classic boosters share sklearn's advancing NumPy-compatible RandomState
 across component trees. Binary ties at a zero decision select the positive class.
 Learning rate is finite and nonnegative; prediction uses its current value.
-Subsampling and early stopping remain unimplemented;
+Early stopping remains unimplemented;
 see COVERAGE.md for loss, tree-backend and staged-memory conventions.
+
+Both classic boosters accept `subsample` in `(0,1]` (default one), including
+through parameter search. Each stochastic stage samples
+`max(1,int(subsample*n_samples))` rows without replacement using the same
+advancing RandomState as its component trees. All class channels share the
+stage mask. Trees and terminal updates use in-bag weights; predictions update
+every row. With `subsample<1`, `train_score_` contains in-bag losses and
+`oob_scores_`, `oob_improvement_`, and `oob_score_` expose sklearn's held-out loss
+history, successive loss differences, and final OOB loss. Successive OOB losses
+can use different held-out rows. A zero-total-weight in-bag or OOB loss is
+rejected when normalization is required, as in sklearn. Refitting with
+`subsample=1` deallocates the OOB arrays; the native scalar `oob_score_` resets
+to zero. Fortran's fixed fields use this scalar convention where Python omits
+the OOB attribute.
 
 
 ## Ridge classification
