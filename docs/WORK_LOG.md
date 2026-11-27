@@ -10400,3 +10400,39 @@ comparisons pass all 144 combinations of Huber/Poisson/Gamma/Tweedie, budgets
 weights. Full checked package rebuilding is in progress; final profiles remain
 to be verified. No Source fixture/tolerance was relaxed. MIT licensing and
 Source BSD attribution are retained; this is progress toward the broader goal.
+
+
+### Fresh-fold CV final verification
+
+Implementation commit: 7968d25. All 328 checked audit jobs pass: 315 native
+programs, eleven selected examples and two focused Source comparison suites.
+All 919 build fingerprints match current sources, including 209 library units.
+The public use-sklearn facade matches actual Source OLS/vector-weight and
+Ridge/scalar-weight CV scores. The original before-fix harness, linked against
+the completed corrected library, now reports exactly zero warm/cold differences
+for both Poisson and Huber; its earlier differences were 2.6344492234931947 and
+0.8575129053732354. Before/after sources, executables and logs are preserved.
+
+Checked and scoped optimized builds pass all 144 new Huber/GLM CV configurations
+and all 96 existing quantile clone/CV/grid/randomized/Pipeline configurations.
+Source inputs, oracles and primary file hashes agree across profiles. Fitted
+caller state is preserved. Scalar/vector fit weights and unweighted held-out
+estimator scoring match Source. No fixture, comparison criterion or tolerance
+was relaxed. The optimized build recompiles only sklearn_model_selection,
+passes six selected native programs and both Source suites. This is not a full
+optimized package rebuild. Other optimizer implementations are unchanged.
+
+Cross-profile verification passes all source/object/report hashes and all 208
+non-overridden baseline library members. The private optimized baseline is
+verified byte-identical to the terminal completed checked library before any
+link. All build/audit jobs are terminal. Validation retains private GNU Fortran
+15.2.0, static libgfortran and the validation-only Windows locale-copy shim;
+unwrapped runtime stability is not claimed. Evidence is under ignored
+validation/results/cv_clone_*. The wider sklearn translation and documented
+numerical/API gaps remain open; commits remain local.
+
+The verified backup is cv_clone_evidence_7968d25.zip,
+84,015,325 bytes / 2,013 entries, SHA256
+b4359cace5fd47a25dd7ea7ee9e498742ecdb09138e90db049b70468eebe2307.
+ZIP CRCs and critical source/report/object/binary hashes pass. Receipt:
+validation/results/cv_clone_archive_receipt.json (ignored local evidence).
