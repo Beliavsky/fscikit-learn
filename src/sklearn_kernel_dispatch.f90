@@ -391,10 +391,17 @@ contains
    allocate(nx(a%n),ny(b%n));nx=0;ny=0
    if(kind==3.or.kind==5)then
     do i=1,a%n
-     call get_row(a,i,u)
-     do k=1,a%p
-      nx(i)=nx(i)+u(k)*u(k)
-     end do
+     if(associated(a%sparse))then
+      ! sklearn row_norms / CSR normalization use stored entries, including duplicates.
+      do k=a%sparse%indptr(i),a%sparse%indptr(i+1)-1
+       nx(i)=nx(i)+a%sparse%data(k)*a%sparse%data(k)
+      end do
+     else
+      call get_row(a,i,u)
+      do k=1,a%p
+       nx(i)=nx(i)+u(k)*u(k)
+      end do
+     end if
      if(kind==5)then
       nx(i)=sqrt(nx(i))
       if(associated(a%sparse))then
@@ -405,10 +412,16 @@ contains
      end if
     end do
     do j=1,b%n
-     call get_row(b,j,v)
-     do k=1,b%p
-      ny(j)=ny(j)+v(k)*v(k)
-     end do
+     if(associated(b%sparse))then
+      do k=b%sparse%indptr(j),b%sparse%indptr(j+1)-1
+       ny(j)=ny(j)+b%sparse%data(k)*b%sparse%data(k)
+      end do
+     else
+      call get_row(b,j,v)
+      do k=1,b%p
+       ny(j)=ny(j)+v(k)*v(k)
+      end do
+     end if
      if(kind==5)then
       ny(j)=sqrt(ny(j))
       if(associated(b%sparse))then

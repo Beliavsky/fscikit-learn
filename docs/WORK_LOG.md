@@ -10508,3 +10508,33 @@ The verified backup is kernel_randomized_evidence_06e0306.zip,
 a3370d10a5fd3deb22b027f94fc7566661f909a8a1127869245ccb5110cad3cd.
 ZIP CRCs and critical source/report/object/binary hashes pass. Receipt:
 validation/results/kernel_randomized_archive_receipt.json (ignored evidence).
+
+
+### CSR KernelPCA fits and mixed queries
+
+Added dense/CSR fit and fit_transform overloads, and dense/CSR query transforms
+after either fitted storage. Sparse fits own x_fit_csr_ and leave x_fit_
+unallocated; dense/sparse refits clear the alternate cache. New fitted metadata
+records original feature/sample counts. Shared centering/eigendecomposition
+and projection preserve the dense and randomized paths. Kernel dispatch uses
+bounded row scratch storage rather than a dense design; the Gram matrix remains
+dense. Sparse inverse fitting and sparse precomputed inputs/queries are rejected,
+matching actual sklearn 1.6.1 behavior. MIT/BSD attribution is retained.
+
+The first 216-case differential probe exposed 72 strict failures. Source sparse
+RBF and cosine row norms include stored duplicate entries, while the backend
+had used coalesced logical rows for norms. Corrected the shared norm loops to
+Source stored-entry semantics; dot products retain their existing logical sums.
+The other failures were Source rejections of sparse precomputed KernelPCA calls,
+which the first adapter accepted. Explicit matching restrictions now apply.
+The initial failed report remains separate; no cases or tolerances were removed.
+All 216 cases now pass across six kernels, two solvers, two datasets and nine
+training/query storage combinations, including unsorted duplicates and zeros.
+
+All twelve actual Source/native sparse-input guards pass. The native test passes
+owned-cache checks, input preservation, dense/sparse refits and mixed queries.
+A 1,000-by-50,000 CSR query (400 MB if dense) peaks at 9,912,320 bytes in the
+isolated checked memory probe. Full checked rebuilding and scoped optimized,
+legacy inverse and shared kernel-dispatch comparisons remain in progress at
+this commit. The broader translation and documented gaps remain open; commits
+stay local.

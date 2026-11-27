@@ -2882,3 +2882,11 @@ validation and eigenpair ordering retain the scikit-learn BSD attribution in
 LICENSES/scikit-learn-COPYING. Native integration reuses the existing MIT/BSD
 randomized-SVD and seeded NumPy-compatible RNG modules; no external eigensolver
 runtime is linked.
+
+
+KernelPCA CSR storage and mixed-query adapters follow sklearn 1.6.1
+`decomposition/_kernel_pca.py` and `metrics/pairwise.py`. Sparse row norm
+accumulation in the shared kernel dispatcher follows stored-entry semantics of
+`utils/extmath.py` row_norms and CSR normalization. Existing BSD notices are
+retained. Owned Fortran CSR caches, common centered-kernel projection and
+storage adapters are independent MIT integration.

@@ -11379,3 +11379,16 @@ is replaced by the other. Existing query transforms and learned inverse fitting
 use the selected fitted eigensystem. Randomized selection is by eigenvalue
 magnitude, so indefinite kernels may fail PSD checks even when dense selection
 of the largest algebraic eigenvalues succeeds.
+
+
+KernelPCA fit/fit_transform accept dense or CSR designs; transform accepts either
+query storage after either fitted storage. Sparse fits retain an owned
+x_fit_csr_ cache with sparse_fit_=true and no allocated dense x_fit_. Fitted
+n_features_in_ and n_samples_fit_ describe the original input. Dense refits clear
+the CSR cache and sparse refits clear the dense cache. All kernels use a dense
+centered Gram matrix, and sparse kernel evaluation uses bounded row scratch
+storage. Input arrays are preserved. As in sklearn 1.6.1, inverse fitting from
+CSR designs and sparse precomputed fit/query matrices are rejected. Other
+supported kernels include linear, RBF, polynomial, cosine and sigmoid.
+Noncanonical RBF/cosine row norms follow Source stored-entry semantics, including
+duplicates; this can differ from converting the same CSR matrix to dense first.
