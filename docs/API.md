@@ -11405,3 +11405,12 @@ explicit zeros are accepted. Inputs are retained unchanged. Sparse partial_fit
 is rejected, matching Source; use fit for batched CSR conversion. Sparse
 transform after partial_fit alone requires a prior fit to establish batch_size_,
 as in the Source API. Existing dense numerical/degenerate-data limits remain.
+
+IncrementalPCA accepts a first dense or CSR fit batch with one sample, and dense
+singleton partial_fit. As in sklearn 1.6.1, the one-sample explained variance
+and zero-total-variance explained-variance ratios are NaN; population variances
+remain zero. Whitened transforms preserve NaN scales and clip finite zero scales
+to machine epsilon. Variance updates include Source's corrected two-pass term;
+transforms project before subtracting the projected mean. Existing native SVD
+last-bit differences can be amplified by whitening large-offset data; the strict
+boundary comparison retains those differences explicitly.

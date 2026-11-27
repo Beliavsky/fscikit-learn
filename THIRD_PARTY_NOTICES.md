@@ -2897,3 +2897,10 @@ sparse row batch to dense and reuse the existing incremental decomposition.
 The Source rejection of sparse partial_fit is retained. Source BSD-3-Clause
 copyright/license is preserved in LICENSES/scikit-learn-COPYING. The native
 Fortran adapter and tests are original MIT-licensed contributions.
+
+IncrementalPCA singleton/constant variance behavior, corrected two-pass updates
+and projection-before-centering follow sklearn 1.6.1 decomposition/_incremental_pca.py,
+decomposition/_base.py and utils/extmath.py. Scalar OpenBLAS-compatible projection
+reductions reuse the existing attributed kernel helpers. Retained BSD licenses
+remain in LICENSES; original Fortran integration and tests use the project MIT
+license.

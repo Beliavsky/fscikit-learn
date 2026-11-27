@@ -14649,3 +14649,21 @@ peaks are 59,256,832 bytes checked and 56,799,232 bytes optimized. Complete
 cross-profile evidence is in incremental_sparse_cross_profile_audit.json.
 These use the documented validation-only Windows locale shim; general Source
 parity and previously documented numerical/degenerate-data gaps remain open.
+
+### IncrementalPCA singleton, constant-data and centering behavior
+
+Removed the native first-batch minimum of two samples. Singleton fits and
+partial_fit now retain Source NaN explained variances, zero population variance
+and NaN zero-total-variance ratios. Whitening preserves NaN scales, clips finite
+zero scales to epsilon, and uses projection-before-centering. Added Source's
+corrected two-pass batch variance and weighted-sum mean update.
+
+The unchanged 192-case boundary grid initially failed 162 configurations. The
+isolated corrected implementation passes 176; sixteen strict failures remain
+for whitened large-offset projections (indices 164,165,166,167,172,173,174,175,
+180,181,182,183,188,189,190,191). All fitted fields pass 3e-8 tolerances. Replaying
+those sixteen using native parameters in Source gives exactly identical train
+and query projections, isolating the residual to fitted-parameter differences
+amplified by cancellation/whitening. Full Source equality is not claimed.
+Native singleton/constant/streaming regressions pass. Full rebuilding and scoped
+optimized verification remain in progress.

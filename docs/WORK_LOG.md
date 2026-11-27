@@ -10663,3 +10663,34 @@ Verified backup: incremental_sparse_evidence_972b2b7.zip,
 03a7df2125db1cf51b77380be667257d6e2e4803cdefc5767043595feac5ef86.
 ZIP CRCs and critical source/report/object/binary hashes pass. Receipt:
 validation/results/incremental_sparse_archive_receipt.json (ignored evidence).
+
+### IncrementalPCA singleton and zero-variance fidelity
+
+The preceding goal turn made verified progress through 82d1be8: CSR fits and
+queries plus checked/optimized evidence were committed. Revalidated the clean
+tracked worktree; protected untracked scratch files remain untouched.
+
+Added a 192-case actual Source grid before edits. It recorded 162 strict failing
+configurations, including rejected singleton first batches, zero-valued ratios
+where Source has NaN, and shifted-data projection differences. The implementation
+now accepts singleton initial fits/partial_fit, uses safe IEEE quotients for
+explained variances/ratios, retains empty-spectrum noise NaN, corrects two-pass
+batch variance and follows Source weighted-sum mean updates. Transform projects
+before centering with the existing attributed scalar OpenBLAS reduction helpers.
+Whitening preserves NaN scales and clips finite zero scales to epsilon.
+
+The identical initial grid now has 176 passing configurations and sixteen
+retained strict failures: 164,165,166,167,172,173,174,175,180,181,182,183,188,189,190,191.
+They are all whitened large-offset projections; every fitted field passes the
+unchanged 3e-8 tolerance. The intermediate IEEE/order probe and projection probe
+are preserved separately. An initial generated driver declaration duplicated
+mode; fixed before obtaining the baseline. Replaying Source with native fitted
+parameters yields bit-identical train/query projections for all sixteen,
+isolating the end-to-end residual to fitted-parameter last-bit differences and
+their amplification. No fixture or tolerance was removed or relaxed, and strict
+comparison continues to exit unsuccessfully on those differences.
+
+The new native singleton, constant-data, CSR-singleton and streaming checks pass
+under bounds/IEEE traps. Full checked rebuilding is running. Scoped optimized,
+complete native and legacy dense/CSR reference audits remain pending. MIT/BSD
+attribution is retained; commits remain local. Overall Source parity is open.
