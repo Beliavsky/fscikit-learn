@@ -13,7 +13,11 @@ program reference_adaboost_cart_driver
   character(40) :: argument
   call get_command_argument(1,argument)
   if(len_trim(argument)>0) then
-    call reject(trim(argument));error stop 'invalid AdaBoost CART input accepted'
+    call reject(trim(argument))
+    if(trim(argument)=='features_large')then
+      print *,'OVERSIZED_FEATURES_ACCEPTED';stop
+    end if
+    error stop 'invalid AdaBoost CART input accepted'
   end if
   read(*,*) mode,n,p,m,weighted,model%random_state,model%n_estimators,model%max_depth, &
     model%min_samples_split,model%min_samples_leaf,model%max_features,criterion,splitter, &

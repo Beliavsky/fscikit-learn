@@ -20,7 +20,7 @@ from sklearn_tree_runtime import tree_runtime_provenance
 REJECTIONS={
     'depth':'invalid AdaBoost CART size controls','leaf':'invalid AdaBoost CART size controls',
     'split':'invalid AdaBoost CART size controls','features_negative':'invalid AdaBoost CART max_features',
-    'features_large':'invalid AdaBoost CART max_features','seed':'random_state must be nonnegative',
+    'seed':'random_state must be nonnegative',
     'criterion':'invalid AdaBoost CART criterion','splitter':'invalid AdaBoost CART splitter',
     'impurity_negative':'negative AdaBoost CART impurity decrease','unfitted_log':'AdaBoost is not fitted',
     'unfitted_staged_score':'AdaBoost is not fitted','score_weights_zero':'score weights sum to zero',
@@ -179,10 +179,16 @@ def main():
         proc=subprocess.run([str(exe),name],text=True,capture_output=True)
         assert proc.returncode!=0 and message in proc.stdout+proc.stderr,(name,proc.stdout,proc.stderr)
         assert 'SIGFPE' not in proc.stderr and 'Fortran runtime error' not in proc.stderr,(name,proc.stderr)
+    # Retain the former native-only rejection case as actual Source acceptance.
+    data=np.column_stack([[-2.,-1.,1.,2.],np.zeros(4)]);labels=np.array([-4,7,-4,7])
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore');AdaBoostClassifier(estimator=DecisionTreeClassifier(max_depth=1,max_features=3),random_state=0).fit(data,labels)
+    proc=subprocess.run([str(exe),'features_large'],text=True,capture_output=True)
+    assert proc.returncode==0 and 'OVERSIZED_FEATURES_ACCEPTED' in proc.stdout,(proc.stdout,proc.stderr)
     source=Path(sklearn.__file__).parent
     report=dict(profile=args.profile,sklearn_version=sklearn.__version__,numpy_version=np.__version__,
         fixtures=len(cases),start_fixture=args.start_fixture,checks=checks,inventories=inventories,
-        rejections=list(REJECTIONS),source_fit_errors=fit_errors,single_class_stage_errors=stage_errors,
+        rejections=list(REJECTIONS),source_accepted_diagnostics=["features_large"],source_fit_errors=fit_errors,single_class_stage_errors=stage_errors,
         normalization_corrections=normalization,
         nonfinite_reference_results=nonfinite,source_warnings=dict(warnings_seen),
         executable=str(exe),executable_sha256=digest(exe),validator_sha256=digest(__file__),

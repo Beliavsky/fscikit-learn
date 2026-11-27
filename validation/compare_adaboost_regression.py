@@ -1,5 +1,6 @@
 """AdaBoost.R2 and each bootstrapped CART against installed sklearn."""
 from pathlib import Path
+import argparse, hashlib
 import json
 import subprocess
 import warnings
@@ -13,16 +14,23 @@ RESULTS = ROOT / "validation/results"
 
 def main():
     RESULTS.mkdir(exist_ok=True)
-    resolved = subprocess.run(["fpm", "run", "--flag", "-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow",
-                               "--target", "reference_adaboost_regression_driver", "--runner"],
-                              cwd=ROOT, check=True, text=True, stdout=subprocess.PIPE)
-    candidates = [ROOT / line.strip().strip('"') for line in resolved.stdout.splitlines()
-                  if line.strip().strip('"').endswith(("reference_adaboost_regression_driver",
-                                                     "reference_adaboost_regression_driver.exe"))]
-    candidates = [path for path in candidates if path.is_file()]
-    assert len(candidates) == 1, resolved.stdout
-    executable = candidates[0].resolve()
-    checks = []
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--executable',type=Path)
+    parser.add_argument('--report',type=Path,default=RESULTS/'adaboost_regression.json')
+    args=parser.parse_args()
+    if args.executable:
+        executable=args.executable.resolve()
+    else:
+        resolved = subprocess.run(["fpm", "run", "--flag", "-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow",
+                                   "--target", "reference_adaboost_regression_driver", "--runner"],
+                                  cwd=ROOT, check=True, text=True, stdout=subprocess.PIPE)
+        candidates = [ROOT / line.strip().strip('"') for line in resolved.stdout.splitlines()
+                      if line.strip().strip('"').endswith(("reference_adaboost_regression_driver",
+                                                         "reference_adaboost_regression_driver.exe"))]
+        candidates = [path for path in candidates if path.is_file()]
+        assert len(candidates) == 1, resolved.stdout
+        executable = candidates[0].resolve()
+    checks = [];records=[]
     for seed, n, p in ((7, 57, 3), (42, 71, 4), (2026, 43, 5)):
         rng = np.random.default_rng(seed)
         original = rng.normal(size=(n, p))
@@ -44,8 +52,8 @@ def main():
             if case == 9: x[:] = 0; y = np.where(np.arange(n) % 2, 1., -1.); w[:] = 1
             if case == 10: w[1] = 1.e-100; y[0] = 10000
             if case == 11: x = np.round(x); options["loss"] = "square"
-            data = RESULTS / "adaboost_regression_input.txt"
-            output = RESULTS / "adaboost_regression_actual.txt"
+            data = args.report.with_suffix(".in")
+            output = args.report.with_suffix(".actual.txt")
             with data.open("w") as stream:
                 stream.write(f"{n} {p}\n")
                 stream.write(f"9 {seed} {tree['max_depth']} {tree['min_samples_leaf']} "
@@ -74,14 +82,16 @@ def main():
                                  f"tree{k}_threshold": np.where(t.children_left < 0, 0, t.threshold),
                                  f"tree{k}_feature": np.where(t.children_left < 0, 0, t.feature+1),
                                  f"tree{k}_value": t.value[:, 0, 0]})
+            records.append(dict(seed=seed,case=case,input=data.read_text(),source={k:np.asarray(v).ravel(order='F').tolist() for k,v in expected.items()},native={k:v.tolist() for k,v in actual.items()}))
             assert actual.keys() == expected.keys(), (seed, case, actual.keys() ^ expected.keys())
             for name, value in expected.items():
                 want = np.asarray(value).ravel(order="F")
                 np.testing.assert_allclose(actual[name], want, atol=3e-8, rtol=3e-8,
                                            err_msg=f"seed={seed} case={case} {name}")
                 checks.append(dict(seed=seed, case=case, name=name, passed=True))
-    (RESULTS / "adaboost_regression.json").write_text(json.dumps(
-        dict(sklearn=sklearn.__version__, checks=checks), indent=2)+"\n")
+    args.report.parent.mkdir(parents=True,exist_ok=True)
+    sha=lambda p:hashlib.sha256(Path(p).read_bytes()).hexdigest()
+    args.report.write_text(json.dumps(dict(sklearn=sklearn.__version__,checks=checks,records=records,sha256={str(p):sha(p) for p in [Path(__file__),executable,ROOT/'src/sklearn_adaboost_regression.f90']}),indent=2)+'\n')
     print(f"{len(checks)} AdaBoostRegressor result groups passed")
 
 

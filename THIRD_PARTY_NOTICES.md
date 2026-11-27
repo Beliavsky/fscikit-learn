@@ -1,5 +1,13 @@
 # Third-party notices and provenance
 
+AdaBoost's expanded CART controls follow sklearn 1.6.1
+`ensemble/_weight_boosting.py`, `ensemble/_base.py` and `tree/_classes.py`.
+AdaBoost.R2 reuses the existing shared tree translation and follows Source
+masked loss reduction, cumulative weighted medians, explicit-base seed ordering
+and weighted RegressorMixin scores. Typed setters, constructor-mode storage,
+registry/search integration and controlled finite-parameter diagnostics are
+original MIT contributions. Existing sklearn/NumPy BSD notices remain retained.
+
 Classic boosting validation stopping follows scikit-learn 1.6.1
 `ensemble/_gb.py` `BaseGradientBoosting.fit` and `_fit_stages`: training/holdout
 partitioning, pre-split weighted class validation, the circular loss window,

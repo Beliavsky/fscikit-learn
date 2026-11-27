@@ -51,7 +51,7 @@ old component budgets and apply updated controls to new trees. Unfitted clones
 and pruning-path copies preserve the selected mode. Gradient boosting retains
 its own typed feature-budget interface.
 
-CART, ExtraTree, random-forest, ExtraTrees and classic gradient-boosting
+CART, ExtraTree, random-forest, ExtraTrees, AdaBoost and classic gradient-boosting
 classifiers/regressors accept typed minimum sample counts:
 
 ```fortran
@@ -1742,6 +1742,12 @@ stages = model%staged_predict_proba(x)
 Optional sample_weight is accepted by fit, score and staged_score. The default
 weak learner is a Gini stump; max_depth, min_samples_split, min_samples_leaf,
 max_features, min_impurity_decrease, criterion and splitter configure CART.
+Both AdaBoost variants also accept `max_leaf_nodes` (zero means None),
+`ccp_alpha` and `min_weight_fraction_leaf`. Use `set_min_samples_leaf`,
+`set_min_samples_split` and `set_max_features` for typed integer/real controls;
+feature budgets also accept `sqrt`, `log2` and `none`. Integer feature budgets
+may exceed the input width, matching sklearn. Fractions remain constructor
+parameters on every component and resolve again when a component is refitted.
 predict_log_proba and staged_score are also available. estimators_ contains
 retained fitted trees and estimator_ the unfitted prototype. AdaBoost is a
 supported classifier tail in Pipeline and a base for voting, bagging and
@@ -2030,14 +2036,29 @@ stages=model%staged_predict(query) ! (n_query,n_estimators_)
 scores=model%staged_score(x,y)
 ```
 
-`score` returns unweighted R2. Optional fit weights must be finite,
+`score` and `staged_score` accept optional `sample_weight` and return R2.
+Optional fit weights must be finite,
 nonnegative and have a positive finite sum. Controls include learning_rate,
 min_samples_split, min_samples_leaf, max_features (zero means all), and
-min_impurity_decrease. Fitted attributes are n_features_in_, n_estimators_,
+min_impurity_decrease, plus the typed/pruning controls described for AdaBoost
+classification. Regression tree `criterion` accepts `squared_error` (default),
+`friedman_mse`, `absolute_error` and `poisson`; `splitter` accepts `best` and
+`random`. The Poisson criterion requires suitable nonnegative targets on each
+bootstrapped fit. Fitted attributes are n_features_in_, n_estimators_,
 estimators_, estimator_weights_, estimator_errors_, and feature_importances_.
 The weights/errors retain requested n_estimators slots, with unused slots 0/1;
 estimators_ contains only retained trees. Each tree supports predict, apply,
 get_depth and get_n_leaves. See COVERAGE.md for the supported base learner.
+
+Both variants support parameter search with the corresponding tree names,
+such as `estimator__ccp_alpha`, `estimator__max_features` and
+`estimator__min_samples_leaf`. Native flat aliases remain available.
+`estimator__random_state` sets `tree_random_state` on the unfitted prototype;
+boosting overrides each fitted component seed, as in sklearn. Native registry
+integration uses the explicit DecisionTree base convention, including nested
+tree/ensemble seed ordering. AdaBoost.R2 also works in pipelines, voting,
+bagging, stacking and SelectFromModel. Arbitrary base estimator objects remain
+outside this interface; the controls represent explicit native CART bases.
 
 
 ## QuantileRegressor

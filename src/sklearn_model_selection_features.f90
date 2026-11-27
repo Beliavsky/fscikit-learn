@@ -1,6 +1,8 @@
 ! SelectFromModel contracts: sklearn 1.6.1 feature_selection/_from_model.py
 ! and _base.py (BSD-3-Clause). Native adapters are original MIT contributions.
 module sklearn_model_selection_features
+  use sklearn_adaboost,only:adaboost_classifier
+  use sklearn_adaboost_regression,only:adaboost_regressor
   use sklearn_classic_gradient_boosting,only:reset_boosting_fit
   use sklearn_sgd_clone, only: reset_sgd_fit
   use sklearn_common, only: dp,require,check_x,check_xy,argsort
@@ -87,6 +89,8 @@ contains
       fitted=allocated(model%estimators_)
     type is(gradient_boosting_regressor)
       fitted=allocated(model%estimators_)
+    type is(adaboost_regressor)
+      fitted=allocated(model%estimators_)
     type is(gradient_boosting_classifier)
       fitted=allocated(model%estimators_)
     end select
@@ -141,7 +145,13 @@ contains
       type is(gradient_boosting_regressor)
         if(allocated(model%feature_importances_)) vector=model%feature_importances_
         coefficients=.false.
+      type is(adaboost_regressor)
+        if(allocated(model%feature_importances_)) vector=model%feature_importances_
+        coefficients=.false.
       type is(gradient_boosting_classifier)
+        if(allocated(model%feature_importances_)) vector=model%feature_importances_
+        coefficients=.false.
+      type is(adaboost_classifier)
         if(allocated(model%feature_importances_)) vector=model%feature_importances_
         coefficients=.false.
       class default
@@ -389,6 +399,8 @@ contains
     class is(random_forest_regressor)
       call model%fit(x,y,sample_weight)
     type is(gradient_boosting_regressor)
+      call model%fit(x,y,sample_weight)
+    type is(adaboost_regressor)
       call model%fit(x,y,sample_weight)
     class default
       call train_regressor(model,x,y,sample_weight)

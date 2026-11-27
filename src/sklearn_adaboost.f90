@@ -2,6 +2,7 @@
 ! Weighted CART and NumPy 2.2.6 reduction association; retained BSD notices.
 module sklearn_adaboost
   use sklearn_common, only: dp,require,check_x,check_xy,unique_labels
+  use sklearn_tree_features,only:feature_count_control,sample_count_control
   use sklearn_tree, only: decision_tree_classifier
   use sklearn_legacy_rng, only: legacy_random_state
   use sklearn_ieee_math, only: ieee_difference,ieee_product,ieee_quotient,ieee_argmax
@@ -21,7 +22,18 @@ module sklearn_adaboost
     real(dp) :: min_impurity_decrease=0
     type(decision_tree_classifier) :: estimator_
     type(decision_tree_classifier), allocatable :: estimators_(:)
+    integer::max_leaf_nodes=0
+    real(dp)::ccp_alpha=0,min_weight_fraction_leaf=0
+    type(feature_count_control),private::feature_control_
+    type(sample_count_control),private::leaf_control_,split_control_
+    type(decision_tree_classifier),private::prototype_
   contains
+    procedure,private::features_integer=>ada_features_integer,features_real=>ada_features_real,features_name=>ada_features_name
+    generic::set_max_features=>features_integer,features_real,features_name
+    procedure,private::leaf_integer=>ada_leaf_integer,leaf_real=>ada_leaf_real
+    procedure,private::split_integer=>ada_split_integer,split_real=>ada_split_real
+    generic::set_min_samples_leaf=>leaf_integer,leaf_real
+    generic::set_min_samples_split=>split_integer,split_real
     procedure :: fit=>ada_fit
     procedure :: decision_function=>ada_decision
     procedure :: predict=>ada_predict
@@ -34,6 +46,55 @@ module sklearn_adaboost
     procedure :: staged_score=>ada_staged_score
   end type
 contains
+  subroutine ada_features_integer(self,value)
+    class(adaboost_classifier),intent(inout)::self
+    integer,intent(in)::value
+    call self%prototype_%set_max_features(value)
+    self%max_features=value
+    call self%feature_control_%reset()
+  end subroutine
+  subroutine ada_features_real(self,value)
+    class(adaboost_classifier),intent(inout)::self
+    real(dp),intent(in)::value
+    call self%prototype_%set_max_features(value)
+    self%max_features=0
+    call self%feature_control_%set(value)
+  end subroutine
+  subroutine ada_features_name(self,value)
+    class(adaboost_classifier),intent(inout)::self
+    character(*),intent(in)::value
+    call self%prototype_%set_max_features(value)
+    self%max_features=0
+    call self%feature_control_%set(value)
+  end subroutine
+  subroutine ada_leaf_integer(self,value)
+    class(adaboost_classifier),intent(inout)::self
+    integer,intent(in)::value
+    call self%prototype_%set_min_samples_leaf(value)
+    self%min_samples_leaf=value
+    call self%leaf_control_%reset()
+  end subroutine
+  subroutine ada_leaf_real(self,value)
+    class(adaboost_classifier),intent(inout)::self
+    real(dp),intent(in)::value
+    call self%prototype_%set_min_samples_leaf(value)
+    self%min_samples_leaf=0
+    call self%leaf_control_%set(value)
+  end subroutine
+  subroutine ada_split_integer(self,value)
+    class(adaboost_classifier),intent(inout)::self
+    integer,intent(in)::value
+    call self%prototype_%set_min_samples_split(value)
+    self%min_samples_split=value
+    call self%split_control_%reset()
+  end subroutine
+  subroutine ada_split_real(self,value)
+    class(adaboost_classifier),intent(inout)::self
+    real(dp),intent(in)::value
+    call self%prototype_%set_min_samples_split(value)
+    self%min_samples_split=0
+    call self%split_control_%set(value)
+  end subroutine
   real(dp) function plus(a,b) result(value)
     real(dp), intent(in) :: a,b
     value=ieee_difference(a,-b)
@@ -86,20 +147,29 @@ contains
     integer, allocatable :: prediction(:)
     logical, allocatable :: positive(:),incorrect(:)
     real(dp) :: error,weight,total,delta,log_weight
-    integer :: n,p,k,i,t,left,right
+    integer :: n,p,k,i,t,left,right,min_leaf,min_split,nf
     call check_xy(x,size(y));n=size(y);p=size(x,2)
     call require(self%n_estimators>0,'AdaBoost n_estimators must be positive')
     call require(self%random_state>=0,'AdaBoost random_state must be nonnegative')
     call require(ieee_is_finite(self%learning_rate),'nonfinite AdaBoost learning rate')
     call require(self%learning_rate>0,'AdaBoost learning rate must be positive')
-    call require(self%max_depth>=1.and.self%min_samples_split>=2.and.self%min_samples_leaf>=1, &
+    call require(self%max_depth>=1.and.(self%min_samples_split>=2.or.self%split_control_%fractional(self%min_samples_split)).and. &
+      (self%min_samples_leaf>=1.or.self%leaf_control_%fractional(self%min_samples_leaf)), &
       'invalid AdaBoost CART size controls')
-    call require(self%max_features>=0.and.self%max_features<=p,'invalid AdaBoost CART max_features')
+    call require(self%max_features>=0,'invalid AdaBoost CART max_features')
     call require(any(self%criterion==['gini    ','entropy ','log_loss']),'invalid AdaBoost CART criterion')
     call require(self%splitter=='best'.or.self%splitter=='random','invalid AdaBoost CART splitter')
     call require(ieee_is_finite(self%min_impurity_decrease),'AdaBoost CART impurity decrease must be finite')
     call require(self%min_impurity_decrease>=0,'negative AdaBoost CART impurity decrease')
     call require(maxval(abs(x))<=real(huge(1._real32),dp),'AdaBoost input exceeds float32 range')
+    min_leaf=self%leaf_control_%resolve(self%min_samples_leaf,size(y),1,.false.)
+    min_split=self%split_control_%resolve(self%min_samples_split,size(y),2,.true.)
+    nf=self%feature_control_%resolve(self%max_features,size(x,2),.false.)
+    call require(self%max_leaf_nodes==0.or.self%max_leaf_nodes>=2,'AdaBoost max_leaf_nodes must be zero or at least two')
+    call require(ieee_is_finite(self%ccp_alpha),'AdaBoost ccp_alpha must be finite')
+    call require(self%ccp_alpha>=0,'AdaBoost ccp_alpha must be nonnegative')
+    call require(ieee_is_finite(self%min_weight_fraction_leaf),'AdaBoost weighted leaf fraction must be finite')
+    call require(self%min_weight_fraction_leaf>=0.and.self%min_weight_fraction_leaf<=.5_dp,'AdaBoost weighted leaf fraction must be in [0,.5]')
     self%classes_=unique_labels(y);k=size(self%classes_);w=spread(1._dp,1,n)
     if(present(sample_weight)) then
       call require(size(sample_weight)==n,'AdaBoost sample weight count mismatch')
@@ -118,12 +188,14 @@ contains
       self%stump_threshold_,self%estimator_weights_,self%estimator_errors_,self%feature_importances_)
     if(allocated(self%estimators_)) deallocate(self%estimators_)
     allocate(self%estimators_(self%n_estimators))
-    self%estimator_=decision_tree_classifier()
+    self%estimator_=self%prototype_
     self%estimator_%max_depth=self%max_depth;self%estimator_%min_samples_split=self%min_samples_split
     self%estimator_%min_samples_leaf=self%min_samples_leaf;self%estimator_%max_features=self%max_features
     self%estimator_%criterion=self%criterion;self%estimator_%random_thresholds=self%splitter=='random'
     self%estimator_%min_impurity_decrease=self%min_impurity_decrease
     self%estimator_%random_state=self%tree_random_state
+    self%estimator_%max_leaf_nodes=self%max_leaf_nodes;self%estimator_%ccp_alpha=self%ccp_alpha
+    self%estimator_%min_weight_fraction_leaf=self%min_weight_fraction_leaf
     allocate(self%stump_feature_(self%n_estimators),self%stump_left_(self%n_estimators), &
       self%stump_right_(self%n_estimators),self%stump_threshold_(self%n_estimators))
     self%stump_feature_=0;self%stump_left_=self%classes_(1);self%stump_right_=self%classes_(1);self%stump_threshold_=0

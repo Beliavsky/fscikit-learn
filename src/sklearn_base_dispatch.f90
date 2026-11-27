@@ -17,6 +17,7 @@ module sklearn_base_dispatch
   use sklearn_kernel_ridge, only: kernel_ridge
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite,ieee_is_nan,ieee_value,ieee_quiet_nan
   use sklearn_legacy_rng, only: legacy_random_state
+  use sklearn_adaboost_regression,only:adaboost_regressor
   use sklearn_adaboost, only: adaboost_classifier
   implicit none
   private
@@ -55,6 +56,8 @@ contains
     type is(dummy_classifier)
       ok=allocated(model%classes_)
     type is(gradient_boosting_regressor)
+      ok=allocated(model%estimators_)
+    type is(adaboost_regressor)
       ok=allocated(model%estimators_)
     type is(adaboost_classifier)
       ok=model%n_estimators_>0
@@ -131,6 +134,8 @@ contains
       call model%fit(x,y)
     type is(gradient_boosting_regressor)
       call model%fit(x,y,weights)
+    type is(adaboost_regressor)
+      call model%fit(x,y,weights)
     class is(decision_tree_regressor)
       call model%fit(x,y,weights)
     type is(passive_aggressive_regressor)
@@ -197,6 +202,8 @@ contains
     type is(kneighbors_regressor)
       values=model%predict(x)
     type is(gradient_boosting_regressor)
+      values=model%predict(x)
+    type is(adaboost_regressor)
       values=model%predict(x)
     class is(decision_tree_regressor)
       values=model%predict(x)
@@ -269,6 +276,7 @@ contains
       class is(linear_regression)
       type is(kneighbors_regressor)
       type is(gradient_boosting_regressor)
+      type is(adaboost_regressor)
       class is(decision_tree_regressor)
       type is(kernel_ridge)
       type is(dummy_regressor)
@@ -294,6 +302,7 @@ contains
     type is(gradient_boosting_classifier)
     class is(decision_tree_classifier)
     type is(gradient_boosting_regressor)
+    type is(adaboost_regressor)
     class is(decision_tree_regressor)
     class is(ridge_classifier)
     type is(linear_svc)
@@ -415,6 +424,10 @@ contains
       model%random_state=value
     type is(gradient_boosting_regressor)
       model%random_state=value
+    type is(adaboost_regressor)
+      ! Explicit CART base: nested tree first, then the AdaBoost RNG.
+      model%tree_random_state=value
+      model%random_state=rng%integer_index(2147483647)-1
     type is(sgd_classifier)
       model%random_state=value
     type is(sgd_regressor)

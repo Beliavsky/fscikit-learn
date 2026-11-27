@@ -1,5 +1,24 @@
 # Validation
 
+AdaBoost CART controls (2026-11-27): `compare_ada_tree_controls.py --kind
+regression/classification --executable PATH --report PATH` uses
+`reference_ada_tree_controls_driver` for 768 regression/576 classification
+configurations with complete trees, pruning, typed controls, stages, scores
+and seeds. Undefined Source importances retain their raw reference and a named
+existing native convention. `check_ada_tree_controls.py` with
+`reference_ada_controls_invalid_driver` compares actual Source parameter/sample
+weight acceptance and controlled rejections. Initial R2 NaN guard traps remain
+saved. `test_adaboost_tree_controls` verifies component refits, constructor mode
+retention, clone independence, nested seeds and prototype state.
+
+`compare_ada_regression_integration.py` / `compare_ada_classification_integration.py`
+use their matching `reference_ada_*_integration_driver` for fitted-template
+search, selection, pipelines, voting, bagging and stacking. Each uses
+`--executable PATH --report PATH`. The legacy regression comparator also accepts
+these arguments while preserving all 36 original fixtures and bounds. The
+legacy SAMME comparator retains its former oversized-feature diagnostic as
+actual Source acceptance. Evidence remains in ignored `ada_controls_*` files.
+
 Classic boosting validation stopping (2026-11-27):
 `compare_gbr_early_stopping.py` and `compare_gbc_early_stopping.py` use
 `reference_gbr_early_driver` and `reference_gbc_early_driver` to compare full

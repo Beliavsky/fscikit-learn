@@ -1,5 +1,7 @@
 ! Internal typed estimator adapters for sklearn-style parameter search (MIT).
 module sklearn_search_adapters
+  use sklearn_adaboost,only:adaboost_classifier
+  use sklearn_adaboost_regression,only:adaboost_regressor
   use sklearn_classic_gradient_boosting,only:reset_boosting_fit
   use sklearn_common, only: dp,require,label_index,unique_labels
   use sklearn_parameter_space, only: parameter_set,parameter_value
@@ -79,6 +81,24 @@ contains
         call require(name(:separator-1)=='estimator','search unknown SelectFromModel child')
         call require(allocated(model%estimator),'search selector estimator is unallocated')
         call set_parameter(model%estimator,name(separator+2:),value);return
+      type is(adaboost_classifier)
+        call require(name(:separator-1)=='estimator','search unknown AdaBoost child')
+        if(name(separator+2:)=='random_state')then
+          model%tree_random_state=value%as_integer();return
+        end if
+        call require(any(name(separator+2:)==[character(32)::'max_depth','min_samples_leaf','min_samples_split', &
+          'max_features','criterion','splitter','min_impurity_decrease','max_leaf_nodes','ccp_alpha', &
+          'min_weight_fraction_leaf']),'search unsupported AdaBoost tree parameter')
+        call set_parameter(model,name(separator+2:),value);return
+      type is(adaboost_regressor)
+        call require(name(:separator-1)=='estimator','search unknown AdaBoost child')
+        if(name(separator+2:)=='random_state')then
+          model%tree_random_state=value%as_integer();return
+        end if
+        call require(any(name(separator+2:)==[character(32)::'max_depth','min_samples_leaf','min_samples_split', &
+          'max_features','criterion','splitter','min_impurity_decrease','max_leaf_nodes','ccp_alpha', &
+          'min_weight_fraction_leaf']),'search unsupported AdaBoost tree parameter')
+        call set_parameter(model,name(separator+2:),value);return
       type is(transformed_target_regressor)
         call require(name(:separator-1)=='regressor','search unknown target-regressor child')
         call require(allocated(model%regressor),'search target regressor is unallocated')
@@ -336,6 +356,75 @@ contains
         case default;call model%set_max_features(value%as_integer())
         end select
       case('random_state');model%random_state=value%as_integer()
+      case default;done=.false.
+      end select
+    type is(adaboost_classifier)
+      select case(name)
+      case('n_estimators');model%n_estimators=value%as_integer()
+      case('random_state');model%random_state=value%as_integer()
+      case('tree_random_state');model%tree_random_state=value%as_integer()
+      case('learning_rate');model%learning_rate=value%as_real()
+      case('max_depth');model%max_depth=value%as_integer()
+      case('criterion');model%criterion=value%as_text()
+      case('splitter');model%splitter=value%as_text()
+      case('min_impurity_decrease');model%min_impurity_decrease=value%as_real()
+      case('max_leaf_nodes');model%max_leaf_nodes=value%as_integer()
+      case('ccp_alpha');model%ccp_alpha=value%as_real()
+      case('min_weight_fraction_leaf');model%min_weight_fraction_leaf=value%as_real()
+      case('min_samples_leaf')
+        if(value%kind==1)then
+          call model%set_min_samples_leaf(value%as_real())
+        else
+          call model%set_min_samples_leaf(value%as_integer())
+        end if
+      case('min_samples_split')
+        if(value%kind==1)then
+          call model%set_min_samples_split(value%as_real())
+        else
+          call model%set_min_samples_split(value%as_integer())
+        end if
+      case('max_features')
+        select case(value%kind)
+        case(1);call model%set_max_features(value%as_real())
+        case(3);done=.false.
+        case(4);call model%set_max_features(value%as_text())
+        case default;call model%set_max_features(value%as_integer())
+        end select
+      case default;done=.false.
+      end select
+    type is(adaboost_regressor)
+      select case(name)
+      case('n_estimators');model%n_estimators=value%as_integer()
+      case('random_state');model%random_state=value%as_integer()
+      case('tree_random_state');model%tree_random_state=value%as_integer()
+      case('learning_rate');model%learning_rate=value%as_real()
+      case('max_depth');model%max_depth=value%as_integer()
+      case('criterion');model%criterion=value%as_text()
+      case('splitter');model%splitter=value%as_text()
+      case('min_impurity_decrease');model%min_impurity_decrease=value%as_real()
+      case('max_leaf_nodes');model%max_leaf_nodes=value%as_integer()
+      case('ccp_alpha');model%ccp_alpha=value%as_real()
+      case('min_weight_fraction_leaf');model%min_weight_fraction_leaf=value%as_real()
+      case('min_samples_leaf')
+        if(value%kind==1)then
+          call model%set_min_samples_leaf(value%as_real())
+        else
+          call model%set_min_samples_leaf(value%as_integer())
+        end if
+      case('min_samples_split')
+        if(value%kind==1)then
+          call model%set_min_samples_split(value%as_real())
+        else
+          call model%set_min_samples_split(value%as_integer())
+        end if
+      case('max_features')
+        select case(value%kind)
+        case(1);call model%set_max_features(value%as_real())
+        case(3);done=.false.
+        case(4);call model%set_max_features(value%as_text())
+        case default;call model%set_max_features(value%as_integer())
+        end select
+      case('loss');model%loss=value%as_text()
       case default;done=.false.
       end select
     type is(gradient_boosting_classifier)

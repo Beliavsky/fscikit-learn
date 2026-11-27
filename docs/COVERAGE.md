@@ -145,6 +145,34 @@ Fortran identifiers use snake_case rather than CamelCase.
 | calibration | `calibrated_classifier_cv`; `calibration_curve` | Sigmoid/isotonic CV ensembles, out-of-fold calibration and prefit calibration with logistic, Gaussian NB or KNN bases; uniform/quantile reliability bins |
 | datasets | `make_classification`, `make_multilabel_classification`, `make_sparse_coded_signal`, `make_sparse_spd_matrix`, `make_biclusters`, `make_checkerboard`, `make_hastie_10_2`, `make_blobs`, `make_regression`, `make_low_rank_matrix`, `make_moons`, `make_circles`, `make_friedman1/2/3`, `make_sparse_uncorrelated`, `make_s_curve`, `make_swiss_roll`, `make_gaussian_quantiles` | Native synthetic generators with seeded legacy NumPy draws; scalar/joint regression, low-rank profiles, unequal blob/curve counts, per-cluster blob scales and center outputs; no bundled real-world datasets |
 
+## AdaBoost tree controls and shared regression backend
+
+Both AdaBoost counterparts support typed minimum sample counts and integer,
+fractional or named feature budgets, leaf budgets, weighted leaf minima and
+cost-complexity pruning. Positive oversized feature budgets are accepted, as
+in sklearn. Constructor modes propagate to component trees and survive refits
+on new row/feature counts. AdaBoost.R2 uses the shared full CART backend,
+including complete learned tree state, all four regression criteria and both
+splitters. Its existing 36 inputs/Source oracles and 1,649 result groups remain
+preserved. NumPy-style masked reductions and cumulative weighted medians follow
+the Source boosting controller.
+
+AdaBoost.R2 now supports weighted score/staged_score, typed parameter search,
+feature selection and the shared pipeline/voting/bagging/stacking registry.
+Both variants accept supported `estimator__...` tree parameters; nested seed
+ordering follows sklearn's explicit DecisionTree base convention. Arbitrary
+estimator objects and sparse fitting remain outside the interface.
+
+New references cover 768 regression/576 classification complete boosting
+configurations and 12 composition fixtures for each target kind. The reports
+retain Source weak-learner failures and the existing native zero-importance
+convention when the Source zero-total-weight importance property is undefined.
+Integer fields are exact and new floating checks use rtol 2e-11 / atol 2e-12.
+Parameter validation also covers nonfinite controls and sample weights; the
+initial R2 NaN guard traps and their executable are retained. The former
+native-only oversized-feature rejection is retained as Source acceptance.
+Evidence is retained under ignored `validation/results/ada_controls_*`.
+
 ## Validation stopping for classic gradient boosting
 
 Classic GradientBoostingRegressor and GradientBoostingClassifier support
@@ -1850,8 +1878,8 @@ No public extension or runtime dependency was added.
 `adaboost_classifier` implements sklearn 1.6.1 discrete SAMME with native
 weighted CART weak learners. Defaults are 50 rounds, learning_rate=1,
 max_depth=1, criterion='gini', splitter='best', random_state=0. Configure
-max_depth, min_samples_split, min_samples_leaf, integer max_features (0 means
-all), min_impurity_decrease, criterion ('gini', 'entropy', 'log_loss') and
+max_depth, typed min_samples_split/min_samples_leaf/max_features (0 means
+all features), pruning/leaf-budget controls, min_impurity_decrease, criterion ('gini', 'entropy', 'log_loss') and
 splitter ('best', 'random'). These controls correspond to an explicit
 DecisionTreeClassifier base in Python; arbitrary estimator objects, sparse
 inputs, SAMME.R, class weights and monotonic constraints are not implemented.
