@@ -1320,6 +1320,20 @@ bagging and stacking retain the configured subsample fraction. These are
 sklearn algorithm features; no extension algorithm or runtime dependency is
 introduced.
 
+Warm-start implementation `b581013` passes 1,128 sequential snapshots
+(504 regression/624 classification, including four expected rejections),
+28 fitted-template composition fixtures and 89 input checks in checked and
+scoped optimized builds. Comparisons cover complete trees, initializer/RNG
+retention, equal counts, parameter/data/loss changes, OOB transitions and signed
+weight degeneracy. Initial oracle prefixes, later non-finite cases and strict
+numeric bounds remain preserved. All 301 native tests, ten examples, previous
+tree/forest/boosting gates, 510 legacy classifier groups and 192 core comparisons
+pass. The audit records 349 successful jobs, 862 compiled fingerprints and 204
+library units, with source/binary hashes and documented validation-only Windows
+runtime linking. The optimized scope uses 14 fresh affected modules and matching
+unchanged checked dependencies. Evidence and initial failures remain under
+`validation/results/gb_warm_*`.
+
 Classic warm starts retain fitted initializers, trees, histories and MT19937
 state while appending newly requested stages. The current learning rate, loss,
 tree controls, data and weights are applied as sklearn does; changing the seed

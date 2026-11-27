@@ -1,5 +1,36 @@
 # Validation
 
+Classic gradient boosting warm starts (2026-11-27, implementation `b581013`):
+run `compare_gb_warm_start.py --kind regression/classification` with
+`--executable PATH --report PATH`, using `reference_gbr_warm_driver` or
+`reference_gbc_warm_driver`. Add `--warm-start` (optionally with `--subsample`)
+to the existing composition comparators to test fitted warm-start templates.
+
+Checked and scoped optimized runs pass 1,128 sequential snapshots in 282 groups:
+504 regression and 624 classification snapshots, with four matching class-trim
+rejections retained. The original 448/560 snapshot prefixes and all final
+reference inputs/oracles remain unchanged. Full trees, stages, importances,
+initializers, losses, histories and learned metadata are compared with exact
+integer structures and rtol 2e-10 / atol 2e-12. Cases include equal-count calls,
+growth, cold resets, changed targets/row counts/weights, changed learning rates,
+losses/links and tree controls, ignored seed changes, OOB/full-data transitions,
+zero-sum signed weights, and undefined scoring. Degenerate non-finite internal
+gradients reproduce the reference tree path while public tree inputs remain
+finite-only. Initial wrong guard assumptions and implementation failures remain
+saved under results; no cases or numeric bounds were relaxed.
+
+All 28 fitted-template warm composition fixtures pass, including weighted
+search, selection, pipelines, voting, bagging indices/seeds/OOB and stacking.
+All 89 input checks pass. The full checked fpm build, 301 native tests, ten
+selected examples, earlier forest/tree/feature/bootstrap and boosting gates,
+510 legacy classifier groups and 192 core comparisons pass. The audit verifies
+349 jobs, 862 compiled fingerprints and 204 library units, plus source/binary
+hashes and earlier oracle identities. Optimized verification covers 14 fresh
+tree/loss/boosting/dispatch/ensemble/clone-integration modules with matching
+unchanged checked dependencies. Both profiles use the documented validation-only
+static-libgfortran locale-copy link; unprotected Windows runtime stability is
+not established. Evidence is under ignored `validation/results/gb_warm_*`.
+
 Stochastic classic gradient boosting (2026-11-27, implementation `f3a0e4b`):
 run `compare_gbr_subsample.py` and `compare_gbc_subsample.py` with
 `--executable PATH --report PATH` and the corresponding
