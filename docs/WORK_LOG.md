@@ -9695,3 +9695,77 @@ Evidence remains under ignored validation/results/huber_* with the verified
 compressed backup huber_evidence_6971c92.zip. All commits are local. Remaining
 strict fitted-path differences and the broader sklearn translation are still
 unfinished work.
+
+
+### 2026-11-27 ? RANSAC sampling, weighted CSR and joint targets
+
+Implementation `24036fc` replaces RANSAC's global Fortran random stream with
+the existing NumPy-compatible local MT19937 and auto sampling-without-replacement
+backend. Tracking, permutation and reservoir paths preserve source subset
+order. Typed minimum samples, skip limits, data/model validation callbacks and
+custom row losses join weighted dense/CSR OLS subset fitting and final refits.
+Vector, column and joint targets are supported through the existing OLS solver.
+`estimator_` retains the fitted direct base, and inherited aliases retain native
+compatibility. Common weighted fitting and scalar/nested search controls reach
+RANSAC's own methods. Arbitrary base-estimator objects remain unsupported.
+No new estimator name, extension algorithm or runtime dependency is added;
+MIT integration retains sklearn and NumPy attribution.
+
+The loop preserves Source's initial best inlier count, NaN score comparisons,
+NaN custom-residual exclusion, dynamic trial cap, skip-before-sampling check,
+last-fit counters and unweighted consensus scoring. Real min_samples=1.0 means
+one sample, while fractions strictly below one use ceil(fraction*n). Typed
+integer zero is rejected; clear_min_samples restores the native None sentinel.
+Weighted scoring corresponds to Source's explicit metadata-routed base-score
+request. CSR callbacks receive a dense selected subset; fitting itself preserves
+CSR storage without constructing a full dense design. Native per-target
+intercept vectors broadcast Source scalar zeros. Native coefficient aliases
+correspond to Source SelectFromModel's explicit estimator_.coef_ getter.
+
+A first native probe exposed an unallocated logical inlier mask. Allocating it
+before iteration fixes the actual invalid-memory access; the failing binary,
+source, input and debugger output are retained. Initial reference harness
+errors around Source's score routing and nested coefficient getter are also
+retained separately. Their fixes do not change fitted Source oracles. Every
+fixture executes independently so one unexpected rejection cannot truncate
+later comparisons.
+
+The full reference inventory retains 714 configurations: the original 498-case
+prefix plus 216 appended unsorted/duplicate/explicit-zero CSR cases. All 216
+appended cases match. Source has 599 successful fits and 115 fit rejections;
+697 configurations match completely. Seventeen dense zero-threshold cases
+with a one-observation non-intercept OLS subset retain strict differences from
+Source: ten Source rejections are accepted natively, one Source fit is rejected
+natively, four fitted outputs and two counters differ. Exact-zero membership
+is sensitive to underlying SVD rounding. These are retained failures at the
+original rtol/atol 3e-8, without threshold changes, exclusions or replacement
+expected values. Every nonzero-threshold configuration matches.
+
+All 86 actual Source parameter/weight checks pass, including negative weights
+that are only rejected if selected for OLS fitting. All eight fitted-template
+composition fixtures match scores, predictions, sampled rows/features and
+selected best models. Two strict CV-rank comparisons remain false for candidates
+whose means differ by roughly 1e-15; their exact ranks are retained. Source
+uses explicit metadata routing for weighted pipeline scoring. These adapters
+are identified rather than being presented as full Python routing support.
+
+The checked fpm build succeeds. The package audit completes 324 jobs: all 306
+native programs, eleven selected examples, 192 core comparisons, all 213
+original robust/GLM groups, all 672 Ridge groups, 1,514 Huber objective/gradient
+checks and the 86 RANSAC guards pass. Two earlier Huber fitted suites retain
+their unchanged six and four strict mismatch inventories, so 322 of these jobs
+pass. The two new RANSAC fitted suites separately retain the seventeen and two
+mismatches above. All 891 compiled-unit fingerprints (205 library units) match
+current sources. Scoped O3 validation rebuilds nine modules against matching
+checked dependencies, runs fourteen native programs and all nine reference
+suites, and retains the same mismatch inventories. This is not a full optimized
+package rebuild or a claim of complete Source parity.
+
+The cross-profile audit verifies current source/executable/object hashes and
+unchanged Source inputs, fitted oracles, the original 498-case prefix and all
+213 legacy robust/GLM groups. GNU Fortran 15.2.0 checks retain static libgfortran
+and the validation-only locale-copy wrapper for the separately reproduced
+Windows formatted-I/O lifetime defect. Installed compilers are unchanged.
+Evidence and failures remain under ignored validation/results/ransac_* with
+the verified compressed backup ransac_evidence_24036fc.zip. Commits are local;
+the strict numeric/rank differences and the broader translation remain open.
