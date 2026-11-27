@@ -59,8 +59,8 @@ def main():
             if case == 22: alpha = 1000.
             if case == 23: alpha = 0.; y = 2 + x @ (np.arange(p)/p); nonunique = n < p
             if alpha == 0 and np.count_nonzero(w) < p + int(intercept): nonunique = True
-            data = RESULTS / "quantile_input.txt"
-            output = RESULTS / "quantile_actual.txt"
+            data = args.report.with_suffix(".in") if args.report else RESULTS / "quantile_input.txt"
+            output = args.report.with_suffix(".out") if args.report else RESULTS / "quantile_actual.txt"
             with data.open("w") as stream:
                 stream.write(f"{n} {p} {int(intercept)}\n{quantile} {alpha} 1e-10 10000\n")
                 np.savetxt(stream, np.column_stack([x, y, w]), fmt="%.17g")

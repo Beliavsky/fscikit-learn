@@ -10301,3 +10301,22 @@ diagnostics and logs are retained. Final validation will use the completed
 coherent fpm library, including a separate public-facade CV smoke check.
 Existing Source fixtures/tolerances are unchanged. The broader translation
 and previously documented numerical gaps remain open; commits stay local.
+
+
+### Legacy quantile validator file isolation
+
+Concurrent checked and optimized legacy comparisons exposed shared temporary
+input/output filenames in compare_quantile_regression.py. The optimized run
+read 43 prediction rows while checking a 57-row fixture; this is a test-harness
+race, not an estimator comparison result. All other optimized checks and the
+checked comparisons completed, but neither overlapping legacy run is accepted
+as independent profile evidence. Their initial audit/report/logs and the final
+shared files are preserved under quantile_integration_*.
+
+When --report is provided, the validator now derives its temporary input/output
+paths from that report, isolating profiles. Default paths for old invocations
+are retained. Fixtures, oracle values, comparison criteria and tolerances are
+unchanged. Both legacy profiles will be rerun with isolated files; the scoped
+optimized audit will be rerun and the checked audit will explicitly record
+its replay and validator hash. Fortran sources and the completed build are
+unchanged by this harness correction.
