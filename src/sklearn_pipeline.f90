@@ -613,8 +613,11 @@ contains
     type is(transformed_target_regressor)
       value=model%score(x,y,w)
     class is(tweedie_regressor)
-      call require(.not.present(w),'Pipeline native GLM score does not support weights')
-      value=model%score(x,y)
+      if(present(w))then
+        value=model%score(x,y,w)
+      else
+        value=model%score(x,y)
+      end if
     class default
       value=regression_score(y,regression_values(model,x),w,'Pipeline')
     end select

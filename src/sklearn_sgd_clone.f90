@@ -3,7 +3,7 @@
 ! Preserve constructor controls and discard learned state, as sklearn.base.clone.
 module sklearn_sgd_clone
   use sklearn_sgd, only: sgd_regressor,sgd_classifier
-  use sklearn_linear_model,only:huber_regressor
+  use sklearn_linear_model,only:huber_regressor,tweedie_regressor,poisson_regressor,gamma_regressor
   implicit none
   private
   public :: clone_sgd_parameters,reset_sgd_fit
@@ -39,6 +39,30 @@ contains
         type(huber_regressor)::copy
         copy%fit_intercept=model%fit_intercept;copy%positive=model%positive
         copy%epsilon=model%epsilon;copy%alpha=model%alpha;copy%tol=model%tol
+        copy%max_iter=model%max_iter;copy%warm_start=model%warm_start
+        model=copy
+      end block
+    type is(tweedie_regressor)
+      block
+        type(tweedie_regressor)::copy
+        copy%fit_intercept=model%fit_intercept;copy%positive=model%positive
+        copy%power=model%power;copy%link=model%link;copy%alpha=model%alpha;copy%tol=model%tol
+        copy%max_iter=model%max_iter;copy%warm_start=model%warm_start
+        model=copy
+      end block
+    type is(poisson_regressor)
+      block
+        type(poisson_regressor)::copy
+        copy%fit_intercept=model%fit_intercept;copy%positive=model%positive
+        copy%power=model%power;copy%link=model%link;copy%alpha=model%alpha;copy%tol=model%tol
+        copy%max_iter=model%max_iter;copy%warm_start=model%warm_start
+        model=copy
+      end block
+    type is(gamma_regressor)
+      block
+        type(gamma_regressor)::copy
+        copy%fit_intercept=model%fit_intercept;copy%positive=model%positive
+        copy%power=model%power;copy%link=model%link;copy%alpha=model%alpha;copy%tol=model%tol
         copy%max_iter=model%max_iter;copy%warm_start=model%warm_start
         model=copy
       end block

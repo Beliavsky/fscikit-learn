@@ -9769,3 +9769,56 @@ Windows formatted-I/O lifetime defect. Installed compilers are unchanged.
 Evidence and failures remain under ignored validation/results/ransac_* with
 the verified compressed backup ransac_evidence_24036fc.zip. Commits are local;
 the strict numeric/rank differences and the broader translation remain open.
+
+
+## Weighted GLMs, general Tweedie powers/links and warm starts (2026-11-27)
+
+Extended the existing damped eigen/Newton GLMs with normalized sample weights,
+scalar/vector fit weights, vector/one-column targets, warm coefficient reuse,
+fitted feature/power metadata, weighted D2 and parameter-only clone resets.
+Poisson and Gamma force their fixed loss/link through every dense overload.
+Tweedie now accepts finite real powers and identity/log/auto links, including
+negative powers, powers between zero and one, powers above two and log-link
+squared error. Added identity/log gradient and curvature formulas, positive
+trial checks, weighted initialization, and a gradient fallback when the
+positive-eigenspace step is not a descent direction. The intercept remains
+unpenalized and common nonzero weight scaling leaves the objective unchanged.
+
+Search adapters expose the applicable GLM parameters, common base dispatch
+accepts weighted GLMs, and Pipeline delegates weighted D2. Native one-column
+score flattening is explicitly identified as a convenience extension: an
+actual sklearn 1.6.1 probe rejects two-dimensional GLM scoring targets. No new
+non-sklearn estimator was added. The MIT package license and BSD attribution
+for the reference loss/contracts are retained.
+
+Reference validation covers 158 configurations and 301 successful Source fits,
+with scalar/vector/zero/signed weights, columns, two-step warm fits, explicit
+links, capped fits and five zero-iteration rejections. The first run found
+incorrect native acceptance of max_iter=0; the implementation now rejects it.
+The original executable and failed comparison are retained. Twenty-four
+separate Source/native invalid-input checks cover domains, controls, weights,
+shape and warm feature-count mismatches. Native tests also exercise weight
+scaling, row removal, clone reset, fitted-loss scoring and weighted Pipeline
+fit/score. The strict 3e-8 comparison contract is unchanged.
+
+Three configurations, indices 150, 151 and 153, retain D2 differences near
+powers one and two. Their coefficients agree closely; cancellation in the
+deviance evaluations makes scoring sensitive to evaluation order. These stay
+strict failures. Source default L-BFGS, exact Newton-Cholesky trajectories,
+warning/iteration-count parity, CSR fitting and extreme numerical domains
+remain gaps. This is progress within the existing sklearn estimators, not a
+claim that the broad translation is complete.
+
+
+Scoped optimized validation rebuilt ten modules with O3 and loop unrolling,
+ran sixteen native programs and eleven reference suites, and passed all native
+programs. Six reference suites pass; five retain the documented GLM, Huber
+and RANSAC numeric/rank differences. The new GLM failure inventory is exactly
+[150,151,153], with all 24 guards passing. Existing Huber/RANSAC inventories
+are unchanged. A byte comparison verifies that only the overridden linear
+model and Pipeline objects changed between the stable optimization baseline
+archive and the final checked library. This is scoped optimization, not a
+full optimized package rebuild. GNU Fortran 15.2.0 validation retains static
+libgfortran and the validation-only locale-copy wrapper; installed tools are
+unchanged. Full checked package verification is recorded in the follow-up
+verification entry.

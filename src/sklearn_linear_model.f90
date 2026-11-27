@@ -258,12 +258,15 @@ module sklearn_linear_model
     procedure :: fit_dense=>theil_sen_fit
   end type
   type, extends(linear_regression) :: tweedie_regressor
-    real(dp) :: power=0,alpha=1,tol=1.e-4_dp
+    real(dp) :: power=0,power_=0,alpha=1,tol=1.e-4_dp
     integer :: max_iter=100,n_iter_=0
     character(12) :: link='auto',link_='identity'
-    logical :: converged_=.false.
+    logical :: converged_=.false.,warm_start=.false.
   contains
     procedure :: fit_dense=>tweedie_fit
+    procedure :: fit_dense_weighted=>glm_fit_dw,fit_scalar_dw=>glm_fit_dws
+    procedure :: fit_matrix=>glm_fit_dm,fit_scalar_dm=>glm_fit_dms
+    procedure :: score_dw=>glm_score_dw,score_dm=>glm_score_dm
     procedure :: predict_dense=>glm_predict
     procedure :: score_dense=>glm_score
   end type
@@ -1080,15 +1083,15 @@ contains
     real(dp), intent(in) :: x(:,:),y(:)
     self%power=2; self%link='log'; call tweedie_fit(self,x,y)
   end subroutine
-  subroutine glm_objective(design,y,w,p,power,link,alpha,loss,g,h,valid)
-    real(dp), intent(in) :: design(:,:),y(:),w(:),power,alpha
+  subroutine glm_objective(design,y,w,p,power,link,alpha,loss,g,h,valid,weight)
+    real(dp), intent(in) :: design(:,:),y(:),w(:),power,alpha,weight(:)
     character(*), intent(in) :: link
     integer, intent(in) :: p
     real(dp), intent(out) :: loss,g(:),h(:,:)
     logical, intent(out) :: valid
-    real(dp) :: eta(size(y)),mu(size(y)),gradient(size(y)),curvature(size(y)),a(size(y)),b(size(y))
-    integer :: n,j
-    n=size(y); eta=matmul(design,w); valid=.true.; g=0; h=0; loss=huge(1._dp)
+    real(dp) :: eta(size(y)),mu(size(y)),gradient(size(y)),curvature(size(y)),a(size(y))
+    integer :: j
+    eta=matmul(design,w); valid=.true.; g=0; h=0; loss=huge(1._dp)
     if(link=='log') then
       valid=maxval(abs(eta))<0.25_dp*log(huge(1._dp))
       if(.not.valid) return
@@ -1096,22 +1099,46 @@ contains
     else
       mu=eta
     end if
-    if(power==0) then
-      loss=0.5_dp*sum((mu-y)**2)/n; gradient=mu-y; curvature=1
-    else if(power==1) then
-      loss=sum(mu-y*eta)/n; gradient=mu-y; curvature=mu
-    else if(power==2) then
-      a=y/mu; loss=sum(a+eta)/n; gradient=1-a; curvature=a
-    else
-      a=exp((2-power)*eta); b=y*exp((1-power)*eta)
-      ! Subtract eta-independent constants and avoid cancellation near p=1/2.
-      loss=sum(exponential_minus_one((2-power)*eta)/(2-power) &
-        -y*exponential_minus_one((1-power)*eta)/(1-power))/n
-      gradient=a-b; curvature=(2-power)*a+(power-1)*b
+    if(link=='identity'.and.power/=0) then
+      valid=all(mu>0)
+      if(.not.valid)return
     end if
+    if(power/=0)then
+      valid=maxval(abs(log(mu)))<0.25_dp*log(huge(1._dp))/max(2._dp,abs(2-power),abs(-power-1))
+      if(.not.valid)return
+    end if
+    if(power==0) then
+      a=0.5_dp*(mu-y)**2; gradient=mu-y; curvature=1
+      if(link=='log')then
+        gradient=gradient*mu;curvature=(2*mu-y)*mu
+      end if
+    else if(power==1) then
+      a=mu-y*log(mu);gradient=(mu-y)/mu;curvature=y/mu**2
+      if(link=='log')then
+        gradient=mu-y;curvature=mu
+      end if
+    else if(power==2) then
+      a=y/mu+log(mu);gradient=(1-y/mu)/mu;curvature=(2*y/mu-1)/mu**2
+      if(link=='log')then
+        gradient=1-y/mu;curvature=y/mu
+      end if
+    else
+      ! Eta-independent constants do not change the optimum. expm1 keeps
+      ! the objective well conditioned at powers close to one and two.
+      a=exponential_minus_one((2-power)*log(mu))/(2-power) &
+        -y*exponential_minus_one((1-power)*log(mu))/(1-power)
+      gradient=(mu-y)*mu**(-power)
+      curvature=mu**(-power)*(1-power*(1-y/mu))
+      if(link=='log')then
+        gradient=mu**(2-power)-y*mu**(1-power)
+        curvature=(2-power)*mu**(2-power)+(power-1)*y*mu**(1-power)
+      end if
+    end if
+    loss=numpy_sum(weight*a)/numpy_sum(weight)
+    gradient=gradient*weight/numpy_sum(weight);curvature=curvature*weight/numpy_sum(weight)
     loss=loss+0.5_dp*alpha*sum(w(:p)**2)
-    g=matmul(transpose(design),gradient)/n; g(:p)=g(:p)+alpha*w(:p)
-    h=matmul(transpose(design),design*spread(curvature,2,size(w)))/n
+    g=matmul(transpose(design),gradient); g(:p)=g(:p)+alpha*w(:p)
+    h=matmul(transpose(design),design*spread(curvature,2,size(w)))
     do j=1,p
       h(j,j)=h(j,j)+alpha
     end do
@@ -1125,32 +1152,80 @@ contains
     end if
   end function
   subroutine tweedie_fit(self,x,y)
+    class(tweedie_regressor),intent(inout)::self
+    real(dp),intent(in)::x(:,:),y(:)
+    call glm_fit_common(self,x,y)
+  end subroutine
+  subroutine glm_fit_dw(self,x,y,sample_weight)
+    class(tweedie_regressor),intent(inout)::self
+    real(dp),intent(in)::x(:,:),y(:),sample_weight(:)
+    call glm_fit_common(self,x,y,sample_weight)
+  end subroutine
+  subroutine glm_fit_dws(self,x,y,sample_weight)
+    class(tweedie_regressor),intent(inout)::self
+    real(dp),intent(in)::x(:,:),y(:),sample_weight
+    call glm_fit_common(self,x,y,spread(sample_weight,1,size(y)))
+  end subroutine
+  subroutine glm_fit_dm(self,x,y,sample_weight)
+    class(tweedie_regressor),intent(inout)::self
+    real(dp),intent(in)::x(:,:)
+    real(dp),intent(in)::y(:,:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    call require(size(y,2)==1,'GLM requires one target column')
+    call glm_fit_common(self,x,y(:,1),sample_weight)
+  end subroutine
+  subroutine glm_fit_dms(self,x,y,sample_weight)
+    class(tweedie_regressor),intent(inout)::self
+    real(dp),intent(in)::x(:,:)
+    real(dp),intent(in)::y(:,:),sample_weight
+    call require(size(y,2)==1,'GLM requires one target column')
+    call glm_fit_common(self,x,y(:,1),spread(sample_weight,1,size(y,1)))
+  end subroutine
+  subroutine glm_fit_common(self,x,y,sample_weight)
     class(tweedie_regressor), intent(inout) :: self
     real(dp), intent(in) :: x(:,:),y(:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    real(dp)::weight(size(y)),mean_y
     real(dp), allocatable :: design(:,:),w(:),trial(:),g(:),h(:,:),gt(:),ht(:,:),step(:),s(:),v(:,:)
     real(dp) :: loss,next,rate,cutoff
     integer :: n,p,q,it,ls
     logical :: valid
     call check_positive_regression(self)
     call check_xy(x,size(y)); call check_x(reshape(y,[size(y),1]))
-    call require(self%power==0.or.(self%power>=1.and.self%power<=2),'supported Tweedie powers are 0 or [1,2]')
+    select type(self)
+    class is(poisson_regressor)
+      self%power=1;self%link='log'
+    class is(gamma_regressor)
+      self%power=2;self%link='log'
+    end select
+    call require(all(ieee_is_finite([self%power,self%alpha,self%tol])),'GLM controls must be finite')
     call require(self%alpha>=0.and.self%tol>0.and.self%max_iter>0,'invalid GLM controls')
     self%link_=self%link
-    if(self%link=='auto') self%link_=merge('identity','log     ',self%power==0)
-    call require((self%power==0.and.self%link_=='identity').or.(self%power>=1.and.self%link_=='log'), &
-      'supported GLM links are identity for power 0 and log for powers [1,2]')
-    if(self%power>0.and.self%power<2) call require(all(y>=0),'GLM targets must be nonnegative')
-    if(self%power==2) call require(all(y>0),'Gamma targets must be positive')
-    if(self%link_=='log') call require(sum(y)>0,'log-link GLM requires a positive target mean')
+    if(self%link=='auto') self%link_=merge('identity','log     ',self%power<=0)
+    call require(self%link_=='identity'.or.self%link_=='log','GLM link must be auto, identity or log')
+    call glm_target_check(y,self%power)
+    weight=1
+    if(present(sample_weight))then
+      call require(size(sample_weight)==size(y),'GLM sample_weight length mismatch');weight=sample_weight
+    end if
+    call require(all(ieee_is_finite(weight)),'GLM sample weights must be finite')
+    call require(numpy_sum(weight)/=0,'GLM sample weights must have nonzero sum')
+    mean_y=numpy_sum(weight*y)/numpy_sum(weight)
+    if(self%link_=='log') call require(mean_y>0,'log-link GLM requires a positive weighted target mean')
     n=size(y); p=size(x,2); q=p
     if(self%fit_intercept) q=q+1
     allocate(design(n,q),w(q),trial(q),g(q),h(q,q),gt(q),ht(q,q),step(q),s(q),v(q,q))
     design(:,:p)=x; if(self%fit_intercept) design(:,q)=1
     w=0
-    if(self%fit_intercept) then
-      w(q)=sum(y)/n; if(self%link_=='log') w(q)=log(w(q))
+    if(self%warm_start.and.allocated(self%coef_))then
+      call require(size(self%coef_)==p,'GLM warm-start feature count mismatch')
+      w(:p)=self%coef_
+      if(self%fit_intercept)w(q)=self%intercept_
+    else if(self%fit_intercept)then
+      w(q)=mean_y
+      if(self%link_=='log')w(q)=log(mean_y)
     end if
-    call glm_objective(design,y,w,p,self%power,self%link_,self%alpha,loss,g,h,valid)
+    call glm_objective(design,y,w,p,self%power,self%link_,self%alpha,loss,g,h,valid,weight)
     call require(valid,'GLM initial prediction exceeds numerical range')
     self%converged_=.false.; self%n_iter_=0
     do it=1,self%max_iter
@@ -1160,10 +1235,12 @@ contains
       call symmetric_eigen(h,s,v); cutoff=epsilon(1._dp)*q*maxval(s)
       step=0
       where(s>cutoff) step=matmul(transpose(v),g)/max(s,tiny(1._dp))
-      step=matmul(v,step); rate=1
+      step=matmul(v,step)
+      if(dot_product(g,step)<=0)step=g
+      rate=1
       do ls=1,80
         trial=w-rate*step
-        call glm_objective(design,y,trial,p,self%power,self%link_,self%alpha,next,gt,ht,valid)
+        call glm_objective(design,y,trial,p,self%power,self%link_,self%alpha,next,gt,ht,valid,weight)
         if(valid.and.next<=loss-1.e-4_dp*rate*dot_product(g,step)) exit
         if(valid.and.abs(next-loss)<=8*epsilon(1._dp)*max(1._dp,abs(loss)) &
           .and.maxval(abs(gt))<maxval(abs(g))) exit
@@ -1173,6 +1250,7 @@ contains
       w=trial; g=gt; h=ht; loss=next; self%n_iter_=it
     end do
     if(maxval(abs(g))<=self%tol) self%converged_=.true.
+    self%power_=self%power;self%n_features_in_=p;self%n_targets_=1;self%matrix_target_=.false.
     self%coef_=w(:p); self%intercept_=0
     if(self%fit_intercept) self%intercept_=w(q)
   end subroutine
@@ -1201,6 +1279,10 @@ contains
       d=2*sum(term)/size(y)
     else if(power==2) then
       d=2*sum(log(mu/y)+y/mu-1)/size(y)
+    else if(power<0.or.power>2.or.(power>0.and.power<1))then
+      a=2-power;b=1-power
+      term=max(y,0._dp)**a/(a*b)-y*mu**b/b+mu**a/a
+      d=2*sum(term)/size(y)
     else
       a=2-power; b=1-power
       do i=1,size(y)
@@ -1218,16 +1300,54 @@ contains
       d=2*sum(term)/size(y)
     end if
   end function
+  subroutine glm_target_check(y,power)
+    real(dp),intent(in)::y(:),power
+    call require(size(y)>0,'GLM requires at least one target')
+    call require(all(ieee_is_finite(y)),'GLM targets must be finite')
+    if(power>0.and.power<2)call require(all(y>=0),'GLM targets must be nonnegative')
+    if(power>=2)call require(all(y>0),'GLM targets must be positive')
+  end subroutine
   real(dp) function glm_score(self,x,y) result(s)
     class(tweedie_regressor), intent(in) :: self
     real(dp), intent(in) :: x(:,:),y(:)
-    real(dp) :: null_deviance,mu(size(y))
-    call check_xy(x,size(y)); call check_x(reshape(y,[size(y),1]))
-    if(self%power>0.and.self%power<2) call require(all(y>=0),'GLM targets must be nonnegative')
-    if(self%power==2) call require(all(y>0),'Gamma targets must be positive')
-    call require(maxval(y)>minval(y),'D2 requires a nonconstant target')
-    mu=sum(y)/size(y); null_deviance=tweedie_deviance(y,mu,self%power)
-    s=1-tweedie_deviance(y,self%predict(x),self%power)/null_deviance
+    s=glm_score_common(self,x,y)
+  end function
+  real(dp) function glm_score_dw(self,x,y,sample_weight) result(s)
+    class(tweedie_regressor), intent(in) :: self
+    real(dp), intent(in) :: x(:,:),y(:),sample_weight(:)
+    s=glm_score_common(self,x,y,sample_weight)
+  end function
+  real(dp) function glm_score_dm(self,x,y,sample_weight) result(s)
+    class(tweedie_regressor), intent(in) :: self
+    real(dp), intent(in) :: x(:,:),y(:,:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    call require(size(y,2)==1,'GLM score requires one target column')
+    s=glm_score_common(self,x,y(:,1),sample_weight)
+  end function
+  real(dp) function glm_score_common(self,x,y,sample_weight) result(s)
+    class(tweedie_regressor), intent(in) :: self
+    real(dp), intent(in) :: x(:,:),y(:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    real(dp)::weight(size(y)),prediction(size(y)),mean_y,numerator,denominator,one(1),mu(1)
+    integer::i
+    call check_xy(x,size(y));call glm_target_check(y,self%power_)
+    weight=1
+    if(present(sample_weight))then
+      call require(size(sample_weight)==size(y),'GLM score sample_weight length mismatch');weight=sample_weight
+    end if
+    call require(all(ieee_is_finite(weight)),'GLM score weights must be finite')
+    call require(numpy_sum(weight)/=0,'GLM score weights must have nonzero sum')
+    mean_y=numpy_sum(weight*y)/numpy_sum(weight);prediction=self%predict(x)
+    if(self%power_/=0)then
+      call require(all(prediction>0).and.mean_y>0,'GLM deviance requires positive predictions and target mean')
+    end if
+    numerator=0;denominator=0
+    do i=1,size(y)
+      one=y(i);mu=prediction(i)
+      numerator=numerator+weight(i)*tweedie_deviance(one,mu,self%power_)
+      mu=mean_y;denominator=denominator+weight(i)*tweedie_deviance(one,mu,self%power_)
+    end do
+    s=1-ieee_quotient(numerator,denominator)
   end function
   ! Bayesian precision updates and OMP selection follow sklearn 1.6.1
   ! linear_model/_bayes.py and _omp.py. See THIRD_PARTY_NOTICES.md.

@@ -2789,3 +2789,13 @@ Typed callbacks, CSR row copies, owned result/parameter state and native
 search/dispatch bindings are original MIT integration. The base solver is
 the existing attributed dense/CSR LinearRegression backend. No new runtime
 dependency or extension algorithm is introduced.
+
+## Weighted GLM powers, links and warm starts
+
+The generalized linear model contracts and loss derivatives in
+`src/sklearn_linear_model.f90` follow scikit-learn 1.6.1
+`linear_model/_glm/glm.py`, `_loss/loss.py`, and `_loss/_loss.pyx.tp`.
+Scikit-learn is BSD-3-Clause; its notice is retained in
+`LICENSES/scikit-learn-COPYING`. The Fortran damped eigen/Newton optimizer,
+overloads, parameter adapters and clone integration are native MIT code.
+This does not import scikit-learn's L-BFGS or Newton-Cholesky solver.

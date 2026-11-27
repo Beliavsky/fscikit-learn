@@ -610,17 +610,20 @@ distances; cosine similarity; linear, RBF, polynomial and sigmoid kernels.
   best models match. Integer huge bounds are native
   adapters for unbounded Source count controls.
 - Poisson, Gamma and Tweedie use damped Newton updates with a symmetric-eigen
-  pseudoinverse Hessian, supporting singular unpenalized designs. Tweedie
-  powers are limited to zero (identity link) or `[1,2]` (log link). Other powers,
-  log-link normal regression, identity-link positive-power GLMs, alternative
-  solvers, sample weights, sparse arrays and warm starts are not supported.
-  Positive-power targets must be nonnegative, Gamma targets strictly positive,
-  and log-link fitting requires positive target mean. Extremely large raw log
-  predictions are rejected during prediction or backtracked during fitting.
-  `score` is D2, not R2 except at power zero; constant scoring targets are
-  diagnosed instead of returning undefined NaN/infinity. The fitted objective
-  is mean half-deviance plus `alpha*sum(coef**2)/2`, so power-zero regularization
-  matches ridge with `ridge%alpha=n_samples*glm%alpha`.
+  pseudoinverse Hessian, supporting singular unpenalized designs. Dense
+  vector/one-column fits accept scalar/vector sample weights and warm starts.
+  Tweedie supports finite real powers and auto/identity/log links. Auto uses
+  identity at nonpositive power and log otherwise. Targets follow Source's
+  real/nonnegative/positive ranges. Nonzero-power identity trials must remain
+  positive, and log-link initialization needs a positive weighted mean.
+  Weighted D2 uses the fitted power and preserves IEEE undefined scores.
+  The one-column score overload is a native convenience extension that flattens
+  targets; Source GLM score rejects this rank. The fitted objective is weighted mean half-deviance
+  plus `alpha*sum(coef**2)/2`. Signed finite weights are accepted; convergence
+  is not guaranteed. CSR input, Source L-BFGS, exact Newton-Cholesky steps and
+  warning/iteration-count parity remain unsupported. Trial numerical range is
+  bounded; extreme powers/data may be rejected. Native parameter-only clone
+  resets discard warm fit state at composite/search clone sites.
 
 - BayesianRidge and ARD support one real target, positive hyperpriors and
   predictive standard deviations, without marginal-likelihood score history,
@@ -14567,3 +14570,31 @@ audits pass all 322 jobs per profile with 512 compiled-unit fingerprints
 the original neighbor grids and new pairwise/kernel regressions. Inventories,
 oracle entries, tolerances and rejection checks remain unchanged. The historical
 intermittent GNU17 optimized KNC crash remains unresolved.
+
+## Weighted generalized linear models and broader Tweedie losses (2026-11-27)
+
+PoissonRegressor, GammaRegressor and TweedieRegressor now accept dense
+sample-weighted vector/column fits, scalar fit weights and warm starts. The
+Tweedie loss supports finite real powers and identity/log/auto links, including
+negative powers, powers above two, log-link squared error and positive-power
+identity links. Auto uses identity for nonpositive powers. Target domains and
+positive initialization/trial constraints are described in the API. Weighted
+D2 uses the fitted loss settings; native search controls, weighted base dispatch,
+Pipeline weighted scoring and parameter-only clone resets are integrated.
+
+The reference comparison covers 158 configurations and 301 successful Source
+fits, including two-step warm fits, zero/signed weights, weight normalization,
+one-column targets and capped fits. Five zero-iteration configurations are
+Source rejections and must also be rejected natively. Coefficients, predictions
+and weighted D2 use unchanged strict absolute/relative tolerances of 3e-8.
+Iteration counts are recorded but not compared: the native damped eigen/Newton
+solver is distinct from Source's Newton-Cholesky and default L-BFGS solvers.
+
+Three retained configurations (indices 150, 151 and 153) have D2 differences
+near powers 1 and 2; cancellation in the deviance formulas makes these scores
+sensitive to evaluation order. Their coefficients agree closely. They remain
+strict failures, without rounded coefficients, altered fixtures or relaxed
+tolerances. Sparse GLM fits and Source solver/warning parity remain gaps.
+The separate invalid-input suite checks 24 Source/native rejections. The native
+one-column score adapter is explicitly identified as a convenience extension;
+Source 1.6.1 score rejects a two-dimensional target.

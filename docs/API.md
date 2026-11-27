@@ -742,17 +742,42 @@ counts%alpha=0.1_dp
 call counts%fit(x_train,nonnegative_target)
 prediction=counts%predict(x_query) ! Positive conditional means, not count draws.
 compound%power=1.5_dp
-call compound%fit(x_train,nonnegative_target)
+call compound%fit(x_train,nonnegative_target,sample_weight)
+compound%warm_start=.true.
+compound%alpha=0.2_dp
+call compound%fit(x_train,nonnegative_target,sample_weight)
 ```
 
-All three GLMs have `alpha>=0` (default 1), `tol>0`, `max_iter`, `converged_`
-and `n_iter_`. The intercept is unpenalized. Poisson/Gamma fix their power and
-log link during fitting; Gamma requires strictly positive targets. Tweedie
-uses `power=0`, `link='auto'` by default. Supported powers are zero and `[1,2]`;
-`auto` selects identity for zero and log otherwise. Explicit links must follow
-the same pairing. Prediction returns the inverse-link mean. `link_` records
-the fitted link, while `coef_` and `intercept_` parameterize the linear predictor.
-Scoring requires a nonconstant target. See [COVERAGE.md](COVERAGE.md) for limits.
+All three GLMs have `alpha>=0` (default 1), `tol>0`, positive `max_iter`,
+`warm_start`, `converged_` and `n_iter_`. The intercept is unpenalized. Dense
+fits accept vector targets or one-column target matrices, with optional vector
+or scalar `sample_weight`. Vector-target dense weights are a required third
+argument in the weighted overload. Weights are divided by their sum, so a
+common nonzero scaling leaves the objective unchanged. Finite signed weights
+are accepted; they can make the objective nonconvex or unbounded.
+
+Poisson/Gamma fix their power and log link during every fit overload; Gamma
+requires strictly positive targets. Tweedie defaults to `power=0`, `link='auto'`.
+Finite real powers are accepted. `auto` selects identity for powers at most
+zero and log for positive powers; explicit identity/log links are available.
+The estimator loss also supports `0<power<1`, although the standalone
+Tweedie metric follows its narrower Source contract. Targets may be real for `power<=0`, must be nonnegative for `0<power<2`, and
+strictly positive for `power>=2`. Identity-link fitting at nonzero power
+requires a positive initial mean and keeps trial predictions positive.
+Log-link fitting requires a positive weighted target mean.
+
+Prediction returns the inverse-link mean. `link_` and `power_` record fitted
+loss settings; changing constructor settings alone does not change scoring.
+`coef_` and `intercept_` describe the linear predictor. Weighted `score` is
+D2 with vector weights. The one-column score overload is an identified native
+convenience extension: it flattens the target before evaluating D2; sklearn
+1.6.1 GLM `score` rejects a two-dimensional target. Undefined constant
+null deviances return IEEE NaN/infinity through the existing IEEE helpers.
+Warm fits reuse coefficients/intercept and reject changed feature counts;
+parameter-only clones clear this state. Search adapters accept the native GLM
+controls. The solver remains native damped eigen/Newton; Source L-BFGS and
+Newton-Cholesky iteration trajectories are not reproduced. CSR input remains
+unsupported. See [COVERAGE.md](COVERAGE.md) for validation and limits.
 
 ## Mode seeking, spectral methods and kernel density
 

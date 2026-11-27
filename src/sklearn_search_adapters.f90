@@ -166,6 +166,22 @@ contains
       case('warm_start');model%warm_start=value%as_logical()
       case default;done=.false.
       end select
+    class is(tweedie_regressor)
+      select case(name)
+      case('power','link')
+        select type(model)
+        type is(tweedie_regressor)
+          if(name=='power')model%power=value%as_real()
+          if(name=='link')model%link=value%as_text()
+        class default;done=.false.
+        end select
+      case('alpha');model%alpha=value%as_real()
+      case('tol');model%tol=value%as_real()
+      case('max_iter');model%max_iter=value%as_integer()
+      case('fit_intercept');model%fit_intercept=value%as_logical()
+      case('warm_start');model%warm_start=value%as_logical()
+      case default;done=.false.
+      end select
     class is(linear_regression)
       select case(name)
       case('fit_intercept');model%fit_intercept=value%as_logical()
