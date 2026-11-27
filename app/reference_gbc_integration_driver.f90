@@ -5,6 +5,7 @@ program reference_gbc_integration_driver
  use sklearn_preprocessing,only:standard_scaler
  use sklearn_search,only:grid_search_cv,param
  use sklearn_model_selection_features,only:select_from_model
+ use sklearn_classic_gradient_boosting,only:reset_boosting_fit
  implicit none
  type(gradient_boosting_classifier)::base,other,final
  type(grid_search_cv)::search
@@ -20,8 +21,13 @@ program reference_gbc_integration_driver
  integer::n,p,seed,weighted,status,i,j
  character(16)::loss
  character(32)::argument
- logical::stochastic
- call get_command_argument(1,argument);stochastic=trim(argument)=='--subsample'
+ logical::stochastic,warm_template
+ stochastic=.false.;warm_template=.false.
+ do i=1,command_argument_count()
+  call get_command_argument(i,argument)
+  if(trim(argument)=='--subsample')stochastic=.true.
+  if(trim(argument)=='--warm-start')warm_template=.true.
+ end do
  do
   read(*,*,iostat=status)n,p,seed,loss,weighted
   if(status/=0)exit
@@ -29,6 +35,7 @@ program reference_gbc_integration_driver
   do i=1,n;read(*,*)x(i,:);end do
   read(*,*)y;read(*,*)w;query=x+.137_dp
   base=gradient_boosting_classifier();base%n_estimators=3;base%max_depth=2;base%random_state=seed
+  base%warm_start=warm_template
   if(stochastic)base%subsample=merge(.65_dp,.8_dp,seed==42)
   base%loss=loss;call base%set_max_features(.7_dp)
   if(weighted==1)then
@@ -37,7 +44,7 @@ program reference_gbc_integration_driver
    call base%fit(x,y)
   end if
   search=grid_search_cv();search%cv=3;allocate(search%estimator,source=base)
-  allocate(search%param_grid(1));allocate(search%param_grid(1)%axes(merge(5,4,stochastic)))
+  allocate(search%param_grid(1));allocate(search%param_grid(1)%axes(4+merge(1,0,stochastic)+merge(1,0,warm_template)))
   search%param_grid(1)%axes(1)%name='ccp_alpha'
   search%param_grid(1)%axes(1)%values=[param(0._dp),param(.01_dp)]
   search%param_grid(1)%axes(2)%name='criterion'
@@ -47,9 +54,14 @@ program reference_gbc_integration_driver
   if(stochastic)then
    search%param_grid(1)%axes(5)%name='subsample';search%param_grid(1)%axes(5)%values=[param(.5_dp),param(.8_dp)]
   end if
+  if(warm_template)then
+   i=5+merge(1,0,stochastic)
+   search%param_grid(1)%axes(i)%name='warm_start';search%param_grid(1)%axes(i)%values=[param(.true.)]
+  end if
   selector=select_from_model();prefit=select_from_model();prefit%prefit=.true.
   pipe=pipeline();allocate(pipe%steps(2));pipe%steps(1)%name='scale';allocate(pipe%steps(1)%model,source=scale)
   pipe%steps(2)%name='boost';allocate(pipe%steps(2)%model,source=base)
+  call reset_boosting_fit(pipe%steps(2)%model)
   other=base;other%loss='log_loss';other%n_estimators=4;other%random_state=seed+1
   voters(1)%name='first';voters(2)%name='second'
   if(allocated(voters(1)%estimator))deallocate(voters(1)%estimator,voters(2)%estimator)

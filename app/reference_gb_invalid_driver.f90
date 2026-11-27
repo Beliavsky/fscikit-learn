@@ -30,6 +30,8 @@ contains
   write(*,'(a)')'BASE_FIT_PASSED'
   select case(trim(name))
   case('count');model%n_estimators=0;call model%fit(x,y)
+  case('warm_count');model%warm_start=.true.;model%n_estimators=1;call model%fit(x,y)
+  case('warm_width');model%warm_start=.true.;call model%fit(x(:,:2),y)
   case('subsample_zero');model%subsample=0;call model%fit(x,y)
   case('subsample_negative');model%subsample=-.1_dp;call model%fit(x,y)
   case('subsample_large');model%subsample=1.01_dp;call model%fit(x,y)
@@ -90,6 +92,9 @@ contains
   write(*,'(a)')'BASE_FIT_PASSED'
   select case(trim(name))
   case('count');model%n_estimators=0;call model%fit(x,y)
+  case('warm_count');model%warm_start=.true.;model%n_estimators=1;call model%fit(x,y)
+  case('warm_width');model%warm_start=.true.;call model%fit(x(:,:2),y)
+  case('warm_classes');model%warm_start=.true.;model%n_estimators=3;y=[(mod(i,3),i=1,8)];call model%fit(x,y)
   case('subsample_zero');model%subsample=0;call model%fit(x,y)
   case('subsample_negative');model%subsample=-.1_dp;call model%fit(x,y)
   case('subsample_large');model%subsample=1.01_dp;call model%fit(x,y)

@@ -1,6 +1,7 @@
 ! sklearn 1.6.1 model_selection/_validation.py and _split.py (BSD-3-Clause).
 ! Typed result/options storage and native adapters are original MIT contributions.
 module sklearn_validation
+  use sklearn_classic_gradient_boosting,only:reset_boosting_fit
   use sklearn_common, only: dp,require,check_x,check_xy,unique_labels,label_index,argsort
   use sklearn_model_selection, only: kfold,index_split
   use sklearn_search, only: search_scorer
@@ -650,8 +651,10 @@ contains
     select type(model)
     type is(sgd_regressor)
       call reset_sgd_fit(model)
+      call reset_boosting_fit(model)
     type is(sgd_classifier)
       call reset_sgd_fit(model)
+      call reset_boosting_fit(model)
     type is(gaussian_nb)
       bayes%var_smoothing=model%var_smoothing
       if(allocated(model%priors)) bayes%priors=model%priors

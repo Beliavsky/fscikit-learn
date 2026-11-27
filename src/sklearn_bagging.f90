@@ -1,6 +1,7 @@
 ! Bagging: sklearn 1.6.1 ensemble/_bagging.py and _base.py (BSD-3-Clause).
 ! Dense native adaptation; see THIRD_PARTY_NOTICES.md and LICENSES.
 module sklearn_bagging
+  use sklearn_classic_gradient_boosting,only:reset_boosting_fit
   use sklearn_sgd_clone, only: reset_sgd_fit
   use sklearn_composite_scores, only: score_weights,regression_score
   use sklearn_weighted_linear, only: weighted_linear
@@ -125,6 +126,7 @@ contains
     if(present(estimator)) then
       allocate(self%estimator_,source=estimator)
       call reset_sgd_fit(self%estimator_)
+      call reset_boosting_fit(self%estimator_)
     else if(classifier) then
       allocate(self%estimator_,source=default_c)
     else
@@ -151,6 +153,7 @@ contains
       seed=rng%integer_index(2147483647)-1; seeds(b)=seed
       allocate(members(b)%estimator,source=self%estimator_)
       call reset_sgd_fit(members(b)%estimator)
+      call reset_boosting_fit(members(b)%estimator)
       call seed_base(members(b)%estimator,seed)
       call draw_rng%seed(seed)
       features(b)%values=sample_indices(draw_rng,p,nf,self%bootstrap_features)

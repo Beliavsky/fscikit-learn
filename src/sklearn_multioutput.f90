@@ -1,6 +1,7 @@
 ! Independent-output wrappers adapted from sklearn 1.6.1 multioutput.py.
 ! BSD attribution: THIRD_PARTY_NOTICES.md and LICENSES/scikit-learn-COPYING.
 module sklearn_multioutput
+  use sklearn_classic_gradient_boosting,only:reset_boosting_fit
   use sklearn_common, only: dp,require,check_x,check_xy,unique_labels
   use sklearn_linear_model, only: linear_regression,logistic_regression
   use sklearn_naive_bayes, only: gaussian_nb,multinomial_nb
@@ -108,6 +109,7 @@ contains
         call model%partial_fit(x,y,weights)
       else
         call reset_sgd_fit(model)
+        call reset_boosting_fit(model)
         call model%fit(x,y,weights)
       end if
     class is(linear_regression)
@@ -292,6 +294,7 @@ contains
         call model%partial_fit(x,y,classes,weights)
       else
         call reset_sgd_fit(model)
+        call reset_boosting_fit(model)
         call model%fit(x,y,weights)
       end if
     class is(logistic_regression)

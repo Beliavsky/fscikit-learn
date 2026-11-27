@@ -1,6 +1,7 @@
 ! Stacking: sklearn 1.6.1 ensemble/_stacking.py and cross_val_predict (BSD-3-Clause).
 ! Dense native adaptation; retained notices are in THIRD_PARTY_NOTICES.md and LICENSES.
 module sklearn_stacking
+  use sklearn_classic_gradient_boosting,only:reset_boosting_fit
   use sklearn_sgd_clone, only: reset_sgd_fit
   use sklearn_common, only: dp,require,check_xy,check_x,unique_labels,label_index
   use sklearn_voting, only: stacking_estimator=>voting_estimator
@@ -92,6 +93,7 @@ contains
     real(dp) :: ones(size(x,1))
     call require(base_supported(model,classifier),'unsupported native stacking base')
     call reset_sgd_fit(model)
+    call reset_boosting_fit(model)
     if(present(w)) call require(supports_weights(model),'stacking base has no native weighted fit')
     ! Trees use the source float32/RNG builder even for an omitted weight vector.
     ones=1

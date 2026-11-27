@@ -1226,7 +1226,7 @@ ensemble facade so both weighted boosters can use the shared registry for
 pipelines, voting, bagging and stacking. Search and SelectFromModel forward fit
 weights. `init_` is a native scalar constant; `huber_delta_` records each stage's
 pre-fit threshold as a native diagnostic. All generators materialize arrays.
-Warm starts, validation stopping, custom initializer
+Validation stopping, custom initializer
 objects, fractional sample-size controls and sparse input remain unimplemented.
 
 ## GradientBoostingClassifier
@@ -1281,7 +1281,7 @@ Search, SelectFromModel, pipelines, voting, bagging and stacking forward weights
 the shared registry exposes class labels, probabilities, decisions and seed
 assignment for this classifier.
 
-Early stopping, warm starts,
+Early stopping,
 custom initializers, feature-name metadata and sparse input remain unimplemented.
 Exponential loss requires two distinct integer classes; log loss supports
 multiple classes. Existing entry points and retained MIT/BSD notices remain;
@@ -1319,6 +1319,27 @@ loss or leaf update needs normalization. Search, selection, pipelines, voting,
 bagging and stacking retain the configured subsample fraction. These are
 sklearn algorithm features; no extension algorithm or runtime dependency is
 introduced.
+
+Classic warm starts retain fitted initializers, trees, histories and MT19937
+state while appending newly requested stages. The current learning rate, loss,
+tree controls, data and weights are applied as sklearn does; changing the seed
+does not restart the retained stream. Equal-count calls preserve every tree
+and reproduce sklearn 1.6.1's learned-count quirk without reading beyond the
+actual tree arrays. Shrinking an existing warm ensemble is rejected. Cold fits
+discard all learned state. Clone helpers clear fitted boosting state in search,
+selection, voting, bagging, stacking, multiclass/multioutput wrappers, threshold
+selection and validation while preserving constructor parameters.
+
+Switching subsampling on or off retains sklearn's cyclic OOB history resizing,
+zero prefixes and NaN scalar conventions. Classifier initial priors remain those
+of the original initializer even if later targets/weights change; loss-link
+changes recompute its raw scores. Warm classification requires stable component
+channel count; incompatible changes are diagnosed before producing an
+inconsistent model. Internally unchecked regression-tree fits can carry the
+NaN/infinite gradients produced by degenerate signed-weight cancellation,
+including matching stump values/impurity. Ordinary public tree fits continue
+to reject non-finite targets. Undefined scoring outcomes are recorded separately
+from fitting. No extension algorithm or new runtime dependency is introduced.
 
 
 ## Ridge classification and leave-one-out selection

@@ -1,6 +1,7 @@
 ! Voting ensembles adapted from sklearn 1.6.1 ensemble/_voting.py (BSD-3-Clause).
 ! See THIRD_PARTY_NOTICES.md and LICENSES/scikit-learn-COPYING.
 module sklearn_voting
+  use sklearn_classic_gradient_boosting,only:reset_boosting_fit
   use sklearn_base_dispatch, only: train_classifier,train_regressor,labels,regression,probabilities
   use sklearn_ieee_math, only: ieee_mean
   use sklearn_common, only: dp,require,check_x,check_xy,unique_labels,label_index
@@ -161,6 +162,7 @@ contains
     do i=1,size(self%estimators_)
       self%estimators_(i)=estimators(self%active_indices_(i))
       call reset_sgd_fit(self%estimators_(i)%estimator)
+      call reset_boosting_fit(self%estimators_(i)%estimator)
       call train_classifier(self%estimators_(i)%estimator,x,encoded,sample_weight)
     end do
     self%n_features_in_=size(x,2); self%configured_count_=size(estimators); self%fitted_=.true.
@@ -180,6 +182,7 @@ contains
     do i=1,size(self%estimators_)
       self%estimators_(i)=estimators(self%active_indices_(i))
       call reset_sgd_fit(self%estimators_(i)%estimator)
+      call reset_boosting_fit(self%estimators_(i)%estimator)
       call train_regressor(self%estimators_(i)%estimator,x,y,sample_weight)
     end do
     self%n_features_in_=size(x,2); self%configured_count_=size(estimators); self%fitted_=.true.

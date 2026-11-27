@@ -149,8 +149,13 @@ contains
     integer(int64) :: state
     real(dp) :: root_weight,min_weight,normalizer,contribution
     type(tree_median_queue),allocatable :: median_left(:),median_right(:)
-    logical :: source_regression,work_splitter
-    call check_xy(x,size(y)); call check_x(reshape(y,[size(y),1]))
+    logical :: source_regression,work_splitter,positive_sum,negative_sum,positive_square,negative_square
+    call check_xy(x,size(y))
+    ! Boosting uses sklearn Tree.fit(check_input=False), including gradients
+    ! made non-finite by degenerate signed weights in preceding stages.
+    if(.not.present(random_stream))then
+      call check_x(reshape(y,[size(y),1]))
+    end if
     nout=1
     if(present(targets))then
       call require(size(classes)==0,'joint targets require regression')
@@ -206,6 +211,43 @@ contains
       state=int(random_stream%integer_index(2147483647)-1,int64)
     else
       call rng%seed(self%random_state);state=int(rng%integer_index(2147483647)-1,int64)
+    end if
+    if(present(random_stream))then
+      if(any(.not.ieee_is_finite(y(active))))then
+        self%node_count_=1
+        self%nodes_(1)%n_samples=size(active);self%nodes_(1)%weighted_n_samples=root_weight
+        self%nodes_(1)%value=ieee_value(0._dp,ieee_quiet_nan)
+        self%nodes_(1)%impurity=self%nodes_(1)%value
+        positive_sum=.false.;negative_sum=.false.;positive_square=.false.;negative_square=.false.
+        if(.not.any(ieee_is_nan(y(active))))then
+          do i=1,size(active)
+            if(ieee_is_finite(y(active(i))))cycle
+            if((y(active(i))>0).eqv.(w(active(i))>0))then
+              positive_sum=.true.
+            else
+              negative_sum=.true.
+            end if
+            if(w(active(i))>0)then
+              positive_square=.true.
+            else
+              negative_square=.true.
+            end if
+          end do
+          if(positive_sum.neqv.negative_sum)then
+            if(positive_sum.eqv.(root_weight>=0))then
+              self%nodes_(1)%value=ieee_value(0._dp,ieee_positive_inf)
+            else
+              self%nodes_(1)%value=ieee_value(0._dp,ieee_negative_inf)
+            end if
+            if(positive_square.neqv.negative_square)then
+              if((positive_square.and.root_weight<0).or.(negative_square.and.root_weight>0)) &
+                self%nodes_(1)%impurity=ieee_value(0._dp,ieee_negative_inf)
+            end if
+          end if
+        end if
+        self%nodes_(1)%values=[self%nodes_(1)%value]
+        return
+      end if
     end if
     ! MAE keeps its initialized queue storage across every node reset.
     if(criterion=='absolute_error') then

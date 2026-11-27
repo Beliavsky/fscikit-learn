@@ -1,6 +1,7 @@
 ! SelectFromModel contracts: sklearn 1.6.1 feature_selection/_from_model.py
 ! and _base.py (BSD-3-Clause). Native adapters are original MIT contributions.
 module sklearn_model_selection_features
+  use sklearn_classic_gradient_boosting,only:reset_boosting_fit
   use sklearn_sgd_clone, only: reset_sgd_fit
   use sklearn_common, only: dp,require,check_x,check_xy,argsort
   use sklearn_feature_extraction, only: feature_string
@@ -424,6 +425,7 @@ contains
   subroutine reset_incremental(model)
     class(*), intent(inout) :: model
     call reset_sgd_fit(model)
+    call reset_boosting_fit(model)
     call reset_forest_fit(model)
   end subroutine
   subroutine fit_regression(self,x,y,estimator,sample_weight,feature_names)

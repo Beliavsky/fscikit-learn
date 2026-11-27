@@ -13,14 +13,15 @@ common=dict(count=dict(n_estimators=0),depth=dict(max_depth=0),leaf=dict(min_sam
  feature_nan=dict(max_features=np.nan),feature_inf=dict(max_features=np.inf),feature_name=dict(max_features='invalid'),
  input_nan={},input_inf={},float32_overflow={},query_nan={},query_inf={},query_width={},target_size={},unfit={},
  subsample_zero=dict(subsample=0.),subsample_negative=dict(subsample=-.1),subsample_large=dict(subsample=1.01),
- subsample_nan=dict(subsample=np.nan),subsample_inf=dict(subsample=np.inf))
+ subsample_nan=dict(subsample=np.nan),subsample_inf=dict(subsample=np.inf),
+ warm_count=dict(warm_start=True,n_estimators=1),warm_width=dict(warm_start=True))
 reg=dict(alpha_zero=dict(alpha=0.),alpha_one=dict(alpha=1.),alpha_nan=dict(alpha=np.nan),alpha_inf=dict(alpha=np.inf),
  budget=dict(max_leaf_nodes=1),ccp=dict(ccp_alpha=-.1),weight_fraction=dict(min_weight_fraction_leaf=.6),
  weights_shape={},weights_zero={},weights_nan={},weights_inf={},target_nan={},target_inf={})
 for kind,cls in [('regression',GradientBoostingRegressor),('classification',GradientBoostingClassifier)]:
  cases=common|(reg if kind=='regression' else dict(one_class={},exponential_multiclass=dict(loss='exponential'),
   budget=dict(max_leaf_nodes=1),ccp=dict(ccp_alpha=-.1),weight_fraction=dict(min_weight_fraction_leaf=.6),
-  weights_shape={},weights_zero={},weights_nan={},weights_inf={},weights_one_class={},weights_cancel={}))
+  weights_shape={},weights_zero={},weights_nan={},weights_inf={},weights_one_class={},weights_cancel={},warm_classes=dict(warm_start=True,n_estimators=3)))
  for name,params in cases.items():
   x=np.column_stack([np.arange(1,9),np.arange(1,9)%3,np.arange(1,9)**2]).astype(float)
   y=np.arange(1,9).astype(float) if kind=='regression' else np.arange(1,9)%2
@@ -36,6 +37,8 @@ for kind,cls in [('regression',GradientBoostingRegressor),('classification',Grad
   if name=='float32_overflow':xx[0,0]=2*float(np.finfo(np.float32).max)
   if name=='target_size':target=y[:7]
   if name=='query_width':xx=x[:,:2]
+  if name=='warm_width':xx=x[:,:2]
+  if name=='warm_classes':target=np.arange(8)%3
   if name=='one_class':target[:]=0
   if name=='exponential_multiclass':target[0]=99
   if name.startswith('weights_'):
@@ -51,7 +54,7 @@ for kind,cls in [('regression',GradientBoostingRegressor),('classification',Grad
     warnings.simplefilter('ignore')
     if name.startswith('query') or name=='unfit':phase='predict';model.predict(xx)
     else:model.fit(xx,target,sample_weight=w)
-  except (ValueError,TypeError,ZeroDivisionError) as e:error=dict(type=type(e).__name__,message=str(e),phase=phase)
+  except (ValueError,TypeError,ZeroDivisionError,IndexError) as e:error=dict(type=type(e).__name__,message=str(e),phase=phase)
   else:raise AssertionError(('Source accepted',kind,name))
   p=subprocess.run([str(a.executable),kind,name],capture_output=True,text=True);output=p.stdout+p.stderr
   passed=p.returncode!=0 and 'fscikit-learn:' in output and 'bad gradient input accepted' not in output and (name=='unfit' or 'BASE_FIT_PASSED' in output) and not any(s in output for s in ['SIGFPE','SIGSEGV','Fortran runtime error'])

@@ -2,6 +2,7 @@
 ! model_selection/_classification_threshold.py and metrics/_scorer.py.
 ! Retained BSD-3-Clause attribution: THIRD_PARTY_NOTICES.md.
 module sklearn_threshold
+  use sklearn_classic_gradient_boosting,only:reset_boosting_fit
   use sklearn_sgd_clone, only: reset_sgd_fit
   use sklearn_common, only: dp,require,check_xy,check_x,unique_labels
   use sklearn_base_dispatch, only: base_supported,base_fitted,base_proba,base_decision,base_weighted, &
@@ -122,6 +123,7 @@ contains
       call require(base_fitted(base),'threshold prefit base is not fitted')
     else
       call reset_sgd_fit(destination)
+      call reset_boosting_fit(destination)
       if(present(w)) call require(base_weighted(base),'threshold base has no weighted fit')
       call train_classifier(destination,x,y,w)
     end if

@@ -1296,7 +1296,7 @@ nonnegative; zero fits component trees while leaving all predictions at the
 initializer. Prediction uses the current `learning_rate`, including changes
 after fitting. Score accepts optional sample weights. Weighted regression
 boosters are supported by search, SelectFromModel, pipelines and the shared
-regression ensemble dispatcher. Dense finite input only; warm starts,
+regression ensemble dispatcher. Dense finite input only;
 validation stopping, custom initializers, fractional
 sample-size controls and sparse input remain outside this interface.
 
@@ -1357,6 +1357,25 @@ rejected when normalization is required, as in sklearn. Refitting with
 `subsample=1` deallocates the OOB arrays; the native scalar `oob_score_` resets
 to zero. Fortran's fixed fields use this scalar convention where Python omits
 the OOB attribute.
+
+Both classic boosters support `warm_start` (default false). Increasing
+`n_estimators` with warm start retains earlier trees, the fitted initializer,
+training/OOB histories and the advancing RandomState. Current controls and data
+apply to the new trees. A changed `random_state` does not reseed an existing
+warm model; disabling warm start starts a fresh fit. Native clone sites in
+search, selection, voting, bagging, stacking and validation preserve constructor
+controls while clearing learned boosting state.
+
+Warm histories follow sklearn's `np.resize` behavior: switching from stochastic
+to full-data fitting retains and cyclically enlarges OOB arrays, with
+`oob_score_` set to NaN; enabling OOB on a previously full-data model creates
+zero prefixes. Equal-count calls retain the actual trees but reproduce sklearn
+1.6.1's `n_estimators_ = tree_count + 1` metadata; staged methods and prediction
+use the actual tree-array length. Reducing the requested tree count is rejected.
+Classification warm fits require a stable tree-channel count. Changing channel
+count is guarded explicitly instead of permitting an inconsistent fitted model.
+Signed-weight cancellation can leave some sklearn scores undefined or propagate
+non-finite internal gradients; public tree target validation remains finite-only.
 
 
 ## Ridge classification

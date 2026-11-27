@@ -1,5 +1,6 @@
 ! Internal typed estimator adapters for sklearn-style parameter search (MIT).
 module sklearn_search_adapters
+  use sklearn_classic_gradient_boosting,only:reset_boosting_fit
   use sklearn_common, only: dp,require,label_index,unique_labels
   use sklearn_parameter_space, only: parameter_set,parameter_value
   use sklearn_base_dispatch, only: base_supported,train_classifier,train_regressor,labels,regression, &
@@ -40,6 +41,7 @@ contains
       end if
     class default
       call reset_sgd_fit(model)
+      call reset_boosting_fit(model)
       call reset_forest_fit(model)
     end select
   end subroutine
@@ -299,6 +301,7 @@ contains
     type is(gradient_boosting_classifier)
       select case(name)
       case('subsample');model%subsample=value%as_real()
+      case('warm_start');model%warm_start=value%as_logical()
       case('criterion');model%criterion=value%as_text()
       case('max_leaf_nodes');model%max_leaf_nodes=value%as_integer()
       case('min_weight_fraction_leaf');model%min_weight_fraction_leaf=value%as_real()
@@ -323,6 +326,7 @@ contains
     type is(gradient_boosting_regressor)
       select case(name)
       case('subsample');model%subsample=value%as_real()
+      case('warm_start');model%warm_start=value%as_logical()
       case('n_estimators');model%n_estimators=value%as_integer()
       case('max_depth');model%max_depth=value%as_integer()
       case('min_samples_leaf');model%min_samples_leaf=value%as_integer()

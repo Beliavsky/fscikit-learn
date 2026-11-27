@@ -10,6 +10,11 @@ aggregation. Weighted class priors and zero-weight class retention also follow
 Stochastic sampling follows `ensemble/_gradient_boosting.pyx`
 `_random_sample_mask`; in-bag terminal updates, weighted Huber threshold timing,
 and OOB loss histories follow `ensemble/_gb.py` `_fit_stage`/`_fit_stages`.
+Warm-state retention, initializer/link reuse and history resizing follow
+`BaseGradientBoosting.fit`, `_resize_state` and `_raw_predict_init`; NumPy
+`resize` supplies the cyclic history convention. Internal non-finite gradient
+stumps follow the unchecked regression-tree path used by `_fit_stage`.
+Native parameter-preserving clone reset helpers are original MIT code.
 The binary logit adapter follows SciPy 1.15.3
 [`special/xsf/log_exp.h`](https://github.com/scipy/scipy/blob/v1.15.3/scipy/special/xsf/log_exp.h).
 Sklearn/SciPy BSD notices remain in `LICENSES/scikit-learn-COPYING` and

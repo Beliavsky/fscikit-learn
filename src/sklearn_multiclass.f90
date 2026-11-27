@@ -1,6 +1,7 @@
 ! Multiclass reductions adapted from sklearn 1.6.1 multiclass.py (BSD-3-Clause).
 ! See THIRD_PARTY_NOTICES.md and LICENSES/scikit-learn-COPYING.
 module sklearn_multiclass
+  use sklearn_classic_gradient_boosting,only:reset_boosting_fit
   use sklearn_ieee_math, only: ieee_difference,ieee_product,ieee_quotient,ieee_total
   use sklearn_common, only: dp,require,check_x,check_xy,unique_labels,label_index
   use sklearn_linear_model, only: logistic_regression,perceptron,passive_aggressive_classifier,linear_regression
@@ -172,6 +173,7 @@ contains
     end if
     allocate(slot%estimator_,source=base)
     call reset_sgd_fit(slot%estimator_)
+    call reset_boosting_fit(slot%estimator_)
     call train(slot%estimator_,x,y,weights,.false.)
   end subroutine
 

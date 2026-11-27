@@ -12,15 +12,17 @@ from sklearn.model_selection import GridSearchCV
 from sklearn.feature_selection import SelectFromModel
 ap=argparse.ArgumentParser(description=__doc__);ap.add_argument('--executable',type=Path,required=True);ap.add_argument('--report',type=Path,required=True)
 ap.add_argument('--subsample',action='store_true')
+ap.add_argument('--warm-start',action='store_true')
 a=ap.parse_args();records=[];payload=[]
 for loss,seed,n in itertools.product(['squared_error','absolute_error','quantile','huber'],[0,42],[24,31]):
  p=3 if n==24 else 8;rng=np.random.RandomState(2917+n);x=rng.normal(size=(n,p));y=2*x[:,0]+x[:,1]*x[:,2]
  w=np.resize([1.,0.,.5,2.,3.],n);weights=w if seed==42 else None;query=x+.137
  with warnings.catch_warnings():
   warnings.simplefilter('ignore')
-  base=GradientBoostingRegressor(loss=loss,n_estimators=3,max_depth=2,random_state=seed,alpha=.5,max_features=.7,subsample=(.65 if seed==42 else .8) if a.subsample else 1.).fit(x,0*y,sample_weight=weights)
+  base=GradientBoostingRegressor(loss=loss,n_estimators=3,max_depth=2,random_state=seed,alpha=.5,max_features=.7,subsample=(.65 if seed==42 else .8) if a.subsample else 1.,warm_start=a.warm_start).fit(x,0*y,sample_weight=weights)
   grid=dict(loss=['squared_error','absolute_error','quantile','huber'],criterion=['friedman_mse','squared_error'],max_features=[.5,None],alpha=[.3,.8])
   if a.subsample:grid['subsample']=[.5,.8]
+  if a.warm_start:grid['warm_start']=[True]
   search=GridSearchCV(base,grid,cv=3,error_score='raise',n_jobs=1).fit(x,y,sample_weight=weights)
   selector=SelectFromModel(base).fit(x,y,sample_weight=weights);prefit=SelectFromModel(base,prefit=True).fit(x)
   pipe=Pipeline([('scale',StandardScaler()),('boost',clone(base))]).fit(x,y,boost__sample_weight=weights)
@@ -44,7 +46,7 @@ for loss,seed,n in itertools.product(['squared_error','absolute_error','quantile
  text=f'{n} {p} {seed} {loss} {int(weights is not None)}\n'+'\n'.join(' '.join(map(str,row)) for row in x)+'\n'
  text+=' '.join(map(str,y))+'\n'+' '.join(map(str,w))+'\n';payload.append(text)
 text=''.join(payload);a.report.parent.mkdir(parents=True,exist_ok=True);a.report.with_suffix('.in').write_text(text)
-p=subprocess.run([str(a.executable)]+(['--subsample'] if a.subsample else []),input=text,text=True,capture_output=True,timeout=180)
+p=subprocess.run([str(a.executable)]+(['--subsample'] if a.subsample else [])+(['--warm-start'] if a.warm_start else []),input=text,text=True,capture_output=True,timeout=180)
 a.report.with_suffix('.stdout').write_text(p.stdout);a.report.with_suffix('.stderr').write_text(p.stderr)
 lines=p.stdout.splitlines();fields=list(records[0]['source']);width=len(fields);assert width==25
 integer={'ranks','best_index','selector_mask','prefit_mask','bagging_samples','bagging_features','bagging_seeds','component_seeds'}

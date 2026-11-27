@@ -8,11 +8,12 @@ module sklearn_classic_gradient_boosting
   use sklearn_boosting_loss,only:boosting_sum,boosting_mean,boosting_quantile,boosting_regression_loss,boosting_logit
   use sklearn_ieee_math,only:ieee_difference,ieee_product,ieee_quotient
   use sklearn_metrics,only:accuracy_score,r2_score
-  use,intrinsic::ieee_arithmetic,only:ieee_is_finite
+  use,intrinsic::ieee_arithmetic,only:ieee_is_finite,ieee_value,ieee_quiet_nan,ieee_positive_inf,ieee_negative_inf
   use,intrinsic::iso_fortran_env,only:real32
   implicit none
   private
   public::gradient_boosting_regressor,gradient_boosting_classifier
+  public::reset_boosting_fit
   type :: gradient_boosting_classifier
     integer :: n_estimators=100,max_depth=3,min_samples_leaf=1,min_samples_split=2,max_features=0,random_state=0
     integer :: n_estimators_=0,n_trees_per_iteration_=0,n_features_in_=0,n_classes_=0,max_leaf_nodes=0
@@ -23,7 +24,9 @@ module sklearn_classic_gradient_boosting
     type(feature_count_control),private::feature_control_
     character(16)::criterion='friedman_mse'
     character(16) :: loss='log_loss'
-    logical :: init_zero=.false.
+    logical :: init_zero=.false.,warm_start=.false.
+    logical,private::fitted_init_zero_=.false.
+    type(legacy_random_state),private::rng_
     integer, allocatable :: classes_(:)
     real(dp), allocatable :: init_(:),class_prior_(:),train_score_(:),feature_importances_(:)
     type(decision_tree_regressor), allocatable :: estimators_(:,:)
@@ -50,7 +53,8 @@ module sklearn_classic_gradient_boosting
     real(dp)::subsample=1,oob_score_=0
     real(dp),allocatable::oob_scores_(:),oob_improvement_(:)
     character(16)::loss='squared_error',criterion='friedman_mse'
-    logical::init_zero=.false.
+    logical::init_zero=.false.,warm_start=.false.
+    type(legacy_random_state),private::rng_
     type(feature_count_control),private::feature_control_
     type(decision_tree_regressor), allocatable :: estimators_(:)
     real(dp), allocatable :: train_score_(:),feature_importances_(:),huber_delta_(:)
@@ -63,6 +67,48 @@ module sklearn_classic_gradient_boosting
     generic::set_max_features=>features_integer,features_real,features_name
   end type
 contains
+  ! Native clone sites keep constructor parameters and discard fitted state.
+  subroutine reset_boosting_fit(model)
+    class(*),intent(inout)::model
+    select type(model)
+    type is(gradient_boosting_regressor)
+      if(allocated(model%estimators_))deallocate(model%estimators_)
+      if(allocated(model%train_score_))deallocate(model%train_score_)
+      if(allocated(model%feature_importances_))deallocate(model%feature_importances_)
+      if(allocated(model%huber_delta_))deallocate(model%huber_delta_)
+      if(allocated(model%oob_scores_))deallocate(model%oob_scores_)
+      if(allocated(model%oob_improvement_))deallocate(model%oob_improvement_)
+      model%n_estimators_=0;model%n_features_in_=0;model%max_features_=0
+      model%n_trees_per_iteration_=1;model%init_=0;model%oob_score_=0
+    type is(gradient_boosting_classifier)
+      if(allocated(model%estimators_))deallocate(model%estimators_)
+      if(allocated(model%train_score_))deallocate(model%train_score_)
+      if(allocated(model%feature_importances_))deallocate(model%feature_importances_)
+      if(allocated(model%init_))deallocate(model%init_)
+      if(allocated(model%classes_))deallocate(model%classes_)
+      if(allocated(model%class_prior_))deallocate(model%class_prior_)
+      if(allocated(model%oob_scores_))deallocate(model%oob_scores_)
+      if(allocated(model%oob_improvement_))deallocate(model%oob_improvement_)
+      model%n_estimators_=0;model%n_features_in_=0;model%max_features_=0
+      model%n_trees_per_iteration_=0;model%n_classes_=0;model%oob_score_=0
+      model%fitted_init_zero_=.false.;model%fitted_loss='log_loss';model%fitted_rate=.1_dp
+    end select
+  end subroutine
+  ! np.resize repeats the old values when enlarging warm-start histories.
+  subroutine resize_boosting_values(values,n)
+    real(dp),allocatable,intent(inout)::values(:)
+    integer,intent(in)::n
+    real(dp),allocatable::copy(:)
+    integer::i,m
+    allocate(copy(n));copy=0
+    if(allocated(values))then
+      m=size(values)
+      if(m>0)then
+        do i=1,n;copy(i)=values(mod(i-1,m)+1);end do
+      end if
+    end if
+    call move_alloc(copy,values)
+  end subroutine
   ! sklearn ensemble/_gradient_boosting.pyx _random_sample_mask (BSD-3-Clause).
   function boosting_sample_mask(rng,n,n_inbag)result(mask)
     type(legacy_random_state),intent(inout)::rng
@@ -129,10 +175,11 @@ contains
     real(dp), intent(in) :: x(:,:),y(:)
     real(dp),optional,intent(in)::sample_weight(:)
     type(legacy_random_state)::rng
+    type(decision_tree_regressor),allocatable::grown(:)
     real(dp)::residual(size(y)),prediction(size(y)),gradient(size(y)),w(size(y)),terms(size(y)),delta,median,value,total
     real(dp)::fit_w(size(y)),previous_loss
-    logical::sample_mask(size(y)),do_oob
-    integer::i,j,leaf,nontrivial,n_inbag
+    logical::sample_mask(size(y)),do_oob,continuing
+    integer::i,j,leaf,nontrivial,n_inbag,begin
     integer,allocatable::leaves(:),indices(:)
     call check_xy(x,size(y));call check_x(reshape(y,[size(y),1]))
     call check_boosting_subsample(self%subsample)
@@ -154,25 +201,46 @@ contains
       call require(all(ieee_is_finite(sample_weight)),'gradient boosting sample weights must be finite')
       w=sample_weight
     end if
-    call require(boosting_sum(w)/=0,'gradient boosting weights must have nonzero total')
-    self%init_=0
-    if(.not.self%init_zero)then
+    continuing=self%warm_start.and.allocated(self%estimators_);begin=0
+    if(continuing)then
+      begin=size(self%estimators_)
+      call require(self%n_estimators>=begin,'gradient boosting warm start cannot reduce n_estimators')
+      prediction=self%predict(x);rng=self%rng_
+      allocate(grown(self%n_estimators));grown(:begin)=self%estimators_
+      call move_alloc(grown,self%estimators_)
+      call resize_boosting_values(self%train_score_,self%n_estimators)
+      call resize_boosting_values(self%huber_delta_,self%n_estimators)
+    else
+      self%init_=0
+      if(.not.self%init_zero)then
       select case(self%loss)
       case('squared_error');self%init_=boosting_mean(y,w)
       case('absolute_error','huber');self%init_=boosting_quantile(y,w,.5_dp,present(sample_weight))
       case('quantile');self%init_=boosting_quantile(y,w,self%alpha,present(sample_weight))
       end select
+      end if
+      prediction=self%init_;call rng%seed(self%random_state)
+      if(allocated(self%estimators_)) deallocate(self%estimators_)
+      allocate(self%estimators_(self%n_estimators)); self%train_score_=spread(0._dp,1,self%n_estimators)
+      self%huber_delta_=spread(0._dp,1,self%n_estimators)
     end if
-    prediction=self%init_;call rng%seed(self%random_state)
-    if(allocated(self%estimators_)) deallocate(self%estimators_)
-    allocate(self%estimators_(self%n_estimators)); self%train_score_=spread(0._dp,1,self%n_estimators)
     self%feature_importances_=spread(0._dp,1,size(x,2))
-    self%huber_delta_=spread(0._dp,1,self%n_estimators);nontrivial=0
+    nontrivial=0
     do_oob=self%subsample<1;n_inbag=max(1,int(self%subsample*size(y)))
-    sample_mask=.true.;self%oob_score_=0
-    if(allocated(self%oob_scores_))deallocate(self%oob_scores_,self%oob_improvement_)
-    if(do_oob)allocate(self%oob_scores_(self%n_estimators),self%oob_improvement_(self%n_estimators))
-    do i=1,self%n_estimators
+    sample_mask=.true.
+    if(.not.continuing)then
+      self%oob_score_=0
+      if(allocated(self%oob_scores_))deallocate(self%oob_scores_,self%oob_improvement_)
+    end if
+    if(do_oob.or.allocated(self%oob_scores_))then
+      call resize_boosting_values(self%oob_scores_,self%n_estimators)
+      call resize_boosting_values(self%oob_improvement_,self%n_estimators)
+      if(continuing)self%oob_score_=ieee_value(0._dp,ieee_quiet_nan)
+    end if
+    if(begin<self%n_estimators.and.self%subsample==1) &
+      call require(boosting_sum(w)/=0,'gradient boosting weights must have nonzero total')
+    if(do_oob.and.begin>0)previous_loss=self%oob_scores_(begin)
+    do i=begin+1,self%n_estimators
       if(do_oob)then
         sample_mask=boosting_sample_mask(rng,size(y),n_inbag)
         if(i==1)previous_loss=boosting_regression_loss(self%loss,pack(y,.not.sample_mask), &
@@ -232,6 +300,8 @@ contains
       else
         self%train_score_(i)=boosting_regression_loss(self%loss,y,prediction,w,self%alpha,delta)
       end if
+    end do
+    do i=1,size(self%estimators_)
       if(self%estimators_(i)%node_count_>1)then
         self%feature_importances_=self%feature_importances_+boost_tree_importances(self%estimators_(i))
         nontrivial=nontrivial+1
@@ -240,6 +310,11 @@ contains
     if(nontrivial>0)then
       self%feature_importances_=self%feature_importances_/nontrivial;total=boosting_sum(self%feature_importances_)
       do j=1,size(x,2);self%feature_importances_(j)=ieee_quotient(self%feature_importances_(j),total);end do
+    end if
+    self%rng_=rng;self%n_estimators_=self%n_estimators
+    if(begin==self%n_estimators)then
+      self%n_estimators_=begin+1
+      if(allocated(self%oob_scores_))self%oob_score_=self%oob_scores_(self%n_estimators)
     end if
   end subroutine
   function boost_tree_importances(tree)result(values)
@@ -332,10 +407,11 @@ contains
     real(dp), allocatable :: raw(:,:),prob(:,:),gradient(:,:),indicator(:),hessian(:),logs(:),class_mass(:)
     integer, allocatable :: encoded(:),leaves(:)
     type(legacy_random_state)::rng
+    type(decision_tree_regressor),allocatable::grown(:,:)
     logical, allocatable :: mask(:),sample_mask(:)
-    logical::do_oob
+    logical::do_oob,continuing
     real(dp) :: floor_prior,numerator,denominator,factor,v
-    integer :: n,p,c,k,t,i,leaf,left,nontrivial,n_inbag
+    integer :: n,p,c,k,t,i,leaf,left,nontrivial,n_inbag,begin
     call check_xy(x,size(y)); n=size(y); p=size(x,2)
     call check_boosting_subsample(self%subsample)
     call require(self%n_estimators>=1,'GradientBoostingClassifier n_estimators must be positive')
@@ -345,7 +421,6 @@ contains
       self%max_features,self%random_state,self%min_impurity_decrease,self%ccp_alpha,self%min_weight_fraction_leaf,p)
     self%max_features_=self%feature_control_%resolve(self%max_features,p,.false.)
     call require(any(self%criterion==[character(16)::'friedman_mse','squared_error']),'invalid boosting tree criterion')
-    call rng%seed(self%random_state)
     call require(self%loss=='log_loss'.or.self%loss=='exponential','invalid GradientBoostingClassifier loss')
     self%classes_=unique_labels(y); c=size(self%classes_)
     call require(c>=2,'GradientBoostingClassifier requires at least two classes')
@@ -359,19 +434,42 @@ contains
     ! Match DummyClassifier class_distribution's sequential weighted bincount.
     do i=1,n;class_mass(encoded(i))=ieee_difference(class_mass(encoded(i)),-w(i));end do
     call require(count(class_mass/=0)>=2,'GradientBoostingClassifier weights must retain at least two classes')
-    call require(boosting_sum(w)/=0.and.boosting_sum(class_mass)/=0, &
-      'GradientBoostingClassifier sample weights must have nonzero total weight')
+    continuing=self%warm_start.and.allocated(self%estimators_);begin=0
+    if(continuing)then
+      begin=size(self%estimators_,1)
+      call require(self%n_estimators>=begin,'gradient boosting warm start cannot reduce n_estimators')
+      call require(size(self%estimators_,2)==merge(1,c,c==2),'warm boosting class channel count changed')
+    end if
+    if(begin<self%n_estimators.and.self%subsample==1) &
+      call require(boosting_sum(w)/=0,'gradient boosting weights must have nonzero total')
     if(self%loss=='exponential') call require(c==2,'exponential boosting requires binary labels')
     self%n_features_in_=p; self%n_estimators_=self%n_estimators;self%n_classes_=c
     self%n_trees_per_iteration_=c
     if(c==2) self%n_trees_per_iteration_=1
     self%fitted_loss=self%loss; self%fitted_rate=self%learning_rate
-    self%class_prior_=class_mass/boosting_sum(class_mass)
+    if(.not.continuing)then
+      self%fitted_init_zero_=self%init_zero
+      self%class_prior_=class_mass
+      v=boosting_sum(class_mass)
+      if(v/=0)then
+        self%class_prior_=class_mass/v
+      else
+        do k=1,c
+          if(class_mass(k)>0)then
+            self%class_prior_(k)=ieee_value(0._dp,ieee_positive_inf)
+          else if(class_mass(k)<0)then
+            self%class_prior_(k)=ieee_value(0._dp,ieee_negative_inf)
+          else
+            self%class_prior_(k)=ieee_value(0._dp,ieee_quiet_nan)
+          end if
+        end do
+      end if
+    end if
     floor_prior=real(epsilon(1._real32),dp)
-    logs=log(max(floor_prior,min(1-floor_prior,self%class_prior_)))
     if(allocated(self%init_)) deallocate(self%init_)
     allocate(self%init_(self%n_trees_per_iteration_)); self%init_=0
-    if(.not.self%init_zero) then
+    if(.not.self%fitted_init_zero_) then
+      logs=log(max(floor_prior,min(1-floor_prior,self%class_prior_)))
       if(c==2) then
         v=max(floor_prior,min(1-floor_prior,self%class_prior_(2)))
         self%init_(1)=boosting_logit(v)
@@ -382,16 +480,32 @@ contains
         self%init_=log(max(floor_prior,min(1-floor_prior,self%class_prior_))/v)
       end if
     end if
-    raw=spread(self%init_,1,n)
+    if(continuing)then
+      raw=self%decision_function(x);rng=self%rng_
+      allocate(grown(self%n_estimators,self%n_trees_per_iteration_));grown(:begin,:)=self%estimators_
+      call move_alloc(grown,self%estimators_)
+      call resize_boosting_values(self%train_score_,self%n_estimators)
+    else
+      raw=spread(self%init_,1,n);call rng%seed(self%random_state)
+      if(allocated(self%estimators_))deallocate(self%estimators_)
+      allocate(self%estimators_(self%n_estimators,self%n_trees_per_iteration_))
+      self%train_score_=spread(0._dp,1,self%n_estimators)
+    end if
     allocate(gradient(n,self%n_trees_per_iteration_),indicator(n),hessian(n),mask(n))
-    if(allocated(self%estimators_)) deallocate(self%estimators_)
-    allocate(self%estimators_(self%n_estimators_,self%n_trees_per_iteration_))
-    self%train_score_=spread(0._dp,1,self%n_estimators_); self%feature_importances_=spread(0._dp,1,p)
+    self%feature_importances_=spread(0._dp,1,p)
     do_oob=self%subsample<1;n_inbag=max(1,int(self%subsample*n))
-    allocate(sample_mask(n));sample_mask=.true.;self%oob_score_=0
-    if(allocated(self%oob_scores_))deallocate(self%oob_scores_,self%oob_improvement_)
-    if(do_oob)allocate(self%oob_scores_(self%n_estimators_),self%oob_improvement_(self%n_estimators_))
-    do t=1,self%n_estimators_
+    allocate(sample_mask(n));sample_mask=.true.
+    if(.not.continuing)then
+      self%oob_score_=0
+      if(allocated(self%oob_scores_))deallocate(self%oob_scores_,self%oob_improvement_)
+    end if
+    if(do_oob.or.allocated(self%oob_scores_))then
+      call resize_boosting_values(self%oob_scores_,self%n_estimators)
+      call resize_boosting_values(self%oob_improvement_,self%n_estimators)
+      if(continuing)self%oob_score_=ieee_value(0._dp,ieee_quiet_nan)
+    end if
+    if(do_oob.and.begin>0)previous_loss=self%oob_scores_(begin)
+    do t=begin+1,self%n_estimators
       if(do_oob)then
         sample_mask=boosting_sample_mask(rng,n,n_inbag)
         if(t==1)then
@@ -481,7 +595,7 @@ contains
       end if
     end do
     self%feature_importances_=0;nontrivial=0
-    do t=1,self%n_estimators_
+    do t=1,size(self%estimators_,1)
       do k=1,self%n_trees_per_iteration_
         if(self%estimators_(t,k)%node_count_<=1)cycle
         self%feature_importances_=self%feature_importances_+boost_tree_importances(self%estimators_(t,k))
@@ -491,6 +605,11 @@ contains
     if(nontrivial>0)then
       self%feature_importances_=self%feature_importances_/nontrivial;v=boosting_sum(self%feature_importances_)
       do k=1,p;self%feature_importances_(k)=ieee_quotient(self%feature_importances_(k),v);end do
+    end if
+    self%rng_=rng;self%n_estimators_=self%n_estimators
+    if(begin==self%n_estimators)then
+      self%n_estimators_=begin+1
+      if(allocated(self%oob_scores_))self%oob_score_=self%oob_scores_(self%n_estimators)
     end if
   end subroutine
 
@@ -521,7 +640,7 @@ contains
     call require(allocated(self%estimators_),'GradientBoostingClassifier is not fitted')
     call check_xy(transpose(x),self%n_features_in_)
     raw=spread(self%init_,1,size(x,1))
-    do t=1,self%n_estimators_
+    do t=1,size(self%estimators_,1)
       do k=1,self%n_trees_per_iteration_
         raw(:,k)=raw(:,k)+self%learning_rate*self%estimators_(t,k)%predict(x)
       end do
@@ -581,9 +700,9 @@ contains
     integer :: t,k
     call require(allocated(self%estimators_),'GradientBoostingClassifier is not fitted')
     call check_xy(transpose(x),self%n_features_in_)
-    allocate(stages(size(x,1),self%n_trees_per_iteration_,self%n_estimators_))
+    allocate(stages(size(x,1),self%n_trees_per_iteration_,size(self%estimators_,1)))
     raw=spread(self%init_,1,size(x,1))
-    do t=1,self%n_estimators_
+    do t=1,size(self%estimators_,1)
       do k=1,self%n_trees_per_iteration_
         raw(:,k)=raw(:,k)+self%learning_rate*self%estimators_(t,k)%predict(x)
       end do
@@ -597,8 +716,8 @@ contains
     real(dp), allocatable :: stages(:,:,:),raw(:,:,:)
     integer :: t
     raw=self%staged_decision_function(x)
-    allocate(stages(size(x,1),size(self%classes_),self%n_estimators_))
-    do t=1,self%n_estimators_
+    allocate(stages(size(x,1),size(self%classes_),size(self%estimators_,1)))
+    do t=1,size(self%estimators_,1)
       stages(:,:,t)=gbc_probabilities(self,raw(:,:,t))
     end do
   end function
@@ -609,8 +728,8 @@ contains
     integer, allocatable :: stages(:,:)
     real(dp), allocatable :: raw(:,:,:)
     integer :: t
-    raw=self%staged_decision_function(x); allocate(stages(size(x,1),self%n_estimators_))
-    do t=1,self%n_estimators_
+    raw=self%staged_decision_function(x); allocate(stages(size(x,1),size(self%estimators_,1)))
+    do t=1,size(self%estimators_,1)
       if(size(self%classes_)==2) then
         stages(:,t)=self%classes_(merge(2,1,raw(:,1,t)>=0))
       else
@@ -626,9 +745,9 @@ contains
     integer :: t,k
     call require(allocated(self%estimators_),'GradientBoostingClassifier is not fitted')
     call check_xy(transpose(x),self%n_features_in_)
-    allocate(leaves(size(x,1),self%n_estimators_,self%n_trees_per_iteration_))
+    allocate(leaves(size(x,1),size(self%estimators_,1),self%n_trees_per_iteration_))
     do k=1,self%n_trees_per_iteration_
-      do t=1,self%n_estimators_
+      do t=1,size(self%estimators_,1)
         leaves(:,t,k)=self%estimators_(t,k)%apply(x)
       end do
     end do
