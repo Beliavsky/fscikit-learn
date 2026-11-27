@@ -7,7 +7,7 @@ module sklearn_search_adapters
   use sklearn_parameter_space, only: parameter_set,parameter_value
   use sklearn_base_dispatch, only: base_supported,train_classifier,train_regressor,labels,regression, &
     probabilities,decisions,base_classes,base_decision
-  use sklearn_linear_model, only: linear_regression,ridge,elastic_net,logistic_regression,tweedie_regressor,huber_regressor,ransac_regressor
+  use sklearn_linear_model, only: bayesian_ridge,linear_regression,ridge,elastic_net,logistic_regression,tweedie_regressor,huber_regressor,ransac_regressor
   use sklearn_sgd, only: sgd_classifier,sgd_regressor
   use sklearn_sgd_clone, only: reset_sgd_fit
   use sklearn_naive_bayes, only: gaussian_nb,multinomial_nb
@@ -154,6 +154,28 @@ contains
       case('random_state');model%random_state=value%as_integer()
       case('fit_intercept');model%fit_intercept=value%as_logical()
       case('loss');model%loss=value%as_text()
+      case default;done=.false.
+      end select
+    type is(bayesian_ridge)
+      select case(name)
+      case('max_iter');model%max_iter=value%as_integer()
+      case('tol');model%tol=value%as_real()
+      case('alpha_1');model%alpha_1=value%as_real()
+      case('alpha_2');model%alpha_2=value%as_real()
+      case('lambda_1');model%lambda_1=value%as_real()
+      case('lambda_2');model%lambda_2=value%as_real()
+      case('alpha_init','lambda_init')
+        if(value%kind==4)then
+          call require(value%as_text()=='none','BayesianRidge initial precision text must be none')
+          if(name=='alpha_init')model%alpha_init=-1
+          if(name=='lambda_init')model%lambda_init=-1
+        else
+          call require(ieee_is_finite(value%as_real()).and.value%as_real()>=0,'invalid BayesianRidge initial precision')
+          if(name=='alpha_init')model%alpha_init=value%as_real()
+          if(name=='lambda_init')model%lambda_init=value%as_real()
+        end if
+      case('fit_intercept');model%fit_intercept=value%as_logical()
+      case('compute_score');model%compute_score=value%as_logical()
       case default;done=.false.
       end select
     type is(huber_regressor)

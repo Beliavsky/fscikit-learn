@@ -2392,7 +2392,7 @@ CASES = {
     "kpca_symmetry": "symmetric training kernel", "kpca_indefinite": "negative eigenvalues",
     "kpca_width": "query width mismatch", "isomap_neighbors": "n_neighbors < n_samples",
     "unlabeled": "at least one labeled sample", "spreading_alpha": "alpha must lie in (0,1)",
-    "bayes_prior": "hyperpriors must be positive", "bayes_unfitted": "not fitted",
+    "bayes_prior": "hyperpriors must be nonnegative", "bayes_unfitted": "not fitted",
     "ard_threshold": "invalid ARD parameters", "omp_sparsity": "invalid OMP sparsity",
     "factor_components": "invalid FactorAnalysis n_components", "factor_noise": "noise variance must be positive",
     "projection_auto": "automatic projection dimension", "projection_density": "projection density",

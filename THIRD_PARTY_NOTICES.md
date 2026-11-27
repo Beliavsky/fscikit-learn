@@ -2832,3 +2832,12 @@ inside their corresponding bound branches. This is an independent native
 Fortran correction: logical AND does not require short-circuit evaluation,
 and an absent bound's local distance was previously uninitialized. Original
 vendor licenses and attribution remain intact.
+
+## Weighted BayesianRidge and likelihood history
+
+`src/sklearn_bayesian_ridge_core.f90` and its estimator adapters follow
+scikit-learn 1.6.1 `linear_model/_bayes.py` and `_base.py` for weighted centering,
+row rescaling, MacKay precision updates, posterior covariance and marginal
+likelihood history. The scikit-learn BSD-3-Clause notice is retained in
+`LICENSES/scikit-learn-COPYING`. Native SVD integration, IEEE-state handling,
+Fortran rank/weight adapters and clone/parameter integration are MIT code.

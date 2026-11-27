@@ -627,15 +627,19 @@ distances; cosine similarity; linear, RBF, polynomial and sigmoid kernels.
   `alpha*sum(coef**2)/2`; the intercept is unpenalized. Constructor-only clone
   resets and native search/weighted composite dispatch are integrated.
 
-- BayesianRidge and ARD support one real target, positive hyperpriors and
-  predictive standard deviations, without marginal-likelihood score history,
-  sample weights or warm starts. ARD uses a Cholesky inverse of the active
-  feature precision even for wide input; sklearn switches to a Woodbury/SVD
-  inverse there, so numerical convergence paths can differ. BayesianRidge
-  follows sklearn's thin-SVD covariance convention for wide matrices. When
-  such a matrix is rank deficient (including centered wide data), the retained
-  null-space basis is not unique and covariance entries/predicted uncertainties
-  outside the data row space can differ between SVD implementations.
+- BayesianRidge supports dense weighted vector/column fits, scalar/vector
+  weights, nonnegative hyperpriors and initial precisions, likelihood history,
+  weighted R2, predictive uncertainty and constructor-only cloning. Weighted
+  centering/square-root rescaling and Source n_samples precision updates are
+  implemented. ARD remains unweighted with positive hyperpriors and no score
+  history; its active-feature Cholesky inverse differs from Source's wide-data
+  Woodbury/SVD path. BayesianRidge follows Source's thin-SVD covariance
+  convention. For rank-deficient wide matrices, null-space bases can differ,
+  affecting covariance and uncertainties outside the data row space. Some
+  single-sample likelihood histories also retain strict differences. Sparse
+  BayesianRidge fitting remains unsupported; copy controls are represented by
+  preserving input arrays. Neither estimator introduces a non-Source warm-start
+  parameter.
 - The OMP estimator supports a sparsity count or residual tolerance with a
   direct SVD solve on its active dictionary. Separate Cholesky orthogonal_mp
   and orthogonal_mp_gram functions add Gram input, multiple targets and paths;

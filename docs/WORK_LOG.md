@@ -10046,3 +10046,36 @@ c4f3b72333ec35e563f67c8778d035f328d4fa987fae3dc8f2e45879eec29ace.
 ZIP CRCs and critical source/report/binary hashes were verified. Evidence is
 under ignored validation/results/glm_*. Commits remain local; the retained
 numerical/domain gaps and broader translation remain open.
+
+
+### BayesianRidge weighted fitting and evidence histories
+
+Extended the sklearn BayesianRidge implementation with vector/scalar sample
+weights, one-column targets, weighted scoring, compute_score and scores_, and
+constructor-only cloning/search controls. Weighted centering and square-root
+rescaling follow sklearn 1.6.1; precision updates retain the original row count,
+including zero-weight rows. Both tall and wide coefficient paths and the final
+posterior covariance follow the Source thin-SVD formulas. Nonnegative
+hyperpriors are accepted; -1 is the documented native None sentinel for initial
+precisions, and typed search None is supported. Pipeline dispatch accepts these
+weighted fits. ARD is unchanged. MIT project licensing and Source BSD attribution
+are retained in the implementation and third-party notices.
+
+Added a 186-configuration Source comparison, twenty invalid-input cases, and a
+native covariance/history/clone/Pipeline test. Preliminary checked comparisons
+retain 26 strict failures: 21 wide covariance/standard-deviation cases with
+nonunique thin-SVD null-space bases and five single-row likelihood histories.
+Their indices are 63,64,65,66,67,68,69,70,71,75,76,77,78,79,80,81,82,83,87,88,89,
+120,126,132,138,144. Coefficients, predictions, precisions and iteration counts
+match in these cases. No tolerance or oracle was relaxed. The full checked
+package builds successfully; the new native test and existing Bayesian and
+IterativeImputer native tests also pass in the scoped optimized build. Full
+package and cross-profile reference audits are in progress at this commit.
+
+To make room for new evidence, removed only 164 generated executable copies
+(2,390,870,194 bytes) after verifying each byte-for-byte against a preserved ZIP
+entry and verifying the complete archive SHA256 against its earlier receipt.
+The archives and canonical build remain intact; the deletion manifest is in
+ignored validation/results/bayesian_archived_binary_cleanup.json. Installed
+compilers and user files were untouched. Validation continues to use GNU
+Fortran 15.2.0 with the existing validation-only Windows locale-copy shim.

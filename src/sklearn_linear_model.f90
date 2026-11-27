@@ -1,4 +1,5 @@
 module sklearn_linear_model
+  use sklearn_bayesian_ridge_core,only:bayesian_ridge_solve,bayesian_posterior_std
   use sklearn_ols_core,only:fit_ols_estimator,ols_solution
   use sklearn_ridge_estimator_core,only:fit_ridge_estimator
   use sklearn_legacy_rng,only:legacy_random_state
@@ -185,9 +186,13 @@ module sklearn_linear_model
     real(dp) :: lambda_1=1.e-6_dp,lambda_2=1.e-6_dp,alpha_init=-1,lambda_init=1
     real(dp) :: alpha_=0,lambda_=0
     logical :: converged_=.false.
-    real(dp), allocatable :: sigma_(:,:)
+    real(dp), allocatable :: sigma_(:,:),scores_(:),x_offset_(:),x_scale_(:)
+    logical::compute_score=.false.
   contains
     procedure :: fit_dense=>bayesian_fit
+    procedure :: fit_dense_weighted=>bayesian_fit_dw,fit_scalar_dw=>bayesian_fit_dws
+    procedure :: fit_matrix=>bayesian_fit_dm,fit_scalar_dm=>bayesian_fit_dms
+    procedure :: score_dw=>bayesian_score_dw,score_dm=>bayesian_score_dm
     procedure :: predict_std=>bayesian_std
   end type
   type, extends(linear_regression) :: ard_regression
@@ -1443,49 +1448,67 @@ contains
   ! Bayesian precision updates and OMP selection follow sklearn 1.6.1
   ! linear_model/_bayes.py and _omp.py. See THIRD_PARTY_NOTICES.md.
   subroutine bayesian_fit(self,x,y)
-    class(bayesian_ridge), intent(inout) :: self
-    real(dp), intent(in) :: x(:,:),y(:)
-    real(dp) :: xc(size(x,1),size(x,2)),yc(size(y)),xm(size(x,2)),ym
-    real(dp) :: u(size(x,1),size(x,2)),s(size(x,2)),v(size(x,2),size(x,2))
-    real(dp) :: rhs(size(x,2)),old(size(x,2)),weights(size(x,2)),gamma,rss
-    integer :: it,j,p,k
-    call check_positive_regression(self)
-    call require(self%max_iter>0.and.self%tol>=0,'invalid BayesianRidge iteration parameters')
-    call require(min(self%alpha_1,self%alpha_2,self%lambda_1,self%lambda_2)>0, &
-      'BayesianRidge hyperpriors must be positive')
-    call require((self%alpha_init==-1.or.self%alpha_init>0).and.self%lambda_init>0, &
-      'invalid BayesianRidge initial precision')
-    call centered(x,y,self%fit_intercept,xc,yc,xm,ym)
-    p=size(x,2); k=min(size(x,1),p)
-    call dense_svd(xc,s,u,v); rhs=s*matmul(transpose(u),yc)
-    self%rank_=count(s>epsilon(1._dp)*maxval(s)*max(size(x,1),p))
-    self%alpha_=self%alpha_init
-    if(self%alpha_init==-1) self%alpha_=1/(sum((yc-sum(yc)/size(yc))**2)/size(yc)+epsilon(1._dp))
-    self%lambda_=self%lambda_init; old=0; self%converged_=.false.
-    do it=1,self%max_iter
-      self%coef_=matmul(v,rhs/(s*s+self%lambda_/self%alpha_))
-      rss=sum((yc-matmul(xc,self%coef_))**2)
-      gamma=sum(self%alpha_*s*s/(self%lambda_+self%alpha_*s*s))
-      self%lambda_=(gamma+2*self%lambda_1)/(sum(self%coef_**2)+2*self%lambda_2)
-      self%alpha_=(size(y)-gamma+2*self%alpha_1)/(rss+2*self%alpha_2)
-      self%n_iter_=it
-      if(it>1.and.sum(abs(old-self%coef_))<self%tol) then
-        self%converged_=.true.; exit
-      end if
-      old=self%coef_
-    end do
-    self%coef_=matmul(v,rhs/(s*s+self%lambda_/self%alpha_))
-    self%intercept_=ym-dot_product(xm,self%coef_)
-    weights=0; weights(:k)=1/(self%alpha_*s(:k)**2+self%lambda_)
-    self%sigma_=matmul(v*spread(weights,1,p),transpose(v))
+    class(bayesian_ridge),intent(inout)::self
+    real(dp),intent(in)::x(:,:),y(:)
+    call bayesian_fit_common(self,x,y)
   end subroutine
+  subroutine bayesian_fit_common(self,x,y,sample_weight)
+    class(bayesian_ridge),intent(inout)::self
+    real(dp),intent(in)::x(:,:),y(:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    call check_positive_regression(self)
+    call bayesian_ridge_solve(x,y,self%fit_intercept,self%max_iter,self%tol,self%alpha_1,self%alpha_2, &
+      self%lambda_1,self%lambda_2,self%alpha_init,self%lambda_init,self%compute_score,self%coef_, &
+      self%intercept_,self%alpha_,self%lambda_,self%sigma_,self%scores_,self%x_offset_,self%n_iter_, &
+      self%rank_,self%converged_,sample_weight)
+    self%x_scale_=spread(1._dp,1,size(x,2));self%n_features_in_=size(x,2)
+    self%n_targets_=1;self%matrix_target_=.false.
+  end subroutine
+  subroutine bayesian_fit_dw(self,x,y,sample_weight)
+    class(bayesian_ridge),intent(inout)::self
+    real(dp),intent(in)::x(:,:),y(:)
+    real(dp),intent(in)::sample_weight(:)
+    call bayesian_fit_common(self,x,y,sample_weight)
+  end subroutine
+  subroutine bayesian_fit_dws(self,x,y,sample_weight)
+    class(bayesian_ridge),intent(inout)::self
+    real(dp),intent(in)::x(:,:),y(:)
+    real(dp),intent(in)::sample_weight
+    call bayesian_fit_common(self,x,y,spread(sample_weight,1,size(y)))
+  end subroutine
+  subroutine bayesian_fit_dm(self,x,y,sample_weight)
+    class(bayesian_ridge),intent(inout)::self
+    real(dp),intent(in)::x(:,:),y(:,:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    call require(size(y,2)==1,'BayesianRidge requires one target column')
+    call bayesian_fit_common(self,x,y(:,1),sample_weight)
+  end subroutine
+  subroutine bayesian_fit_dms(self,x,y,sample_weight)
+    class(bayesian_ridge),intent(inout)::self
+    real(dp),intent(in)::x(:,:),y(:,:)
+    real(dp),intent(in)::sample_weight
+    call require(size(y,2)==1,'BayesianRidge requires one target column')
+    call bayesian_fit_common(self,x,y(:,1),spread(sample_weight,1,size(y,1)))
+  end subroutine
+  real(dp)function bayesian_score_dw(self,x,y,sample_weight)result(value)
+    class(bayesian_ridge),intent(in)::self
+    real(dp),intent(in)::x(:,:),y(:),sample_weight(:)
+    value=r2_score(y,self%predict(x),sample_weight=sample_weight)
+  end function
+  real(dp)function bayesian_score_dm(self,x,y,sample_weight)result(value)
+    class(bayesian_ridge),intent(in)::self
+    real(dp),intent(in)::x(:,:),y(:,:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    call require(size(y,2)==1,'BayesianRidge score requires one target column')
+    value=r2_score(y(:,1),self%predict(x),sample_weight=sample_weight)
+  end function
   function bayesian_std(self,x) result(std)
     class(bayesian_ridge), intent(in) :: self
     real(dp), intent(in) :: x(:,:)
     real(dp) :: std(size(x,1))
     call require(allocated(self%sigma_),'BayesianRidge is not fitted')
     call check_xy(transpose(x),size(self%coef_))
-    std=sqrt(max(0._dp,sum(matmul(x,self%sigma_)*x,dim=2))+1/self%alpha_)
+    std=bayesian_posterior_std(x,self%sigma_,self%alpha_)
   end function
   function positive_inverse(a) result(inv)
     real(dp), intent(in) :: a(:,:)

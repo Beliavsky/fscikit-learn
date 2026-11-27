@@ -6592,7 +6592,7 @@ program invalid_input_driver
   case('isomap_neighbors'); iso%n_neighbors=4; call iso%fit(x)
   case('unlabeled'); call lp%fit(x,[-1,-1,-1,-1])
   case('spreading_alpha'); ls%alpha=1; call ls%fit(x,[0,-1,-1,1])
-  case('bayes_prior'); br%alpha_1=0; call br%fit(x,y)
+  case('bayes_prior'); br%alpha_1=-1; call br%fit(x,y)
   case('bayes_unfitted'); pred=br%predict_std(x)
   case('ard_threshold'); ar%threshold_lambda=0; call ar%fit(x,y)
   case('omp_sparsity'); omp%n_nonzero_coefs=3; call omp%fit(x,y)

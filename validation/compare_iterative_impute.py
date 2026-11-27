@@ -140,7 +140,7 @@ def covariance_replay(kw,x,q,records):
 
 def main():
     ap=argparse.ArgumentParser();ap.add_argument('--profile',choices=['checked','release'],default='checked')
-    ap.add_argument('--executable',type=Path);args=ap.parse_args()
+    ap.add_argument('--executable',type=Path);ap.add_argument('--report',type=Path);args=ap.parse_args()
     exe=args.executable.resolve() if args.executable else resolve(args.profile)
     checks=[];source_warnings=Counter();cases=0;max_errors={};conditional=[]
     for seed,case,kw,bounds,x,q in fixtures():
@@ -208,7 +208,9 @@ def main():
                 native_sha256=hashlib.sha256(exe.read_bytes()).hexdigest(),
                 source_sha256={p:hashlib.sha256((root/p).read_bytes()).hexdigest()
                                for p in ['impute/_iterative.py','impute/_base.py','linear_model/_bayes.py']})
-    (ROOT/'validation/results'/f'iterative_impute_{args.profile}.json').write_text(json.dumps(report,indent=2,allow_nan=False)+'\n')
+    destination=args.report or ROOT/'validation/results'/f'iterative_impute_{args.profile}.json'
+    destination.parent.mkdir(parents=True,exist_ok=True)
+    destination.write_text(json.dumps(report,indent=2,allow_nan=False)+'\n')
     print(f'{len(checks)} groups / {cases} fixtures passed')
 
 if __name__=='__main__':main()

@@ -596,15 +596,35 @@ uncertainty=model%predict_std(x_query)
 ```
 
 Bayesian models expose `alpha_` (noise precision), `sigma_` (coefficient
-covariance), `n_iter_` and `converged_`. Both use positive `alpha_1`, `alpha_2`,
-`lambda_1` and `lambda_2` hyperpriors, plus `tol` and `max_iter`. BayesianRidge
-has scalar `lambda_`, `alpha_init=-1` for automatic initialization, and
-`lambda_init=1`. ARD has per-feature `lambda_`; features with precision at or
-above `threshold_lambda` are pruned. Its `sigma_` contains retained features
-only, in original feature order, and can have shape `(0,0)`.
+covariance), `n_iter_` and `converged_`. BayesianRidge accepts dense vector or
+one-column targets with optional vector/scalar `sample_weight`. It uses weighted
+centering followed by square-root row rescaling, preserving the design input.
+Weights are nonnegative; zero total weight is rejected when centering. The
+precision update retains `n_samples`, rather than replacing it with total weight
+or dropping zero-weight rows, following Source.
+
+BayesianRidge has nonnegative `alpha_1`, `alpha_2`, `lambda_1`, `lambda_2`, positive
+`tol`, and positive `max_iter`. `alpha_init=-1` selects automatic initialization;
+`lambda_init=-1` selects Source None (=1), while the existing default remains 1.
+Nonnegative numeric initial precisions, including zero, follow the Source
+contracts; undefined likelihoods/score-domain errors remain possible. Native
+search accepts `param('none')` for automatic initial values and rejects negative
+numeric values. `compute_score=.true.` records `scores_`: one log marginal
+likelihood per iteration plus one final evaluation. Otherwise the native score
+history is empty. `x_offset_`, `x_scale_` and `n_features_in_` are fitted metadata.
+Clones discard fitted state while preserving constructor controls. Weighted
+native base/Pipeline dispatch and weighted R2 scoring are supported.
+
+ARD retains positive hyperpriors and per-feature `lambda_`; features at or above
+`threshold_lambda` are pruned. Its `sigma_` contains retained features only in
+original order, and can have shape `(0,0)`. ARD weighting and likelihood history
+remain gaps. BayesianRidge remains dense-only for fitting. Wide/rank-deficient
+SVD covariance bases can differ from Source, and some single-sample likelihood
+histories retain strict numerical differences.
 
 `predict_std` includes observation noise and uses raw query features, matching
-sklearn; it does not add intercept uncertainty. See `example/bayesian_regression.f90`.
+sklearn; it does not add intercept uncertainty. Undefined variances propagate
+IEEE NaNs instead of being clipped. See `example/bayesian_regression.f90`.
 
 OMP uses `n_nonzero_coefs=0` for `max(1,n_features/10)` or an explicit positive
 count. Set `tol>=0` to stop by residual sum of squares instead; `tol=-1` disables
