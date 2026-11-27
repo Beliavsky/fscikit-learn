@@ -2866,3 +2866,10 @@ GridSearchCV/RandomizedSearchCV parameter handling and final-estimator Pipeline
 dispatch follow sklearn 1.6.1 base.py, model_selection/_validation.py,
 model_selection/_search.py and pipeline.py. Typed Fortran adapters are independent
 MIT code; the retained scikit-learn BSD notice remains applicable.
+
+
+Fresh per-fold typed regression estimator copies, constructor-state reset for
+supported warm-started models and training-only weight slicing follow sklearn
+1.6.1 base.py and model_selection/_validation.py clone/fit-and-score semantics.
+The Fortran CV overloads and regression test are independent MIT integration;
+retained scikit-learn BSD notices remain applicable.

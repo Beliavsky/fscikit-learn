@@ -10373,3 +10373,30 @@ ZIP CRCs and critical source/report/object/binary hashes pass. The receipt is
 validation/results/quantile_integration_archive_receipt.json. This backup
 contains current evidence and the preserved race diagnostics; it does not
 restore the unavailable historical JSON/ZIP artifacts described above.
+
+
+### Fresh-fold regression CV and fitting weights
+
+Confirmed an existing cross_val_score defect: its linear-regression family
+copied the caller once and reused that model across folds. With a previously
+fitted warm-started caller and one solver iteration, Poisson scores differ
+from cold CV by up to 2.6344492234931947 and Huber by 0.8575129053732354.
+The before-fix program, executable and output are retained under cv_clone_*.
+
+Each regression fold now allocates a separate copy and resets supported
+warm-started estimator state using the existing constructor-only adapter.
+Huber/GLM controls, including warm_start itself, are preserved; fitted caller
+coefficients and preceding-fold state cannot seed optimizers. The caller is
+unchanged. Added scalar/vector training-weight overloads for regression-family
+models with native weighted fit; held-out scoring remains unweighted and uses
+the estimator's own score (R2 or GLM deviance). Unsupported weighted estimators
+retain controlled diagnostics. The original unweighted function signature is
+preserved. Logistic CV also allocates a separate model for each stratified fold.
+
+An isolated native regression test passes warm/cold invariance, caller-state
+preservation and scalar/vector fit-weight equivalence. Actual sklearn 1.6.1
+comparisons pass all 144 combinations of Huber/Poisson/Gamma/Tweedie, budgets
+1/4/50, warm flag on/off, fitted/unfitted caller and default/vector/scalar
+weights. Full checked package rebuilding is in progress; final profiles remain
+to be verified. No Source fixture/tolerance was relaxed. MIT licensing and
+Source BSD attribution are retained; this is progress toward the broader goal.

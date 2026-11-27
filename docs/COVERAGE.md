@@ -14613,3 +14613,12 @@ tolerances. Sparse GLM fits and Source solver/warning parity remain gaps.
 The separate invalid-input suite checks 24 Source/native rejections. The native
 one-column score adapter is explicitly identified as a convenience extension;
 Source 1.6.1 score rejects a two-dimensional target.
+
+
+Typed regression CV now isolates each fold's estimator state. Huber and GLM
+warm starts retain their constructor setting but have no learned coefficients
+or scale/intercept seed when each fold begins. Optional scalar/vector fitting
+weights are supported by regression-family models that implement weighted fit.
+Held-out scoring is unweighted and uses the estimator's own score definition.
+This corrects prior fitted-caller and cross-fold warm-state leakage; general
+Python exception/error-score semantics remain outside the terminating typed API.

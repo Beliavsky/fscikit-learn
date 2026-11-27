@@ -106,9 +106,11 @@ be arbitrary integers; they do not need to start at zero.
 
 There is no estimator polymorphic base class shared across all domains. Code can
 compose preprocessing and estimators with ordinary Fortran calls. Model-selection
-`cross_val_score` overloads currently cover `linear_regression` and its subclasses,
-and `logistic_regression` only. They copy the estimator, leaving its fitted state
-unchanged, but do not build preprocessing pipelines automatically.
+`cross_val_score` overloads cover `linear_regression` and its subclasses,
+`quantile_regressor` and `logistic_regression`. They isolate fold models while
+preserving caller state. Regression fitting weights are supported where the
+estimator implements weighted fit. These typed overloads do not build
+preprocessing pipelines automatically.
 
 ## Regression with a held-out set
 
@@ -11351,3 +11353,14 @@ KFold split, and returns unweighted held-out R2 scores. Model-selection and
 Pipeline adapters here use dense vector targets; direct CSR/column-target
 methods remain available on the estimator. Weighted Pipeline fitting routes
 weights to its final estimator, leaving preceding transforms unweighted.
+
+
+The typed sklearn_model_selection cross_val_score regression overload now
+creates a separate model per KFold split and resets supported warm-started
+estimators to constructor state. Fitted Huber and GLM callers cannot seed fold
+optimizers, and learned fold state cannot warm-start subsequent folds. Optional
+scalar/vector sample_weight is routed only to training fits; held-out scores
+remain unweighted estimator scores (R2 for Huber, deviance scores for GLMs).
+Weights require an estimator with a native weighted fit; unsupported derived
+estimators retain terminating diagnostics. Caller state is preserved. The typed
+logistic path also allocates a separate model for each stratified fold.
