@@ -85,11 +85,12 @@
 !    R.H. Byrd, P. Lu-Chen and J. Nocedal.
 
       subroutine setulb(n,m,x,l,u,Nbd,f,g,Factr,Pgtol,Wa,Iwa,Task, &
-                        Iprint,Csave,Lsave,Isave,Dsave,ScipyNorm)
+                        Iprint,Csave,Lsave,Isave,Dsave,ScipyNorm,MaxLineSearch)
       implicit none
       ! Opt-in SciPy 1.15.3 norm-square updates; existing callers retain
       ! the original L-BFGS-B DDOT updates.
       logical,optional,intent(in)::ScipyNorm
+      integer,optional,intent(in)::MaxLineSearch
 
 
       integer,intent(in) :: n !! the dimension of the problem (the number of variables).
@@ -282,7 +283,7 @@
       call mainlb(n,m,x,l,u,Nbd,f,g,Factr,Pgtol,Wa(lws),Wa(lwy),Wa(lsy),&
                   Wa(lss),Wa(lwt),Wa(lwn),Wa(lsnd),Wa(lz),Wa(lr),Wa(ld),&
                   Wa(lt),Wa(lxp),Wa(lwa),Iwa(1),Iwa(n+1),Iwa(2*n+1),    &
-                  Task,Iprint,Csave,Lsave,Isave(22),Dsave,ScipyNorm)
+                  Task,Iprint,Csave,Lsave,Isave(22),Dsave,ScipyNorm,MaxLineSearch)
 
       end subroutine setulb
 !*******************************************************************************
@@ -339,10 +340,11 @@
 
       subroutine mainlb(n,m,x,l,u,Nbd,f,g,Factr,Pgtol,Ws,Wy,Sy,Ss,Wt,Wn, &
                         Snd,z,r,d,t,Xp,Wa,Index,Iwhere,Indx2,Task, &
-                        Iprint,Csave,Lsave,Isave,Dsave,ScipyNorm)
+                        Iprint,Csave,Lsave,Isave,Dsave,ScipyNorm,MaxLineSearch)
 
       implicit none
       logical,optional,intent(in)::ScipyNorm
+      integer,optional,intent(in)::MaxLineSearch
       logical::source_norm
 
 
@@ -452,10 +454,13 @@
                   cpu2 , cachyt , sbtime , lnscht , time1 , time2 , &
                   gd , gdold , stp , stpmx , time
 
+      integer::line_search_limit
       logical :: compute_infinity_norm_of_projected_gradient
       logical :: prelims
       logical :: linesearch
 
+      line_search_limit=20
+      if(present(MaxLineSearch))line_search_limit=max(1,MaxLineSearch)
       source_norm=.false.
       if(present(ScipyNorm))source_norm=ScipyNorm
       if ( Task=='START' ) then
@@ -757,7 +762,7 @@
             call lnsrlb(n,l,u,Nbd,x,f,fold,gd,gdold,g,d,r,t,z,stp,dnorm,dtd, &
                         xstep,stpmx,iter,ifun,iback,nfgv,info,Task,boxed,    &
                         cnstnd,Csave,Isave(22),Dsave(17),Iprint,source_norm)
-            if ( info/=0 .or. iback>=20 ) then
+            if ( info/=0 .or. iback>=line_search_limit ) then
                ! restore the previous iterate.
                call dcopy(n,t,1,x,1)
                call dcopy(n,r,1,g,1)

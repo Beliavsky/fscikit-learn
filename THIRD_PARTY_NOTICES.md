@@ -2799,3 +2799,15 @@ Scikit-learn is BSD-3-Clause; its notice is retained in
 `LICENSES/scikit-learn-COPYING`. The Fortran damped eigen/Newton optimizer,
 overloads, parameter adapters and clone integration are native MIT code.
 This does not import scikit-learn's L-BFGS or Newton-Cholesky solver.
+
+## GLM L-BFGS and direct CSR evaluation
+
+`src/sklearn_glm_lbfgs.f90` follows sklearn 1.6.1
+`linear_model/_glm/glm.py`, `linear_model/_linear_loss.py` and
+`_loss/_loss.pyx.tp` for weighted loss/gradient formulas, optimizer settings,
+intercept/penalty conventions and stopping contracts. Scikit-learn's
+BSD-3-Clause notice remains in `LICENSES/scikit-learn-COPYING`. Native Fortran
+CSR integration, IEEE-state preservation, typed APIs and status adapters are
+MIT code. The existing L-BFGS-B vendor license/notices remain unchanged;
+its optional `MaxLineSearch` argument preserves the existing 20-step default
+for all callers while allowing the GLM's Source-compatible limit of 50.

@@ -175,6 +175,7 @@ contains
           if(name=='link')model%link=value%as_text()
         class default;done=.false.
         end select
+      case('solver');model%solver=value%as_text()
       case('alpha');model%alpha=value%as_real()
       case('tol');model%tol=value%as_real()
       case('max_iter');model%max_iter=value%as_integer()

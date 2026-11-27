@@ -5,6 +5,7 @@ module sklearn_linear_model
   use sklearn_bagging_sampling,only:sample_indices
   use sklearn_boosting_loss,only:numpy_sum=>boosting_sum
   use sklearn_huber_solver,only:huber_solve
+  use sklearn_glm_lbfgs,only:glm_lbfgs_solve
   use sklearn_sparse,only:csr_matrix
   use sklearn_ridge_solver,only:ridge_regression,ridge_solver_options,ridge_solution
   use sklearn_coordinate_paths,only:enet_path,lasso_path,coordinate_path_options,coordinate_path_result
@@ -261,12 +262,17 @@ module sklearn_linear_model
     real(dp) :: power=0,power_=0,alpha=1,tol=1.e-4_dp
     integer :: max_iter=100,n_iter_=0
     character(12) :: link='auto',link_='identity'
+    character(16)::solver='lbfgs'
+    character(60)::optimization_message_=''
     logical :: converged_=.false.,warm_start=.false.
   contains
     procedure :: fit_dense=>tweedie_fit
     procedure :: fit_dense_weighted=>glm_fit_dw,fit_scalar_dw=>glm_fit_dws
     procedure :: fit_matrix=>glm_fit_dm,fit_scalar_dm=>glm_fit_dms
     procedure :: score_dw=>glm_score_dw,score_dm=>glm_score_dm
+    procedure :: fit_sparse=>glm_fit_sv,fit_scalar_sv=>glm_fit_svs
+    procedure :: fit_sparse_matrix=>glm_fit_sm,fit_scalar_sm=>glm_fit_sms
+    procedure :: predict_sparse=>glm_predict_sparse,score_sv=>glm_score_sv,score_sm=>glm_score_sm
     procedure :: predict_dense=>glm_predict
     procedure :: score_dense=>glm_score
   end type
@@ -1154,17 +1160,17 @@ contains
   subroutine tweedie_fit(self,x,y)
     class(tweedie_regressor),intent(inout)::self
     real(dp),intent(in)::x(:,:),y(:)
-    call glm_fit_common(self,x,y)
+    call glm_fit_common(self,y,dense=x)
   end subroutine
   subroutine glm_fit_dw(self,x,y,sample_weight)
     class(tweedie_regressor),intent(inout)::self
     real(dp),intent(in)::x(:,:),y(:),sample_weight(:)
-    call glm_fit_common(self,x,y,sample_weight)
+    call glm_fit_common(self,y,sample_weight,dense=x)
   end subroutine
   subroutine glm_fit_dws(self,x,y,sample_weight)
     class(tweedie_regressor),intent(inout)::self
     real(dp),intent(in)::x(:,:),y(:),sample_weight
-    call glm_fit_common(self,x,y,spread(sample_weight,1,size(y)))
+    call glm_fit_common(self,y,spread(sample_weight,1,size(y)),dense=x)
   end subroutine
   subroutine glm_fit_dm(self,x,y,sample_weight)
     class(tweedie_regressor),intent(inout)::self
@@ -1172,18 +1178,48 @@ contains
     real(dp),intent(in)::y(:,:)
     real(dp),optional,intent(in)::sample_weight(:)
     call require(size(y,2)==1,'GLM requires one target column')
-    call glm_fit_common(self,x,y(:,1),sample_weight)
+    call glm_fit_common(self,y(:,1),sample_weight,dense=x)
   end subroutine
   subroutine glm_fit_dms(self,x,y,sample_weight)
     class(tweedie_regressor),intent(inout)::self
     real(dp),intent(in)::x(:,:)
     real(dp),intent(in)::y(:,:),sample_weight
     call require(size(y,2)==1,'GLM requires one target column')
-    call glm_fit_common(self,x,y(:,1),spread(sample_weight,1,size(y,1)))
+    call glm_fit_common(self,y(:,1),spread(sample_weight,1,size(y,1)),dense=x)
   end subroutine
-  subroutine glm_fit_common(self,x,y,sample_weight)
+  subroutine glm_fit_sv(self,x,y,sample_weight)
+    class(tweedie_regressor),intent(inout)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),intent(in)::y(:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    call glm_fit_common(self,y,sample_weight,sparse=x)
+  end subroutine
+  subroutine glm_fit_svs(self,x,y,sample_weight)
+    class(tweedie_regressor),intent(inout)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),intent(in)::y(:),sample_weight
+    call glm_fit_common(self,y,spread(sample_weight,1,size(y)),sparse=x)
+  end subroutine
+  subroutine glm_fit_sm(self,x,y,sample_weight)
+    class(tweedie_regressor),intent(inout)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),intent(in)::y(:,:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    call require(size(y,2)==1,'GLM requires one target column')
+    call glm_fit_common(self,y(:,1),sample_weight,sparse=x)
+  end subroutine
+  subroutine glm_fit_sms(self,x,y,sample_weight)
+    class(tweedie_regressor),intent(inout)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),intent(in)::y(:,:),sample_weight
+    call require(size(y,2)==1,'GLM requires one target column')
+    call glm_fit_common(self,y(:,1),spread(sample_weight,1,size(y,1)),sparse=x)
+  end subroutine
+  subroutine glm_fit_common(self,y,sample_weight,dense,sparse)
     class(tweedie_regressor), intent(inout) :: self
-    real(dp), intent(in) :: x(:,:),y(:)
+    real(dp), intent(in) :: y(:)
+    real(dp),optional,intent(in)::dense(:,:)
+    type(csr_matrix),optional,intent(in)::sparse
     real(dp),optional,intent(in)::sample_weight(:)
     real(dp)::weight(size(y)),mean_y
     real(dp), allocatable :: design(:,:),w(:),trial(:),g(:),h(:,:),gt(:),ht(:,:),step(:),s(:),v(:,:)
@@ -1191,7 +1227,16 @@ contains
     integer :: n,p,q,it,ls
     logical :: valid
     call check_positive_regression(self)
-    call check_xy(x,size(y)); call check_x(reshape(y,[size(y),1]))
+    call require(present(dense).neqv.present(sparse),'GLM requires one feature representation')
+    if(present(dense))then
+      call check_xy(dense,size(y));p=size(dense,2)
+    else
+      call sparse%validate()
+      call require(sparse%n_rows==size(y).and.sparse%n_rows>0.and.sparse%n_cols>0,'invalid GLM CSR shape')
+      call require(all(ieee_is_finite(sparse%data)),'GLM CSR data must be finite');p=sparse%n_cols
+    end if
+    call require(self%solver=='lbfgs'.or.self%solver=='native-newton','unsupported GLM solver')
+    if(self%solver=='native-newton')call require(present(dense),'native-newton currently requires dense GLM input')
     select type(self)
     class is(poisson_regressor)
       self%power=1;self%link='log'
@@ -1212,10 +1257,9 @@ contains
     call require(numpy_sum(weight)/=0,'GLM sample weights must have nonzero sum')
     mean_y=numpy_sum(weight*y)/numpy_sum(weight)
     if(self%link_=='log') call require(mean_y>0,'log-link GLM requires a positive weighted target mean')
-    n=size(y); p=size(x,2); q=p
+    n=size(y); q=p
     if(self%fit_intercept) q=q+1
-    allocate(design(n,q),w(q),trial(q),g(q),h(q,q),gt(q),ht(q,q),step(q),s(q),v(q,q))
-    design(:,:p)=x; if(self%fit_intercept) design(:,q)=1
+    allocate(w(q))
     w=0
     if(self%warm_start.and.allocated(self%coef_))then
       call require(size(self%coef_)==p,'GLM warm-start feature count mismatch')
@@ -1225,31 +1269,39 @@ contains
       w(q)=mean_y
       if(self%link_=='log')w(q)=log(mean_y)
     end if
-    call glm_objective(design,y,w,p,self%power,self%link_,self%alpha,loss,g,h,valid,weight)
-    call require(valid,'GLM initial prediction exceeds numerical range')
-    self%converged_=.false.; self%n_iter_=0
-    do it=1,self%max_iter
-      if(maxval(abs(g))<=self%tol) then
-        self%converged_=.true.; exit
-      end if
-      call symmetric_eigen(h,s,v); cutoff=epsilon(1._dp)*q*maxval(s)
-      step=0
-      where(s>cutoff) step=matmul(transpose(v),g)/max(s,tiny(1._dp))
-      step=matmul(v,step)
-      if(dot_product(g,step)<=0)step=g
-      rate=1
-      do ls=1,80
-        trial=w-rate*step
-        call glm_objective(design,y,trial,p,self%power,self%link_,self%alpha,next,gt,ht,valid,weight)
-        if(valid.and.next<=loss-1.e-4_dp*rate*dot_product(g,step)) exit
-        if(valid.and.abs(next-loss)<=8*epsilon(1._dp)*max(1._dp,abs(loss)) &
-          .and.maxval(abs(gt))<maxval(abs(g))) exit
-        rate=rate*0.5_dp
+    if(self%solver=='lbfgs')then
+      call glm_lbfgs_solve(w,y,weight,self%power,self%link_,self%alpha,self%tol,self%max_iter, &
+        self%n_iter_,self%converged_,self%optimization_message_,dense,sparse)
+    else
+      allocate(design(n,q),trial(q),g(q),h(q,q),gt(q),ht(q,q),step(q),s(q),v(q,q))
+      design(:,:p)=dense;if(self%fit_intercept)design(:,q)=1
+      call glm_objective(design,y,w,p,self%power,self%link_,self%alpha,loss,g,h,valid,weight)
+      call require(valid,'GLM initial prediction exceeds numerical range')
+      self%converged_=.false.; self%n_iter_=0
+      do it=1,self%max_iter
+        if(maxval(abs(g))<=self%tol) then
+          self%converged_=.true.; exit
+        end if
+        call symmetric_eigen(h,s,v); cutoff=epsilon(1._dp)*q*maxval(s)
+        step=0
+        where(s>cutoff) step=matmul(transpose(v),g)/max(s,tiny(1._dp))
+        step=matmul(v,step)
+        if(dot_product(g,step)<=0)step=g
+        rate=1
+        do ls=1,80
+          trial=w-rate*step
+          call glm_objective(design,y,trial,p,self%power,self%link_,self%alpha,next,gt,ht,valid,weight)
+          if(valid.and.next<=loss-1.e-4_dp*rate*dot_product(g,step)) exit
+          if(valid.and.abs(next-loss)<=8*epsilon(1._dp)*max(1._dp,abs(loss)) &
+            .and.maxval(abs(gt))<maxval(abs(g))) exit
+          rate=rate*0.5_dp
+        end do
+        if(ls>80) exit
+        w=trial; g=gt; h=ht; loss=next; self%n_iter_=it
       end do
-      if(ls>80) exit
-      w=trial; g=gt; h=ht; loss=next; self%n_iter_=it
-    end do
-    if(maxval(abs(g))<=self%tol) self%converged_=.true.
+      if(maxval(abs(g))<=self%tol) self%converged_=.true.
+      self%optimization_message_='native damped eigen/Newton'
+    end if
     self%power_=self%power;self%n_features_in_=p;self%n_targets_=1;self%matrix_target_=.false.
     self%coef_=w(:p); self%intercept_=0
     if(self%fit_intercept) self%intercept_=w(q)
@@ -1263,6 +1315,19 @@ contains
     if(self%link_=='log') then
       call require(maxval(abs(y))<log(huge(1._dp)),'GLM prediction exceeds numerical range')
       y=exp(y)
+    end if
+  end function
+  function glm_predict_sparse(self,x)result(y)
+    class(tweedie_regressor),intent(in)::self
+    type(csr_matrix),intent(in)::x
+    real(dp)::y(x%n_rows)
+    real(dp),allocatable::pred(:,:)
+    call require(allocated(self%coef_),'GLM is not fitted')
+    call x%validate();call require(x%n_rows>0.and.x%n_cols==size(self%coef_),'GLM query shape differs')
+    call require(all(ieee_is_finite(x%data)),'GLM query data must be finite')
+    pred=x%matmul(reshape(self%coef_,[size(self%coef_),1]));y=pred(:,1)+self%intercept_
+    if(self%link_=='log')then
+      call require(maxval(abs(y))<log(huge(1._dp)),'GLM prediction exceeds numerical range');y=exp(y)
     end if
   end function
   real(dp) function tweedie_deviance(y,mu,power) result(d)
@@ -1324,20 +1389,41 @@ contains
     call require(size(y,2)==1,'GLM score requires one target column')
     s=glm_score_common(self,x,y(:,1),sample_weight)
   end function
-  real(dp) function glm_score_common(self,x,y,sample_weight) result(s)
-    class(tweedie_regressor), intent(in) :: self
-    real(dp), intent(in) :: x(:,:),y(:)
+  real(dp) function glm_score_common(self,x,y,sample_weight)result(s)
+    class(tweedie_regressor),intent(in)::self
+    real(dp),intent(in)::x(:,:),y(:)
     real(dp),optional,intent(in)::sample_weight(:)
-    real(dp)::weight(size(y)),prediction(size(y)),mean_y,numerator,denominator,one(1),mu(1)
+    call check_xy(x,size(y));s=glm_score_values(self,self%predict(x),y,sample_weight)
+  end function
+  real(dp) function glm_score_sv(self,x,y,sample_weight)result(s)
+    class(tweedie_regressor),intent(in)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),intent(in)::y(:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    s=glm_score_values(self,self%predict(x),y,sample_weight)
+  end function
+  real(dp) function glm_score_sm(self,x,y,sample_weight)result(s)
+    class(tweedie_regressor),intent(in)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),intent(in)::y(:,:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    call require(size(y,2)==1,'GLM score requires one target column')
+    s=glm_score_values(self,self%predict(x),y(:,1),sample_weight)
+  end function
+  real(dp) function glm_score_values(self,prediction,y,sample_weight) result(s)
+    class(tweedie_regressor), intent(in) :: self
+    real(dp), intent(in) :: prediction(:),y(:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    real(dp)::weight(size(y)),mean_y,numerator,denominator,one(1),mu(1)
     integer::i
-    call check_xy(x,size(y));call glm_target_check(y,self%power_)
+    call require(size(prediction)==size(y),'GLM score target length differs');call glm_target_check(y,self%power_)
     weight=1
     if(present(sample_weight))then
       call require(size(sample_weight)==size(y),'GLM score sample_weight length mismatch');weight=sample_weight
     end if
     call require(all(ieee_is_finite(weight)),'GLM score weights must be finite')
     call require(numpy_sum(weight)/=0,'GLM score weights must have nonzero sum')
-    mean_y=numpy_sum(weight*y)/numpy_sum(weight);prediction=self%predict(x)
+    mean_y=numpy_sum(weight*y)/numpy_sum(weight)
     if(self%power_/=0)then
       call require(all(prediction>0).and.mean_y>0,'GLM deviance requires positive predictions and target mean')
     end if

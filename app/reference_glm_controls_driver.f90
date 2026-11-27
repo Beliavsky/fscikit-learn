@@ -14,6 +14,7 @@ program reference_glm_controls_driver
   case(1);allocate(poisson_regressor::model)
   case(2);allocate(gamma_regressor::model)
   end select
+  model%solver='native-newton'
   model%power=power;model%link=link;model%alpha=alpha;model%tol=tol;model%max_iter=cap
   model%fit_intercept=intercept/=0;model%warm_start=steps>1
   allocate(x(n,p),y(n),weight(n))

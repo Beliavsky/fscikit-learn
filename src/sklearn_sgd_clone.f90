@@ -46,7 +46,7 @@ contains
       block
         type(tweedie_regressor)::copy
         copy%fit_intercept=model%fit_intercept;copy%positive=model%positive
-        copy%power=model%power;copy%link=model%link;copy%alpha=model%alpha;copy%tol=model%tol
+        copy%solver=model%solver;copy%power=model%power;copy%link=model%link;copy%alpha=model%alpha;copy%tol=model%tol
         copy%max_iter=model%max_iter;copy%warm_start=model%warm_start
         model=copy
       end block
@@ -54,7 +54,7 @@ contains
       block
         type(poisson_regressor)::copy
         copy%fit_intercept=model%fit_intercept;copy%positive=model%positive
-        copy%power=model%power;copy%link=model%link;copy%alpha=model%alpha;copy%tol=model%tol
+        copy%solver=model%solver;copy%power=model%power;copy%link=model%link;copy%alpha=model%alpha;copy%tol=model%tol
         copy%max_iter=model%max_iter;copy%warm_start=model%warm_start
         model=copy
       end block
@@ -62,7 +62,7 @@ contains
       block
         type(gamma_regressor)::copy
         copy%fit_intercept=model%fit_intercept;copy%positive=model%positive
-        copy%power=model%power;copy%link=model%link;copy%alpha=model%alpha;copy%tol=model%tol
+        copy%solver=model%solver;copy%power=model%power;copy%link=model%link;copy%alpha=model%alpha;copy%tol=model%tol
         copy%max_iter=model%max_iter;copy%warm_start=model%warm_start
         model=copy
       end block

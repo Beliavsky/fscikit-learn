@@ -609,21 +609,21 @@ distances; cosine similarity; linear, RBF, polynomial and sigmoid kernels.
   exact CV-rank differences for nearly tied scores; predictions and selected
   best models match. Integer huge bounds are native
   adapters for unbounded Source count controls.
-- Poisson, Gamma and Tweedie use damped Newton updates with a symmetric-eigen
-  pseudoinverse Hessian, supporting singular unpenalized designs. Dense
-  vector/one-column fits accept scalar/vector sample weights and warm starts.
-  Tweedie supports finite real powers and auto/identity/log links. Auto uses
-  identity at nonpositive power and log otherwise. Targets follow Source's
-  real/nonnegative/positive ranges. Nonzero-power identity trials must remain
-  positive, and log-link initialization needs a positive weighted mean.
-  Weighted D2 uses the fitted power and preserves IEEE undefined scores.
-  The one-column score overload is a native convenience extension that flattens
-  targets; Source GLM score rejects this rank. The fitted objective is weighted mean half-deviance
-  plus `alpha*sum(coef**2)/2`. Signed finite weights are accepted; convergence
-  is not guaranteed. CSR input, Source L-BFGS, exact Newton-Cholesky steps and
-  warning/iteration-count parity remain unsupported. Trial numerical range is
-  bounded; extreme powers/data may be rejected. Native parameter-only clone
-  resets discard warm fit state at composite/search clone sites.
+- Poisson, Gamma and Tweedie default to L-BFGS with Source's memory, tolerance
+  and 50-step line-search settings. Dense/CSR vector/one-column fits accept
+  scalar/vector sample weights and warm starts. CSR loss/gradients, prediction
+  and weighted D2 operate directly on stored entries without a dense design
+  or feature-square Hessian. Raw duplicate/explicit-zero storage is retained.
+  Native solver status/message fields replace Source convergence warnings.
+  The former dense damped eigen/Newton solver remains available through the
+  explicitly identified `native-newton` extension; Source Newton-Cholesky and
+  universal iteration/trajectory parity remain gaps. Tweedie supports finite
+  real powers and auto/identity/log links with documented domain/range limits.
+  Weighted D2 uses the fitted power; one-column score flattening is a native
+  convenience extension. Boundary-power score cancellation retains strict
+  differences. The objective is weighted mean half-deviance plus L2 penalty
+  `alpha*sum(coef**2)/2`; the intercept is unpenalized. Constructor-only clone
+  resets and native search/weighted composite dispatch are integrated.
 
 - BayesianRidge and ARD support one real target, positive hyperpriors and
   predictive standard deviations, without marginal-likelihood score history,

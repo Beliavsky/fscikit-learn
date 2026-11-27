@@ -14,6 +14,7 @@ program test_glm_controls
   real(dp)::x(12,2),y(12),weight(12),before(2),saved_score
   type(parameter_set)::parameters
   integer::i
+  a%solver='native-newton';poisson%solver='native-newton';gamma%solver='native-newton'
   do i=1,12
     x(i,:)=[real(i-6,dp)/12,real(mod(i,3),dp)/6]
   end do

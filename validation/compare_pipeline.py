@@ -113,10 +113,12 @@ def fixtures():
 
 def main():
     ap=argparse.ArgumentParser();ap.add_argument('--profile',choices=['checked','release'],default='checked')
-    ap.add_argument('--executable',type=Path);args=ap.parse_args()
+    ap.add_argument('--executable',type=Path);ap.add_argument('--report',type=Path)
+    ap.add_argument('--task',type=int,choices=range(5));args=ap.parse_args()
     exe=args.executable.resolve() if args.executable else resolve(args.profile,'reference_pipeline_driver')
     checks=[];count=0;errors={};warning_counts={};certificates=[]
     for c,x,q,yr,yi,ym,weights in fixtures():
+        if args.task is not None and c['task']!=args.task:continue
         task=c['task'];config=c['config'];kind=c['kind'];n=len(x)
         features=['field_'+str(i+1) for i in range(c['p'])]
         data=pd.DataFrame(x,columns=features) if c['named'] else x
@@ -233,7 +235,9 @@ def main():
                                ['pipeline.py','preprocessing/_target_encoder.py','feature_selection/_univariate_selection.py',
                                 'neighbors/_base.py','neighbors/_regression.py','neighbors/_classification.py']})
     (ROOT/'validation/results').mkdir(exist_ok=True)
-    (ROOT/'validation/results'/f'pipeline_{args.profile}.json').write_text(json.dumps(report,indent=2,allow_nan=False)+'\n')
+    destination=args.report or ROOT/'validation/results'/f'pipeline_{args.profile}.json'
+    destination.parent.mkdir(parents=True,exist_ok=True)
+    destination.write_text(json.dumps(report,indent=2,allow_nan=False)+'\n')
     print(f'{len(checks)} groups / {count} pipeline fixtures passed')
 
 if __name__=='__main__':main()

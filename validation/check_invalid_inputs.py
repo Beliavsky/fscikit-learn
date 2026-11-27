@@ -2400,9 +2400,10 @@ CASES = {
     "huber_epsilon": "invalid HuberRegressor controls", "ransac_samples": "invalid RANSAC sample/trial controls",
     "ransac_threshold": "invalid RANSAC residual threshold", "ransac_loss": "invalid RANSAC loss",
     "ransac_probability": "invalid RANSAC stopping controls", "poisson_targets": "targets must be nonnegative",
-    "gamma_targets": "Gamma targets must be positive", "tweedie_power": "supported Tweedie powers",
-    "tweedie_link": "supported GLM links", "glm_alpha": "invalid GLM controls",
-    "glm_unfitted": "not fitted", "glm_constant_score": "D2 requires a nonconstant target",
+    "gamma_targets": "targets must be positive", "glm_alpha": "invalid GLM controls",
+    "glm_unfitted": "not fitted",
+    # The former power=.5, power=0/log and constant-score rejections are
+    # actual Source acceptance fixtures in compare_glm_lbfgs.py now.
     "meanshift_bandwidth": "MeanShift bandwidth must be positive", "meanshift_seeds": "no point within MeanShift bandwidth",
     "affinity_damping": "invalid AffinityPropagation controls", "affinity_square": "similarities must be square",
     "affinity_predict": "prediction requires feature-input fitting", "spectral_clusters": "invalid spectral n_clusters",

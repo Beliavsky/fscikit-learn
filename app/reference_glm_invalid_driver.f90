@@ -1,14 +1,17 @@
 program reference_glm_invalid_driver
   use sklearn
+  use sklearn_sparse,only:csr_matrix,csr_from_dense
   use,intrinsic::ieee_arithmetic,only:ieee_value,ieee_quiet_nan,ieee_positive_inf
   implicit none
   type(tweedie_regressor)::model
+  type(csr_matrix)::sparse
   real(dp)::x(4,2),y(4),weight(4),value
   character(64)::arg
   integer::which
   call get_command_argument(1,arg);read(arg,*)which
   x=0;x(:,1)=[.1_dp,.2_dp,.3_dp,.4_dp];x(:,2)=[.4_dp,.1_dp,.2_dp,.3_dp]
   y=[1._dp,2._dp,3._dp,4._dp];weight=1
+  sparse=csr_from_dense(x)
   select case(which)
   case(0);model%alpha=-1
   case(1);model%tol=0
@@ -38,6 +41,15 @@ program reference_glm_invalid_driver
     call model%fit(x,y);weight=0;value=model%score(x,y,weight);stop
   case(23)
     model%power=3;call model%fit(x,y);y(1)=0;value=model%score(x,y);stop
+  case(24);model%solver='unknown'
+  case(25);sparse%data(1)=ieee_value(0._dp,ieee_quiet_nan);call model%fit(sparse,y);stop
+  case(26);call model%fit(sparse,y,weight(:3));stop
+  case(27);call model%fit(sparse,reshape([y,y],[4,2]));stop
+  case(28);sparse=csr_from_dense(x(:0,:));call model%fit(sparse,y(:0));stop
+  case(29)
+    call model%fit(sparse,y);sparse=csr_from_dense(x(:,:1));value=model%score(sparse,y);stop
+  case(30);call model%fit(sparse,y(:3));stop
+  case(31);sparse=csr_from_dense(x(:,:0));call model%fit(sparse,y);stop
   end select
   call model%fit(x,y,weight)
   print *,'unexpected acceptance'

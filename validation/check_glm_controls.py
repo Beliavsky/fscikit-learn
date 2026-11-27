@@ -3,11 +3,22 @@ from pathlib import Path
 import argparse,json,os,subprocess,warnings
 os.environ.update(OMP_NUM_THREADS='1',OPENBLAS_NUM_THREADS='1')
 import numpy as np
+from scipy.sparse import csr_matrix
 from sklearn.linear_model import TweedieRegressor
 
 def source(which):
     x=np.array([[.1,.4],[.2,.1],[.3,.2],[.4,.3]])
     y=np.arange(1.,5.);w=np.ones(4);m=TweedieRegressor(solver='newton-cholesky')
+    if which==24:m.solver='unknown'
+    if which>=25:
+        x=csr_matrix(x)
+        if which==25:x.data[0]=np.nan
+        if which==26:w=w[:3]
+        if which==27:y=np.column_stack([y,y])
+        if which==28:x=x[:0];y=y[:0]
+        if which==29:m.fit(x,y);return m.score(x[:,:1],y)
+        if which==30:y=y[:3]
+        if which==31:x=x[:,:0]
     if which==0:m.alpha=-1
     if which==1:m.tol=0
     if which==2:m.max_iter=-1
@@ -37,7 +48,7 @@ def source(which):
 
 def main():
     ap=argparse.ArgumentParser();ap.add_argument('--executable',type=Path,required=True);ap.add_argument('--report',type=Path,required=True);a=ap.parse_args();records=[]
-    for which in range(24):
+    for which in range(32):
         error=None
         try:
             with warnings.catch_warnings():warnings.simplefilter('ignore');source(which)

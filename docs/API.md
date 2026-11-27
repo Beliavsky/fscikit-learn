@@ -749,35 +749,48 @@ call compound%fit(x_train,nonnegative_target,sample_weight)
 ```
 
 All three GLMs have `alpha>=0` (default 1), `tol>0`, positive `max_iter`,
-`warm_start`, `converged_` and `n_iter_`. The intercept is unpenalized. Dense
-fits accept vector targets or one-column target matrices, with optional vector
-or scalar `sample_weight`. Vector-target dense weights are a required third
-argument in the weighted overload. Weights are divided by their sum, so a
-common nonzero scaling leaves the objective unchanged. Finite signed weights
-are accepted; they can make the objective nonconvex or unbounded.
+`warm_start`, `converged_`, `n_iter_`, and `solver='lbfgs'` by default, following
+sklearn. L-BFGS uses a memory size of ten, `gtol=tol`, `ftol=64*epsilon`, and
+50 line-search steps. `optimization_message_` records the native termination
+status. A failed/capped fit returns its last solver point with `converged_`
+false; Fortran status fields replace Python convergence warnings.
 
-Poisson/Gamma fix their power and log link during every fit overload; Gamma
-requires strictly positive targets. Tweedie defaults to `power=0`, `link='auto'`.
-Finite real powers are accepted. `auto` selects identity for powers at most
-zero and log for positive powers; explicit identity/log links are available.
-The estimator loss also supports `0<power<1`, although the standalone
-Tweedie metric follows its narrower Source contract. Targets may be real for `power<=0`, must be nonnegative for `0<power<2`, and
-strictly positive for `power>=2`. Identity-link fitting at nonzero power
-requires a positive initial mean and keeps trial predictions positive.
-Log-link fitting requires a positive weighted target mean.
+Dense and CSR fits accept vector targets or one-column target matrices, with
+optional vector or scalar `sample_weight`. Weights are divided by their sum;
+a common nonzero scaling leaves the objective unchanged. Signed finite weights
+are accepted, although they can make the objective nonconvex or unbounded.
+The intercept is unpenalized. The L-BFGS path evaluates CSR data directly,
+retaining explicit zeros, duplicate entries and input order. It allocates no
+dense design or feature-square Hessian. Prediction and weighted scoring accept
+CSR input as well. Native CSR pointers/column indices are one based.
 
-Prediction returns the inverse-link mean. `link_` and `power_` record fitted
-loss settings; changing constructor settings alone does not change scoring.
-`coef_` and `intercept_` describe the linear predictor. Weighted `score` is
-D2 with vector weights. The one-column score overload is an identified native
-convenience extension: it flattens the target before evaluating D2; sklearn
-1.6.1 GLM `score` rejects a two-dimensional target. Undefined constant
-null deviances return IEEE NaN/infinity through the existing IEEE helpers.
-Warm fits reuse coefficients/intercept and reject changed feature counts;
-parameter-only clones clear this state. Search adapters accept the native GLM
-controls. The solver remains native damped eigen/Newton; Source L-BFGS and
-Newton-Cholesky iteration trajectories are not reproduced. CSR input remains
-unsupported. See [COVERAGE.md](COVERAGE.md) for validation and limits.
+Poisson/Gamma force their power and log link through every fit overload.
+Tweedie defaults to `power=0`, `link='auto'`. Finite real powers are accepted;
+auto selects identity for powers at most zero and log for positive powers.
+Explicit identity/log links are available. The estimator loss also supports
+`0<power<1`, although the standalone Tweedie metric follows its narrower Source
+contract. Targets may be real for `power<=0`, must be nonnegative for
+`0<power<2`, and strictly positive for `power>=2`. Log-link initialization
+requires a positive weighted target mean. Extreme numerical domains remain
+limited. Nonfinite trial arithmetic preserves the caller's IEEE flags/modes.
+
+Prediction returns the inverse-link mean. Native `link_` and `power_` record
+fitted loss settings, so constructor changes alone do not change scoring.
+Weighted `score` is D2. The one-column score adapter is an identified native
+convenience extension: it flattens the target; sklearn 1.6.1 GLM score rejects
+two-dimensional targets. Undefined null deviances return IEEE NaN/infinity.
+Scoring near powers one/two retains documented strict numeric differences.
+Native nonzero-power D2 requires positive predictions and a positive target
+mean; Source loss scoring outside that domain is not fully reproduced.
+Warm fits reuse coefficients/intercepts, and parameter-only clones discard fit
+state while preserving constructor controls, including the solver.
+
+`solver='native-newton'` is an identified native extension retaining the earlier
+dense damped eigen/Newton implementation. It requires positive nonzero-power
+identity trials. It is not Source's Newton-Cholesky solver, which remains
+unsupported. Earlier Newton-specific reference/unit fixtures select this
+option explicitly; their geometry, tolerances and expected values are retained.
+See [COVERAGE.md](COVERAGE.md) for validation and remaining differences.
 
 ## Mode seeking, spectral methods and kernel density
 

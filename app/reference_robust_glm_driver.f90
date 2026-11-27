@@ -11,6 +11,7 @@ program reference_robust_glm_driver
   integer :: n,p,i,input,output
   character(1024) :: path
   character(32) :: name
+  poisson%solver='native-newton';gamma%solver='native-newton';tweedie%solver='native-newton'
   call get_command_argument(1,path); open(newunit=input,file=trim(path),status='old')
   read(input,*) n,p; allocate(x(n,p),yr(n),yp(n),yg(n),yt(n))
   do i=1,n

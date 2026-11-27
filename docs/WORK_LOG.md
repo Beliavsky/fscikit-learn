@@ -9855,3 +9855,54 @@ c550e628102d4f0c8758bfd9ccc57fb01205b853b9df7f6336de2eb397c844d5.
 ZIP CRCs and critical source/report/binary hashes were verified. Commits remain
 local. The three new score differences, existing mismatches, remaining solver
 and sparse options, and the broader translation remain open.
+
+
+## Source-default GLM L-BFGS and direct CSR fits (2026-11-27)
+
+Added a dedicated weighted GLM loss/gradient and L-BFGS-B path, now selected by
+`solver='lbfgs'` by default as in sklearn. It uses memory ten, gtol=tol,
+ftol=64*epsilon and a 50-step line-search limit. The vendor's new optional
+MaxLineSearch parameter retains the 20-step default for all existing callers.
+All caller dependencies were rebuilt; native NCA, GPR/GPC, MLP, Ridge and Huber
+regression checks remain part of the validation. Native termination messages,
+convergence flags and iteration counts expose capped/abnormal outcomes without
+turning Source convergence warnings into fatal fit errors.
+
+Dense and direct CSR vector/column fits accept scalar/vector weights and warm
+starts. CSR gradients/prediction/scoring retain raw duplicates, zeros and
+storage order, with no dense design or feature-square Hessian. Clone resets
+preserve the solver. The prior dense eigen/Newton backend is identified as the
+`native-newton` extension; original Newton-specific fixtures select it
+explicitly, preserving their data, tolerances and expected values. Source
+Newton-Cholesky, universal optimizer trajectory parity, extreme numerical
+ranges and Source score behavior outside the native positive prediction/mean
+contract remain gaps. Native column-score flattening is an identified adapter.
+
+The isolated objective comparison covers 192 actual sklearn LinearModelLoss
+values/gradients, including finite/signed/zero weights, dense/canonical/raw CSR,
+real Tweedie powers and nonfinite identity-link trial arithmetic. Values and
+gradients pass the strict 3e-12 comparison. An initial IEEE-state preservation
+bug was found and fixed by separating the flag/mode save and restore passes;
+its report, executable and source are retained. All 192 IEEE-state checks now
+pass. A preliminary 489-configuration fitted comparison matches Source
+coefficients, predictions, iteration counts and convergence status except for
+the known boundary-power scores: exactly nine strict cases, the earlier three
+cases across three storage forms. Adversarial nonfinite line-search outcomes
+also match Source rollback/status behavior.
+
+The full checked build succeeds; all 308 native programs and eleven selected
+examples pass. Scoped optimization rebuilds eleven modules and passes all
+seventeen selected native programs. The optimized Poisson Pipeline comparison
+passes 156 fixtures / 1,755 groups. Its 40,000-feature CSR memory probe peaks at
+19,333,120 bytes, below 256 MiB; a 40001-square Hessian would require
+12,800,640,008 bytes. The optimized Pipeline link initially omitted its test
+support object; that validation setup was corrected before running it.
+
+Three stale generic negative-input probes (power .5, power-zero/log link and
+constant-target scores) were retired in favor of actual Source acceptance
+comparisons. The four remaining legacy GLM diagnostics pass. The final fitted
+suite additionally includes constant-target scores, and the invalid-input
+suite expands to 32 dense/CSR Source/native guards. Full checked and optimized
+reference inventories and evidence verification are recorded in the follow-up
+entry. MIT licensing and BSD reference attribution are retained; commits are
+local and the broader translation remains open.

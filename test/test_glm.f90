@@ -8,6 +8,7 @@ program test_glm
   type(ridge) :: rr
   real(dp) :: x(80,3),y(80),coef(3)
   real(dp), allocatable :: scores(:)
+  poisson%solver='native-newton';gamma%solver='native-newton';tweedie%solver='native-newton'
   call seed_rng(31); x=normal_random(80,3)*0.3_dp; coef=[0.4_dp,-0.2_dp,0.1_dp]
   y=exp(matmul(x,coef)+0.3_dp)
   poisson%alpha=0; poisson%tol=1.e-10_dp; call poisson%fit(x,y)

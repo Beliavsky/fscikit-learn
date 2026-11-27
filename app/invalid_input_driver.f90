@@ -6609,11 +6609,8 @@ program invalid_input_driver
   case('ransac_probability'); ransac%stop_probability=1.1_dp; call ransac%fit(x,y)
   case('poisson_targets'); y(1)=-1; call poisson%fit(x,y)
   case('gamma_targets'); y(1)=0; call gamma%fit(x,y)
-  case('tweedie_power'); tweedie%power=0.5_dp; call tweedie%fit(x,y)
-  case('tweedie_link'); tweedie%link='log'; call tweedie%fit(x,y)
   case('glm_alpha'); poisson%alpha=-1; call poisson%fit(x,y)
   case('glm_unfitted'); pred=poisson%predict(x)
-  case('glm_constant_score'); call poisson%fit(x,y); pred=[poisson%score(x,y)]
   case('meanshift_bandwidth'); ms%bandwidth=0; call ms%fit(x)
   case('meanshift_seeds'); ms%bandwidth=0.1_dp; call ms%fit(x,seeds=x+100)
   case('affinity_damping'); ap%damping=0.2_dp; call ap%fit(x)
