@@ -2813,6 +2813,34 @@ kernel optimization problem; capped asymmetric numerical trajectories are
 retained as explicit comparison gaps rather than hidden or treated as
 universal solver correctness.
 
+Current precomputed SVC verification: the corrected coherent GNU 15.2
+checked build passes all 341 native programs and all 1,204 dependency-aware
+compiled-source fingerprints. Seven native harnesses exercise three scoped
+O3 modules. Each profile records 74,172 comparison groups: 72,876 Source-output
+groups plus 1,296 native storage-contract groups. Of these, 74,127 pass;
+45 fields in eight asymmetric fits hitting the cap remain explicit diagnostics.
+There are no unexpected gaps. The diagnostic gate permits only learned-output
+differences on asymmetric max_iter=10000 fits where both solvers report a cap;
+metadata and all other scenarios remain strict. No output tolerance was widened.
+
+The new corpus covers 1,944 fits / 27,216 fields / 6,480 box/equality/margin
+replays, with standard kernel-generated, symmetric indefinite and asymmetric
+supplied matrices, weighting, decision conventions and caps. All replays pass;
+standard and symmetric-kernel outputs satisfy the comparison tolerances.
+Existing dense/CSR SVC, legacy kernel SVM and sparse regression corpora pass.
+All 51 guards pass per profile. CSR SVC memory peaks at 9,494,528 checked /
+9,359,360 optimized bytes, and regression at 9,314,304 / 9,342,976 bytes,
+remaining below 128 MiB. The explicit C++ gradient-increment grouping fixes
+fourteen previously unexpected fields; old dense nonshrinking counter
+mismatches fall from 183 to 14 in the scoped probe. Identical trajectories,
+global optimality and whole-project parity remain unproven.
+
+Evidence and cross-profile proof use validation/results/svc_precomputed_.
+Source, executable and archive hashes remain stable during auditing, and
+expected outputs agree between profiles. The workspace-local build avoids the
+previous TEMP executable loss. Validation retains sklearn 1.6.1, NumPy 2.2.6,
+SciPy 1.15.3, static libgfortran and the Windows locale-copy shim.
+
 ## Nu support-vector classification
 
 `nu_svc` translates sklearn 1.6.1 NuSVC's dense binary and one-versus-one

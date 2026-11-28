@@ -12513,3 +12513,42 @@ fits that hit the cap; all unexpected differences are closed. All 1,944 fits /
 replays continue to pass. Dense fit counter disagreements against nonshrinking
 Source drop from the previous revision's 183 to 14. A second coherent checked
 rebuild and complete checked/O3 audit are underway before final verification.
+
+### 2026-11-28: Full corrected precomputed SVC verification
+
+Implementation 8771e17 plus arithmetic-order fix 9cfcf26 passed a coherent
+GNU 15.2 checked rebuild in the workspace-local persistent build. All 341
+native programs, seven scoped O3 harnesses and all 1,204 dependency-aware
+compiled-source fingerprints pass. Both profile audit gates pass. Each
+profile records 74,172 groups (72,876 Source-output and 1,296 native storage
+contracts): 74,127 match, while 45 learned-output fields in eight capped
+asymmetric supplied-matrix fits remain explicit diagnostics. There are no
+unexpected gaps. The original narrow cap/asymmetry exception was not broadened.
+No numeric tolerance was widened, and complete corpus parity is false.
+
+Precomputed coverage comprises 1,944 fits / 27,216 fields / 6,480 independent
+box/equality/margin replays; all replays pass. Standard kernel-generated and
+symmetric matrices match tested outputs. Dense SVC's 729 fits / 10,206 groups /
+2,622 replays, CSR SVC's 1,184 fits / 21,312 groups / 3,936 replays, legacy
+kernel SVM's 318 groups and 1,296 sparse regression fixtures / 15,120 groups
+continue to pass. All 51 guard checks pass in each profile. CSR SVC memory
+peaks at 9,494,528 checked / 9,359,360 optimized bytes and regression peaks
+at 9,314,304 / 9,342,976 bytes, below 128 MiB.
+
+The audit caught fourteen unexpected fields in two initially misclassified
+asymmetric cases, leading to the exact C++ gradient-increment grouping fix.
+These differences are closed. The remaining eight cases actually hit their
+cap. Their raw outputs remain in reports; no universal mathematical optimum
+or bitwise trajectory claim is made. Expected Source results agree across
+profiles and source/archive/executable hashes remain stable. Validation uses
+sklearn 1.6.1, NumPy 2.2.6, SciPy 1.15.3, static libgfortran and the Windows
+locale-copy shim. Pairwise CV/composite slicing remains a documented API gap.
+
+Evidence prefix: validation/results/svc_precomputed_. Archive SHA256:
+7e5634e6f9dc798a204d149f88598a622062674e940b83561c93cc2d9a7f3767
+Checked audit SHA256:
+b302476a66c7932991acd0d87a2f581b485e37e467792c59af141c7f414533bd
+Optimized audit SHA256:
+a0855fa462812e3b5ce8daae847113dc0e3a2851d3aee954b3f9ac4f5699cdbf
+
+Local commits only; no push. The broader translation goal remains active.
