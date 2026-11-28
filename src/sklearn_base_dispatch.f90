@@ -98,8 +98,7 @@ contains
     type is(linear_svc)
       call model%fit(x,y,weights)
     type is(svc)
-      call require(.not.present(weights),'voting base has no native weighted fit')
-      call model%fit(x,y)
+      call model%fit(x,y,weights)
     type is(dummy_classifier)
       call model%fit(x,y,weights)
     type is(adaboost_classifier)
@@ -343,6 +342,7 @@ contains
     class is(decision_tree_regressor)
     class is(ridge_classifier)
     type is(linear_svc)
+    type is(svc)
     type is(adaboost_classifier)
     class default
       ok=.false.

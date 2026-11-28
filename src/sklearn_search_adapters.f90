@@ -671,6 +671,9 @@ contains
       end select
     type is(svc)
       select case(name)
+      case('decision_function_shape');model%decision_function_shape=value%as_text()
+      case('break_ties');model%break_ties=value%as_logical()
+      case('gamma_rule');model%gamma_rule=value%as_text()
       case('C');model%c=value%as_real()
       case('gamma');model%gamma=value%as_real()
       case('coef0');model%coef0=value%as_real()

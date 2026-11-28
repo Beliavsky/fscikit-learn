@@ -2694,6 +2694,35 @@ solver tolerances from treating the entire objective as negligible; the native
 call retains the original tiny weights.
 
 
+## Weighted C support-vector classification
+
+`svc` adds dense sample/class weighted C-SVC, balanced original class costs,
+weighted scoring, fitted support/dual metadata, OVR/OVO decision shapes and
+OVR confidence tie breaking. Positive sample capacities feed translated
+LIBSVM second-order working-set selection, pair box updates and rho
+calculation. Q entries retain Source float rounding; diagonal/query kernels
+remain double. The full-matrix solver omits shrinking. Iteration counts now
+count pair updates; the legacy scalar is their maximum, and the new per-pair
+array identifies the native counters. Default tol=1e-4/max_iter=10000 are
+retained. Gamma scale/auto rules are explicit. Linear, RBF, polynomial and
+sigmoid kernels remain supported.
+
+Sorted class-grouped support layout and public dual/intercept signs match the
+reference wrapper. With zero weights, support_ uses the compressed positive-
+weight problem (1-based); native support_original_ identifies original input
+rows, and support_vectors_ stores the actual rows. OVR is now the default
+response, while binary margins remain positive for the larger label. Ordinary
+prediction and confidence-based tie breaking retain the reference's distinct
+zero-margin conventions. Weighted ensemble/multiclass dispatch and search
+controls are integrated. API.md identifies native diagnostics and adapters.
+
+This subset requires positive class weights and positive capacity in every
+original class. CSR/precomputed inputs, probabilities, shrinking, cache-budget
+controls and unbounded caps remain gaps. Exact default-shrinking iteration
+counts and global optimality for indefinite kernels are not claimed. Final
+KKT/objective diagnostics are replayed with double kernels; Source's float Q
+rounding can leave nonzero exact-kernel residuals even without hitting a cap.
+
 ## Nu support-vector classification
 
 `nu_svc` translates sklearn 1.6.1 NuSVC's dense binary and one-versus-one

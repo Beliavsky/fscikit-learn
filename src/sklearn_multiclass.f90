@@ -137,8 +137,7 @@ contains
       call require(.not.streaming,'multiclass base has no native partial_fit')
       call require(.not.weighted,'multiclass base has no native weighted fit'); return
     type is(svc)
-      call require(.not.streaming,'multiclass base has no native partial_fit')
-      call require(.not.weighted,'multiclass base has no native weighted fit'); return
+      call require(.not.streaming,'multiclass base has no native partial_fit'); return
     type is(kneighbors_classifier)
       call require(.not.streaming,'multiclass base has no native partial_fit')
       call require(.not.weighted,'multiclass base has no native weighted fit'); return
@@ -213,7 +212,7 @@ contains
     type is(passive_aggressive_classifier)
       call model%fit(x,y)
     type is(svc)
-      call model%fit(x,y)
+      call model%fit(x,y,weights)
     type is(kneighbors_classifier)
       call model%fit(x,y)
     class is(decision_tree_classifier)

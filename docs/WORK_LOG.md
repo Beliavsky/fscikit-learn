@@ -12325,3 +12325,33 @@ Optimized audit SHA256:
 3998ce26eb29216b773c08b8e1b83c821ce8a8ac30b9392eb8162a0bd81c4a76
 
 Local commits only; no push. The broader translation goal remains active.
+
+### 2026-11-28: Weighted dense SVC and Source decision conventions
+
+Added sample/class capacities, balanced class costs, weighted score, Source
+support/dual metadata, OVR/OVO responses and confidence tie breaking. Zero-
+weight support indices follow the compressed classifier problem; explicit
+native support_original_ maps to original rows. Linear coef_ and per-pair
+counter/KKT diagnostics are exposed; legacy scalar n_iter_ remains the maximum.
+Weighted ensemble and multiclass dispatch forward costs, and parameter search
+accepts decision shape, break_ties and gamma rule.
+
+The initial weighted error-difference SMO prototype exposed support roundoff
+and sigmoid stalls. Replaced that heuristic with translated LIBSVM second-
+order selection, unequal-capacity box updates and rho calculation, including
+float-rounded Q entries with double diagonals/queries. This full-working-array
+implementation omits shrinking; default-shrinking iteration counts are retained
+separately. Existing tol=1e-4/max_iter=10000 defaults remain. Positive class
+weights and capacity in every original class are required; CSR, precomputed
+kernels, probabilities and shrinking remain documented gaps.
+
+Checked scoped probes pass 729 fits / 10,206 public-output groups and 2,622
+independent dual/box/equality/KKT replays. Coverage includes all four kernels,
+binary/3/4-class cases, unequal class counts, balanced/explicit weights,
+OVR/OVO/ties, gamma rules and caps. Three uncapped native and Source pair fits
+exceed the extra exact-kernel KKT bound; these diagnostics remain visible.
+Float Q rounding and capped fits preclude a universal optimality claim. Native
+analytic tests and nineteen guard checks pass. A NaN class-weight conjunction
+that triggered SIGFPE in the first guard probe was split into sequential finite
+and positivity checks. Full coherent rebuild and checked/O3 audits follow.
+MIT project licensing and sklearn/LIBSVM BSD notices remain intact.

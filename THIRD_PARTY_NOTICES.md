@@ -3091,3 +3091,14 @@ including make_dataset's .01 sparse intercept decay, averaging, shuffling and
 mixed streaming/warm-start behavior. Existing sklearn BSD and NumPy-compatible
 RNG notices remain in `LICENSES/`. Typed CSR overloads, validation, owned input
 handling, memory checks and test integration are native MIT contributions.
+
+## Weighted C-SVC and multiclass decision contracts
+
+`sklearn_svm` translates sklearn 1.6.1 bundled LIBSVM `svm.cpp` C-SVC second-
+order working-set selection, float Q rounding, unequal-capacity pair updates
+and calculate_rho. Full working arrays omit the Source shrinking/cache layer.
+Sample/class costs, fitted dual/support layout and binary sign conventions
+follow `svm/_base.py`, `_classes.py` and LIBSVM's train grouping; OVR confidence
+scores follow `utils/multiclass.py`. Existing LIBSVM and sklearn BSD notices
+remain in `LICENSES/`. Typed weight APIs, original support mapping, native
+counter/KKT diagnostics, dispatch integration and tests are MIT contributions.

@@ -2361,6 +2361,48 @@ The inherited native solver still uses dense tableau storage, so CSR fitting
 has the same O(n*(p+n)) memory limitation as dense fitting.
 
 
+## SVC
+
+`svc` accepts dense finite real64 features and integer labels. `fit(x,y, &
+sample_weight=...,class_weight=...)` supports nonnegative vector sample weights
+and positive class weights in sorted-label order. Alternatively set
+`class_weight_balanced=.true.`; this uses original unweighted class frequencies.
+Weights multiply each row's C capacity. Every original class must retain
+positive capacity. `score` also accepts optional sample_weight.
+
+`decision_function_shape='ovr'` is now the default. OVR returns class votes
+plus bounded confidence sums; `'ovo'` returns one margin per class pair,
+positive for its first class. Binary output remains (n_samples,1), positive
+for the larger label. Ordinary prediction uses pair votes, with zero margins
+choosing the second class; `break_ties=.true.` instead uses OVR scores for
+multiclass predictions. Combining break_ties with OVO raises on predict.
+Search supports decision_function_shape, break_ties and gamma_rule. Native
+weighted ensemble and multiclass dispatch forward sample weights to SVC.
+
+Fitted fields include classes_, support_, support_vectors_, n_support_,
+dual_coef_, intercept_, class_weight_, n_features_in_ and fit_status_. Linear
+fits also expose coef_; nonlinear refits clear it. Native support indices are
+1-based. With zero sample weights, support_ indexes the positive-weight
+compressed problem, matching the tested LIBSVM classifier convention;
+`support_original_` is an explicitly native mapping to original input rows.
+
+C, tol, max_iter, kernel, gamma, coef0 and degree control fitting. Existing
+native defaults tol=1e-4 and max_iter=10000 remain. gamma=-1 selects
+`gamma_rule='scale'` (default) or `'auto'`; explicit nonnegative gamma overrides
+the rule. Linear, RBF, polynomial and sigmoid kernels are supported. The
+translated second-order LIBSVM coordinate solver uses float-rounded Q entries
+and double diagonal/query kernels, with full working matrices and no shrinking.
+Native n_iter_per_pair_ counts pair updates; legacy scalar n_iter_ is their
+maximum. Counters can differ from sklearn's default shrinking solver.
+converged_/fit_status_ report iteration-cap completion, while kkt_violation_
+replays the final double-kernel margin residual for each pair. Float cache
+rounding and capped fits can leave a larger exact-kernel residual.
+
+CSR/precomputed inputs, probability calibration, Python warning objects,
+nonpositive class weights, classes with no positive capacity and an unbounded
+iteration cap remain outside this subset. No full LIBSVM trajectory or
+universal optimality claim is made for indefinite sigmoid kernels.
+
 ## NuSVC
 
 Import nu_svc from sklearn, sklearn_svm or sklearn_nu_classification.
