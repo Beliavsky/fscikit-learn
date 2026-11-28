@@ -3146,6 +3146,38 @@ formed. Parameter/statistic matrices and persistent negative visible batches
 remain dense. Gibbs always returns dense N-by-features samples. Dense and CSR
 operations may continue the same model and private RNG stream.
 
+Final CSR/quiet-numeric validation has five strict corpora: dense, canonical CSR,
+reversed columns, duplicate entries and explicit zeros. Each has 104 sequences
+(80 original plus 24 extreme cases) and 5,952 groups, for 29,760 direct groups
+per checked/optimized profile. Numeric tolerances remain atol=rtol=2e-10;
+chains, Boolean Gibbs outputs and feature metadata are exact, including the
+identified nonfinite outcomes. Extreme cases exercise large rates, signed data,
+very large queries, persistent NaNs, expit tails and intermediate dot overflow.
+
+Two further 104-sequence raw-cancellation/mixed corpora are diagnostics, not
+strict matches. Checked direct gaps are 441 / 335 fields; optimized gaps are
+293 / 228. The largest absolute score differences are 2.24e-5 checked and
+1.19e-5 optimized. Binary outputs/metadata and nonfinite masks/signs agree.
+Each corpus passes 836 layered Source replays: deterministic forward operations,
+independently checked positive conditional means and updates using those means,
+native preceding arrays and matching RNG streams. These distinguish sparse
+operation correctness from fit/libm rounding amplified by 1e8 cancellation;
+they do not establish strict end-to-end stress parity. The remaining gaps are
+explicitly retained without widening the ordinary tolerance.
+
+Ten guards pass (seven Source rejections and three fitted-shape/CSR invariants).
+The 8192-by-100000, three-hidden-unit memory fixture performs zero-epoch fit,
+a full-CSR partial update, transform and score, plus two dense Gibbs rows.
+Peak working sets are 19,824,640 checked / 19,775,488 optimized bytes, below
+128 MiB and a 6,553,600,000-byte dense input. All 329 native programs and eleven
+selected examples pass; 952 dependency-aware source fingerprints match. Only
+sklearn_rbm is compiled with -O3 in the scoped optimized run, with checked
+harnesses and the other 210 library members unchanged. IEEE_FMA uses the existing
+Fortran 2018 compiler baseline. Reference source, extension and numerical DLL
+hashes are checked before/after execution. GNU 15.2.0 validation uses static
+libgfortran with the Windows locale-copy shim; full project Source parity is
+false.
+
 Inputs are finite real64 CPU arrays. Bernoulli modeling expects binary
 values (or probabilities in [0,1]); as in source, finite values outside that
 range are accepted without range checks. Float32 inputs, RandomState

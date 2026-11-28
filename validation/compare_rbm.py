@@ -169,7 +169,7 @@ def main():
                     if not args.diagnostic:raise
                     want=np.asarray(value).ravel(order='F');got=actual[name]
                     finite=np.isfinite(want)&np.isfinite(got)
-                    mismatches.append(dict(seed=seed,case=case,name=name,max_abs_error=float(np.max(abs(got[finite]-want[finite]))) if finite.any() else None,nonfinite_masks_match=bool(np.array_equal(np.isnan(want),np.isnan(got)) and np.array_equal(np.isinf(want),np.isinf(got))),discrete=bool(discrete)))
+                    mismatches.append(dict(seed=seed,case=case,name=name,max_abs_error=float(np.max(abs(got[finite]-want[finite]))) if finite.any() else None,nonfinite_masks_match=bool(np.array_equal(np.isnan(want),np.isnan(got)) and np.array_equal(np.isinf(want),np.isinf(got)) and np.array_equal(np.signbit(want[np.isinf(want)]),np.signbit(got[np.isinf(got)]))),discrete=bool(discrete)))
                 checks.append(dict(seed=seed,case=case,name=name,passed=passed,discrete=bool(discrete)))
             if args.diagnostic:
                 for i,(operation,data,config) in enumerate(ops,1):

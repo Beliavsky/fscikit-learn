@@ -11766,3 +11766,47 @@ remain explicitly observed; no strict stress parity is claimed. Both native
 unit modes and ten optimized guards/memory checks pass. A new full current-source
 rebuild and audits are pending. Implementation/provenance work remains local
 and the broad goal remains active.
+
+
+## RBM CSR final verification (implementation eabb890, correction 4f16924)
+
+The corrected full GNU 15.2.0 fpm checked rebuild succeeds. All 329 native
+programs and eleven selected examples pass. There are 348 completed checked
+audit jobs and ten optimized jobs. Both profiles pass five strict corpora,
+104 sequences / 5,952 groups each (520 sequences / 29,760 direct groups).
+Ordinary numeric comparisons keep atol=rtol=2e-10; binary chains/samples and
+metadata are exact. Ten guard cases and the wide sparse memory case pass.
+
+Two diagnostic corpora add 208 sequences / 11,904 observed fields per profile,
+not strict successes. Checked cancellation/mixed gaps are 441 / 335 fields;
+optimized gaps are 293 / 228. Largest absolute differences are approximately
+2.24e-5 checked and 1.19e-5 optimized in score outputs. Binary values, metadata,
+and nonfinite masks/signs match. Each diagnostic corpus passes 836 layered
+Source replays, totaling 1,672 per profile. Positive means are independently
+checked before injecting them into Source update replays with native preceding
+arrays and matched RNG state. This certifies the sparse operations and updates
+at their actual input values; it is not an end-to-end cancellation parity claim.
+These fit/libm conditioning gaps remain open and visible in archived reports.
+
+Wide input memory peaks at 19,824,640 checked / 19,775,488 optimized bytes,
+versus a 128 MiB limit and 6,553,600,000-byte dense input. All 952 compiled source
+fingerprints match current sources. Only sklearn_rbm is optimized with checked
+harnesses; the baseline and other 210 of 211 members match the checked archive.
+Library SHA256: 92be0ff3bd720547d0da0baa811f8be6ea91cae6254282aea606974d861eef32.
+Source/compiler/binary/report/archive hashes are stable. Reference provenance
+includes sklearn/SciPy/NumPy sources, compiled modules and numerical DLLs. The
+last validator metadata change additionally verifies infinite-value signs.
+Reports/logs use validation/results/rbm_csr_* (ignored evidence), including the
+initial failed optimized audit and corrected evidence. Full project and stress
+end-to-end Source parity remain false. Runtime is static libgfortran with the
+existing Windows locale-copy shim. MIT/sklearn/SciPy attribution remains and
+Fortran 2018 IEEE_FMA adds no external runtime dependency. Commits stay local;
+the broad translation objective remains active.
+
+Verified backup: rbm_csr_evidence_4f16924.zip, 27,677,260 bytes / 2,104
+entries, SHA256 cd45e0c62451391ce06faa0378dd5c62a3650ec6a03d5d9bb1c82d07640f2ebd.
+ZIP CRCs and critical source/report/object/binary hashes pass. Receipt:
+validation/results/rbm_csr_archive_receipt.json. The archive contains final
+implementation/provenance and verification documentation before this receipt
+was appended. Metadata separates strict checks and layered diagnostic replays
+from retained end-to-end stress gaps; full project Source parity stays false.
