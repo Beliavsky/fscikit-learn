@@ -65,6 +65,7 @@ program reference_linear_svm_driver
   end do
   do j=1,8
     reg=linear_svr(); reg%tol=1.e-12_dp; reg%max_iter=10000; train=x; weights=1+0*w
+    reg%loss='squared_epsilon_insensitive';reg%dual='false'
     select case(j)
     case(2); reg%epsilon=.2_dp
     case(3); reg%fit_intercept=.false.; reg%epsilon=.1_dp

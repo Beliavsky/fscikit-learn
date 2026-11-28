@@ -1,10 +1,13 @@
 ! LinearSVC/LinearSVR objectives: sklearn 1.6.1 svm/_classes.py and
 ! svm/src/liblinear/linear.cpp. BSD notices: LICENSES/scikit-learn-COPYING and liblinear-COPYRIGHT.
-! Native primal active-set Newton/Armijo solver; no liblinear binary is linked.
+! Native primal Newton/Armijo and seeded dual coordinate solvers; no liblinear binary is linked.
 module sklearn_linear_svm
   use sklearn_common, only: dp,require,check_x,check_xy,unique_labels,label_index,cholesky_factor,solve_lower,solve_upper
   use sklearn_metrics, only: accuracy_score,r2_score
-  use sklearn_sparse,only:csr_matrix
+  use sklearn_sparse,only:csr_matrix,csr_from_dense
+  use sklearn_legacy_rng,only:legacy_random_state
+  use,intrinsic::iso_fortran_env,only:int64
+  use,intrinsic::ieee_exceptions
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
   implicit none
   private
@@ -30,6 +33,11 @@ module sklearn_linear_svm
     real(dp) :: c=1,tol=1.e-4_dp,intercept_scaling=1,epsilon=0,intercept_=0,objective_=0,gradient_norm_=0
     integer :: max_iter=1000,n_iter_=0,n_features_in_=0
     logical :: fit_intercept=.true.,converged_=.false.
+    character(32)::loss='epsilon_insensitive'
+    character(8)::dual='auto'
+    integer::random_state=0
+    real(dp)::kkt_violation_=0,dual_objective_=0,duality_gap_=0
+    real(dp),allocatable::dual_variables_(:)
     real(dp), allocatable :: coef_(:)
   contains
     procedure,private :: fit_dense=>linear_svr_fit,fit_csr=>linear_svr_fit_csr
@@ -40,6 +48,168 @@ module sklearn_linear_svm
     generic :: score=>score_dense,score_csr
   end type
 contains
+  logical function use_svr_dual(self,n,p)result(use_dual)
+    class(linear_svr),intent(in)::self
+    integer,intent(in)::n,p
+    call require(self%loss=='epsilon_insensitive'.or.self%loss=='squared_epsilon_insensitive','invalid LinearSVR loss')
+    call require(self%dual=='true'.or.self%dual=='false'.or.self%dual=='auto','invalid LinearSVR dual selector')
+    call require(self%random_state>=0,'LinearSVR random_state must be nonnegative')
+    use_dual=self%dual=='true'
+    if(self%dual=='auto')use_dual=n<p.or.self%loss=='epsilon_insensitive'
+    call require(use_dual.or.self%loss=='squared_epsilon_insensitive', &
+      'LinearSVR epsilon_insensitive loss requires the dual solver')
+  end function
+  integer function bounded_liblinear(rng,n)result(value)
+    type(legacy_random_state),intent(inout)::rng
+    integer,intent(in)::n
+    integer(int64)::product,low,threshold
+    ! newrand.h: MT19937 with Lemire rejection, including a draw for n=1.
+    threshold=modulo(4294967296_int64,int(n,int64))
+    do
+      product=rng%raw_uint32()*int(n,int64);low=iand(product,int(z'FFFFFFFF',int64))
+      if(low>=threshold)exit
+    end do
+    value=int(ishft(product,-32))
+  end function
+  real(dp) function coordinate_violation(g,beta,upper,tube)result(violation)
+    real(dp),intent(in)::g,beta,upper,tube
+    violation=0
+    if(beta==0)then
+      if(g+tube<0)then
+        violation=-g-tube
+      else if(g-tube>0)then
+        violation=g-tube
+      end if
+    else if(beta>=upper)then
+      if(g+tube>0)violation=g+tube
+    else if(beta<=-upper)then
+      if(g-tube<0)violation=-g+tube
+    else if(beta>0)then
+      violation=abs(g+tube)
+    else
+      violation=abs(g-tube)
+    end if
+  end function
+  subroutine svr_dual_solve(self,x,y,w,coef)
+    class(linear_svr),intent(inout)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),intent(in)::y(:),w(:)
+    real(dp),allocatable,intent(out)::coef(:)
+    type(legacy_random_state)::rng,seed_rng
+    integer,allocatable::rows(:),order(:)
+    real(dp),allocatable::beta(:),qd(:),lambda(:),upper(:),cost(:),residual(:)
+    real(dp)::g,h,gp,gn,violation,maximum,old_max,norm,initial_norm,step,old_beta,dual_penalty
+    logical::modes(size(ieee_all)),flags(size(ieee_all)),squared,shrink
+    integer::n,d,i,j,k,s,row,active,it,swap
+    call require(x%n_cols<huge(1).or..not.self%fit_intercept,'LinearSVR synthetic feature exceeds integer range')
+    call seed_rng%seed(self%random_state);call rng%seed(seed_rng%integer_index(huge(1))-1)
+    rows=pack([(i,i=1,x%n_rows)],w>0);n=size(rows);d=x%n_cols+merge(1,0,self%fit_intercept)
+    allocate(coef(d),beta(n),qd(n),lambda(n),upper(n),cost(n),order(n));coef=0;beta=0
+    squared=self%loss=='squared_epsilon_insensitive'
+    call ieee_get_flag(ieee_all,flags);call ieee_get_halting_mode(ieee_all,modes)
+    call ieee_set_halting_mode(ieee_all,.false.)
+    do i=1,n
+      row=rows(i);cost(i)=self%c*w(row);qd(i)=0
+      do k=x%indptr(row),x%indptr(row+1)-1
+        qd(i)=qd(i)+x%data(k)**2
+      end do
+      if(self%fit_intercept)qd(i)=qd(i)+self%intercept_scaling**2
+    end do
+    lambda=0;upper=cost
+    if(squared)then
+      lambda=.5_dp/cost;upper=huge(1._dp)
+    end if
+    order=[(i,i=1,n)];active=n;old_max=huge(1._dp);initial_norm=-1;self%n_iter_=0
+    do it=1,self%max_iter
+      maximum=0;norm=0
+      do i=1,active
+        j=i+bounded_liblinear(rng,active-i+1);swap=order(i);order(i)=order(j);order(j)=swap
+      end do
+      s=1
+      do while(s<=active)
+        i=order(s);row=rows(i);g=-y(row)+lambda(i)*beta(i);h=qd(i)+lambda(i)
+        do k=x%indptr(row),x%indptr(row+1)-1
+          g=g+x%data(k)*coef(x%indices(k))
+        end do
+        if(self%fit_intercept)g=g+self%intercept_scaling*coef(d)
+        gp=g+self%epsilon;gn=g-self%epsilon;shrink=.false.
+        if(beta(i)==0)then
+          shrink=gp>old_max.and.gn<-old_max
+        else if(beta(i)>=upper(i))then
+          shrink=gp<-old_max
+        else if(beta(i)<=-upper(i))then
+          shrink=gn>old_max
+        end if
+        if(shrink)then
+          swap=order(s);order(s)=order(active);order(active)=swap;active=active-1;cycle
+        end if
+        violation=coordinate_violation(g,beta(i),upper(i),self%epsilon)
+        maximum=max(maximum,violation);norm=norm+violation
+        if(gp<h*beta(i))then
+          if(h==0)then
+            step=upper(i)-beta(i)
+          else
+            step=-gp/h
+          end if
+        else if(gn>h*beta(i))then
+          if(h==0)then
+            step=-upper(i)-beta(i)
+          else
+            step=-gn/h
+          end if
+        else
+          step=-beta(i)
+        end if
+        if(.not.(abs(step)<1.e-12_dp))then
+          old_beta=beta(i);beta(i)=min(max(beta(i)+step,-upper(i)),upper(i));step=beta(i)-old_beta
+          if(step/=0)then
+            do k=x%indptr(row),x%indptr(row+1)-1
+              j=x%indices(k);coef(j)=coef(j)+step*x%data(k)
+            end do
+            if(self%fit_intercept)coef(d)=coef(d)+step*self%intercept_scaling
+          end if
+        end if
+        s=s+1
+      end do
+      if(it==1)initial_norm=norm
+      self%n_iter_=it
+      if(norm<=self%tol*initial_norm)then
+        if(active==n)exit
+        active=n;old_max=huge(1._dp);cycle
+      end if
+      old_max=maximum
+    end do
+    self%converged_=self%n_iter_<self%max_iter
+    self%dual_variables_=spread(0._dp,1,x%n_rows);self%dual_variables_(rows)=beta
+    residual=max(0._dp,abs(sparse_forward(x,coef,self%fit_intercept,self%intercept_scaling)-y)-self%epsilon)
+    self%objective_=.5_dp*sum(coef**2)
+    if(squared)then
+      self%objective_=self%objective_+self%c*sum(w*residual**2)
+    else
+      self%objective_=self%objective_+self%c*sum(w*residual)
+    end if
+    dual_penalty=0
+    do i=1,n
+      if(beta(i)/=0)dual_penalty=dual_penalty+.5_dp*lambda(i)*beta(i)**2
+    end do
+    self%dual_objective_=dot_product(y(rows),beta)-self%epsilon*sum(abs(beta))-.5_dp*sum(coef**2)-dual_penalty
+    self%duality_gap_=self%objective_-self%dual_objective_;self%kkt_violation_=0
+    do i=1,n
+      row=rows(i);g=-y(row)+lambda(i)*beta(i)
+      do k=x%indptr(row),x%indptr(row+1)-1
+        g=g+x%data(k)*coef(x%indices(k))
+      end do
+      if(self%fit_intercept)g=g+self%intercept_scaling*coef(d)
+      self%kkt_violation_=max(self%kkt_violation_,coordinate_violation(g,beta(i),upper(i),self%epsilon))
+    end do
+    self%gradient_norm_=self%kkt_violation_
+    call ieee_set_halting_mode(ieee_all,modes);call ieee_set_flag(ieee_all,flags)
+  end subroutine
+  subroutine clear_svr_dual(self)
+    class(linear_svr),intent(inout)::self
+    if(allocated(self%dual_variables_))deallocate(self%dual_variables_)
+    self%dual_objective_=0;self%duality_gap_=0;self%kkt_violation_=0
+  end subroutine
   subroutine check_sparse(x)
     type(csr_matrix),intent(in)::x
     call x%validate()
@@ -335,13 +505,21 @@ contains
     real(dp), intent(in) :: x(:,:),y(:)
     real(dp), intent(in), optional :: sample_weight(:)
     real(dp), allocatable :: a(:,:),w(:),coef(:)
+    type(csr_matrix)::sparse
     integer :: p
     call check_xy(x,size(y)); call check_x(reshape(y,[size(y),1])); p=size(x,2)
     call require(ieee_is_finite(self%epsilon),'nonfinite LinearSVR epsilon')
     call require(self%epsilon>=0,'LinearSVR epsilon must be nonnegative')
-    call linear_svm_setup(x,self%c,self%tol,self%intercept_scaling,self%max_iter,self%fit_intercept,a,w,sample_weight)
-    call squared_solve(a,y,self%c*w,.false.,self%epsilon,self%tol,self%max_iter,coef,self%n_iter_, &
-      self%converged_,self%objective_,self%gradient_norm_)
+    if(use_svr_dual(self,size(y),p))then
+      sparse=csr_from_dense(x)
+      call sparse_setup(sparse,self%c,self%tol,self%intercept_scaling,self%max_iter,w,sample_weight)
+      call svr_dual_solve(self,sparse,y,w,coef)
+    else
+      call clear_svr_dual(self)
+      call linear_svm_setup(x,self%c,self%tol,self%intercept_scaling,self%max_iter,self%fit_intercept,a,w,sample_weight)
+      call squared_solve(a,y,self%c*w,.false.,self%epsilon,self%tol,self%max_iter,coef,self%n_iter_, &
+        self%converged_,self%objective_,self%gradient_norm_)
+    end if
     self%coef_=coef(:p); self%intercept_=0
     if(self%fit_intercept) self%intercept_=coef(p+1)*self%intercept_scaling
     self%n_features_in_=p
@@ -414,8 +592,13 @@ contains
     call require(ieee_is_finite(self%epsilon),'nonfinite LinearSVR epsilon')
     call require(self%epsilon>=0,'LinearSVR epsilon must be nonnegative')
     call sparse_setup(x,self%c,self%tol,self%intercept_scaling,self%max_iter,w,sample_weight)
-    call sparse_solve(x,y,self%c*w,.false.,self%epsilon,self%fit_intercept,self%intercept_scaling,self%tol, &
-      self%max_iter,coef,self%n_iter_,self%converged_,self%objective_,self%gradient_norm_)
+    if(use_svr_dual(self,size(y),x%n_cols))then
+      call svr_dual_solve(self,x,y,w,coef)
+    else
+      call clear_svr_dual(self)
+      call sparse_solve(x,y,self%c*w,.false.,self%epsilon,self%fit_intercept,self%intercept_scaling,self%tol, &
+        self%max_iter,coef,self%n_iter_,self%converged_,self%objective_,self%gradient_norm_)
+    end if
     self%coef_=coef(:x%n_cols);self%intercept_=0
     if(self%fit_intercept)self%intercept_=coef(x%n_cols+1)*self%intercept_scaling
     self%n_features_in_=x%n_cols

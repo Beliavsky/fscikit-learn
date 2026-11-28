@@ -1749,15 +1749,28 @@ profile-specific files and explicit executable/report arguments.
 
 ## Primal linear support-vector models
 
-`linear_svc` implements L2-regularized squared-hinge LinearSVC. `linear_svr`
-implements L2-regularized squared-epsilon-insensitive LinearSVR. These are
-fixed primal formulations, corresponding to sklearn dual=False, penalty='l2'
-and the named squared losses. LinearSVR here defaults to the squared loss;
-sklearn's default unsquared epsilon-insensitive loss is outside this port.
+`linear_svc` implements primal L2-regularized squared-hinge LinearSVC.
+`linear_svr` supports unsquared and squared epsilon-insensitive losses with
+L2 coefficient regularization. Its defaults now match sklearn's
+loss='epsilon_insensitive' and dual='auto'. The previous native formulation
+remains available with loss='squared_epsilon_insensitive', dual='false'.
+Unsquared loss requires dual optimization; squared loss also supports primal
+Newton fitting. Auto selects dual for unsquared loss or an originally wide
+design, before zero-weight filtering, and primal otherwise.
 The optimizer is a native active-set Newton method with dense Cholesky solves
 or matrix-free CSR conjugate-gradient directions and Armijo backtracking,
 rather than liblinear's trust-region implementation.
 No LIBLINEAR binary or C/C++ source is linked.
+
+Dual regression follows LIBLINEAR coordinate updates, active-set shrinking,
+its violation-sum stopping rule and the seeded newrand.h MT19937/Lemire shuffle.
+Dense inputs use sparse feature nodes, as in the reference wrapper; both input
+forms share the same engine. Positive-weight row filtering, virtual scaled
+intercepts and zero-norm box endpoints are supported. Native dual coefficient,
+objective/gap and KKT certificate fields are explicitly identified in API.md.
+These fit paths avoid dense design augmentation, feature Hessians and Gram
+matrices. Auto-selected primal trajectories retain their existing numerical
+differences from Source TRON, including capped-fit differences.
 
 CSR fit and query overloads support binary/multiclass classification and
 regression with the same primal objectives, weighting and synthetic-intercept
@@ -1799,7 +1812,8 @@ shim. Other project/API/numerical gaps remain.
 
 The objectives are .5*||w||^2 + C*sum_i sample_weight_i*loss_i, with losses
 max(0,1-y_i*f_i)^2 for signed binary classification and
-max(0,abs(y_i-f_i)-epsilon)^2 for regression. C is not divided by sample count.
+max(0,abs(y_i-f_i)-epsilon), or its square, for the selected regression loss.
+C is not divided by sample count.
 An optional intercept is represented by a synthetic feature of value
 intercept_scaling, so its contribution to the penalty is
 .5*(intercept/intercept_scaling)^2. Both C and intercept_scaling default to 1
@@ -1824,11 +1838,12 @@ channel weights its positive class while all negative classes retain base C;
 the native implementation preserves this distinction. Zero class weights are
 rejected in this port, while zero sample weights are supported.
 
-max_iter defaults to 1000; finite tol>0 defaults to 1e-4. Stopping uses the
+max_iter defaults to 1000; finite tol>0 defaults to 1e-4. Primal stopping uses the
 augmented primal gradient norm <= tol*max(1,initial_gradient_norm), starting at
 zero coefficients each fit. A capped fit returns the final iterate and
-converged_=false if the criterion was not met. n_iter_ counts native Newton
-updates and can differ from liblinear. objective_ and gradient_norm_ expose
+converged_=false if the criterion was not met. Primal n_iter_ counts native Newton
+updates and can differ from liblinear; dual n_iter_ counts coordinate passes.
+objective_ and gradient_norm_ expose
 native diagnostics; they are per-channel vectors for classification and
 scalars for regression. Classifier n_iter_per_class_ and
 converged_per_class_ describe each OVR model; n_iter_ is their maximum and

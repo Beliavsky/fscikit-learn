@@ -6,6 +6,8 @@ program test_linear_svm
   type(linear_svr) :: reg,repeat
   real(dp) :: pair(2,1),zero(2,1),x(4,1),duplicated(3,1),three(3,1)
   real(dp), allocatable :: first(:)
+  reg%loss='squared_epsilon_insensitive';reg%dual='false'
+  repeat%loss='squared_epsilon_insensitive';repeat%dual='false'
   pair(:,1)=[-1._dp,1._dp]; zero=0
   classifier%fit_intercept=.false.; classifier%tol=1.e-12_dp
   call classifier%fit(pair,[-3,9])

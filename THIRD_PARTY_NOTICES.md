@@ -3027,3 +3027,14 @@ is linked. Existing sklearn BSD and LIBLINEAR copyright notices remain in
 `LICENSES/`. Validation references installed `svm/_classes.py`, `_base.py`,
 `svm/src/liblinear/linear.cpp` and `tron.cpp`, and distinguishes native optimality
 certificates from retained strict Source output differences.
+
+## LinearSVR dual losses and seeded coordinate optimization
+
+`sklearn_linear_svm` additionally follows sklearn 1.6.1
+`svm/src/liblinear/linear.cpp` solve_l2r_l1l2_svr for both dual regression losses,
+shrinking and stopping, and `svm/src/newrand/newrand.h` for MT19937/Lemire bounded
+draws. The sklearn `_base.py` seed bridge is retained using the existing
+NumPy-compatible legacy RNG. Existing sklearn BSD, NumPy RNG and LIBLINEAR
+notices apply. Typed solver/loss selection, shared dense/CSR integration,
+zero-norm handling, certificate diagnostics and tests are native MIT additions;
+no LIBLINEAR or C++ runtime is linked.

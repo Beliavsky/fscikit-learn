@@ -1823,19 +1823,22 @@ call regressor%fit(x,[-4._dp,-2._dp,2._dp,4._dp])
 prediction=regressor%predict(x)
 ```
 
-Both use the primal L2 squared-loss formulation and accept optional sample_weight.
+Both accept optional sample_weight. LinearSVC uses primal L2 squared-hinge loss.
+LinearSVR now defaults to `loss='epsilon_insensitive'` and `dual='auto'`, matching
+sklearn's loss and solver selection. Choose `loss='squared_epsilon_insensitive'`
+and `dual='false'` to retain the previous native primal squared-loss behavior.
 LinearSVC also accepts class_weight (sorted class order) or a
 class_weight_balanced flag. C, tol, max_iter, fit_intercept and intercept_scaling
 control fitting. The intercept is penalized through its scaled synthetic
 feature. Inspect converged_, n_iter_, objective_ and gradient_norm_;
-classification diagnostics are per-channel where applicable. LinearSVR uses
-squared_epsilon_insensitive loss, including at its default epsilon=0. See
+classification diagnostics are per-channel where applicable. LinearSVR's
+epsilon defaults to zero for either loss. See
 COVERAGE.md for multiclass weighting, stopping and supported solver limits.
 
 Both types also accept `csr_matrix` for fit, predict and score; LinearSVC's
 decision_function accepts CSR as well. Any query representation can follow
 either fit representation. Coefficients remain dense, as in sklearn, and no
-training design is retained. CSR fitting applies the synthetic intercept
+training design is retained. Primal CSR fitting applies the synthetic intercept
 virtually and solves Newton directions with preconditioned conjugate gradients
 using sparse Hessian-vector products. It allocates neither a dense design nor
 a feature-by-feature Hessian. The existing dense Cholesky path is unchanged.
@@ -1843,6 +1846,24 @@ Duplicates, unsorted entries, explicit zeros and empty rows are supported
 without changing caller storage. Sample/class weights and diagnostic fields
 follow the existing primal squared-loss interfaces. Different Newton/TRON
 trajectories can retain small strict reference differences; see COVERAGE.md.
+
+LinearSVR accepts `dual='true'`, `'false'`, or `'auto'`. Unsquared
+epsilon-insensitive loss requires the dual solver. Squared loss supports both;
+auto chooses dual when the original sample count is less than the feature
+count, and primal otherwise. Both dense and CSR dual fits use LIBLINEAR's
+coordinate updates, shrinking and seeded shuffle. `random_state` defaults to
+the native deterministic seed zero and preserves the intrinsic Fortran RNG.
+Zero-weight rows are removed before optimization; original-row indexing is
+retained in the native `dual_variables_` certificate array.
+
+`dual_variables_`, `dual_objective_`, `duality_gap_` and `kkt_violation_` are
+native diagnostics, not sklearn LinearSVR attributes. `objective_` is the
+requested primal loss plus the coefficient/synthetic-intercept penalty.
+For dual fits, `gradient_norm_` reports maximum coordinate KKT violation;
+`converged_` follows LIBLINEAR's iteration-cap warning status. Primal fits keep
+their existing gradient-norm convergence diagnostics. A primal refit clears
+the dual certificate fields. Auto-selected primal fits retain the native
+Newton backend and its documented TRON trajectory differences.
 
 
 ## Streaming principal components
