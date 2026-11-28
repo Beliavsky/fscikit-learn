@@ -26,7 +26,8 @@ def main():
     programs=sorted(p for p in (root/'test').glob('*.f90') if re.search(r'^\s*program\s',p.read_text(),re.I|re.M)) if args.all_native else selected
     drivers=[root/'app'/(p+'.f90') for p in ['reference_svc_weighted_driver','reference_svc_sparse_driver',
         'reference_kernel_svm_driver','reference_kernel_svm_sparse_driver']];evidence={}
-    with tempfile.TemporaryDirectory(prefix='fsklearn-svc-audit-') as temporary:
+    args.report.resolve().parent.mkdir(parents=True,exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix='fsklearn-svc-audit-',dir=args.report.resolve().parent) as temporary:
         work=Path(temporary)
         if args.profile=='optimized':
             frozen=work/'checked.a';shutil.copyfile(archive,frozen);assert sha(frozen)==archive_hash==sha(archive)

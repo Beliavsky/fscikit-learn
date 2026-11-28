@@ -12411,3 +12411,22 @@ bytes. Added a thirteenth unknown-kernel guard and common kernel validation
 before the full coherent rebuild. Existing numeric tolerances are retained.
 Full checked/O3 package audits follow. MIT licensing and retained sklearn,
 LIBSVM and existing sparse-helper attribution remain intact.
+
+### 2026-11-28: Persist CSR SVC audit executables inside the workspace
+
+The first full rebuild completed and all 1,202 source fingerprints matched,
+but both subsequent audits stopped because executable files disappeared from
+multiple TEMP directories. Checked test_glm_controls.exe disappeared after
+execution, and an optimized reference driver was missing before invocation.
+The canonical TEMP app directory had no executables left; nearly all native
+test executables and all scoped-probe executables were also gone. Digest/log
+and object files remained. No matching Windows Defender event was returned;
+the external deletion cause was not established. No successful full audit is
+claimed from those interrupted runs.
+
+Started a fresh coherent build in the workspace-local ignored directory
+validation/results/svc_sparse_persistent_build. The optimized audit now places
+its temporary working directory under the report directory in the workspace.
+This retains all existing hash/fingerprint and comparison gates. No security
+settings were modified. Full checked/O3 audits will run on this persistent
+build after it completes.
