@@ -2986,6 +2986,32 @@ and comparing checked versus optimized outputs. Evidence and logs use
 `validation/results/nusvc_libsvm_`; the persistent workspace build and Windows
 locale-copy/static-libgfortran validation workaround remain in use.
 
+Current CSR NuSVC verification: the coherent GNU 15.2 checked build passes all
+342 native programs and all 1,207 compiled-source fingerprints. Four selected
+native harnesses also pass with sklearn_nu_classification at O3/unroll, retaining
+harness bounds checks and floating-point traps. Per profile, the new CSR corpus
+passes 896 fits / 15,232 public output groups and 2,944 independent box,
+class-mass, normalized-dual-layout and double-gradient residual replays. Full
+support metadata, raw CSR storage, dense/CSR queries, predictions and weighted
+scores are compared without output exemptions. It covers all four kernels,
+2/3/4 classes, nu=.2/.55, weights/zero rows, scale/auto/explicit gamma, sorted /
+unsorted / duplicate / empty rows, both shrinking settings and iteration caps.
+Only three polynomial iteration arrays differ from Source; output groups all
+pass their existing exact-structure and 3e-6 numeric comparisons.
+
+Dense NuSVC replay remains clean: 1,296 strict fits / 16,848 groups / 4,320
+certificate replays and the older 66-fit / 1,403-group corpus per profile.
+Weighted C-SVC regression replay passes 789 fits / 11,046 groups. The combined
+profile total is 44,529 passing groups. All 32 dense/CSR rejection guards pass.
+The 128-by-200,000 RBF/linear CSR fit/query memory case peaks at 9,551,872 checked
+and 9,474,048 optimized bytes, below the 128 MiB limit. Dense NuSVC's two
+polynomial and C-SVC's eight previously recorded counter differences remain.
+The shared frozen-profile verifier passes source/compiler/archive identity,
+expected-output equality and actual-output comparisons. Evidence uses
+`validation/results/nusvc_sparse_`; source, executable and archive hashes remain
+stable during auditing. This establishes the selected dense/CSR corpus results,
+while the documented probability/cache/class-weight and broader API gaps remain.
+
 ## Online one-class SVM
 
 `sgd_one_class_svm` translates sklearn 1.6.1 SGDOneClassSVM's dense/CSR linear
