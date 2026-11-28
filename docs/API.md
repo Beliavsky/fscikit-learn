@@ -2538,9 +2538,27 @@ allow_single_cluster. Metrics include euclidean, sqeuclidean, manhattan,
 cityblock, chebyshev, minkowski with p>=1, cosine and precomputed. Centers are
 optional (none/centroid/medoid/both) and unavailable for precomputed inputs.
 
-The backend always uses dense brute semantics, including alpha scaling before
-core distances. DBSCAN cuts use strict height<cut_distance; their default
-minimum size is five independently of fit. Raw children_ uses one-based leaf
+`fit` and `fit_predict` accept dense features/distances or a `csr_matrix` with
+`metric='precomputed'`. CSR input uses sparse stored-entry core distances and
+SciPy-style Kruskal linkage without a dense distance matrix. Dense input uses
+the existing brute Prim path. Both scale distances before computing cores;
+CSR scaling follows SciPy's reciprocal multiplication. Explicitly stored zeros,
+including a supplied diagonal, count toward sparse neighborhoods. Missing
+entries are absent edges, and every row needs at least min_samples stored
+entries after duplicate coalescing. The graph must be connected and structurally
+symmetric, including stored zeros.
+
+`max_distance` is the CSR adapter for source `metric_params['max_distance']`.
+A positive value replaces nonfinite mutual-reachability results; otherwise the
+original scaled stored values remain, following source. It does not add missing
+edges or relax the stored-neighbor requirement. Dense fits ignore this field.
+Raw sparse input must be finite. Effective distances after duplicate coalescing
+must be nonnegative; incomplete zero-weight MSTs and NaN MSTs are rejected.
+CSR inputs are preserved. Sparse feature arrays and stored centers for
+precomputed input remain unsupported.
+
+DBSCAN cuts use strict height<cut_distance; their default minimum size is five
+independently of fit. Raw children_ uses one-based leaf
 IDs and raw_N+i merge IDs, whereas condensed/core/stability diagnostics use the
 finite subset mapped by finite_indices_. See COVERAGE.md for storage, tie
 behavior, diagnostics, nonfinite handling and source corrections.

@@ -1,7 +1,11 @@
-! Dense sklearn 1.6.1 HDBSCAN brute-backend contracts.
+! Dense and CSR-precomputed sklearn 1.6.1 HDBSCAN brute-backend contracts.
 ! Leland McInnes et al. BSD notices retained in LICENSES/hdbscan-BSD.md and THIRD_PARTY_NOTICES.md.
 module sklearn_hdbscan
   use sklearn_common, only: dp,require,argsort
+  use sklearn_sparse, only: csr_matrix
+  use sklearn_stateless_preprocessing, only: sorted_sparse
+  use sklearn_numpy_ordering, only: numpy_argsort
+  use sklearn_ieee_math, only: ieee_quotient,ieee_product
   use sklearn_metrics, only: pairwise_distances
   use, intrinsic :: iso_fortran_env, only: int64
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite,ieee_is_nan,ieee_value,ieee_positive_inf,ieee_quiet_nan
@@ -10,7 +14,7 @@ module sklearn_hdbscan
   public :: hdbscan
   type :: hdbscan
     integer :: min_cluster_size=5,min_samples=0,max_cluster_size=0,n_features_in_=0,n_clusters_=0
-    real(dp) :: alpha=1,cluster_selection_epsilon=0,p=2
+    real(dp) :: alpha=1,cluster_selection_epsilon=0,p=2,max_distance=0
     character(16) :: metric='euclidean',cluster_selection_method='eom',store_centers='none'
     logical :: allow_single_cluster=.false.,has_infinite_edges_=.false.
     integer, allocatable :: labels_(:),finite_indices_(:),children_(:,:),cluster_sizes_(:)
@@ -19,8 +23,10 @@ module sklearn_hdbscan
     real(dp), allocatable :: mst_distances_(:),condensed_lambdas_(:),stabilities_(:)
     integer, allocatable :: selected_clusters_(:)
   contains
-    procedure :: fit
-    procedure :: fit_predict
+    procedure, private :: fit_dense=>fit,fit_csr
+    generic :: fit=>fit_dense,fit_csr
+    procedure, private :: fit_predict_dense=>fit_predict,fit_predict_csr
+    generic :: fit_predict=>fit_predict_dense,fit_predict_csr
     procedure :: dbscan_clustering
   end type
 contains
@@ -64,11 +70,19 @@ contains
       parent(right)=left; ranks(left)=ranks(left)+1
     end if
   end subroutine
-  real(dp) function kth_value(values,k) result(value)
+  recursive real(dp) function kth_value(values,k) result(value)
     real(dp), intent(in) :: values(:)
     integer, intent(in) :: k
     real(dp) :: work(size(values)),pivot,temp
     integer :: left,right,i,j
+    if(any(ieee_is_nan(values))) then
+      if(k>count(.not.ieee_is_nan(values))) then
+        value=ieee_value(0._dp,ieee_quiet_nan)
+      else
+        value=kth_value(pack(values,.not.ieee_is_nan(values)),k)
+      end if
+      return
+    end if
     work=values; left=1; right=size(values)
     do while(left<right)
       pivot=work(k); i=left; j=right
@@ -95,11 +109,11 @@ contains
     end do
     value=work(k)
   end function
-  subroutine controls(self,x)
+  subroutine controls(self,n,p)
     class(hdbscan), intent(in) :: self
-    real(dp), intent(in) :: x(:,:)
-    call require(size(x,1)>0.and.size(x,2)>0,'HDBSCAN X must be nonempty')
-    call require(int(size(x,1),int64)*2<=huge(1),'HDBSCAN tree index capacity exceeded')
+    integer, intent(in) :: n,p
+    call require(n>0.and.p>0,'HDBSCAN X must be nonempty')
+    call require(int(n,int64)*2<=huge(1),'HDBSCAN tree index capacity exceeded')
     call require(self%min_cluster_size>=2,'HDBSCAN min_cluster_size must be at least two')
     call require(self%min_samples>=0,'HDBSCAN min_samples must be positive or zero for auto')
     call require(self%max_cluster_size>=0,'HDBSCAN max_cluster_size must be positive or zero for none')
@@ -362,7 +376,7 @@ contains
     logical :: has_positive,has_negative
     integer :: n,nf,i,j,k,row,left,right,next
     real(dp) :: difference
-    call controls(self,x); n=size(x,1); self%n_features_in_=size(x,2)
+    call controls(self,size(x,1),size(x,2)); n=size(x,1); self%n_features_in_=size(x,2)
     allocate(markers(n)); markers=0
     if(self%metric=='precomputed') then
       call require(size(x,2)==n,'HDBSCAN precomputed distances must be square')
@@ -444,6 +458,176 @@ contains
     if(allocated(self%medoids_)) deallocate(self%medoids_)
     if(self%store_centers/='none') call centers(self,x)
   end subroutine
+  function stable_edge_order(values) result(order)
+    real(dp), intent(in) :: values(:)
+    integer, allocatable :: order(:),work(:)
+    integer :: n,width,first,middle,last,a,b,t,i
+    n=size(values); order=[(i,i=1,n)]; allocate(work(n)); width=1
+    do while(width<n)
+      first=1
+      do while(first<=n)
+        middle=first+min(width,n-first+1); last=middle+min(width,n-middle+1)-1
+        a=first; b=middle
+        do t=first,last
+          if(a>=middle) then
+            work(t)=order(b); b=b+1
+          else if(b>last) then
+            work(t)=order(a); a=a+1
+          else if(edge_before(values(order(a)),values(order(b)))) then
+            work(t)=order(a); a=a+1
+          else
+            work(t)=order(b); b=b+1
+          end if
+        end do
+        first=last+1
+      end do
+      order=work
+      if(width>n/2) exit
+      width=2*width
+    end do
+  end function
+  logical function edge_before(a,b) result(before)
+    real(dp), intent(in) :: a,b
+    if(ieee_is_nan(b)) then
+      before=.true.
+    else if(ieee_is_nan(a)) then
+      before=.false.
+    else
+      before=a<=b
+    end if
+  end function
+  subroutine sparse_symmetry(graph)
+    type(csr_matrix), intent(in) :: graph
+    integer :: i,e,j,first,last,middle,reverse
+    real(dp) :: a,b
+    do i=1,graph%n_rows
+      do e=graph%indptr(i),graph%indptr(i+1)-1
+        j=graph%indices(e); first=graph%indptr(j); last=graph%indptr(j+1)-1; reverse=0
+        do while(first<=last)
+          middle=first+(last-first)/2
+          if(graph%indices(middle)<i) then
+            first=middle+1
+          else if(graph%indices(middle)>i) then
+            last=middle-1
+          else
+            reverse=middle; exit
+          end if
+        end do
+        call require(reverse>0,'HDBSCAN sparse precomputed structure must be symmetric')
+        a=graph%data(e); b=graph%data(reverse)
+        if(ieee_is_finite(a).and.ieee_is_finite(b)) then
+          call require(abs(a-b)<=1.e-9_dp+1.e-7_dp*min(abs(a),abs(b)), &
+            'HDBSCAN sparse precomputed values must be symmetric')
+        else
+          call require(a==b,'HDBSCAN sparse precomputed values must be symmetric')
+        end if
+      end do
+    end do
+  end subroutine
+  subroutine sparse_hierarchy(self,graph,children,heights,sizes)
+    class(hdbscan), intent(inout) :: self
+    type(csr_matrix), intent(inout) :: graph
+    integer, allocatable, intent(out) :: children(:,:),sizes(:)
+    real(dp), allocatable, intent(out) :: heights(:)
+    integer, allocatable :: rows(:),parent(:),ranks(:),order(:),selected(:),node_sizes(:)
+    logical, allocatable :: keep(:)
+    integer :: n,k,i,e,left,right,n_edges,new_node
+    real(dp) :: reach
+    n=graph%n_rows; k=self%min_samples; if(k==0) k=self%min_cluster_size
+    self%core_distances_=spread(infinity(),1,n)
+    do i=1,n
+      ! Source counts stored entries, including explicit zeros and the diagonal.
+      if(graph%indptr(i+1)-graph%indptr(i)>=k) &
+        self%core_distances_(i)=kth_value(graph%data(graph%indptr(i):graph%indptr(i+1)-1),k)
+    end do
+    allocate(rows(graph%nnz()),parent(n),ranks(n),keep(graph%nnz())); parent=[(i,i=1,n)]; ranks=0; keep=.false.
+    do i=1,n
+      do e=graph%indptr(i),graph%indptr(i+1)-1
+        rows(e)=i
+        if(ieee_is_nan(self%core_distances_(i)).or.ieee_is_nan(self%core_distances_(graph%indices(e))).or. &
+          ieee_is_nan(graph%data(e))) then
+          reach=infinity() ! Reciprocal overflow makes all remaining values nonfinite.
+        else
+          reach=max(self%core_distances_(i),self%core_distances_(graph%indices(e)),graph%data(e))
+        end if
+        if(ieee_is_finite(reach)) then
+          graph%data(e)=reach
+        else if(.not.ieee_is_nan(self%max_distance)) then
+          if(self%max_distance>0) graph%data(e)=self%max_distance
+        end if
+        call union_rank(parent,ranks,i,graph%indices(e))
+      end do
+      call require(graph%indptr(i+1)-graph%indptr(i)>=k,'HDBSCAN sparse graph has fewer than min_samples stored neighbors')
+    end do
+    left=find_root(parent,1)
+    do i=2,n
+      call require(find_root(parent,i)==left,'HDBSCAN sparse mutual reachability graph must be connected')
+    end do
+    ! SciPy 1.15.3 CSR Kruskal uses a stable weight sort, then returns retained
+    ! nonzero edges in CSR row order. sklearn subsequently applies NumPy argsort.
+    parent=[(i,i=1,n)]; ranks=0; order=stable_edge_order(graph%data); n_edges=0
+    do i=1,size(order)
+      e=order(i); left=find_root(parent,rows(e)); right=find_root(parent,graph%indices(e))
+      if(left==right) cycle
+      keep(e)=.true.; call union_rank(parent,ranks,left,right); n_edges=n_edges+1
+      if(n_edges==n-1) exit
+    end do
+    do e=1,size(keep)
+      if(ieee_is_nan(graph%data(e))) cycle
+      if(graph%data(e)==0) keep(e)=.false.
+    end do
+    call require(count(keep)==n-1,'HDBSCAN sparse zero-weight MST cannot define a complete hierarchy')
+    selected=pack([(i,i=1,size(keep))],keep)
+    call require(.not.any(ieee_is_nan(graph%data(selected))),'HDBSCAN sparse MST contains NaN')
+    if(allocated(self%mst_edges_)) deallocate(self%mst_edges_)
+    allocate(self%mst_edges_(n-1,2)); self%mst_edges_(:,1)=rows(selected); self%mst_edges_(:,2)=graph%indices(selected)
+    self%mst_distances_=graph%data(selected); self%has_infinite_edges_=any(.not.ieee_is_finite(self%mst_distances_))
+    order=numpy_argsort(self%mst_distances_)
+    deallocate(parent,ranks); allocate(parent(2*n-1),node_sizes(2*n-1)); parent=[(i,i=1,2*n-1)]; node_sizes=1
+    allocate(children(n-1,2),heights(n-1),sizes(n-1))
+    do i=1,n-1
+      left=find_root(parent,self%mst_edges_(order(i),1)); right=find_root(parent,self%mst_edges_(order(i),2))
+      new_node=n+i; children(i,:)=[left,right]; heights(i)=self%mst_distances_(order(i))
+      sizes(i)=node_sizes(left)+node_sizes(right); parent(left)=new_node; parent(right)=new_node; node_sizes(new_node)=sizes(i)
+    end do
+  end subroutine
+  subroutine fit_csr(self,x)
+    class(hdbscan), intent(inout) :: self
+    type(csr_matrix), intent(in) :: x
+    type(csr_matrix) :: graph
+    integer, allocatable :: children(:,:),sizes(:),labels(:)
+    real(dp), allocatable :: heights(:),probabilities(:)
+    real(dp) :: reciprocal
+    integer :: n,k,i
+    call x%validate(); call controls(self,x%n_rows,x%n_cols)
+    call require(self%metric=='precomputed','CSR HDBSCAN currently requires precomputed distances')
+    call require(x%n_rows==x%n_cols,'HDBSCAN precomputed distances must be square')
+    call require(all(ieee_is_finite(x%data)),'HDBSCAN sparse distances must be finite')
+    n=x%n_rows; call require(n>=2,'HDBSCAN requires at least two finite samples')
+    k=self%min_samples; if(k==0) k=self%min_cluster_size
+    call require(k<=n,'HDBSCAN min_samples exceeds finite sample count')
+    graph=sorted_sparse(x,.true.)
+    call require(.not.any(ieee_is_nan(graph%data)),'HDBSCAN sparse duplicate sum produced NaN')
+    call require(all(graph%data>=0),'HDBSCAN precomputed distances must be nonnegative')
+    call sparse_symmetry(graph)
+    reciprocal=ieee_quotient(1._dp,self%alpha)
+    do i=1,graph%nnz()
+      graph%data(i)=ieee_product(graph%data(i),reciprocal)
+    end do
+    self%n_features_in_=x%n_cols; self%finite_indices_=[(i,i=1,n)]
+    call sparse_hierarchy(self,graph,children,heights,sizes)
+    call condense(self,children,heights,sizes,n); call select_clusters(self,n,labels,probabilities)
+    self%labels_=labels; self%probabilities_=probabilities; self%n_clusters_=max(0,maxval(labels)+1)
+    self%children_=children; self%distances_=heights; self%cluster_sizes_=sizes
+    if(allocated(self%centroids_)) deallocate(self%centroids_)
+    if(allocated(self%medoids_)) deallocate(self%medoids_)
+  end subroutine
+  function fit_predict_csr(self,x) result(labels)
+    class(hdbscan), intent(inout) :: self
+    type(csr_matrix), intent(in) :: x
+    integer, allocatable :: labels(:)
+    call self%fit(x); labels=self%labels_
+  end function
   subroutine centers(self,x)
     class(hdbscan), intent(inout) :: self
     real(dp), intent(in) :: x(:,:)

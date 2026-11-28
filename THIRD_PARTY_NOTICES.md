@@ -164,7 +164,7 @@ Reference paths by module:
 | minibatch dictionary / sparse PCA | decomposition/_dict_learning.py MiniBatchDictionaryLearning randomized initialization, fixed shuffled batches, normalized sufficient statistics/forgetting, constrained atom resampling, smoothed-cost/motion/patience stopping and streaming state; _sparse_pca.py MiniBatchSparsePCA transposed training, recoding and normalization; utils/extmath.py randomized_svd/range_finder Gaussian draw order, oversampling, iteration/transpose defaults and signs. Native pivoted LU/Householder QR/Jacobi SVD; existing batch atom updates and ridge projections share private helpers without changing arithmetic |
 | lda | decomposition/_lda.py dense/CSR batch/online variational Bayes, stored-row inference and duplicate-index sufficient-statistic assignment, stochastic sufficient statistics, partial-fit scaling, inference, evidence bounds and perplexity; _online_lda_fast.pyx AS 103 digamma/mean-change contracts (J. Bernardo, 1976); NumPy 2.2.6 legacy-distributions.c shape-100 gamma rejection sampler; native stable Dirichlet-bound algebra and Stirling remainder. Research attribution: Matthew D. Hoffman, David M. Blei and Francis Bach (2010); Hoffman, Blei, Chong Wang and John Paisley (2013). Translation references are the BSD-licensed sklearn and NumPy sources, with full notices retained below and in LICENSES/ |
 | rbm | neural_network/_rbm.py BernoulliRBM persistent contrastive-divergence updates, hidden/visible conditionals, free energy/pseudo-likelihood, minibatch scheduling, scalar-seeded fit/partial_fit/Gibbs RNG lifetimes and initialization; native stable softplus and existing NumPy-compatible legacy RNG |
-| hdbscan | cluster/_hdbscan/hdbscan.py dense brute orchestration, nonfinite markers, weighted centers and DBSCAN cuts; _reachability.pyx mutual reachability; _linkage.pyx Prim frontier/linkage; _tree.pyx condensing, stability, EOM/leaf/epsilon selection and membership strengths; native deterministic tie ordering and nonfinite-row corrections; component BSD notice in [LICENSES/hdbscan-BSD.md](LICENSES/hdbscan-BSD.md), copyright Leland McInnes, with contributors Steve Astels, John Healy, Meekail Zain and Guillaume Lemaitre |
+| hdbscan | cluster/_hdbscan/hdbscan.py dense/CSR-precomputed brute orchestration, nonfinite markers, weighted centers and DBSCAN cuts; _reachability.pyx mutual reachability; _linkage.pyx Prim frontier/linkage; _tree.pyx condensing, stability, EOM/leaf/epsilon selection and membership strengths; native deterministic tie ordering and nonfinite-row corrections; component BSD notice in [LICENSES/hdbscan-BSD.md](LICENSES/hdbscan-BSD.md), copyright Leland McInnes, with contributors Steve Astels, John Healy, Meekail Zain and Guillaume Lemaitre |
 | bayesian_mixture | mixture/_bayesian_mixture.py Normal-Wishart/Beta/Dirichlet updates, normalized covariance conventions, expected log scores and simplified variational bound; _base.py initializer/restart/warm-start/zero-iteration and Gaussian sampling contracts; _gaussian_mixture.py sufficient statistics and precision Cholesky conventions; native positive digamma/log-Gamma, Cholesky solves and legacy seeded initialization |
 | centroid_core | extracted unweighted Lloyd helper formerly private to bicluster; cluster/_kmeans.py greedy/random initialization, variance-scaled stopping and same-partition restart selection; _k_means_lloyd.pyx and _k_means_common.pyx updates/relocation; reused by biclustering and Bayesian mixture initialization, including an optional continued RNG state |
 | bicluster | cluster/_bicluster.py scale/bistochastic/log normalization, Dhillon row-column embedding, Kluger piecewise-vector selection and original-data projections; base.py BiclusterMixin indicators/getters; _kmeans.py greedy/random centroid seeding, Lloyd convergence and same-partition restarts; _k_means_lloyd.pyx and _k_means_common.pyx dense updates, inertia and relocation; native thin SVD/null-space completion and existing MiniBatchKMeans/legacy RNG |
@@ -2965,3 +2965,19 @@ tolerance, and distinct None/NaN convergence state follow sklearn 1.6.1
  decomposition/_nmf.py and its SciPy linalg.norm calls. Existing sklearn/NumPy/
 SciPy BSD notices remain applicable. Typed Fortran monitor flags, quiet-state
 integration and regression tests are project MIT contributions.
+
+
+### CSR HDBSCAN minimum spanning trees
+
+`src/sklearn_hdbscan.f90` additionally adapts sklearn 1.6.1 sparse
+`cluster/_hdbscan/_reachability.pyx` and `hdbscan.py` stored-neighbor, symmetry,
+max-distance fallback and sparse MST orchestration. HDBSCAN component notices
+remain in `LICENSES/hdbscan-BSD.md` and sklearn terms in
+`LICENSES/scikit-learn-COPYING`. Stable-weight Kruskal selection and CSR output
+ordering follow Jake Vanderplas's SciPy minimum-spanning-tree implementation,
+BSD, copyright 2011:
+[scipy/sparse/csgraph/_min_spanning_tree.pyx, v1.15.3](https://github.com/scipy/scipy/blob/v1.15.3/scipy/sparse/csgraph/_min_spanning_tree.pyx).
+The SciPy BSD notice is retained in `LICENSES/scipy-COPYING`. Existing
+NumPy/x86-simd-sort ordering helpers and their notices are reused. Owned CSR
+integration, sparse checks and original Fortran adapters remain MIT; no new
+external runtime dependency is linked.

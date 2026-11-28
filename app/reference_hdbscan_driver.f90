@@ -1,11 +1,14 @@
 program reference_hdbscan_driver
   use sklearn_hdbscan, only: hdbscan
+  use sklearn_sparse, only: csr_matrix
   use sklearn_common, only: dp
   implicit none
   type(hdbscan) :: model
+  type(csr_matrix) :: sparse
+  character(16) :: storage
   real(dp), allocatable :: x(:,:),cuts(:)
   integer, allocatable :: labels(:)
-  integer :: n,p,ncuts,input,output,i,operation,cut_min
+  integer :: n,p,ncuts,input,output,i,operation,cut_min,nz
   character(512) :: path
   character(32) :: name
   call get_command_argument(1,path); open(newunit=input,file=trim(path),status='old')
@@ -13,16 +16,34 @@ program reference_hdbscan_driver
   read(input,*) model%min_cluster_size,model%min_samples,model%max_cluster_size,model%alpha, &
     model%cluster_selection_epsilon,model%p,model%allow_single_cluster
   read(input,*) model%metric,model%cluster_selection_method,model%store_centers
-  allocate(x(n,p),cuts(ncuts))
-  do i=1,n
-    read(input,*) x(i,:)
-  end do
+  call get_command_argument(3,storage)
+  allocate(cuts(ncuts))
+  if(storage=='csr') then
+    read(input,*) model%max_distance
+    read(input,*) nz
+    sparse%n_rows=n; sparse%n_cols=p
+    allocate(sparse%indptr(n+1),sparse%indices(nz),sparse%data(nz))
+    read(input,*) sparse%indptr; read(input,*) sparse%indices; read(input,*) sparse%data
+  else
+    allocate(x(n,p))
+    do i=1,n
+      read(input,*) x(i,:)
+    end do
+  end if
   read(input,*) cuts
   close(input)
-  if(operation==2) then
-    labels=model%fit_predict(x)
+  if(storage=='csr') then
+    if(operation==2) then
+      labels=model%fit_predict(sparse)
+    else
+      call model%fit(sparse)
+    end if
   else
-    call model%fit(x)
+    if(operation==2) then
+      labels=model%fit_predict(x)
+    else
+      call model%fit(x)
+    end if
   end if
   call get_command_argument(2,path); open(newunit=output,file=trim(path),status='replace')
   call vector('labels',real(model%labels_,dp)); call vector('probabilities',model%probabilities_)

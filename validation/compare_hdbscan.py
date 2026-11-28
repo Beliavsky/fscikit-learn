@@ -5,6 +5,8 @@ import json
 import os
 import subprocess
 import warnings
+import tempfile
+import hashlib
 os.environ['OMP_NUM_THREADS']='1'
 import numpy as np
 import sklearn
@@ -56,7 +58,7 @@ def stability(tree):
 
 
 def main():
-    parser=argparse.ArgumentParser(); parser.add_argument('--executable',type=Path); args=parser.parse_args()
+    parser=argparse.ArgumentParser(); parser.add_argument('--executable',type=Path); parser.add_argument('--report',type=Path); args=parser.parse_args()
     RESULTS.mkdir(exist_ok=True)
     if args.executable: executable=args.executable.resolve()
     else:
@@ -67,6 +69,8 @@ def main():
                if s.strip().strip(chr(34)).endswith(('reference_hdbscan_driver','reference_hdbscan_driver.exe'))]
         paths=[p for p in paths if p.is_file()]; assert len(paths)==1,proc.stdout
         executable=paths[0].resolve()
+    work=tempfile.TemporaryDirectory(prefix='fsklearn-hdbscan-dense-reference-')
+    before=hashlib.sha256(executable.read_bytes()).hexdigest()
     checks=[]; direct_matches=[]
     for seed,n,p in ((7,72,2),(42,89,3),(0,96,4),(2026,65,2)):
         rng=np.random.default_rng(seed); groups=np.arange(n)%3
@@ -118,7 +122,7 @@ def main():
                     reduced=x.sum(axis=1)
                 marker[np.isinf(reduced)]=-2; marker[np.isnan(reduced)]=-3
             nf=len(finite); cuts=np.array([0.,.2,.7,3.,10.,np.inf])
-            data,output=RESULTS/'hdbscan_input.txt',RESULTS/'hdbscan_actual.txt'
+            data,output=Path(work.name)/'input.txt',Path(work.name)/'output.txt'
             with data.open('w') as stream:
                 stream.write(f'{n} {x.shape[1]} {len(cuts)} {cut_min} {operation}\n')
                 stream.write(f"{options['min_cluster_size']} {options.get('min_samples',0)} "
@@ -212,7 +216,9 @@ def main():
                                            err_msg=f'seed={seed} case={case} {name}')
                 checks.append(dict(seed=seed,case=case,name=name,passed=True))
         print(f'seed {seed}: 30 configurations passed',flush=True)
-    (RESULTS/'hdbscan.json').write_text(json.dumps(dict(sklearn=sklearn.__version__,checks=checks,direct_matches=direct_matches),indent=2)+'\n')
+    assert before==hashlib.sha256(executable.read_bytes()).hexdigest()
+    work.cleanup()
+    (args.report or RESULTS/'hdbscan.json').write_text(json.dumps(dict(sklearn=sklearn.__version__,numpy=np.__version__,executable_sha256=before,checks=checks,direct_matches=direct_matches),indent=2)+'\n')
     print(f'{len(checks)} HDBSCAN result groups passed; {sum(c["matched"] for c in direct_matches)}/{len(direct_matches)} direct fits')
 
 

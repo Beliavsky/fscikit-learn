@@ -2967,8 +2967,8 @@ contributions retain MIT licensing, with sklearn/NumPy attribution preserved.
 
 ## HDBSCAN
 
-hdbscan implements the dense sklearn 1.6.1 brute backend: self-including core
-neighbor distances, mutual reachability, Prim linkage, condensed-tree pruning,
+hdbscan implements sklearn 1.6.1 dense and CSR-precomputed brute paths: core
+neighbor distances, mutual reachability, Prim/Kruskal linkage, condensed-tree pruning,
 excess-of-mass (eom) or leaf selection, membership strengths and DBSCAN cuts.
 min_samples=0 resolves to min_cluster_size; max_cluster_size=0 means no cap.
 min_cluster_size must be at least two but may exceed the sample count when an
@@ -2978,8 +2978,8 @@ epsilon can merge clusters beyond the size cap, following source behavior.
 allow_single_cluster controls root selection, with source root-lambda filtering.
 
 Metrics are euclidean, sqeuclidean, manhattan/cityblock, chebyshev, minkowski
-(p>=1), cosine and precomputed. The fixed brute backend divides the entire
-distance matrix by alpha before computing core distances, matching source brute
+(p>=1), cosine and precomputed. The dense brute backend divides the entire
+distance matrix by alpha before computing self-including core distances, matching source brute
 semantics; the source auto/tree backend can behave differently when alpha!=1.
 Core order statistics use quickselect. Dense mutual reachability replaces the
 distance workspace in place; this O(N**2) workspace is freed after building the
@@ -3026,8 +3026,35 @@ ultrametrics and sorted heights; source tree routines applied to each native
 tied hierarchy match its selection, labels, strengths and condensed tree. Thus
 no universal bitwise or label identity is claimed at tied linkage heights.
 
-The implementation is real64 CPU dense only. Tree/automatic backends, sparse
-inputs, callable metrics, parallel controls and in-place copy=False are absent.
+The real64 CPU backend also accepts CSR precomputed distance graphs. It owns a
+sorted/coalesced copy, retains explicit zeros, checks exact reverse-entry
+structure and Source sparse symmetry tolerance (rtol=1e-7, atol=1e-9), and follows
+SciPy CSR `/= alpha` as multiplication by `1/alpha`. Core distances use the k-th
+stored entry per row; missing diagonals do not implicitly include self. Every
+coalesced row requires k stored entries, and the graph must be connected.
+`max_distance` adapts source metric_params['max_distance']: positive values
+replace nonfinite mutual-reachability values; zero, negative and NaN values
+preserve original scaled stored data. This never fills missing edges or relaxes
+the degree check. Reciprocal overflow, NaN cores and positive-infinite fallback
+values follow Source while retaining caller IEEE invalid/overflow trap modes.
+
+Sparse MST selection follows SciPy 1.15.3 stable-weight Kruskal ordering, retains
+nonzero edges in CSR row order, then uses the installed NumPy argsort contract
+for linkage ties. Sparse mst_edges_ records actual endpoint pairs and matching
+weights, unlike the documented dense Prim frontier walk. No dense distance or
+mutual-reachability matrix is formed. Core diagnostics and finite_indices_ cover
+all input rows; successful CSR fits clear old stored centers and use the common
+condensation, cluster selection, probability and DBSCAN-cut kernels.
+
+Raw sparse inputs must be finite. Effective negative distances are rejected
+as in the native dense API, although Source 1.6.1 accepts an all-negative test
+matrix. Canceled signed duplicates with nonnegative totals are accepted. A
+zero-weight MST that loses edges during SciPy-style zero elimination cannot
+form a complete hierarchy and is rejected explicitly (Source errors on the
+all-zero fixture). NaN MST weights are also rejected. These mathematical guards
+are identified native corrections, not claims of complete Source acceptance
+parity. Tree/automatic backends, sparse feature inputs, callable metrics,
+parallel controls and in-place copy=False remain absent.
 There is no inductive prediction method. See compare_hdbscan.py for the direct
 and hierarchy-conditioned checks and test_hdbscan.f90 for analytic fixtures.
 

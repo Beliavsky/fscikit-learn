@@ -11620,3 +11620,41 @@ ZIP CRCs and critical source/report/object/binary hashes pass. Receipt:
 validation/results/embedding_csr_archive_receipt.json. The archive contains the
 implementation and verification documentation before this receipt was appended.
 Full project Source parity remains false.
+
+
+## CSR-precomputed HDBSCAN implementation
+
+Added CSR fit and fit_predict overloads using owned sorted/coalesced graph
+storage, Source structural/value symmetry checks, stored-entry core distances,
+mutual reachability and SciPy 1.15.3 stable Kruskal edge selection. Retained MST
+edges stay in CSR row order, followed by the existing NumPy ordering helper for
+linkage ties. Sparse hierarchy construction avoids the N-by-N workspace and
+reuses condensation, EOM/leaf/epsilon selection, strengths and DBSCAN cuts.
+Caller CSR arrays are preserved; successful sparse refits clear old centers.
+
+Initial comparison exposed a rounding mismatch at 129 points: SciPy's CSR
+`/= alpha` multiplies by a reciprocal, while a direct scalar division produced
+ULP differences that changed merge ties. Both port and validation oracle now
+follow the actual CSR operation. Quiet IEEE helpers preserve reciprocal
+overflow and Source max_distance fallbacks, including NaN core order statistics.
+Negative/NaN max_distance values retain original scaled entries; positive
+values replace nonfinite mutual reachability but never fill absent neighbors.
+
+The checked private probe passes 3,786 groups across 176 CSR fixtures, including
+selected 257- and 513-point cases beyond the 128-edge boundary. Core values,
+MST endpoints/weights and linkage children/heights match directly, as do stored
+hierarchy/condensation metadata and cut partitions. Selected-cluster labelling
+is independently replayed through Source. Twelve Source rejections, one native
+nonnegative-distance correction and two CSR invariants pass. Source accepts an
+all-negative test matrix; native rejects negative effective distances as in its
+dense API, while canceled signed duplicates with nonnegative totals are accepted.
+Zero-weight MSTs with lost edges and NaN MSTs are rejected explicitly; Source
+errors on the all-zero graph. These corrections are distinguished from acceptance
+parity. The 12000-point sparse case uses 12,128,256 peak working-set bytes against
+a 128 MiB limit and 1,152,000,000 bytes for a dense distance matrix.
+
+Full current-source fpm, dense legacy and scoped optimized checks are pending
+at this implementation commit. The prior six dense hierarchy tie/roundoff
+partition gaps are not claimed closed. MIT, sklearn/HDBSCAN BSD and SciPy BSD
+notices are retained; no runtime dependency or non-sklearn algorithm is added.
+The broad translation goal remains active and commits stay local.
