@@ -12839,3 +12839,17 @@ Cross-profile audit SHA256: b093725d436578e0b53ead2ae1ba224db6192a0e5ef8ef085b39
 Fingerprints SHA256: 9f2ba0858c2b02279ee5c1a47e9e19f196ea1e30d0cd8370598409539d590539
 Reports use the pa_csr_ prefix. Static GNU runtime and validation-only locale
 shim retained. Local commits only, no push; protected untracked files untouched.
+
+2026-11-28: Dense/CSR PA streaming partial_fit implementation.
+Added one-epoch streaming, mixed formats, class declaration/validation, continue-
+a-fit and refit reset paths. Retain standard/average buffers and Source public
+versus update clocks. Explicitly model Source 1.6.1 averaged classification bias
+publication/alias quirks, positive threshold changes, and toggling existing
+average buffers. Fortran public arrays remain owned. Constructor validation
+continues; missing average-buffer enable attempts reject. Initial checked trace
+corpus passes 1,500 sequences / 7,500 stages / 80,100 groups at unchanged 3e-8.
+Twelve actual Source/native guards and native closed-form state checks pass.
+Wide CSR streaming peak 64,860,160; retained fit memory 64,835,584 bytes, below
+128 MiB. All 1,476 dense fits / 14,320 groups pass. Direct module probes with a
+frozen older helper archive are not full package proof. Full build is live;
+frozen checked/O3/native/source/legacy audits remain pending. No push performed.

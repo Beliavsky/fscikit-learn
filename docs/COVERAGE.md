@@ -16063,3 +16063,30 @@ Reports: validation/results/pa_csr_{checked,optimized,cross_profile}.json.
 The earlier unrefreshed build predates the norm correction. Broader PA/project
 subsets remain open; project-wide Source parity is false. Windows validation
 retains the static GNU runtime and validation-only locale-copy shim.
+
+### Passive-aggressive streaming partial_fit
+
+Dense/CSR regression and classification add one-epoch partial_fit, mixed-format
+batches, class declarations, continuing a fit, and refit resets. Private standard
+and average buffers retain Source state; public clocks use the full batch size,
+while PA-I zero-norm rows skip internal update counts. All constructor-validated
+controls continue to apply. Estimator-managed Source intercept alias behavior
+is preserved for averaged binary and multiclass streams, including changes in
+positive averaging thresholds and disabling/re-enabling existing average buffers.
+Initializing without average buffers then enabling averaging rejects.
+
+Class declarations deduplicate/sort and remain stable; batches may omit classes.
+Balanced weights reject the first partial call and follow Source's all-classes
+per-batch requirement when continuing an existing fit. Explicit weights use the
+existing typed per-call adapter. Public arrays remain owned Fortran arrays.
+
+The initial checked trace corpus passes all 1,500 sequences / 7,500 stages /
+80,100 groups at unchanged 3e-8, with exact labels/classes/counters and storage
+checks. It covers PA modes, dense/CSR/mixed inputs, class weights, averaging,
+threshold changes/toggles, full-fit continuation and refits. Twelve actual
+Source/native rejection decisions pass. Native closed-form buffer/epoch/bias/
+class/refit checks pass. Wide CSR streaming peaks at 64,860,160 bytes and the
+retained fit probe at 64,835,584, both below 128 MiB. All 1,476 retained dense
+fits / 14,320 groups pass. These direct probes use an updated module with an
+older frozen helper archive; full package/scoped optimized verification and
+retained CSR/legacy suites are pending. Warm/validation-stopping PA remains open.

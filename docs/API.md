@@ -1386,9 +1386,41 @@ weight-vector accumulation and touches stored entries at each update. Coefficien
 and averaging vectors remain dense, without a dense samples-by-features cache.
 Caller CSR buffers are preserved. Extreme finite rows retain Source
 infinite squared norms and zero PA steps, with norm calculation restoring
-caller IEEE halting modes and the overflow flag. Streaming, warm starts and validation-set
-stopping remain gaps.
+caller IEEE halting modes and the overflow flag. Warm starts and validation-set stopping remain gaps.
 See `example/passive_aggressive.f90` for training accuracy and regression R2.
+
+Both PA types now support `partial_fit` on dense or CSR batches. Each call runs
+one epoch, ignores fit stopping, retains standard/averaged buffers, and advances
+`t_` by the full batch row count. PA-I zero-norm rows still skip update and
+averaging counts inside the epoch. Batch formats can switch while feature width
+stays fixed; queries accept either format.
+
+```fortran
+reg%average=1
+call reg%partial_fit(x_batch,y_batch)
+call reg%partial_fit(csr_batch,y_next)
+classifier%average=1
+call classifier%partial_fit(x_batch,labels_batch,classes=[-4,7,21])
+call classifier%partial_fit(csr_batch,labels_next)
+```
+
+First classifier partial calls require `classes`; repeated declarations may be
+reordered or contain duplicates if their unique sorted values stay unchanged.
+A batch can omit declared classes. Optional `class_weight(:)` is a per-call
+native adapter in sorted class order. Balanced mode rejects the first partial
+call; after a full fit it follows Source's per-batch rule and requires every
+known class in that batch. `fit` resets streaming state and class declarations;
+`partial_fit` can continue an existing fit. Native validated constructor controls
+continue to apply. Averaging can be disabled/re-enabled when existing average
+buffers are available; enabling it after initialization without those buffers
+rejects, as in Source. Positive averaging thresholds can change between calls.
+
+Source 1.6.1's averaged classification intercept behavior is retained, including
+its frozen binary standard bias and multiclass writes through previously
+published intercept buffers. Published coefficients and biases therefore need
+not be a simple mean across batches. Estimator-managed publication is modeled;
+public Fortran arrays remain owned arrays. Warm fits and validation-based PA
+stopping remain gaps.
 
 
 ## OPTICS

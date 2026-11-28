@@ -50,6 +50,11 @@ module sklearn_linear_model
   public :: huber_regressor,ransac_regressor,tweedie_regressor,poisson_regressor,gamma_regressor
   public :: theil_sen_regressor
   public :: passive_aggressive_classifier,passive_aggressive_regressor
+  type :: pa_state
+    real(dp),allocatable::standard(:),average(:)
+    real(dp)::standard_bias=0,average_bias=0
+    logical::has_average=.false.,public_average=.false.
+  end type
   type :: pa_config
     real(dp) :: c=1,tol=1.e-3_dp,epsilon=0.1_dp
     integer :: max_iter=1000,n_iter_no_change=5,average=0,random_state=0
@@ -169,9 +174,14 @@ module sklearn_linear_model
     logical :: fit_intercept=.true.,shuffle=.true.,class_weight_balanced=.false.,converged_=.false.
     integer, allocatable :: classes_(:),n_iter_per_class_(:)
     real(dp), allocatable :: coef_(:,:),intercept_(:),loss_(:)
+    type(pa_state),allocatable,private::states_(:)
+    integer,private::bias_public_=0
+    logical,private::bias_standard_average_=.false.
   contains
     procedure,private::fit_dense=>pa_classifier_fit,fit_csr=>pa_classifier_fit_csr
     generic::fit=>fit_dense,fit_csr
+    procedure,private::partial_dense=>pa_classifier_partial,partial_csr=>pa_classifier_partial_csr
+    generic::partial_fit=>partial_dense,partial_csr
     procedure,private::decision_dense=>pa_classifier_decision,decision_csr=>pa_classifier_decision_csr
     generic::decision_function=>decision_dense,decision_csr
     procedure,private::predict_dense=>pa_classifier_predict,predict_csr=>pa_classifier_predict_csr
@@ -184,9 +194,12 @@ module sklearn_linear_model
     integer :: max_iter=1000,n_iter_no_change=5,average=0,random_state=0,n_iter_=0
     character(32) :: loss='epsilon_insensitive'
     logical :: shuffle=.true.,converged_=.false.
+    type(pa_state),private::state_
   contains
     procedure :: fit_dense=>pa_regressor_fit,fit_sparse=>pa_regressor_fit_csr
     procedure :: predict_sparse=>pa_regressor_predict_csr,score_sv=>pa_regressor_score_csr
+    procedure,private::partial_dense=>pa_regressor_partial,partial_csr=>pa_regressor_partial_csr
+    generic::partial_fit=>partial_dense,partial_csr
   end type
   type, extends(linear_regression) :: bayesian_ridge
     integer :: max_iter=300,n_iter_=0
@@ -364,12 +377,15 @@ contains
     options%average=average; options%shuffle=shuffle; options%fit_intercept=fit_intercept
   end function
 
-  subroutine pa_run(x,y,options,weight_pos,weight_neg,coef,intercept,n_iter,converged,last_loss,sparse_x)
+  subroutine pa_run(x,y,options,weight_pos,weight_neg,coef,intercept,n_iter,converged,last_loss,sparse_x,saved,start_t)
     real(dp), intent(in) :: x(:,:),y(:),weight_pos,weight_neg
     type(pa_config), intent(in) :: options
-    real(dp), intent(out) :: coef(:),intercept,last_loss
+    real(dp), intent(inout) :: coef(:),intercept
+    real(dp),intent(out)::last_loss
     integer, intent(out) :: n_iter
     type(csr_matrix),optional,intent(in)::sparse_x
+    type(pa_state),intent(inout)::saved
+    real(dp),intent(in)::start_t
     logical, intent(out) :: converged
     real(dp) :: current(size(coef)),average_coef(size(coef)),bias,average_bias,prediction,loss,update,norm
     real(dp) :: sumloss,best_loss,seen,average_count,average_a,average_b,mu,intercept_decay
@@ -377,10 +393,22 @@ contains
     integer(int64)::state
     integer::seed
     integer :: order(size(y)),i,j,it,pick,tmp,stale,n,k,feature
-    n=size(y); current=0; average_coef=0; bias=0; average_bias=0
+    n=size(y);current=0;average_coef=0;bias=0;average_bias=0
+    if(allocated(saved%standard))then
+      if(options%average>0)then
+        call require(saved%has_average,'PA cannot enable averaging without existing average buffers')
+        current=saved%standard;average_coef=saved%average
+        bias=saved%standard_bias;average_bias=saved%average_bias
+      else
+        current=coef;bias=intercept
+      end if
+    else
+      saved%standard=spread(0._dp,1,size(coef));saved%has_average=options%average>0
+      if(saved%has_average)saved%average=saved%standard
+    end if
     average_a=0;average_b=1;intercept_decay=1
     if(present(sparse_x))intercept_decay=.01_dp
-    best_loss=huge(1._dp); stale=0; seen=1; converged=.false.; order=[(i,i=1,n)]
+    best_loss=huge(1._dp); stale=0; seen=start_t; converged=.false.; order=[(i,i=1,n)]
     call rng%seed(options%random_state)
     ! fit_binary draws its dataset seed before its shuffle seed. Regression
     ! draws the shuffle seed first. Both use a private scalar-seeded MT19937.
@@ -474,9 +502,17 @@ contains
       end if
     end do
     n_iter=min(it,options%max_iter); last_loss=sumloss/n; coef=current; intercept=bias
-    ! The public averaging selection uses epoch sample counts, as sklearn does.
-    if(options%average>0.and.real(options%average,dp)<=real(n_iter,dp)*n) then
-      coef=(average_coef+average_a*current)/average_b; intercept=average_bias
+    if(options%average>0)then
+      saved%standard=current;saved%standard_bias=bias;saved%average_bias=average_bias
+      saved%average=(average_coef+average_a*current)/average_b
+      saved%public_average=real(options%average,dp)<=start_t-1+real(n_iter,dp)*n
+      if(saved%public_average)then
+        coef=saved%average;intercept=average_bias
+      end if
+    else if(saved%public_average)then
+      saved%average=current
+    else
+      saved%standard=current
     end if
   end subroutine
 
@@ -513,30 +549,71 @@ contains
   end function
 
   subroutine pa_regressor_fit(self,x,y)
-    class(passive_aggressive_regressor), intent(inout) :: self
-    real(dp), intent(in) :: x(:,:),y(:)
-    type(pa_config) :: options
+    class(passive_aggressive_regressor),intent(inout)::self
+    real(dp),intent(in)::x(:,:),y(:)
+    call pa_regressor_train(self,x,y,.false.)
+  end subroutine
+  subroutine pa_regressor_partial(self,x,y)
+    class(passive_aggressive_regressor),intent(inout)::self
+    real(dp),intent(in)::x(:,:),y(:)
+    call pa_regressor_train(self,x,y,.true.)
+  end subroutine
+  subroutine pa_regressor_partial_csr(self,x,y)
+    class(passive_aggressive_regressor),intent(inout)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),intent(in)::y(:)
+    real(dp)::empty(0,0)
+    call pa_regressor_train(self,empty,y,.true.,x)
+  end subroutine
+  subroutine pa_regressor_train(self,x,y,incremental,sparse_x)
+    class(passive_aggressive_regressor),intent(inout)::self
+    real(dp),intent(in)::x(:,:),y(:)
+    logical,intent(in)::incremental
+    type(csr_matrix),optional,intent(in)::sparse_x
+    type(pa_config)::options
+    integer::p
+    real(dp)::start_t
     call check_positive_regression(self)
-    call check_xy(x,size(y)); call check_x(reshape(y,[size(y),1]))
+    if(present(sparse_x))then
+      call pa_check_csr(sparse_x,size(y));p=sparse_x%n_cols
+    else
+      call check_xy(x,size(y));p=size(x,2)
+    end if
+    call check_x(reshape(y,[size(y),1]))
     options=pa_settings(self%c,self%tol,self%max_iter,self%n_iter_no_change,self%average,self%shuffle,self%fit_intercept,self%random_state)
     call require(ieee_is_finite(self%epsilon),'nonfinite passive-aggressive epsilon')
     call require(self%epsilon>=0,'passive-aggressive epsilon must be nonnegative')
     call require(self%loss=='epsilon_insensitive'.or.self%loss=='squared_epsilon_insensitive', &
       'invalid passive-aggressive regression loss')
-    options%epsilon=self%epsilon; options%pa_two=self%loss=='squared_epsilon_insensitive'
-    self%coef_=spread(0._dp,1,size(x,2))
-    call pa_run(x,y,options,1._dp,1._dp,self%coef_,self%intercept_,self%n_iter_,self%converged_,self%loss_)
-    self%t_=1+real(self%n_iter_,dp)*size(y); self%rank_=0
-    self%n_features_in_=size(x,2);self%n_targets_=1;self%matrix_target_=.false.
+    options%epsilon=self%epsilon;options%pa_two=self%loss=='squared_epsilon_insensitive'
+    if(.not.incremental.or..not.allocated(self%state_%standard))then
+      self%state_=pa_state();self%coef_=spread(0._dp,1,p);self%intercept_=0;self%t_=1
+    else
+      call require(p==self%n_features_in_,'PA partial_fit feature count mismatch')
+      call require(size(self%coef_)==p,'PA public coefficient shape mismatch')
+    end if
+    if(incremental)then
+      options%max_iter=1;options%tol=-1
+    end if
+    start_t=self%t_
+    call pa_run(x,y,options,1._dp,1._dp,self%coef_,self%intercept_,self%n_iter_,self%converged_,self%loss_, &
+      sparse_x,self%state_,start_t)
+    self%t_=start_t+real(self%n_iter_,dp)*size(y);self%rank_=0
+    self%n_features_in_=p;self%n_targets_=1;self%matrix_target_=.false.
   end subroutine
 
-  subroutine pa_classifier_fit(self,x,y,class_weight,sparse_x)
+  subroutine pa_classifier_fit(self,x,y,class_weight,sparse_x,incremental,classes)
     class(passive_aggressive_classifier), intent(inout) :: self
     real(dp), intent(in) :: x(:,:)
     integer, intent(in) :: y(:)
     real(dp),optional,intent(in)::class_weight(:)
     type(csr_matrix),optional,intent(in)::sparse_x
-    integer::p
+    logical,optional,intent(in)::incremental
+    integer,optional,intent(in)::classes(:)
+    logical::partial,fresh,above
+    integer,allocatable::declared(:)
+    integer::p,old_public_bias
+    real(dp)::start_t,old_standard_bias,old_average_bias,returned_bias
     type(legacy_random_state)::rng
     integer,allocatable::seeds(:)
     type(pa_config) :: options
@@ -551,11 +628,38 @@ contains
     end if
     options=pa_settings(self%c,self%tol,self%max_iter,self%n_iter_no_change,self%average,self%shuffle,self%fit_intercept,self%random_state)
     call require(self%loss=='hinge'.or.self%loss=='squared_hinge','invalid passive-aggressive classification loss')
-    self%classes_=unique_labels(y); k=size(self%classes_)
+    partial=.false.;if(present(incremental))partial=incremental
+    fresh=.not.partial.or..not.allocated(self%states_)
+    if(fresh)then
+      if(partial)then
+        call require(present(classes),'PA first partial_fit requires classes')
+        self%classes_=unique_labels(classes)
+        call require(.not.self%class_weight_balanced,'balanced PA class weights require fit or explicit weights')
+      else
+        self%classes_=unique_labels(y)
+      end if
+    else
+      call require(p==self%n_features_in_,'PA partial_fit feature count mismatch')
+      if(present(classes))then
+        declared=unique_labels(classes)
+        call require(size(declared)==size(self%classes_),'PA partial_fit classes changed')
+        call require(all(declared==self%classes_),'PA partial_fit classes changed')
+      end if
+    end if
+    do j=1,size(y)
+      call require(any(self%classes_==y(j)),'PA target is outside declared classes')
+    end do
+    k=size(self%classes_)
     call require(k>=2,'passive-aggressive classification requires at least two classes')
     heads=k; if(k==2) heads=1
-    if(allocated(self%coef_)) deallocate(self%coef_,self%intercept_,self%n_iter_per_class_,self%loss_)
-    allocate(self%coef_(heads,p),self%intercept_(heads),self%n_iter_per_class_(heads),self%loss_(heads))
+    if(fresh)then
+      if(allocated(self%states_))deallocate(self%states_)
+      allocate(self%states_(heads));self%bias_public_=0;self%bias_standard_average_=.false.;self%t_=1
+      self%coef_=spread(spread(0._dp,1,heads),2,p);self%intercept_=spread(0._dp,1,heads)
+    else
+      call require(all(shape(self%coef_)==[heads,p]).and.size(self%intercept_)==heads,'PA public parameter shape mismatch')
+    end if
+    self%n_iter_per_class_=spread(0,1,heads);self%loss_=spread(0._dp,1,heads)
     options%classification=.true.; options%pa_two=self%loss=='squared_hinge'
     weights=spread(1._dp,1,k)
     if(present(class_weight))then
@@ -565,6 +669,7 @@ contains
       weights=class_weight
     else if(self%class_weight_balanced) then
       do j=1,k
+        call require(count(y==self%classes_(j))>0,'balanced PA weights require every declared class in the batch')
         weights(j)=real(size(y),dp)/(real(k,dp)*count(y==self%classes_(j)))
       end do
     end if
@@ -575,6 +680,10 @@ contains
         seeds(j)=rng%integer_index(2147483647)-1
       end do
     end if
+    if(partial)then
+      options%max_iter=1;options%tol=-1
+    end if
+    start_t=self%t_;old_public_bias=self%bias_public_
     self%n_features_in_=p
     self%converged_=.true.
     do j=1,heads
@@ -583,18 +692,69 @@ contains
       positive_weight=weights(positive); negative_weight=1
       if(k==2) negative_weight=weights(1)
       options%random_state=seeds(j)
+      old_standard_bias=self%states_(j)%standard_bias;old_average_bias=self%states_(j)%average_bias
+      if(self%average>0.and.self%bias_standard_average_)self%states_(j)%standard_bias=old_average_bias
       call pa_run(x,target,options,positive_weight,negative_weight,self%coef_(j,:),self%intercept_(j), &
-        self%n_iter_per_class_(j),converged,self%loss_(j),sparse_x)
+        self%n_iter_per_class_(j),converged,self%loss_(j),sparse_x,self%states_(j),start_t)
+      returned_bias=self%intercept_(j)
+      if(self%average>0)returned_bias=self%states_(j)%standard_bias
+      self%states_(j)%standard_bias=old_standard_bias
+      if(self%average==0)self%states_(j)%average_bias=old_average_bias
+      if(k==2)then
+        above=self%average>0.and.real(self%average,dp)<=start_t-1+real(self%n_iter_per_class_(j),dp)*size(y)
+        if(self%average>0.and..not.above)self%states_(j)%standard_bias=returned_bias
+      else
+        ! Source writes returned scalar intercepts through the previous public
+        ! intercept array before selecting standard or averaged publication.
+        if(old_public_bias==0)self%states_(j)%standard_bias=returned_bias
+        if(old_public_bias==1)self%states_(j)%average_bias=returned_bias
+      end if
       self%converged_=self%converged_.and.converged
     end do
-    self%n_iter_=maxval(self%n_iter_per_class_); self%t_=1+real(self%n_iter_,dp)*size(y)
-    if(self%average>0.and.real(self%average,dp)<=self%t_-1) then
+    self%n_iter_=maxval(self%n_iter_per_class_);self%t_=start_t+real(self%n_iter_,dp)*size(y)
+    above=self%average>0.and.real(self%average,dp)<=self%t_-1
+    if(self%average>0)then
+      if(k==2)then
+        self%bias_public_=merge(1,0,above);self%bias_standard_average_=.false.
+      else if(above)then
+        self%bias_public_=1
+      else
+        self%bias_standard_average_=old_public_bias==1;self%bias_public_=old_public_bias
+      end if
       do j=1,heads
-        if(real(self%average,dp)>real(self%n_iter_per_class_(j),dp)*size(y)) then
-          self%coef_(j,:)=0; self%intercept_(j)=0
+        self%states_(j)%public_average=above
+        if(above)then
+          self%coef_(j,:)=self%states_(j)%average
+        else
+          self%coef_(j,:)=self%states_(j)%standard
+        end if
+        if(self%bias_public_==1)then
+          self%intercept_(j)=self%states_(j)%average_bias
+        else
+          self%intercept_(j)=self%states_(j)%standard_bias
         end if
       end do
+    else if(k==2)then
+      self%bias_public_=2
     end if
+  end subroutine
+
+  subroutine pa_classifier_partial(self,x,y,classes,class_weight)
+    class(passive_aggressive_classifier),intent(inout)::self
+    real(dp),intent(in)::x(:,:)
+    integer,intent(in)::y(:)
+    integer,optional,intent(in)::classes(:)
+    real(dp),optional,intent(in)::class_weight(:)
+    call pa_classifier_fit(self,x,y,class_weight,incremental=.true.,classes=classes)
+  end subroutine
+  subroutine pa_classifier_partial_csr(self,x,y,classes,class_weight)
+    class(passive_aggressive_classifier),intent(inout)::self
+    type(csr_matrix),intent(in)::x
+    integer,intent(in)::y(:)
+    integer,optional,intent(in)::classes(:)
+    real(dp),optional,intent(in)::class_weight(:)
+    real(dp)::empty(0,0)
+    call pa_classifier_fit(self,empty,y,class_weight,x,.true.,classes)
   end subroutine
 
   subroutine pa_check_csr(x,n)
@@ -618,20 +778,9 @@ contains
     type(csr_matrix),intent(in)::x
     real(dp),intent(in)::y(:)
     real(dp),optional,intent(in)::sample_weight(:)
-    type(pa_config)::options
     real(dp)::empty(0,0)
     call require(.not.present(sample_weight),'passive-aggressive fit does not accept sample weights')
-    call check_positive_regression(self);call pa_check_csr(x,size(y));call check_x(reshape(y,[size(y),1]))
-    options=pa_settings(self%c,self%tol,self%max_iter,self%n_iter_no_change,self%average,self%shuffle,self%fit_intercept,self%random_state)
-    call require(ieee_is_finite(self%epsilon),'nonfinite passive-aggressive epsilon')
-    call require(self%epsilon>=0,'passive-aggressive epsilon must be nonnegative')
-    call require(self%loss=='epsilon_insensitive'.or.self%loss=='squared_epsilon_insensitive', &
-      'invalid passive-aggressive regression loss')
-    options%epsilon=self%epsilon;options%pa_two=self%loss=='squared_epsilon_insensitive'
-    self%coef_=spread(0._dp,1,x%n_cols)
-    call pa_run(empty,y,options,1._dp,1._dp,self%coef_,self%intercept_,self%n_iter_,self%converged_,self%loss_,x)
-    self%t_=1+real(self%n_iter_,dp)*size(y);self%rank_=0
-    self%n_features_in_=x%n_cols;self%n_targets_=1;self%matrix_target_=.false.
+    call pa_regressor_train(self,empty,y,.false.,x)
   end subroutine
   function pa_regressor_predict_csr(self,x)result(y)
     class(passive_aggressive_regressor),intent(in)::self
