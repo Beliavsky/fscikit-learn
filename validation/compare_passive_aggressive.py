@@ -1,7 +1,10 @@
 """PA-I/PA-II models against sklearn, using identical unshuffled passes."""
 from pathlib import Path
+import argparse
+import hashlib
 import json
 import subprocess
+import tempfile
 import warnings
 import numpy as np
 import sklearn
@@ -12,7 +15,16 @@ RESULTS = ROOT / "validation" / "results"
 
 
 def main():
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--executable',type=Path)
+    parser.add_argument('--report',type=Path,default=RESULTS/'passive_aggressive_report.json')
+    args=parser.parse_args()
+    sha=lambda p:hashlib.sha256(Path(p).read_bytes()).hexdigest()
+    before=sha(args.executable) if args.executable else None
     RESULTS.mkdir(exist_ok=True)
+    args.report.resolve().parent.mkdir(parents=True,exist_ok=True)
+    temporary=tempfile.TemporaryDirectory(prefix='fsklearn-pa-legacy-',dir=args.report.resolve().parent) if args.executable else None
+    work=Path(temporary.name) if temporary else RESULTS
     checks = []
     for seed, n, p in ((7, 45, 3), (42, 54, 4), (2026, 63, 5)):
         rng = np.random.default_rng(seed)
@@ -21,13 +33,16 @@ def main():
         scores = np.column_stack([x[:, 0]+.4*x[:, 1], -x[:, 0]+x[:, 1], -x[:, 1]+.2*x[:, 2]])
         labels = np.array([-4, 7, 21])[scores.argmax(axis=1)]
         assert len(np.unique(labels)) == 3
-        data, output = RESULTS/f"pa_{seed}.txt", RESULTS/f"pa_actual_{seed}.txt"
+        data, output = work/f"pa_{seed}.txt", work/f"pa_actual_{seed}.txt"
         with data.open("w") as stream:
             stream.write(f"{n} {p}\n")
             np.savetxt(stream, np.column_stack([x, y, labels]), fmt=["%.17g"]*(p+1)+["%d"])
-        subprocess.run(["fpm", "run", "--flag", "-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow",
-                        "--target", "reference_passive_aggressive_driver", "--", str(data), str(output)],
-                       cwd=ROOT, check=True)
+        if args.executable:
+            subprocess.run([str(args.executable.resolve()),str(data),str(output)],cwd=ROOT,check=True)
+        else:
+            subprocess.run(["fpm", "run", "--flag", "-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow",
+                            "--target", "reference_passive_aggressive_driver", "--", str(data), str(output)],
+                           cwd=ROOT, check=True)
         actual = {}
         for line in output.read_text().splitlines():
             name, *values = line.split()
@@ -86,8 +101,10 @@ def main():
                                        atol=3e-8, rtol=3e-8, err_msg=f"{seed} {name}")
             checks.append(dict(seed=seed, api=name, passed=True))
         print(f"PASS passive-aggressive models seed={seed}", flush=True)
-    (RESULTS/"passive_aggressive_report.json").write_text(json.dumps(
-        dict(sklearn_version=sklearn.__version__, checks=checks), indent=2)+"\n")
+    if args.executable:assert sha(args.executable)==before
+    args.report.write_text(json.dumps(dict(sklearn_version=sklearn.__version__,checks=checks,
+        executable_sha256=before,validator_sha256=sha(__file__)),indent=2)+'\n')
+    if temporary:temporary.cleanup()
     print(f"{len(checks)} passive-aggressive comparisons passed against sklearn {sklearn.__version__}")
 
 

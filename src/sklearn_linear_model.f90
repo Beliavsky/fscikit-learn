@@ -1,4 +1,5 @@
 module sklearn_linear_model
+  use,intrinsic::iso_fortran_env,only:int64
   use sklearn_ard_core,only:ard_solve
   use sklearn_bayesian_ridge_core,only:bayesian_ridge_solve,bayesian_posterior_std
   use sklearn_ols_core,only:fit_ols_estimator,ols_solution
@@ -50,7 +51,7 @@ module sklearn_linear_model
   public :: passive_aggressive_classifier,passive_aggressive_regressor
   type :: pa_config
     real(dp) :: c=1,tol=1.e-3_dp,epsilon=0.1_dp
-    integer :: max_iter=1000,n_iter_no_change=5,average=0
+    integer :: max_iter=1000,n_iter_no_change=5,average=0,random_state=0
     logical :: shuffle=.true.,fit_intercept=.true.,classification=.false.,pa_two=.false.
   end type
   type :: linear_regression
@@ -162,7 +163,7 @@ module sklearn_linear_model
   end type
   type :: passive_aggressive_classifier
     real(dp) :: c=1,tol=1.e-3_dp,t_=1
-    integer :: max_iter=1000,n_iter_no_change=5,average=0,random_state=0,n_iter_=0
+    integer :: max_iter=1000,n_iter_no_change=5,average=0,random_state=0,n_iter_=0,n_features_in_=0
     character(16) :: loss='hinge'
     logical :: fit_intercept=.true.,shuffle=.true.,class_weight_balanced=.false.,converged_=.false.
     integer, allocatable :: classes_(:),n_iter_per_class_(:)
@@ -341,9 +342,9 @@ contains
   end function
   ! sklearn 1.6.1 linear_model/_passive_aggressive.py, _stochastic_gradient.py
   ! and _sgd_fast.pyx.tp. Retained BSD terms: LICENSES/scikit-learn-COPYING.
-  function pa_settings(c,tol,max_iter,patience,average,shuffle,fit_intercept) result(options)
+  function pa_settings(c,tol,max_iter,patience,average,shuffle,fit_intercept,random_state) result(options)
     real(dp), intent(in) :: c,tol
-    integer, intent(in) :: max_iter,patience,average
+    integer, intent(in) :: max_iter,patience,average,random_state
     logical, intent(in) :: shuffle,fit_intercept
     type(pa_config) :: options
     call require(all(ieee_is_finite([c,tol])),'nonfinite passive-aggressive controls')
@@ -351,6 +352,8 @@ contains
     call require(tol>=0.or.tol== -1,'passive-aggressive tol must be nonnegative or -1')
     call require(max_iter>0.and.patience>0,'invalid passive-aggressive iteration controls')
     call require(average>=0,'passive-aggressive average must be nonnegative')
+    call require(random_state>=0,'passive-aggressive random_state must be nonnegative')
+    options%random_state=random_state
     options%c=c; options%tol=tol; options%max_iter=max_iter; options%n_iter_no_change=patience
     options%average=average; options%shuffle=shuffle; options%fit_intercept=fit_intercept
   end function
@@ -362,15 +365,24 @@ contains
     integer, intent(out) :: n_iter
     logical, intent(out) :: converged
     real(dp) :: current(size(coef)),average_coef(size(coef)),bias,average_bias,prediction,loss,update,norm
-    real(dp) :: sumloss,best_loss,coin,seen,average_count
+    real(dp) :: sumloss,best_loss,seen,average_count
+    type(legacy_random_state)::rng
+    integer(int64)::state
+    integer::seed
     integer :: order(size(y)),i,j,it,pick,tmp,stale,n
     n=size(y); current=0; average_coef=0; bias=0; average_bias=0
     best_loss=huge(1._dp); stale=0; seen=1; converged=.false.; order=[(i,i=1,n)]
+    call rng%seed(options%random_state)
+    ! fit_binary draws its dataset seed before its shuffle seed. Regression
+    ! draws the shuffle seed first. Both use a private scalar-seeded MT19937.
+    if(options%classification)tmp=rng%integer_index(2147483646)
+    seed=rng%integer_index(2147483647)-1
     do it=1,options%max_iter
       if(options%shuffle) then
-        do j=n,2,-1
-          call random_number(coin); pick=min(j,1+int(coin*j))
-          tmp=order(j); order(j)=order(pick); order(pick)=tmp
+        state=int(seed,int64)
+        do j=1,n-1
+          pick=j+modulo(pa_next_random(state),n-j+1)
+          tmp=order(j);order(j)=order(pick);order(pick)=tmp
         end do
       end if
       sumloss=0
@@ -429,35 +441,48 @@ contains
     end if
   end subroutine
 
+  integer function pa_next_random(state)result(value)
+    ! sklearn utils/_random.pxd our_rand_r (BSD-3-Clause).
+    integer(int64),intent(inout)::state
+    if(state==0)state=1
+    state=iand(ieor(state,ishft(state,13)),4294967295_int64)
+    state=ieor(state,ishft(state,-17))
+    state=iand(ieor(state,ishft(state,5)),4294967295_int64)
+    value=int(iand(state,2147483647_int64))
+  end function
+
   subroutine pa_regressor_fit(self,x,y)
     class(passive_aggressive_regressor), intent(inout) :: self
     real(dp), intent(in) :: x(:,:),y(:)
     type(pa_config) :: options
     call check_positive_regression(self)
     call check_xy(x,size(y)); call check_x(reshape(y,[size(y),1]))
-    options=pa_settings(self%c,self%tol,self%max_iter,self%n_iter_no_change,self%average,self%shuffle,self%fit_intercept)
+    options=pa_settings(self%c,self%tol,self%max_iter,self%n_iter_no_change,self%average,self%shuffle,self%fit_intercept,self%random_state)
     call require(ieee_is_finite(self%epsilon),'nonfinite passive-aggressive epsilon')
     call require(self%epsilon>=0,'passive-aggressive epsilon must be nonnegative')
     call require(self%loss=='epsilon_insensitive'.or.self%loss=='squared_epsilon_insensitive', &
       'invalid passive-aggressive regression loss')
     options%epsilon=self%epsilon; options%pa_two=self%loss=='squared_epsilon_insensitive'
-    if(self%shuffle) call seed_rng(self%random_state)
     self%coef_=spread(0._dp,1,size(x,2))
     call pa_run(x,y,options,1._dp,1._dp,self%coef_,self%intercept_,self%n_iter_,self%converged_,self%loss_)
     self%t_=1+real(self%n_iter_,dp)*size(y); self%rank_=0
+    self%n_features_in_=size(x,2);self%n_targets_=1;self%matrix_target_=.false.
   end subroutine
 
-  subroutine pa_classifier_fit(self,x,y)
+  subroutine pa_classifier_fit(self,x,y,class_weight)
     class(passive_aggressive_classifier), intent(inout) :: self
     real(dp), intent(in) :: x(:,:)
     integer, intent(in) :: y(:)
+    real(dp),optional,intent(in)::class_weight(:)
+    type(legacy_random_state)::rng
+    integer,allocatable::seeds(:)
     type(pa_config) :: options
     real(dp) :: target(size(y)),positive_weight,negative_weight
     real(dp), allocatable :: weights(:)
     integer :: k,heads,j,positive
     logical :: converged
     call check_xy(x,size(y))
-    options=pa_settings(self%c,self%tol,self%max_iter,self%n_iter_no_change,self%average,self%shuffle,self%fit_intercept)
+    options=pa_settings(self%c,self%tol,self%max_iter,self%n_iter_no_change,self%average,self%shuffle,self%fit_intercept,self%random_state)
     call require(self%loss=='hinge'.or.self%loss=='squared_hinge','invalid passive-aggressive classification loss')
     self%classes_=unique_labels(y); k=size(self%classes_)
     call require(k>=2,'passive-aggressive classification requires at least two classes')
@@ -466,18 +491,31 @@ contains
     allocate(self%coef_(heads,size(x,2)),self%intercept_(heads),self%n_iter_per_class_(heads),self%loss_(heads))
     options%classification=.true.; options%pa_two=self%loss=='squared_hinge'
     weights=spread(1._dp,1,k)
-    if(self%class_weight_balanced) then
+    if(present(class_weight))then
+      call require(.not.self%class_weight_balanced,'choose balanced or explicit passive-aggressive class weights')
+      call require(size(class_weight)==k,'passive-aggressive class weight count mismatch')
+      call require(all(ieee_is_finite(class_weight)),'nonfinite passive-aggressive class weights')
+      weights=class_weight
+    else if(self%class_weight_balanced) then
       do j=1,k
         weights(j)=real(size(y),dp)/(real(k,dp)*count(y==self%classes_(j)))
       end do
     end if
-    if(self%shuffle) call seed_rng(self%random_state)
+    allocate(seeds(heads));seeds=self%random_state
+    if(k>2)then
+      call rng%seed(self%random_state)
+      do j=1,heads
+        seeds(j)=rng%integer_index(2147483647)-1
+      end do
+    end if
+    self%n_features_in_=size(x,2)
     self%converged_=.true.
     do j=1,heads
       positive=j; if(k==2) positive=2
       target=merge(1._dp,-1._dp,y==self%classes_(positive))
       positive_weight=weights(positive); negative_weight=1
       if(k==2) negative_weight=weights(1)
+      options%random_state=seeds(j)
       call pa_run(x,target,options,positive_weight,negative_weight,self%coef_(j,:),self%intercept_(j), &
         self%n_iter_per_class_(j),converged,self%loss_(j))
       self%converged_=self%converged_.and.converged

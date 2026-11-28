@@ -15970,3 +15970,25 @@ validation/results/sgd_validation_{checked,optimized,cross_profile}.json.
 This supersedes the older SGD validation-stopping gap; existing broader SGD
 and project/API subsets remain. Project-wide Source parity remains false.
 Windows validation retains the static runtime and validation-only locale shim.
+
+### Passive-aggressive private seeds and class weights
+
+PA regression/classification replace global-RNG reverse Fisher-Yates shuffling
+with Source's scalar-seeded NumPy draw sequence and forward xorshift dataset
+permutations. Regression draws the shuffle seed first; binary classification
+consumes its dataset seed first; multiclass OVR receives independent Source
+job seeds. Each epoch resets the shuffle seed and permutes the current order.
+The global Fortran RNG is preserved. Negative seeds reject even without shuffle.
+Both models now publish fitted feature counts. Classifier fit adds a typed
+class-weight adapter in sorted class order, including Source-valid zero and
+negative weights. Balanced and explicit modes are mutually exclusive.
+
+The isolated checked comparison passes 1,476 fits / 14,320 groups, including
+ordered/shuffled PA-I/PA-II, binary/OVR, class weights, delayed/unreached averages,
+zero-feature rows, multiple widths/seeds and exact stopping counters/labels.
+Original 3e-8 numeric tolerances remain. Native Source golden values, RNG-state
+preservation, fitted metadata and refits pass. Nine actual Source/native
+rejection decisions and two typed-adapter guards pass. These direct probes use
+a current linear-model object with a frozen older helper archive; full package
+and scoped optimized verification, including the retained PA suite, are pending.
+Streaming, warm starts, CSR PA and validation stopping remain documented gaps.

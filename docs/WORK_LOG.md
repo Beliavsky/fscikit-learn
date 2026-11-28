@@ -12755,3 +12755,16 @@ Cross-profile audit SHA256: ce302c999d9189f9d076494dcfb7c59f735940850921357b76f1
 Fingerprints SHA256: fd0a326b1ec04a236ae60ea634020936f5c1190dae3ec85caccbe50a28ad3902
 Static GNU runtime and validation-only locale shim retained. Local commits only;
 no push performed. Protected untracked files remain untouched.
+
+2026-11-28: Passive-aggressive seeded fitting fidelity.
+Translated private scalar MT seed draws, forward xorshift shuffling and per-OVR
+job seeds from sklearn's dataset/SGD contracts. Removed PA mutation of the global
+Fortran RNG. Added fitted feature counts and an explicit sorted-class-weight
+adapter accepting Source-valid zero/negative weights. Seed validation also
+applies to ordered fits. Direct checked probe: 1,476 fits / 14,320 groups pass
+at unchanged 3e-8, with exact labels and counters. Native golden-value, RNG
+isolation, metadata/refit tests pass. Nine Source rejection decisions plus two
+typed-adapter guards pass. Full package build is live; final frozen checked/O3
+and retained PA comparisons are pending. Legacy validator gains optional binary
+and report arguments plus isolated files to prevent cross-profile collisions.
+Existing PA CSR/partial/warm/validation-stopping gaps remain. No push performed.

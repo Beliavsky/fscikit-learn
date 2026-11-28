@@ -1361,9 +1361,20 @@ call reg%fit(x,y)
 ! Set tol=-1 for exactly max_iter passes; average=0 disables averaging.
 ```
 
-`class_weight_balanced` selects balanced class weights. Repeated fits reset
-coefficients and averaging state. See `example/passive_aggressive.f90` for
-training accuracy and regression R2 on a complete synthetic fixture.
+`class_weight_balanced` selects balanced class weights. Classifier `fit` also
+accepts optional `class_weight(:)`, one finite value per sorted class; this
+native per-fit adapter represents sklearn's constructor class-weight dictionary.
+Zero and negative weights are accepted, following Source. Choose balanced or
+explicit weights. Both models expose `n_features_in_` after fitting.
+
+The default seeded shuffle now follows sklearn's private NumPy seed draws,
+forward xorshift permutations and independent multiclass OVR seeds. Each epoch
+resets the xorshift seed and permutes the retained row order. Scalar seeds are
+nonnegative; fitting preserves the global Fortran RNG, including shuffled fits.
+Repeated fits reset coefficients and averaging state. Dense PA-I/PA-II fitting,
+zero-row handling, delayed averaging and loss-based patience remain supported.
+CSR PA fitting, streaming, warm starts and validation-set stopping remain gaps.
+See `example/passive_aggressive.f90` for training accuracy and regression R2.
 
 
 ## OPTICS
