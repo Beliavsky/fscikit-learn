@@ -1148,10 +1148,9 @@ For gamma strings, leave `gamma=-1` and set `gamma_rule='scale'` or `'auto'`.
 For dense fits, `support_` uses original one-based training indices; `dual_coef_` is a vector
 and `intercept_` is a scalar. For linear kernels, `coef_` is a feature vector.
 With `kernel='precomputed'`, predict from the query-to-training Gram matrix.
-NuSVR requires a PSD training Gram; SVR and OneClassSVM also accept finite
-square indefinite/asymmetric input and support sigmoid with signed coef0.
-SVR and OneClassSVM expose `shrinking`, defaulting true, and follow Source
-LIBSVM Solver.
+SVR, NuSVR and OneClassSVM accept finite square indefinite/asymmetric input
+and support sigmoid with signed coef0. Each exposes shrinking, defaulting true.
+SVR/OneClassSVM follow Source LIBSVM Solver; NuSVR follows Solver_NU.
 converged_/fit_status_ report its cached-gradient stopping/cap status;
 kkt_violation_ independently replays the original double-kernel residual. Check `converged_` or `fit_status_` after capped
 fits. One-class labels are +1/-1, with zero decisions labeled -1.
@@ -1177,6 +1176,13 @@ positive-weight problem, shifted to one base. Support-vector rows contain the
 actual original observations. This differs from this package's established
 dense-fit index convention and is retained for reference compatibility.
 
+NuSVR additionally exposes native diagnostics dual_variables_(n_samples,2),
+the two nonnegative unscaled dual copies in original-row order, and
+epsilon_signed_, the signed Solver_NU tube threshold. epsilon_ retains its
+nonnegative clipped interpretation: max(0,epsilon_signed_). These diagnostics
+are native storage/inspection adapters, not extra algorithms or Python sklearn
+attributes. Zero threshold is valid for NuSVR and is not used to rescale duals.
+
 The native n_support_ count is the actual number of support rows. The
 installed sklearn 1.6.1 sparse regression/one-class getter can read an
 uninitialized count; reference validation records that value diagnostically
@@ -1185,8 +1191,7 @@ and checks the Source support-vector row count instead.
 The native optimizer still constructs a dense sample-by-sample Gram matrix;
 CSR fitting avoids the sample-by-feature design and dense support-vector
 storage. Linear `coef_` remains a dense native feature vector. The existing
-NuSVR kernel restrictions and optimizer remain. SVR/OneClassSVM have the Source
-solver and additional kernel controls described above; the nonnegative-weight
+All three types use the translated Source solvers and kernel controls above; the nonnegative-weight
 policy and native default tolerances/iteration cap remain.
 
 ## Power transforms

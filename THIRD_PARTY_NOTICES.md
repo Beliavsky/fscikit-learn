@@ -214,7 +214,7 @@ Reference paths by module:
 | dummy | dummy.py |
 | kernel_ridge | kernel_ridge.py |
 | discriminant_analysis | discriminant_analysis.py (LDA lsqr covariance convention) |
-| kernel_svm | svm/_base.py, _classes.py, src/libsvm/svm.cpp; SVR/NuSVR/OneClassSVM weighted dual formulations, gamma rules, thresholds and normalization; independent native NuSVR pairwise optimizer; SVR/OneClassSVM translate LIBSVM Solver, SVR_Q signed rows/epsilon terms and weighted one-class prefix initialization |
+| kernel_svm | svm/_base.py, _classes.py, src/libsvm/svm.cpp; SVR/NuSVR/OneClassSVM weighted dual formulations, gamma rules, thresholds and normalization; translated LIBSVM Solver/Solver_NU, SVR_Q signed rows, epsilon/target terms and formulation-specific weighted initialization |
 | linear_svm | svm/_classes.py LinearSVC/LinearSVR contracts; svm/src/liblinear/linear.cpp L2 squared-loss objectives, synthetic intercept regularization and binary/OVR class costs; tron.cpp primal trust-region optimization; projected-gradient dual solvers and newrand.h seeded shuffles |
 | svm | svm/_classes.py; deterministic SMO replaces libsvm backend |
 | mixture | mixture/_gaussian_mixture.py, _base.py |
@@ -3166,3 +3166,18 @@ sign application, double diagonals and alpha-plus-minus reconstruction. It
 uses the attributed shared Solver port. Native typed adapters, canonical
 signed-dual diagnostics, weighted score forwarding and tests are MIT
 contributions. Existing sklearn/LIBSVM BSD notices remain in `LICENSES/`.
+
+
+## LIBSVM NuSVR Solver_NU adapter
+
+`sklearn_libsvm_solver::libsvm_solve_nu` translates the bundled Solver_NU
+selection, four-bound shrinking, gradient reconstruction and two threshold
+calculations. `sklearn_kernel_svm` follows solve_nu_svr's weighted mirrored
+prefix, signed target terms, SVR_Q mapping and unscaled signed-dual output.
+Native diagnostic storage, clipped/signed threshold fields and tests are MIT
+contributions. Existing sklearn/LIBSVM BSD notices remain in `LICENSES/`.
+
+Small-width dense training diagonals also follow the installed SciPy BLAS
+scalar ddot behavior used by sklearn/utils/_cython_blas.pyx. The implementation
+uses standard IEEE fused accumulation; no external BLAS runtime dependency is
+introduced. Backend-specific numerical validation is recorded in COVERAGE.md.

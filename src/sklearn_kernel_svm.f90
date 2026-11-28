@@ -1,16 +1,15 @@
 ! Dense/CSR SVR, NuSVR and one-class SVM contracts from sklearn/svm/_base.py,
-! _classes.py and its bundled LIBSVM. SVR/OneClassSVM use translated Solver.
-! NuSVR retains the native most-violating-pair optimizer.
+! _classes.py and its bundled LIBSVM. SVR/OneClassSVM use translated Solver; NuSVR uses Solver_NU.
 ! See THIRD_PARTY_NOTICES.md and LICENSES/libsvm-COPYRIGHT for attribution.
 module sklearn_kernel_svm
   use sklearn_common
   use sklearn_metrics, only: rbf_kernel,linear_kernel,polynomial_kernel,sigmoid_kernel,r2_score
-  use sklearn_libsvm_solver,only:libsvm_solve
+  use sklearn_libsvm_solver,only:libsvm_solve,libsvm_solve_nu
   use,intrinsic::iso_fortran_env,only:real32
   use sklearn_sparse, only:csr_matrix,csr_from_dense
   use sklearn_stateless_preprocessing, only:sorted_sparse
   use sklearn_libsvm_sparse,only:sparse_inner,svm_sorted,sparse_rows,libsvm_sparse_gram
-  use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
+  use, intrinsic :: ieee_arithmetic, only: ieee_is_finite,ieee_fma
   implicit none
   private
   public :: svr,nu_svr,one_class_svm
@@ -47,7 +46,9 @@ module sklearn_kernel_svm
     generic :: fit=>fit_dense,fit_csr
   end type
   type, extends(regression_model) :: nu_svr
-    real(dp) :: nu=0.5_dp,epsilon_=0
+    real(dp) :: nu=0.5_dp,epsilon_=0,epsilon_signed_=0
+    logical::shrinking=.true.
+    real(dp),allocatable::dual_variables_(:,:)
   contains
     procedure,private :: fit_dense=>nusvr_fit,fit_csr=>nusvr_fit_csr
     generic :: fit=>fit_dense,fit_csr
@@ -85,18 +86,8 @@ contains
     call require(self%tol>0,'invalid kernel SVM tolerance')
     call require(ieee_is_finite(self%gamma).and.ieee_is_finite(self%coef0),'invalid kernel SVM parameters')
     call require((self%gamma>=0.or.self%gamma==-1).and.self%degree>=0,'invalid kernel SVM parameters')
-    select type(self)
-    class is(svr)
-      call require(any(self%kernel==[character(16)::'rbf','linear','poly','polynomial','sigmoid','precomputed']), &
-        'unsupported SVR kernel')
-    class is(one_class_svm)
-      call require(any(self%kernel==[character(16)::'rbf','linear','poly','polynomial','sigmoid','precomputed']), &
-        'unsupported OneClassSVM kernel')
-    class default
-      call require(self%kernel=='rbf'.or.self%kernel=='linear'.or.self%kernel=='poly'.or. &
-        self%kernel=='polynomial'.or.self%kernel=='precomputed','unsupported kernel SVM kernel')
-      call require(self%coef0>=0,'invalid kernel SVM parameters')
-    end select
+    call require(any(self%kernel==[character(16)::'rbf','linear','poly','polynomial','sigmoid','precomputed']), &
+      'unsupported kernel SVM kernel')
     call require(self%gamma_rule=='scale'.or.self%gamma_rule=='auto','invalid kernel SVM gamma rule')
     self%kernel_fit_=self%kernel; self%degree_fit_=self%degree; self%coef0_fit_=self%coef0
     if(allocated(self%coef_)) deallocate(self%coef_)
@@ -106,9 +97,8 @@ contains
     class(kernel_model), intent(inout) :: self
     real(dp), intent(in) :: x(:,:)
     real(dp), allocatable, intent(out) :: gram(:,:)
-    real(dp), allocatable :: values(:),vectors(:,:)
-    real(dp) :: variance,mean
-    integer :: n
+    real(dp) :: variance,mean,diagonal
+    integer :: n,i,j
     call check_x(x); n=size(x,1);call setup_controls(self)
     self%sparse_fit_=.false.
     if(allocated(self%x_fit_csr_))deallocate(self%x_fit_csr_)
@@ -123,20 +113,23 @@ contains
     if(self%kernel_fit_=='precomputed') then
       self%gamma_=0
       call require(size(x,2)==n,'kernel SVM precomputed matrix must be square')
-      select type(self)
-      class is(svr)
-        ! LIBSVM accepts finite asymmetric/indefinite precomputed rows.
-      class is(one_class_svm)
-        ! LIBSVM accepts finite asymmetric/indefinite precomputed rows.
-      class default
-        call require(all(abs(x-transpose(x))<=1.e-10_dp*max(1._dp,abs(x),abs(transpose(x)))), &
-          'kernel SVM precomputed matrix must be symmetric')
-        allocate(values(n),vectors(n,n));call symmetric_eigen(x,values,vectors)
-        call require(minval(values)>=-1.e-10_dp*max(1._dp,maxval(abs(values))), &
-          'kernel SVM precomputed matrix must be positive semidefinite')
-      end select
     end if
     gram=gram_matrix(self,x,x)
+    ! The installed SciPy BLAS scalar ddot path (width < 16) uses fused
+    ! accumulation. LIBSVM keeps these diagonals in double precision.
+    if(self%kernel_fit_/='precomputed'.and.size(x,2)<16)then
+      do i=1,n
+        diagonal=0
+        do j=1,size(x,2)
+          diagonal=ieee_fma(x(i,j),x(i,j),diagonal)
+        end do
+        select case(self%kernel_fit_)
+        case('linear');gram(i,i)=diagonal
+        case('poly','polynomial');gram(i,i)=(self%gamma_*diagonal+self%coef0_fit_)**self%degree_fit_
+        case('sigmoid');gram(i,i)=tanh(self%gamma_*diagonal+self%coef0_fit_)
+        end select
+      end do
+    end if
     call require(all(ieee_is_finite(gram)),'kernel SVM nonfinite Gram matrix')
   end subroutine
   subroutine check_csr(x)
@@ -222,44 +215,6 @@ contains
       end if
     end do
   end subroutine
-  subroutine working_pair(gram,g,alpha,cap,signs,index,group,epsilon,groups,first,last,best_step)
-    real(dp), intent(in) :: gram(:,:),g(:),alpha(:),cap(:),signs(:),epsilon
-    integer, intent(in) :: index(:),group(:),groups
-    integer, intent(out) :: first,last
-    real(dp), intent(out) :: best_step
-    real(dp) :: low,value,inc_limit,dec_limit,eta,diff,step,gain,best_gain
-    integer :: h,i,j,left
-    first=0; last=0; best_step=0; best_gain=-1
-    do h=1,groups
-      low=huge(1._dp); left=0
-      do i=1,size(alpha)
-        if(group(i)/=h.or.cap(i)==0) cycle
-        if(.not.((signs(i)>0.and.alpha(i)<cap(i)).or.(signs(i)<0.and.alpha(i)>0))) cycle
-        value=g(index(i))+signs(i)*epsilon
-        if(value<low) then
-          low=value; left=i
-        end if
-      end do
-      if(left==0) cycle
-      inc_limit=alpha(left)
-      if(signs(left)>0) inc_limit=cap(left)-alpha(left)
-      do j=1,size(alpha)
-        if(j==left.or.group(j)/=h.or.cap(j)==0) cycle
-        if(.not.((signs(j)>0.and.alpha(j)>0).or.(signs(j)<0.and.alpha(j)<cap(j)))) cycle
-        diff=g(index(j))+signs(j)*epsilon-low
-        if(diff<=0) cycle
-        dec_limit=cap(j)-alpha(j)
-        if(signs(j)>0) dec_limit=alpha(j)
-        step=min(inc_limit,dec_limit)
-        eta=max(0._dp,gram(index(left),index(left))+gram(index(j),index(j))-2*gram(index(left),index(j)))
-        if(eta>0) step=min(step,diff/eta)
-        gain=step*(diff-eta*step/2)
-        if(gain>best_gain) then
-          first=left; last=j; best_step=step; best_gain=gain
-        end if
-      end do
-    end do
-  end subroutine
   subroutine optimize(self,gram,y,capacity,mode,epsilon,nu,levels)
     class(kernel_model), intent(inout) :: self
     real(dp), intent(in) :: gram(:,:),y(:),capacity(:),epsilon,nu
@@ -267,8 +222,8 @@ contains
     real(dp), intent(out) :: levels(2)
     real(dp), allocatable :: alpha(:),cap(:),signs(:),g(:),beta(:),qcache(:,:),qd(:),initial(:),ones(:),zeros(:),linear_term(:),solver_cap(:)
     integer, allocatable :: index(:),group(:),positive(:)
-    real(dp) :: remaining,target,gap,step,low,high,free_sum,value,bound_tol,fallback_sum,rho
-    integer :: n,m,groups,i,j,a,b,it,h,count_free,fallback_count,np
+    real(dp) :: remaining,target,rho,nu_level
+    integer :: n,m,groups,i,j,a,b,np
     n=size(y); m=2*n; groups=1
     if(mode==3) m=n
     if(mode==2) groups=2
@@ -304,12 +259,25 @@ contains
       alpha(positive)=initial;beta=alpha;g=matmul(gram,beta)
       call select_pair(g,alpha,cap,signs,index,group,epsilon,groups,a,b,self%kkt_violation_)
       self%fit_status_=merge(0,1,self%converged_);levels=0;levels(1)=rho
-    else if(mode==1)then
+    else if(mode==1.or.mode==2)then
       positive=pack([(i,i=1,n)],capacity>0);np=size(positive)
       allocate(qcache(2*np,2*np),qd(2*np),initial(2*np),ones(2*np),linear_term(2*np),solver_cap(2*np))
       initial=0;ones(:np)=1;ones(np+1:)=-1
       solver_cap(:np)=capacity(positive);solver_cap(np+1:)=solver_cap(:np)
-      linear_term(:np)=epsilon-y(positive);linear_term(np+1:)=epsilon+y(positive)
+      if(mode==1)then
+        linear_term(:np)=epsilon-y(positive);linear_term(np+1:)=epsilon+y(positive)
+      else
+        linear_term(:np)=-y(positive);linear_term(np+1:)=y(positive)
+        target=0
+        do i=1,np
+          target=target+capacity(positive(i))*nu
+        end do
+        remaining=target/2
+        do i=1,np
+          initial(i)=min(remaining,capacity(positive(i)));initial(i+np)=initial(i)
+          remaining=remaining-initial(i)
+        end do
+      end if
       do i=1,2*np
         a=positive(1+mod(i-1,np));qd(i)=gram(a,a)
         do j=1,2*np
@@ -322,83 +290,29 @@ contains
       class is(svr)
         call libsvm_solve(qcache,qd,linear_term,ones,solver_cap,initial,self%tol,self%max_iter, &
           self%shrinking,rho,self%n_iter_,self%converged_)
+      class is(nu_svr)
+        call libsvm_solve_nu(qcache,qd,linear_term,ones,solver_cap,initial,self%tol,self%max_iter, &
+          self%shrinking,rho,nu_level,self%n_iter_,self%converged_)
       class default
-        call require(.false.,'internal epsilon-SVR solver type mismatch')
+        call require(.false.,'internal regression solver type mismatch')
       end select
       beta=0;beta(positive)=initial(:np)-initial(np+1:)
       ! Report the physical signed-dual residual using its canonical split.
-      alpha(:n)=max(beta,0._dp);alpha(n+1:)=max(-beta,0._dp)
+      if(mode==1)then
+        alpha(:n)=max(beta,0._dp);alpha(n+1:)=max(-beta,0._dp)
+      else
+        alpha(positive)=initial(:np);alpha(n+positive)=initial(np+1:)
+        select type(self)
+        class is(nu_svr)
+          self%dual_variables_=reshape(alpha,[n,2]);self%epsilon_signed_=-nu_level
+        end select
+      end if
       g=matmul(gram,beta)-y
       call select_pair(g,alpha,cap,signs,index,group,epsilon,groups,a,b,self%kkt_violation_)
       self%fit_status_=merge(0,1,self%converged_);levels=0;levels(1)=rho
+      if(mode==2)levels(2)=-nu_level
     else
-      if(mode==2)then
-        target=nu*sum(capacity);target=target/2;remaining=target
-        do i=1,n
-          alpha(i)=min(cap(i),max(0._dp,remaining));remaining=remaining-alpha(i)
-        end do
-        alpha(n+1:)=alpha(:n)
-      end if
-    beta=0
-    do i=1,m
-      beta(index(i))=beta(index(i))+signs(i)*alpha(i)
-    end do
-    g=matmul(gram,beta)-y; self%n_iter_=0
-    do it=1,self%max_iter
-      call select_pair(g,alpha,cap,signs,index,group,epsilon,groups,a,b,gap)
-      if(gap<=self%tol) then
-        beta=0
-        do i=1,m
-          beta(index(i))=beta(index(i))+signs(i)*alpha(i)
-        end do
-        g=matmul(gram,beta)-y
-        call select_pair(g,alpha,cap,signs,index,group,epsilon,groups,a,b,gap)
-        if(gap<=self%tol) exit
-      end if
-      call working_pair(gram,g,alpha,cap,signs,index,group,epsilon,groups,a,b,step)
-      if(a==0.or.b==0) exit
-      i=index(a); j=index(b)
-      if(step<=tiny(1._dp)) exit
-      alpha(a)=max(0._dp,min(cap(a),alpha(a)+signs(a)*step))
-      alpha(b)=max(0._dp,min(cap(b),alpha(b)-signs(b)*step))
-      beta(i)=beta(i)+step; beta(j)=beta(j)-step
-      g=g+step*(gram(:,i)-gram(:,j)); self%n_iter_=it
-      if(mod(it,1000)==0) g=matmul(gram,beta)-y
-    end do
-    ! Reconstruct signed coefficients before final diagnostics to bound cache drift.
-    beta=0
-    do i=1,m
-      beta(index(i))=beta(index(i))+signs(i)*alpha(i)
-    end do
-    g=matmul(gram,beta)-y
-    call select_pair(g,alpha,cap,signs,index,group,epsilon,groups,a,b,self%kkt_violation_)
-    self%converged_=self%kkt_violation_<=self%tol; self%fit_status_=merge(0,1,self%converged_)
-    levels=0
-    do h=1,groups
-      low=huge(1._dp); high=-huge(1._dp); free_sum=0; count_free=0; fallback_sum=0; fallback_count=0
-      do i=1,m
-        if(group(i)/=h.or.cap(i)==0) cycle
-        value=g(index(i))+signs(i)*epsilon
-        if(alpha(i)>0.and.alpha(i)<cap(i)) then
-          fallback_sum=fallback_sum+value; fallback_count=fallback_count+1
-        end if
-        ! Roundoff near a bound must not turn a saturated solution's threshold
-        ! interval into a spurious free-vector equality.
-        bound_tol=32*spacing(1._dp)*cap(i)
-        if(alpha(i)>bound_tol.and.alpha(i)<cap(i)-bound_tol) then
-          free_sum=free_sum+value; count_free=count_free+1
-        end if
-        if((signs(i)>0.and.alpha(i)<cap(i)-bound_tol).or.(signs(i)<0.and.alpha(i)>bound_tol)) low=min(low,value)
-        if((signs(i)>0.and.alpha(i)>bound_tol).or.(signs(i)<0.and.alpha(i)<cap(i)-bound_tol)) high=max(high,value)
-      end do
-      if(count_free>0) then
-        levels(h)=free_sum/count_free
-      else if((low==huge(1._dp).or.high==-huge(1._dp)).and.fallback_count>0) then
-        levels(h)=fallback_sum/fallback_count
-      else
-        levels(h)=low/2+high/2
-      end if
-    end do
+      call require(.false.,'internal kernel solver mode mismatch')
     end if
     self%dual_full_=beta; self%support_=pack([(i,i=1,n)],abs(beta)>0)
     self%n_support_=size(self%support_); self%dual_coef_=beta(self%support_)
@@ -445,7 +359,7 @@ contains
     call require(ieee_is_finite(self%nu),'invalid NuSVR nu')
     call require(self%nu>0.and.self%nu<=1,'invalid NuSVR nu'); cap=bounds(size(y),self%c,sample_weight)
     call setup(self,x,gram); call optimize(self,gram,y,cap,2,0._dp,self%nu,levels)
-    self%intercept_=-(levels(1)+levels(2))/2; self%epsilon_=max(0._dp,(levels(2)-levels(1))/2)
+    self%intercept_=-levels(1);self%epsilon_=max(0._dp,levels(2))
   end subroutine
   subroutine one_fit(self,x,sample_weight)
     class(one_class_svm), intent(inout) :: self
@@ -487,7 +401,7 @@ contains
     call require(self%nu>0.and.self%nu<=1,'invalid NuSVR nu');cap=bounds(size(y),self%c,sample_weight)
     call setup_csr(self,x,gram);call optimize(self,gram,y,cap,2,0._dp,self%nu,levels)
     call remap_sparse_support(self,sample_weight)
-    self%intercept_=-(levels(1)+levels(2))/2;self%epsilon_=max(0._dp,(levels(2)-levels(1))/2)
+    self%intercept_=-levels(1);self%epsilon_=max(0._dp,levels(2))
   end subroutine
   subroutine one_fit_csr(self,x,sample_weight)
     class(one_class_svm),intent(inout)::self

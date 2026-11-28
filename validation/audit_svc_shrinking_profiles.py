@@ -39,6 +39,11 @@ def main():
         for field in ['cases', 'expected', 'source_iterations', 'shrinking']:
             if field in checked:
                 assert checked[field] == optimized[field], (key, field)
+        if 'source_rejections' in checked:
+            def rejection_outcomes(data):
+                return [(r['original_case'],r['case'],r['source'],r['passed']) for r in data['source_rejections']]
+            assert rejection_outcomes(checked)==rejection_outcomes(optimized),key
+            assert all(r['passed'] and r['native_returncode'] for r in checked['source_rejections']),key
         if 'actual' in checked:
             assert len(checked['actual']) == len(optimized['actual'])
             for left, right in zip(checked['actual'], optimized['actual']):
