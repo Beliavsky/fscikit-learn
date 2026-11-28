@@ -3116,8 +3116,14 @@ score_samples computes stochastic pseudo-likelihood from stable free energies,
 flipping one randomly chosen feature per row. With scalar integer seeds it
 recreates the scoring RNG each call, so repeated equal queries give equal
 scores and do not advance the sampling stream. This is pseudo-likelihood,
-not normalized log likelihood. Hidden logits and softplus/free-energy
-calculations avoid exponential overflow, retaining small softplus tails.
+not normalized log likelihood. Sigmoid evaluation follows SciPy's direct expit
+formula, including negative-tail underflow (e.g. -710 maps to zero). Softplus
+retains small tails. Numerical kernels suspend traps internally and restore
+caller IEEE flags and halting modes, allowing Source nonfinite derived states.
+The persistent negative chain retains NaNs through Source's floor semantics;
+Boolean Gibbs sampling treats NaN probabilities as false. A finite-product dot
+recovery pairs opposite signs if ordinary dense accumulation overflows before
+cancellation; genuine nonfinite products retain their usual outcomes.
 
 The existing legacy MT19937/uniform/Gaussian/bounded-integer helper reproduces
 NumPy RandomState draw order, including row-major logical array draws followed
@@ -3129,9 +3135,19 @@ short/oversized/full batches, fractional and signed finite values and extreme
 query logits. Analytic native tests check conditional probabilities, uniform
 pseudo-likelihood, a one-step PCD gradient, saturated logits and object copies.
 
-Inputs are dense finite real64 CPU arrays. Bernoulli modeling expects binary
+All six methods also accept CSR inputs. Sparse positive hidden products,
+feature totals and cross statistics traverse stored entries directly; fit
+copies CSR row batches and partial_fit consumes one entire supplied batch.
+Pseudo-likelihood uses sparse feature corruption, following SciPy 1.15.3's
+canonical sorted merge or noncanonical linked-list addition, including
+coalescing, zero removal and output order. No full dense visible input is
+formed. Parameter/statistic matrices and persistent negative visible batches
+remain dense. Gibbs always returns dense N-by-features samples. Dense and CSR
+operations may continue the same model and private RNG stream.
+
+Inputs are finite real64 CPU arrays. Bernoulli modeling expects binary
 values (or probabilities in [0,1]); as in source, finite values outside that
-range are accepted without range checks. Sparse/float32 inputs, RandomState
+range are accepted without range checks. Float32 inputs, RandomState
 objects, unseeded global RNG behavior, verbose training logs, feature-name
 metadata and automatic classification are absent. random_state defaults to the
 native deterministic seed zero and must be nonnegative. learning_rate must be

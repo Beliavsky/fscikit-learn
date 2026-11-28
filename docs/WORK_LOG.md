@@ -11696,3 +11696,45 @@ ZIP CRCs and archived source/report/object/binary hashes pass. Receipt:
 validation/results/hdbscan_csr_archive_receipt.json. The archive includes the
 implementation and verification documentation before this receipt was appended.
 Metadata retains false full project Source parity and passing audited checks.
+
+
+## CSR BernoulliRBM and numerical fidelity implementation
+
+Added CSR fit, partial_fit, fit_transform, transform, Gibbs and score_samples
+methods. Sparse positive products/statistics and copied row batches avoid a
+dense visible input. The persistent chain, learned weights/statistics and
+visible negative/Gibbs samples remain dense as in Source. Scoring corrupts a
+single sampled coordinate with SciPy's canonical merge or general linked-list
+CSR addition, preserving duplicate/order/zero-removal behavior. Dense/CSR calls
+share model state and the independent fit versus partial/Gibbs RNG lifetimes.
+
+A cancellation probe exposed the shared sigmoid's alternate rounding relative
+to SciPy expit. RBM now uses the Source direct formula, including zero at -710.
+Quiet numerical kernels restore caller IEEE flags and trap modes, preserve
+NaN negative-chain floor values and distinguish Boolean Gibbs sampling (NaN is
+false). An extreme dense scoring case exposed spurious intermediate dot overflow
+before cancellation. Recovery for finite products pairs opposite signs; ordinary
+finite products retain their existing evaluation order. This closes the observed
+Source NaN-location mismatch without widening reference tolerances.
+
+Checked private probes pass all 104 configurations / 5,800 groups each for dense,
+canonical CSR, reversed columns, duplicate entries and explicit zeros: 520
+sequences / 29,000 direct comparisons at the original 2e-10 numeric tolerance,
+with binary chains/samples and feature metadata exact. A further 208 raw
+cancellation/mixed-storage sequences retain 411 / 309 direct numeric stress
+mismatches, respectively; masks, binary outputs, visible biases and metadata
+match. Each corpus passes 684 same-native-state Source replays for deterministic
+forward operations and partial updates with matched RNG streams. These are
+separately identified conditioning/fit-rounding diagnostics, not strict end-to-end
+parity claims or a wider blanket tolerance. The remaining stress gaps stay open.
+
+Ten guard cases pass (seven Source rejections and three native fitted/CSR
+invariants). A large sparse 8192-by-100000 fixture initializes, performs a full
+CSR partial update, transforms, scores and generates two dense Gibbs rows using
+20,008,960 peak working-set bytes versus a 128 MiB limit and 6,553,600,000-byte
+dense input. Default native tests also cover input/RNG preservation, mixed
+continuation, uniform pseudo-likelihood, expit tails, finite-dot recovery and
+nonfinite chain/Gibbs distinctions. Full fpm and scoped optimized validation
+are pending at this implementation commit. MIT/sklearn/SciPy attribution stays;
+no external runtime dependency or non-sklearn algorithm was added. The broad
+translation goal remains active; commits stay local.

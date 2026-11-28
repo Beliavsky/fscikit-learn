@@ -2595,8 +2595,17 @@ chain size only on initialization/fresh fit.
 Integer-seeded fit uses a local RNG; partial_fit and Gibbs share a separate
 persistent stream. fit preserves that stream if it already exists. Scoring
 restarts its scalar-seeded RNG each call without consuming the sampling stream.
-All inputs must be nonempty dense finite arrays with the fitted feature count.
-See COVERAGE.md for distribution assumptions, RNG contracts and supported scope.
+All six methods accept nonempty finite dense arrays or `csr_matrix` inputs
+with the fitted feature count. Sparse fits stream row batches, and partial_fit
+updates on the entire supplied CSR array. Hidden means and pseudo-likelihood
+scores do not form a dense input. Learned weights, persistent negative samples,
+and Gibbs visible outputs remain dense; requesting Gibbs on N rows returns an
+N-by-features array. Scoring preserves stored order and SciPy's canonical/general
+sparse-addition behavior for corrupted samples, including duplicate entries.
+Dense and CSR calls share fitted arrays and sampling state. Quiet numerical
+kernels retain Source NaN/Inf outcomes and restore caller IEEE flags and trap
+modes. See COVERAGE.md for distribution assumptions, RNG contracts, numeric
+stress differences and supported scope.
 
 
 ## LatentDirichletAllocation
