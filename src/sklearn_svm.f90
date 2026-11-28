@@ -6,6 +6,9 @@ module sklearn_svm
   use sklearn_common
   use sklearn_kernel_svm, only: svr,nu_svr,one_class_svm
   use sklearn_metrics, only: linear_kernel,rbf_kernel,polynomial_kernel,sigmoid_kernel,accuracy_score
+  use sklearn_sparse,only:csr_matrix,csr_from_dense
+  use sklearn_libsvm_sparse,only:svm_sorted,sparse_rows,libsvm_sparse_gram
+  use sklearn_stateless_preprocessing,only:sorted_sparse
   use,intrinsic::iso_fortran_env,only:real32
   use,intrinsic::ieee_arithmetic,only:ieee_is_finite
   implicit none
@@ -30,12 +33,18 @@ module sklearn_svm
     real(dp),allocatable::dual_coef_(:,:),intercept_(:),coef_(:,:),class_weight_(:),kkt_violation_(:)
     real(dp), allocatable :: x_fit_(:,:),support_vectors_(:,:)
     type(binary_svm), allocatable :: models_(:)
+    type(csr_matrix),allocatable::x_fit_csr_,support_vectors_csr_,coef_csr_
+    logical::sparse_fit_=.false.
     real(dp) :: gamma_=0
   contains
-    procedure :: fit=>svc_fit
-    procedure :: decision_function=>svc_decision
-    procedure :: predict=>svc_predict
-    procedure :: score=>svc_score
+    procedure,private::fit_dense=>svc_fit,fit_csr=>svc_fit_csr
+    generic::fit=>fit_dense,fit_csr
+    procedure,private::decision_dense=>svc_decision,decision_csr=>svc_decision_csr
+    generic::decision_function=>decision_dense,decision_csr
+    procedure,private::predict_dense=>svc_predict,predict_csr=>svc_predict_csr
+    generic::predict=>predict_dense,predict_csr
+    procedure,private::score_dense=>svc_score,score_csr=>svc_score_csr
+    generic::score=>score_dense,score_csr
   end type
 contains
   function kernel_matrix(self,x,y) result(k)
@@ -189,14 +198,39 @@ contains
     real(dp),intent(in)::x(:,:)
     integer,intent(in)::y(:)
     real(dp),optional,intent(in)::sample_weight(:),class_weight(:)
+    call check_xy(x,size(y))
+    call svc_fit_core(self,y,sample_weight,class_weight,dense=x)
+  end subroutine
+  subroutine check_svc_csr(x)
+    type(csr_matrix),intent(in)::x
+    call x%validate()
+    call require(x%n_rows>0.and.x%n_cols>0,'SVC CSR input must be nonempty')
+    call require(all(ieee_is_finite(x%data)),'SVC CSR input must be finite')
+  end subroutine
+  subroutine svc_fit_csr(self,x,y,sample_weight,class_weight)
+    class(svc),intent(inout)::self
+    type(csr_matrix),intent(in)::x
+    integer,intent(in)::y(:)
+    real(dp),optional,intent(in)::sample_weight(:),class_weight(:)
+    call check_svc_csr(x);call require(x%n_rows==size(y),'SVC CSR target count mismatch')
+    call svc_fit_core(self,y,sample_weight,class_weight,sparse=x)
+  end subroutine
+  subroutine svc_fit_core(self,y,sample_weight,class_weight,dense,sparse)
+    class(svc),intent(inout)::self
+    real(dp),optional,intent(in)::dense(:,:)
+    type(csr_matrix),optional,intent(in)::sparse
+    integer,intent(in)::y(:)
+    real(dp),optional,intent(in)::sample_weight(:),class_weight(:)
     real(dp),allocatable::gram(:,:),target(:),weights(:),capacity(:)
     integer,allocatable::ids(:),encoded(:),supports(:),positions(:)
     logical::support(size(y))
-    integer::a,b,k,m,n,i,j,t
-    real(dp)::variance,mean
-    call check_xy(x,size(y));call shape_controls(self)
+    integer::a,b,k,m,n,p,i,j,t
+    real(dp)::variance,mean,mass
+    type(csr_matrix)::canonical
+    call shape_controls(self)
     call require(all(ieee_is_finite([self%c,self%tol,self%gamma,self%coef0])),'nonfinite SVC controls')
     call require(self%c>0.and.self%tol>0.and.self%max_iter>0,'invalid SVC controls')
+    call require(any(self%kernel==[character(16)::'linear','rbf','poly','polynomial','sigmoid']),'unknown SVC kernel')
     call require(self%gamma>=0.or.self%gamma==-1,'invalid SVC gamma')
     call require(self%gamma_rule=='scale'.or.self%gamma_rule=='auto','invalid SVC gamma rule')
     call require(self%degree>=0,'invalid SVC degree')
@@ -225,15 +259,35 @@ contains
     do a=1,k
       call require(any(capacity>0.and.encoded==a),'SVC every class needs positive capacity')
     end do
-    self%x_fit_=x;self%gamma_=self%gamma
-    if(self%gamma_==-1)then
-      self%gamma_=1._dp/size(x,2)
-      if(self%gamma_rule=='scale')then
-        mean=sum(x)/size(x);variance=sum((x-mean)**2)/size(x);self%gamma_=1
-        if(variance>0)self%gamma_=1/(size(x,2)*variance)
+    self%sparse_fit_=present(sparse)
+    if(allocated(self%x_fit_))deallocate(self%x_fit_)
+    if(allocated(self%x_fit_csr_))deallocate(self%x_fit_csr_)
+    if(allocated(self%support_vectors_))deallocate(self%support_vectors_)
+    if(allocated(self%support_vectors_csr_))deallocate(self%support_vectors_csr_)
+    self%gamma_=self%gamma
+    if(present(sparse))then
+      p=sparse%n_cols;self%x_fit_csr_=svm_sorted(sparse)
+      if(self%gamma_==-1)then
+        self%gamma_=1._dp/p
+        if(self%gamma_rule=='scale')then
+          canonical=sorted_sparse(sparse,.true.);mass=real(n,dp)*p
+          mean=sum(canonical%data)/mass;variance=sum(canonical%data**2)/mass-mean**2;self%gamma_=1
+          if(variance/=0)self%gamma_=1/(p*variance)
+        end if
       end if
+      gram=libsvm_sparse_gram(self%x_fit_csr_,self%x_fit_csr_,self%kernel,self%gamma_,self%coef0,self%degree,.true.)
+    else
+      p=size(dense,2);self%x_fit_=dense
+      if(self%gamma_==-1)then
+        self%gamma_=1._dp/p
+        if(self%gamma_rule=='scale')then
+          mean=sum(dense)/size(dense);variance=sum((dense-mean)**2)/size(dense);self%gamma_=1
+          if(variance>0)self%gamma_=1/(p*variance)
+        end if
+      end if
+      gram=kernel_matrix(self,dense,dense)
     end if
-    gram=kernel_matrix(self,x,x);call require(all(ieee_is_finite(gram)),'nonfinite SVC Gram matrix')
+    call require(all(ieee_is_finite(gram)),'nonfinite SVC Gram matrix')
     if(allocated(self%models_))deallocate(self%models_)
     allocate(self%models_(k*(k-1)/2));m=0;support=.false.;self%converged_=.true.;self%n_iter_=0
     self%n_iter_per_pair_=spread(0,1,size(self%models_));self%kkt_violation_=spread(0._dp,1,size(self%models_))
@@ -265,7 +319,11 @@ contains
       end if
     end do
     self%support_=positions(self%support_original_)
-    self%support_vectors_=x(self%support_original_,:)
+    if(present(sparse))then
+      self%support_vectors_csr_=sparse_rows(self%x_fit_csr_,self%support_original_)
+    else
+      self%support_vectors_=dense(self%support_original_,:)
+    end if
     self%dual_coef_=spread(spread(0._dp,1,k-1),2,size(self%support_));m=0
     do a=1,k-1
       do b=a+1,k
@@ -281,14 +339,51 @@ contains
       self%dual_coef_=-self%dual_coef_;self%intercept_=-self%intercept_
     end if
     if(allocated(self%coef_))deallocate(self%coef_)
+    if(allocated(self%coef_csr_))deallocate(self%coef_csr_)
     if(self%kernel=='linear')then
-      allocate(self%coef_(size(self%models_),size(x,2)))
-      do m=1,size(self%models_)
-        self%coef_(m,:)=matmul(self%models_(m)%dual,x)
-      end do
-      if(k>2)self%coef_=-self%coef_
+      if(present(sparse))then
+        call sparse_linear_coef(self)
+      else
+        allocate(self%coef_(size(self%models_),p))
+        do m=1,size(self%models_)
+          self%coef_(m,:)=matmul(self%models_(m)%dual,dense)
+        end do
+        if(k>2)self%coef_=-self%coef_
+      end if
     end if
-    self%n_features_in_=size(x,2);self%fit_status_=merge(0,1,self%converged_)
+    self%n_features_in_=p;self%fit_status_=merge(0,1,self%converged_)
+  end subroutine
+  subroutine sparse_linear_coef(self)
+    class(svc),intent(inout)::self
+    type(csr_matrix)::row,canonical
+    integer::m,i,k,t,nz
+    real(dp)::weight
+    allocate(self%coef_csr_)
+    self%coef_csr_%n_rows=size(self%models_);self%coef_csr_%n_cols=self%x_fit_csr_%n_cols
+    allocate(self%coef_csr_%indptr(size(self%models_)+1));self%coef_csr_%indptr(1)=1
+    self%coef_csr_%indices=[integer::];self%coef_csr_%data=[real(dp)::]
+    row%n_rows=1;row%n_cols=self%x_fit_csr_%n_cols
+    allocate(row%indptr(2),row%indices(size(self%x_fit_csr_%data)),row%data(size(self%x_fit_csr_%data)))
+    do m=1,size(self%models_)
+      t=0
+      do i=1,self%x_fit_csr_%n_rows
+        weight=self%models_(m)%dual(i);if(size(self%classes_)>2)weight=-weight
+        if(weight==0)cycle
+        do k=self%x_fit_csr_%indptr(i),self%x_fit_csr_%indptr(i+1)-1
+          t=t+1;row%indices(t)=self%x_fit_csr_%indices(k);row%data(t)=weight*self%x_fit_csr_%data(k)
+        end do
+      end do
+      row%indptr=[1,t+1]
+      block
+        type(csr_matrix)::used
+        used%n_rows=1;used%n_cols=row%n_cols;used%indptr=row%indptr
+        used%indices=row%indices(:t);used%data=row%data(:t);canonical=sorted_sparse(used,.true.)
+      end block
+      nz=count(canonical%data/=0)
+      self%coef_csr_%indices=[self%coef_csr_%indices,pack(canonical%indices,canonical%data/=0)]
+      self%coef_csr_%data=[self%coef_csr_%data,pack(canonical%data,canonical%data/=0)]
+      self%coef_csr_%indptr(m+1)=self%coef_csr_%indptr(m)+nz
+    end do
   end subroutine
   function pair_margins(self,x)result(z)
     class(svc),intent(in)::self
@@ -297,7 +392,16 @@ contains
     integer::m
     call require(allocated(self%models_),'SVC is not fitted');call check_x(x)
     call require(size(x,2)==self%n_features_in_,'SVC feature count mismatch')
-    gram=kernel_matrix(self,x,self%x_fit_);allocate(z(size(x,1),size(self%models_)))
+    if(self%sparse_fit_)then
+      block
+        type(csr_matrix)::query
+        query=svm_sorted(csr_from_dense(x))
+        gram=libsvm_sparse_gram(query,self%x_fit_csr_,self%kernel,self%gamma_,self%coef0,self%degree,.false.)
+      end block
+    else
+      gram=kernel_matrix(self,x,self%x_fit_)
+    end if
+    allocate(z(size(x,1),size(self%models_)))
     do m=1,size(self%models_)
       z(:,m)=matmul(gram,self%models_(m)%dual)+self%models_(m)%intercept
     end do
@@ -319,7 +423,19 @@ contains
     class(svc),intent(in)::self
     real(dp),intent(in)::x(:,:)
     real(dp),allocatable::z(:,:),pairs(:,:)
-    call shape_controls(self);pairs=pair_margins(self,x)
+    pairs=pair_margins(self,x);z=decision_from_pairs(self,pairs)
+  end function
+  function svc_decision_csr(self,x)result(z)
+    class(svc),intent(in)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),allocatable::z(:,:),pairs(:,:)
+    pairs=pair_margins_csr(self,x);z=decision_from_pairs(self,pairs)
+  end function
+  function decision_from_pairs(self,pairs)result(z)
+    class(svc),intent(in)::self
+    real(dp),intent(in)::pairs(:,:)
+    real(dp),allocatable::z(:,:)
+    call shape_controls(self)
     if(size(self%classes_)==2)then
       z=pairs
     else if(self%decision_function_shape=='ovo')then
@@ -328,20 +444,47 @@ contains
       z=ovr_scores(self,pairs)
     end if
   end function
+  function pair_margins_csr(self,x)result(z)
+    class(svc),intent(in)::self
+    type(csr_matrix),intent(in)::x
+    type(csr_matrix)::query
+    real(dp),allocatable::z(:,:),gram(:,:)
+    integer::m
+    call require(allocated(self%models_),'SVC is not fitted');call check_svc_csr(x)
+    call require(self%sparse_fit_,'SVC CSR query requires a CSR fit')
+    call require(x%n_cols==self%n_features_in_,'SVC feature count mismatch');query=svm_sorted(x)
+    gram=libsvm_sparse_gram(query,self%x_fit_csr_,self%kernel,self%gamma_,self%coef0,self%degree,.false.)
+    allocate(z(x%n_rows,size(self%models_)))
+    do m=1,size(self%models_)
+      z(:,m)=matmul(gram,self%models_(m)%dual)+self%models_(m)%intercept
+    end do
+  end function
   function svc_predict(self,x)result(y)
     class(svc),intent(in)::self
     real(dp),intent(in)::x(:,:)
-    integer::y(size(x,1)),i,m,winner
-    integer,allocatable::votes(:,:)
-    real(dp),allocatable::z(:,:),scores(:,:)
+    integer::y(size(x,1))
+    y=prediction_from_pairs(self,pair_margins(self,x))
+  end function
+  function svc_predict_csr(self,x)result(y)
+    class(svc),intent(in)::self
+    type(csr_matrix),intent(in)::x
+    integer,allocatable::y(:)
+    y=prediction_from_pairs(self,pair_margins_csr(self,x))
+  end function
+  function prediction_from_pairs(self,z)result(y)
+    class(svc),intent(in)::self
+    real(dp),intent(in)::z(:,:)
+    integer,allocatable::y(:),votes(:,:)
+    real(dp),allocatable::scores(:,:)
+    integer::i,m,winner
+    allocate(y(size(z,1)))
     call shape_controls(self)
     call require(.not.(self%break_ties.and.self%decision_function_shape=='ovo'),'SVC break_ties requires ovr decision shape')
-    z=pair_margins(self,x)
     if(self%break_ties.and.size(self%classes_)>2)then
       scores=ovr_scores(self,z);y=self%classes_(maxloc(scores,dim=2));return
     end if
-    allocate(votes(size(x,1),size(self%classes_)));votes=0
-    do i=1,size(x,1)
+    allocate(votes(size(z,1),size(self%classes_)));votes=0
+    do i=1,size(z,1)
       do m=1,size(self%models_)
         winner=self%models_(m)%first
         if(z(i,m)>=0)winner=self%models_(m)%second
@@ -354,6 +497,13 @@ contains
     class(svc), intent(in) :: self
     real(dp), intent(in) :: x(:,:)
     integer, intent(in) :: y(:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    v=accuracy_score(y,self%predict(x),sample_weight=sample_weight)
+  end function
+  real(dp) function svc_score_csr(self,x,y,sample_weight)result(v)
+    class(svc),intent(in)::self
+    type(csr_matrix),intent(in)::x
+    integer,intent(in)::y(:)
     real(dp),optional,intent(in)::sample_weight(:)
     v=accuracy_score(y,self%predict(x),sample_weight=sample_weight)
   end function

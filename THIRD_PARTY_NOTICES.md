@@ -3102,3 +3102,15 @@ follow `svm/_base.py`, `_classes.py` and LIBSVM's train grouping; OVR confidence
 scores follow `utils/multiclass.py`. Existing LIBSVM and sklearn BSD notices
 remain in `LICENSES/`. Typed weight APIs, original support mapping, native
 counter/KKT diagnostics, dispatch integration and tests are MIT contributions.
+
+## CSR C-SVC and shared LIBSVM sparse helpers
+
+`sklearn_svm` adds sklearn 1.6.1 `svm/_base.py` and bundled sparse LIBSVM
+contracts for CSR fitting, gamma scale, raw-node kernels, support storage,
+query conversions and sparse linear coefficient algebra. Existing sklearn
+and LIBSVM BSD notices remain in `LICENSES/`. `sklearn_libsvm_sparse` factors
+the previously attributed sorting/gather/raw-kernel implementation out of
+sklearn_kernel_svm without changing regression contracts; sorting preserves
+the tested SciPy wheel's std::sort tie convention through existing native MIT
+code. Typed storage adapters, owned inputs, canonical sparse coefficient
+assembly, refit integration and validation are native MIT contributions.

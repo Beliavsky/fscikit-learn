@@ -12388,3 +12388,26 @@ Optimized audit SHA256:
 d1a39f946c8e158c20742a7c581c29056dd0127cdfa9d329299978c15d8752c6
 
 Local commits only; no push. The broader translation goal remains active.
+
+### 2026-11-28: CSR SVC and shared sparse LIBSVM kernels
+
+Added CSR fit, decision_function, predict and score overloads for weighted
+C-SVC. Sparse input/support fields replace dense design storage; linear fits
+use canonical coef_csr_ assembled from stored contributions without a dense
+feature-width workspace. Raw duplicate/explicit-zero nodes, sorted owned
+storage, gamma scale and training/query RBF distinctions match the reference.
+Dense queries after sparse fit are supported; sparse queries after dense fit
+are rejected. Refits clear stale storage. The previously verified CSR sort,
+gather and kernel helpers now reside in sklearn_libsvm_sparse and are reused
+by SVR/NuSVR/OneClassSVM. Shared helper factoring retains existing arithmetic.
+
+Scoped probes pass 1,184 sparse fits / 21,312 output groups / 3,936 independent
+raw-kernel dual/KKT replays, including masked designs, empty rows and long
+raw duplicate rows. Dense SVC's 729 fits / 10,206 groups and 2,622 replays,
+legacy regression's 318 groups, and 1,296 sparse regression/novelty fixtures /
+15,120 groups also pass after refactoring. Native CSR storage/refit tests and
+twelve initial guards pass; the 128-by-200,000 memory case peaks at 9,478,144
+bytes. Added a thirteenth unknown-kernel guard and common kernel validation
+before the full coherent rebuild. Existing numeric tolerances are retained.
+Full checked/O3 package audits follow. MIT licensing and retained sklearn,
+LIBSVM and existing sparse-helper attribution remain intact.

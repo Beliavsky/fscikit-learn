@@ -2363,7 +2363,7 @@ has the same O(n*(p+n)) memory limitation as dense fitting.
 
 ## SVC
 
-`svc` accepts dense finite real64 features and integer labels. `fit(x,y, &
+`svc` accepts dense finite real64 arrays or csr_matrix features and integer labels. `fit(x,y, &
 sample_weight=...,class_weight=...)` supports nonnegative vector sample weights
 and positive class weights in sorted-label order. Alternatively set
 `class_weight_balanced=.true.`; this uses original unweighted class frequencies.
@@ -2398,7 +2398,23 @@ converged_/fit_status_ report iteration-cap completion, while kkt_violation_
 replays the final double-kernel margin residual for each pair. Float cache
 rounding and capped fits can leave a larger exact-kernel residual.
 
-CSR/precomputed inputs, probability calibration, Python warning objects,
+CSR fit, decision_function, predict and score use owned sorted sparse nodes,
+preserving raw duplicates and explicit zeros in fitted support storage.
+CSR fits populate x_fit_csr_ and support_vectors_csr_, leaving their dense
+counterparts unallocated. Linear CSR fits populate `coef_csr_` (canonical CSR)
+and leave coef_ unallocated; dual_coef_ remains a dense typed array. Sparse
+linear coefficients are accumulated from stored contributions without a
+feature-width workspace or a dense pair-by-feature matrix. These field names
+and representation choices are native adapters for sklearn's sparse attributes.
+
+Dense queries after a CSR fit are converted to sparse nodes, as in sklearn.
+CSR queries after a dense fit are rejected, matching the reference. Refitting
+switches representation and clears stale storage. Inputs remain unchanged;
+sorting acts on an owned copy. Training still builds a dense sample Gram and
+pair Q matrices, but never a dense feature design. The shared LIBSVM CSR
+helpers also serve SVR, NuSVR and OneClassSVM.
+
+Precomputed inputs, probability calibration, Python warning objects,
 nonpositive class weights, classes with no positive capacity and an unbounded
 iteration cap remain outside this subset. No full LIBSVM trajectory or
 universal optimality claim is made for indefinite sigmoid kernels.

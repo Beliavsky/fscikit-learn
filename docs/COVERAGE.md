@@ -2696,7 +2696,7 @@ call retains the original tiny weights.
 
 ## Weighted C support-vector classification
 
-`svc` adds dense sample/class weighted C-SVC, balanced original class costs,
+`svc` adds dense/CSR sample/class weighted C-SVC, balanced original class costs,
 weighted scoring, fitted support/dual metadata, OVR/OVO decision shapes and
 OVR confidence tie breaking. Positive sample capacities feed translated
 LIBSVM second-order working-set selection, pair box updates and rho
@@ -2717,13 +2717,13 @@ zero-margin conventions. Weighted ensemble/multiclass dispatch and search
 controls are integrated. API.md identifies native diagnostics and adapters.
 
 This subset requires positive class weights and positive capacity in every
-original class. CSR/precomputed inputs, probabilities, shrinking, cache-budget
+original class. Precomputed inputs, probabilities, shrinking, cache-budget
 controls and unbounded caps remain gaps. Exact default-shrinking iteration
 counts and global optimality for indefinite kernels are not claimed. Final
 KKT/objective diagnostics are replayed with double kernels; Source's float Q
 rounding can leave nonzero exact-kernel residuals even without hitting a cap.
 
-Current weighted SVC verification: a fresh GNU 15.2 checked fpm build passes
+Previous dense weighted SVC verification: a fresh GNU 15.2 checked fpm build passes
 all 339 native programs and all 1,199 dependency-aware compiled-source
 fingerprints. Checked and scoped O3 profiles each pass 729 fits / 10,206
 public-output groups and all 2,622 independent dual/box/equality/KKT replays.
@@ -2747,6 +2747,24 @@ Evidence and cross-profile proof use validation/results/svc_weighted_.
 Source, archive and executable hashes are stable during auditing, and expected
 outputs agree across profiles. GNU 15.2, sklearn 1.6.1, static libgfortran and
 the Windows locale-copy shim are retained. Broader project/API gaps remain.
+
+### CSR C-SVC storage and kernels
+
+CSR fit/query paths retain stored-node LIBSVM arithmetic, including sorted
+raw duplicates and the distinct training/query RBF distance formulas. Gamma
+scale uses the coalesced sparse second moment, as in the reference wrapper.
+Dense prediction after CSR fitting follows Source's conversion to sparse
+nodes; CSR queries after dense fitting are rejected. Caller storage is
+preserved. Native x_fit_csr_/support_vectors_csr_ replace dense design/support
+storage for CSR fits. Linear sparse coefficients use canonical coef_csr_,
+without a feature-width accumulator or dense pair-by-feature coefficient
+matrix. Native dual_coef_ remains dense; other fitted support metadata and
+weight/decision controls retain the prior contracts.
+
+The previously verified owned sorting, raw sparse kernel and row-gather
+helpers are shared by classification and regression through
+sklearn_libsvm_sparse. A sample-square Gram and per-pair Q matrices remain
+part of training; the design matrix is never densified.
 
 ## Nu support-vector classification
 
