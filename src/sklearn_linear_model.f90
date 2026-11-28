@@ -169,10 +169,14 @@ module sklearn_linear_model
     integer, allocatable :: classes_(:),n_iter_per_class_(:)
     real(dp), allocatable :: coef_(:,:),intercept_(:),loss_(:)
   contains
-    procedure :: fit=>pa_classifier_fit
-    procedure :: decision_function=>pa_classifier_decision
-    procedure :: predict=>pa_classifier_predict
-    procedure :: score=>pa_classifier_score
+    procedure,private::fit_dense=>pa_classifier_fit,fit_csr=>pa_classifier_fit_csr
+    generic::fit=>fit_dense,fit_csr
+    procedure,private::decision_dense=>pa_classifier_decision,decision_csr=>pa_classifier_decision_csr
+    generic::decision_function=>decision_dense,decision_csr
+    procedure,private::predict_dense=>pa_classifier_predict,predict_csr=>pa_classifier_predict_csr
+    generic::predict=>predict_dense,predict_csr
+    procedure,private::score_dense=>pa_classifier_score,score_csr=>pa_classifier_score_csr
+    generic::score=>score_dense,score_csr
   end type
   type, extends(linear_regression) :: passive_aggressive_regressor
     real(dp) :: c=1,tol=1.e-3_dp,epsilon=0.1_dp,t_=1,loss_=0
@@ -180,7 +184,8 @@ module sklearn_linear_model
     character(32) :: loss='epsilon_insensitive'
     logical :: shuffle=.true.,converged_=.false.
   contains
-    procedure :: fit_dense=>pa_regressor_fit
+    procedure :: fit_dense=>pa_regressor_fit,fit_sparse=>pa_regressor_fit_csr
+    procedure :: predict_sparse=>pa_regressor_predict_csr,score_sv=>pa_regressor_score_csr
   end type
   type, extends(linear_regression) :: bayesian_ridge
     integer :: max_iter=300,n_iter_=0
@@ -358,19 +363,22 @@ contains
     options%average=average; options%shuffle=shuffle; options%fit_intercept=fit_intercept
   end function
 
-  subroutine pa_run(x,y,options,weight_pos,weight_neg,coef,intercept,n_iter,converged,last_loss)
+  subroutine pa_run(x,y,options,weight_pos,weight_neg,coef,intercept,n_iter,converged,last_loss,sparse_x)
     real(dp), intent(in) :: x(:,:),y(:),weight_pos,weight_neg
     type(pa_config), intent(in) :: options
     real(dp), intent(out) :: coef(:),intercept,last_loss
     integer, intent(out) :: n_iter
+    type(csr_matrix),optional,intent(in)::sparse_x
     logical, intent(out) :: converged
     real(dp) :: current(size(coef)),average_coef(size(coef)),bias,average_bias,prediction,loss,update,norm
-    real(dp) :: sumloss,best_loss,seen,average_count
+    real(dp) :: sumloss,best_loss,seen,average_count,average_a,average_b,mu,intercept_decay
     type(legacy_random_state)::rng
     integer(int64)::state
     integer::seed
-    integer :: order(size(y)),i,j,it,pick,tmp,stale,n
+    integer :: order(size(y)),i,j,it,pick,tmp,stale,n,k,feature
     n=size(y); current=0; average_coef=0; bias=0; average_bias=0
+    average_a=0;average_b=1;intercept_decay=1
+    if(present(sparse_x))intercept_decay=.01_dp
     best_loss=huge(1._dp); stale=0; seen=1; converged=.false.; order=[(i,i=1,n)]
     call rng%seed(options%random_state)
     ! fit_binary draws its dataset seed before its shuffle seed. Regression
@@ -387,13 +395,23 @@ contains
       end if
       sumloss=0
       do j=1,n
-        i=order(j); prediction=dot_product(current,x(i,:))+bias
+        i=order(j);prediction=0;norm=0
+        if(present(sparse_x))then
+          do k=sparse_x%indptr(i),sparse_x%indptr(i+1)-1
+            feature=sparse_x%indices(k)
+            prediction=prediction+current(feature)*sparse_x%data(k)
+            norm=norm+sparse_x%data(k)*sparse_x%data(k)
+          end do
+        else
+          prediction=dot_product(current,x(i,:));norm=sum(x(i,:)**2)
+        end if
+        prediction=prediction+bias
         if(options%classification) then
           loss=max(0._dp,1-y(i)*prediction)
         else
           loss=max(0._dp,abs(y(i)-prediction)-options%epsilon)
         end if
-        sumloss=sumloss+loss; norm=sum(x(i,:)**2)
+        sumloss=sumloss+loss
         if(options%pa_two) then
           update=loss/(norm+0.5_dp/options%c)
         else
@@ -411,11 +429,31 @@ contains
         else
           update=update*weight_neg
         end if
-        current=current+update*x(i,:)
-        if(options%fit_intercept) bias=bias+update
+        if(update/=0)then
+          if(present(sparse_x))then
+            do k=sparse_x%indptr(i),sparse_x%indptr(i+1)-1
+              feature=sparse_x%indices(k);current(feature)=current(feature)+update*sparse_x%data(k)
+            end do
+          else
+            current=current+update*x(i,:)
+          end if
+        end if
+        if(options%fit_intercept) bias=bias+update*intercept_decay
         if(options%average>0.and.seen>=options%average) then
           average_count=seen-options%average+1
-          average_coef=average_coef+(current-average_coef)/average_count
+          ! Source WeightVector.add_average: touch only stored entries, then
+          ! combine the lazy accumulated standard vector once at finalization.
+          if(present(sparse_x))then
+            do k=sparse_x%indptr(i),sparse_x%indptr(i+1)-1
+              feature=sparse_x%indices(k)
+              average_coef(feature)=average_coef(feature)+average_a*sparse_x%data(k)*(-update)
+            end do
+          else
+            average_coef=average_coef+average_a*x(i,:)*(-update)
+          end if
+          mu=1/average_count
+          if(average_count>1)average_b=average_b/(1-mu)
+          average_a=average_a+mu*average_b
           average_bias=average_bias+(bias-average_bias)/average_count
         end if
         seen=seen+1
@@ -437,7 +475,7 @@ contains
     n_iter=min(it,options%max_iter); last_loss=sumloss/n; coef=current; intercept=bias
     ! The public averaging selection uses epoch sample counts, as sklearn does.
     if(options%average>0.and.real(options%average,dp)<=real(n_iter,dp)*n) then
-      coef=average_coef; intercept=average_bias
+      coef=(average_coef+average_a*current)/average_b; intercept=average_bias
     end if
   end subroutine
 
@@ -469,11 +507,13 @@ contains
     self%n_features_in_=size(x,2);self%n_targets_=1;self%matrix_target_=.false.
   end subroutine
 
-  subroutine pa_classifier_fit(self,x,y,class_weight)
+  subroutine pa_classifier_fit(self,x,y,class_weight,sparse_x)
     class(passive_aggressive_classifier), intent(inout) :: self
     real(dp), intent(in) :: x(:,:)
     integer, intent(in) :: y(:)
     real(dp),optional,intent(in)::class_weight(:)
+    type(csr_matrix),optional,intent(in)::sparse_x
+    integer::p
     type(legacy_random_state)::rng
     integer,allocatable::seeds(:)
     type(pa_config) :: options
@@ -481,14 +521,18 @@ contains
     real(dp), allocatable :: weights(:)
     integer :: k,heads,j,positive
     logical :: converged
-    call check_xy(x,size(y))
+    if(present(sparse_x))then
+      call pa_check_csr(sparse_x,size(y));p=sparse_x%n_cols
+    else
+      call check_xy(x,size(y));p=size(x,2)
+    end if
     options=pa_settings(self%c,self%tol,self%max_iter,self%n_iter_no_change,self%average,self%shuffle,self%fit_intercept,self%random_state)
     call require(self%loss=='hinge'.or.self%loss=='squared_hinge','invalid passive-aggressive classification loss')
     self%classes_=unique_labels(y); k=size(self%classes_)
     call require(k>=2,'passive-aggressive classification requires at least two classes')
     heads=k; if(k==2) heads=1
     if(allocated(self%coef_)) deallocate(self%coef_,self%intercept_,self%n_iter_per_class_,self%loss_)
-    allocate(self%coef_(heads,size(x,2)),self%intercept_(heads),self%n_iter_per_class_(heads),self%loss_(heads))
+    allocate(self%coef_(heads,p),self%intercept_(heads),self%n_iter_per_class_(heads),self%loss_(heads))
     options%classification=.true.; options%pa_two=self%loss=='squared_hinge'
     weights=spread(1._dp,1,k)
     if(present(class_weight))then
@@ -508,7 +552,7 @@ contains
         seeds(j)=rng%integer_index(2147483647)-1
       end do
     end if
-    self%n_features_in_=size(x,2)
+    self%n_features_in_=p
     self%converged_=.true.
     do j=1,heads
       positive=j; if(k==2) positive=2
@@ -517,7 +561,7 @@ contains
       if(k==2) negative_weight=weights(1)
       options%random_state=seeds(j)
       call pa_run(x,target,options,positive_weight,negative_weight,self%coef_(j,:),self%intercept_(j), &
-        self%n_iter_per_class_(j),converged,self%loss_(j))
+        self%n_iter_per_class_(j),converged,self%loss_(j),sparse_x)
       self%converged_=self%converged_.and.converged
     end do
     self%n_iter_=maxval(self%n_iter_per_class_); self%t_=1+real(self%n_iter_,dp)*size(y)
@@ -529,6 +573,90 @@ contains
       end do
     end if
   end subroutine
+
+  subroutine pa_check_csr(x,n)
+    type(csr_matrix),intent(in)::x
+    integer,optional,intent(in)::n
+    call x%validate()
+    call require(x%n_rows>0.and.x%n_cols>0,'passive-aggressive CSR input must be nonempty')
+    call require(all(ieee_is_finite(x%data)),'nonfinite passive-aggressive CSR data')
+    if(present(n))call require(x%n_rows==n,'passive-aggressive CSR target count mismatch')
+  end subroutine
+  subroutine pa_classifier_fit_csr(self,x,y,class_weight)
+    class(passive_aggressive_classifier),intent(inout)::self
+    type(csr_matrix),intent(in)::x
+    integer,intent(in)::y(:)
+    real(dp),optional,intent(in)::class_weight(:)
+    real(dp)::empty(0,0)
+    call pa_classifier_fit(self,empty,y,class_weight,x)
+  end subroutine
+  subroutine pa_regressor_fit_csr(self,x,y,sample_weight)
+    class(passive_aggressive_regressor),intent(inout)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),intent(in)::y(:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    type(pa_config)::options
+    real(dp)::empty(0,0)
+    call require(.not.present(sample_weight),'passive-aggressive fit does not accept sample weights')
+    call check_positive_regression(self);call pa_check_csr(x,size(y));call check_x(reshape(y,[size(y),1]))
+    options=pa_settings(self%c,self%tol,self%max_iter,self%n_iter_no_change,self%average,self%shuffle,self%fit_intercept,self%random_state)
+    call require(ieee_is_finite(self%epsilon),'nonfinite passive-aggressive epsilon')
+    call require(self%epsilon>=0,'passive-aggressive epsilon must be nonnegative')
+    call require(self%loss=='epsilon_insensitive'.or.self%loss=='squared_epsilon_insensitive', &
+      'invalid passive-aggressive regression loss')
+    options%epsilon=self%epsilon;options%pa_two=self%loss=='squared_epsilon_insensitive'
+    self%coef_=spread(0._dp,1,x%n_cols)
+    call pa_run(empty,y,options,1._dp,1._dp,self%coef_,self%intercept_,self%n_iter_,self%converged_,self%loss_,x)
+    self%t_=1+real(self%n_iter_,dp)*size(y);self%rank_=0
+    self%n_features_in_=x%n_cols;self%n_targets_=1;self%matrix_target_=.false.
+  end subroutine
+  function pa_regressor_predict_csr(self,x)result(y)
+    class(passive_aggressive_regressor),intent(in)::self
+    type(csr_matrix),intent(in)::x
+    real(dp)::y(x%n_rows)
+    real(dp),allocatable::z(:,:)
+    call require(allocated(self%coef_),'passive-aggressive regressor is not fitted')
+    call pa_check_csr(x)
+    call require(x%n_cols==size(self%coef_),'passive-aggressive query feature count mismatch')
+    z=x%matmul(reshape(self%coef_,[size(self%coef_),1]));y=z(:,1)+self%intercept_
+  end function
+  real(dp) function pa_regressor_score_csr(self,x,y,sample_weight)result(value)
+    class(passive_aggressive_regressor),intent(in)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),intent(in)::y(:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    value=r2_score(y,self%predict(x),sample_weight=sample_weight)
+  end function
+  function pa_classifier_decision_csr(self,x)result(z)
+    class(passive_aggressive_classifier),intent(in)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),allocatable::z(:,:)
+    call require(allocated(self%coef_),'passive-aggressive classifier is not fitted')
+    call pa_check_csr(x)
+    call require(x%n_cols==size(self%coef_,2),'passive-aggressive query feature count mismatch')
+    z=x%matmul(transpose(self%coef_))+spread(self%intercept_,1,x%n_rows)
+  end function
+  function pa_classifier_predict_csr(self,x)result(y)
+    class(passive_aggressive_classifier),intent(in)::self
+    type(csr_matrix),intent(in)::x
+    integer::y(x%n_rows),i
+    real(dp),allocatable::z(:,:)
+    z=self%decision_function(x)
+    if(size(self%classes_)==2)then
+      y=merge(self%classes_(2),self%classes_(1),z(:,1)>0)
+    else
+      do i=1,x%n_rows
+        y(i)=self%classes_(maxloc(z(i,:),dim=1))
+      end do
+    end if
+  end function
+  real(dp) function pa_classifier_score_csr(self,x,y,sample_weight)result(value)
+    class(passive_aggressive_classifier),intent(in)::self
+    type(csr_matrix),intent(in)::x
+    integer,intent(in)::y(:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    value=accuracy_score(y,self%predict(x),sample_weight=sample_weight)
+  end function
 
   function pa_classifier_decision(self,x) result(z)
     class(passive_aggressive_classifier), intent(in) :: self

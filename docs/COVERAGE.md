@@ -16010,3 +16010,25 @@ Reports use validation/results/pa_seeded_{checked,optimized,cross_profile}.json.
 This closes default PA seeded-shuffle/RNG-state gaps; broader PA/project subsets
 remain open. Project-wide Source parity remains false. Windows validation uses
 the existing static GNU runtime and validation-only locale-copy shim.
+
+### CSR passive-aggressive fitting and queries
+
+PA-I/PA-II regression/classification accept CSR fit, predict and score, plus
+classifier decision_function. Queries can switch dense/CSR independently of
+fit format. CSR score accepts sample weights; fit does not, matching Source.
+Stored order, duplicates, explicit zeros and empty rows are preserved. Norms
+sum squared stored nodes, sparse intercept updates use Source's .01 multiplier,
+and private seeded shuffle/class weights retain the previous contracts.
+
+Both dense/CSR averaging now use the translated WeightVector lazy accumulator,
+avoiding feature-width averaging work for each stored-row update. Dense model
+coefficients/work vectors remain; training never materializes a dense design.
+The initial checked probe passes 5,904 CSR fits / 69,088 groups, including all
+four storage layouts, PA modes, class weights, averaging, stopping, weighted
+score, format-switched queries and buffer preservation. All original 1,476 dense
+fits / 14,320 groups still pass at unchanged 3e-8. Native step/duplicate-norm/
+refit tests and sixteen guards pass. A 512-by-500,000 fit/query probe peaks at
+32,935,936 bytes, below 128 MiB versus a 2,048,000,000-byte dense design.
+These direct probes use an updated module with a frozen older helper archive;
+full package and scoped optimized verification are pending. Streaming, warm
+starts and validation stopping remain gaps; the prior CSR PA gap is closed.

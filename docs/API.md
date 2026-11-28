@@ -1373,7 +1373,19 @@ resets the xorshift seed and permutes the retained row order. Scalar seeds are
 nonnegative; fitting preserves the global Fortran RNG, including shuffled fits.
 Repeated fits reset coefficients and averaging state. Dense PA-I/PA-II fitting,
 zero-row handling, delayed averaging and loss-based patience remain supported.
-CSR PA fitting, streaming, warm starts and validation-set stopping remain gaps.
+Both types accept `csr_matrix` in fit, predict and score. Classifiers also
+accept CSR decision_function. Dense and CSR queries can follow either fit format.
+CSR scoring accepts optional `sample_weight(:)`; PA fitting does not accept
+sample weights. Regression's inherited weighted-fit adapters reject them.
+
+CSR fitting preserves stored order, duplicate entries, explicit zeros and empty
+rows. Norms sum squared stored entries, including duplicate entries separately,
+following sklearn's sparse dataset contract. Sparse intercept updates use the
+Source 0.01 decay; dense updates use 1.0. Averaging follows Source's lazy
+weight-vector accumulation and touches stored entries at each update. Coefficient
+and averaging vectors remain dense, without a dense samples-by-features cache.
+Caller CSR buffers are preserved. Streaming, warm starts and validation-set
+stopping remain gaps.
 See `example/passive_aggressive.f90` for training accuracy and regression R2.
 
 

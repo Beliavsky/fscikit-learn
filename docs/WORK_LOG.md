@@ -12791,3 +12791,16 @@ Fingerprints SHA256: e457544bcc7ec4432e52afb175cba432cc8fed93a3a6ba649c6a6dec1ef
 Artifacts use the pa_seeded_ prefix. Broader PA and project subsets remain;
 full project parity is false. Static GNU runtime and validation-only locale
 shim retained. No push performed; protected untracked files remain untouched.
+
+2026-11-28: CSR passive-aggressive fitting/query implementation.
+Added direct CSR PA-I/PA-II regression/classification fits, queries, classifier
+margins and weighted CSR score. Retain raw stored ordering/duplicates/zeros,
+squared-node norms, sparse intercept decay and private seeded fitting. Dense
+and CSR use Source's lazy average accumulator; no dense design is formed.
+Checked direct probes: all 5,904 CSR fits / 69,088 groups and all 1,476 retained
+dense fits / 14,320 groups pass at unchanged 3e-8. Native one-step, duplicate,
+query/refit and buffer checks pass. Sixteen CSR/adapter guards and a 512-by-
+500,000 memory fit/query pass; peak 32,935,936 bytes against a 128 MiB bound
+versus a 2,048,000,000-byte dense design. Direct probes link an updated module
+with an older frozen helper archive; full package/O3 evidence is pending.
+Successful streaming/warm/validation-stopping PA is not claimed. No push made.
