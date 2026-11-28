@@ -16042,3 +16042,24 @@ including product- and accumulation-overflow cases, at unchanged tolerances.
 Final overflow fixtures use twelve rows so the three-class cases retain all
 three target classes. Native dense/CSR zero-step and IEEE-state checks pass.
 A refreshed full build is live and is required before final package audits.
+
+Final verification: the authoritative pa_csr_refreshed_build.log ends in a
+successful full checked build. All 349 checked native programs pass; all 1,221
+dependency-aware compiled-source fingerprints match. The optimized linear-model
+module passes fifteen selected native programs with checked harnesses and other
+code from the frozen checked archive. Both profiles pass all 84,288 comparison
+groups and 27 guards: 5,952 CSR fits / 69,632 groups, 1,476 retained dense fits /
+14,320 groups, and all 336 legacy PA groups, with sixteen new CSR/adapter guards
+and eleven retained guards. The CSR corpus includes 5,952 input-preservation
+checks. Final overflow fixtures retain all intended three-class targets.
+
+Original 3e-8 comparisons and exact labels/counters remain unchanged. All new
+and retained reported outputs agree across profiles at 3e-8; source/compiler/
+archive/report identities pass. Native IEEE assertions verify halting modes
+and the overflow flag; general inexact-flag invariance is not claimed.
+The 512-by-500,000 memory peaks are 32,829,440 checked and 32,763,904 optimized
+bytes, below 128 MiB versus a 2,048,000,000-byte dense input.
+Reports: validation/results/pa_csr_{checked,optimized,cross_profile}.json.
+The earlier unrefreshed build predates the norm correction. Broader PA/project
+subsets remain open; project-wide Source parity is false. Windows validation
+retains the static GNU runtime and validation-only locale-copy shim.

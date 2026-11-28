@@ -1386,7 +1386,7 @@ weight-vector accumulation and touches stored entries at each update. Coefficien
 and averaging vectors remain dense, without a dense samples-by-features cache.
 Caller CSR buffers are preserved. Extreme finite rows retain Source
 infinite squared norms and zero PA steps, with norm calculation restoring
-caller IEEE modes and flags. Streaming, warm starts and validation-set
+caller IEEE halting modes and the overflow flag. Streaming, warm starts and validation-set
 stopping remain gaps.
 See `example/passive_aggressive.f90` for training accuracy and regression R2.
 

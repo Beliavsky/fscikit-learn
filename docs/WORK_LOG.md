@@ -12815,3 +12815,27 @@ CSR zero-step and IEEE-state checks pass. Final overflow fixtures use twelve
 rows to keep all intended OVR classes represented. This final fixture revision
 and current source require the live pa_csr_refreshed_build and frozen audits;
 the first pa_csr_build.log predates this correction. No gates were relaxed.
+
+2026-11-28: Final CSR passive-aggressive verification.
+Authoritative successful build: pa_csr_refreshed_build.log. The first build log
+predates the late norm correction and is not current coherence evidence.
+All 349 checked native programs and fifteen selected native programs with the
+optimized linear-model module pass. All 1,221 compiled-source fingerprints
+match. Each profile passes 84,288 groups and 27 guards: CSR 5,952 fits / 69,632
+groups (including 5,952 input-preservation checks), dense 1,476 / 14,320 and all
+336 legacy groups. New CSR/adapter guards total sixteen, retained guards eleven.
+Final overflow fixtures use twelve rows and retain all intended OVR classes.
+Original 3e-8 numeric and exact label/counter gates remain. Cross-profile outputs
+and archive/compiler/source/report identities agree. IEEE assertions cover
+halting modes and overflow flag; no general inexact-flag invariance is claimed.
+Memory peaks: 32,829,440 checked / 32,763,904 optimized bytes below 128 MiB,
+versus a 2,048,000,000-byte dense design. Optimized scope is the linear-model
+module, with other code from the frozen checked archive. Broad project parity
+remains false; PA streaming/warm/validation-stopping gaps remain documented.
+Archive SHA256: 769ba576baf0797977913fecbe585426c845f29ac733cf093f8592bed4e61d41
+Checked audit SHA256: 5d697451920c4e9828db6f019c63799e1159995fe02b1a45b0a8cd02c7091df6
+Optimized audit SHA256: b9f11bdcd2f2c3d74d46c532f7873656f1a8de4b3ff03746162ca65847af99b5
+Cross-profile audit SHA256: b093725d436578e0b53ead2ae1ba224db6192a0e5ef8ef085b397f2dbcf072b0
+Fingerprints SHA256: 9f2ba0858c2b02279ee5c1a47e9e19f196ea1e30d0cd8370598409539d590539
+Reports use the pa_csr_ prefix. Static GNU runtime and validation-only locale
+shim retained. Local commits only, no push; protected untracked files untouched.
