@@ -11888,3 +11888,59 @@ Checked audit SHA256:
 02bdfb40c6581c595a12c8b68dbf20ba527ab0dc2af70c7d0393837b909a8091.
 Optimized audit SHA256:
 e035f1b78c78bc51e084551764efe8f3df7573b47fc99563ae2b7aa702babcd1.
+
+## CSR SVR, NuSVR and OneClassSVM (2026-11-28)
+
+Implementation commit: 894e514. Added CSR fit/query overloads for all three
+kernel estimators, including regression score and one-class score_samples and
+fit_predict. Designs/support vectors stay in owned CSR storage; their dense
+arrays are unallocated. Dense queries after CSR fits convert to CSR. Dense-fit
+models reject CSR queries, and sparse precomputed inputs are rejected, as in
+Source. Refits switch storage and clear stale linear coefficients.
+
+Sparse kernels follow LIBSVM's sorted-node dot products, training norm/dot RBF
+formula and prediction squared-difference RBF formula. Duplicate entries and
+explicit zeros remain stored. Scale gamma uses mathematical sparse moments.
+SciPy's row sort can permute duplicate values: an independent native bounded
+partition/insertion/heap implementation matches the tested wheel's tie order.
+Tie behavior may vary with upstream C++ implementations. The sparse support_
+indices follow Source's positive-weight filtered problem, shifted to one base;
+support-vector rows contain the actual original observations. This differs
+from the package's existing dense-fit original-row index convention. The API
+identifies these storage/index details. Native ownership preserves caller data.
+The dense Gram optimizer, kernel restrictions and weight policy remain.
+
+The first 432-fixture probe retained 682 failed fields. Sorting and filtered
+support-index corrections closed them. The expanded corpus has 1,296 fixtures
+and 15,120 groups, all passing in checked and scoped O3 profiles. It covers
+three estimators, three kernels, scale/auto gamma, three seeds, three feature
+widths, both weight modes and four CSR layouts, plus raw support storage,
+coefficients, dense/CSR queries and scores. Gamma gets a separate strict
+2e-13 relative / 2e-14 absolute check within its parameter group. Existing
+3e-5 solver-output and 2e-4 dual/coefficient tolerances are unchanged.
+Storage-state invariants are labeled native contracts.
+
+A fresh GNU 15.2 checked build passed all 331 native programs and 1,185 source
+fingerprints with dependency closures. Each profile also passed 318 existing
+dense kernel-SVM comparison groups. O3 replaces only sklearn_kernel_svm against
+a frozen checked archive, with three native harnesses and both drivers retaining
+runtime checks. Twelve guards cover nine Source SVM errors, two SciPy CSR
+structural errors and one existing native nonnegative-weight invariant.
+A 64-by-2,000,000 CSR fit/query case exercises all three estimators without
+dense designs or support-vector arrays: peak 9,371,648 checked / 9,318,400
+optimized bytes, below 128 MiB, versus 1,024,000,000 dense-design bytes.
+The Gram remains dense (32,768 bytes in this case). No broader Source parity
+claim is made. Static libgfortran and the Windows locale-copy shim remain part
+of validation. Reference versions: sklearn 1.6.1, NumPy 2.2.6, SciPy 1.15.3.
+Existing sklearn/LIBSVM/SciPy attribution is retained; native integration is MIT.
+
+Audit entry point: validation/check_kernel_svm_profiles.py. Evidence uses the
+validation/results/kernel_svm_sparse_ prefix; the cross-profile audit verifies
+report/source/compiler/archive hashes, the identical Source oracle, guards,
+memory bounds and current fingerprints.
+Final archive SHA256:
+483dbabac7256f544489a085172b65f24f8a6a73349bab33fb2159e6d43f949e.
+Checked audit SHA256:
+d2fe6435b71736614169a264922b2d2ec02f05a4cc61c8b10282241a9391c51e.
+Optimized audit SHA256:
+04b93155a48fa3cd1d1ff873ce2e03dbcddaabab5d1389474b143c19993afb45.

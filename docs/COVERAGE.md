@@ -927,6 +927,26 @@ upstream C++ implementations. CSR support indices follow the positive-weight
 filtered Source problem, shifted to one base. Linear coefficients remain a
 dense native feature vector and the optimizer still builds a dense Gram matrix.
 
+Verification: all 331 native programs and 1,185 dependency-aware source
+fingerprints pass after a fresh checked build. Checked and scoped O3 audits
+each pass 318 existing dense reference groups and 1,296 CSR fixtures / 15,120
+groups, with no retained mismatches. CSR cases span all three estimators,
+RBF/linear/polynomial kernels, scale/auto gamma, three seeds, 7/17/43 features,
+weights including zero rows, canonical/reversed/duplicate/explicit-zero
+storage, dense queries, coefficients, support rows and scores. Existing solver
+tolerances are retained; gamma is additionally checked at 2e-13 relative /
+2e-14 absolute tolerance. Storage-state checks are labeled native contracts.
+
+Twelve guards comprise nine Source SVM rejections, two SciPy CSR structural
+rejections and the existing native nonnegative-weight invariant. A 64-by-
+2,000,000 CSR design fits and queries all three estimators, leaving dense
+designs/support vectors unallocated. Peak memory is 9,371,648 checked /
+9,318,400 optimized bytes, below 128 MiB; a dense design would need
+1,024,000,000 bytes. Its dense Gram matrix needs 32,768 bytes. Reports use the
+validation/results/kernel_svm_sparse_ prefix. Validation uses GNU 15.2,
+sklearn 1.6.1, NumPy 2.2.6, SciPy 1.15.3, static libgfortran and the Windows
+locale-copy shim. Broader numerical/API gaps remain outside this corpus.
+
 `svr`, `nu_svr`, and `one_class_svm` are available through `sklearn_svm` and
 the facade; their implementation module is `sklearn_kernel_svm`. They use native
 dense dual SMO with a most-violating first coordinate and gain-based second
