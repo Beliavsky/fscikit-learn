@@ -16168,6 +16168,26 @@ PA clone/search controls include both new constructor settings.
 Initial checked probes pass 1,506 sequences / 7,530 stages / 87,900 groups at
 unchanged 3e-8 numeric tolerances, exact masks, labels and stopping counts. Twelve
 Source/native rejection decisions pass. A 256-by-500,000 CSR validation fit uses
-65,064,960 bytes, below 128 MiB. Full checked/scoped-O3 retained PA audits are
-pending. Custom initial-coefficient arguments, fit sample weights and parallel
+65,064,960 bytes, below 128 MiB. Final checked/scoped-O3 retained PA audits are
+complete as recorded below. Custom initial-coefficient arguments, fit sample weights and parallel
 PA training remain outside this subset. Project-wide Source parity remains false.
+
+Final verification: the successful full checked fpm build passes all 354 native
+programs. Five scoped implementation modules (linear_model, sgd_clone,
+multioutput, compose and search_adapters) compiled with -O3/-funroll-loops pass
+20 selected checked harnesses. Both profiles pass 331,188 Source comparison
+groups: 87,900 validation, 78,900 warm, 80,100 streaming, 69,632 CSR, 14,320 dense
+seeded and 336 legacy. All 63 validation checks pass, plus accepted averaged
+public-parameter replacement. Exact masks/labels/counters and unchanged 3e-8
+numeric tolerances are retained. Cross-profile outputs and immutable Source,
+report, compiler and archive identities pass. All 1,229 compiled-source
+fingerprints match.
+
+Validation CSR peak working sets are 65,019,904 checked / 64,987,136 optimized
+bytes; streaming uses 64,888,832 / 64,815,104, and full CSR uses 64,917,504 /
+64,876,544. All remain below 128 MiB. Reports are
+validation/results/pa_validation_{checked,optimized,cross_profile}.json;
+pa_validation_build.log records the successful build. Archive SHA256:
+23fdc15835cf880337c84669837a95429ef512384675025d580dbac86eaf3ba5.
+This closes the PA validation-stopping gap, while the other listed PA gaps and
+project-wide Source parity remain open.

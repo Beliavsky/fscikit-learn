@@ -12918,3 +12918,20 @@ pipeline names. Initial checked Source probe: 1506 sequences, 7530 stages, 87900
 comparison groups, zero gaps at unchanged 3e-8 and exact masks/labels/counters.
 Twelve Source/native rejection guards pass; wide CSR validation peak 65064960 bytes.
 Full checked build and final retained/scoped-O3 audits are pending.
+
+2026-11-28 - Final PA validation-stopping verification (implementation c36f3ee)
+Successful full checked fpm build; 354 native programs pass. Scoped O3/funroll-loops
+linear_model, sgd_clone, multioutput, compose and search_adapters pass 20 selected
+checked harnesses. Both profiles pass 331188 Source comparison groups and 63
+validation checks, plus accepted averaged public replacement. Exact masks/labels/
+counters and unchanged 3e-8 tolerance retained. Cross-profile outputs and immutable
+Source/report/compiler/archive identities pass. All 1229 compiled source fingerprints
+match. Project-wide Source parity remains false; the overall goal remains active.
+Validation CSR peaks 65019904 checked / 64987136 optimized bytes; streaming
+64888832 / 64815104; full CSR 64917504 / 64876544. All below 128 MiB.
+Reports validation/results/pa_validation_{checked,optimized,cross_profile}.json.
+Build log pa_validation_build.log.
+Archive SHA256 23fdc15835cf880337c84669837a95429ef512384675025d580dbac86eaf3ba5
+pa_validation_checked.json SHA256 71bfec5610e7f049fb86f25d5cc2651479614ea59d59d7d5244db2c8d2928b70
+pa_validation_optimized.json SHA256 5dce6d24c36b25fb02d030de526e4128e3e0f4596306cb89babb91c35322ecb5
+pa_validation_cross_profile.json SHA256 8e2d2acb43588a7e694583bd504cc5f50bffdeb885acea526048416cf83adb88
