@@ -5,6 +5,9 @@ module sklearn_minibatch_nmf
   use sklearn_legacy_rng, only: legacy_random_state
   use sklearn_randomized_svd_core, only: randomized_svd
   use sklearn_sparse, only: csr_matrix
+  use sklearn_nmf_sparse_data,only:nmf_sparse_cross
+  use sklearn_stateless_preprocessing,only:sorted_sparse
+  use,intrinsic::ieee_exceptions
   use, intrinsic :: iso_fortran_env, only: int64
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite,ieee_is_nan,ieee_value,ieee_quiet_nan,ieee_positive_inf
   implicit none
@@ -24,10 +27,14 @@ module sklearn_minibatch_nmf
     character(8) :: init='auto'
     real(dp), allocatable :: components_(:,:),components_numerator_(:,:),components_denominator_(:,:)
   contains
-    procedure :: fit
-    procedure :: fit_transform
-    procedure :: partial_fit
-    procedure :: transform
+    procedure,private::fit_dense=>fit,fit_csr=>fit_sparse
+    generic::fit=>fit_dense,fit_csr
+    procedure,private::fit_transform_dense=>fit_transform,fit_transform_csr=>fit_transform_sparse
+    generic::fit_transform=>fit_transform_dense,fit_transform_csr
+    procedure,private::partial_fit_dense=>partial_fit,partial_fit_csr=>partial_fit_sparse
+    generic::partial_fit=>partial_fit_dense,partial_fit_csr
+    procedure,private::transform_dense=>transform,transform_csr=>transform_sparse
+    generic::transform=>transform_dense,transform_csr
     procedure :: inverse_transform
   end type
 contains
@@ -60,18 +67,25 @@ contains
     call data_check(x,self%beta_loss_)
     call require(size(x,2)==self%n_features_in_,'MiniBatchNMF feature count mismatch')
   end subroutine
-  subroutine resolve(self,x,h)
+  subroutine resolve(self,x,h,sparse)
     class(mini_batch_nmf), intent(inout) :: self
-    real(dp), intent(in) :: x(:,:)
+    real(dp),optional,intent(in)::x(:,:)
+    type(csr_matrix),optional,intent(in)::sparse
     real(dp), optional, intent(in) :: h(:,:)
+    integer::n,p
+    if(present(sparse))then
+      n=sparse%n_rows;p=sparse%n_cols
+    else
+      n=size(x,1);p=size(x,2)
+    end if
     self%n_components_=self%n_components
     if(self%n_components==0) then
-      self%n_components_=size(x,2)
+      self%n_components_=p
       if(self%init=='custom'.and.present(h)) self%n_components_=size(h,1)
     end if
     call require(self%n_components_>=1.and.self%n_components_<=huge(1)-10,'MiniBatchNMF invalid component count')
-    self%n_features_in_=size(x,2); self%batch_size_=min(self%batch_size,size(x,1)); self%beta_loss_=self%beta_loss
-    self%rho_=self%forget_factor**(real(self%batch_size_,dp)/size(x,1))
+    self%n_features_in_=p; self%batch_size_=min(self%batch_size,n); self%beta_loss_=self%beta_loss
+    self%rho_=self%forget_factor**(real(self%batch_size_,dp)/n)
     self%gamma_=1
     if(self%beta_loss_<1) self%gamma_=1/(2-self%beta_loss_)
     if(self%beta_loss_>2) self%gamma_=1/(self%beta_loss_-1)
@@ -179,17 +193,232 @@ contains
     l1w=p*self%alpha_w*self%l1_ratio; l2w=p*self%alpha_w*(1-self%l1_ratio)
     l1h=n*ah*self%l1_ratio; l2h=n*ah*(1-self%l1_ratio)
   end subroutine
-  subroutine weights(self,x,w,h,numerator,denominator,hidden)
+  function prepare_sparse(x,beta,mode,nonnegative)result(z)
+    type(csr_matrix),intent(in)::x
+    real(dp),intent(in)::beta
+    integer,intent(in)::mode ! 0 fit, 1 partial_fit, 2 transform
+    logical,intent(in)::nonnegative
+    type(csr_matrix)::z,canonical
+    call x%validate()
+    call require(x%n_rows>0.and.x%n_cols>0,'MiniBatchNMF CSR shape must be nonempty')
+    call require(all(ieee_is_finite(x%data)),'MiniBatchNMF CSR data must be finite')
+    if(nonnegative)call require(all(x%data>=0),'MiniBatchNMF X must be nonnegative')
+    if(mode==0)then
+      ! Only fit calls X.min(), canonicalizing duplicates in Source.
+      z=sorted_sparse(x,.true.)
+      if(beta<=0)call require(int(size(z%data),int64)==int(z%n_rows,int64)*z%n_cols.and.all(z%data>0), &
+        'MiniBatchNMF nonpositive beta requires strictly positive X')
+    else
+      z=x
+    end if
+    if(beta/=2)then
+      canonical=sorted_sparse(z,.true.)
+      call require(size(canonical%data)==size(z%data),'MiniBatchNMF sparse beta update rejects duplicate storage')
+      ! Empty patterns align; a singleton zero also broadcasts in Source's
+      ! transform-only update. Costs used by fit/partial_fit reject that case.
+      if(.not.(mode==2.and.size(z%data)==1)) &
+        call require(all(z%data/=0),'MiniBatchNMF sparse beta update rejects explicit zeros')
+    end if
+  end function
+  function sparse_batch(x,first,last)result(z)
+    type(csr_matrix),intent(in)::x
+    integer,intent(in)::first,last
+    type(csr_matrix)::z
+    integer::left,right
+    left=x%indptr(first);right=x%indptr(last+1)-1
+    z%n_rows=last-first+1;z%n_cols=x%n_cols
+    z%indptr=x%indptr(first:last+1)-left+1;z%indices=x%indices(left:right);z%data=x%data(left:right)
+  end function
+  subroutine sparse_terms(x,w,h,beta,numerator,denominator,hidden)
+    type(csr_matrix),intent(in)::x
+    real(dp),intent(in)::w(:,:),h(:,:),beta
+    real(dp),allocatable,intent(out)::numerator(:,:),denominator(:,:)
+    logical,intent(in)::hidden
+    type(csr_matrix)::pattern
+    real(dp),allocatable::row(:),column(:)
+    real(dp)::estimate,value
+    integer::n,p,k,i,j,e
+    n=x%n_rows;p=x%n_cols;k=size(h,1)
+    if(beta==2)then
+      if(hidden)then
+        numerator=transpose(nmf_sparse_cross(x,w,.true.))
+        if(real(k,dp)*k*(real(n,dp)+p)<2._dp*n*k*p)then
+          denominator=matmul(matmul(transpose(w),w),h)
+        else
+          allocate(denominator(k,p))
+          do j=1,p
+            column=matmul(w,h(:,j));denominator(:,j)=matmul(transpose(w),column)
+          end do
+        end if
+      else
+        numerator=nmf_sparse_cross(x,transpose(h),.false.);denominator=matmul(w,matmul(h,transpose(h)))
+      end if
+      return
+    end if
+    if(hidden)then
+      allocate(numerator(k,p))
+    else
+      allocate(numerator(n,k))
+    end if
+    numerator=0;pattern=sorted_sparse(x,.true.)
+    do i=1,n
+      do e=x%indptr(i),x%indptr(i+1)-1
+        ! Source _special_sparse_dot returns sorted CSR, but combines its data
+        ! with the ORIGINAL unsorted X.data. Retain that observable ordering.
+        j=pattern%indices(e);estimate=sum(w(i,:)*h(:,j))
+        if(beta<2)estimate=max(estimate,eps32)
+        if(beta==1)then
+          value=x%data(e)/estimate
+        else if(beta==0)then
+          value=(1/estimate)**2*x%data(e)
+        else
+          value=estimate**(beta-2)*x%data(e)
+        end if
+        if(hidden)then
+          numerator(:,j)=numerator(:,j)+w(i,:)*value
+        else
+          numerator(i,:)=numerator(i,:)+value*h(:,j)
+        end if
+      end do
+    end do
+    if(beta==1)then
+      if(hidden)then
+        column=sum(w,dim=1);where(column==0)column=1
+        denominator=spread(column,2,p)
+      else
+        denominator=spread(sum(h,dim=2),1,n)
+      end if
+    else if(hidden)then
+      allocate(denominator(k,p))
+      do j=1,p
+        column=matmul(w,h(:,j));if(beta<1)column=max(column,eps32)
+        denominator(:,j)=matmul(transpose(w),column**(beta-1))
+      end do
+    else
+      allocate(denominator(n,k))
+      do i=1,n
+        row=matmul(w(i,:),h);if(beta<1)row=max(row,eps32)
+        denominator(i,:)=matmul(row**(beta-1),transpose(h))
+      end do
+    end if
+  end subroutine
+  real(dp)function sparse_divergence(x,w,h,beta)result(value)
+    type(csr_matrix),intent(in)::x
+    real(dp),intent(in)::w(:,:),h(:,:),beta
+    type(csr_matrix)::pattern
+    real(dp),allocatable::cross(:,:),denominator(:,:),column(:)
+    real(dp)::target,estimate,ratio,total_x,mixed,total_power
+    integer::i,j,e
+    if(beta==2)then
+      call sparse_terms(x,w,h,beta,cross,denominator,.true.)
+      value=.5_dp*(sum(x%data**2)+sum(denominator*h)-2*sum(nmf_sparse_cross(x,transpose(h),.false.)*w))
+      return
+    end if
+    value=0;total_x=0;mixed=0;pattern=sorted_sparse(x,.true.)
+    if(beta==0)value=-real(x%n_rows,dp)*x%n_cols
+    do i=1,x%n_rows
+      do e=x%indptr(i),x%indptr(i+1)-1
+        target=x%data(e);if(target<=eps32)cycle
+        j=pattern%indices(e);estimate=max(sum(w(i,:)*h(:,j)),eps32);ratio=target/estimate
+        if(beta==1)then
+          value=value+target*log(ratio);total_x=total_x+target
+        else if(beta==0)then
+          value=value+ratio-log(ratio)
+        else
+          value=value+target**beta;mixed=mixed+target*estimate**(beta-1)
+        end if
+      end do
+    end do
+    if(beta==1)then
+      value=value+dot_product(sum(w,dim=1),sum(h,dim=2))-total_x
+    else if(beta/=0)then
+      total_power=0
+      do j=1,x%n_cols
+        column=matmul(w,h(:,j))
+        if(beta<0.and.any(column==0))then
+          value=ieee_value(0._dp,ieee_positive_inf);return
+        end if
+        total_power=total_power+sum(column**beta)
+      end do
+      value=(value-beta*mixed+(beta-1)*total_power)/(beta*(beta-1))
+    end if
+  end function
+  function solve_w_sparse(self,x,h,limit)result(w)
+    class(mini_batch_nmf),intent(in)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),intent(in)::h(:,:)
+    integer,intent(in)::limit
+    real(dp),allocatable::w(:,:),old(:,:)
+    integer::i
+    allocate(w(x%n_rows,size(h,1)));w=sqrt(sum(x%data)/(real(x%n_rows,dp)*x%n_cols)/self%n_components_);old=w
+    do i=1,limit
+      call update_w(self,w=w,h=h,sparse=x)
+      ! scipy.linalg.norm checks finite values even when tol == 0.
+      call require(all(ieee_is_finite(w)).and.all(ieee_is_finite(old)),'MiniBatchNMF coefficient motion must be finite')
+      if(small_motion(w,old,self%tol))exit
+      old=w
+    end do
+  end function
+  real(dp)function step_sparse(self,x,w,h,restart)result(cost)
+    class(mini_batch_nmf),intent(inout)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),intent(inout)::w(:,:),h(:,:)
+    logical,intent(in)::restart
+    real(dp),allocatable::working(:,:),numerator(:,:),denominator(:,:),power_h(:,:)
+    real(dp)::l1w,l2w,l1h,l2h
+    if(restart)then
+      working=solve_w_sparse(self,x,h,self%fresh_restarts_max_iter)
+    else
+      working=w;call update_w(self,w=working,h=h,sparse=x)
+    end if
+    if(self%beta_loss_<1)where(working<epsilon(1._dp))working=0
+    if(.not.restart)w=working
+    call regularization(self,x%n_rows,x%n_cols,l1w,l2w,l1h,l2h)
+    cost=(sparse_divergence(x,working,h,self%beta_loss_)+l1w*sum(working)+l1h*sum(h)+ &
+      l2w*sum(working**2)+l2h*sum(h**2))/x%n_rows
+    call weights(self,w=working,h=h,numerator=numerator,denominator=denominator,hidden=.true.,sparse=x)
+    power_h=h;if(self%gamma_/=1)power_h=power_h**(1/self%gamma_)
+    self%components_numerator_=self%rho_*self%components_numerator_+numerator*power_h
+    self%components_denominator_=self%rho_*self%components_denominator_+denominator
+    h=self%components_numerator_/self%components_denominator_
+    if(self%gamma_/=1)h=h**self%gamma_
+    if(self%beta_loss_<=1)where(h<epsilon(1._dp))h=0
+  end function
+  subroutine suspend_sparse_ieee(halting,raised)
+    logical,intent(out)::halting(size(ieee_all)),raised(size(ieee_all))
+    integer::i
+    do i=1,size(ieee_all)
+      call ieee_get_flag(ieee_all(i),raised(i));call ieee_get_halting_mode(ieee_all(i),halting(i))
+      call ieee_set_halting_mode(ieee_all(i),.false.)
+    end do
+  end subroutine
+  subroutine restore_sparse_ieee(halting,raised)
+    logical,intent(in)::halting(size(ieee_all)),raised(size(ieee_all))
+    integer::i
+    do i=1,size(ieee_all)
+      call ieee_set_flag(ieee_all(i),raised(i));call ieee_set_halting_mode(ieee_all(i),halting(i))
+    end do
+  end subroutine
+  subroutine weights(self,x,w,h,numerator,denominator,hidden,sparse)
     class(mini_batch_nmf), intent(in) :: self
-    real(dp), intent(in) :: x(:,:),w(:,:),h(:,:)
+    real(dp),optional,intent(in)::x(:,:)
+    type(csr_matrix),optional,intent(in)::sparse
+    real(dp), intent(in) :: w(:,:),h(:,:)
     real(dp), allocatable, intent(out) :: numerator(:,:),denominator(:,:)
     logical, intent(in) :: hidden
     real(dp), allocatable :: prediction(:,:),safe(:,:),power(:,:),ratio(:,:)
     real(dp) :: beta,l1w,l2w,l1h,l2h
     integer :: n,p,k
-    n=size(x,1); p=size(x,2); k=size(h,1); beta=self%beta_loss_
+    if(present(sparse))then
+      n=sparse%n_rows;p=sparse%n_cols
+    else
+      n=size(x,1);p=size(x,2)
+    end if
+    k=size(h,1); beta=self%beta_loss_
     call regularization(self,n,p,l1w,l2w,l1h,l2h)
-    if(beta==2) then
+    if(present(sparse))then
+      call sparse_terms(sparse,w,h,beta,numerator,denominator,hidden)
+    else if(beta==2) then
       if(hidden) then
         numerator=matmul(transpose(w),x)
         if(real(k,dp)*k*(real(n,dp)+p)<2._dp*n*k*p) then
@@ -237,12 +466,14 @@ contains
     end if
     where(denominator==0) denominator=eps32
   end subroutine
-  subroutine update_w(self,x,w,h)
+  subroutine update_w(self,x,w,h,sparse)
     class(mini_batch_nmf), intent(in) :: self
-    real(dp), intent(in) :: x(:,:),h(:,:)
+    real(dp),optional,intent(in)::x(:,:)
+    type(csr_matrix),optional,intent(in)::sparse
+    real(dp), intent(in) :: h(:,:)
     real(dp), intent(inout) :: w(:,:)
     real(dp), allocatable :: numerator(:,:),denominator(:,:),delta(:,:)
-    call weights(self,x,w,h,numerator,denominator,.false.); delta=numerator/denominator
+    call weights(self,x,w,h,numerator,denominator,.false.,sparse); delta=numerator/denominator
     if(self%gamma_/=1) delta=delta**self%gamma_
     w=w*delta
   end subroutine
@@ -417,6 +648,91 @@ contains
     real(dp), intent(in) :: x(:,:)
     real(dp), allocatable :: codes(:,:)
     call query(self,x); codes=solve_w(self,x,self%components_,self%transform_max_iter_)
+  end function
+  function fit_transform_sparse(self,x,w,h)result(codes)
+    class(mini_batch_nmf),intent(inout)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),optional,intent(in)::w(:,:),h(:,:)
+    real(dp),allocatable::codes(:,:),dictionary(:,:),old(:,:)
+    type(csr_matrix)::prepared,batch
+    real(dp)::cost,value
+    integer::n,batches,first,last
+    integer(int64)::iteration,total
+    logical::halting(size(ieee_all)),raised(size(ieee_all))
+    call controls(self);prepared=prepare_sparse(x,self%beta_loss,0,.true.)
+    call resolve(self,h=h,sparse=prepared)
+    call initialize(self,w0=w,h0=h,w=codes,h=dictionary,sparse=prepared);old=dictionary
+    self%components_numerator_=dictionary;self%components_denominator_=0*dictionary+1
+    self%ewa_cost_=ieee_value(0._dp,ieee_quiet_nan);self%ewa_cost_min_=self%ewa_cost_;self%no_improvement_=0
+    n=x%n_rows;batches=(n-1)/self%batch_size_+1;total=int(self%max_iter,int64)*batches;first=1;self%n_steps_=0
+    call suspend_sparse_ieee(halting,raised)
+    do iteration=0_int64,total-1
+      last=first+min(self%batch_size_,n-first+1)-1;batch=sparse_batch(prepared,first,last)
+      cost=step_sparse(self,batch,codes(first:last,:),dictionary,self%fresh_restarts);self%n_steps_=iteration+1
+      if(iteration>0)call require(all(ieee_is_finite(dictionary)).and.all(ieee_is_finite(old)), &
+        'MiniBatchNMF component motion must be finite')
+      if(converged(self,cost,dictionary,old,n,last-first+1,iteration))exit
+      old=dictionary
+      if(last==n)then
+        first=1
+      else
+        first=last+1
+      end if
+    end do
+    if(self%fresh_restarts)codes=solve_w_sparse(self,prepared,dictionary,self%transform_max_iter_)
+    self%components_=dictionary;self%n_iter_=(self%n_steps_+batches-1)/batches
+    value=sparse_divergence(prepared,codes,dictionary,self%beta_loss_)
+    if(self%beta_loss_/=2.and.value<0)value=0
+    self%reconstruction_err_=sqrt(2*value)
+    call restore_sparse_ieee(halting,raised)
+  end function
+  subroutine fit_sparse(self,x,w,h)
+    class(mini_batch_nmf),intent(inout)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),optional,intent(in)::w(:,:),h(:,:)
+    real(dp),allocatable::codes(:,:)
+    codes=self%fit_transform(x,w,h)
+  end subroutine
+  subroutine partial_fit_sparse(self,x,w,h)
+    class(mini_batch_nmf),intent(inout)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),optional,intent(in)::w(:,:),h(:,:)
+    real(dp),allocatable::codes(:,:),dictionary(:,:)
+    type(csr_matrix)::prepared
+    real(dp)::cost
+    logical::halting(size(ieee_all)),raised(size(ieee_all))
+    call controls(self)
+    if(.not.allocated(self%components_))then
+      prepared=prepare_sparse(x,self%beta_loss,1,self%init/='custom')
+      call resolve(self,h=h,sparse=prepared)
+      call initialize(self,w0=w,h0=h,w=codes,h=dictionary,sparse=prepared)
+      self%components_numerator_=dictionary;self%components_denominator_=0*dictionary+1
+      self%n_steps_=0;self%n_iter_=0;self%reconstruction_err_=ieee_value(0._dp,ieee_quiet_nan)
+      self%ewa_cost_=ieee_value(0._dp,ieee_quiet_nan);self%ewa_cost_min_=self%ewa_cost_;self%no_improvement_=0
+    else
+      call require(x%n_cols==self%n_features_in_,'MiniBatchNMF feature count mismatch')
+      prepared=prepare_sparse(x,self%beta_loss_,1,.false.);dictionary=self%components_
+    end if
+    if(allocated(codes))deallocate(codes)
+    allocate(codes(0,0))
+    call require(self%n_steps_<huge(self%n_steps_),'MiniBatchNMF step counter capacity exceeded')
+    call suspend_sparse_ieee(halting,raised)
+    cost=step_sparse(self,prepared,codes,dictionary,.true.)
+    self%components_=dictionary;self%n_steps_=self%n_steps_+1
+    call restore_sparse_ieee(halting,raised)
+  end subroutine
+  function transform_sparse(self,x)result(codes)
+    class(mini_batch_nmf),intent(in)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),allocatable::codes(:,:)
+    type(csr_matrix)::prepared
+    logical::halting(size(ieee_all)),raised(size(ieee_all))
+    call require(allocated(self%components_),'MiniBatchNMF is not fitted')
+    call require(x%n_cols==self%n_features_in_,'MiniBatchNMF feature count mismatch')
+    prepared=prepare_sparse(x,self%beta_loss_,2,.false.)
+    call suspend_sparse_ieee(halting,raised)
+    codes=solve_w_sparse(self,prepared,self%components_,self%transform_max_iter_)
+    call restore_sparse_ieee(halting,raised)
   end function
   function inverse_transform(self,codes) result(x)
     class(mini_batch_nmf), intent(in) :: self

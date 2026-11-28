@@ -14893,3 +14893,21 @@ oracle inventories, validators, binary hashes and CSR input preservation are
 verified. These checks retain existing tolerances and numerical certificates;
 full project Source parity remains false. GNU Windows validation retains the
 existing static runtime and locale-copy shim.
+
+### CSR MiniBatchNMF streaming and inference
+
+MiniBatchNMF adds CSR fit/fit_transform/partial_fit/transform with sparse products,
+row batches and streamed general beta losses. Initialization, restarts, running
+sufficient statistics, forgetting and first-fit resolved controls follow Source.
+Operation-specific storage/zero checks and the Source unsorted-data ordering
+quirk are preserved. Input buffers remain unchanged.
+
+The initial 248-sequence probe found twelve unsorted-storage differences. After
+aligning the special-sparse-dot data order, all unchanged 248 cases pass against
+sklearn 1.6.1, including intermediate A/B matrices, codes/components, counters,
+resolved/convergence fields, reconstruction errors and error-operation indices.
+All 43 additional actual Source/native validation cases pass. Native dense/CSR
+parity across eight beta branches, streaming and IEEE-mode checks pass. Sparse
+fit/update/inference memory peaks at 35,106,816 bytes Frobenius / 34,570,240 KL
+for 384-by-200000 designs (614,400,000 dense bytes), below 128 MiB. Full package
+and legacy dense verification are in progress; the broader API remains a subset.

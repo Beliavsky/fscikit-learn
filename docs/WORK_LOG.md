@@ -11329,3 +11329,39 @@ Verified backup: nmf_sparse_evidence_cab9b09.zip,
 ZIP CRCs and critical source/report/object/binary hashes pass. Receipt:
 validation/results/nmf_sparse_archive_receipt.json (ignored evidence).
 Archive metadata retains false full project Source parity and true CSR checks.
+
+### CSR MiniBatchNMF fit, streaming state and inference
+
+Previous goal turn classification: progress (CSR NMF CD/MU implementations,
+complete checked/scoped-optimized audits and verified evidence; cab9b09/97521cf).
+Added CSR overloads to MiniBatchNMF fit, fit_transform, partial_fit and transform.
+Shared initialization/resolution and update regularization serve both storage
+paths. CSR products, owned row batches and streamed beta terms avoid dense
+input/reconstruction caches. Running A/B matrices, fresh restarts, forgetting,
+small-motion/patience convergence, counters and fitted/resolved controls are
+preserved, including mutable-constructor behavior on later streaming calls.
+
+Installed Source distinguishes validation paths: fit checks raw nonnegative
+data then X.min() canonicalizes; partial_fit and transform do neither operation
+in the same way. Sparse nonpositive-beta zero inputs accepted by Source's
+stream/inference paths remain accepted. Duplicate/stored-zero special-dot shape
+failures and singleton-zero transform broadcasting match actual Source. Signed
+streaming cases also match. Quiet arithmetic preserves caller IEEE modes/flags,
+and Source finite-motion validation remains explicit.
+
+The unchanged initial 248-sequence grid found twelve strict differences, all
+unsorted non-Frobenius updates. Source _special_sparse_dot returns sorted CSR
+prediction data but multiplies it with original unsorted X.data; retaining that
+ordering closes all twelve. Initial failed reports are preserved. The revised
+248-sequence probe has no failures; it compares every operation's codes,
+components, sufficient statistics, exact counters/dimensions, resolved controls,
+convergence state, reconstruction errors and caller-buffer preservation at
+3e-8 atol/rtol, and matches source/native error operation indices. All 43 separate
+Source/native validations pass, including accepted permissive stream/query cases.
+
+Native dense/CSR equivalence across eight beta branches, restart modes, fresh
+and continued streaming, sufficient statistics and IEEE halting-mode restoration
+passes. Large 384-by-200000 fit/partial_fit/transform tests peak at 35,106,816 bytes
+Frobenius and 34,570,240 KL, below 128 MiB versus a 614,400,000-byte dense design.
+The full fpm rebuild and original 6,500-group dense MiniBatchNMF comparison are
+running. No new estimator/dependency is introduced; MIT/BSD attribution remains.

@@ -11544,3 +11544,24 @@ non-Frobenius beta, stored explicit zeros retain the actual sklearn 1.6.1
 _special_sparse_dot/data alignment rejection. Convert away stored zeros before
 such calls. Positive duplicate entries are coalesced; effective nonnegative
 values from cancelling duplicates follow Source canonicalization.
+
+### CSR MiniBatchNMF
+
+mini_batch_nmf accepts CSR in fit, fit_transform, partial_fit and transform.
+It shares dense/sparse initialization, uses sparse products and streams general
+beta denominators/divergence columns. Dense factors and running sufficient
+statistics remain; fit/update/inference do not cache a dense design. Learned
+batch size, beta/gamma/rho and inference iteration limits retain Source's
+first-fit resolution when later partial_fit constructor controls change.
+Fresh restarts, forgetting, regularization and convergence state are supported.
+
+The Source storage contracts differ by operation. fit checks raw nonnegativity,
+then canonicalizes duplicates through X.min(); partial_fit and transform do not
+perform that canonicalization or apply fit's zero restriction for beta<=0.
+Their Source acceptance distinctions, including singleton-zero inference,
+are retained. Non-Frobenius updates reject Source's misaligned duplicate/stored-
+zero layouts. With unsorted unique CSR, Source's _special_sparse_dot sorts its
+prediction data but combines it with original X.data; that observable Source
+behavior is preserved. Use sorted storage for storage-invariant arithmetic.
+All caller arrays remain unchanged through owned buffers. Sparse inference
+preserves caller IEEE modes/flags while handling Source nonfinite trials.

@@ -2950,3 +2950,10 @@ owned sorting/coalescing reuses the project's existing attributed CSR helper.
 Sparse randomized initialization reuses the attributed randomized SVD/RNG code.
 Existing sklearn, NumPy and SciPy BSD notices are retained in LICENSES. New
 Fortran CSR adapters, streamed products and tests are project MIT contributions.
+
+CSR MiniBatchNMF follows sklearn 1.6.1 decomposition/_nmf.py streaming updates,
+restart/convergence state and operation-specific validation/storage behavior.
+Unsorted sparse prediction-data ordering follows its _special_sparse_dot helper;
+SciPy CSR sorting/coalescing follows the existing attributed helper. Existing
+sklearn/NumPy/SciPy BSD notices remain in LICENSES. New Fortran storage adapters,
+streamed kernels, IEEE-state integration and tests are project MIT contributions.
