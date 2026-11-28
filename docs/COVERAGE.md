@@ -15896,3 +15896,21 @@ and linear 64-by-200,000,000 sparse memory cases pass below 128 MiB, including
 all three model families and queries. Native coefficient/refit/empty-storage
 checks pass. Full package and scoped optimized verification are pending.
 The dense sample-by-sample training Gram remains a documented limitation.
+
+Final verification: all 346 checked native programs pass; all 1,215 audited
+compiled-source fingerprints match. The scoped optimized library passes eight
+native programs with checked harnesses. Both profiles pass 153,939 comparison
+groups: 3,899 NuSVR fits plus one matching Source rejection, 2,616 SVR fits,
+1,316 OneClassSVM fits, 318 legacy dense checks and 1,296 CSR configurations /
+15,120 checks. All tested iteration counts match for the three model families.
+All 56 guards pass per profile. Frozen archive/source/compiler identities and
+cross-profile outputs agree. No comparison tolerance was changed.
+
+The final memory probes use stored nodes near both ends of the actual
+200-million-feature range. RBF/linear peaks are 9,465,856 / 9,474,048 bytes in
+the checked profile and 9,412,608 / 9,408,512 bytes in the optimized profile.
+Each dense coefficient vector alone would require 1,600,000,000 bytes.
+Reports: validation/results/kernel_sparse_coef_{checked,optimized}.json and
+kernel_sparse_coef_cross_profile.json. This verifies the selected behavior;
+project-wide Source parity remains false. Windows validation retains the
+static libgfortran runtime and validation-only locale-copy shim.

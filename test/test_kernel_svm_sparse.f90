@@ -18,7 +18,7 @@ program test_kernel_svm_sparse
   if(trim(mode)=='memory'.or.trim(mode)=='memory_linear')then
     allocate(ptr(65),indices(128),data(128),targets(64))
     do i=1,64
-      ptr(i)=2*i-1;indices(2*i-1:2*i)=[i,2000001-i]
+      ptr(i)=2*i-1;indices(2*i-1:2*i)=[i,200000001-i]
       data(2*i-1:2*i)=[real(i,dp)/64,1._dp];targets(i)=sin(real(i,dp))
     end do
     ptr(65)=129;x=csr_from_arrays(64,200000000,ptr,indices,data)

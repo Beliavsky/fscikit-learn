@@ -12682,3 +12682,23 @@ Isolated checked module probe: native checks, twelve guards, both memory cases
 uses explicit current solver/kernel objects with an older frozen helper archive;
 it is not whole-package coherence evidence. Full checked fpm build and frozen
 checked/scoped-O3 reference audits are pending. No push performed.
+
+2026-11-28: Final sparse linear kernel-SVM verification.
+Successful build logs: kernel_sparse_coef_build.log and the authoritative
+kernel_sparse_coef_refreshed_build.log after extending stored feature indices
+to the far end of the 200-million-feature memory probe. All 346 checked native
+programs and eight scoped-O3 native programs pass. All 1,215 dependency-aware
+compiled-source fingerprints match. Each profile passes 153,939 comparison
+groups and 56 guards, retaining the NuSVR Source nonfinite-fit rejection and
+existing support-row oracle for undefined Source sparse n_support_ metadata.
+All three solver families match the tested Source iteration counts. Archive,
+compiler, source hashes and cross-profile expected/actual outputs agree.
+Checked RBF/linear memory peaks: 9,465,856 / 9,474,048 bytes. Scoped optimized:
+9,412,608 / 9,408,512 bytes; each dense coefficient vector would be 1.6 GB.
+No numerical comparison tolerances changed. Full project parity remains false.
+Archive SHA256: d31358f8620e6638ed7c2f1758f348765e24eac458ec63275b97db944e2ccf1b
+Checked audit SHA256: df4d8f35bb57b1d43e0964ed7cfbf3a986bb2baa4f24f3f781a8715c2a6b2688
+Optimized audit SHA256: 226f057b1b6c9d813660aad81d4e4fd14c3f9f3579b37c1d68198e5a4a89e611
+Cross-profile audit SHA256: 5492b0dcbbad3716703de237564657cd43bdb82e15551ebef9cc96e2674d36aa
+Validation artifacts use the kernel_sparse_coef_ prefix. Static GNU runtime
+and validation-only locale shim retained. No push performed.
