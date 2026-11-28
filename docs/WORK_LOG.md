@@ -12729,3 +12729,29 @@ stopped on an incorrectly constructed native parameter-grid fixture; corrected
 to the actual scalar param API. Final build handle is live; only a terminal
 successful final build and its frozen audits will establish current coherence.
 Legacy report profile labels now match the selected checked/optimized profile.
+
+2026-11-28: Final SGD early-stopping verification.
+Authoritative successful full build: sgd_validation_final_build.log. Earlier
+sgd_validation_build.log predates late source changes; the refreshed log records
+the corrected test-only param-construction error and is not a success witness.
+All 347 checked native programs and ten scoped-O3 native programs pass. All
+1,217 compiled-source fingerprints match. Optimization is confined to SGD,
+its clone helper and search adapter; other code is from the frozen archive.
+Each profile passes 303,879 groups and 66 diagnostics: new 1,088 configurations /
+6,600 groups / fourteen guards; legacy CSR 6,480 fixtures / 136,080 groups /
+24 diagnostics; dense warm/initialized 6,480 / 136,080 / 21; regularization,
+streaming and stopping 4,194 / 25,119 / seven. CSR and dense fit grids each
+cover 19,440 stages. Original Source tolerances are unchanged; new comparisons
+retain 3e-9 and exact mask/epoch/public-clock/label checks. Large-target unused-
+loss overflow is closed under the checked traps. All archive/compiler/source
+and report identities pass; nested new output sequences agree across profiles.
+The SVM flat-output auditor initially rejected the nested report layout;
+added an SGD-specific auditor without changing numerical gates or prior tests.
+Full project parity remains false. Reports use the sgd_validation_ prefix.
+Archive SHA256: 745105ac65fa2f78afa3258c5a726ff90923c717ee081094e3267cae5a3ebf41
+Checked audit SHA256: ba79fed95d7ac7d1807d505680d8f88bd7f51f084ba35b68d2640d1c5f4b01f7
+Optimized audit SHA256: d3f1c70fcc23557c2d3c7ec61122fc574c10e3f017ad839d5c40f174f9dbed02
+Cross-profile audit SHA256: ce302c999d9189f9d076494dcfb7c59f735940850921357b76f16644729b03f5
+Fingerprints SHA256: fd0a326b1ec04a236ae60ea634020936f5c1190dae3ec85caccbe50a28ad3902
+Static GNU runtime and validation-only locale shim retained. Local commits only;
+no push performed. Protected untracked files remain untouched.

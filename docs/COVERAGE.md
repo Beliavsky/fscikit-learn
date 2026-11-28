@@ -15946,3 +15946,27 @@ epsilon-insensitive cases with 1e160-scale targets and NaN validation R2.
 The reference driver also avoids converting regression targets into integer
 class labels. A search-fixture parameter-grid construction error was corrected
 after compilation detected it. The final refreshed build is in progress.
+
+Final verification: the authoritative sgd_validation_final_build.log ends in
+a successful full checked build. All 347 checked native programs pass; all
+1,217 dependency-aware compiled-source fingerprints match current sources.
+The three-module scoped optimized library passes ten selected native programs,
+with checked harnesses and all other code from the frozen checked archive.
+
+Both profiles pass 303,879 comparison groups and 66 diagnostics: the new
+1,088 configurations / 6,600 groups / fourteen guards, retained CSR SGD
+6,480 fixtures / 136,080 groups / 24 diagnostics, retained dense warm and
+initialized SGD 6,480 fixtures / 136,080 groups / 21 diagnostics, and retained
+regularization/streaming/stopping 4,194 fixtures / 25,119 groups / seven
+diagnostics. Each of the large CSR/dense fit grids covers 19,440 stages.
+No original comparison tolerance was changed. New outputs match Source at
+3e-9 and agree across checked/O3 profiles with exact split/counter/label checks.
+Legacy suites independently retain their existing Source tolerances. Source,
+compiler, frozen archive and report identities pass the cross-profile audit.
+
+The SGD-specific auditor handles nested warm-fit sequences; the initial reuse
+of the SVM flat-output auditor was structurally inapplicable. Final reports use
+validation/results/sgd_validation_{checked,optimized,cross_profile}.json.
+This supersedes the older SGD validation-stopping gap; existing broader SGD
+and project/API subsets remain. Project-wide Source parity remains false.
+Windows validation retains the static runtime and validation-only locale shim.

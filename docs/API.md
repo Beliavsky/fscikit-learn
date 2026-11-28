@@ -2157,7 +2157,8 @@ buffer without its lazy L2 scale, and log-loss callbacks compare 0/1 targets
 with -1/1 predictions. These source quirks can affect stopping. A single-row
 regression validation set has NaN R2 and does not consume patience. Public `t_`
 uses epochs times the original sample count; update/averaging clocks skip
-validation rows. Native diagnostic `validation_mask_(:)` records held-out rows.
+validation rows. Native diagnostic `validation_mask_(:)` records held-out rows. Native `loss_`
+is zero in this mode because training-loss evaluation is omitted.
 Refits rebuild the split, and parameter clones discard it. Both controls are
 accepted in parameter searches, including nested pipeline parameter names.
 
