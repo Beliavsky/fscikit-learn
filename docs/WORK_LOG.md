@@ -11526,3 +11526,33 @@ scoped optimized validation are pending at this implementation commit. Source
 references are installed sklearn 1.6.1 decomposition/_lda.py, with existing
 BSD/NumPy notices retained and original Fortran adapters under MIT. No new
 public algorithm beyond scikit-learn or external dependency is introduced.
+
+
+## CSR LDA final verification (implementation 9f29e9a)
+
+The final GNU 15.2.0 fpm checked rebuild succeeds with bounds checking,
+backtraces and invalid/zero/overflow traps. All 326 native programs and eleven
+selected examples pass. The checked audit has 341 passing jobs; the scoped
+optimized audit has seven. Both profiles pass 6,734 original dense groups,
+6,734 canonical CSR groups and 4,212 raw CSR groups (17,680 per profile), nine
+rejection/invariant checks and the sparse memory case. Checked memory peaks at
+14,422,016 bytes; optimized at 14,327,808, versus 819,200,000 bytes for a dense
+input and a 128 MiB limit. The optimized build changes only sklearn_lda and
+retains checked harnesses. Its checked baseline is identical to the final
+211-member archive; the remaining 210 members are unchanged.
+
+All 949 dependency-aware source fingerprints match current sources, including
+the final linear-time duplicate map and mixed-storage native test. Library
+SHA256: 53041ca4335aea80deee01a2eb23248a517b79e17ff8c65764fc323c38b30537.
+Reports and logs use validation/results/lda_sparse_* (ignored evidence), with
+binary pre/post hashes and source/compiler/archive provenance. The cross-profile
+report verifies all result inventories and digests. Runtime is static
+libgfortran with the existing Windows locale-copy validation shim. Full project
+Source parity remains false; the broader translation goal and documented LDA
+limits remain open. MIT/BSD/NumPy attribution is retained; commits stay local.
+
+Verified evidence backup: lda_sparse_evidence_9f29e9a.zip, 29,484,411 bytes / 2,046 entries, SHA256
+b875a1558425d0d5a8b82b4d032afcf72b86f52b9371fa6737b593044ea52309. ZIP CRCs and all archived source/report/object/binary
+hashes pass. Receipt: validation/results/lda_sparse_archive_receipt.json.
+The archive contains the implementation and verification documentation before
+this receipt was appended; full project Source parity remains false.

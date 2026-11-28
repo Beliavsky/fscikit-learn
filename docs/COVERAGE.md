@@ -3163,6 +3163,26 @@ although all stored counts contribute to inference and the likelihood bound.
 Online chunks copy only their CSR rows. Topic-word factors/statistics and
 document-topic factors remain dense; there is no dense document-word allocation.
 
+The CSR extension repeats all 120 dense reference configurations using canonical
+CSR input (6,734 groups, retaining the existing high-precision/zero-word scoring
+certificates). Another 72 raw CSR sequences check 4,212 groups with reversed
+storage, duplicates, explicit zeros, empty rows, both learning methods and
+partial-fit initialization. Metadata is exact; ordinary numeric comparisons
+use atol=rtol=3e-8. Native tests include dense/CSR continuation, copied streams,
+online chunks, early stopping and zero document iterations. Six invalid-input
+checks agree with sklearn; three further checks enforce native CSR/model
+invariants. The 2048-by-50000, three-topic fixture exercises fit, partial_fit,
+transform, score and perplexity with 14,422,016 checked / 14,327,808 optimized
+peak working-set bytes, below 128 MiB and an 819,200,000-byte dense input.
+
+GNU 15.2.0 checked validation passes all 326 native programs and 11 selected
+examples, and 949 dependency-aware source fingerprints match. Both checked
+and scoped optimized LDA runs pass all 17,680 reference groups. The optimized
+run compiles only sklearn_lda with -O3; harnesses retain checks, and the other
+210 library members match the checked archive. Validation uses static
+libgfortran with the existing Windows locale-copy shim. These results cover
+the documented subset; full project Source parity remains false.
+
 The backend is real64 CPU with one worker. Float32 input, n_jobs,
 verbose logs, object/global RNGs, feature-name metadata and persistence are
 outside scope. random_state defaults to deterministic zero. There is no inverse
