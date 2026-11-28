@@ -57,9 +57,9 @@ def main():
     args=parser.parse_args();root=Path(__file__).resolve().parents[1];sha=lambda p:hashlib.sha256(Path(p).read_bytes()).hexdigest()
     files=[Path(__file__),args.executable,*[root/p for p in ['src/sklearn_kernel_svm.f90','src/sklearn_libsvm_solver.f90',
            'src/sklearn_libsvm_sparse.f90','app/reference_oneclass_libsvm_driver.f90','validation/compare_svc_sparse.py','validation/compare_kernel_svm_sparse.py']],
-           *[Path(sklearn.__file__).parent/'svm'/p for p in ['_base.py','_classes.py','src/libsvm/svm.cpp']]]
+           *[Path(sklearn.__file__).parent/'svm'/p for p in ['_base.py','_classes.py','_libsvm_sparse.pyx','src/libsvm/svm.cpp','src/libsvm/libsvm_sparse_helper.c']]]
     hashes={str(p):sha(p) for p in files};cases=list(fixtures())[:args.limit];data=[arrays(c) for c in cases]
-    payload=str(len(cases))+'\n';expected=[];source_iterations=[]
+    payload=str(len(cases))+'\n';expected=[];source_iterations=[];source_sparse_n_support=[]
     for c,(x,q,w) in zip(cases,data):
         pre=c['fmt']==2;sparse=c['fmt']==1;positive=np.flatnonzero(w>0)
         fx=x[np.ix_(positive,positive)] if pre else x.copy();fw=w[positive] if pre else w
@@ -68,7 +68,11 @@ def main():
                           nu=c['nu'],tol=c['tol'],max_iter=c['max_iter'],shrinking=c['shrinking'])
         with warnings.catch_warnings():warnings.simplefilter('ignore');model.fit(fx,sample_weight=fw)
         original=positive[model.support_];source_iterations.append([int(model.n_iter_)])
-        v=dict(support=model.support_ if sparse else original,support_original=original,n_support=model.n_support_,
+        # _libsvm_sparse.pyx allocates n_class_SV with np.empty; copy_nSV
+        # returns without writing for regression/one-class (model.label NULL).
+        # Preserve this undefined metadata, using actual Source SV rows as oracle.
+        if sparse:source_sparse_n_support.append(dict(case=len(expected),raw=model.n_support_.tolist(),support_rows=model.support_vectors_.shape[0]))
+        v=dict(support=model.support_ if sparse else original,support_original=original,n_support=[model.support_vectors_.shape[0]] if sparse else model.n_support_,
                dual_coef=model.dual_coef_.toarray() if sparse else model.dual_coef_,intercept=model.intercept_,offset=model.offset_,gamma=[model._gamma],
                coef=(model.coef_.toarray() if sparse else model.coef_) if c['kernel']=='linear' and not pre else [],
                vectors=[] if sparse else model.support_vectors_,sv_indptr=model.support_vectors_.indptr+1 if sparse else [],
@@ -96,7 +100,7 @@ def main():
             if field.startswith('native_'):continue
             want=np.asarray(expected[index][field]);exact=field in ['support','support_original','n_support','sv_indptr','sv_indices','predict','fit_predict','dense_predict','status']
             passed=values.shape==want.shape and (np.array_equal(values,want) if exact else np.allclose(values,want,atol=3e-6,rtol=3e-6))
-            checks.append(dict(case=index,field=field,passed=bool(passed),max_abs_error=float(np.max(np.abs(values-want),initial=0)) if values.shape==want.shape else None))
+            checks.append(dict(case=index,field=field,oracle='source_support_rows' if field=='n_support' and cases[index]['fmt']==1 else 'source',passed=bool(passed),max_abs_error=float(np.max(np.abs(values-want),initial=0)) if values.shape==want.shape else None))
     assert len(actual)==len(cases);certificates=[]
     for i,(c,(x,q,w),v) in enumerate(zip(cases,data,actual)):
         support=np.asarray(v['support_original'],int);alpha=np.zeros(len(w));alpha[support]=v['dual_coef']
@@ -119,7 +123,7 @@ def main():
     gaps=[v for v in checks if not v['passed']];assert hashes=={p:sha(p) for p in hashes}
     result=dict(cases=cases,checks=checks,gaps=gaps,actual=actual,expected=expected,certificates=certificates,source_iterations=source_iterations,
                 iteration_disagreements=[i for i,(a,b) in enumerate(zip(actual,source_iterations)) if a['native_iterations']!=b],hashes=hashes,
-                strict_parity=not gaps,sklearn=sklearn.__version__,scipy=scipy.__version__)
+                strict_parity=not gaps,source_sparse_n_support=source_sparse_n_support,sklearn=sklearn.__version__,scipy=scipy.__version__)
     args.report.write_text(json.dumps(result,indent=2)+'\n');print(len(cases),'fits;',len(checks),'groups;',len(gaps),'gaps;',len(certificates),'certificates')
     if gaps:print(gaps[:20])
     raise SystemExit(bool(gaps) and not args.diagnostic)

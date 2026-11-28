@@ -1,6 +1,6 @@
 ! Dense/CSR SVR, NuSVR and one-class SVM contracts from sklearn/svm/_base.py,
-! _classes.py and its bundled LIBSVM. OneClassSVM uses translated Solver.
-! SVR/NuSVR retain the native most-violating-pair optimizer.
+! _classes.py and its bundled LIBSVM. SVR/OneClassSVM use translated Solver.
+! NuSVR retains the native most-violating-pair optimizer.
 ! See THIRD_PARTY_NOTICES.md and LICENSES/libsvm-COPYRIGHT for attribution.
 module sklearn_kernel_svm
   use sklearn_common
@@ -41,6 +41,7 @@ module sklearn_kernel_svm
   end type
   type, extends(regression_model) :: svr
     real(dp) :: epsilon=0.1_dp
+    logical::shrinking=.true.
   contains
     procedure,private :: fit_dense=>svr_fit,fit_csr=>svr_fit_csr
     generic :: fit=>fit_dense,fit_csr
@@ -85,6 +86,9 @@ contains
     call require(ieee_is_finite(self%gamma).and.ieee_is_finite(self%coef0),'invalid kernel SVM parameters')
     call require((self%gamma>=0.or.self%gamma==-1).and.self%degree>=0,'invalid kernel SVM parameters')
     select type(self)
+    class is(svr)
+      call require(any(self%kernel==[character(16)::'rbf','linear','poly','polynomial','sigmoid','precomputed']), &
+        'unsupported SVR kernel')
     class is(one_class_svm)
       call require(any(self%kernel==[character(16)::'rbf','linear','poly','polynomial','sigmoid','precomputed']), &
         'unsupported OneClassSVM kernel')
@@ -120,6 +124,8 @@ contains
       self%gamma_=0
       call require(size(x,2)==n,'kernel SVM precomputed matrix must be square')
       select type(self)
+      class is(svr)
+        ! LIBSVM accepts finite asymmetric/indefinite precomputed rows.
       class is(one_class_svm)
         ! LIBSVM accepts finite asymmetric/indefinite precomputed rows.
       class default
@@ -259,7 +265,7 @@ contains
     real(dp), intent(in) :: gram(:,:),y(:),capacity(:),epsilon,nu
     integer, intent(in) :: mode ! 1: epsilon SVR; 2: nu SVR; 3: one-class
     real(dp), intent(out) :: levels(2)
-    real(dp), allocatable :: alpha(:),cap(:),signs(:),g(:),beta(:),qcache(:,:),qd(:),initial(:),ones(:),zeros(:)
+    real(dp), allocatable :: alpha(:),cap(:),signs(:),g(:),beta(:),qcache(:,:),qd(:),initial(:),ones(:),zeros(:),linear_term(:),solver_cap(:)
     integer, allocatable :: index(:),group(:),positive(:)
     real(dp) :: remaining,target,gap,step,low,high,free_sum,value,bound_tol,fallback_sum,rho
     integer :: n,m,groups,i,j,a,b,it,h,count_free,fallback_count,np
@@ -296,6 +302,33 @@ contains
         call require(.false.,'internal one-class solver type mismatch')
       end select
       alpha(positive)=initial;beta=alpha;g=matmul(gram,beta)
+      call select_pair(g,alpha,cap,signs,index,group,epsilon,groups,a,b,self%kkt_violation_)
+      self%fit_status_=merge(0,1,self%converged_);levels=0;levels(1)=rho
+    else if(mode==1)then
+      positive=pack([(i,i=1,n)],capacity>0);np=size(positive)
+      allocate(qcache(2*np,2*np),qd(2*np),initial(2*np),ones(2*np),linear_term(2*np),solver_cap(2*np))
+      initial=0;ones(:np)=1;ones(np+1:)=-1
+      solver_cap(:np)=capacity(positive);solver_cap(np+1:)=solver_cap(:np)
+      linear_term(:np)=epsilon-y(positive);linear_term(np+1:)=epsilon+y(positive)
+      do i=1,2*np
+        a=positive(1+mod(i-1,np));qd(i)=gram(a,a)
+        do j=1,2*np
+          b=positive(1+mod(j-1,np))
+          ! SVR_Q rounds the unsigned row first, then applies exact +/- signs.
+          qcache(j,i)=ones(i)*ones(j)*real(real(gram(a,b),real32),dp)
+        end do
+      end do
+      select type(self)
+      class is(svr)
+        call libsvm_solve(qcache,qd,linear_term,ones,solver_cap,initial,self%tol,self%max_iter, &
+          self%shrinking,rho,self%n_iter_,self%converged_)
+      class default
+        call require(.false.,'internal epsilon-SVR solver type mismatch')
+      end select
+      beta=0;beta(positive)=initial(:np)-initial(np+1:)
+      ! Report the physical signed-dual residual using its canonical split.
+      alpha(:n)=max(beta,0._dp);alpha(n+1:)=max(-beta,0._dp)
+      g=matmul(gram,beta)-y
       call select_pair(g,alpha,cap,signs,index,group,epsilon,groups,a,b,self%kkt_violation_)
       self%fit_status_=merge(0,1,self%converged_);levels=0;levels(1)=rho
     else
@@ -516,10 +549,11 @@ contains
     real(dp), allocatable :: values(:)
     values=self%decision_function(x)
   end function
-  real(dp) function regression_score(self,x,y) result(value)
+  real(dp) function regression_score(self,x,y,sample_weight) result(value)
     class(regression_model), intent(in) :: self
     real(dp), intent(in) :: x(:,:),y(:)
-    value=r2_score(y,self%predict(x))
+    real(dp),optional,intent(in)::sample_weight(:)
+    value=r2_score(y,self%predict(x),sample_weight=sample_weight)
   end function
   function one_predict(self,x) result(labels)
     class(one_class_svm), intent(in) :: self
@@ -552,11 +586,12 @@ contains
     real(dp),allocatable::values(:)
     values=self%decision_function(x)
   end function
-  real(dp) function regression_score_csr(self,x,y) result(value)
+  real(dp) function regression_score_csr(self,x,y,sample_weight) result(value)
     class(regression_model),intent(in)::self
     type(csr_matrix),intent(in)::x
     real(dp),intent(in)::y(:)
-    value=r2_score(y,self%predict(x))
+    real(dp),optional,intent(in)::sample_weight(:)
+    value=r2_score(y,self%predict(x),sample_weight=sample_weight)
   end function
   function one_predict_csr(self,x) result(labels)
     class(one_class_svm),intent(in)::self

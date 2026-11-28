@@ -1143,13 +1143,15 @@ labels=novelty%predict(query)
 ```
 
 The optional last fit argument is `sample_weight(:)` for all three types.
+SVR/NuSVR score also accepts optional sample_weight for weighted R2.
 For gamma strings, leave `gamma=-1` and set `gamma_rule='scale'` or `'auto'`.
 For dense fits, `support_` uses original one-based training indices; `dual_coef_` is a vector
 and `intercept_` is a scalar. For linear kernels, `coef_` is a feature vector.
 With `kernel='precomputed'`, predict from the query-to-training Gram matrix.
-SVR/NuSVR require a PSD training Gram; OneClassSVM also accepts finite square
-indefinite/asymmetric input. OneClassSVM supports sigmoid and signed coef0.
-Its `shrinking` control defaults true and follows Source LIBSVM Solver.
+NuSVR requires a PSD training Gram; SVR and OneClassSVM also accept finite
+square indefinite/asymmetric input and support sigmoid with signed coef0.
+SVR and OneClassSVM expose `shrinking`, defaulting true, and follow Source
+LIBSVM Solver.
 converged_/fit_status_ report its cached-gradient stopping/cap status;
 kkt_violation_ independently replays the original double-kernel residual. Check `converged_` or `fit_status_` after capped
 fits. One-class labels are +1/-1, with zero decisions labeled -1.
@@ -1175,10 +1177,15 @@ positive-weight problem, shifted to one base. Support-vector rows contain the
 actual original observations. This differs from this package's established
 dense-fit index convention and is retained for reference compatibility.
 
+The native n_support_ count is the actual number of support rows. The
+installed sklearn 1.6.1 sparse regression/one-class getter can read an
+uninitialized count; reference validation records that value diagnostically
+and checks the Source support-vector row count instead.
+
 The native optimizer still constructs a dense sample-by-sample Gram matrix;
 CSR fitting avoids the sample-by-feature design and dense support-vector
 storage. Linear `coef_` remains a dense native feature vector. The existing
-SVR/NuSVR kernel restrictions and optimizer remain. OneClassSVM has the Source
+NuSVR kernel restrictions and optimizer remain. SVR/OneClassSVM have the Source
 solver and additional kernel controls described above; the nonnegative-weight
 policy and native default tolerances/iteration cap remain.
 

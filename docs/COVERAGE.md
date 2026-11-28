@@ -948,8 +948,8 @@ sklearn 1.6.1, NumPy 2.2.6, SciPy 1.15.3, static libgfortran and the Windows
 locale-copy shim. Broader numerical/API gaps remain outside this corpus.
 
 `svr`, `nu_svr`, and `one_class_svm` are available through `sklearn_svm` and
-the facade; their implementation module is `sklearn_kernel_svm`. SVR/NuSVR retain native dense dual SMO with a most-violating first coordinate
-and gain-based second coordinate. OneClassSVM now uses the translated LIBSVM
+the facade; their implementation module is `sklearn_kernel_svm`. NuSVR retains native dense dual SMO with a most-violating first coordinate
+and gain-based second coordinate. SVR and OneClassSVM now use the translated LIBSVM
 Solver with weighted prefix initialization, second-order selection, Source float
 Q entries, bound-gradient reconstruction and optional active-set shrinking. All support `fit` with optional nonnegative `sample_weight`, requiring
 at least one positive weight. SVR/NuSVR take one finite continuous target vector
@@ -958,12 +958,12 @@ weights, with `predict`/`fit_predict` labels +1 for positive decision values and
 -1 otherwise; `score_samples` returns the unshifted kernel score.
 
 All three models support `linear`, `rbf` (default), `poly`/`polynomial`, and
-`precomputed` kernels. SVR/NuSVR retain the square/symmetric/PSD precomputed
-restriction and nonnegative polynomial coef0. OneClassSVM also supports sigmoid,
+`precomputed` kernels. NuSVR retains the square/symmetric/PSD precomputed
+restriction and nonnegative polynomial coef0. SVR and OneClassSVM also support sigmoid,
 signed coef0 and arbitrary finite square precomputed matrices, following
 LIBSVM's row-cache behavior. Queries have one column per original training
 sample. Polynomial degree must be nonnegative. Callable kernels remain outside
-the typed API. OneClassSVM's indefinite/asymmetric cases are compared
+the typed API. SVR/OneClassSVM's indefinite/asymmetric cases are compared
 mechanically with Source, without claiming a global kernel-SVM optimum. Gram matrices remain dense real64; feature designs
 may be dense or CSR. Precomputed inputs remain dense.
 
@@ -994,11 +994,11 @@ signed dual group's mass to nu*sum(C*weight)/2. Large epsilon can leave an
 SVR with no support vectors; this produces a constant prediction.
 
 `tol=1e-3` and `max_iter=100000` control the optimizer. `n_iter_` counts
-pair updates. SVR/NuSVR retain their independently reconstructed double-gradient
-convergence test. OneClassSVM converged_/fit_status_ follow the Source cached-
+pair updates. NuSVR retains its independently reconstructed double-gradient
+convergence test. SVR/OneClassSVM converged_/fit_status_ follow the Source cached-
 gradient stopping/cap condition, while kkt_violation_ independently replays the
 original double-kernel feasible-pair residual. The latter may exceed tol.
-OneClassSVM defaults to shrinking=true; false retains the full active set. Its
+SVR/OneClassSVM default to shrinking=true; false retains the full active set. Their
 strict lower/upper/free statuses and active-set rho match Source, including
 capped fits. On a 40-point circular RBF fixture at tol=1e-7, both Source and
 native reach the 100000-update cap; the former independent interior-start
@@ -1012,7 +1012,30 @@ Source's admissible-interval midpoint; near-bound free variables use Source's
 strict status and free average.
 Parameters should be chosen for well-scaled finite arithmetic.
 
-Current translated OneClassSVM verification: a coherent GNU 15.2 checked
+Epsilon-SVR now uses Source SVR_Q's two signed variable copies, float-rounded
+unsigned kernel rows with exact sign application, double diagonals, epsilon
+linear terms, zero initialization and sample-specific C*weight boxes. Positive-
+weight rows preserve Source order. Its signed dual is reconstructed in original
+row coordinates; cached stopping/cap status remains separate from the canonical
+signed-dual residual replay on the original double kernel. Full support, rho,
+query, score and cap outputs are compared against Source. SVR/NuSVR score now
+accepts optional sample_weight, following weighted R2. The shared solver already
+used by OneClassSVM supplies shrinking and gradient reconstruction; NuSVR's
+independent optimizer remains a documented gap.
+
+Sparse sklearn 1.6.1 regression/one-class n_support_ is not a defined
+metadata oracle in this installed source: _libsvm_sparse.pyx allocates
+n_class_SV with np.empty, while libsvm_sparse_helper.c::copy_nSV returns
+without writing when model->label is NULL. The new SVR probe initially found
+512 sparse capped-count discrepancies, while every other field passed. The
+SVR and OneClassSVM validators now retain raw Source counts separately and
+verify n_support_ against actual Source support-vector rows, labeling that
+single comparison oracle `source_support_rows`. Other Source outputs and
+exact structural/numeric tolerances remain unchanged. The native scalar count
+continues to mean the actual number of support rows. This treats undefined
+Source metadata explicitly rather than reproducing uninitialized memory.
+
+Previous translated OneClassSVM verification: a coherent GNU 15.2 checked
 build passes all 344 native programs and all 1,211 compiled-source fingerprints.
 Six selected native harnesses pass with sklearn_libsvm_solver and
 sklearn_kernel_svm at O3/unroll; harness bounds checks and floating-point traps

@@ -214,7 +214,7 @@ Reference paths by module:
 | dummy | dummy.py |
 | kernel_ridge | kernel_ridge.py |
 | discriminant_analysis | discriminant_analysis.py (LDA lsqr covariance convention) |
-| kernel_svm | svm/_base.py, _classes.py, src/libsvm/svm.cpp; SVR/NuSVR/OneClassSVM weighted dual formulations, gamma rules, thresholds and normalization; independent native SVR/NuSVR pairwise optimizer; OneClassSVM translates LIBSVM Solver and weighted prefix initialization |
+| kernel_svm | svm/_base.py, _classes.py, src/libsvm/svm.cpp; SVR/NuSVR/OneClassSVM weighted dual formulations, gamma rules, thresholds and normalization; independent native NuSVR pairwise optimizer; SVR/OneClassSVM translate LIBSVM Solver, SVR_Q signed rows/epsilon terms and weighted one-class prefix initialization |
 | linear_svm | svm/_classes.py LinearSVC/LinearSVR contracts; svm/src/liblinear/linear.cpp L2 squared-loss objectives, synthetic intercept regularization and binary/OVR class costs; tron.cpp primal trust-region optimization; projected-gradient dual solvers and newrand.h seeded shuffles |
 | svm | svm/_classes.py; deterministic SMO replaces libsvm backend |
 | mixture | mixture/_gaussian_mixture.py, _base.py |
@@ -3155,3 +3155,14 @@ prefix initialization and ONE_CLASS_Q float cache, double diagonal and
 precomputed row indexing. Existing LIBSVM/sklearn BSD notices remain in
 `LICENSES/`. Dense/CSR typed adapters, diagnostics and validation harnesses
 are MIT contributions. SVR/NuSVR retain their separately attributed optimizer.
+
+
+## LIBSVM epsilon-SVR adapter
+
+`sklearn_kernel_svm` now follows bundled LIBSVM solve_epsilon_svr and SVR_Q:
+two signed copies, zero initial duals, epsilon +/- target linear terms,
+sample-specific C*weight boxes, unsigned float kernel rounding followed by
+sign application, double diagonals and alpha-plus-minus reconstruction. It
+uses the attributed shared Solver port. Native typed adapters, canonical
+signed-dual diagnostics, weighted score forwarding and tests are MIT
+contributions. Existing sklearn/LIBSVM BSD notices remain in `LICENSES/`.
