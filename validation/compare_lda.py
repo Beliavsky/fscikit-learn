@@ -5,10 +5,13 @@ import json
 import os
 import subprocess
 import warnings
+import tempfile
+import hashlib
 os.environ['OMP_NUM_THREADS']='1'
 os.environ['OPENBLAS_NUM_THREADS']='1'
 import numpy as np
 import sklearn
+from scipy.sparse import csr_matrix
 import mpmath as mp
 from scipy.special import gammaln
 from sklearn.decomposition import LatentDirichletAllocation
@@ -44,7 +47,7 @@ def high_precision_bound(model,x,sub_sampling=False):
 
 
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('--executable',type=Path);args=parser.parse_args()
+    parser=argparse.ArgumentParser();parser.add_argument('--executable',type=Path);parser.add_argument('--sparse-input',action='store_true');parser.add_argument('--report',type=Path);args=parser.parse_args()
     RESULTS.mkdir(exist_ok=True)
     if args.executable:executable=args.executable.resolve()
     else:
@@ -54,6 +57,8 @@ def main():
                if line.strip().strip('"').endswith(('reference_lda_driver','reference_lda_driver.exe'))]
         paths=[p.resolve() for p in paths if p.is_file()];assert len(paths)==1,proc.stdout
         executable=paths[0]
+    binary=hashlib.sha256(executable.read_bytes()).hexdigest()
+    work=tempfile.TemporaryDirectory(prefix="fsklearn-lda-reference-")
     checks=[];corrections=[];roundoff=[]
     for seed,n,p in [(0,23,7),(7,31,5),(42,36,11),(2026,19,1)]:
         rng=np.random.RandomState(seed)
@@ -122,16 +127,17 @@ def main():
                                   ' '.join(str(config[k]) for k in integer_keys),
                                   ' '.join(f'{(-1 if config[k] is None else config[k]):.17g}' for k in real_keys),config['learning_method']])
                     lines.extend(' '.join(f'{v:.17g}' for v in row) for row in data)
+                    source_data=csr_matrix(data) if args.sparse_input else data
                     result=None
-                    if op==1:source.fit(data)
-                    elif op==2:source.partial_fit(data)
-                    elif op==3:result=source.fit_transform(data)
-                    elif op==4:result=source.transform(data)
-                    elif op==5:result=source.transform(data,normalize=False)
-                    elif op==6:result=[source.score(data)]
-                    elif op==7:result=[source.perplexity(data)]
-                    elif op==8:result=[source.perplexity(data,sub_sampling=True)]
-                    elif op==9:result=source.fit_transform(data,normalize=False)
+                    if op==1:source.fit(source_data)
+                    elif op==2:source.partial_fit(source_data)
+                    elif op==3:result=source.fit_transform(source_data)
+                    elif op==4:result=source.transform(source_data)
+                    elif op==5:result=source.transform(source_data,normalize=False)
+                    elif op==6:result=[source.score(source_data)]
+                    elif op==7:result=[source.perplexity(source_data)]
+                    elif op==8:result=[source.perplexity(source_data,sub_sampling=True)]
+                    elif op==9:result=source.fit_transform(source_data,normalize=False)
                     if result is not None:
                         name=prefix+'result';expected[name]=result
                         if op in (7,8) and data.sum()==0 and np.allclose(source.components_,source.topic_word_prior_,atol=0,rtol=8*np.finfo(float).eps):
@@ -153,8 +159,8 @@ def main():
                     if bound_zero and np.allclose(source.components_,source.topic_word_prior_,atol=0,rtol=8*np.finfo(float).eps):
                         corrections.append(dict(seed=seed,case=case,name=prefix+'bound',source=float(expected[prefix+'bound'][0]) if np.isfinite(expected[prefix+'bound'][0]) else str(float(expected[prefix+'bound'][0])),reason='zero training words: undefined fitted perplexity'))
                         expected[prefix+'bound']=[np.nan];zero_fields.add(prefix+'bound')
-            inp=RESULTS/'lda_input.txt';out=RESULTS/'lda_output.txt';inp.write_text('\n'.join(lines)+'\n')
-            proc=subprocess.run([str(executable),str(inp),str(out)],cwd=ROOT,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+            inp=Path(work.name)/'input.txt';out=Path(work.name)/'output.txt';inp.write_text('\n'.join(lines)+'\n')
+            proc=subprocess.run([str(executable),str(inp),str(out), 'csr' if args.sparse_input else 'dense'],cwd=ROOT,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
             assert proc.returncode==0,(seed,case,proc.stdout)
             actual={}
             for line in out.read_text().splitlines():
@@ -175,7 +181,9 @@ def main():
                 checks.append(dict(seed=seed,case=case,name=name,passed=True,
                                    oracle='zero-word definition' if name in zero_fields else 'source roundoff budget' if name in allowances else 'sklearn'))
         print(f'seed {seed}: 30 configurations passed',flush=True)
-    (RESULTS/'lda.json').write_text(json.dumps(dict(sklearn=sklearn.__version__,checks=checks,zero_word_corrections=corrections,source_roundoff=roundoff),indent=2)+'\n')
+    assert binary==hashlib.sha256(executable.read_bytes()).hexdigest()
+    work.cleanup()
+    (args.report or RESULTS/('lda_csr.json' if args.sparse_input else 'lda.json')).write_text(json.dumps(dict(sklearn=sklearn.__version__,sparse_input=args.sparse_input,executable_sha256=binary,checks=checks,zero_word_corrections=corrections,source_roundoff=roundoff),indent=2)+'\n')
     print(f'{len(checks)} LatentDirichletAllocation result groups passed')
 
 

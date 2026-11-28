@@ -1,8 +1,9 @@
-! Dense single-worker sklearn 1.6.1 decomposition/_lda.py and _online_lda_fast.pyx contracts (BSD).
+! Dense/CSR single-worker sklearn 1.6.1 decomposition/_lda.py and _online_lda_fast.pyx contracts (BSD).
 ! NumPy 2.2.6 legacy_standard_gamma shape-100 branch; notices in LICENSES/numpy-*.
 ! See THIRD_PARTY_NOTICES.md and LICENSES/scikit-learn-COPYING.
 module sklearn_lda
   use sklearn_common, only: dp,require,check_x,logsumexp
+  use sklearn_sparse, only: csr_matrix
   use sklearn_legacy_rng, only: legacy_random_state
   use, intrinsic :: iso_fortran_env, only: int64
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite,ieee_value,ieee_positive_inf,ieee_quiet_nan
@@ -20,12 +21,24 @@ module sklearn_lda
     real(dp), allocatable :: components_(:,:),exp_dirichlet_component_(:,:)
     type(legacy_random_state), private :: rng
   contains
-    procedure :: fit
-    procedure :: partial_fit
-    procedure :: transform
-    procedure :: fit_transform
-    procedure :: score
-    procedure :: perplexity
+    procedure, private :: fit_dense => fit
+    procedure, private :: fit_sparse
+    generic :: fit => fit_dense, fit_sparse
+    procedure, private :: partial_fit_dense => partial_fit
+    procedure, private :: partial_fit_sparse
+    generic :: partial_fit => partial_fit_dense, partial_fit_sparse
+    procedure, private :: transform_dense => transform
+    procedure, private :: transform_sparse
+    generic :: transform => transform_dense, transform_sparse
+    procedure, private :: fit_transform_dense => fit_transform
+    procedure, private :: fit_transform_sparse
+    generic :: fit_transform => fit_transform_dense, fit_transform_sparse
+    procedure, private :: score_dense => score
+    procedure, private :: score_sparse
+    generic :: score => score_dense, score_sparse
+    procedure, private :: perplexity_dense => perplexity
+    procedure, private :: perplexity_sparse
+    generic :: perplexity => perplexity_dense, perplexity_sparse
   end type
 contains
   subroutine controls(self)
@@ -61,6 +74,31 @@ contains
     call require(size(x,2)==self%n_features_in_,'LDA feature count mismatch')
     call require(self%n_components==size(self%components_,1),'LDA n_components changed; use fit to reset')
   end subroutine
+  subroutine sparse_check(x)
+    type(csr_matrix), intent(in) :: x
+    call x%validate()
+    call require(x%n_rows>0.and.x%n_cols>0,'LDA X must have samples and features')
+    call require(all(ieee_is_finite(x%data)),'LDA X must be finite')
+    call require(all(x%data>=0),'LDA X must be nonnegative')
+  end subroutine
+  subroutine sparse_query(self,x)
+    class(latent_dirichlet_allocation), intent(in) :: self
+    type(csr_matrix), intent(in) :: x
+    call require(allocated(self%components_),'LDA is not fitted')
+    call sparse_check(x)
+    call require(x%n_cols==self%n_features_in_,'LDA feature count mismatch')
+    call require(self%n_components==size(self%components_,1),'LDA n_components changed; use fit to reset')
+  end subroutine
+  function sparse_rows(x,first,last) result(batch)
+    type(csr_matrix), intent(in) :: x
+    integer, intent(in) :: first,last
+    type(csr_matrix) :: batch
+    integer :: start,finish
+    start=x%indptr(first); finish=x%indptr(last+1)-1
+    batch%n_rows=last-first+1; batch%n_cols=x%n_cols
+    batch%indptr=x%indptr(first:last+1)-start+1
+    batch%indices=x%indices(start:finish); batch%data=x%data(start:finish)
+  end function
   elemental real(dp) function psi(x) result(value)
     real(dp), intent(in) :: x
     real(dp) :: t,r
@@ -124,17 +162,23 @@ contains
     end do
     self%exp_dirichlet_component_=exp_expectation(self%components_)
   end subroutine
-  subroutine e_step(self,x,docs,statistics,rng)
+  subroutine e_step(self,x,docs,statistics,rng,sparse)
     class(latent_dirichlet_allocation), intent(in) :: self
-    real(dp), intent(in) :: x(:,:)
+    real(dp), optional, intent(in) :: x(:,:)
+    type(csr_matrix), optional, intent(in) :: sparse
     real(dp), allocatable, intent(out) :: docs(:,:)
     real(dp), allocatable, optional, intent(out) :: statistics(:,:)
     type(legacy_random_state), optional, intent(inout) :: rng
-    integer, allocatable :: ids(:)
+    integer, allocatable :: ids(:),last_occurrence(:)
     real(dp), allocatable :: word_topics(:,:),counts(:),norm(:)
     real(dp) :: exp_doc(size(self%components_,1)),old(size(self%components_,1))
     integer :: i,j,k,iteration,n,p,c
-    n=size(x,1); p=size(x,2); c=size(self%components_,1)
+    if(present(sparse)) then
+      n=sparse%n_rows; p=sparse%n_cols
+    else
+      n=size(x,1); p=size(x,2)
+    end if
+    c=size(self%components_,1)
     allocate(docs(n,c)); docs=1
     if(present(rng)) then
       do i=1,n
@@ -145,9 +189,16 @@ contains
     end if
     if(present(statistics)) then
       allocate(statistics(c,p)); statistics=0
+      if(present(sparse)) allocate(last_occurrence(p))
     end if
     do i=1,n
-      ids=pack([(j,j=1,p)],x(i,:)/=0); counts=x(i,ids); word_topics=self%exp_dirichlet_component_(:,ids)
+      if(present(sparse)) then
+        ids=sparse%indices(sparse%indptr(i):sparse%indptr(i+1)-1)
+        counts=sparse%data(sparse%indptr(i):sparse%indptr(i+1)-1)
+      else
+        ids=pack([(j,j=1,p)],x(i,:)/=0); counts=x(i,ids)
+      end if
+      word_topics=self%exp_dirichlet_component_(:,ids)
       exp_doc=exp(expectation(docs(i,:)))
       do iteration=1,self%max_doc_update_iter
         old=docs(i,:); norm=matmul(exp_doc,word_topics)+epsilon(1._dp)
@@ -157,26 +208,43 @@ contains
       end do
       if(present(statistics)) then
         norm=matmul(exp_doc,word_topics)+epsilon(1._dp)
+        if(present(sparse)) then
+          do j=1,size(ids)
+            last_occurrence(ids(j))=j
+          end do
+        end if
         do j=1,size(ids)
+          ! NumPy advanced-index += writes only the last occurrence of a duplicate.
+          if(present(sparse)) then
+            if(last_occurrence(ids(j))/=j) cycle
+          end if
           statistics(:,ids(j))=statistics(:,ids(j))+exp_doc*(counts(j)/norm(j))
         end do
       end if
     end do
     if(present(statistics)) statistics=statistics*self%exp_dirichlet_component_
   end subroutine
-  subroutine em_step(self,x,total,batch_update)
+  subroutine em_step(self,x,total,batch_update,sparse)
     class(latent_dirichlet_allocation), intent(inout) :: self
-    real(dp), intent(in) :: x(:,:),total
+    real(dp), optional, intent(in) :: x(:,:)
+    type(csr_matrix), optional, intent(in) :: sparse
+    real(dp), intent(in) :: total
+    integer :: n
     logical, intent(in) :: batch_update
     real(dp), allocatable :: docs(:,:),statistics(:,:)
     real(dp) :: weight,ratio
     type(legacy_random_state) :: rng
-    rng=self%rng; call e_step(self,x,docs,statistics,rng); self%rng=rng
+    if(present(sparse)) then
+      n=sparse%n_rows
+    else
+      n=size(x,1)
+    end if
+    rng=self%rng; call e_step(self,x,docs,statistics,rng,sparse); self%rng=rng
     if(batch_update) then
       self%components_=self%topic_word_prior_+statistics
     else
       weight=(self%learning_offset+real(self%n_batch_iter_,dp))**(-self%learning_decay)
-      ratio=total/size(x,1)
+      ratio=total/n
       self%components_=(1-weight)*self%components_+weight*(self%topic_word_prior_+ratio*statistics)
     end if
     self%exp_dirichlet_component_=exp_expectation(self%components_)
@@ -286,12 +354,16 @@ contains
         sum(gamma_psi_remainder(values(i,:)))-gamma_psi_remainder(sum(values(i,:)))
     end do
   end function
-  real(dp) function approx_bound(self,x,docs,sub_sampling) result(value)
+  real(dp) function approx_bound(self,x,docs,sub_sampling,sparse) result(value)
     class(latent_dirichlet_allocation), intent(in) :: self
-    real(dp), intent(in) :: x(:,:),docs(:,:)
+    real(dp), optional, intent(in) :: x(:,:)
+    type(csr_matrix), optional, intent(in) :: sparse
+    real(dp), intent(in) :: docs(:,:)
     logical, intent(in) :: sub_sampling
-    real(dp) :: log_docs(size(docs,1),size(docs,2)),log_topics(size(self%components_,1),size(x,2))
-    integer :: i,j
+    real(dp) :: log_docs(size(docs,1),size(docs,2))
+    real(dp) :: log_topics(size(self%components_,1),size(self%components_,2))
+    integer :: i,j,k,n,p
+    n=size(docs,1); p=size(self%components_,2)
     do i=1,size(docs,1)
       log_docs(i,:)=expectation(docs(i,:))
     end do
@@ -299,15 +371,22 @@ contains
       log_topics(i,:)=expectation(self%components_(i,:))
     end do
     value=0
-    do i=1,size(x,1)
-      do j=1,size(x,2)
-        if(x(i,j)==0) cycle
-        value=value+x(i,j)*logsumexp(log_docs(i,:)+log_topics(:,j))
-      end do
+    do i=1,n
+      if(present(sparse)) then
+        do k=sparse%indptr(i),sparse%indptr(i+1)-1
+          j=sparse%indices(k)
+          value=value+sparse%data(k)*logsumexp(log_docs(i,:)+log_topics(:,j))
+        end do
+      else
+        do j=1,p
+          if(x(i,j)==0) cycle
+          value=value+x(i,j)*logsumexp(log_docs(i,:)+log_topics(:,j))
+        end do
+      end if
     end do
     value=value+dirichlet_bound(self%doc_topic_prior_,docs,log_docs,self%n_components)
-    if(sub_sampling) value=value*(self%total_samples/size(x,1))
-    value=value+dirichlet_bound(self%topic_word_prior_,self%components_,log_topics,size(x,2))
+    if(sub_sampling) value=value*(self%total_samples/n)
+    value=value+dirichlet_bound(self%topic_word_prior_,self%components_,log_topics,p)
   end function
   real(dp) function score(self,x) result(value)
     class(latent_dirichlet_allocation), intent(in) :: self
@@ -327,6 +406,120 @@ contains
     if(present(sub_sampling)) subsample=sub_sampling
     call e_step(self,x,docs); bound=approx_bound(self,x,docs,subsample); words=sum(x)
     if(subsample) words=words*(self%total_samples/size(x,1))
+    if(words==0) then
+      if(bound<0) then
+        value=ieee_value(0._dp,ieee_positive_inf)
+      else if(bound>0) then
+        value=0
+      else
+        value=ieee_value(0._dp,ieee_quiet_nan)
+      end if
+      return
+    end if
+    exponent=-bound/words
+    if(exponent>log(huge(1._dp))) then
+      value=ieee_value(0._dp,ieee_positive_inf)
+    else
+      value=exp(exponent)
+    end if
+  end function
+  subroutine chunks_sparse(self,x,total)
+    class(latent_dirichlet_allocation), intent(inout) :: self
+    type(csr_matrix), intent(in) :: x
+    real(dp), intent(in) :: total
+    integer :: first,last
+    first=1
+    do
+      last=first+min(self%batch_size,x%n_rows-first+1)-1
+      call em_step(self,total=total,batch_update=.false.,sparse=sparse_rows(x,first,last))
+      if(last==x%n_rows) exit
+      first=last+1
+    end do
+  end subroutine
+  subroutine fit_sparse(self,x)
+    class(latent_dirichlet_allocation), intent(inout) :: self
+    type(csr_matrix), intent(in) :: x
+    real(dp) :: current,previous
+    logical :: evaluated
+    integer :: i
+    call controls(self); call sparse_check(x); call initialize(self,x%n_cols)
+    evaluated=.false.; previous=0
+    do i=1,self%max_iter
+      if(self%learning_method=='online') then
+        call chunks_sparse(self,x,real(x%n_rows,dp))
+      else
+        call em_step(self,total=real(x%n_rows,dp),batch_update=.true.,sparse=x)
+      end if
+      if(self%evaluate_every>0) then
+        if(mod(i,self%evaluate_every)==0) then
+          current=self%perplexity(x)
+          if(evaluated) then
+            if(ieee_is_finite(previous).and.ieee_is_finite(current)) then
+              if(previous/=0) then
+                if(abs(previous-current)<self%perp_tol) exit
+              end if
+            end if
+          end if
+          previous=current; evaluated=.true.
+        end if
+      end if
+      ! Source does not increment n_iter_ for the iteration triggering early stopping.
+      self%n_iter_=self%n_iter_+1
+    end do
+    self%bound_=self%perplexity(x)
+  end subroutine
+  subroutine partial_fit_sparse(self,x)
+    class(latent_dirichlet_allocation), intent(inout) :: self
+    type(csr_matrix), intent(in) :: x
+    call controls(self); call sparse_check(x)
+    if(.not.allocated(self%components_)) then
+      call initialize(self,x%n_cols)
+    else
+      call sparse_query(self,x)
+    end if
+    call chunks_sparse(self,x,self%total_samples)
+  end subroutine
+  function transform_sparse(self,x,normalize) result(docs)
+    class(latent_dirichlet_allocation), intent(in) :: self
+    type(csr_matrix), intent(in) :: x
+    logical, optional, intent(in) :: normalize
+    real(dp), allocatable :: docs(:,:)
+    logical :: normalized
+    integer :: i
+    call sparse_query(self,x); call e_step(self,docs=docs,sparse=x)
+    normalized=.true.
+    if(present(normalize)) normalized=normalize
+    if(normalized) then
+      do i=1,size(docs,1)
+        docs(i,:)=docs(i,:)/sum(docs(i,:))
+      end do
+    end if
+  end function
+  function fit_transform_sparse(self,x,normalize) result(docs)
+    class(latent_dirichlet_allocation), intent(inout) :: self
+    type(csr_matrix), intent(in) :: x
+    logical, optional, intent(in) :: normalize
+    real(dp), allocatable :: docs(:,:)
+    call self%fit(x); docs=self%transform(x,normalize)
+  end function
+  real(dp) function score_sparse(self,x) result(value)
+    class(latent_dirichlet_allocation), intent(in) :: self
+    type(csr_matrix), intent(in) :: x
+    real(dp), allocatable :: docs(:,:)
+    call sparse_query(self,x); call e_step(self,docs=docs,sparse=x)
+    value=approx_bound(self,docs=docs,sub_sampling=.false.,sparse=x)
+  end function
+  real(dp) function perplexity_sparse(self,x,sub_sampling) result(value)
+    class(latent_dirichlet_allocation), intent(in) :: self
+    type(csr_matrix), intent(in) :: x
+    logical, optional, intent(in) :: sub_sampling
+    real(dp), allocatable :: docs(:,:)
+    real(dp) :: bound,words,exponent
+    logical :: subsample
+    call sparse_query(self,x); subsample=.false.
+    if(present(sub_sampling)) subsample=sub_sampling
+    call e_step(self,docs=docs,sparse=x); bound=approx_bound(self,docs=docs,sub_sampling=subsample,sparse=x); words=sum(x%data)
+    if(subsample) words=words*(self%total_samples/x%n_rows)
     if(words==0) then
       if(bound<0) then
         value=ieee_value(0._dp,ieee_positive_inf)

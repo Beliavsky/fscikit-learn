@@ -11502,3 +11502,27 @@ Verified backup: minibatch_dense_evidence_86becf4.zip,
 ZIP CRCs and critical source/report/object/binary hashes pass. Receipt:
 validation/results/minibatch_dense_archive_receipt.json (ignored evidence).
 Metadata retains false full project Source parity and passing audited checks.
+
+
+## CSR LatentDirichletAllocation implementation
+
+Added CSR overloads for fit, fit_transform, partial_fit, transform, score and
+perplexity. The dense and sparse entry points share initialization, E-step,
+EM updates, stable evidence-bound algebra and RNG state. CSR online batches
+copy stored row slices; no dense document/word input is formed. Topic/word
+factors and statistics and document/topic factors remain dense. Unsorted
+columns, duplicate entries and explicit zeros preserve sklearn 1.6.1 storage
+semantics, including last-occurrence advanced-index sufficient-statistic writes.
+A vocabulary-sized index map avoids quadratic duplicate detection. Stored
+negative/nonfinite values and invalid CSR shapes are rejected before training.
+
+Initial checked private probes pass the 120 canonical CSR configurations
+(6,734 result groups), 72 raw-storage sequences (4,212 groups), nine rejection
+checks and native dense/CSR, mixed storage, copying and streaming invariants.
+The 2048-by-50000 memory fixture completes fit, partial_fit, transform, score
+and perplexity below 128 MiB; the latest private probe uses 14,376,960 bytes
+against an 819,200,000-byte dense input. Full current-source fpm regression and
+scoped optimized validation are pending at this implementation commit. Source
+references are installed sklearn 1.6.1 decomposition/_lda.py, with existing
+BSD/NumPy notices retained and original Fortran adapters under MIT. No new
+public algorithm beyond scikit-learn or external dependency is introduced.

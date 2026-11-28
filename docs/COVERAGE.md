@@ -3089,7 +3089,7 @@ No inverse transform or prediction method is supplied by the source estimator.
 
 ## LatentDirichletAllocation
 
-latent_dirichlet_allocation implements dense single-worker sklearn 1.6.1 batch
+latent_dirichlet_allocation implements dense/CSR single-worker sklearn 1.6.1 batch
 and online variational Bayes topic modeling. Inputs are nonnegative finite
 real64 document/word count matrices; fractional counts and empty documents are
 accepted. components_ is (n_components,n_features_in_), containing topic-word
@@ -3154,7 +3154,16 @@ priors, fractional/zero counts, unused columns, tiny priors, zero inner/outer
 iterations, early stopping, huge populations, single words/topics, more topics
 than documents, dimensional refits and mixed training/inference calls.
 
-The backend is dense real64 CPU with one worker. Sparse/float32 input, n_jobs,
+CSR fit, fit_transform, partial_fit, transform, score and perplexity traverse
+stored entries directly, including unsorted columns, explicit zeros and repeated
+indices. Raw negative stored counts are rejected before any duplicate merging.
+The E-step preserves Source advanced-index sufficient-statistic assignment: for
+a repeated column in one document, only its last stored contribution is written,
+although all stored counts contribute to inference and the likelihood bound.
+Online chunks copy only their CSR rows. Topic-word factors/statistics and
+document-topic factors remain dense; there is no dense document-word allocation.
+
+The backend is real64 CPU with one worker. Float32 input, n_jobs,
 verbose logs, object/global RNGs, feature-name metadata and persistence are
 outside scope. random_state defaults to deterministic zero. There is no inverse
 transform or inductive classification contract. CountVectorizer output can be

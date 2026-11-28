@@ -2584,7 +2584,10 @@ See COVERAGE.md for distribution assumptions, RNG contracts and supported scope.
 ## LatentDirichletAllocation
 
 Import latent_dirichlet_allocation from sklearn, sklearn_decomposition or
-sklearn_lda. It operates on dense nonnegative document/word count arrays.
+sklearn_lda. All six methods accept dense real64 arrays or csr_matrix
+document/word counts. CSR inputs are processed by stored row entries without
+allocating a dense document/word matrix; topic-word and document-topic factors
+remain dense. Dense and CSR calls can share the same fitted model.
 
 ```fortran
 type(latent_dirichlet_allocation) :: model
