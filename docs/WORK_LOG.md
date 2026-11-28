@@ -11658,3 +11658,41 @@ at this implementation commit. The prior six dense hierarchy tie/roundoff
 partition gaps are not claimed closed. MIT, sklearn/HDBSCAN BSD and SciPy BSD
 notices are retained; no runtime dependency or non-sklearn algorithm is added.
 The broad translation goal remains active and commits stay local.
+
+
+## CSR HDBSCAN final verification (implementation 99ba987)
+
+The checked GNU 15.2.0 fpm rebuild succeeds. All 328 native programs and eleven
+selected examples pass, giving 342 successful checked audit jobs. The scoped
+optimized audit has five successful jobs with only sklearn_hdbscan optimized;
+harnesses remain checked and the other 210 of 211 library members are unchanged.
+Both profiles pass all 3,786 direct CSR groups across 176 fixtures, 2,604 dense
+certified groups, twelve Source rejection cases, one identified nonnegative-
+distance correction and two native CSR invariants. Dense direct partition
+agreement stays 114/120; none of its six gaps is claimed closed.
+
+The 12000-point memory fixture peaks at 12,144,640 checked / 12,099,584 optimized
+bytes, versus a 128 MiB limit and 1,152,000,000-byte dense distances. All 951
+current-source dependency fingerprints match. Native/reference executable
+hashes are stable. The CSR validator now also records HDBSCAN/SciPy compiled
+reference modules and SciPy sparse scalar-operation source hashes before and
+after execution; cross-profile verification confirms these current files and
+installed package versions. This provenance addition is included with the
+verification commit. Final checked/baseline archive SHA256:
+a5de40dce22e357bb72c653df5b0996cf1c26cf08d0b3ebcdcb98d218fd8e918.
+
+Reports/logs use validation/results/hdbscan_csr_* (ignored evidence). Current
+source/compiler/report/archive digests and complete inventories pass the cross-
+profile audit. Runtime is static libgfortran with the existing Windows locale-
+copy validation shim; unwrapped runtime stability is not claimed. CSR fitting
+is precomputed-only, effective negative distances and incomplete zero/NaN MSTs
+remain explicit documented guards, and full project Source parity stays false.
+The broad translation goal remains active. MIT/sklearn/HDBSCAN/SciPy notices
+are retained, no external runtime dependency was added, and commits are local.
+
+Verified backup: hdbscan_csr_evidence_99ba987.zip, 28,011,269 bytes / 2,054
+entries, SHA256 7b4bf8c65efdf346fd9c1839e81596b458909ce2684bb614f34ecc94ea0f83b2.
+ZIP CRCs and archived source/report/object/binary hashes pass. Receipt:
+validation/results/hdbscan_csr_archive_receipt.json. The archive includes the
+implementation and verification documentation before this receipt was appended.
+Metadata retains false full project Source parity and passing audited checks.

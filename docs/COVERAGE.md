@@ -3055,8 +3055,33 @@ all-zero fixture). NaN MST weights are also rejected. These mathematical guards
 are identified native corrections, not claims of complete Source acceptance
 parity. Tree/automatic backends, sparse feature inputs, callable metrics,
 parallel controls and in-place copy=False remain absent.
-There is no inductive prediction method. See compare_hdbscan.py for the direct
-and hierarchy-conditioned checks and test_hdbscan.f90 for analytic fixtures.
+CSR validation checks 176 fixtures across six seeds and graph sizes 19 through
+513, with 3,786 groups per checked/optimized profile. Core order statistics,
+MST endpoints and weights, linkage children and heights, condensation structure,
+metadata and cut partitions match Source exactly. Strengths, lambdas and
+stabilities use atol=rtol=3e-8 with equal NaNs; selected-cluster labelling is also
+replayed through Source. Tests cover dense-pattern/k-neighbor graphs, explicit
+diagonals, unsorted storage, duplicate/coalesced signed counts, accepted small
+asymmetry, eom/leaf/epsilon/cap controls, scaling, subnormal distances, reciprocal
+overflow and finite/infinite/negative/NaN max_distance values. Raw finite CSR
+and malformed/disconnected/degree-limited graphs have twelve matching Source
+rejections, one native negative-distance correction and two storage invariants.
+
+A 12000-point, 59,994-entry graph completes fitting and a DBSCAN cut with
+12,144,640 checked / 12,099,584 optimized peak working-set bytes, below 128 MiB
+and a 1,152,000,000-byte dense distance matrix. All 328 native test programs and
+eleven selected examples pass, with 951 dependency-aware source fingerprints.
+The scoped optimized build compiles only sklearn_hdbscan with -O3, keeping
+checked harnesses and the other 210 checked library members unchanged. The
+retained dense suite passes 2,604 certified groups; its six direct partition
+gaps remain (114/120 matches). Reference provenance records sklearn 1.6.1,
+NumPy 2.2.6, SciPy 1.15.3, source hashes and HDBSCAN/SciPy extension binary hashes
+before/after execution. Validation uses GNU 15.2.0 with static libgfortran and
+the Windows locale-copy shim. Full project Source parity remains false.
+
+There is no inductive prediction method. See compare_hdbscan.py for dense direct
+and hierarchy-conditioned checks, compare_hdbscan_sparse.py for direct CSR
+checks, and the native HDBSCAN tests for analytic fixtures.
 
 
 ## BernoulliRBM

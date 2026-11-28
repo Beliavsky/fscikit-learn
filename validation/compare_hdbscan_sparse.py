@@ -9,7 +9,8 @@ from scipy.sparse import csr_matrix
 from sklearn.cluster import HDBSCAN
 from sklearn.cluster._hdbscan.hdbscan import _brute_mst
 from sklearn.cluster._hdbscan._reachability import mutual_reachability_graph
-from sklearn.cluster._hdbscan import _tree
+from sklearn.cluster._hdbscan import _tree,_reachability,_linkage
+from scipy.sparse.csgraph import _min_spanning_tree
 from sklearn.metrics import pairwise_distances
 from compare_hdbscan import canonical,stability
 
@@ -82,6 +83,10 @@ def write_input(path,x,options,cuts,operation):
 
 def main():
     ap=argparse.ArgumentParser();ap.add_argument('--executable',type=Path,required=True);ap.add_argument('--report',type=Path,required=True);a=ap.parse_args();exe=a.executable.resolve();digest=hashlib.sha256(exe.read_bytes()).hexdigest();checks=[];records=[]
+    reference_files=[Path(module.__file__).resolve() for module in [_tree,_reachability,_linkage,_min_spanning_tree]]
+    scipy_root=Path(scipy.__file__).parent
+    reference_files += [scipy_root/'sparse/_data.py',scipy_root/'sparse/_compressed.py']
+    reference_hashes={str(path):hashlib.sha256(path.read_bytes()).hexdigest() for path in reference_files}
     with tempfile.TemporaryDirectory(prefix='fsklearn-hdbscan-csr-reference-') as work:
         work=Path(work)
         for seed,case,x,options in fixtures():
@@ -114,8 +119,9 @@ def main():
                 records.append(dict(seed=seed,case=case,stored=x.nnz,passed=True))
             if case==37:print(f'CSR HDBSCAN seed {seed}: configurations passed',flush=True)
     assert digest==hashlib.sha256(exe.read_bytes()).hexdigest()
+    assert reference_hashes=={str(path):hashlib.sha256(path.read_bytes()).hexdigest() for path in reference_files}
     source_root=Path(sklearn.__file__).parent
     source_files=['cluster/_hdbscan/hdbscan.py','cluster/_hdbscan/_reachability.pyx','cluster/_hdbscan/_linkage.pyx','cluster/_hdbscan/_tree.pyx']
-    a.report.write_text(json.dumps(dict(sklearn=sklearn.__version__,numpy=np.__version__,scipy=scipy.__version__,fixtures=len(records),checks=checks,records=records,executable_sha256=digest,source_sha256={name:hashlib.sha256((source_root/name).read_bytes()).hexdigest() for name in source_files}),indent=2)+'\n')
+    a.report.write_text(json.dumps(dict(sklearn=sklearn.__version__,numpy=np.__version__,scipy=scipy.__version__,fixtures=len(records),checks=checks,records=records,executable_sha256=digest,reference_sha256=reference_hashes,source_sha256={name:hashlib.sha256((source_root/name).read_bytes()).hexdigest() for name in source_files}),indent=2)+'\n')
     print(len(checks),'CSR HDBSCAN groups passed')
 if __name__=='__main__':main()
