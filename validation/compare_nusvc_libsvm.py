@@ -9,7 +9,7 @@ from sklearn.metrics.pairwise import linear_kernel, rbf_kernel, polynomial_kerne
 
 
 def fixtures():
-    kinds=['linear','rbf','poly','sigmoid','pre_linear','pre_rbf','pre_poly','pre_sigmoid','pre_indefinite']
+    kinds=['linear','rbf','poly','sigmoid','pre_linear','pre_rbf','pre_poly','pre_sigmoid','pre_indefinite','pre_asymmetric','pre_near_asymmetric','pre_small_asymmetric']
     for seed,kind,classes,nu,weighted,cap,shrinking in itertools.product(
             [7,42],kinds,[2,3,4],[.2,.55],[0,1],[1,31,10000],[False,True]):
         yield dict(seed=seed,kind=kind,classes=classes,nu=nu,weighted=weighted,max_iter=cap,
@@ -27,7 +27,11 @@ def arrays(c):
     elif base=='poly':gram=polynomial_kernel(x,**args);qgram=polynomial_kernel(query,x,**args)
     elif base=='sigmoid':gram=sigmoid_kernel(x,gamma=.4,coef0=.2);qgram=sigmoid_kernel(query,x,gamma=.4,coef0=.2)
     else:
-        raw=rng.normal(size=(n,n));gram=(raw+raw.T)/2;qgram=rng.normal(size=(len(query),n))
+        raw=rng.normal(size=(n,n));qgram=rng.normal(size=(len(query),n))
+        if base=='indefinite':gram=(raw+raw.T)/2
+        elif base=='near_asymmetric':gram=(raw+raw.T)/2+1e-8*(raw-raw.T)
+        elif base=='small_asymmetric':gram=raw*1e-12;qgram*=1e-12
+        else:gram=raw
     precomputed=c['kind'].startswith('pre_')
     return (gram if precomputed else x),(qgram if precomputed else query),y,weight,gram
 
@@ -95,12 +99,14 @@ def main():
                     if np.any(above) and np.any(below):gap=max(gap,float(gradient[above].max()-gradient[below].min()))
                 np.testing.assert_allclose(gap,v['native_kkt'][pair],atol=1e-8,rtol=1e-6)
                 cache_error=float(np.max(np.abs(gram-gram.astype(np.float32).astype(float))@alpha[:,pair]))
-                if v['native_iterations'][pair]<c['max_iter']:assert gap<=1e-8+2*cache_error+1e-8,(case_id,pair,gap,cache_error)
+                if not c['kind'].endswith('asymmetric') and v['native_iterations'][pair]<c['max_iter']:assert gap<=1e-8+2*cache_error+1e-8,(case_id,pair,gap,cache_error)
                 public=np.zeros(len(y))
                 lower=y[support]==labels[a];upper=y[support]==labels[b]
                 public[support[lower]]=dual[b-1,lower];public[support[upper]]=dual[a,upper]
                 np.testing.assert_allclose(public,unscaled/v['native_scales'][pair]*(-1 if k==2 else 1),atol=1e-10,rtol=1e-10)
-                records.append(dict(passed=True,kkt=gap,capped=bool(v['status'][0])));pair+=1
+                records.append(dict(passed=True,kkt=gap,capped=bool(v['status'][0]),
+                                    symmetric_qp_bound_applicable=not c['kind'].endswith('asymmetric'),
+                                    cache_rounding_error=cache_error));pair+=1
         certificates.append(records)
     gaps=[check for check in checks if not check['passed']]
     assert hashes=={p:sha(p) for p in hashes}

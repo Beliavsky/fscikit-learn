@@ -2485,7 +2485,10 @@ and explicit zeros follow LIBSVM sparse kernel evaluation; linear coefficient
 storage follows canonical sparse matrix multiplication. CSR fitting does not
 allocate a dense feature matrix or feature-width coefficient accumulator.
 
-Nu feasibility uses per-class sample-weight totals. Precomputed queries have
+Nu feasibility uses per-class sample-weight totals. Precomputed training
+matrices must be finite and square; symmetric, indefinite and asymmetric
+matrices are accepted, following LIBSVM row-cache behavior. The fitted model
+does not retain a training-Gram copy. Precomputed queries have
 one column per original training row, including zero-weight rows. Support
 indices refer to original training rows and start at one. See COVERAGE.md for
 fully bound normalizations, solver differences, explicit degenerate errors,

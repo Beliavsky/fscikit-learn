@@ -3137,3 +3137,10 @@ gamma scaling follows `svm/_base.py`; sparse query kernels retain raw duplicate
 node semantics. Typed storage adapters, sparse coefficient assembly, refit
 management and validation harnesses are MIT contributions. Existing BSD notices
 in `LICENSES/` are retained.
+
+
+NuSVC's asymmetric precomputed path follows bundled LIBSVM
+`Kernel::kernel_precomputed`, `SVC_Q::get_Q`, Solver_NU cache updates and
+threshold normalization. Native original-row query adapters, storage cleanup
+and the expanded validation harness are MIT contributions; the existing
+LIBSVM/sklearn BSD notices remain applicable.

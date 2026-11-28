@@ -2933,7 +2933,8 @@ is mathematically equivalent to dropping the zero-weight rows and avoids a
 verified sklearn 1.6.1 wrapper mismatch between compacted support indices and
 unreduced query columns. Native precomputed queries retain all original
 training columns; original sample indices remain valid. Training precomputed
-matrices must be finite, square and symmetric. Zero or unbounded margin
+matrices must be finite and square; asymmetric matrices follow the Source
+row-oriented precomputed cache. Zero or unbounded margin
 normalization is rejected explicitly rather than returning nonfinite model
 coefficients. This includes degenerate constant kernels and some fully
 saturated nu endpoints that also fail in sklearn.
@@ -2986,7 +2987,19 @@ and comparing checked versus optimized outputs. Evidence and logs use
 `validation/results/nusvc_libsvm_`; the persistent workspace build and Windows
 locale-copy/static-libgfortran validation workaround remain in use.
 
-Current CSR NuSVC verification: the coherent GNU 15.2 checked build passes all
+Precomputed NuSVC now accepts finite asymmetric matrices as sklearn does,
+including small-scale inputs formerly admitted only by the symmetry tolerance.
+Q columns follow Source get_Q(j,:) row indexing. Query evaluation uses the
+supplied Gram rows directly, without retaining a training-Gram copy in fitted
+feature storage. Dense and CSR refits clear the previous representation before
+precomputed fitting. The original-row support/query convention with zero
+weights remains the documented native adapter. Asymmetric inputs are compared
+mechanically with Source rather than treated as positive-semidefinite kernels:
+box/mass/public-layout and row-margin residual replays still apply, but the
+symmetric-QP cache-rounding stationarity bound does not apply to them. Public
+output comparisons retain the same tolerances and no exemptions.
+
+Previous CSR NuSVC verification: the coherent GNU 15.2 checked build passes all
 342 native programs and all 1,207 compiled-source fingerprints. Four selected
 native harnesses also pass with sklearn_nu_classification at O3/unroll, retaining
 harness bounds checks and floating-point traps. Per profile, the new CSR corpus

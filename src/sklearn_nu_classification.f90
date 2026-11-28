@@ -414,21 +414,21 @@ contains
       gram=libsvm_sparse_gram(self%x_fit_csr_,self%x_fit_csr_,self%fitted_kernel,self%gamma_, &
         self%fitted_coef0,self%fitted_degree,.true.)
     else
-      self%x_fit=dense
-      if(self%gamma_==-1)then
-        self%gamma_=1._dp/p
-        if(self%gamma_rule=='scale')then
-          mean=sum(dense)/size(dense);variance=sum((dense-mean)**2)/size(dense);self%gamma_=1
-          if(variance>0)self%gamma_=1/(p*variance)
-        end if
-      end if
       if(self%kernel=='precomputed')then
         self%gamma_=0
         call require(p==n,'NuSVC precomputed training matrix must be square')
-        call require(all(abs(dense-transpose(dense))<=1.e-10_dp*max(1._dp,abs(dense),abs(transpose(dense)))), &
-          'NuSVC precomputed training matrix must be symmetric')
+        gram=dense
+      else
+        self%x_fit=dense
+        if(self%gamma_==-1)then
+          self%gamma_=1._dp/p
+          if(self%gamma_rule=='scale')then
+            mean=sum(dense)/size(dense);variance=sum((dense-mean)**2)/size(dense);self%gamma_=1
+            if(variance>0)self%gamma_=1/(p*variance)
+          end if
+        end if
+        gram=kernel_matrix(self,dense,dense)
       end if
-      gram=kernel_matrix(self,dense,dense)
     end if
     self%n_features_in_=p
     call require(all(ieee_is_finite(gram)),'NuSVC nonfinite Gram matrix')
@@ -538,7 +538,9 @@ contains
     call require(allocated(self%dual_full),'NuSVC is not fitted'); call check_x(x)
     call require(size(x,2)==self%n_features_in_,'NuSVC query feature count mismatch')
     call shape_controls(self)
-    if(self%sparse_fit_)then
+    if(self%fitted_kernel=='precomputed')then
+      gram=x
+    else if(self%sparse_fit_)then
       query=csr_from_dense(x)
       gram=libsvm_sparse_gram(query,self%x_fit_csr_,self%fitted_kernel,self%gamma_, &
         self%fitted_coef0,self%fitted_degree,.false.)
