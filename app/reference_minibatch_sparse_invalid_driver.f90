@@ -7,11 +7,12 @@ program reference_minibatch_sparse_invalid_driver
   type(mini_batch_nmf)::model
   type(csr_matrix)::x,q
   real(dp)::a(4,3)
-  real(dp),allocatable::w(:,:),w0(:,:),h0(:,:)
+  real(dp),allocatable::w(:,:),w0(:,:),h0(:,:),dense_x(:,:),dense_q(:,:)
   integer::which
-  logical::partial
+  logical::partial,dense
   character(32)::arg
   call get_command_argument(1,arg);read(arg,*)which
+  call get_command_argument(2,arg);dense=trim(arg)=='dense'
   a=reshape([1._dp,.5_dp,0._dp,1._dp,.2_dp,0._dp,.7_dp,.4_dp,.8_dp,.9_dp,.3_dp,0._dp],[4,3])
   x=csr_from_dense(a);q=x;allocate(w0(4,2),h0(2,3));w0=.3_dp;h0=.4_dp;partial=.false.
   model%init='random';model%n_components=2;model%max_iter=3;model%batch_size=2
@@ -42,7 +43,13 @@ program reference_minibatch_sparse_invalid_driver
   case(23);q%data(1)=ieee_value(0._dp,ieee_quiet_nan)
   case(24);q=csr_from_arrays(0,3,[1],[integer::],[real(dp)::])
   case(25)
-    print '(a)','minibatch_guard query';w=model%transform(q);stop
+    print '(a)','minibatch_guard query'
+    if(dense)then
+      dense_q=q%to_dense();w=model%transform(dense_q)
+    else
+      w=model%transform(q)
+    end if
+    stop
   case(26);model%init='custom';h0=0
   case(27);model%init='custom';w0(1,1)=-1
   case(28);model%init='custom';h0=reshape([.3_dp,.4_dp,.5_dp,.6_dp],[2,2])
@@ -63,17 +70,40 @@ program reference_minibatch_sparse_invalid_driver
   case(42)
     model%beta_loss=1;partial=.true.;x=csr_from_arrays(1,3,[1,2],[1],[0._dp]);w0=reshape([.3_dp,.3_dp],[1,2])
   end select
+  if(dense)then
+    dense_x=x%to_dense();dense_q=q%to_dense()
+  end if
   if(partial)then
-    print '(a)','minibatch_guard partial';call model%partial_fit(x,w0,h0)
+    print '(a)','minibatch_guard partial'
+    if(dense)then
+      call model%partial_fit(dense_x,w0,h0)
+    else
+      call model%partial_fit(x,w0,h0)
+    end if
   else
-    print '(a)','minibatch_guard fit';w=model%fit_transform(x,w0,h0)
+    print '(a)','minibatch_guard fit'
+    if(dense)then
+      w=model%fit_transform(dense_x,w0,h0)
+    else
+      w=model%fit_transform(x,w0,h0)
+    end if
   end if
   if(which==36.or.which==39)then
     if(which==36)then
       model%beta_loss=.5_dp;model%n_components=1;model%batch_size=1;model%forget_factor=0;model%transform_max_iter=1
     end if
-    print '(a)','minibatch_guard partial';call model%partial_fit(q)
+    print '(a)','minibatch_guard partial'
+    if(dense)then
+      call model%partial_fit(dense_q)
+    else
+      call model%partial_fit(q)
+    end if
   end if
-  print '(a)','minibatch_guard query';w=model%transform(q)
+  print '(a)','minibatch_guard query'
+  if(dense)then
+    w=model%transform(dense_q)
+  else
+    w=model%transform(q)
+  end if
   print '(a)','accepted'
 end program

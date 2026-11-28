@@ -78,6 +78,16 @@ def fixtures():
    yield dict(group='signed',custom=custom,operation=operation),[(operation,csr_matrix(x),c,(w,h) if custom else None),(4,csr_matrix(np.ones((3,4))),c,None)]
 
 def fl(a):return ' '.join(format(float(v),'.17g') for v in np.asarray(a).ravel())
+def dense_boundaries():
+ for scale in [1e155,1e200]:
+  for restart in [False,True]:
+   c=base_options(0);c.update(n_components=1,init='custom',max_iter=12,batch_size=3,tol=0.,max_no_improvement=2,fresh_restarts=restart,fresh_restarts_max_iter=1,transform_max_iter=1)
+   x=np.ones((6,2));w=np.ones((6,1));h=np.full((1,2),scale)
+   yield dict(group='dense_boundary',scale=scale,restart=restart),[(3,x,c.copy(),(w,h)),(4,np.ones((3,2)),c.copy(),None)]
+ for op in [2,4]:
+  for beta in [0.,1.,2.,3.]:
+   c=base_options(0);c.update(n_components=2,init='random',max_iter=3,transform_max_iter=3,beta_loss=beta,tol=0.)
+   yield dict(group='negative_mean',op=op,beta=beta),[(3,np.ones((6,3)),c.copy(),None),(op,-np.ones((3,3)),c.copy(),None)]
 def serialize(ops):
  lines=[str(len(ops))]
  for op,data,c,custom in ops:
@@ -114,8 +124,11 @@ def source(ops):
  return expected,error,step
 
 def main():
- ap=argparse.ArgumentParser();ap.add_argument('--executable',type=Path,required=True);ap.add_argument('--report',type=Path,required=True);a=ap.parse_args();binary=hashlib.sha256(a.executable.read_bytes()).hexdigest();records=[]
- for index,(config,ops) in enumerate(fixtures()):
+ ap=argparse.ArgumentParser();ap.add_argument('--executable',type=Path,required=True);ap.add_argument('--report',type=Path,required=True);ap.add_argument('--dense-input',action='store_true');ap.add_argument('--boundary-cases',action='store_true');a=ap.parse_args();binary=hashlib.sha256(a.executable.read_bytes()).hexdigest();records=[]
+ cases=list(fixtures())+(list(dense_boundaries()) if a.boundary_cases else [])
+ for index,(config,ops) in enumerate(cases):
+  if a.dense_input:
+   ops=[(op,data.toarray() if isinstance(data,csr_matrix) else data,c,custom) for op,data,c,custom in ops]
   text=serialize(ops);inp=a.report.with_suffix('.in');out=a.report.with_suffix('.out');inp.write_text(text);p=subprocess.run([str(a.executable),str(inp),str(out)],capture_output=True,text=True)
   expected,error,step=source(ops);actual={};differences=[]
   if p.returncode==0 and error is None:
@@ -131,6 +144,6 @@ def main():
   if p.returncode not in [0,1] or p.returncode==1 and 'fscikit-learn:' not in p.stdout:differences.append('abnormal_native_exit')
   records.append(dict(index=index,config=config,input=text,source=expected,source_error=error,source_step=step,native=actual,native_step=native_step,returncode=p.returncode,stdout=p.stdout,stderr=p.stderr,differences=sorted(differences)))
  assert binary==hashlib.sha256(a.executable.read_bytes()).hexdigest()
- path=Path(sklearn.__file__).parent/'decomposition/_nmf.py';report=dict(sklearn=sklearn.__version__,numpy=np.__version__,scipy=scipy.__version__,configurations=len(records),source_sha256={'decomposition/_nmf.py':hashlib.sha256(path.read_bytes()).hexdigest()},native_sha256=binary,validator_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),failures=[r['index'] for r in records if r['differences']],records=records)
+ path=Path(sklearn.__file__).parent/'decomposition/_nmf.py';report=dict(sklearn=sklearn.__version__,numpy=np.__version__,scipy=scipy.__version__,dense_input=a.dense_input,configurations=len(records),source_sha256={'decomposition/_nmf.py':hashlib.sha256(path.read_bytes()).hexdigest()},native_sha256=binary,validator_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),failures=[r['index'] for r in records if r['differences']],records=records)
  a.report.write_text(json.dumps(report,indent=2)+'\n');print('CSR MiniBatchNMF',len(records),'strict failures',report['failures']);raise SystemExit(bool(report['failures']))
 if __name__=='__main__':main()

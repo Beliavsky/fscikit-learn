@@ -2957,3 +2957,9 @@ Unsorted sparse prediction-data ordering follows its _special_sparse_dot helper;
 SciPy CSR sorting/coalescing follows the existing attributed helper. Existing
 sklearn/NumPy/SciPy BSD notices remain in LICENSES. New Fortran storage adapters,
 streamed kernels, IEEE-state integration and tests are project MIT contributions.
+
+MiniBatchNMF's dense operation-specific validation, finite-motion checks at zero
+tolerance, and distinct None/NaN convergence state follow sklearn 1.6.1
+ decomposition/_nmf.py and its SciPy linalg.norm calls. Existing sklearn/NumPy/
+SciPy BSD notices remain applicable. Typed Fortran monitor flags, quiet-state
+integration and regression tests are project MIT contributions.

@@ -11565,3 +11565,19 @@ prediction data but combines it with original X.data; that observable Source
 behavior is preserved. Use sorted storage for storage-invariant arithmetic.
 All caller arrays remain unchanged through owned buffers. Sparse inference
 preserves caller IEEE modes/flags while handling Source nonfinite trials.
+
+### MiniBatchNMF dense validation and monitoring
+
+Dense partial_fit and transform now retain the same operation-specific Source
+semantics as the CSR overloads: whole-data fit checks nonnegativity and rejects
+zeros for beta<=0; streaming/inference do not apply that fit-only zero rule.
+First partial_fit validates raw nonnegativity when initializing from data, while
+custom/continued updates follow the actual Source checks. Finite motion inputs
+are checked even when tol=0, and nonfinite trials use controlled package errors.
+Both storage paths preserve caller IEEE modes/flags around arithmetic.
+
+Monitoring now distinguishes an uninitialized cost/minimum from a computed NaN.
+Thus a finite model with a NaN monitoring cost retains Source patience accounting,
+instead of repeatedly resetting the monitor. Refit/first-stream initialization
+resets this state. Existing public fields still expose NaN for absent monitor
+values; private state tracks their initialization separately.

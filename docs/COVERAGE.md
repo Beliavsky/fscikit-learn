@@ -14926,3 +14926,18 @@ Existing dense input-validation subsets and broader API/numerical gaps remain;
 these operation-specific permissive rules are verified for the new CSR overloads.
 Project-wide Source parity remains false. GNU Windows validation retains static
 libgfortran and the validation-only locale-copy shim.
+
+### Dense MiniBatchNMF streaming validation and NaN monitoring
+
+Dense streaming/inference now share Source's operation-specific domain rules,
+closing the previous nonpositive-beta zero-input restriction. Nonfinite motion
+checks apply at tol=0 and arithmetic preserves caller IEEE state. Monitoring
+tracks initialization independently from a computed NaN cost, preserving Source
+patience and refit resets.
+
+The original 248-case dense baseline has thirteen strict failures; all are
+closed. The expanded 260-case probe also closes two NaN-cost stopping failures
+while matching Source's controlled overflow/negative-mean failures. All 43 dense
+validation cases pass. A native large-factor regression verifies finite models,
+four-step patience on NaN cost, reset on refit and IEEE invalid-flag restoration.
+Full checked/scoped-optimized and dense/CSR legacy verification are running.

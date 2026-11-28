@@ -6,7 +6,7 @@ import numpy as np
 from scipy.sparse import csr_matrix
 from sklearn.decomposition import MiniBatchNMF
 
-def source(which):
+def source(which,dense=False):
  a=np.array([[1.,.2,.8],[.5,0,.9],[0,.7,.3],[1.,.4,0.]])
  x=csr_matrix(a);q=x.copy();w=np.full((4,2),.3);h=np.full((2,3),.4);partial=False
  m=MiniBatchNMF(n_components=2,init='random',max_iter=3,batch_size=2,random_state=0)
@@ -50,6 +50,7 @@ def source(which):
  if which in [39,40]:q.data=-q.data
  if which==41:m.init='nndsvd';m.n_components=5
  if which==42:m.beta_loss=1;partial=True;x=csr_matrix(([0.],[0],[0,1]),shape=(1,3));w=w[:1]
+ if dense:x=x.toarray();q=q.toarray()
  stage='query' if which==25 else 'partial' if partial else 'fit';error=None
  try:
   with warnings.catch_warnings(),np.errstate(all='ignore'):
@@ -65,9 +66,9 @@ def source(which):
  return error,stage
 
 def main():
- ap=argparse.ArgumentParser();ap.add_argument('--executable',type=Path,required=True);ap.add_argument('--report',type=Path,required=True);a=ap.parse_args();records=[]
+ ap=argparse.ArgumentParser();ap.add_argument('--executable',type=Path,required=True);ap.add_argument('--report',type=Path,required=True);ap.add_argument('--dense-input',action='store_true');a=ap.parse_args();records=[]
  for which in range(43):
-  error,stage=source(which);p=subprocess.run([str(a.executable),str(which)],capture_output=True,text=True);stages=[s.split()[-1] for s in p.stdout.splitlines() if s.startswith('minibatch_guard ')];ns=stages[-1] if stages else None
+  error,stage=source(which,a.dense_input);p=subprocess.run([str(a.executable),str(which)]+(['dense'] if a.dense_input else []),capture_output=True,text=True);stages=[s.split()[-1] for s in p.stdout.splitlines() if s.startswith('minibatch_guard ')];ns=stages[-1] if stages else None
   passed=(p.returncode==0)==(error is None) and ns==stage and p.returncode in [0,1] and (p.returncode==0 or 'fscikit-learn:' in p.stdout)
   records.append(dict(case=which,source_error=error,source_stage=stage,native_stage=ns,returncode=p.returncode,stdout=p.stdout,stderr=p.stderr,passed=passed))
  a.report.write_text(json.dumps(records,indent=2)+'\n');print('MiniBatch CSR controls',sum(x['passed'] for x in records),'/',len(records));raise SystemExit(not all(x['passed'] for x in records))

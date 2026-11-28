@@ -24,6 +24,7 @@ module sklearn_minibatch_nmf
     real(dp) :: beta_loss=2,tol=1.e-4_dp,alpha_w=0,alpha_h=-1,l1_ratio=0,forget_factor=.7_dp
     real(dp) :: beta_loss_=2,gamma_=1,rho_=0,reconstruction_err_=0,ewa_cost_=0,ewa_cost_min_=0
     logical :: fresh_restarts=.false.
+    logical,private::ewa_initialized_=.false.,ewa_min_initialized_=.false.
     character(8) :: init='auto'
     real(dp), allocatable :: components_(:,:),components_numerator_(:,:),components_denominator_(:,:)
   contains
@@ -64,7 +65,8 @@ contains
     class(mini_batch_nmf), intent(in) :: self
     real(dp), intent(in) :: x(:,:)
     call require(allocated(self%components_),'MiniBatchNMF is not fitted')
-    call data_check(x,self%beta_loss_)
+    ! Source inference checks finite shape/features, not fit's input domain.
+    call check_x(x)
     call require(size(x,2)==self%n_features_in_,'MiniBatchNMF feature count mismatch')
   end subroutine
   subroutine resolve(self,x,h,sparse)
@@ -384,7 +386,7 @@ contains
     if(self%gamma_/=1)h=h**self%gamma_
     if(self%beta_loss_<=1)where(h<epsilon(1._dp))h=0
   end function
-  subroutine suspend_sparse_ieee(halting,raised)
+  subroutine nmf_suspend_ieee(halting,raised)
     logical,intent(out)::halting(size(ieee_all)),raised(size(ieee_all))
     integer::i
     do i=1,size(ieee_all)
@@ -392,7 +394,7 @@ contains
       call ieee_set_halting_mode(ieee_all(i),.false.)
     end do
   end subroutine
-  subroutine restore_sparse_ieee(halting,raised)
+  subroutine nmf_restore_ieee(halting,raised)
     logical,intent(in)::halting(size(ieee_all)),raised(size(ieee_all))
     integer::i
     do i=1,size(ieee_all)
@@ -480,6 +482,8 @@ contains
   logical function small_motion(current,old,tol) result(small)
     real(dp), intent(in) :: current(:,:),old(:,:),tol
     real(dp) :: norm
+    call require(all(ieee_is_finite(current)).and.all(ieee_is_finite(current-old)), &
+      'MiniBatchNMF motion must be finite')
     small=.false.
     if(tol<=0) return
     norm=sqrt(sum(current**2))
@@ -569,8 +573,9 @@ contains
     integer(int64), intent(in) :: iteration
     real(dp) :: weight
     stopped=.false.; if(iteration==0) return
-    if(ieee_is_nan(self%ewa_cost_)) then
+    if(.not.self%ewa_initialized_) then
       self%ewa_cost_=cost
+      self%ewa_initialized_=.true.
     else
       weight=min(1._dp,real(batch,dp)/(real(n,dp)+1))
       self%ewa_cost_=(1-weight)*self%ewa_cost_+weight*cost
@@ -578,8 +583,9 @@ contains
     if(small_motion(h,old,self%tol)) then
       stopped=.true.; return
     end if
-    if(ieee_is_nan(self%ewa_cost_min_)) then
+    if(.not.self%ewa_min_initialized_) then
       self%ewa_cost_min_=self%ewa_cost_; self%no_improvement_=0
+      self%ewa_min_initialized_=.true.
     else if(self%ewa_cost_<self%ewa_cost_min_) then
       self%ewa_cost_min_=self%ewa_cost_; self%no_improvement_=0
     else
@@ -592,13 +598,16 @@ contains
     real(dp), intent(in) :: x(:,:)
     real(dp), optional, intent(in) :: w(:,:),h(:,:)
     real(dp), allocatable :: codes(:,:),dictionary(:,:),old(:,:)
-    real(dp) :: cost
+    real(dp) :: cost,value
     integer :: n,batches,first,last
     integer(int64) :: iteration,total
+    logical::halting(size(ieee_all)),raised(size(ieee_all))
     call controls(self); call data_check(x,self%beta_loss); call resolve(self,x,h)
+    call nmf_suspend_ieee(halting,raised)
     call initialize(self,x,w,h,codes,dictionary); old=dictionary
     self%components_numerator_=dictionary; self%components_denominator_=0*dictionary+1
     self%ewa_cost_=ieee_value(0._dp,ieee_quiet_nan); self%ewa_cost_min_=self%ewa_cost_; self%no_improvement_=0
+    self%ewa_initialized_=.false.;self%ewa_min_initialized_=.false.
     n=size(x,1); batches=(n-1)/self%batch_size_+1; total=int(self%max_iter,int64)*batches; first=1; self%n_steps_=0
     do iteration=0_int64,total-1
       last=first+min(self%batch_size_,n-first+1)-1
@@ -613,7 +622,10 @@ contains
     end do
     if(self%fresh_restarts) codes=solve_w(self,x,dictionary,self%transform_max_iter_)
     self%components_=dictionary; self%n_iter_=(self%n_steps_+batches-1)/batches
-    self%reconstruction_err_=sqrt(2*max(0._dp,divergence(x,codes,dictionary,self%beta_loss_)))
+    value=divergence(x,codes,dictionary,self%beta_loss_)
+    if(self%beta_loss_/=2.and.value<0)value=0
+    self%reconstruction_err_=sqrt(2*value)
+    call nmf_restore_ieee(halting,raised)
   end function
   subroutine fit(self,x,w,h)
     class(mini_batch_nmf), intent(inout) :: self
@@ -628,12 +640,17 @@ contains
     real(dp), optional, intent(in) :: w(:,:),h(:,:)
     real(dp), allocatable :: codes(:,:),dictionary(:,:)
     real(dp) :: cost
+    logical::halting(size(ieee_all)),raised(size(ieee_all))
     call controls(self)
+    call nmf_suspend_ieee(halting,raised)
     if(.not.allocated(self%components_)) then
-      call data_check(x,self%beta_loss); call resolve(self,x,h); call initialize(self,x,w,h,codes,dictionary)
+      call check_x(x)
+      if(self%init/='custom')call require(all(x>=0),'MiniBatchNMF X must be nonnegative')
+      call resolve(self,x,h);call initialize(self,x,w,h,codes,dictionary)
       self%components_numerator_=dictionary; self%components_denominator_=0*dictionary+1
       self%n_steps_=0; self%n_iter_=0; self%reconstruction_err_=ieee_value(0._dp,ieee_quiet_nan)
       self%ewa_cost_=ieee_value(0._dp,ieee_quiet_nan); self%ewa_cost_min_=self%ewa_cost_; self%no_improvement_=0
+      self%ewa_initialized_=.false.;self%ewa_min_initialized_=.false.
     else
       call query(self,x); dictionary=self%components_
     end if
@@ -642,12 +659,17 @@ contains
     allocate(codes(0,0))
     call require(self%n_steps_<huge(self%n_steps_),'MiniBatchNMF step counter capacity exceeded')
     cost=step(self,x,codes,dictionary,.true.); self%components_=dictionary; self%n_steps_=self%n_steps_+1
+    call nmf_restore_ieee(halting,raised)
   end subroutine
   function transform(self,x) result(codes)
     class(mini_batch_nmf), intent(in) :: self
     real(dp), intent(in) :: x(:,:)
     real(dp), allocatable :: codes(:,:)
-    call query(self,x); codes=solve_w(self,x,self%components_,self%transform_max_iter_)
+    logical::halting(size(ieee_all)),raised(size(ieee_all))
+    call query(self,x)
+    call nmf_suspend_ieee(halting,raised)
+    codes=solve_w(self,x,self%components_,self%transform_max_iter_)
+    call nmf_restore_ieee(halting,raised)
   end function
   function fit_transform_sparse(self,x,w,h)result(codes)
     class(mini_batch_nmf),intent(inout)::self
@@ -661,11 +683,12 @@ contains
     logical::halting(size(ieee_all)),raised(size(ieee_all))
     call controls(self);prepared=prepare_sparse(x,self%beta_loss,0,.true.)
     call resolve(self,h=h,sparse=prepared)
+    call nmf_suspend_ieee(halting,raised)
     call initialize(self,w0=w,h0=h,w=codes,h=dictionary,sparse=prepared);old=dictionary
     self%components_numerator_=dictionary;self%components_denominator_=0*dictionary+1
     self%ewa_cost_=ieee_value(0._dp,ieee_quiet_nan);self%ewa_cost_min_=self%ewa_cost_;self%no_improvement_=0
+    self%ewa_initialized_=.false.;self%ewa_min_initialized_=.false.
     n=x%n_rows;batches=(n-1)/self%batch_size_+1;total=int(self%max_iter,int64)*batches;first=1;self%n_steps_=0
-    call suspend_sparse_ieee(halting,raised)
     do iteration=0_int64,total-1
       last=first+min(self%batch_size_,n-first+1)-1;batch=sparse_batch(prepared,first,last)
       cost=step_sparse(self,batch,codes(first:last,:),dictionary,self%fresh_restarts);self%n_steps_=iteration+1
@@ -684,7 +707,7 @@ contains
     value=sparse_divergence(prepared,codes,dictionary,self%beta_loss_)
     if(self%beta_loss_/=2.and.value<0)value=0
     self%reconstruction_err_=sqrt(2*value)
-    call restore_sparse_ieee(halting,raised)
+    call nmf_restore_ieee(halting,raised)
   end function
   subroutine fit_sparse(self,x,w,h)
     class(mini_batch_nmf),intent(inout)::self
@@ -702,6 +725,7 @@ contains
     real(dp)::cost
     logical::halting(size(ieee_all)),raised(size(ieee_all))
     call controls(self)
+    call nmf_suspend_ieee(halting,raised)
     if(.not.allocated(self%components_))then
       prepared=prepare_sparse(x,self%beta_loss,1,self%init/='custom')
       call resolve(self,h=h,sparse=prepared)
@@ -709,6 +733,7 @@ contains
       self%components_numerator_=dictionary;self%components_denominator_=0*dictionary+1
       self%n_steps_=0;self%n_iter_=0;self%reconstruction_err_=ieee_value(0._dp,ieee_quiet_nan)
       self%ewa_cost_=ieee_value(0._dp,ieee_quiet_nan);self%ewa_cost_min_=self%ewa_cost_;self%no_improvement_=0
+      self%ewa_initialized_=.false.;self%ewa_min_initialized_=.false.
     else
       call require(x%n_cols==self%n_features_in_,'MiniBatchNMF feature count mismatch')
       prepared=prepare_sparse(x,self%beta_loss_,1,.false.);dictionary=self%components_
@@ -716,10 +741,9 @@ contains
     if(allocated(codes))deallocate(codes)
     allocate(codes(0,0))
     call require(self%n_steps_<huge(self%n_steps_),'MiniBatchNMF step counter capacity exceeded')
-    call suspend_sparse_ieee(halting,raised)
     cost=step_sparse(self,prepared,codes,dictionary,.true.)
     self%components_=dictionary;self%n_steps_=self%n_steps_+1
-    call restore_sparse_ieee(halting,raised)
+    call nmf_restore_ieee(halting,raised)
   end subroutine
   function transform_sparse(self,x)result(codes)
     class(mini_batch_nmf),intent(in)::self
@@ -730,9 +754,9 @@ contains
     call require(allocated(self%components_),'MiniBatchNMF is not fitted')
     call require(x%n_cols==self%n_features_in_,'MiniBatchNMF feature count mismatch')
     prepared=prepare_sparse(x,self%beta_loss_,2,.false.)
-    call suspend_sparse_ieee(halting,raised)
+    call nmf_suspend_ieee(halting,raised)
     codes=solve_w_sparse(self,prepared,self%components_,self%transform_max_iter_)
-    call restore_sparse_ieee(halting,raised)
+    call nmf_restore_ieee(halting,raised)
   end function
   function inverse_transform(self,codes) result(x)
     class(mini_batch_nmf), intent(in) :: self

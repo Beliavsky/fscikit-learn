@@ -11416,3 +11416,36 @@ f131780548fad5e43f24e6e9b5da549fff93997a356d209dd6336ec7d0792f84.
 ZIP CRCs and critical source/report/object/binary hashes pass. Receipt:
 validation/results/minibatch_sparse_archive_receipt.json (ignored evidence).
 Metadata retains false full project Source parity and true CSR reference checks.
+
+### Dense MiniBatchNMF Source validation and monitor initialization
+
+Previous goal turn classification: progress (CSR MiniBatchNMF implementation,
+complete audits and verified evidence; 7ac036c/241a99d).
+Fresh inspection confirmed dense query/streaming paths still reused whole-fit
+nonnegative/positive checks. A current 248-sequence dense baseline records
+thirteen failures. Dense transform now validates finite shape/features only;
+first partial_fit checks nonnegativity for data-based initialization, while
+custom/continued streaming follows actual Source acceptance. Fit retains its
+nonnegative and nonpositive-beta-zero restrictions. All thirteen baseline gaps
+close in an isolated checked probe, with unchanged inputs/oracles/tolerances.
+
+Finite-motion validation now runs even with tol=0. Shared quiet arithmetic
+covers dense/sparse initialization, updates and inference, preserving caller
+IEEE modes/flags; nonfinite motion exits with a package diagnostic. Dense final
+reconstruction error retains Source NaNs rather than masking them as zero.
+
+Additional actual Source experiments show finite custom H around 1e155/1e200
+can produce NaN monitoring costs while H/codes remain finite. With one fresh
+restart sweep and patience two, Source stops after four steps. The old NaN-as-
+None sentinel repeatedly reinitialized the monitor, producing two strict
+counter/state failures in the expanded 260-case grid. Private initialization
+flags now distinguish absent monitors from actual NaNs and reset on each fit
+or first partial_fit. The unchanged 260-case probe has no failures, including
+matching controlled failures for nonfinite motion and negative means.
+
+All 43 dense Source/native validation cases pass. The existing native test adds
+a finite-large-H regression verifying four-step NaN patience, preserved NaN
+monitor fields, finite returned model/codes, reset on refit and restored IEEE
+invalid flag. Dense/CSR native parity still passes. Full checked rebuilding and
+final compatibility audits are running. No new estimator/dependency is added;
+MIT/BSD attribution is retained.

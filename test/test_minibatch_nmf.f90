@@ -1,11 +1,14 @@
 program test_minibatch_nmf
   use sklearn_minibatch_nmf, only: mini_batch_nmf
   use sklearn_common, only: dp,require
-  use, intrinsic :: ieee_arithmetic, only: ieee_is_nan
+  use, intrinsic :: ieee_arithmetic, only: ieee_is_nan,ieee_is_finite
+  use,intrinsic::ieee_exceptions,only:ieee_get_flag,ieee_invalid
   implicit none
-  type(mini_batch_nmf) :: model,stream,copy,zero_model
+  type(mini_batch_nmf) :: model,stream,copy,zero_model,large_model
   real(dp) :: x(2,2),w0(2,1),h0(1,2),before(2,2)
   real(dp), allocatable :: w(:,:),reconstructed(:,:)
+  real(dp)::large_x(6,2),large_w(6,1),large_h(1,2)
+  logical::invalid_before,invalid_after
   x=1; w0=1; h0=1; before=x
   model%n_components=1; model%init='custom'; model%max_iter=1; model%tol=0
   w=model%fit_transform(x,w0,h0)
@@ -41,5 +44,23 @@ program test_minibatch_nmf
   call require(zero_model%n_steps_==12,'MiniBatchNMF zero-norm motion does not falsely stop')
   zero_model%init='nndsvda'; w=zero_model%fit_transform(0*x)
   call require(all(w==0).and.all(zero_model%components_==0),'MiniBatchNMF null NNDSVD directions handled explicitly')
+  ! Finite factors can produce a NaN monitoring cost through 0*overflow.
+  ! Source keeps that NaN distinct from its initial None state.
+  large_x=1;large_w=1;large_h=1.e155_dp
+  large_model%n_components=1;large_model%init='custom';large_model%max_iter=12;large_model%batch_size=3
+  large_model%tol=0;large_model%max_no_improvement=2;large_model%fresh_restarts=.true.
+  large_model%fresh_restarts_max_iter=1;large_model%transform_max_iter=1
+  call ieee_get_flag(ieee_invalid,invalid_before)
+  w=large_model%fit_transform(large_x,large_w,large_h)
+  call ieee_get_flag(ieee_invalid,invalid_after)
+  call require(large_model%n_steps_==4.and.large_model%no_improvement_==2,'NaN cost retains Source patience state')
+  call require(ieee_is_nan(large_model%ewa_cost_).and.ieee_is_nan(large_model%ewa_cost_min_), &
+    'NaN cost is preserved rather than reinitialized')
+  call require(all(ieee_is_finite(large_model%components_)).and.all(w==0),'NaN monitoring cost permits finite model')
+  call require(invalid_before.eqv.invalid_after,'dense MiniBatch restores IEEE invalid flag')
+  large_model%batch_size=2
+  w=large_model%fit_transform(x,w0,h0)
+  call require(large_model%n_steps_==4.and.large_model%ewa_cost_==0.and.large_model%ewa_cost_min_==0, &
+    'MiniBatch refit resets initialized monitoring state')
   print *, 'MiniBatchNMF tests passed'
 end program
