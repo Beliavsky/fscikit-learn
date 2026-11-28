@@ -12276,3 +12276,24 @@ Optimized audit SHA256:
 8cd6957ea78ce4f0ca8049565dfa1426834117195ecfddcda1cdac664a5404ee
 
 Local commits only; no push. The broader translation goal remains active.
+
+### 2026-11-28: CSR SGDOneClassSVM and mixed representation streams
+
+Added CSR overloads for all six SGDOneClassSVM methods: fit, partial_fit,
+fit_predict, score_samples, decision_function and predict. Sparse updates,
+lazy scaling and averaging visit stored entries without a dense design.
+Unsorted indices, duplicates, explicit zeros and empty rows are retained.
+The Source .01 sparse intercept decay applies to the entire one-class
+intercept update, while dense batches retain decay 1. Mixed streams retain
+standard/average state; warm fits and coefficient/offset initializers support
+both representations. Input storage is validated and preserved.
+
+Checked probes pass 696 sequences / 1,908 stages / 17,172 comparison groups,
+plus all 1,008 existing dense groups. Coverage includes four schedules,
+shuffling, averaging thresholds, mixed partial batches, warm/initialized fits,
+zero/all-zero weights, zero designs, scale resets and adaptive stopping. Native
+analytic tests, fourteen rejection checks and a 384-by-200,000 memory case
+pass (18,300,928 bytes peak). Dense validation now uses isolated temporary
+protocol files and explicit report paths, permitting independent profile runs.
+Full coherent checked rebuild and checked/O3 audits follow. Existing MIT
+licensing and sklearn/RNG attribution are retained.

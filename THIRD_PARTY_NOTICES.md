@@ -3081,3 +3081,13 @@ Existing sklearn BSD and LIBLINEAR notices in `LICENSES/` apply. The existing
 MT19937/Lemire shuffle and seed bridge are reused. Typed penalty selection,
 owned dense/CSR transpose storage, refit integration, minimum-norm subgradient
 diagnostics and tests are native MIT contributions; no C++ runtime is linked.
+
+## CSR SGDOneClassSVM
+
+`sklearn_sgd_one_class` extends its existing sklearn 1.6.1 translations of
+`linear_model/_stochastic_gradient.py`, `_sgd_fast.pyx.tp`,
+`utils/_weight_vector.pyx.tp` and `_seq_dataset.pyx.tp` to stored CSR entries,
+including make_dataset's .01 sparse intercept decay, averaging, shuffling and
+mixed streaming/warm-start behavior. Existing sklearn BSD and NumPy-compatible
+RNG notices remain in `LICENSES/`. Typed CSR overloads, validation, owned input
+handling, memory checks and test integration are native MIT contributions.

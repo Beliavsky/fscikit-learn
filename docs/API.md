@@ -2407,6 +2407,15 @@ raw_scores=model%score_samples(query)
 labels=model%predict(query)            ! +1 inliers, -1 outliers
 ```
 
+All six methods accept dense real64 arrays or csr_matrix. Query representation
+may differ from fit representation, and successive partial_fit calls may mix
+dense and CSR batches. CSR fitting uses stored entries directly, preserving
+unsorted indices, duplicates and explicit zeros without modifying the input.
+The reference sparse intercept update has decay .01 (dense decay is 1), so
+the same numerical training matrix can give different fitted parameters for
+the two representations. Coefficient vectors and averaging buffers remain
+dense; no dense training design is constructed or retained.
+
 Optional fit arguments coef_init(:) and scalar offset_init initialize the
 parameters. warm_start reuses the public fitted parameters on a subsequent
 fit, while resetting its sample clock and averaging buffers. fit_predict

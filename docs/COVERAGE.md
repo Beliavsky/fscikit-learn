@@ -2758,7 +2758,7 @@ external runtime dependency was added.
 
 ## Online one-class SVM
 
-`sgd_one_class_svm` translates sklearn 1.6.1 SGDOneClassSVM's dense linear
+`sgd_one_class_svm` translates sklearn 1.6.1 SGDOneClassSVM's dense/CSR linear
 one-class updates, including its default optimal learning rate, shuffled
 training, L2 decay, one-class offset update, optional intercept, constant /
 inverse-scaling / adaptive schedules, averaging, fit / partial_fit,
@@ -2768,8 +2768,9 @@ scores +1 and negative scores -1. fit_predict returns training labels after fit.
 
 The internal hinge prediction is X @ w + b with b=1-offset. Hinge updates
 include equality at margin one. Coefficients decay by max(0,1-eta*nu/2), and
-the dense intercept update is update-eta*nu. Sample weights scale the hinge
-update. Zero-weight rows are retained: they still advance the sample clock,
+the dense intercept update is update-eta*nu. CSR multiplies this whole
+intercept update by .01, following make_dataset's sparse offset decay. Sample
+weights scale the hinge update. Zero-weight rows are retained: they still advance the sample clock,
 apply decay and the offset term, contribute to unweighted stopping loss and
 participate in averaging. All-zero weights are accepted. This differs from
 kernel NuSVC's capacity/zero-row convention. Native weights must be finite
@@ -2796,7 +2797,7 @@ random_state=0. Fitted arrays/attributes are coef_, scalar offset_, n_features_i
 n_iter_ and t_. Native converged_ indicates the training-loss stopping predicate
 fired, and loss_ is last-epoch mean pre-update hinge loss. Reaching max_iter or
 performing partial_fit does not assert convergence; source-style warnings are
-replaced by these inspectable attributes. Sparse/float32 paths, early-stopping
+replaced by these inspectable attributes. Float32 paths, early-stopping
 validation, verbose callbacks, random-state objects and signed sample weights
 are outside this subset. Hidden passive-aggressive learning-rate modes are not
 exposed. Extremely small nu that underflows nu/2 is rejected explicitly.
@@ -2810,6 +2811,15 @@ clock/epoch counts are compared with installed sklearn. Prior reference states
 are copied before later calls, since sklearn mutates coefficient buffers in
 place. Native initializers copy their inputs; no caller-array aliasing is used.
 
+
+CSR fit, partial_fit, fit_predict, score_samples, decision_function and
+predict preserve stored order, duplicates and explicit zeros. Empty rows are
+supported. Sparse training and prediction visit stored entries; coefficient,
+lazy-scaling and averaging state remain feature vectors. Mixed dense/CSR
+streams retain the standard and average state, with the intercept decay
+selected for each batch. Warm fits and explicit initializers work with either
+representation. Inputs are validated and remain caller-owned and unchanged;
+no training design is retained or densified.
 
 ## Isolation forests
 

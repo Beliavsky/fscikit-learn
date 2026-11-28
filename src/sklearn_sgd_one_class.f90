@@ -1,8 +1,9 @@
-! Dense SGDOneClassSVM updates follow sklearn 1.6.1 _stochastic_gradient.py,
+! Dense/CSR SGDOneClassSVM updates follow sklearn 1.6.1 _stochastic_gradient.py,
 ! _sgd_fast.pyx.tp, _weight_vector.pyx.tp and _seq_dataset.pyx.tp (BSD notices retained).
 module sklearn_sgd_one_class
   use sklearn_common, only: dp,require,check_x
   use sklearn_legacy_rng, only: legacy_random_state
+  use sklearn_sparse,only:csr_matrix
   use iso_fortran_env, only: int64
   use ieee_arithmetic, only: ieee_is_finite
   implicit none
@@ -18,12 +19,18 @@ module sklearn_sgd_one_class
     real(dp), private :: standard_intercept=1,average_intercept=0
     integer, private :: fitted_average=0
   contains
-    procedure :: fit
-    procedure :: partial_fit
-    procedure :: decision_function
-    procedure :: score_samples
-    procedure :: predict
-    procedure :: fit_predict
+    procedure,private::fit_dense=>fit,fit_sparse
+    generic::fit=>fit_dense,fit_sparse
+    procedure,private::partial_dense=>partial_fit,partial_sparse
+    generic::partial_fit=>partial_dense,partial_sparse
+    procedure,private::decision_dense=>decision_function,decision_sparse
+    generic::decision_function=>decision_dense,decision_sparse
+    procedure,private::samples_dense=>score_samples,samples_sparse
+    generic::score_samples=>samples_dense,samples_sparse
+    procedure,private::predict_dense=>predict,predict_sparse
+    generic::predict=>predict_dense,predict_sparse
+    procedure,private::fit_predict_dense=>fit_predict,fit_predict_sparse
+    generic::fit_predict=>fit_predict_dense,fit_predict_sparse
   end type
 contains
   subroutine controls(self)
@@ -84,18 +91,59 @@ contains
     state=iand(ieor(state,ishft(state,5)),4294967295_int64)
     value=int(iand(state,2147483647_int64))
   end function
-  subroutine run(self,x,epochs,stopping,sample_weight)
+  subroutine check_csr(x)
+    type(csr_matrix),intent(in)::x
+    call x%validate()
+    call require(x%n_rows>0.and.x%n_cols>0,'X must be nonempty')
+    call require(all(ieee_is_finite(x%data)),'X contains NaN or infinity')
+  end subroutine
+  subroutine fit_sparse(self,x,sample_weight,coef_init,offset_init)
+    class(sgd_one_class_svm),intent(inout)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),optional,intent(in)::sample_weight(:),coef_init(:),offset_init
+    real(dp),allocatable::initial(:)
+    real(dp)::offset
+    call controls(self);call check_csr(x)
+    initial=spread(0._dp,1,x%n_cols);offset=0
+    if(self%warm_start.and.allocated(self%coef_))then
+      initial=self%coef_;offset=self%offset_
+    end if
+    if(present(coef_init))initial=coef_init
+    if(present(offset_init))offset=offset_init
+    call initialize(self,x%n_cols,initial,offset)
+    call run(self,epochs=self%max_iter,stopping=.true.,sample_weight=sample_weight,sparse=x)
+  end subroutine
+  subroutine partial_sparse(self,x,sample_weight)
+    class(sgd_one_class_svm),intent(inout)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),optional,intent(in)::sample_weight(:)
+    call controls(self);call check_csr(x)
+    if(.not.allocated(self%standard_coef))call initialize(self,x%n_cols,spread(0._dp,1,x%n_cols),0._dp)
+    call require(x%n_cols==self%n_features_in_,'SGDOneClassSVM feature count mismatch')
+    call require(self%average==self%fitted_average,'SGDOneClassSVM averaging cannot change during partial_fit')
+    call run(self,epochs=1,stopping=.false.,sample_weight=sample_weight,sparse=x)
+  end subroutine
+  subroutine run(self,x,epochs,stopping,sample_weight,sparse)
     class(sgd_one_class_svm), intent(inout) :: self
-    real(dp), intent(in) :: x(:,:)
+    real(dp),optional, intent(in) :: x(:,:)
+    type(csr_matrix),optional,intent(in)::sparse
     integer, intent(in) :: epochs
     logical, intent(in) :: stopping
     real(dp), optional, intent(in) :: sample_weight(:)
     type(legacy_random_state) :: rng
-    real(dp) :: w(size(x,2)),aw(size(x,2)),weights(size(x,1)),b,ab,alpha,eta,optimal_init,typw
+    real(dp),allocatable::w(:),aw(:),weights(:)
+    integer,allocatable::order(:)
+    real(dp) :: b,ab,alpha,eta,optimal_init,typw,intercept_decay
     real(dp) :: prediction,update,wscale,average_a,average_b,count,mu,sumloss,best_loss,factor
-    integer :: n,p,i,j,k,it,stale,order(size(x,1)),pick,tmp,seed
+    integer :: n,p,i,j,k,it,stale,pick,tmp,seed,column
     integer(int64) :: state
-    n=size(x,1); p=size(x,2); weights=1
+    intercept_decay=1
+    if(present(sparse))then
+      n=sparse%n_rows;p=sparse%n_cols;intercept_decay=.01_dp
+    else
+      n=size(x,1);p=size(x,2)
+    end if
+    allocate(w(p),aw(p),weights(n),order(n));weights=1
     if(present(sample_weight)) then
       call require(size(sample_weight)==n,'SGDOneClassSVM sample weight shape mismatch')
       call require(all(ieee_is_finite(sample_weight)),'SGDOneClassSVM weights must be finite and nonnegative')
@@ -121,9 +169,15 @@ contains
       sumloss=0
       do j=1,n
         i=order(j); prediction=0
-        do k=1,p
-          prediction=prediction+w(k)*x(i,k)
-        end do
+        if(present(sparse))then
+          do k=sparse%indptr(i),sparse%indptr(i+1)-1
+            prediction=prediction+w(sparse%indices(k))*sparse%data(k)
+          end do
+        else
+          do k=1,p
+            prediction=prediction+w(k)*x(i,k)
+          end do
+        end if
         prediction=prediction*wscale+b
         select case(trim(self%learning_rate))
         case('optimal'); eta=1/(alpha*(optimal_init+self%t_-1))
@@ -135,16 +189,28 @@ contains
         factor=max(0._dp,1-eta*alpha); wscale=wscale*factor
         if(wscale<1.e-9_dp) call reset_scale()
         if(update/=0) then
-          do k=1,p
-            w(k)=w(k)+x(i,k)*(update/wscale)
-          end do
+          if(present(sparse))then
+            do k=sparse%indptr(i),sparse%indptr(i+1)-1
+              column=sparse%indices(k);w(column)=w(column)+sparse%data(k)*(update/wscale)
+            end do
+          else
+            do k=1,p
+              w(k)=w(k)+x(i,k)*(update/wscale)
+            end do
+          end if
         end if
-        if(self%fit_intercept) b=b+(update-2*eta*alpha)
+        if(self%fit_intercept) b=b+(update-2*eta*alpha)*intercept_decay
         if(self%average>0.and.self%t_>=self%average) then
           count=self%t_-self%average+1; mu=1/count
-          do k=1,p
-            aw(k)=aw(k)+average_a*x(i,k)*(-update/wscale)
-          end do
+          if(present(sparse))then
+            do k=sparse%indptr(i),sparse%indptr(i+1)-1
+              column=sparse%indices(k);aw(column)=aw(column)+average_a*sparse%data(k)*(-update/wscale)
+            end do
+          else
+            do k=1,p
+              aw(k)=aw(k)+average_a*x(i,k)*(-update/wscale)
+            end do
+          end if
           if(count>1) average_b=average_b/(1-mu)
           average_a=average_a+mu*average_b*wscale
           ab=ab+(b-ab)/count
@@ -210,5 +276,38 @@ contains
     real(dp), optional, intent(in) :: sample_weight(:)
     integer :: labels(size(x,1))
     call self%fit(x,sample_weight); labels=self%predict(x)
+  end function
+  function samples_sparse(self,x)result(scores)
+    class(sgd_one_class_svm),intent(in)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),allocatable::scores(:)
+    integer::i,k
+    call require(allocated(self%coef_),'SGDOneClassSVM is not fitted');call check_csr(x)
+    call require(x%n_cols==self%n_features_in_,'SGDOneClassSVM feature count mismatch')
+    allocate(scores(x%n_rows));scores=0
+    do i=1,x%n_rows
+      do k=x%indptr(i),x%indptr(i+1)-1
+        scores(i)=scores(i)+self%coef_(x%indices(k))*x%data(k)
+      end do
+    end do
+  end function
+  function decision_sparse(self,x)result(scores)
+    class(sgd_one_class_svm),intent(in)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),allocatable::scores(:)
+    scores=self%score_samples(x)-self%offset_
+  end function
+  function predict_sparse(self,x)result(labels)
+    class(sgd_one_class_svm),intent(in)::self
+    type(csr_matrix),intent(in)::x
+    integer,allocatable::labels(:)
+    labels=merge(1,-1,self%decision_function(x)>=0)
+  end function
+  function fit_predict_sparse(self,x,sample_weight)result(labels)
+    class(sgd_one_class_svm),intent(inout)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),optional,intent(in)::sample_weight(:)
+    integer,allocatable::labels(:)
+    call self%fit(x,sample_weight);labels=self%predict(x)
   end function
 end module

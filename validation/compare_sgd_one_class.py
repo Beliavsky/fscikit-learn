@@ -2,6 +2,8 @@
 from pathlib import Path
 import argparse
 import json
+import hashlib
+import tempfile
 import subprocess
 import warnings
 import numpy as np
@@ -14,7 +16,7 @@ FLAGS = "-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow"
 
 
 def main():
-    parser = argparse.ArgumentParser(); parser.add_argument("--executable", type=Path); args = parser.parse_args()
+    parser = argparse.ArgumentParser(); parser.add_argument("--executable", type=Path); parser.add_argument("--report",type=Path); args = parser.parse_args()
     RESULTS.mkdir(exist_ok=True)
     if args.executable:
         executable = args.executable.resolve()
@@ -25,6 +27,11 @@ def main():
                  if s.strip().strip('"').endswith(("reference_sgd_one_class_driver", "reference_sgd_one_class_driver.exe"))]
         paths = [p for p in paths if p.is_file()]; assert len(paths) == 1, result.stdout
         executable = paths[0].resolve()
+    temporary=tempfile.TemporaryDirectory(prefix='fsklearn-sgd-one-dense-')
+    sha=lambda p:hashlib.sha256(Path(p).read_bytes()).hexdigest()
+    files=[Path(__file__),executable,ROOT/'src/sklearn_sgd_one_class.f90',ROOT/'src/sklearn_legacy_rng.f90',
+        ROOT/'app/reference_sgd_one_class_driver.f90']
+    hashes={str(p):sha(p) for p in files}
     checks = []
     for seed, n, p in ((7, 57, 3), (42, 72, 4), (2026, 45, 5), (0, 12, 2)):
         rng = np.random.default_rng(seed)
@@ -64,7 +71,7 @@ def main():
             if case == 27: options.update(average=n+2); operation = 5
             if case == 28: options.update(nu=.5, tol=1e-3, max_iter=1000)
             if case == 29: operation = 6; w = weights.copy()
-            data, output = RESULTS / "sgd_one_class_input.txt", RESULTS / "sgd_one_class_actual.txt"
+            data, output = Path(temporary.name) / "input.txt", Path(temporary.name) / "actual.txt"
             average = int(options["average"])
             with data.open("w") as stream:
                 stream.write(f"{n} {p} {operation} {int(options['shuffle'])} {int(options['fit_intercept'])}\n")
@@ -102,8 +109,10 @@ def main():
                 tolerance = 0 if name.endswith(("_state", "_predict")) else 3e-8
                 np.testing.assert_allclose(actual[name], np.asarray(value).ravel(), atol=tolerance, rtol=tolerance,
                                            err_msg=f"seed={seed} case={case} {name}")
-                checks.append(dict(seed=seed, case=case, name=name, passed=True))
-    (RESULTS / "sgd_one_class.json").write_text(json.dumps(dict(sklearn=sklearn.__version__, checks=checks), indent=2)+"\n")
+                checks.append(dict(seed=seed, case=case, name=name, passed=True,tolerance=tolerance,actual=actual[name].tolist(),expected=np.asarray(value).ravel().tolist()))
+    (args.report or RESULTS / "sgd_one_class.json").write_text(json.dumps(dict(sklearn=sklearn.__version__, checks=checks,hashes=hashes), indent=2)+"\n")
+    assert hashes=={p:sha(p) for p in hashes}
+    temporary.cleanup()
     print(f"{len(checks)} SGDOneClassSVM result groups passed")
 
 
