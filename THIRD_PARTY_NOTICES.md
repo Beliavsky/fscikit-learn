@@ -746,8 +746,10 @@ dependency was imported.
 ### RandomTreesEmbedding and KernelCenterer
 
 `src/sklearn_tree_embedding.f90` adapts sklearn 1.6.1 `ensemble/_forest.py`,
-`ensemble/_base.py`, and `preprocessing/_encoders.py`, reusing the retained
-sklearn-derived ExtraTree kernel and NumPy-compatible RNG. The source BSD notice
+`ensemble/_base.py`, and `preprocessing/_encoders.py`. Adapted contracts include
+sparse one-hot output, forest decision-path assembly, fractional sample
+controls, weighted leaf thresholds and best-first leaf budgets, reusing the
+retained sklearn-derived ExtraTree kernel and NumPy-compatible RNG. The source BSD notice
 remains in `LICENSES/scikit-learn-COPYING`.
 
 `src/sklearn_kernel_centering.f90` adapts sklearn `preprocessing/_data.py` and

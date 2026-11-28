@@ -5010,16 +5010,27 @@ clears those optional arrays. See `example/threshold_tuning.f90`.
 `random_trees_embedding` is exported by `sklearn_tree_embedding`,
 `sklearn_ensemble`, and `sklearn`. `fit(x,sample_weight)` and
 `fit_transform(x,sample_weight)` draw a seeded uniform random target, fit
-ExtraTree regressors with one sampled feature per node, and fit a dense
-`one_hot_encoder_` to their leaf assignments. `transform` returns real64 binary
-codes, with one active column per fitted tree. This corresponds to source
-`sparse_output=False`; sparse storage is not implemented.
+ExtraTree regressors with one sampled feature per node, and fit a
+`one_hot_encoder_` to their leaf assignments. `transform` returns dense real64
+binary codes, with one active column per fitted tree. `transform_csr` and
+`fit_transform_csr` return owned `csr_matrix` codes corresponding to source
+`sparse_output=True`, without allocating the expanded dense encoding. Temporary
+leaf assignments have shape (samples,trees); the expanded width can be much
+larger. Input features remain dense real64 arrays.
 
 Controls are `n_estimators=100`, `max_depth=5`, `min_samples_split=2`,
-`min_samples_leaf=1`, `min_impurity_decrease=0`, `random_state=0`, and
-`warm_start=.false.`. Depth -1 means unbounded; depth zero retains the native
-root-only convention. Sample counts are integers and impurity decrease is
-finite/nonnegative. Finite sample weights, including zero/signed weights,
+`min_samples_leaf=1`, `min_impurity_decrease=0`, `max_leaf_nodes=0`,
+`min_weight_fraction_leaf=0`, `random_state=0`, and `warm_start=.false.`.
+Depth -1 means unbounded; depth zero retains the native root-only convention.
+A zero leaf budget means unbounded (source None); positive budgets must be at
+least two and use best-first growth. Minimum weighted leaf fractions must be
+finite and in [0,.5]. Impurity decrease is finite/nonnegative.
+`set_min_samples_leaf(integer_or_real)` and `set_min_samples_split(integer_or_real)`
+accept integer counts or real64 fractions. Leaf fractions are in (0,1), split
+fractions in (0,1]; fractions resolve with ceil(fraction*current_fit_samples),
+with lower bounds one and two respectively. Integer setters restore count
+controls; assigning a positive public count also overrides a prior fraction.
+Fractions resolve anew for each fit, including changed-row-count warm growth. Finite sample weights, including zero/signed weights,
 follow the underlying tree rules. Fits require finite float32-representable
 features. Queries may contain NaNs, using learned missing routing in `apply`.
 
@@ -5028,14 +5039,17 @@ Changing controls affects newly added trees. Shrinking the forest or changing
 feature width during a warm fit is rejected. A no-growth fit keeps all trees
 but rebuilds the encoder from the current training rows. Consequently, an old
 leaf absent from that dataset becomes an unknown category on later transform,
-as in sklearn. The encoder's unknown-category policy resets on every fit.
+as in sklearn. Each fit constructs a fresh default encoder, resetting any
+user changes to category, grouping, dropping and unknown-category controls.
 
 `apply(x)` returns 1-based leaf IDs, and numeric `one_hot_encoder_%categories_`
 use the same IDs. `get_feature_names_out()` returns source-style
 `randomtreesembedding_TREE_LEAF` names using zero-based tree/node numbers.
 Optional input names are accepted for width validation. `decision_path(x,ptr)`
-returns a dense integer indicator; optional allocatable `ptr(:)` and learned
-`node_offsets_` are zero-based cumulative node counts. In sklearn 1.6.1,
+returns a dense integer indicator; `decision_path_csr(x,ptr)` returns the same
+indicator in owned CSR storage without a dense node-indicator matrix. Optional
+allocatable `ptr(:)` and learned `node_offsets_` are zero-based cumulative node
+counts, while CSR pointers and indices follow the native one-based convention. In sklearn 1.6.1,
 NaNs go right in dense `decision_path`, even if `apply` goes left using learned
 missing routing. This source distinction is preserved and tested.
 

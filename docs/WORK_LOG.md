@@ -11556,3 +11556,32 @@ b875a1558425d0d5a8b82b4d032afcf72b86f52b9371fa6737b593044ea52309. ZIP CRCs and a
 hashes pass. Receipt: validation/results/lda_sparse_archive_receipt.json.
 The archive contains the implementation and verification documentation before
 this receipt was appended; full project Source parity remains false.
+
+
+## RandomTreesEmbedding sparse output and tree-growth controls
+
+Added transform_csr, fit_transform_csr and decision_path_csr, corresponding to
+sklearn's sparse output and forest decision-path CSR contracts. Encodings use
+the existing stored one-hot encoder directly. Paths use two row-wise traversals,
+sharing Source NaN-right routing with dense paths and counting stored entries
+with int64 overflow checks. Neither path forms an expanded dense output matrix.
+Dense input features and temporary sample-by-tree leaf assignments remain.
+
+Added max_leaf_nodes (zero means Source None), min_weight_fraction_leaf and
+typed integer/fractional minimum leaf/split setters using the existing sample
+control resolver and ExtraTree growth kernel. Fractional controls resolve anew
+on each fit's row count, including appended warm trees. Best-first budgets,
+weighted leaf constraints and prefix preservation follow the underlying tree.
+A related Source refit mismatch is closed: every fit now creates a fresh default
+one-hot encoder, rather than retaining user edits to its grouping/drop controls.
+
+The checked private probe passes 7,965 strict result groups across 245 fixtures
+and 295 fits: the retained 115 legacy fixtures plus 130 additional configurations
+covering both sparse/dense Source output, full CSR storage, all new controls,
+weighted/signed/zero mass, changed-row-count warm growth, reset fits and encoder
+reset after edits. Thirteen Source/native invalid-input cases pass. A 2048-row,
+16-tree unbounded case peaks at 31,576,064 bytes while dense encodings and paths
+would require 536,870,912 and 536,739,840 bytes, respectively. Current-source full
+fpm and scoped optimized validation are pending at this implementation commit.
+MIT/BSD attribution remains; no external dependency or non-sklearn algorithm
+was added. The broader translation goal remains active.
