@@ -14941,3 +14941,17 @@ while matching Source's controlled overflow/negative-mean failures. All 43 dense
 validation cases pass. A native large-factor regression verifies finite models,
 four-step patience on NaN cost, reset on refit and IEEE invalid-flag restoration.
 Full checked/scoped-optimized and dense/CSR legacy verification are running.
+
+Final verification: the complete checked build passes all 325 native programs
+and eleven examples; all 948 audited fingerprints / 211 library units match.
+All 345 checked jobs and eighteen scoped optimized jobs pass. Optimization is
+limited to MiniBatchNMF, with checked harnesses and 210 unchanged archive members.
+Both profiles pass the 260 dense sequences (239 accepted, 21 matching failures),
+all 43 dense validations (ten accepted), all 248 unchanged CSR sequences and
+43 CSR validations, the 6,500-group original dense suite, all 347 classic CSR
+NMF configurations / 28 guards and 756 Pipeline fixtures / 8,556 groups.
+The thirteen original dense gaps and two NaN-monitor stopping gaps are closed;
+original inputs/oracles and all final source/object/binary/report hashes pass.
+Sparse memory checks remain below 128 MiB. This supersedes the prior dense
+zero-input validation gap; broader project/API/numerical subsets remain open.
+Validation retains static libgfortran and the Windows locale-copy shim.

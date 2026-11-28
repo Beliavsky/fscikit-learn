@@ -11449,3 +11449,56 @@ monitor fields, finite returned model/codes, reset on refit and restored IEEE
 invalid flag. Dense/CSR native parity still passes. Full checked rebuilding and
 final compatibility audits are running. No new estimator/dependency is added;
 MIT/BSD attribution is retained.
+
+### Dense MiniBatchNMF final verification
+
+Implementation 86becf4 passes the completed checked fpm build. All 325 native
+programs and eleven selected examples pass; all 948 audited dependency-aware
+fingerprints match, including 211 library units. The checked audit completes
+345 passing jobs, and the one-module optimized audit completes eighteen passing
+jobs, including nine native programs. All harnesses use matched checked flags;
+only sklearn_minibatch_nmf is compiled with -O3 -funroll-loops. The 210 other
+archive members and source/object/binary/report hashes are verified. This is
+single-module optimization, not a fully optimized library/program build.
+
+The completed checked baseline archive is SHA256
+dda7be72b2a3a8098f465798f1411ce5b7915fb66bebad851f4c3cacef7e7225.
+Copying waited for confirmed terminal fpm success and equality was checked
+before/after. No partial rebuilding archive was used.
+
+Both profiles pass all 260 dense operation sequences: 239 accepted, 21 matching
+Source/native failures at the same operation. The unchanged first 248 Source
+inputs/oracles match the original thirteen-failure baseline; all thirteen gaps
+are closed. The extra twelve overflow/negative-mean sequences match Source,
+including the two previously failing NaN-cost patience cases (249,251).
+All 43 dense validation cases pass (ten accepted, 33 rejected). Counters and
+dimensions remain exact; all state/factor/code/error comparisons retain 3e-8
+atol/rtol. Native tests independently verify four-step patience despite a NaN
+cost, finite returned model/codes, monitor reset on refit and restoration of
+caller IEEE invalid flags.
+
+Both profiles retain all 248 CSR sequence checks and 43 CSR control checks,
+all original 6,500 dense MiniBatchNMF groups, all 347 classic CSR NMF cases /
+28 guards and the complete 756-fixture / 8,556-group Pipeline suite. Sparse
+fit/update/transform peaks remain below 128 MiB: 35,618,816 bytes Frobenius /
+34,541,568 KL checked, 34,529,280 / 34,500,608 optimized. The dense design
+comparison remains 614,400,000 bytes. Inputs/oracles, source/validator versions
+and binary associations are checked; no fixture, tolerance or numerical
+certificate was weakened.
+
+Evidence: validation/results/minibatch_dense_checked_audit.json,
+minibatch_dense_optimized_audit.json and minibatch_dense_cross_profile_audit.json,
+plus original/fixed/overflow dense, CSR, validation, memory, dense-legacy,
+classic-NMF and Pipeline reports/logs. This closes the prior dense validation
+subset identified in 241a99d; other API/numerical gaps and the broader translation
+goal remain open. Full project Source parity remains false. GNU 15.2.0 validation
+uses static libgfortran with the existing Windows locale-copy shim; unwrapped
+runtime stability is not established. MIT/BSD attribution remains, and commits
+are local.
+
+Verified backup: minibatch_dense_evidence_86becf4.zip,
+85,099,420 bytes / 2,125 entries, SHA256
+53f0aacd7d379bbd6086c47f7fec2ac3524e69daf69ecfa121b7ba0fca884a83.
+ZIP CRCs and critical source/report/object/binary hashes pass. Receipt:
+validation/results/minibatch_dense_archive_receipt.json (ignored evidence).
+Metadata retains false full project Source parity and passing audited checks.
