@@ -12194,3 +12194,34 @@ therefore includes undefined memory. Comparison uses the defined backend
 counter zero, retaining public-counter discrepancies separately. All other
 public fields pass 2e-10 tolerances. The native joint counter is defined;
 source's fixed internal 100000 cap and zero-norm skips are preserved.
+
+### 2026-11-28: Full Crammer-Singer checked/O3 verification
+
+Implementation 9da7169 passed a coherent checked GNU 15.2 fpm rebuild. All 336
+native programs, six scoped O3 harnesses and all 1,193 dependency-aware compiled
+source fingerprints pass. Both profiles pass 33,732 defined Source output/
+counter groups plus 702 independent derivative groups, including the new
+1,112-fit / 10,008-group Crammer-Singer corpus and all 1,112 joint certificates.
+Of the new groups, 8,896 compare public outputs and 1,112 compare the defined
+backend iteration counter. Undefined public multiclass iteration maxima remain
+as explicit diagnostics. Existing 1,484-fit OVR and 672-fit regression corpora,
+legacy squared-loss checks and all certificates continue to pass. No existing
+output tolerance was widened.
+
+All 23 rejection guards pass per profile. Joint sparse peak working set:
+18,415,616 checked / 18,305,024 optimized bytes, below 128 MiB for the
+128-by-200,000 case. Other linear SVM memory cases pass too. Existing extra
+strict-optimality flags remain 701 native / 695 Source exceedances with six
+disagreements among 1,092 legacy records per profile; all derivative replays
+pass. No universal optimality or whole-project parity is claimed. The checked
+and optimized archive/source hashes agree; sklearn 1.6.1, NumPy 2.2.6,
+SciPy 1.15.3, static libgfortran and the Windows locale-copy shim are retained.
+
+Evidence prefix: validation/results/linear_svc_cs_. Archive SHA256:
+91a62632761a1e2508c0cb758a8b07432018d12f50d81c7bcea61a8710d61e9e
+Checked audit SHA256:
+56758a195958300ee396ccc98655fbfa952ca13b88e278b26379a7822b565b7d
+Optimized audit SHA256:
+456d9fbbd11bcd0635a7fa1a4582dd577e8d59a9879787f0707b07f1a8fbe0ac
+
+Local commits only; no push. The broader translation goal remains active.

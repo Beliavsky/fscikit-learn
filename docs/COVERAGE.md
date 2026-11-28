@@ -1793,6 +1793,34 @@ objective/gap and KKT certificate fields are explicitly identified in API.md.
 These regression fit paths avoid dense design augmentation, feature Hessians
 and Gram matrices. Auto-selected primal fits use the same TRON implementation.
 
+Current Crammer-Singer verification: a fresh checked fpm build passes all
+336 native programs and all 1,193 dependency-aware compiled-source fingerprints.
+Checked and scoped O3 profiles each pass 33,732 defined Source output/counter
+groups plus 702 independent derivative groups. The joint corpus passes 1,112
+fits, 10,008 groups and 1,112 primal/dual certificates per profile, including
+binary/3/5-class problems, dense and four CSR layouts, weights, intercepts,
+seeds, ignored loss/dual/cap choices, inactive classes and zero designs. Of
+those groups, 8,896 compare public outputs and 1,112 compare the defined first
+backend iteration counter. Undefined public multiclass counter discrepancies
+remain in the reports. Existing OVR, regression and legacy squared-loss
+corpora also pass, without widening tolerances.
+
+Six native harnesses exercise the optimized module; all 23 rejection guards
+pass per profile. The 128-by-200,000 joint sparse memory case peaks at
+18,415,616 checked / 18,305,024 optimized bytes, below 128 MiB. All other linear
+SVM memory cases remain below the same bound. Evidence and cross-profile proof
+use validation/results/linear_svc_cs_. GNU 15.2, sklearn 1.6.1, NumPy 2.2.6,
+SciPy 1.15.3, static libgfortran and the Windows locale-copy shim are retained.
+The existing extra strict-optimality diagnostics remain unchanged: among
+1,092 legacy derivative records, 701 native and 695 Source points exceed the
+extra bound, with six disagreements. This verification establishes the tested
+defined outputs and certificate replays, not universal mathematical optimality
+or full project parity.
+
+### Historical OVR LinearSVC verification
+
+The following describes the previous OVR solver revision.
+
 Previous OVR LinearSVC verification: a fresh checked fpm build passes all 335
 native programs and all 1,191 dependency-aware compiled-source fingerprints.
 Checked and scoped O3 profiles each pass 23,724 Source output/iteration-cap
