@@ -10703,3 +10703,49 @@ the expected behavior. No numerical tolerance was changed. The audit monitor
 was stopped before it launched, using its identified process 24264; the active
 fpm build is retained. After that build terminates, a final incremental rebuild
 will include the updated assertion before the audits run.
+
+### IncrementalPCA boundary final verification
+
+Commits 29c53ef and d976c02 are verified against the final completed checked
+build. The initial full build and final incremental test rebuild are retained
+separately. All 319 native programs and eleven selected examples pass, as do
+four existing focused jobs. Of 335 completed checked jobs, 334 pass; the boundary
+comparison exits 1 on its sixteen explicitly retained strict differences.
+All 930 dependency-aware fingerprints match current sources, including all
+209 library units. No additional native failures are hidden by the strict-gap
+accounting.
+
+The scoped -O3 build recompiles sklearn_incremental_pca with -funroll-loops.
+All five optimized native programs and four existing focused jobs pass; the
+new boundary job retains exactly the same sixteen strict failures (nine of ten
+jobs pass). Its baseline archive is byte-identical to the completed checked
+library, SHA256 d35159a7195be51f9a4d7387d66e7f5febfe58f568d1ebd94e7e6b968a1e9f20;
+all 208 other archive members match. This is not a full optimized rebuild.
+
+Both profiles pass the existing 324 CSR configurations, twelve rejection checks
+and 264 legacy dense groups. All baseline/new and cross-profile boundary inputs
+and Source oracles match, with unchanged 3e-8 absolute/relative tolerances. The
+192-case boundary suite improves from 162 strict failures to sixteen in both
+profiles. All fitted fields pass; the largest remaining absolute projection
+difference is 1.3174680406624617e-6. Replaying all sixteen with native fitted
+parameters in actual Source gives bit-identical train/query projections in
+both final profiles. Full end-to-end equality remains unproven and is explicitly
+false in the cross-profile audit. No tolerance or fixture was changed.
+
+The million-by-50 CSR query peaks at 57,430,016 bytes checked and 59,080,704 bytes
+optimized, below 128 MiB and the 400,000,000-byte dense query equivalent.
+The runtime remains static libgfortran with the validation-only Windows
+locale-copy shim; no unwrapped-runtime stability claim is made.
+
+Evidence: validation/results/incremental_boundary_package_audit.json,
+incremental_boundary_optimized_audit.json, incremental_boundary_parameter_replay_final.json
+and incremental_boundary_cross_profile_audit.json, plus reports and logs.
+The broader translation and retained numerical gaps remain open; MIT licensing
+and BSD attribution are preserved, and commits remain local.
+
+Verified backup: incremental_boundary_evidence_d976c02.zip,
+51,917,652 bytes / 2,077 entries, SHA256
+9ceea9a6bfb67c0ebda1fa4506dc4cab57719e2d2e5781ab68fa6608ceaf46f9.
+ZIP CRCs and critical source/report/object/binary hashes pass. Receipt:
+validation/results/incremental_boundary_archive_receipt.json (ignored evidence).
+Archive metadata explicitly retains false strict/focused Source parity.

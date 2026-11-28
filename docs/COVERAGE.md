@@ -14667,3 +14667,13 @@ and query projections, isolating the residual to fitted-parameter differences
 amplified by cancellation/whitening. Full Source equality is not claimed.
 Native singleton/constant/streaming regressions pass. Full rebuilding and scoped
 optimized verification remain in progress.
+
+Final boundary verification: all 319 native programs and eleven selected
+examples pass; four legacy/CSR focused jobs pass in both checked and scoped
+optimized profiles. The strict boundary comparison retains the same sixteen
+of 192 failing configurations in both profiles (baseline: 162). All fitted
+fields pass unchanged 3e-8 tolerances; native-parameter projection replays are
+bit-identical to Source. The maximum remaining end-to-end projection difference
+is 1.3174680406624617e-6. All 930 compiled fingerprints / 209 library units match
+current sources. Detailed evidence is incremental_boundary_cross_profile_audit.json;
+full strict Source parity is explicitly false.
