@@ -29,11 +29,11 @@ def main():
     sha=lambda p:hashlib.sha256(Path(p).read_bytes()).hexdigest();archive_hash=sha(archive)
     files=[Path(__file__),*[root/name for name in ['src/sklearn_linear_svm.f90',
         'test/test_linear_svm.f90','test/test_linear_svm_sparse.f90','app/reference_linear_svm_driver.f90',
-        'test/test_linear_svr_dual.f90','app/reference_linear_svr_dual_driver.f90',
+        'test/test_linear_svr_dual.f90','test/test_linear_svr_tron.f90','app/reference_linear_svr_dual_driver.f90',
         'validation/compare_linear_svm.py','validation/check_linear_svm_sparse.py',
         'validation/compare_linear_svr_dual.py','validation/check_linear_svr_dual.py']]]
     hashes={str(p):sha(p) for p in files}
-    selected=[root/'test'/(name+'.f90') for name in ['test_linear_svm','test_linear_svm_sparse','test_linear_svr_dual']]
+    selected=[root/'test'/(name+'.f90') for name in ['test_linear_svm','test_linear_svm_sparse','test_linear_svr_dual','test_linear_svr_tron']]
     programs=sorted(p for p in (root/'test').glob('*.f90')
         if re.search(r'^\s*program\s',p.read_text(),re.I|re.M)) if args.all_native else selected
     driver=root/'app/reference_linear_svm_driver.f90';dual_driver=root/'app/reference_linear_svr_dual_driver.f90';evidence={}
@@ -70,18 +70,18 @@ def main():
                 report=args.report.with_name(args.report.stem+'_'+key+'.json')
                 subprocess.run([sys.executable,str(root/'validation/compare_linear_svm.py'),
                     '--executable',str(executable(driver)),'--layout',layout,'--report',str(report),
-                    *(['--extended','--diagnostic'] if extended else [])],check=True)
-                evidence[key]=dict(report=str(report),sha256=sha(report),kind='diagnostic' if extended else 'strict')
+                    *(['--extended'] if extended else [])],check=True)
+                evidence[key]=dict(report=str(report),sha256=sha(report),kind='strict')
         report=args.report.with_name(args.report.stem+'_guards_memory.json')
         subprocess.run([sys.executable,str(root/'validation/check_linear_svm_sparse.py'),
             '--executable',str(executable(root/'test/test_linear_svm_sparse.f90')),'--report',str(report)],check=True)
         evidence['guards_memory']=dict(report=str(report),sha256=sha(report),kind='strict')
         report=args.report.with_name(args.report.stem+'_dual_regression.json')
         subprocess.run([sys.executable,str(root/'validation/compare_linear_svr_dual.py'),
-            '--executable',str(executable(dual_driver)),'--report',str(report),'--diagnostic'],check=True)
+            '--executable',str(executable(dual_driver)),'--report',str(report)],check=True)
         dual_report=json.loads(report.read_text())
-        assert not dual_report['dual_gaps'] and all(c['passed'] for c in dual_report['certificates'])
-        evidence['dual_regression']=dict(report=str(report),sha256=sha(report),kind='mixed')
+        assert not dual_report['gaps'] and all(c['passed'] for c in dual_report['certificates'])
+        evidence['dual_regression']=dict(report=str(report),sha256=sha(report),kind='strict')
         report=args.report.with_name(args.report.stem+'_dual_guards_memory.json')
         subprocess.run([sys.executable,str(root/'validation/check_linear_svr_dual.py'),
             '--executable',str(executable(root/'test/test_linear_svr_dual.f90')),'--report',str(report)],check=True)

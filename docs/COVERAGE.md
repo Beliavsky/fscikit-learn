@@ -1755,11 +1755,14 @@ L2 coefficient regularization. Its defaults now match sklearn's
 loss='epsilon_insensitive' and dual='auto'. The previous native formulation
 remains available with loss='squared_epsilon_insensitive', dual='false'.
 Unsquared loss requires dual optimization; squared loss also supports primal
-Newton fitting. Auto selects dual for unsquared loss or an originally wide
+TRON fitting. Auto selects dual for unsquared loss or an originally wide
 design, before zero-weight filtering, and primal otherwise.
-The optimizer is a native active-set Newton method with dense Cholesky solves
-or matrix-free CSR conjugate-gradient directions and Armijo backtracking,
-rather than liblinear's trust-region implementation.
+LinearSVC retains native active-set Newton/Armijo with dense Cholesky or CSR
+preconditioned CG directions. Primal LinearSVR follows LIBLINEAR's TRON trust
+region, truncated CG boundary steps, radius updates, accepted-step counts,
+relative initial-gradient test and tiny actual/predicted-reduction stops.
+Dense and CSR regression use the same sparse feature-node backend, including
+the virtual synthetic intercept and active-row Hessian-vector products.
 No LIBLINEAR binary or C/C++ source is linked.
 
 Dual regression follows LIBLINEAR coordinate updates, active-set shrinking,
@@ -1768,9 +1771,8 @@ Dense inputs use sparse feature nodes, as in the reference wrapper; both input
 forms share the same engine. Positive-weight row filtering, virtual scaled
 intercepts and zero-norm box endpoints are supported. Native dual coefficient,
 objective/gap and KKT certificate fields are explicitly identified in API.md.
-These fit paths avoid dense design augmentation, feature Hessians and Gram
-matrices. Auto-selected primal trajectories retain their existing numerical
-differences from Source TRON, including capped-fit differences.
+These regression fit paths avoid dense design augmentation, feature Hessians
+and Gram matrices. Auto-selected primal fits use the same TRON implementation.
 
 Dual-loss verification: a fresh checked build passes all 333 native programs
 and 1,188 dependency-aware source fingerprints. Checked and scoped O3 profiles

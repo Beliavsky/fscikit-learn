@@ -90,7 +90,7 @@ program reference_linear_svm_driver
       call vector('_train',reg%predict(train));call vector('_query',reg%predict(query))
       call vector('_score',[reg%score(train,target)])
     end if
-    call vector('_objective',[reg%objective_])
+    call vector('_objective',[reg%objective_]);call vector('_gradient_norm',[reg%gradient_norm_])
   end do
   close(output)
 contains

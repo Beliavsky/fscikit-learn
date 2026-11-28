@@ -1,14 +1,15 @@
 ! LinearSVC/LinearSVR objectives: sklearn 1.6.1 svm/_classes.py and
 ! svm/src/liblinear/linear.cpp. BSD notices: LICENSES/scikit-learn-COPYING and liblinear-COPYRIGHT.
-! Native primal Newton/Armijo and seeded dual coordinate solvers; no liblinear binary is linked.
+! Native Newton/Armijo classification, TRON regression and seeded dual solvers; no liblinear binary is linked.
 module sklearn_linear_svm
   use sklearn_common, only: dp,require,check_x,check_xy,unique_labels,label_index,cholesky_factor,solve_lower,solve_upper
   use sklearn_metrics, only: accuracy_score,r2_score
   use sklearn_sparse,only:csr_matrix,csr_from_dense
   use sklearn_legacy_rng,only:legacy_random_state
+  use sklearn_kernel_dispatch,only:tron_dot=>kernel_blas_inner_product
   use,intrinsic::iso_fortran_env,only:int64
   use,intrinsic::ieee_exceptions
-  use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
+  use, intrinsic :: ieee_arithmetic, only: ieee_is_finite,ieee_fma
   implicit none
   private
   public :: linear_svc,linear_svr
@@ -48,6 +49,154 @@ module sklearn_linear_svm
     generic :: score=>score_dense,score_csr
   end type
 contains
+  subroutine svr_tron_state(x,y,cost,coef,tube,intercept,scaling,objective,gradient,active)
+    type(csr_matrix),intent(in)::x
+    real(dp),intent(in)::y(:),cost(:),coef(:),tube,scaling
+    logical,intent(in)::intercept
+    real(dp),intent(out)::objective,gradient(:)
+    logical,intent(out)::active(:)
+    real(dp)::margin,residual,value
+    integer::i,j,k,d
+    d=size(coef);objective=0;gradient=0;active=.false.
+    do j=1,d
+      objective=objective+coef(j)*coef(j)
+    end do
+    objective=objective/2
+    do i=1,x%n_rows
+      if(cost(i)==0)cycle
+      margin=0
+      do k=x%indptr(i),x%indptr(i+1)-1
+        margin=margin+coef(x%indices(k))*x%data(k)
+      end do
+      if(intercept)margin=margin+coef(d)*scaling
+      residual=margin-y(i)
+      if(residual<-tube)then
+        residual=residual+tube
+      else if(residual>tube)then
+        residual=residual-tube
+      else
+        cycle
+      end if
+      active(i)=.true.;value=cost(i)*residual;objective=objective+value*residual
+      do k=x%indptr(i),x%indptr(i+1)-1
+        j=x%indices(k);gradient(j)=gradient(j)+value*x%data(k)
+      end do
+      if(intercept)gradient(d)=gradient(d)+value*scaling
+    end do
+    gradient=coef+2*gradient
+  end subroutine
+  subroutine svr_tron_hv(x,cost,active,vector,intercept,scaling,product)
+    type(csr_matrix),intent(in)::x
+    real(dp),intent(in)::cost(:),vector(:),scaling
+    logical,intent(in)::active(:),intercept
+    real(dp),intent(out)::product(:)
+    real(dp)::value
+    integer::i,j,k,d
+    d=size(vector);product=0
+    do i=1,x%n_rows
+      if(.not.active(i))cycle
+      value=0
+      do k=x%indptr(i),x%indptr(i+1)-1
+        value=value+vector(x%indices(k))*x%data(k)
+      end do
+      if(intercept)value=value+vector(d)*scaling
+      value=cost(i)*value
+      do k=x%indptr(i),x%indptr(i+1)-1
+        j=x%indices(k);product(j)=product(j)+value*x%data(k)
+      end do
+      if(intercept)product(d)=product(d)+value*scaling
+    end do
+    product=vector+2*product
+  end subroutine
+  subroutine svr_tron_cg(x,cost,active,gradient,intercept,scaling,delta,step,residual)
+    type(csr_matrix),intent(in)::x
+    real(dp),intent(in)::cost(:),gradient(:),scaling,delta
+    logical,intent(in)::active(:),intercept
+    real(dp),intent(out)::step(:),residual(:)
+    real(dp)::direction(size(gradient)),hv(size(gradient)),rtr,next,alpha,beta,tolerance,sd,ss,dd,rad
+    integer::j
+    step=0;residual=-gradient;direction=residual
+    tolerance=.1_dp*norm2(gradient);rtr=tron_dot(residual,residual)
+    do
+      if(norm2(residual)<=tolerance)exit
+      call svr_tron_hv(x,cost,active,direction,intercept,scaling,hv)
+      alpha=rtr/tron_dot(direction,hv)
+      do j=1,size(step)
+        step(j)=ieee_fma(alpha,direction(j),step(j))
+      end do
+      if(norm2(step)>delta)then
+        do j=1,size(step)
+          step(j)=ieee_fma(-alpha,direction(j),step(j))
+        end do
+        sd=tron_dot(step,direction);ss=tron_dot(step,step);dd=tron_dot(direction,direction)
+        rad=sqrt(sd*sd+dd*(delta*delta-ss))
+        if(sd>=0)then
+          alpha=(delta*delta-ss)/(sd+rad)
+        else
+          alpha=(rad-sd)/dd
+        end if
+        do j=1,size(step)
+          step(j)=ieee_fma(alpha,direction(j),step(j))
+          residual(j)=ieee_fma(-alpha,hv(j),residual(j))
+        end do
+        exit
+      end if
+      do j=1,size(step)
+        residual(j)=ieee_fma(-alpha,hv(j),residual(j))
+      end do
+      next=tron_dot(residual,residual);beta=next/rtr
+      direction=beta*direction+residual;rtr=next
+    end do
+  end subroutine
+  subroutine svr_tron_solve(x,y,cost,tube,intercept,scaling,tol,max_iter,coef,iterations,converged,objective,gradnorm)
+    type(csr_matrix),intent(in)::x
+    real(dp),intent(in)::y(:),cost(:),tube,scaling,tol
+    logical,intent(in)::intercept
+    integer,intent(in)::max_iter
+    real(dp),allocatable,intent(out)::coef(:)
+    integer,intent(out)::iterations
+    logical,intent(out)::converged
+    real(dp),intent(out)::objective,gradnorm
+    real(dp),allocatable::gradient(:),trial_g(:),step(:),residual(:),candidate(:)
+    logical,allocatable::active(:),trial_active(:)
+    real(dp)::delta,initial_norm,trial,gs,predicted,actual,snorm,alpha
+    integer::d,it
+    call require(x%n_cols<huge(1).or..not.intercept,'LinearSVR synthetic feature exceeds integer range')
+    d=x%n_cols+merge(1,0,intercept)
+    allocate(coef(d),gradient(d),trial_g(d),step(d),residual(d),candidate(d),active(x%n_rows),trial_active(x%n_rows))
+    coef=0;call svr_tron_state(x,y,cost,coef,tube,intercept,scaling,objective,gradient,active)
+    delta=norm2(gradient);initial_norm=delta;gradnorm=delta;it=1
+    do while(it<=max_iter.and.gradnorm>tol*initial_norm)
+      call svr_tron_cg(x,cost,active,gradient,intercept,scaling,delta,step,residual)
+      candidate=coef+step;gs=tron_dot(gradient,step)
+      predicted=-.5_dp*(gs-tron_dot(step,residual))
+      call svr_tron_state(x,y,cost,candidate,tube,intercept,scaling,trial,trial_g,trial_active)
+      actual=objective-trial;snorm=norm2(step)
+      if(it==1)delta=min(delta,snorm)
+      if(trial-objective-gs<=0)then
+        alpha=4
+      else
+        alpha=max(.25_dp,-.5_dp*(gs/(trial-objective-gs)))
+      end if
+      if(actual<1.e-4_dp*predicted)then
+        delta=min(max(alpha,.25_dp)*snorm,.5_dp*delta)
+      else if(actual<.25_dp*predicted)then
+        delta=max(.25_dp*delta,min(alpha*snorm,.5_dp*delta))
+      else if(actual<.75_dp*predicted)then
+        delta=max(.25_dp*delta,min(alpha*snorm,4*delta))
+      else
+        delta=max(delta,min(alpha*snorm,4*delta))
+      end if
+      if(actual>1.e-4_dp*predicted)then
+        it=it+1;coef=candidate;objective=trial;gradient=trial_g;active=trial_active;gradnorm=norm2(gradient)
+        if(gradnorm<=tol*initial_norm)exit
+      end if
+      if(objective<-1.e32_dp)exit
+      if(abs(actual)<=0.and.predicted<=0)exit
+      if(abs(actual)<=1.e-12_dp*abs(objective).and.abs(predicted)<=1.e-12_dp*abs(objective))exit
+    end do
+    iterations=it-1;converged=iterations<max_iter
+  end subroutine
   logical function use_svr_dual(self,n,p)result(use_dual)
     class(linear_svr),intent(in)::self
     integer,intent(in)::n,p
@@ -504,7 +653,7 @@ contains
     class(linear_svr), intent(inout) :: self
     real(dp), intent(in) :: x(:,:),y(:)
     real(dp), intent(in), optional :: sample_weight(:)
-    real(dp), allocatable :: a(:,:),w(:),coef(:)
+    real(dp), allocatable :: w(:),coef(:)
     type(csr_matrix)::sparse
     integer :: p
     call check_xy(x,size(y)); call check_x(reshape(y,[size(y),1])); p=size(x,2)
@@ -516,9 +665,10 @@ contains
       call svr_dual_solve(self,sparse,y,w,coef)
     else
       call clear_svr_dual(self)
-      call linear_svm_setup(x,self%c,self%tol,self%intercept_scaling,self%max_iter,self%fit_intercept,a,w,sample_weight)
-      call squared_solve(a,y,self%c*w,.false.,self%epsilon,self%tol,self%max_iter,coef,self%n_iter_, &
-        self%converged_,self%objective_,self%gradient_norm_)
+      sparse=csr_from_dense(x)
+      call sparse_setup(sparse,self%c,self%tol,self%intercept_scaling,self%max_iter,w,sample_weight)
+      call svr_tron_solve(sparse,y,self%c*w,self%epsilon,self%fit_intercept,self%intercept_scaling,self%tol, &
+        self%max_iter,coef,self%n_iter_,self%converged_,self%objective_,self%gradient_norm_)
     end if
     self%coef_=coef(:p); self%intercept_=0
     if(self%fit_intercept) self%intercept_=coef(p+1)*self%intercept_scaling
@@ -596,7 +746,7 @@ contains
       call svr_dual_solve(self,x,y,w,coef)
     else
       call clear_svr_dual(self)
-      call sparse_solve(x,y,self%c*w,.false.,self%epsilon,self%fit_intercept,self%intercept_scaling,self%tol, &
+      call svr_tron_solve(x,y,self%c*w,self%epsilon,self%fit_intercept,self%intercept_scaling,self%tol, &
         self%max_iter,coef,self%n_iter_,self%converged_,self%objective_,self%gradient_norm_)
     end if
     self%coef_=coef(:x%n_cols);self%intercept_=0

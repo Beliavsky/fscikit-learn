@@ -1839,13 +1839,14 @@ Both types also accept `csr_matrix` for fit, predict and score; LinearSVC's
 decision_function accepts CSR as well. Any query representation can follow
 either fit representation. Coefficients remain dense, as in sklearn, and no
 training design is retained. Primal CSR fitting applies the synthetic intercept
-virtually and solves Newton directions with preconditioned conjugate gradients
-using sparse Hessian-vector products. It allocates neither a dense design nor
-a feature-by-feature Hessian. The existing dense Cholesky path is unchanged.
+virtually and uses sparse Hessian-vector products. LinearSVC retains its native
+Newton/Armijo solver with dense Cholesky or CSR preconditioned CG directions.
+Primal LinearSVR uses LIBLINEAR's TRON trust-region algorithm and truncated CG
+for both input forms, without dense design augmentation or a feature Hessian.
 Duplicates, unsorted entries, explicit zeros and empty rows are supported
 without changing caller storage. Sample/class weights and diagnostic fields
-follow the existing primal squared-loss interfaces. Different Newton/TRON
-trajectories can retain small strict reference differences; see COVERAGE.md.
+follow the existing primal squared-loss interfaces. See COVERAGE.md for the
+reference checks and remaining classifier/backend limits.
 
 LinearSVR accepts `dual='true'`, `'false'`, or `'auto'`. Unsquared
 epsilon-insensitive loss requires the dual solver. Squared loss supports both;
@@ -1860,10 +1861,11 @@ retained in the native `dual_variables_` certificate array.
 native diagnostics, not sklearn LinearSVR attributes. `objective_` is the
 requested primal loss plus the coefficient/synthetic-intercept penalty.
 For dual fits, `gradient_norm_` reports maximum coordinate KKT violation;
-`converged_` follows LIBLINEAR's iteration-cap warning status. Primal fits keep
-their existing gradient-norm convergence diagnostics. A primal refit clears
-the dual certificate fields. Auto-selected primal fits retain the native
-Newton backend and its documented TRON trajectory differences.
+`converged_` follows LIBLINEAR's iteration-cap warning status for both regression
+solvers. Primal `gradient_norm_` reports the final actual gradient norm. TRON
+also stops on tiny actual/predicted objective reductions, so completion does
+not guarantee the stricter relative-gradient criterion. A primal refit clears
+the dual certificate fields. Auto-selected primal fits use the same TRON path.
 
 
 ## Streaming principal components

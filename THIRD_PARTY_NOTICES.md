@@ -3038,3 +3038,13 @@ NumPy-compatible legacy RNG. Existing sklearn BSD, NumPy RNG and LIBLINEAR
 notices apply. Typed solver/loss selection, shared dense/CSR integration,
 zero-norm handling, certificate diagnostics and tests are native MIT additions;
 no LIBLINEAR or C++ runtime is linked.
+
+## Primal LinearSVR TRON
+
+`sklearn_linear_svm` follows sklearn 1.6.1's bundled LIBLINEAR `tron.cpp` and
+`linear.cpp` squared-regression objective, gradient and active-row Hessian
+products. Trust-region/truncated-CG updates, accepted-step counts and stopping
+conditions are translated into Fortran. The existing OpenBLAS-compatible
+inner-product helper is reused; virtual-bias storage and derivative verification
+are native MIT integration. Existing LIBLINEAR and sklearn BSD notices remain
+in `LICENSES/`; no C++ source or binary is linked at runtime.
