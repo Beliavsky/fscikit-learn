@@ -2723,6 +2723,31 @@ counts and global optimality for indefinite kernels are not claimed. Final
 KKT/objective diagnostics are replayed with double kernels; Source's float Q
 rounding can leave nonzero exact-kernel residuals even without hitting a cap.
 
+Current weighted SVC verification: a fresh GNU 15.2 checked fpm build passes
+all 339 native programs and all 1,199 dependency-aware compiled-source
+fingerprints. Checked and scoped O3 profiles each pass 729 fits / 10,206
+public-output groups and all 2,622 independent dual/box/equality/KKT replays.
+Existing numeric tolerances remain 3e-6; no tolerance was widened. Two native
+harnesses exercise the optimized module. Nineteen guard checks pass per
+profile, and full-build native tests include weighted ensemble/multiclass
+forwarding and parameter-search controls.
+
+The corpus includes linear/RBF/polynomial/sigmoid kernels, binary/3/4-class
+problems, unequal class counts, all weight modes, zero rows, decision shapes,
+tie conventions, gamma rules and short caps. Support layout, linear weights,
+dual coefficients, intercepts, margins, predictions, weighted scores and cap
+status compare with the installed reference. Three uncapped pair fits in
+both native and Source outputs exceed the additional exact-kernel KKT bound;
+those diagnostics remain visible. Default-shrinking iteration arrays differ
+in 228 fits per profile, and nonshrinking Source arrays differ in 183. Thus
+this verification establishes tested output agreement and certificate replays,
+not identical iteration trajectories or universal mathematical optimality.
+
+Evidence and cross-profile proof use validation/results/svc_weighted_.
+Source, archive and executable hashes are stable during auditing, and expected
+outputs agree across profiles. GNU 15.2, sklearn 1.6.1, static libgfortran and
+the Windows locale-copy shim are retained. Broader project/API gaps remain.
+
 ## Nu support-vector classification
 
 `nu_svc` translates sklearn 1.6.1 NuSVC's dense binary and one-versus-one

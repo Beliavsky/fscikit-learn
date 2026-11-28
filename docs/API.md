@@ -4035,7 +4035,7 @@ RidgeClassifierCV), LinearSVC and SVC. OVR and OVO also support the native
 linear-regression hierarchy (including Ridge), SGD regression, KNN regression
 and decision-tree regression. Output-code bases must supply a decision
 function or probabilities. Training weights are available with logistic,
-Gaussian NB, SGD classification/regression, ridge classification, LinearSVC
+Gaussian NB, SGD classification/regression, ridge classification, LinearSVC, SVC
 and both tree families (including ExtraTree). Other bases reject weights; their existing native limits still apply.
 This is explicit native dispatch, without an arbitrary Python estimator,
 metadata-routing, sparse or precomputed-kernel protocol.
@@ -4121,7 +4121,7 @@ and its native descendants), SGD regression, KNN regression, decision trees,
 passive-aggressive regression, KernelRidge and DummyRegressor. Every base
 retains its existing native controls, numerical limitations and responses.
 Training weights are accepted by logistic, Gaussian NB, SGD classification,
-ridge classification, LinearSVC, SGD regression and tree bases (including ExtraTree); all active bases
+ridge classification, LinearSVC, SVC, SGD regression and tree bases (including ExtraTree); all active bases
 must support them. Dropped bases are not fitted or capability checked.
 
 Classifier `voting='hard'` (default) combines encoded class predictions;

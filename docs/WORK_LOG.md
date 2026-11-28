@@ -12355,3 +12355,36 @@ analytic tests and nineteen guard checks pass. A NaN class-weight conjunction
 that triggered SIGFPE in the first guard probe was split into sequential finite
 and positivity checks. Full coherent rebuild and checked/O3 audits follow.
 MIT project licensing and sklearn/LIBSVM BSD notices remain intact.
+
+### 2026-11-28: Full weighted SVC checked/O3 verification
+
+Implementation 4e4f7ad passed a coherent checked GNU 15.2 fpm rebuild. All 339
+native programs, both scoped optimized SVC harnesses and all 1,199 dependency-
+aware compiled-source fingerprints pass. Each profile passes 729 fits /
+10,206 public-output groups and 2,622 independent dual/box/equality/KKT
+replays, plus nineteen rejection guards. Full-build native tests exercise
+weighted base dispatch, weighted OVR forwarding and new search controls.
+Existing output tolerances remain 3e-6; none was widened.
+
+Three uncapped native and three Source pair fits exceed the additional exact-
+kernel KKT bound in each profile. These are diagnostics alongside successful
+constraint and reported-KKT replays. Native pair counters disagree with the
+Source default-shrinking arrays in 228 fits and with Source nonshrinking
+arrays in 183 fits per profile. Both sets of Source counters are retained;
+matching public outputs do not imply identical floating-point trajectories.
+No universal optimality claim is made for indefinite kernels, capped fits or
+float-cache exact-kernel residuals. Existing documented API gaps remain.
+
+Archive, sources and executables remain unchanged during audits, and expected
+outputs agree between profiles. Validation retains sklearn 1.6.1, GNU 15.2,
+static libgfortran and the Windows locale-copy shim. Weighted SVC dispatch
+lists in API.md now include SVC explicitly.
+
+Evidence prefix: validation/results/svc_weighted_. Archive SHA256:
+4fabba6c34db573cb3ac1f4cbbb8995feab87bc1dfa6f65b63fdd5a24bc51179
+Checked audit SHA256:
+7b5370989038cd2e243e898eb20e78e1288b7bf9bda37a3d80b4c8f028169f12
+Optimized audit SHA256:
+d1a39f946c8e158c20742a7c581c29056dd0127cdfa9d329299978c15d8752c6
+
+Local commits only; no push. The broader translation goal remains active.
