@@ -14802,3 +14802,23 @@ seven on the saved baseline. All five have matching Source pivot sequences;
 later SVD/product rounding remains a limitation. No fixture/tolerance was changed.
 The 921-case integration probe retains passing fit acceptance, affinity, shape
 and spectral certificates; full package verification is pending.
+
+Final verification: all 323 native programs and eleven examples pass in both
+checked and two-module optimized-library audits. All 941 compiled fingerprints
+and 210 library units match. The optimized audit uses checked harness flags;
+208 other archive members remain byte-identical to the completed checked build.
+Both audits complete 343 jobs: 339 pass, with four reference jobs explicitly
+retaining strict differences. No native failure is hidden in that accounting.
+
+Both 285-case QR comparisons retain the same five partition differences versus
+seven saved baseline differences. All 30 shape rejections match Source, and
+all five differing accepted cases have matching pivots. Both 921-case estimator
+grids match all 678 accepted and 243 rejected calls, affinity values, shapes
+and spectral certificates. Each retains 114 diagnostics: 99 partition-only,
+five partition/QR-replay differences and ten standalone zero-row replay errors.
+End-to-end eigenbasis differences remain; full Source parity is false.
+All 21 controls guards, eleven discretization guards, fourteen sparse guards,
+231 legacy groups and 240 direct discretization cases pass in both profiles.
+Prior end-to-end sparse/discretization partition failures remain documented.
+Validation uses static libgfortran and the existing Windows locale-copy shim.
+Details: spectral_qr_cross_profile_audit.json and spectral_qr_* result reports.

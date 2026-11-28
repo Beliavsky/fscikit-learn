@@ -11062,3 +11062,74 @@ baseline differences. These five have matching pivots and remain visible.
 The native test verifies input preservation, known independent pivots, zero
 embeddings and dense/CSR estimator integration. It passes. Full package and
 hybrid verification are pending; no full parity claim is made.
+
+The full checked fpm build completed successfully (terminal exit 0). The first
+parallel audit attempt exhausted disk space while retaining all optimized
+executables; the linker reported 'No space left on device' and both Python
+workers exited 120. Failed logs are retained with _disk_failure suffixes.
+Only generated executables in explicitly checked temporary audit directories
+were removed: this attempt's partial optimized executables, then 327 older
+rebuildable optimized executables (2,513,346,752 bytes). The previous selected
+binaries and verified spectral_controls ZIP were retained. No source or test
+fixture/tolerance changed during recovery.
+
+Both complete audits restarted. The optimized-library audit now links, hashes,
+runs and verifies each native/example executable before deleting it, keeping
+selected spectral evidence binaries. All per-program source/binary hashes and
+pass statuses are recorded; only retained binaries can be rehashed afterward.
+The checked baseline archive is copied only after terminal build success and
+verified unchanged on both sides, SHA256
+db8d47a8974f6daa80b63e9203653e782e17311e5955e4bab95e8298a3414af8.
+
+### Spectral QR final verification
+
+Implementation 0538dbc passes the completed checked build and both complete
+package audits. All 323 native tests and eleven examples pass in each profile;
+all 941 dependency-aware fingerprints match, including 210 library units.
+Each audit completes 343 jobs: 339 pass, four reference jobs exit 1 for explicitly
+retained strict differences (direct QR, full controls, sparse spectral and
+estimator discretization). There are no native test failures.
+
+The optimized-library audit compiles sklearn_spectral_qr and sklearn_cluster
+with -O3 -funroll-loops; all test/example harnesses use matched checked flags.
+The other 208 archive members remain byte-identical to the completed checked
+baseline. All 334 native/example binaries are hashed before and after passing;
+327 are then deleted as rebuildable storage, with seven selected binaries
+retained and rehashed by the final audit. Their per-program source/binary
+hashes and deletion records are preserved. This verifies two optimized library
+modules, not an entirely optimized library/program build.
+
+Both final 285-case same-input QR grids reproduce strict failures
+173,176,178,208,209, corresponding to prior controls 679,688,697,915,918.
+The saved baseline also failed at prior indices 909,912; those identical-input
+partitions now match Source. All five remaining differences have matching
+pivots. All 255 accepted calls and 30 wide-input rejections match acceptance;
+all synthetic accepted cases pass partition checks. Fixture and current
+sklearn/SciPy source hashes are recorded, with unchanged cases and tolerances.
+
+Both final 921-case estimator grids match all fit decisions: 678 accepted and
+243 rejected. Affinity values, shapes and spectral certificates all pass.
+Both retain 114 strict diagnostics: 99 partition-only, five partition plus
+same-embedding QR differences and ten zero-row standalone discretize replay
+errors. Thus total end-to-end strict diagnostics are unchanged: fixing two
+QR helper replays does not fix their native eigenbasis partitions. Full focused
+and project Source parity remain false, explicitly recorded in the audits.
+
+Both profiles pass all 21 control guards, eleven discretization guards,
+fourteen sparse spectral guards, 231 legacy groups and 240 direct discretize
+cases. Existing end-to-end sparse failures 46,70,118,142 and discretization
+failures 22,46 remain. Large CSR memory checks pass below 128 MiB. Validation
+still uses static libgfortran with the Windows locale-copy shim; these runs do
+not establish unwrapped GNU Windows runtime stability.
+
+Evidence: validation/results/spectral_qr_package_audit.json,
+spectral_qr_optimized_audit.json and spectral_qr_cross_profile_audit.json,
+plus direct/control/sparse/discretize/guard/legacy/memory reports and logs.
+MIT/BSD attribution is retained; commits remain local.
+
+Verified backup: spectral_qr_evidence_0538dbc.zip,
+80,489,746 bytes / 2,451 entries, SHA256
+2d40141d6ca721f630aaf690cae9ebeca20eba99693f417243a1c2fb380bce7a.
+ZIP CRCs and critical source/report/object/binary hashes pass. Receipt:
+validation/results/spectral_qr_archive_receipt.json (ignored evidence).
+Archive metadata preserves false full/focused Source parity.
