@@ -14875,3 +14875,21 @@ and public functional checks pass. Both 128-by-500000 memory cases pass below
 128 MiB: CD 48,840,704 bytes, MU 56,881,152 bytes, versus a 512,000,000-byte dense
 input. Full package and legacy dense verification are running; no full estimator
 or project Source-completeness claim is made.
+
+Final verification: all 324 native programs and eleven selected examples pass
+in the checked package. All 945 audited build fingerprints / 211 library units
+match current sources. The four-module optimized-library audit passes thirteen
+native programs with checked harnesses; 207 other archive members remain
+byte-identical to the completed checked baseline. All 342 checked audit jobs
+and all twenty scoped optimized jobs pass.
+
+Both profiles pass all 347 CSR configurations (316 accepted, 31 matching staged
+rejections), all 28 validation cases and both large memory cases. The original
+dense CD suite passes 2,022 fixtures / 20,214 groups / 34 rejections; dense MU
+passes 2,090 fixtures / 20,844 groups / 44 rejections. Existing roundoff/stopping
+certificates remain explicit and unchanged. Both profiles pass all 6,500
+MiniBatchNMF groups and 756 Pipeline fixtures / 8,556 groups. Original input/
+oracle inventories, validators, binary hashes and CSR input preservation are
+verified. These checks retain existing tolerances and numerical certificates;
+full project Source parity remains false. GNU Windows validation retains the
+existing static runtime and locale-copy shim.

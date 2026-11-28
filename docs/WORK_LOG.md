@@ -11269,3 +11269,63 @@ also verify finite positive factors, learned dimensions and unchanged input.
 Full checked rebuilding and original dense CD/MU reference suites are running.
 MIT integration retains sklearn/NumPy/SciPy attribution; no external numerical
 runtime or additional estimator has been introduced.
+
+### CSR NMF final verification
+
+Implementation cab9b09 passes the complete checked fpm build and final audits.
+All 324 native programs and eleven selected examples pass. All 945 audited
+dependency-aware fingerprints match, including 211 library units. The checked
+audit completes 342 passing jobs; the scoped optimized audit completes twenty
+passing jobs, including thirteen selected native programs. No native/reference
+job is omitted from those totals.
+
+The optimized scope is sklearn_nmf_sparse_data, sklearn_nmf_mu,
+sklearn_minibatch_nmf and sklearn_decomposition, compiled with -O3 -funroll-loops.
+All harnesses use matched checked flags. The other 207 archive members remain
+byte-identical to the completed checked baseline. Current source/object/binary/
+report hashes pass. This is four-module library optimization, not a complete
+optimized library/program build. The copied completed checked archive has SHA256
+2d1e98f2bc74ec9cb81686ef6e78c8c1b2a385656e08a4d1b72cd267b0caa9c3;
+copying waited for confirmed terminal fpm success and equality was checked before
+and after the copy.
+
+Both profiles pass all 347 CSR configurations: 316 accepted calls and 31
+matching fit/query rejection decisions/stages. Every accepted factor, component,
+inference result, reconstruction error and exact iteration/dimension metadata
+matches Source at 3e-8 atol/rtol. CSR buffers remain unchanged. Original probe
+inputs and Source oracles are identical in both final runs. All 28 separate
+validation cases pass, including one accepted cancelling-duplicate case.
+
+Both profiles pass the complete original dense CD corpus (2,022 fixtures /
+20,214 groups / 34 rejections), dense MU corpus (2,090 fixtures / 20,844 groups /
+44 rejections), 6,500 MiniBatchNMF groups and the full Pipeline corpus (756
+fixtures / 8,556 groups). Existing source replay/roundoff/stopping certificates
+are retained; no fixture, estimator tolerance or certificate was relaxed.
+Initial private dense probes also pass. The combining verifier initially
+assumed these legacy reports had a passed field, while their schema records
+post-assertion fixture/field/error entries. That schema handling was corrected
+to verify complete fixture/group inventories, unchanged source/validator hashes,
+matching rejection lists and successful job exits; all numerical jobs had
+already passed and were not rerun for that bookkeeping correction. Original
+combiner failure and successful final cross-profile log are preserved.
+
+Large 128-by-500000 fit-and-transform cases peak at 49,311,744 bytes (CD) and
+56,868,864 bytes (MU KL) checked, 48,795,648 / 56,799,232 bytes optimized. All are
+below 128 MiB and the 512,000,000-byte dense design equivalent. Finite positive
+factors, dimensions and unchanged inputs pass. Inverse outputs/factors remain
+dense as documented; MiniBatchNMF's public input methods remain dense.
+
+Evidence: validation/results/nmf_sparse_checked_audit.json,
+nmf_sparse_optimized_audit.json and nmf_sparse_cross_profile_audit.json,
+with sparse, guard, memory, original dense CD/MU, MiniBatchNMF and Pipeline
+reports/logs. Full project/API Source parity remains false and other documented
+gaps remain. GNU 15.2.0 validation retains static libgfortran and the existing
+validation-only Windows locale-copy shim; unwrapped runtime stability is not
+established. MIT/BSD attribution remains, and commits remain local.
+
+Verified backup: nmf_sparse_evidence_cab9b09.zip,
+88,432,173 bytes / 2,116 entries, SHA256
+32d4691f42218f4f8e1c8f5ae0d491b69792c898af383b1fc6d211df1899135e.
+ZIP CRCs and critical source/report/object/binary hashes pass. Receipt:
+validation/results/nmf_sparse_archive_receipt.json (ignored evidence).
+Archive metadata retains false full project Source parity and true CSR checks.
