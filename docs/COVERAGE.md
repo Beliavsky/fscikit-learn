@@ -2855,6 +2855,32 @@ CSR and precomputed inputs share this solver. Working Gram/Q storage remains
 quadratic in the number of positive-capacity rows; shrinking reduces active
 selection and gradient work without introducing a bounded kernel cache.
 
+Current shrinking verification: the coherent GNU 15.2 checked build passes all
+341 native programs and 1,204 dependency-aware compiled-source fingerprints.
+Seven selected native harnesses also pass with the three affected library
+modules compiled at O3 with loop unrolling. Harness checks and floating-point
+traps remain enabled. Per profile, both shrinking settings cover 789 dense,
+1,224 CSR and 1,956 precomputed fits each: 7,938 fits and 27,036 independent
+box/equality/double-margin diagnostic replays. All SVC output groups pass their
+existing exact-structure and numeric tolerances. Both settings now match every
+precomputed output and iteration array, including the formerly discrepant
+asymmetric capped cases. Dense iteration arrays differ from Source in eight
+fits with shrinking and fourteen without; CSR arrays differ in fourteen under
+either setting. Exact iteration trajectories remain a diagnostic distinction.
+
+Including the shared regression/novelty replay and legacy kernel corpus gives
+136,362 passing comparison groups per profile, with zero retained output gaps.
+All 51 rejection guards pass. Peak CSR SVC memory is 9,510,912 checked /
+9,375,744 optimized bytes; sparse regression peaks at 9,314,304 / 9,375,744,
+within the existing 128 MiB limits. The new
+`validation/audit_svc_shrinking_profiles.py` requires every saved output group
+to pass, rejects retained exceptions, checks source/compiler/archive identity
+and compares checked versus optimized results. Evidence uses
+`validation/results/svc_shrinking_`. Source, archive and executable hashes are
+stable during each audit. These are complete output comparisons for these
+selected corpora; probabilities, bounded kernel-cache storage, unlimited caps
+and exhaustive sklearn compatibility remain outside this subset.
+
 ## Nu support-vector classification
 
 `nu_svc` translates sklearn 1.6.1 NuSVC's dense binary and one-versus-one
