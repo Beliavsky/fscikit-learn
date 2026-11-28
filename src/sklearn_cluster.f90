@@ -134,12 +134,15 @@ module sklearn_cluster
   type :: spectral_clustering
     integer :: n_clusters=8,n_neighbors=10,n_init=10,random_state=0,n_connected_components_=0
     real(dp) :: gamma=1
-    character(20) :: affinity='rbf',assign_labels='kmeans'
+    character(32) :: affinity='rbf'
+    character(20) :: assign_labels='kmeans'
     integer, allocatable :: labels_(:)
     real(dp), allocatable :: affinity_matrix_(:,:),embedding_(:,:)
   contains
-    procedure :: fit=>spectral_fit
-    procedure :: fit_predict=>spectral_fit_predict
+    procedure :: fit_dense=>spectral_fit,fit_csr=>spectral_fit_csr
+    generic :: fit=>fit_dense,fit_csr
+    procedure :: fit_predict_dense=>spectral_fit_predict,fit_predict_csr=>spectral_fit_predict_csr
+    generic :: fit_predict=>fit_predict_dense,fit_predict_csr
   end type
 contains
   ! sklearn 1.6.1 cluster/_mean_shift.py, _affinity_propagation.py and
@@ -483,14 +486,26 @@ contains
   subroutine spectral_fit(self,x)
     class(spectral_clustering), intent(inout) :: self
     real(dp), intent(in) :: x(:,:)
+    call check_x(x)
+    call require(size(x,1)>=2,'spectral clustering requires at least two samples')
+    self%affinity_matrix_=spectral_affinity_matrix(x,self%affinity,self%gamma,self%n_neighbors)
+    call spectral_finish(self)
+  end subroutine
+  subroutine spectral_fit_csr(self,x)
+    class(spectral_clustering),intent(inout)::self
+    type(csr_matrix),intent(in)::x
+    self%affinity_matrix_=spectral_affinity_matrix(x,self%affinity,self%gamma,self%n_neighbors)
+    call spectral_finish(self)
+  end subroutine
+  subroutine spectral_finish(self)
+    class(spectral_clustering),intent(inout)::self
     type(kmeans) :: model
     real(dp), allocatable :: work(:,:),rotation(:,:),u(:,:),v(:,:),s(:),direction(:)
     integer, allocatable :: pivots(:)
     integer :: n,k,i,j,idx
-    call check_x(x); n=size(x,1); k=self%n_clusters
+    n=size(self%affinity_matrix_,1); k=self%n_clusters
     call require(k>0.and.k<=n,'invalid spectral n_clusters')
     call require(self%assign_labels=='kmeans'.or.self%assign_labels=='cluster_qr','unknown spectral assignment')
-    self%affinity_matrix_=spectral_affinity_matrix(x,self%affinity,self%gamma,self%n_neighbors)
     self%embedding_=spectral_eigenvectors(self%affinity_matrix_,k,.false.,self%n_connected_components_)
     if(self%assign_labels=='kmeans') then
       model%n_clusters=k; model%n_init=self%n_init; model%random_state=self%random_state
@@ -516,6 +531,12 @@ contains
     real(dp), intent(in) :: x(:,:)
     integer :: labels(size(x,1))
     call self%fit(x); labels=self%labels_
+  end function
+  function spectral_fit_predict_csr(self,x)result(labels)
+    class(spectral_clustering),intent(inout)::self
+    type(csr_matrix),intent(in)::x
+    integer::labels(x%n_rows)
+    call self%fit(x);labels=self%labels_
   end function
   subroutine kmeans_store(self,result)
     class(kmeans),intent(inout)::self

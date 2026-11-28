@@ -10749,3 +10749,37 @@ Verified backup: incremental_boundary_evidence_d976c02.zip,
 ZIP CRCs and critical source/report/object/binary hashes pass. Receipt:
 validation/results/incremental_boundary_archive_receipt.json (ignored evidence).
 Archive metadata explicitly retains false strict/focused Source parity.
+
+### CSR spectral estimators and precomputed nearest-neighbor graphs
+
+The preceding goal turn made verified progress through 8a38088: IncrementalPCA
+boundary fixes and retained strict numerical gaps were committed. Revalidated
+the clean tracked worktree; protected scratch files remain untouched.
+
+Added dense/CSR precomputed_nearest_neighbors affinity and CSR fit APIs to
+SpectralEmbedding/Clustering, retaining shared dense eigensolving and clustering
+assignment. Embedding CSR nearest_neighbors mutates to rbf as in actual Source;
+Clustering CSR nearest_neighbors uses sparse functional graph construction.
+Sparse RBF uses bounded row scratch storage. Precomputed affinities remain dense,
+symmetric and nonnegative in the native API; large sample-count sparse spectral
+solving is still a gap. Enlarged affinity strings to hold the new option and
+routed existing dense nearest-neighbor affinities through the established graph
+backend. RBF gamma=0 now follows Source acceptance.
+
+The isolated checked native test passes. All 144 actual Source affinity matrices
+and spectral certificates pass with unchanged 3e-8 tolerances. Four strict label
+failures remain: 46,70,118,142, all raw-duplicate precomputed distance rows with
+three selected entries. I initially described these as self-loop-only graphs;
+inspection disproved that: they contain 66/126 off-diagonal entries and a repeated
+eigenvalue of one, with native residuals around 1e-15. Native dense and Source
+ARPACK select different valid vectors in that eigenspace. Partitions remain a
+strict check and the four failures remain visible; no case or tolerance changed.
+
+All fourteen actual Source/native rejection checks pass. A 32-by-1,000,000 CSR
+fit peaks at 25,157,632 bytes vs 256,000,000 bytes for the dense design. The
+insufficient-stored-neighbors guard explicitly constructs valid CSR storage,
+so its rejection tests neighbor counts rather than malformed buffers.
+The legacy modes/density validator now derives scratch input/output paths from
+its optional report path to isolate simultaneous checked/optimized runs.
+Full checked rebuilding is running; scoped optimized, all-native and legacy
+reference audits remain pending. MIT/BSD notices are retained; commits stay local.

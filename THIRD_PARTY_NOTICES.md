@@ -2904,3 +2904,10 @@ decomposition/_base.py and utils/extmath.py. Scalar OpenBLAS-compatible projecti
 reductions reuse the existing attributed kernel helpers. Retained BSD licenses
 remain in LICENSES; original Fortran integration and tests use the project MIT
 license.
+
+CSR spectral estimator overloads, precomputed_nearest_neighbors connectivity
+and SpectralEmbedding's sparse nearest_neighbors-to-rbf fallback follow
+sklearn 1.6.1 manifold/_spectral_embedding.py and cluster/_spectral.py. Neighbor
+selection and RBF use the existing attributed native backends. The sklearn
+BSD-3-Clause notice remains in LICENSES/scikit-learn-COPYING; new typed adapters
+and tests are original project MIT contributions.

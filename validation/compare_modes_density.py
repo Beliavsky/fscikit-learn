@@ -115,7 +115,10 @@ def main():
         centers = np.zeros((3, p)); centers[:, :2] = [[-3, -3], [0, 3], [3, -3]]
         x = centers[truth] + rng.normal(size=(n, p))*.08
         continuous = rng.normal(size=(n, p))
-        data, output = RESULTS/f"modes_case_{seed}.txt", RESULTS/f"modes_actual_{seed}.txt"
+        data = (args.report.with_name(args.report.stem+f'_{seed}.in') if args.report else
+                RESULTS/f"modes_case_{seed}.txt")
+        output = (args.report.with_name(args.report.stem+f'_{seed}.out') if args.report else
+                  RESULTS/f"modes_actual_{seed}.txt")
         with data.open("w") as f:
             f.write(f"{n} {p}\n")
             np.savetxt(f, np.column_stack([x, continuous]), fmt="%.17g")

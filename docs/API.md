@@ -11414,3 +11414,28 @@ to machine epsilon. Variance updates include Source's corrected two-pass term;
 transforms project before subtracting the projected mean. Existing native SVD
 last-bit differences can be amplified by whitening large-offset data; the strict
 boundary comparison retains those differences explicitly.
+
+SpectralEmbedding and SpectralClustering support
+`affinity='precomputed_nearest_neighbors'` for dense/CSR distance matrices.
+They select the configured count of explicitly queried neighbors (self distances
+are eligible), then symmetrize connectivity by averaging with its transpose.
+CSR explicit zeros, unsorted rows and duplicate entries follow the existing
+functional neighbor graph implementation. Sparse rows must each store enough
+entries for the requested count. SpectralEmbedding requires an explicit positive
+n_neighbors for this affinity; native zero retains the None spelling elsewhere.
+
+Both estimators accept CSR fit calls; SpectralEmbedding has CSR fit_transform,
+and SpectralClustering has CSR fit_predict. RBF uses bounded row scratch storage,
+not whole-design densification. SpectralEmbedding changes a CSR
+nearest_neighbors affinity to rbf, matching sklearn 1.6.1's fallback. Clustering
+supports sparse nearest-neighbor affinity directly. Precomputed affinity inputs
+are still restricted to finite symmetric nonnegative matrices. Native affinity
+matrices and eigendecomposition remain dense and quadratic in sample count;
+this is not a sparse eigensolver. Native RBF gamma now accepts zero.
+
+On repeated eigenspaces the native dense solver can select a different basis
+from Source ARPACK and yield different clustering partitions. The new actual
+Source comparison retains four such strict label failures for raw-duplicate
+precomputed distance rows; all affinity matrices and spectral certificates pass.
+Python warning objects and additional kernel/callable affinity controls remain
+outside these overloads.

@@ -14677,3 +14677,30 @@ bit-identical to Source. The maximum remaining end-to-end projection difference
 is 1.3174680406624617e-6. All 930 compiled fingerprints / 209 library units match
 current sources. Detailed evidence is incremental_boundary_cross_profile_audit.json;
 full strict Source parity is explicitly false.
+
+### CSR spectral estimators and precomputed nearest-neighbor affinity
+
+Added dense/CSR precomputed_nearest_neighbors, CSR fit/fit_transform for
+SpectralEmbedding and CSR fit/fit_predict for SpectralClustering. Shared affinity
+construction reuses Source-compatible functional neighbor graphs and sparse
+RBF kernels. Embedding's sparse nearest_neighbors fallback mutates affinity to
+rbf as Source does; sparse clustering nearest_neighbors remains graph based.
+Both affinity strings now have space for the full option name. Existing dense
+nearest-neighbor construction now uses the shared graph backend, correcting its
+former stable-sort-only selection on ties. RBF gamma=0 is supported.
+
+The initial 144-configuration checked probe covers both estimators, both cluster
+assignment modes, four affinities, dense/canonical/noncanonical storage, two
+sample counts and two neighbor counts. All affinity matrices match actual
+sklearn 1.6.1 within unchanged 3e-8 tolerances, and all native spectral residual/
+orthonormality certificates pass against the actual Source graph and spectrum.
+Four strict label failures remain at indices 46,70,118,142: raw duplicate
+precomputed rows with three selected entries produce a repeated eigenvalue of
+one. Different valid eigenvectors lead to different partitions. Native/Source
+partitions are still compared, and those failures are not suppressed. No fixed
+basis is imposed on mathematically repeated eigenspaces by the certificate.
+
+Fourteen Source/native input rejection checks pass. A 32-by-1,000,000 CSR design
+(256 MB dense equivalent) peaks at 25,157,632 bytes in the initial memory probe.
+Only design storage is sparse: fitted affinities and the eigensolver remain
+dense in sample count. Full checked/optimized and legacy verification is pending.
