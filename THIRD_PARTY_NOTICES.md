@@ -3215,3 +3215,14 @@ splits supply training and stopping semantics. The scikit-learn BSD-3-Clause
 license and attribution above apply. Native typed storage, scalar initializer
 adapters, parameter-only clones, wrapper/search adapters and harnesses are MIT.
 No additional external repository was imported.
+
+
+### Signed SGD and Perceptron training weights
+
+Signed sample/class products and validation sample masks follow scikit-learn
+1.6.1 `linear_model/_stochastic_gradient.py`, `_sgd_fast.pyx.tp` and the
+`_perceptron.py` wrapper. Classifier validation callbacks use the existing
+translated accuracy metric, attributed above to sklearn/NumPy/OpenBLAS.
+Regression validation retains the translated weighted R2 metric. The existing
+scikit-learn BSD-3-Clause attribution applies; native finite-input diagnostics
+and test/typed adapter integration are MIT code.

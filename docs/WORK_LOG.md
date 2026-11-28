@@ -12969,3 +12969,17 @@ Archive SHA256 ba4cfbe5118961580d718ea6ea66658ab7fb60a86fd4743fbac8b7918f691689
 perceptron_checked.json SHA256 c2e2ac8ddea0d48b269d880885c07fd5bb4acedfe2e61e90860f661db93d1783
 perceptron_optimized.json SHA256 557fb943df9ceb3b16f468e9cb18db6564ba9df025ea408964c93aeb519acf8b
 perceptron_cross_profile.json SHA256 55f7c79bf8e7cb85211041c7b2bc252b38487f23a19586ecb1726fed306261b6
+
+2026-11-28 - Signed sample/class weights for SGD and Perceptron
+Removed nonnegative sample-weight and positive class-weight restrictions from
+SGDRegressor/Classifier and the shared Perceptron engine. Signed sample/class
+products now control steps in dense/CSR full/warm/partial fits. Validation
+classification uses the translated signed-weight accuracy metric; original
+sample weights determine validation acceptance before class products. Negative
+validation totals are accepted; zero-total score errors match Source. Prior
+Perceptron adapter rejections are now Source/native acceptance checks. Removed
+the obsolete negative-weight rejection from the retained CSR driver/validator.
+Initial checked corpus: 5376 cases / 73728 groups, zero gaps at unchanged 3e-9.
+Seven Source validation rejections match. Wide signed-weight CSR peaks 28921856
+regression / 69025792 classification / 81063936 Perceptron bytes, all below
+128 MiB. Full checked build and final scoped-O3 retained audits pending.

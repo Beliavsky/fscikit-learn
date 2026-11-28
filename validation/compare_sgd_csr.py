@@ -15,7 +15,7 @@ REJECTIONS={
  'data_nan':'X contains NaN or infinity','data_inf':'X contains NaN or infinity',
  'pointer':'CSR pointer endpoints are invalid','column':'CSR column index is out of bounds',
  'target_count':'X and y sample counts differ','target_nan':'X contains NaN or infinity',
- 'weight_count':'SGD sample weight count mismatch','weight_nan':'nonfinite SGD sample weights','weight_negative':'negative SGD sample weights',
+ 'weight_count':'SGD sample weight count mismatch','weight_nan':'nonfinite SGD sample weights',
  'reg_query_unfitted':'SGDRegressor is not fitted','cls_query_unfitted':'SGDClassifier is not fitted',
  'reg_width':'SGD feature count mismatch','cls_width':'SGDClassifier feature count mismatch',
  'reg_partial_width':'SGD feature count mismatch','cls_partial_width':'SGDClassifier feature count mismatch',

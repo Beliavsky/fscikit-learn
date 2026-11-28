@@ -34,7 +34,9 @@ program test_perceptron_controls
   case('bad_init');call c%fit(x,labels,coef_init=[1._dp])
   case('wrong_width');call c%partial_fit(x,labels,classes=[-5,7]);call c%partial_fit(x(:,:1),labels)
   case('negative_weight');weights(1)=-1;call c%fit(x,labels,sample_weight=weights)
+    print *,'Accepted signed Perceptron sample weights: PASS';stop
   case('nonpositive_class_weight');call c%fit(x,labels,class_weight=[0._dp,1._dp])
+    print *,'Accepted nonpositive Perceptron class weights: PASS';stop
   case('memory')
     allocate(ptr(257),indices(512),data(512),large_labels(256))
     do i=1,256

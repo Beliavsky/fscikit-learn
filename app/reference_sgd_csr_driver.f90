@@ -207,7 +207,6 @@ contains
     case('target_nan');call r%fit(a,[nan,1._dp]);return
     case('weight_count');call r%fit(a,[1._dp,2._dp],sample_weight=[1._dp]);return
     case('weight_nan');call r%fit(a,[1._dp,2._dp],sample_weight=[nan,1._dp]);return
-    case('weight_negative');call r%fit(a,[1._dp,2._dp],sample_weight=[-1._dp,1._dp]);return
     case('reg_query_unfitted');pred=r%predict(a);return
     case('cls_query_unfitted');scores=c%decision_function(a);return
     case('reg_width');call r%fit(a,[1._dp,2._dp]);q%n_cols=3;pred=r%predict(q);return

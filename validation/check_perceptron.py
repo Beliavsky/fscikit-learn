@@ -1,4 +1,4 @@
-"""Perceptron Source rejection decisions, explicit engine restrictions and wide CSR memory."""
+"""Perceptron Source rejection decisions, accepted signed weights and wide CSR memory."""
 from pathlib import Path
 import argparse,hashlib,json,subprocess,warnings
 import numpy as np
@@ -10,7 +10,7 @@ from check_minibatch_sparse_memory import peak_memory
 MODES=['missing_classes','one_class','changed_classes','unknown_class','early_partial','balanced_partial',
        'bad_penalty','bad_alpha','bad_mix','bad_eta','bad_tol','bad_seed','bad_fraction','bad_weight_size',
        'nan_weight','bad_init','wrong_width']
-RESTRICTIONS=['negative_weight','nonpositive_class_weight']
+ACCEPTANCES=['negative_weight','nonpositive_class_weight']
 
 
 def source_reject(mode):
@@ -51,19 +51,19 @@ def main():
         assert run.returncode and 'fscikit-learn:' in message,(mode,message)
         assert 'SIGFPE' not in message and 'Fortran runtime error' not in message,(mode,message)
         guards.append(dict(mode=mode,oracle='source',source=source,native=message,passed=True))
-    for mode in RESTRICTIONS:
+    for mode in ACCEPTANCES:
         with warnings.catch_warnings():warnings.simplefilter('ignore');source_reject(mode)
         run=subprocess.run([str(args.executable.resolve()),mode],capture_output=True,text=True)
         message=run.stdout+run.stderr
-        assert run.returncode and 'fscikit-learn:' in message and 'SIGFPE' not in message,(mode,message)
-        guards.append(dict(mode=mode,oracle='native_adapter',source='Source accepts; shared SGD engine restriction',native=message,passed=True))
+        assert run.returncode==0 and 'PASS' in message,(mode,message)
+        guards.append(dict(mode=mode,oracle='source_accept',source='Source and native accept',native=message,passed=True))
     process=subprocess.Popen([str(args.executable.resolve()),'memory'],stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
     stdout,stderr=process.communicate();peak=peak_memory(process)
     assert process.returncode==0 and 'Large CSR Perceptron memory case: PASS' in stdout,(stdout,stderr)
     assert 0<peak<128*1024**2,peak;assert before==sha(args.executable)
     args.report.write_text(json.dumps(dict(passed=True,guards=guards,peak_working_set_bytes=peak,limit_bytes=128*1024**2,
         dense_design_bytes=256*500000*8,executable_sha256=before,validator_sha256=sha(__file__)),indent=2)+'\n')
-    print(len(guards),'Perceptron Source/adapter guards and',peak,'byte memory peak PASS')
+    print(len(guards),'Perceptron rejection/acceptance checks and',peak,'byte memory peak PASS')
 
 
 if __name__=='__main__':main()

@@ -1384,9 +1384,8 @@ wrappers accept weighted fits and incremental Perceptron bases.
 
 n_features_in_, n_iter_, t_, classes_, coef_ and intercept_ expose fit state.
 Native diagnostics include per-head epoch/convergence/loss arrays and
-validation_mask_. The shared SGD subset currently rejects negative fitting
-sample weights and nonpositive explicit class weights; sklearn accepts those
-values. Arbitrary NumPy buffer-alias mutation semantics, parallel jobs and verbose
+validation_mask_. Finite signed fitting sample weights and zero/negative explicit class weights
+are accepted, following sklearn. Arbitrary NumPy buffer-alias mutation semantics, parallel jobs and verbose
 callbacks remain outside this interface. Perceptron does not supply probabilities.
 
 ## Passive-aggressive classification and regression
@@ -2302,6 +2301,26 @@ validation rows. Native diagnostic `validation_mask_(:)` records held-out rows. 
 is zero in this mode because training-loss evaluation is omitted.
 Refits rebuild the split, and parameter clones discard it. Both controls are
 accepted in parameter searches, including nested pipeline parameter names.
+
+## Signed SGD and Perceptron fitting weights
+
+Direct `sgd_regressor`, `sgd_classifier` and `perceptron` dense/CSR fit and
+partial_fit interfaces accept finite signed sample_weight. Classifiers also
+accept finite zero or negative per-call class_weight values in sorted class
+order. Their product multiplies the gradient update, so negative products reverse
+updates and zero products suppress them. Penalty decay and training-loss patience
+still run on those rows, matching Source. Zero-total or all-zero training weights
+are allowed when no validation score is requested.
+
+Validation splitting uses original sample weights before class-weight products.
+The held-out set must contain at least one positive sample weight, as in Source.
+Its total weight may be negative; accuracy/R2 retain signed weighting. A
+zero-total validation set raises a diagnostic when its score requires division,
+matching Source. One-row R2 still returns NaN before weight reduction. Classifier
+validation uses the translated accuracy metric's weighted reduction, including
+Source's log-loss callback label convention. All weights must remain finite.
+Outer wrappers retain their own input/weight contracts; this change does not
+relax weight constraints in unrelated estimators such as SGDOneClassSVM.
 
 ## CSR SGD input and queries
 

@@ -16209,9 +16209,8 @@ Initial checked probes pass 772 cases / 14,760 groups at unchanged 3e-9 toleranc
 with exact predictions, masks, classes and clocks. Seventeen Source rejection
 checks and two explicitly identified adapter restrictions pass. Wide CSR
 fit/query/partial fitting uses 80,961,536 bytes, below 128 MiB. Final checked and
-scoped-O3 package/shared-SGD verification is complete as recorded below. The shared SGD engine still
-rejects negative fit sample weights and nonpositive explicit class weights that
-Source accepts. Parallel/verbose and NumPy buffer-alias semantics remain gaps.
+scoped-O3 package/shared-SGD verification is complete as recorded below. The former shared-engine signed-weight restrictions are removed in the
+subsequent signed-weight section below. Parallel/verbose and NumPy buffer-alias semantics remain gaps.
 
 Final verification: the successful full checked fpm build and cosmetic test-message
 refresh pass all 356 native programs. Seven modules (sgd, perceptron, linear_model,
@@ -16232,3 +16231,24 @@ build logs are perceptron_build.log and perceptron_refresh.log. Archive SHA256:
 ba4cfbe5118961580d718ea6ea66658ab7fb60a86fd4743fbac8b7918f691689.
 The expanded Perceptron subset is verified; documented shared-engine/API gaps
 and project-wide Source parity remain open.
+
+
+### Signed SGD and Perceptron weights
+
+Finite negative sample weights and zero/negative explicit class weights now
+follow Source in SGD regression/classification and Perceptron dense/CSR full,
+warm and incremental fitting. Gradient steps use signed sample/class products;
+regularization, averaging and unweighted training-loss stopping retain their
+Source order. Zero-total and all-zero training weights are accepted without
+validation scoring. Validation masks still require some positive held-out sample
+weight before class-weight multiplication; negative total validation weight is
+allowed. Zero-total score reductions reject as in Source. Classification
+callbacks use the translated accuracy metric, preserving signed reductions and
+the existing log-loss callback label behavior. Unrelated estimator restrictions
+are unchanged. The two former Perceptron adapter rejections are acceptance checks.
+
+Initial checked probes pass 5,376 cases / 73,728 groups at unchanged 3e-9 numeric
+tolerances and exact predictions/masks/clocks. Seven Source/native validation
+errors match. Wide signed-weight CSR fitting/query/streaming peaks at 28,921,856
+bytes for regression, 69,025,792 for classification and 81,063,936 for Perceptron,
+all below 128 MiB. Full checked/scoped-O3 retained verification is pending.

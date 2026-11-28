@@ -282,7 +282,7 @@ contains
     if(present(sample_weight)) then
       call require(size(sample_weight)==n,'SGD sample weight count mismatch')
       call require(all(ieee_is_finite(sample_weight)),'nonfinite SGD sample weights')
-      call require(all(sample_weight>=0),'negative SGD sample weights'); weights=sample_weight
+      weights=sample_weight
     end if
     held_out=.false.;start_t=self%t_
     if(self%early_stopping)then
@@ -406,15 +406,10 @@ contains
           validation_prediction(j)=inner+self%standard_intercept
         end do
         if(self%classification)then
-          if(self%loss=='log_loss')then
-            ! sklearn 1.6.1 encodes binomial targets as 0/1 but installs
-            ! callback classes [-1,1]: negative targets never score correct.
-            validation_score=sum(score_weight*merge(1._dp,0._dp, &
-              validation_prediction>0.and.y(validation_indices)>0))/sum(score_weight)
-          else
-            validation_score=sum(score_weight*merge(1._dp,0._dp, &
-              merge(1._dp,-1._dp,validation_prediction>0)==y(validation_indices)))/sum(score_weight)
-          end if
+          ! The callback installs classes [-1,1], including log_loss targets
+          ! encoded 0/1. Reuse Source-compatible signed-weight accuracy sums.
+          validation_score=accuracy_score(nint(y(validation_indices)), &
+            merge(1,-1,validation_prediction>0),sample_weight=score_weight)
         else
           validation_score=r2_score(y(validation_indices),validation_prediction,sample_weight=score_weight)
         end if
@@ -594,7 +589,7 @@ contains
     if(present(sample_weight)) then
       call require(size(sample_weight)==n,'SGD sample weight count mismatch')
       call require(all(ieee_is_finite(sample_weight)),'nonfinite SGD sample weights')
-      call require(all(sample_weight>=0),'negative SGD sample weights'); weights=sample_weight
+      weights=sample_weight
     end if
     validation_mask=spread(.false.,1,n)
     if(self%early_stopping)validation_mask=make_validation_mask(n,self%validation_fraction,self%random_state,weights,encoded)
@@ -605,7 +600,7 @@ contains
       call require(.not.self%class_weight_balanced,'choose balanced or explicit SGD class weights')
       call require(size(class_weight)==k,'SGD class weight count mismatch')
       call require(all(ieee_is_finite(class_weight)),'nonfinite SGD class weights')
-      call require(all(class_weight>0),'SGD class weights must be positive'); cw=class_weight
+      cw=class_weight
     else if(self%class_weight_balanced) then
       do c=1,k
         cw(c)=real(n,dp)/(k*real(count(encoded==c),dp))
