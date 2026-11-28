@@ -14842,3 +14842,18 @@ Source output under cancellation; its result remains a witness diagnostic.
 A regression test accepts valid Source cancellation and rejects one-ULP
 mutations for both KNN target types. The full unchanged 756-fixture Pipeline
 probe passes 8,556 groups. Original failures and baseline reproduction are kept.
+
+Final verification: all 323 checked native programs and eleven examples pass;
+all 941 audited fingerprints / 210 library units match. The scoped optimized
+Bayesian core passes nine native programs with checked harness flags; all 209
+other archive members remain byte-identical. The checked audit completes 341
+jobs (338 passing), the scoped audit sixteen (thirteen passing). Their three
+nonzero jobs retain the documented Bayesian covariance and ARD differences.
+Both profiles pass all score histories in the original 186- and new 80-case
+grids, retaining 21/twelve covariance/std cases, plus ARD's unchanged eight.
+All twenty Bayesian and sixteen ARD guards, 324 IterativeImputer fixtures /
+2,592 groups and 756 Pipeline fixtures / 8,556 groups pass in both profiles.
+Corrected Pipeline certificates require exact Source distances; the earlier
+invalid relative-bound failures remain diagnostic. Full Source parity is false.
+The GNU Windows runs retain static libgfortran and the validation locale shim.
+Details: bayes_products_cross_profile_audit.json and qualified result reports.

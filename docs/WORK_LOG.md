@@ -11186,3 +11186,53 @@ Original failed logs, baseline/current diagnostic snapshots and the baseline
 executable/archive are preserved. Both full audits are rerunning with the
 corrected certificate. Bayesian reports additionally verify unchanged native
 binary hashes during each comparison and record NumPy/SciPy/validator hashes.
+
+### Bayesian evidence-score final verification
+
+Core implementation 804921d and certificate/validator commit 982dbd3 pass the
+completed checked build and final audits. All 323 checked native programs and
+eleven examples pass; all 941 dependency-aware fingerprints match, including
+210 library units. The checked audit completes 341 jobs: 338 pass, three
+reference jobs intentionally retain strict covariance/ARD differences.
+The one-module optimized-library audit completes sixteen jobs: thirteen pass,
+with the same three retained strict jobs. All nine selected native tests pass.
+Its Bayesian core uses -O3 -funroll-loops with checked harnesses; the 209 other
+archive members and final source/object/binary/report hashes are verified.
+This is scoped library optimization, not a complete optimized library build.
+
+The completed checked baseline SHA256 is
+1edd545714305b5bcb9eeb841bfa096dd53e4ace59d73707e9fd30ab180dfe7d.
+No archive was copied before terminal fpm build success. Both profiles match
+all original 186 Source inputs/oracles and close the original five score gaps:
+120,126,132,138,144. The original 21 wide covariance/std differences remain.
+Both new 80-case grids match all score histories, removing all 67 baseline
+history failures. Twelve thin-SVD covariance/std differences remain at indices
+36 through 47. Coefficients, precisions, predictions, metadata and acceptance
+match throughout both grids; all comparisons retain 3e-8 atol/rtol.
+
+ARD's 152-case Source inputs/oracles and eight-failure inventory are unchanged;
+all twenty Bayesian and sixteen ARD Source/native input guards pass. Both
+profiles pass IterativeImputer's 324 fixtures / 2,592 groups and the full current
+Pipeline inventory of 756 fixtures / 8,556 groups. Exact same-native-input Source
+KNN distances and valid squared-distance bounds pass; the invalid former
+relative-distance bound remains diagnostic. The new regression accepts Source
+cancellation and rejects one-ULP mutations for both KNN target types.
+Original certificate failures, old-library reproduction and diagnostic arrays
+are preserved rather than excluded. No estimator fixture or output tolerance
+was relaxed. Full project/fitted Source parity remains explicitly false.
+
+Evidence: validation/results/bayes_products_checked_audit.json,
+bayes_products_optimized_audit.json and bayes_products_cross_profile_audit.json,
+with original/capped history, guard, ARD, imputation and Pipeline reports/logs.
+Validation uses GNU 15.2.0, static libgfortran and the existing validation-only
+Windows locale-copy shim; unwrapped runtime stability is not established.
+MIT licensing and retained BSD attribution remain. Commits are local, and the
+broader translation goal and documented numerical/API gaps remain open.
+
+Verified backup: bayes_products_evidence_982dbd3.zip,
+114,214,002 bytes / 2,116 entries, SHA256
+2a95c542e7cba12e8ca86685385df3505edfbe1ad29cf560ac10ce1c5e73d616.
+ZIP CRCs, critical file hashes, baseline library hash and both preserved
+Pipeline diagnostic/binary hash pairs pass. Receipt:
+validation/results/bayes_products_archive_receipt.json (ignored evidence).
+Metadata preserves false full Source parity and true checked score-history parity.
