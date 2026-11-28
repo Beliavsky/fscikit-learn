@@ -950,7 +950,7 @@ locale-copy shim. Broader numerical/API gaps remain outside this corpus.
 `svr`, `nu_svr`, and `one_class_svm` are available through `sklearn_svm` and
 the facade; their implementation module is `sklearn_kernel_svm`. NuSVR retains native dense dual SMO with a most-violating first coordinate
 and gain-based second coordinate. SVR and OneClassSVM now use the translated LIBSVM
-Solver with weighted prefix initialization, second-order selection, Source float
+Solver with formulation-specific initialization, second-order selection, Source float
 Q entries, bound-gradient reconstruction and optional active-set shrinking. All support `fit` with optional nonnegative `sample_weight`, requiring
 at least one positive weight. SVR/NuSVR take one finite continuous target vector
 and provide `predict` and R2 `score`. OneClassSVM takes only X and optional
@@ -1034,6 +1034,32 @@ single comparison oracle `source_support_rows`. Other Source outputs and
 exact structural/numeric tolerances remain unchanged. The native scalar count
 continues to mean the actual number of support rows. This treats undefined
 Source metadata explicitly rather than reproducing uninitialized memory.
+
+Current translated epsilon-SVR verification: the coherent GNU 15.2 checked
+build passes all 345 native programs and all 1,213 compiled-source fingerprints.
+Seven selected native harnesses pass with the shared Solver and kernel module
+at O3/unroll; harness bounds checks and floating-point traps remain enabled.
+Each profile passes 2,616 new SVR fits / 44,944 comparison groups / 2,616
+independent signed-balance, box, canonical-residual, cache-rounding-bound and
+prediction/formal objective-expression replays. Coverage includes dense/CSR /
+precomputed, epsilon zero and positive, C=.3/2, weights/zero rows, four kernels,
+raw sparse layouts, signed sigmoid, asymmetric/near/small matrices, constant /
+empty-support fits, caps 1/31/10000 and both shrinking settings. Source-defined
+outputs match at existing exact-structure and 3e-6 numeric tolerances. Only three
+ordinary polynomial iteration arrays differ. Sparse n_support_ uses the
+explicit Source support-row oracle above, with raw undefined counts retained.
+
+Retained comparisons pass per profile: 1,316 OneClassSVM fits / 26,556 groups,
+318 dense kernel groups, 1,296 CSR kernel fixtures / 15,120 groups, 789 C-SVC
+fits / 11,046 groups and 1,728 NuSVC fits / 22,464 groups. The total is 120,448
+passing groups, including labeled native storage/count contracts. All 41
+rejection guards pass. Wide CSR all-family memory peaks at 9,449,472 checked /
+9,441,280 optimized bytes under 128 MiB. Frozen cross-profile verification
+passes source/compiler/archive identity, expected outputs and actual numerical
+comparisons. Evidence uses `validation/results/svr_libsvm_`; sources, binaries
+and archive remain stable during auditing. Existing SVC/NuSVC counter gaps and
+the documented undefined sparse metadata remain visible. Broader API and
+NuSVR optimizer gaps remain outside these selected comparisons.
 
 Previous translated OneClassSVM verification: a coherent GNU 15.2 checked
 build passes all 344 native programs and all 1,211 compiled-source fingerprints.
