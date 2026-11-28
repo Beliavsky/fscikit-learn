@@ -12139,3 +12139,33 @@ expanded legacy squared-loss probe passes 876 groups. Four rejection checks
 and the new 128-by-200,000 sparse dual memory case pass (19,992,576 bytes peak).
 A full coherent fpm rebuild and checked/O3 regression audits are in progress;
 these probe results do not yet constitute full-build verification.
+
+### 2026-11-28: Full LinearSVC checked/O3 verification
+
+Implementation c8efb1f passed a coherent GNU 15.2 checked fpm rebuild. All 335
+native programs, five scoped O3 harnesses and 1,191 dependency-aware source
+fingerprints pass. Both profiles pass 23,724 Source output/cap comparison
+groups plus 702 independent derivative groups: new classifier 1,484 fits /
+13,356 groups / 2,996 channel certificates, regression 672 fits / 5,376 groups
+and certificates, and legacy 5,694 groups. No output tolerance was widened.
+All 21 guards pass per profile. New classifier dual peak working set is
+19,980,288 checked / 19,902,464 optimized bytes (128-by-200,000 case, limit
+128 MiB); primal peaks are 26,427,392 / 26,349,568 bytes and regression dual
+peaks are 13,578,240 / 13,529,088 bytes.
+
+Retained extra strict-optimality flags: among 1,092 legacy derivative records
+per profile, 701 native and 695 Source points exceed the additional bound,
+with six disagreements. Independent objectives/derivatives and tested public
+outputs pass; universal mathematical optimality is not claimed. Validation
+uses sklearn 1.6.1, NumPy 2.2.6, SciPy 1.15.3, static libgfortran and the Windows
+locale-copy shim. The first fingerprint audit omitted four application helper
+module dependencies; including those modules verifies all 1,191 sources.
+
+Evidence prefix: validation/results/linear_svc_dual_. Archive SHA256:
+c46bfb315e446a71a402186c80a950ee6c616c7d87125aa944242f3a210420d1
+Checked audit SHA256:
+5a10d2c06d4cf4804d4b2d2a41c519fc6fe9e3d2ed79ff5de6770474b610b8ae
+Optimized audit SHA256:
+fcb526ac780079d550611dec7185fee46ab8ef7f3ebcd7013ae97619d97459da
+
+Local commits only; no push. The broader translation goal remains active.

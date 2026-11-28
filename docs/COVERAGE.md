@@ -1780,6 +1780,36 @@ objective/gap and KKT certificate fields are explicitly identified in API.md.
 These regression fit paths avoid dense design augmentation, feature Hessians
 and Gram matrices. Auto-selected primal fits use the same TRON implementation.
 
+Current LinearSVC verification: a fresh checked fpm build passes all 335
+native programs and all 1,191 dependency-aware compiled-source fingerprints.
+Checked and scoped O3 profiles each pass 23,724 Source output/iteration-cap
+groups plus 702 independently reconstructed derivative groups, without
+widening existing tolerances. The new classifier corpus covers 1,484 fits,
+13,356 groups and 2,996 channel certificates per profile: both losses, dense
+and four CSR layouts, binary/OVR, sample and class weights, intercept choices,
+seeds, automatic selection, iteration caps and inactive classes. Existing
+regression corpora pass all 672 fits / 5,376 groups and certificates; legacy
+squared-loss corpora pass all 5,694 groups. Five native harnesses exercise the
+optimized module, and all 21 rejection guards pass in each profile.
+
+The 128-by-200,000 classifier dual memory case peaks at 19,980,288 checked /
+19,902,464 optimized bytes, below 128 MiB. Alpha storage is opt-in. Primal and
+regression dual memory cases also remain below the bound. Evidence and
+cross-profile proof use validation/results/linear_svc_dual_. GNU 15.2,
+sklearn 1.6.1, NumPy 2.2.6, SciPy 1.15.3, static libgfortran and the Windows
+locale-copy shim are retained for validation.
+
+The extra strict-optimality diagnostic remains separate from output agreement.
+Among 1,092 legacy derivative records per profile, 701 native and 695 Source
+points exceed that additional bound; six flags differ. All reported gradients
+and objectives pass independent replay, and all public comparison tolerances
+pass. Universal mathematical optimality or bitwise trajectory parity is not
+claimed. Broader project/API/numerical gaps remain.
+
+### Historical regression TRON verification
+
+The following results describe the prior regression-only TRON revision.
+
 Previous regression TRON verification: all 334 native programs and 1,189 dependency-aware
 source fingerprints pass after a fresh checked build. Checked and scoped O3
 profiles each pass 10,368 Source output/iteration-cap comparison groups and
