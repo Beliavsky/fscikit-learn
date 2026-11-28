@@ -12949,3 +12949,23 @@ native-rejected adapter cases. Initial checked probes: 772 cases / 14760 checks,
 zero gaps at unchanged 3e-9; 17 Source rejection guards plus 2 adapter guards.
 Wide CSR fit/query/partial fitting peaks at 80961536 bytes, below 128 MiB.
 Full checked rebuild and final scoped-O3/shared-SGD verification are pending.
+
+2026-11-28 - Final expanded Perceptron verification (implementation 0424229)
+Successful full checked fpm build and cosmetic test-message refresh; 356 native
+programs pass. Seven scoped O3/funroll-loops modules: sgd, perceptron, linear_model,
+sgd_clone, base_dispatch, multiclass and search_adapters; 16 selected checked
+harnesses pass. Both profiles pass 318639 comparison groups and 85 diagnostics.
+Perceptron: 772 cases / 14760 groups, 17 Source guards and 2 adapter restrictions.
+Retained SGD: 6600 validation, 136080 CSR, 136080 warm/initialized dense and
+25119 regularization groups. Original Source tolerances unchanged; Perceptron
+3e-9 and exact predictions/masks/classes/clocks. Serialized cross-profile outputs
+and Source/report/compiler/archive identities pass; all 1233 compiled fingerprints
+match. Wide CSR Perceptron peaks 81031168 checked / 80908288 optimized bytes,
+both below 128 MiB. Documented weight-domain restrictions remain; project-wide
+Source parity remains false and the overall goal remains active.
+Reports validation/results/perceptron_{checked,optimized,cross_profile}.json.
+Build logs perceptron_build.log and perceptron_refresh.log.
+Archive SHA256 ba4cfbe5118961580d718ea6ea66658ab7fb60a86fd4743fbac8b7918f691689
+perceptron_checked.json SHA256 c2e2ac8ddea0d48b269d880885c07fd5bb4acedfe2e61e90860f661db93d1783
+perceptron_optimized.json SHA256 557fb943df9ceb3b16f468e9cb18db6564ba9df025ea408964c93aeb519acf8b
+perceptron_cross_profile.json SHA256 55f7c79bf8e7cb85211041c7b2bc252b38487f23a19586ecb1726fed306261b6

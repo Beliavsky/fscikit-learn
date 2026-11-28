@@ -72,5 +72,5 @@ program test_perceptron_search
       call require(size(c%coef_,2)==3,'validation wrappers preserve caller prototypes')
     end if
   end do
-  print *,'Perceptron validation CV, search controls and clone isolation: PerceptronSS'
+  print *,'Perceptron validation CV, search controls and clone isolation: PASS'
 end program

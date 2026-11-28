@@ -16208,7 +16208,27 @@ identified as extensions. Probability prediction remains absent, as in Source.
 Initial checked probes pass 772 cases / 14,760 groups at unchanged 3e-9 tolerance,
 with exact predictions, masks, classes and clocks. Seventeen Source rejection
 checks and two explicitly identified adapter restrictions pass. Wide CSR
-fit/query/partial fitting uses 80,961,536 bytes, below 128 MiB. Full checked and
-scoped-O3 package/shared-SGD verification is pending. The shared SGD engine still
+fit/query/partial fitting uses 80,961,536 bytes, below 128 MiB. Final checked and
+scoped-O3 package/shared-SGD verification is complete as recorded below. The shared SGD engine still
 rejects negative fit sample weights and nonpositive explicit class weights that
 Source accepts. Parallel/verbose and NumPy buffer-alias semantics remain gaps.
+
+Final verification: the successful full checked fpm build and cosmetic test-message
+refresh pass all 356 native programs. Seven modules (sgd, perceptron, linear_model,
+sgd_clone, base_dispatch, multiclass and search_adapters) compiled with
+-O3/-funroll-loops pass 16 selected checked harnesses. Both profiles pass 318,639
+comparison groups: 14,760 Perceptron, 6,600 SGD validation, 136,080 CSR full fits,
+136,080 dense warm/initialized fits and 25,119 regularization groups. All 85
+diagnostic checks pass; the Perceptron subset distinguishes 17 Source rejection
+decisions from two Source-accepted/shared-engine-rejected restrictions. Original
+Source comparison tolerances are unchanged; Perceptron uses 3e-9 and exact
+predictions, masks, classes and clocks. Serialized cross-profile outputs and
+source/report/compiler/archive identities pass. All 1,233 compiled-source
+fingerprints match. Wide CSR Perceptron fit/query/partial peaks are 81,031,168
+checked / 80,908,288 optimized bytes, both below 128 MiB.
+
+Reports are validation/results/perceptron_{checked,optimized,cross_profile}.json;
+build logs are perceptron_build.log and perceptron_refresh.log. Archive SHA256:
+ba4cfbe5118961580d718ea6ea66658ab7fb60a86fd4743fbac8b7918f691689.
+The expanded Perceptron subset is verified; documented shared-engine/API gaps
+and project-wide Source parity remain open.

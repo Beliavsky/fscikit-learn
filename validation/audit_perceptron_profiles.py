@@ -69,7 +69,7 @@ def main():
         if 'guards' in left:
             assert len(left['guards'])==len(right['guards'])
             for a,b in zip(left['guards'],right['guards']):
-                assert (a['mode'],a['oracle'],normalized_source_message(a['source']),a['passed'])==(b['mode'],b['oracle'],normalized_source_message(b['source']),b['passed'])
+                assert (a['mode'],a.get('oracle','source'),normalized_source_message(a['source']),a['passed'])==(b['mode'],b.get('oracle','source'),normalized_source_message(b['source']),b['passed'])
         summary[key]=dict(groups=len(left.get('checks',[])),fixtures=left.get('fixtures',len(left.get('cases',[]))),
                           diagnostics=len(left.get('guards',left.get('rejections',[]))))
     result=dict(selected_source_output_parity=True,cross_profile_outputs=True,project_strict_source_parity=False,
