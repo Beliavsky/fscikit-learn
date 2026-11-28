@@ -16131,5 +16131,23 @@ The initial checked probe passes 1,476 five-fit sequences / 7,380 stages / 78,90
 comparison groups at unchanged 3e-8 tolerance and exact labels/counters. Twelve
 Source/native rejection decisions, averaged-public-replacement acceptance and
 540 wrapper outputs pass. Final all-native and scoped-O3 retained PA audits are
-pending below. Validation-set stopping, explicit initial-coefficient arguments,
+complete as recorded below. Validation-set stopping, explicit initial-coefficient arguments,
 fit sample weights and parallel PA training remain outside this subset.
+
+Final verification: the successful full checked build and final test refresh pass
+all 352 native programs. The scoped optimized profile recompiles linear_model,
+sgd_clone, multioutput, compose and search_adapters with -O3/-funroll-loops and
+passes 18 selected checked harnesses. Both profiles pass 243,288 Source comparison
+groups (78,900 warm; 80,100 streaming; 69,632 CSR; 14,320 dense seeded; 336 legacy)
+and 51 validation checks, plus accepted averaged-regression public replacement.
+Labels/counters remain exact and numeric tolerances remain 3e-8. The cross-profile
+auditor verifies nested/flat outputs, source/report/compiler/archive identities
+and immutable Source files. All 1,226 compiled-source fingerprints match.
+
+Streaming CSR peak working sets are 64,864,256 checked / 64,806,912 optimized
+bytes; full CSR fits use 64,905,216 / 64,839,680 bytes. Both stay below 128 MiB
+without dense design caches. Reports are validation/results/pa_warm_{checked,
+optimized,cross_profile}.json; build logs are pa_warm_build.log and
+pa_warm_refresh.log. Archive SHA256:
+9a0f4147953d36da77f43cf407cbff096b5ffb142c8deb8858491135f1370727.
+This verifies the selected PA subset; project-wide Source parity remains false.

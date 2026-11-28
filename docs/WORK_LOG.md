@@ -12889,3 +12889,20 @@ at unchanged 3e-8; 12 rejection guards and averaged replacement acceptance pass.
 Checked wrapper test: 540 outputs and direct pipeline warmth pass. Successful
 full fpm build and final test refresh; final checked/scoped-O3 audits pending.
 MIT remains the project license; retained sklearn BSD attribution updated.
+
+2026-11-28 - Final PA warm-fit verification (implementation a3c4e64)
+Successful full checked fpm build and final refresh; 352 native programs pass.
+Scoped O3/funroll-loops: linear_model, sgd_clone, multioutput, compose and
+search_adapters; 18 selected checked harnesses pass. Both profiles pass 243288
+Source comparison groups and 51 guards, plus averaged-public-replacement acceptance.
+Exact labels/counters, unchanged 3e-8 numeric tolerances. Cross-profile output,
+source, report, compiler and frozen archive identities pass. All 1226 compiled
+source fingerprints match. Project-wide Source parity remains false.
+Streaming CSR working sets: 64864256 checked / 64806912 optimized bytes.
+Full CSR working sets: 64905216 / 64839680 bytes; all below 128 MiB.
+Reports: validation/results/pa_warm_{checked,optimized,cross_profile}.json.
+Build logs: pa_warm_build.log and pa_warm_refresh.log.
+Archive SHA256 9a0f4147953d36da77f43cf407cbff096b5ffb142c8deb8858491135f1370727
+Checked report SHA256 5300bbbf024ca8c349927378647f286c9d417987db20c0613d8b5a2a917735b2
+Optimized report SHA256 6b3e7a5e31d02989e9ba788e0f2cc26fab495398d40577b86c0c563d75b6e697
+Cross-profile report SHA256 44b658aafaa6b7462261d9d41264383b4daa2decab50e7fb99bc46e789ba1415
