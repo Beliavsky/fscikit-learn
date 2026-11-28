@@ -12495,3 +12495,21 @@ kernel or other failures remain fatal. No output tolerance was widened.
 The native solver still omits shrinking and full numerical trajectory parity
 is not claimed. Full coherent build and checked/O3 audits follow. MIT licensing
 and retained sklearn/LIBSVM notices are preserved.
+
+### 2026-11-28: Preserve LIBSVM gradient-update grouping
+
+The first full precomputed audits correctly stopped: fourteen fields in two
+asymmetric cases were unexpected because those cases stopped before the cap.
+The earlier statement that all ten differing cases were capped was inaccurate.
+Investigation found a translated arithmetic-order bug: C++ uses
+G[k] += (Q_i[k]*delta_i + Q_j[k]*delta_j), but the Fortran expression had been
+left-associated as (G+term_i)+term_j. Added explicit parentheses to preserve
+the reference's increment grouping. No comparison scope was broadened.
+
+Scoped revalidation now retains only 45 differing fields in eight asymmetric
+fits that hit the cap; all unexpected differences are closed. All 1,944 fits /
+27,216 fields and 6,480 replays are still recorded. Dense SVC's 729 fits /
+10,206 groups / 2,622 replays and CSR SVC's 1,184 fits / 21,312 groups / 3,936
+replays continue to pass. Dense fit counter disagreements against nonshrinking
+Source drop from the previous revision's 183 to 14. A second coherent checked
+rebuild and complete checked/O3 audit are underway before final verification.

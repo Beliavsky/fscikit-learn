@@ -168,7 +168,8 @@ contains
       end if
       di=alpha(i)-oldi;dj=alpha(j)-oldj
       do k=1,n
-        g(k)=g(k)+q(k,i)*di+q(k,j)*dj
+        ! Match C++ G[k] += (Q_i[k]*di + Q_j[k]*dj), preserving rounding.
+        g(k)=g(k)+(q(k,i)*di+q(k,j)*dj)
       end do
     end do
     ub=huge(1._dp);lb=-huge(1._dp);total=0;free_count=0
