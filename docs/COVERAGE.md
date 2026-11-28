@@ -927,7 +927,7 @@ upstream C++ implementations. CSR support indices follow the positive-weight
 filtered Source problem, shifted to one base. Linear coefficients remain a
 dense native feature vector and the optimizer still builds a dense Gram matrix.
 
-Verification: all 331 native programs and 1,185 dependency-aware source
+Previous CSR verification: all 331 native programs and 1,185 dependency-aware source
 fingerprints pass after a fresh checked build. Checked and scoped O3 audits
 each pass 318 existing dense reference groups and 1,296 CSR fixtures / 15,120
 groups, with no retained mismatches. CSR cases span all three estimators,
@@ -948,21 +948,23 @@ sklearn 1.6.1, NumPy 2.2.6, SciPy 1.15.3, static libgfortran and the Windows
 locale-copy shim. Broader numerical/API gaps remain outside this corpus.
 
 `svr`, `nu_svr`, and `one_class_svm` are available through `sklearn_svm` and
-the facade; their implementation module is `sklearn_kernel_svm`. They use native
-dense dual SMO with a most-violating first coordinate and gain-based second
-coordinate, independently of the existing SVC
-solver. All support `fit` with optional nonnegative `sample_weight`, requiring
+the facade; their implementation module is `sklearn_kernel_svm`. SVR/NuSVR retain native dense dual SMO with a most-violating first coordinate
+and gain-based second coordinate. OneClassSVM now uses the translated LIBSVM
+Solver with weighted prefix initialization, second-order selection, Source float
+Q entries, bound-gradient reconstruction and optional active-set shrinking. All support `fit` with optional nonnegative `sample_weight`, requiring
 at least one positive weight. SVR/NuSVR take one finite continuous target vector
 and provide `predict` and R2 `score`. OneClassSVM takes only X and optional
 weights, with `predict`/`fit_predict` labels +1 for positive decision values and
 -1 otherwise; `score_samples` returns the unshifted kernel score.
 
-The added models support `linear`, `rbf` (default), `poly`/`polynomial`, and
-`precomputed` kernels. Precomputed training matrices must be square, symmetric
-and PSD within the numerical tolerance; queries have one column per original
-training sample. Polynomial degree and coef0 must be nonnegative. Callable,
-sigmoid and other indefinite kernels are unsupported. These constraints keep
-the dual problem convex. Gram matrices remain dense real64; feature designs
+All three models support `linear`, `rbf` (default), `poly`/`polynomial`, and
+`precomputed` kernels. SVR/NuSVR retain the square/symmetric/PSD precomputed
+restriction and nonnegative polynomial coef0. OneClassSVM also supports sigmoid,
+signed coef0 and arbitrary finite square precomputed matrices, following
+LIBSVM's row-cache behavior. Queries have one column per original training
+sample. Polynomial degree must be nonnegative. Callable kernels remain outside
+the typed API. OneClassSVM's indefinite/asymmetric cases are compared
+mechanically with Source, without claiming a global kernel-SVM optimum. Gram matrices remain dense real64; feature designs
 may be dense or CSR. Precomputed inputs remain dense.
 
 `gamma=-1` (default) selects the string `gamma_rule`: `scale` (default) is
@@ -991,17 +993,23 @@ zero total sum and per-row bounds +/- C*weight. NuSVR also constrains each
 signed dual group's mass to nu*sum(C*weight)/2. Large epsilon can leave an
 SVR with no support vectors; this produces a constant prediction.
 
-`tol=1e-3` and `max_iter=100000` control the optimizer. `n_iter_` counts native
-pair updates; it need not equal LIBSVM's iterations. `kkt_violation_` reports
-the final maximum feasible pair gradient gap. `converged_` and `fit_status_`
-(0 converged, 1 otherwise) report whether it meets tol; capped fits return an
-approximate model. Gradients are refreshed before reporting convergence. OneClassSVM starts with
-alpha=nu*weight, a feasible interior initialization that preserves symmetry.
-No shrinking, kernel cache, sparse path, unlimited-iteration sentinel, Python
-warning or probability-calibration APIs are supplied. Dual representations can
-be nonunique for linear/polynomial/rank-deficient kernels even when decision
-functions agree. A fully bounded one-class dual can also have a nonunique
-threshold; this implementation chooses the midpoint of the admissible interval.
+`tol=1e-3` and `max_iter=100000` control the optimizer. `n_iter_` counts
+pair updates. SVR/NuSVR retain their independently reconstructed double-gradient
+convergence test. OneClassSVM converged_/fit_status_ follow the Source cached-
+gradient stopping/cap condition, while kkt_violation_ independently replays the
+original double-kernel feasible-pair residual. The latter may exceed tol.
+OneClassSVM defaults to shrinking=true; false retains the full active set. Its
+strict lower/upper/free statuses and active-set rho match Source, including
+capped fits. On a 40-point circular RBF fixture at tol=1e-7, both Source and
+native reach the 100000-update cap; the former independent interior-start
+optimizer's convergence is not retained as a compatibility assertion. A
+separate tol=1e-5 fit checks attainable convergence and boundary geometry.
+
+Working Gram/Q matrices remain dense; no bounded kernel cache, unlimited-
+iteration sentinel or Python warning APIs are added. Linear/polynomial dual
+representations can be nonunique. The one-class fully bounded threshold uses
+Source's admissible-interval midpoint; near-bound free variables use Source's
+strict status and free average.
 Parameters should be chosen for well-scaled finite arithmetic.
 
 ## PowerTransformer

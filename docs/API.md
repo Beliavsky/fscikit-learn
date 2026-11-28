@@ -1146,8 +1146,12 @@ The optional last fit argument is `sample_weight(:)` for all three types.
 For gamma strings, leave `gamma=-1` and set `gamma_rule='scale'` or `'auto'`.
 For dense fits, `support_` uses original one-based training indices; `dual_coef_` is a vector
 and `intercept_` is a scalar. For linear kernels, `coef_` is a feature vector.
-With `kernel='precomputed'`, fit a PSD Gram matrix and predict from the
-query-to-training Gram matrix. Check `converged_` or `fit_status_` after capped
+With `kernel='precomputed'`, predict from the query-to-training Gram matrix.
+SVR/NuSVR require a PSD training Gram; OneClassSVM also accepts finite square
+indefinite/asymmetric input. OneClassSVM supports sigmoid and signed coef0.
+Its `shrinking` control defaults true and follows Source LIBSVM Solver.
+converged_/fit_status_ report its cached-gradient stopping/cap status;
+kkt_violation_ independently replays the original double-kernel residual. Check `converged_` or `fit_status_` after capped
 fits. One-class labels are +1/-1, with zero decisions labeled -1.
 See `COVERAGE.md` for supported kernels, weights and nu restrictions. Run the
 `kernel_regression_outliers` example.

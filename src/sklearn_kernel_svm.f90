@@ -1,9 +1,12 @@
 ! Dense/CSR SVR, NuSVR and one-class SVM contracts from sklearn/svm/_base.py,
-! _classes.py and its bundled LIBSVM. Native most-violating-pair optimization.
+! _classes.py and its bundled LIBSVM. OneClassSVM uses translated Solver.
+! SVR/NuSVR retain the native most-violating-pair optimizer.
 ! See THIRD_PARTY_NOTICES.md and LICENSES/libsvm-COPYRIGHT for attribution.
 module sklearn_kernel_svm
   use sklearn_common
-  use sklearn_metrics, only: rbf_kernel,linear_kernel,polynomial_kernel,r2_score
+  use sklearn_metrics, only: rbf_kernel,linear_kernel,polynomial_kernel,sigmoid_kernel,r2_score
+  use sklearn_libsvm_solver,only:libsvm_solve
+  use,intrinsic::iso_fortran_env,only:real32
   use sklearn_sparse, only:csr_matrix,csr_from_dense
   use sklearn_stateless_preprocessing, only:sorted_sparse
   use sklearn_libsvm_sparse,only:sparse_inner,svm_sorted,sparse_rows,libsvm_sparse_gram
@@ -50,6 +53,7 @@ module sklearn_kernel_svm
   end type
   type, extends(kernel_model) :: one_class_svm
     real(dp) :: nu=0.5_dp,offset_=0
+    logical::shrinking=.true.
   contains
     procedure,private :: fit_dense=>one_fit,fit_csr=>one_fit_csr
     generic :: fit=>fit_dense,fit_csr
@@ -69,6 +73,7 @@ contains
     case('rbf'); k=rbf_kernel(x,y,self%gamma_)
     case('linear'); k=linear_kernel(x,y)
     case('poly','polynomial'); k=polynomial_kernel(x,y,self%degree_fit_,self%gamma_,self%coef0_fit_)
+    case('sigmoid');k=sigmoid_kernel(x,y,self%gamma_,self%coef0_fit_)
     case('precomputed'); k=x
     end select
   end function
@@ -77,11 +82,17 @@ contains
     call require(self%max_iter>0,'kernel SVM max_iter must be positive')
     call require(ieee_is_finite(self%tol),'invalid kernel SVM tolerance')
     call require(self%tol>0,'invalid kernel SVM tolerance')
-    call require(self%kernel=='rbf'.or.self%kernel=='linear'.or.self%kernel=='poly'.or. &
-      self%kernel=='polynomial'.or.self%kernel=='precomputed','unsupported kernel SVM kernel')
     call require(ieee_is_finite(self%gamma).and.ieee_is_finite(self%coef0),'invalid kernel SVM parameters')
-    call require((self%gamma>=0.or.self%gamma==-1).and.self%degree>=0.and.self%coef0>=0, &
-      'invalid kernel SVM parameters')
+    call require((self%gamma>=0.or.self%gamma==-1).and.self%degree>=0,'invalid kernel SVM parameters')
+    select type(self)
+    class is(one_class_svm)
+      call require(any(self%kernel==[character(16)::'rbf','linear','poly','polynomial','sigmoid','precomputed']), &
+        'unsupported OneClassSVM kernel')
+    class default
+      call require(self%kernel=='rbf'.or.self%kernel=='linear'.or.self%kernel=='poly'.or. &
+        self%kernel=='polynomial'.or.self%kernel=='precomputed','unsupported kernel SVM kernel')
+      call require(self%coef0>=0,'invalid kernel SVM parameters')
+    end select
     call require(self%gamma_rule=='scale'.or.self%gamma_rule=='auto','invalid kernel SVM gamma rule')
     self%kernel_fit_=self%kernel; self%degree_fit_=self%degree; self%coef0_fit_=self%coef0
     if(allocated(self%coef_)) deallocate(self%coef_)
@@ -108,11 +119,16 @@ contains
     if(self%kernel_fit_=='precomputed') then
       self%gamma_=0
       call require(size(x,2)==n,'kernel SVM precomputed matrix must be square')
-      call require(all(abs(x-transpose(x))<=1.e-10_dp*max(1._dp,abs(x),abs(transpose(x)))), &
-        'kernel SVM precomputed matrix must be symmetric')
-      allocate(values(n),vectors(n,n)); call symmetric_eigen(x,values,vectors)
-      call require(minval(values)>=-1.e-10_dp*max(1._dp,maxval(abs(values))), &
-        'kernel SVM precomputed matrix must be positive semidefinite')
+      select type(self)
+      class is(one_class_svm)
+        ! LIBSVM accepts finite asymmetric/indefinite precomputed rows.
+      class default
+        call require(all(abs(x-transpose(x))<=1.e-10_dp*max(1._dp,abs(x),abs(transpose(x)))), &
+          'kernel SVM precomputed matrix must be symmetric')
+        allocate(values(n),vectors(n,n));call symmetric_eigen(x,values,vectors)
+        call require(minval(values)>=-1.e-10_dp*max(1._dp,maxval(abs(values))), &
+          'kernel SVM precomputed matrix must be positive semidefinite')
+      end select
     end if
     gram=gram_matrix(self,x,x)
     call require(all(ieee_is_finite(gram)),'kernel SVM nonfinite Gram matrix')
@@ -243,10 +259,10 @@ contains
     real(dp), intent(in) :: gram(:,:),y(:),capacity(:),epsilon,nu
     integer, intent(in) :: mode ! 1: epsilon SVR; 2: nu SVR; 3: one-class
     real(dp), intent(out) :: levels(2)
-    real(dp), allocatable :: alpha(:),cap(:),signs(:),g(:),beta(:)
-    integer, allocatable :: index(:),group(:)
-    real(dp) :: remaining,target,gap,step,low,high,free_sum,value,bound_tol,fallback_sum
-    integer :: n,m,groups,i,j,a,b,it,h,count_free,fallback_count
+    real(dp), allocatable :: alpha(:),cap(:),signs(:),g(:),beta(:),qcache(:,:),qd(:),initial(:),ones(:),zeros(:)
+    integer, allocatable :: index(:),group(:),positive(:)
+    real(dp) :: remaining,target,gap,step,low,high,free_sum,value,bound_tol,fallback_sum,rho
+    integer :: n,m,groups,i,j,a,b,it,h,count_free,fallback_count,np
     n=size(y); m=2*n; groups=1
     if(mode==3) m=n
     if(mode==2) groups=2
@@ -254,19 +270,42 @@ contains
     index=[(1+mod(i-1,n),i=1,m)]; cap=capacity(index)
     if(mode/=3) signs(n+1:)=-1
     if(mode==2) group(n+1:)=2
-    if(mode==3) then
-      ! A feasible interior start preserves symmetry and avoids unnecessarily
-      ! exciting very flat dual directions in smooth, symmetric kernels.
-      alpha=nu*cap
-    else if(mode==2) then
-      target=nu*sum(capacity)
-      target=target/2
-      remaining=target
-      do i=1,n
-        alpha(i)=min(cap(i),max(0._dp,remaining)); remaining=remaining-alpha(i)
+    if(mode==3)then
+      positive=pack([(i,i=1,n)],capacity>0);np=size(positive)
+      allocate(qcache(np,np),qd(np),initial(np),ones(np),zeros(np))
+      target=0
+      do i=1,np
+        target=target+capacity(positive(i))*nu
       end do
-      alpha(n+1:)=alpha(:n)
-    end if
+      remaining=target;initial=0;ones=1;zeros=0
+      do i=1,np
+        if(remaining<=0)exit
+        initial(i)=min(capacity(positive(i)),remaining);remaining=remaining-initial(i)
+      end do
+      do i=1,np
+        qd(i)=gram(positive(i),positive(i))
+        do j=1,np
+          qcache(j,i)=real(real(gram(positive(i),positive(j)),real32),dp)
+        end do
+      end do
+      select type(self)
+      class is(one_class_svm)
+        call libsvm_solve(qcache,qd,zeros,ones,capacity(positive),initial,self%tol,self%max_iter, &
+          self%shrinking,rho,self%n_iter_,self%converged_)
+      class default
+        call require(.false.,'internal one-class solver type mismatch')
+      end select
+      alpha(positive)=initial;beta=alpha;g=matmul(gram,beta)
+      call select_pair(g,alpha,cap,signs,index,group,epsilon,groups,a,b,self%kkt_violation_)
+      self%fit_status_=merge(0,1,self%converged_);levels=0;levels(1)=rho
+    else
+      if(mode==2)then
+        target=nu*sum(capacity);target=target/2;remaining=target
+        do i=1,n
+          alpha(i)=min(cap(i),max(0._dp,remaining));remaining=remaining-alpha(i)
+        end do
+        alpha(n+1:)=alpha(:n)
+      end if
     beta=0
     do i=1,m
       beta(index(i))=beta(index(i))+signs(i)*alpha(i)
@@ -327,6 +366,7 @@ contains
         levels(h)=low/2+high/2
       end if
     end do
+    end if
     self%dual_full_=beta; self%support_=pack([(i,i=1,n)],abs(beta)>0)
     self%n_support_=size(self%support_); self%dual_coef_=beta(self%support_)
     if(self%kernel_fit_=='precomputed') then

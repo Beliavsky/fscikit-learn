@@ -10,10 +10,10 @@ program test_one_class_svm
   do i=1,40
     t=2*acos(-1._dp)*i/40; x(i,:)=[0.5_dp*cos(t),0.5_dp*sin(t)]
   end do
-  model%nu=0.25_dp; model%gamma=1; model%tol=1.e-7_dp
+  model%nu=0.25_dp; model%gamma=1; model%tol=1.e-5_dp
   labels=model%fit_predict(x)
   if(.not.model%converged_) print *, 'OneClassSVM iterations/gap: ',model%n_iter_,model%kkt_violation_
-  call require(model%converged_,'OneClassSVM KKT convergence')
+  call require(model%converged_,'OneClassSVM cached-gradient convergence')
   beta=0; beta(model%support_)=model%dual_coef_
   call require(abs(sum(beta)-10)<1.e-10_dp.and.all(beta>=0).and.all(beta<=1+1.e-12_dp), &
     'OneClassSVM dual mass and bounds')
@@ -22,11 +22,11 @@ program test_one_class_svm
   call require(maxval(abs(decision-(raw-model%offset_)))<1.e-12_dp,'one-class offset convention')
   do i=1,40
     if(beta(i)>1.e-9_dp.and.beta(i)<1-1.e-9_dp) then
-      call require(abs(decision(i))<2.e-6_dp,'one-class free supports on margin')
+      call require(abs(decision(i))<2*model%tol,'one-class free supports on margin')
     else if(beta(i)<=1.e-9_dp) then
-      call require(decision(i)>=-2.e-6_dp,'one-class nonsupports within boundary')
+      call require(decision(i)>=-2*model%tol,'one-class nonsupports within boundary')
     else
-      call require(decision(i)<=2.e-6_dp,'one-class upper-bound support inequality')
+      call require(decision(i)<=2*model%tol,'one-class upper-bound support inequality')
     end if
   end do
   query(1,:)=0; query(2,:)=5; labels=model%predict(query)
@@ -46,5 +46,8 @@ program test_one_class_svm
   line(:,1)=[3._dp,4._dp,1._dp,2._dp]; model%nu=0.5_dp; call model%fit(line)
   call require(abs(model%coef_(1)-3)<1.e-12_dp.and.abs(model%offset_-7.5_dp)<1.e-12_dp, &
     'one-class fully bounded dual uses the midpoint threshold interval')
+  model%kernel='rbf';model%gamma=1;model%nu=.25_dp;model%tol=1.e-7_dp;model%max_iter=100000
+  call model%fit(x)
+  call require(model%fit_status_==1.and.model%n_iter_==100000,'Source float-cache circle cap behavior')
   print *, 'one-class support vector machine: PASS'
 end program

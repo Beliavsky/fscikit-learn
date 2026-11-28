@@ -214,7 +214,7 @@ Reference paths by module:
 | dummy | dummy.py |
 | kernel_ridge | kernel_ridge.py |
 | discriminant_analysis | discriminant_analysis.py (LDA lsqr covariance convention) |
-| kernel_svm | svm/_base.py, _classes.py, src/libsvm/svm.cpp; SVR/NuSVR/OneClassSVM weighted dual formulations, gamma rules, thresholds and normalization; independent native pairwise optimizer |
+| kernel_svm | svm/_base.py, _classes.py, src/libsvm/svm.cpp; SVR/NuSVR/OneClassSVM weighted dual formulations, gamma rules, thresholds and normalization; independent native SVR/NuSVR pairwise optimizer; OneClassSVM translates LIBSVM Solver and weighted prefix initialization |
 | linear_svm | svm/_classes.py LinearSVC/LinearSVR contracts; svm/src/liblinear/linear.cpp L2 squared-loss objectives, synthetic intercept regularization and binary/OVR class costs; tron.cpp primal trust-region optimization; projected-gradient dual solvers and newrand.h seeded shuffles |
 | svm | svm/_classes.py; deterministic SMO replaces libsvm backend |
 | mixture | mixture/_gaussian_mixture.py, _base.py |
@@ -3144,3 +3144,14 @@ NuSVC's asymmetric precomputed path follows bundled LIBSVM
 threshold normalization. Native original-row query adapters, storage cleanup
 and the expanded validation harness are MIT contributions; the existing
 LIBSVM/sklearn BSD notices remain applicable.
+
+
+## LIBSVM OneClassSVM solver
+
+`sklearn_libsvm_solver` translates sklearn 1.6.1 bundled `svm.cpp` Solver::Solve,
+select_working_set, swap_index, do_shrinking, be_shrunk, reconstruct_gradient
+and calculate_rho. The OneClassSVM adapter follows solve_one_class's weighted
+prefix initialization and ONE_CLASS_Q float cache, double diagonal and
+precomputed row indexing. Existing LIBSVM/sklearn BSD notices remain in
+`LICENSES/`. Dense/CSR typed adapters, diagnostics and validation harnesses
+are MIT contributions. SVR/NuSVR retain their separately attributed optimizer.
