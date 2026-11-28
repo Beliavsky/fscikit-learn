@@ -8725,6 +8725,9 @@ nonfinite derived values. Density one also permits explicit CSR conversion of
 its logically dense projection. Method choice expresses output storage instead
 of Python's runtime dense_output switch. Inverse transforms always return dense
 matrices. Components remain stored densely, even for SparseRandomProjection.
+Sparse component generation retains only sampled column indices, rather than a
+feature-by-component integer workspace. Its low-density tracking sampler uses
+hash-set membership and preserves the seeded scikit-learn draw sequence.
 
 CSR output uses sparse component-column products and a single projected-row
 workspace in two passes; it never allocates the full sample-by-component dense

@@ -11,6 +11,11 @@ module sklearn_random_projection
   implicit none
   private
   public :: gaussian_random_projection,sparse_random_projection,johnson_lindenstrauss_min_dim
+  ! Keep only sampled columns until the subsequent sign-draw phase.  A rectangular
+  ! n_features by n_components workspace defeats low-density sampling.
+  type :: sampled_columns
+    integer, allocatable :: values(:)
+  end type
   type :: gaussian_random_projection
     integer :: n_components=0,n_components_=0,random_state=0,n_features_in_=0
     real(dp) :: eps=0.1_dp
@@ -112,7 +117,7 @@ contains
     type(legacy_random_state) :: rng
     real(dp) :: magnitude
     integer :: i,j,p,sign
-    integer, allocatable :: counts(:),indices(:,:),selected(:)
+    type(sampled_columns), allocatable :: indices(:)
     call rng%seed(self%random_state)
     call require(ieee_is_finite(self%density),'projection density must be finite')
     call require(self%density==-1.or.(self%density>0.and.self%density<=1),'projection density must be in (0,1] or -1')
@@ -129,18 +134,18 @@ contains
         end do
       end do
     else
-      allocate(counts(self%n_components_),indices(p,self%n_components_))
+      allocate(indices(self%n_components_))
       do i=1,self%n_components_
-        counts(i)=legacy_binomial(p,self%density_,rng)
-        selected=sample_indices(p,counts(i),rng)
-        indices(:counts(i),i)=selected
+        j=legacy_binomial(p,self%density_,rng)
+        indices(i)%values=sample_indices(p,j,rng)
       end do
       magnitude=sqrt(ieee_quotient(1._dp,self%density_))/sqrt(real(self%n_components_,dp))
       do i=1,self%n_components_
-        do j=1,counts(i)
+        do j=1,size(indices(i)%values)
           sign=2*legacy_binomial(1,.5_dp,rng)-1
-          self%components_(i,indices(j,i))=magnitude*sign
+          self%components_(i,indices(i)%values(j))=magnitude*sign
         end do
+        deallocate(indices(i)%values)
       end do
     end if
     if(self%compute_inverse_components) self%inverse_components_=pseudoinverse(self%components_)
@@ -148,9 +153,9 @@ contains
   function sample_indices(n,k,rng) result(selected)
     integer, intent(in) :: n,k
     type(legacy_random_state), intent(inout) :: rng
-    integer, allocatable :: selected(:),pool(:)
+    integer, allocatable :: selected(:),pool(:),seen(:)
     real(dp) :: ratio
-    integer :: i,j,swap
+    integer :: i,j,swap,bucket
     allocate(selected(k));ratio=real(k,dp)/n
     if(ratio>.01_dp.and.ratio<.99_dp) then
       pool=[(i,i=1,n)]
@@ -159,11 +164,20 @@ contains
       end do
       selected=pool(:k)
     else if(ratio<.2_dp) then
+      ! sklearn's tracking-selection branch uses set membership.  Linear scans
+      ! of the selected prefix cost O(k**2), even at a very low density.
+      allocate(seen(2*k+1));seen=0
       do i=1,k
         do
           j=rng%integer_index(n)
-          if(.not.any(selected(:i-1)==j)) exit
+          bucket=int(modulo(int(j,int64)*2654435761_int64,int(size(seen),int64)))+1
+          do while(seen(bucket)/=0)
+            if(seen(bucket)==j) exit
+            bucket=modulo(bucket,size(seen))+1
+          end do
+          if(seen(bucket)==0) exit
         end do
+        seen(bucket)=j
         selected(i)=j
       end do
     else
