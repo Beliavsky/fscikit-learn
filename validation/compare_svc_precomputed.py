@@ -13,6 +13,9 @@ def fixtures():
             [2,3,4],range(3),range(2),[0,2],[1,3,10000]):
         yield dict(seed=seed,kernel='precomputed',base=base,classes=classes,cw=cw,weighted=weighted,shape=shape,n=13,p=3,c=.7,
             gamma=.4,coef0=.2,degree=2,tol=1e-8,max_iter=cap)
+    for base,cap in itertools.product(['linear','rbf','poly','sigmoid','indefinite','asymmetric'],[31,67]):
+        yield dict(seed=42,kernel='precomputed',base=base,classes=3,cw=1,weighted=1,shape=2,n=40,p=3,c=30.,
+            gamma=.4,coef0=.2,degree=2,tol=1e-8,max_iter=cap)
 
 
 def arrays(c):
@@ -33,7 +36,7 @@ def arrays(c):
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--executable',type=Path,required=True)
-    parser.add_argument('--report',type=Path,required=True);parser.add_argument('--diagnostic',action='store_true');args=parser.parse_args()
+    parser.add_argument('--report',type=Path,required=True);parser.add_argument('--diagnostic',action='store_true');parser.add_argument('--no-shrinking',action='store_true');args=parser.parse_args()
     root=Path(__file__).resolve().parents[1];sha=lambda p:hashlib.sha256(Path(p).read_bytes()).hexdigest()
     files=[Path(__file__),args.executable,root/'src/sklearn_svm.f90',root/'app/reference_svc_precomputed_driver.f90',
         *[Path(sklearn.__file__).parent/'svm'/p for p in ['_base.py','_classes.py','src/libsvm/svm.cpp']]]
@@ -41,7 +44,7 @@ def main():
     payload=str(len(cases))+'\n'
     for c,(x,q,y,w,cw) in zip(cases,data):
         shape='ovo' if c['shape']==0 else 'ovr';gamma=('auto' if c.get('gamma_rule',0) else 'scale') if c['gamma']==-1 else c['gamma']
-        model=SVC(C=c['c'],kernel=c['kernel'],gamma=gamma,coef0=c['coef0'],degree=c['degree'],tol=c['tol'],
+        model=SVC(shrinking=not args.no_shrinking,C=c['c'],kernel=c['kernel'],gamma=gamma,coef0=c['coef0'],degree=c['degree'],tol=c['tol'],
             max_iter=c['max_iter'],decision_function_shape=shape,break_ties=c['shape']==2,
             class_weight=None if c['cw']==0 else ('balanced' if c['cw']==1 else dict(zip(np.unique(y),cw))))
         
@@ -61,7 +64,7 @@ def main():
         header=[c['n'],x.shape[1],len(q),c['kernel'],c['c'],c['gamma'],c['coef0'],c['degree'],c['tol'],c['max_iter'],c['cw'],int(shape=='ovr'),int(c['shape']==2),c.get('gamma_rule',0)]
         payload+=' '.join(map(str,header))+'\n'
         for a in [x,q,y,w,cw]:payload+=' '.join(format(v,'.17g') for v in np.asarray(a).ravel(order='F'))+'\n'
-    run=subprocess.run([str(args.executable)],input=payload,capture_output=True,text=True);assert run.returncode==0,(run.stdout[-1000:],run.stderr[-2000:])
+    run=subprocess.run([str(args.executable),*(["--no-shrinking"] if args.no_shrinking else [])],input=payload,capture_output=True,text=True);assert run.returncode==0,(run.stdout[-1000:],run.stderr[-2000:])
     lines=iter(run.stdout.splitlines());actual=[];checks=[];index=-1
     for line in lines:
         parts=line.split()
@@ -102,7 +105,7 @@ def main():
         and source_status[g['case']]==1 and actual[g['case']]['status']==[1.] and g['field'] in allowed_fields]
     unexpected=[g for g in gaps if g not in retained]
     report=dict(cases=cases,checks=checks,gaps=gaps,certificates=certificates,actual=actual,expected=expected,
-        source_iterations=iterations,source_status=source_status,source_nonshrinking_iterations=unshrunk_iterations,hashes=hashes,strict_parity=not gaps,supported_kernel_parity=not unexpected,retained_asymmetric_cap_gaps=retained,unexpected_gaps=unexpected,sklearn=sklearn.__version__)
+        shrinking=not args.no_shrinking,iteration_disagreements=[i for i,(a,b) in enumerate(zip(actual,iterations)) if a["native_iterations"]!=b],source_iterations=iterations,source_status=source_status,source_nonshrinking_iterations=unshrunk_iterations,hashes=hashes,strict_parity=not gaps,supported_kernel_parity=not unexpected,retained_asymmetric_cap_gaps=retained,unexpected_gaps=unexpected,sklearn=sklearn.__version__)
     args.report.write_text(json.dumps(report,indent=2)+'\n');print(len(cases),'fits;',len(checks),'groups;',len(gaps),'gaps;',sum(map(len,certificates)),'certificates')
     if gaps:print(gaps[:12])
     raise SystemExit(bool(unexpected) or (bool(gaps) and not args.diagnostic))

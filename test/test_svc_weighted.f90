@@ -40,9 +40,11 @@ program test_svc_weighted
   end select
   call require(len_trim(mode)==0,'weighted SVC rejection unexpectedly accepted input')
   call random_seed(size=n);allocate(before(n),after(n));call random_seed(get=before)
+  call require(model%shrinking,"SVC defaults to LIBSVM shrinking")
+  model%shrinking=.false.
   call model%fit(pair,[-3,9],[1._dp,.1_dp])
   call require(abs(model%coef_(1,1)-.2_dp)<1.e-12_dp.and.abs(model%intercept_(1)+.8_dp)<1.e-12_dp,'weighted two-point SVC optimum')
-  coef=model%coef_;call model%fit(pair,[-3,9],class_weight=[1._dp,.1_dp])
+  coef=model%coef_;model%shrinking=.true.;call model%fit(pair,[-3,9],class_weight=[1._dp,.1_dp])
   call require(all(coef==model%coef_),'class and sample SVC capacities agree')
   call model%fit(three,[-3,-3,9],[0._dp,1._dp,1._dp])
   call require(all(model%support_==[1,2]).and.all(model%support_original_==[2,3]),'compressed and original support indices')
@@ -69,10 +71,10 @@ program test_svc_weighted
   class default
     call require(.false.,'OVR preserves SVC base type')
   end select
-  parameters%items=[parameter_item('decision_function_shape',param('ovr')),parameter_item('break_ties',param(.true.)), &
+  parameters%items=[parameter_item('shrinking',param(.false.)),parameter_item('decision_function_shape',param('ovr')),parameter_item('break_ties',param(.true.)), &
     parameter_item('gamma_rule',param('scale'))]
   call set_search_params(model,parameters)
-  call require(model%break_ties.and.model%decision_function_shape=='ovr'.and.model%gamma_rule=='scale','SVC search controls')
+  call require(.not.model%shrinking.and.model%break_ties.and.model%decision_function_shape=='ovr'.and.model%gamma_rule=='scale','SVC search controls')
   call random_seed(get=after);call require(all(before==after),'SVC preserves intrinsic RNG')
   print *,'Weighted SVC capacities, support metadata, decision shapes and ties: PASS'
 end program

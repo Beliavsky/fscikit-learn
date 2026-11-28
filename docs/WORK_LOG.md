@@ -12552,3 +12552,9 @@ Optimized audit SHA256:
 a0855fa462812e3b5ce8daae847113dc0e3a2851d3aee954b3f9ac4f5699cdbf
 
 Local commits only; no push. The broader translation goal remains active.
+
+Continuation: optional LIBSVM C-SVC shrinking
+- Added default-enabled svc%shrinking, periodic active-set reduction, bound-gradient accumulation, Source reconstruction loop selection, unshrinking, and original-index recovery. Capped rho follows the active set, as in LIBSVM. Dense/CSR/precomputed fits share the solver; search adapters accept the control.
+- Retained float Q rounding and grouped gradient RHS arithmetic. Working Gram/Q memory remains quadratic; no bounded cache was added. BSD attribution is retained in THIRD_PARTY_NOTICES.md and LICENSES.
+- Extended all three reference drivers/comparators with --no-shrinking. Added larger free sets and iteration caps after the first shrinking sweep. Corpus sizes are now 789 dense, 1224 CSR and 1956 precomputed fits per control/profile.
+- Coherent checked fpm build completed successfully. All 341 checked native programs passed; all 1204 compiled-source fingerprints match. Scoped checked probes passed dense/CSR output checks. Optimized default dense/CSR/precomputed and disabled-shrinking dense/CSR comparisons have passed. Final profile audits are still running; final evidence will be recorded separately.

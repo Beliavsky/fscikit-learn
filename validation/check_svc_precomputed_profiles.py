@@ -1,4 +1,4 @@
-"""Checked and scoped-O3 precomputed/dense/CSR SVC and shared kernel audits."""
+"""Checked and scoped-O3 SVC audits with shrinking enabled and disabled."""
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import argparse,hashlib,json,os,re,shutil,subprocess,sys,tempfile
@@ -51,13 +51,17 @@ def main():
                 ('csr_guards_memory','check_svc_sparse.py',selected[2]),('legacy_dense','compare_kernel_svm.py',drivers[2]),
                 ('regression_csr','compare_kernel_svm_sparse.py',drivers[3]),
                 ('regression_guards_memory','check_kernel_svm_sparse.py',selected[5]),
-                ('precomputed','compare_svc_precomputed.py',drivers[4]),('precomputed_guards','check_svc_precomputed.py',selected[6])]:
+                ('precomputed','compare_svc_precomputed.py',drivers[4]),('precomputed_guards','check_svc_precomputed.py',selected[6]),
+                ('nonshrinking_dense','compare_svc_weighted.py',drivers[0]),
+                ('nonshrinking_csr','compare_svc_sparse.py',drivers[1]),
+                ('nonshrinking_precomputed','compare_svc_precomputed.py',drivers[4])]:
             report=args.report.with_name(args.report.stem+'_'+key+'.json')
-            subprocess.run([sys.executable,str(root/'validation'/script),'--executable',str(executable(program)),'--report',str(report),*(['--diagnostic'] if key=='precomputed' else [])],check=True)
-            if key=='precomputed':
+            subprocess.run([sys.executable,str(root/'validation'/script),'--executable',str(executable(program)),'--report',str(report),*(['--diagnostic'] if script=='compare_svc_precomputed.py' else []),*(['--no-shrinking'] if key.startswith('nonshrinking_') else [])],check=True)
+            if script=='compare_svc_precomputed.py':
                 value=json.loads(report.read_text())
                 assert not value['unexpected_gaps'] and value['supported_kernel_parity']
-            evidence[key]=dict(report=str(report),sha256=sha(report),kind='scoped_diagnostic' if key=='precomputed' else 'strict')
+                if not key.startswith('nonshrinking_'):assert value['strict_parity']
+            evidence[key]=dict(report=str(report),sha256=sha(report),kind='scoped_diagnostic' if script=='compare_svc_precomputed.py' else 'strict')
     assert archive_hash==sha(archive);assert hashes=={str(p):sha(p) for p in files}
     result=dict(profile=args.profile,native=outcomes,evidence=evidence,archive_sha256=archive_hash,source_sha256=hashes,
         compiler_sha256=sha(compiler),project_strict_source_parity=False)

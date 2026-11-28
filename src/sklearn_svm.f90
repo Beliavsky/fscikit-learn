@@ -1,5 +1,5 @@
 ! SVC contracts: sklearn 1.6.1 svm/_base.py, _classes.py and bundled LIBSVM.
-! Translated nonshrinking LIBSVM weighted SMO; retained BSD notices in LICENSES/libsvm-COPYRIGHT.
+! Translated LIBSVM weighted SMO with optional shrinking; retained BSD notices in LICENSES/libsvm-COPYRIGHT.
 module sklearn_svm
   use sklearn_nu_classification, only: nu_svc
   use sklearn_linear_svm, only: linear_svc,linear_svr
@@ -27,7 +27,7 @@ module sklearn_svm
     real(dp) :: c=1,gamma=-1,coef0=0,tol=1.e-4_dp
     integer :: degree=3,max_iter=10000,n_iter_=0
     character(16) :: kernel='rbf',gamma_rule='scale',decision_function_shape='ovr'
-    logical :: converged_=.false.,class_weight_balanced=.false.,break_ties=.false.
+    logical :: converged_=.false.,class_weight_balanced=.false.,break_ties=.false.,shrinking=.true.
     integer :: n_features_in_=0,fit_status_=1
     integer, allocatable :: classes_(:),support_(:),support_original_(:),n_support_(:),n_iter_per_pair_(:)
     real(dp),allocatable::dual_coef_(:,:),intercept_(:),coef_(:,:),class_weight_(:),kkt_violation_(:)
@@ -60,17 +60,21 @@ contains
     case default; call require(.false.,'unknown SVC kernel')
     end select
   end function
-  subroutine binary_fit(model,gram,target,c,tol,max_iter,row_kernel)
+  subroutine binary_fit(model,gram,target,c,tol,max_iter,shrinking,row_kernel)
     type(binary_svm),intent(inout)::model
     real(dp),intent(in)::gram(:,:),target(:),c(:),tol
     integer,intent(in)::max_iter
+    logical,intent(in)::shrinking
     logical,optional,intent(in)::row_kernel
     real(dp)::alpha(size(target)),g(size(target)),q(size(target),size(target)),y(size(target)),qd(size(target))
     real(dp)::gmax,gmax2,best,diff,quad,obj,oldi,oldj,delta,total,ci,cj,di,dj,rho,ub,lb,yg,violation
-    integer::n,i,j,k,t,first,last,free_count
-    ! LIBSVM C-SVC second-order selection and box updates, without shrinking.
+    integer::n,i,j,k,t,first,last,free_count,active,counter,order(size(target))
+    real(dp)::gbar(size(target)),boxes(size(target)),restored(size(target))
+    logical::unshrink,ui,uj
+    ! LIBSVM C-SVC second-order selection, active-set shrinking and box updates.
     ! Its float Q cache is distinct from the double diagonal and query kernels.
-    n=size(target);y=-target;alpha=0;g=-1
+    n=size(target);y=-target;alpha=0;g=-1;gbar=0;boxes=c
+    order=[(i,i=1,n)];active=n;counter=min(n,1000)+1;unshrink=.false.
     do j=1,n
       qd(j)=gram(j,j)
       do i=1,n
@@ -87,44 +91,26 @@ contains
     end do
     model%n_iter=0;model%converged=.false.
     do while(model%n_iter<max_iter)
-      gmax=-huge(1._dp);gmax2=-huge(1._dp);first=0;last=0;best=huge(1._dp)
-      do t=1,n
-        if(y(t)>0)then
-          if(alpha(t)<c(t).and.-g(t)>=gmax)then
-            gmax=-g(t);first=t
-          end if
-        else
-          if(alpha(t)>0.and.g(t)>=gmax)then
-            gmax=g(t);first=t
-          end if
-        end if
-      end do
-      if(first==0)then
-        model%converged=.true.;exit
+      counter=counter-1
+      if(counter==0)then
+        counter=min(n,1000)
+        if(shrinking)call shrink()
       end if
-      i=first
-      do j=1,n
-        if(y(j)>0)then
-          if(alpha(j)<=0)cycle
-          diff=gmax+g(j);gmax2=max(gmax2,g(j));quad=qd(i)+qd(j)-2*y(i)*q(j,i)
-        else
-          if(alpha(j)>=c(j))cycle
-          diff=gmax-g(j);gmax2=max(gmax2,-g(j));quad=qd(i)+qd(j)+2*y(i)*q(j,i)
-        end if
-        if(diff>0)then
-          if(quad<=0)quad=1.e-12_dp
-          obj=-(diff*diff)/quad
-          if(obj<=best)then
-            best=obj;last=j
+      block
+        logical::optimal
+        call select_pair(optimal)
+        if(optimal)then
+          call reconstruct();active=n
+          call select_pair(optimal)
+          if(optimal)then
+            model%converged=.true.;exit
           end if
+          counter=1
         end if
-      end do
-      if(gmax+gmax2<tol.or.last==0)then
-        model%converged=.true.;exit
-      end if
-      j=last;model%n_iter=model%n_iter+1;ci=c(i);cj=c(j);oldi=alpha(i);oldj=alpha(j)
+      end block
+      j=last;model%n_iter=model%n_iter+1;ci=boxes(i);cj=boxes(j);oldi=alpha(i);oldj=alpha(j)
       if(y(i)/=y(j))then
-        quad=qd(i)+qd(j)+2*q(j,i);if(quad<=0)quad=1.e-12_dp
+        quad=qd(order(i))+qd(order(j))+2*q(order(j),order(i));if(quad<=0)quad=1.e-12_dp
         delta=(-g(i)-g(j))/quad;diff=alpha(i)-alpha(j);alpha(i)=alpha(i)+delta;alpha(j)=alpha(j)+delta
         if(diff>0)then
           if(alpha(j)<0)then
@@ -145,7 +131,7 @@ contains
           end if
         end if
       else
-        quad=qd(i)+qd(j)-2*q(j,i);if(quad<=0)quad=1.e-12_dp
+        quad=qd(order(i))+qd(order(j))-2*q(order(j),order(i));if(quad<=0)quad=1.e-12_dp
         delta=(g(i)-g(j))/quad;total=alpha(i)+alpha(j);alpha(i)=alpha(i)-delta;alpha(j)=alpha(j)+delta
         if(total>ci)then
           if(alpha(i)>ci)then
@@ -167,15 +153,34 @@ contains
         end if
       end if
       di=alpha(i)-oldi;dj=alpha(j)-oldj
-      do k=1,n
+      do k=1,active
         ! Match C++ G[k] += (Q_i[k]*di + Q_j[k]*dj), preserving rounding.
-        g(k)=g(k)+(q(k,i)*di+q(k,j)*dj)
+        g(k)=g(k)+(q(order(k),order(i))*di+q(order(k),order(j))*dj)
       end do
+      ui=oldi>=ci;uj=oldj>=cj
+      if(ui.neqv.(alpha(i)>=ci))then
+        do k=1,n
+          if(ui)then
+            gbar(k)=gbar(k)-ci*q(order(k),order(i))
+          else
+            gbar(k)=gbar(k)+ci*q(order(k),order(i))
+          end if
+        end do
+      end if
+      if(uj.neqv.(alpha(j)>=cj))then
+        do k=1,n
+          if(uj)then
+            gbar(k)=gbar(k)-cj*q(order(k),order(j))
+          else
+            gbar(k)=gbar(k)+cj*q(order(k),order(j))
+          end if
+        end do
+      end if
     end do
     ub=huge(1._dp);lb=-huge(1._dp);total=0;free_count=0
-    do i=1,n
+    do i=1,active
       yg=y(i)*g(i)
-      if(alpha(i)>=c(i))then
+      if(alpha(i)>=boxes(i))then
         if(y(i)<0)then
           ub=min(ub,yg)
         else
@@ -192,6 +197,7 @@ contains
       end if
     end do
     rho=ub/2+lb/2;if(free_count>0)rho=total/free_count
+    restored(order)=alpha;alpha=restored
     model%dual=alpha*target;model%intercept=rho
     g=matmul(gram,model%dual)+rho-target;violation=0
     do i=1,n
@@ -199,6 +205,123 @@ contains
       if(alpha(i)>1.e-10_dp)violation=max(violation,target(i)*g(i))
     end do
     model%kkt_violation=violation
+  contains
+    subroutine select_pair(optimal)
+      logical,intent(out)::optimal
+      gmax=-huge(1._dp);gmax2=-huge(1._dp);first=0;last=0;best=huge(1._dp)
+      do t=1,active
+        if(y(t)>0)then
+          if(alpha(t)<boxes(t).and.-g(t)>=gmax)then
+            gmax=-g(t);first=t
+          end if
+        else
+          if(alpha(t)>0.and.g(t)>=gmax)then
+            gmax=g(t);first=t
+          end if
+        end if
+      end do
+      if(first==0)then
+        optimal=.true.;return
+      end if
+      i=first
+      do j=1,active
+        if(y(j)>0)then
+          if(alpha(j)<=0)cycle
+          diff=gmax+g(j);gmax2=max(gmax2,g(j));quad=qd(order(i))+qd(order(j))-2*y(i)*q(order(j),order(i))
+        else
+          if(alpha(j)>=boxes(j))cycle
+          diff=gmax-g(j);gmax2=max(gmax2,-g(j));quad=qd(order(i))+qd(order(j))+2*y(i)*q(order(j),order(i))
+        end if
+        if(diff>0)then
+          if(quad<=0)quad=1.e-12_dp
+          obj=-(diff*diff)/quad
+          if(obj<=best)then
+            best=obj;last=j
+          end if
+        end if
+      end do
+      optimal=gmax+gmax2<tol.or.last==0
+    end subroutine
+    subroutine reconstruct()
+      integer::a,b,nfree
+      if(active==n)return
+      g(active+1:)=gbar(active+1:)-1
+      nfree=count(alpha(:active)>0.and.alpha(:active)<boxes(:active))
+      if(real(nfree,dp)*n>2._dp*active*(n-active))then
+        do a=active+1,n
+          do b=1,active
+            if(alpha(b)>0.and.alpha(b)<boxes(b)) &
+              g(a)=g(a)+alpha(b)*q(order(b),order(a))
+          end do
+        end do
+      else
+        do a=1,active
+          if(alpha(a)<=0.or.alpha(a)>=boxes(a))cycle
+          do b=active+1,n
+            g(b)=g(b)+alpha(a)*q(order(b),order(a))
+          end do
+        end do
+      end if
+    end subroutine
+    logical function be_shrunk(a,g1,g2)result(v)
+      integer,intent(in)::a
+      real(dp),intent(in)::g1,g2
+      v=.false.
+      if(alpha(a)>=boxes(a))then
+        if(y(a)>0)then
+          v=-g(a)>g1
+        else
+          v=-g(a)>g2
+        end if
+      else if(alpha(a)<=0)then
+        if(y(a)>0)then
+          v=g(a)>g2
+        else
+          v=g(a)>g1
+        end if
+      end if
+    end function
+    subroutine shrink()
+      integer::a
+      real(dp)::g1,g2
+      g1=-huge(1._dp);g2=-huge(1._dp)
+      do a=1,active
+        if(y(a)>0)then
+          if(alpha(a)<boxes(a))g1=max(g1,-g(a))
+          if(alpha(a)>0)g2=max(g2,g(a))
+        else
+          if(alpha(a)<boxes(a))g2=max(g2,-g(a))
+          if(alpha(a)>0)g1=max(g1,g(a))
+        end if
+      end do
+      if(.not.unshrink.and.g1+g2<=tol*10)then
+        unshrink=.true.;call reconstruct();active=n
+      end if
+      a=1
+      do while(a<=active)
+        if(be_shrunk(a,g1,g2))then
+          active=active-1
+          do while(active>=a)
+            if(.not.be_shrunk(active+1,g1,g2))then
+              call swap_index(a,active+1);exit
+            end if
+            active=active-1
+          end do
+        end if
+        a=a+1
+      end do
+    end subroutine
+    subroutine swap_index(a,b)
+      integer,intent(in)::a,b
+      integer::it
+      real(dp)::v
+      it=order(a);order(a)=order(b);order(b)=it
+      v=y(a);y(a)=y(b);y(b)=v
+      v=g(a);g(a)=g(b);g(b)=v
+      v=gbar(a);gbar(a)=gbar(b);gbar(b)=v
+      v=alpha(a);alpha(a)=alpha(b);alpha(b)=v
+      v=boxes(a);boxes(a)=boxes(b);boxes(b)=v
+    end subroutine
   end subroutine
   subroutine shape_controls(self)
     class(svc),intent(in)::self
@@ -317,7 +440,7 @@ contains
         ids=pack([(i,i=1,n)],encoded==b.and.capacity>0);ids=[supports,ids]
         target=merge(-1._dp,1._dp,encoded(ids)==a)
         self%models_(m)%first=a;self%models_(m)%second=b
-        call binary_fit(self%models_(m),gram(ids,ids),target,capacity(ids),self%tol,self%max_iter, &
+        call binary_fit(self%models_(m),gram(ids,ids),target,capacity(ids),self%tol,self%max_iter,self%shrinking, &
           row_kernel=self%kernel=='precomputed')
         target=self%models_(m)%dual;self%models_(m)%dual=spread(0._dp,1,n);self%models_(m)%dual(ids)=target
         support=support.or.abs(self%models_(m)%dual)>0

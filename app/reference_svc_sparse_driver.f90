@@ -8,9 +8,11 @@ program reference_svc_sparse_driver
   real(dp),allocatable::weights(:),cw(:),scores(:,:),dense(:,:)
   integer,allocatable::y(:),classes(:)
   integer::cases,c,n,p,m,balanced,shape,ties,gamma_rule
+  character(32)::mode
+  call get_command_argument(1,mode)
   read(*,*)cases
   do c=1,cases
-    model=svc()
+    model=svc();model%shrinking=trim(mode)/="--no-shrinking"
     read(*,*)n,p,m,model%kernel,model%c,model%gamma,model%coef0,model%degree,model%tol, &
       model%max_iter,balanced,shape,ties,gamma_rule
     model%decision_function_shape='ovr';if(shape==0)model%decision_function_shape='ovo'

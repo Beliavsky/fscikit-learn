@@ -18,6 +18,9 @@ def fixtures():
     for seed,kernel,p,rule in itertools.product([7,42],['linear','rbf','poly','sigmoid'],[17,43],range(2)):
         yield dict(seed=seed,kernel=kernel,classes=3,cw=2,weighted=1,shape=2,layout=2,n=25,p=p,c=1.3,
             gamma=-1.,gamma_rule=rule,coef0=.2,degree=2,tol=1e-8,max_iter=10000)
+    for kernel,layout,cap in itertools.product(['linear','rbf','poly','sigmoid'],[0,2],[1,3,31,67,10000]):
+        yield dict(seed=19,kernel=kernel,classes=3,cw=1,weighted=1,shape=2,layout=layout,n=80,p=8,c=30.,
+            gamma=.4,coef0=.2,degree=2,tol=1e-8,max_iter=cap)
 
 
 def arrays(c):
@@ -73,7 +76,7 @@ def certificate(c,a,v):
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--executable',type=Path,required=True)
-    parser.add_argument('--report',type=Path,required=True);parser.add_argument('--diagnostic',action='store_true');args=parser.parse_args()
+    parser.add_argument('--report',type=Path,required=True);parser.add_argument('--diagnostic',action='store_true');parser.add_argument('--no-shrinking',action='store_true');args=parser.parse_args()
     root=Path(__file__).resolve().parents[1];sha=lambda p:hashlib.sha256(Path(p).read_bytes()).hexdigest()
     files=[Path(__file__),args.executable,root/'src/sklearn_svm.f90',root/'src/sklearn_libsvm_sparse.f90',root/'app/reference_svc_sparse_driver.f90',
         *[Path(sklearn.__file__).parent/'svm'/p for p in ['_base.py','_classes.py','src/libsvm/svm.cpp']]]
@@ -81,7 +84,7 @@ def main():
     payload=str(len(cases))+'\n'
     for c,(x,q,y,w,cw) in zip(cases,data):
         shape='ovo' if c['shape']==0 else 'ovr';gamma=('auto' if c.get('gamma_rule',0) else 'scale') if c['gamma']==-1 else c['gamma']
-        model=SVC(C=c['c'],kernel=c['kernel'],gamma=gamma,coef0=c['coef0'],degree=c['degree'],tol=c['tol'],
+        model=SVC(shrinking=not args.no_shrinking,C=c['c'],kernel=c['kernel'],gamma=gamma,coef0=c['coef0'],degree=c['degree'],tol=c['tol'],
             max_iter=c['max_iter'],decision_function_shape=shape,break_ties=c['shape']==2,
             class_weight=None if c['cw']==0 else ('balanced' if c['cw']==1 else dict(zip(np.unique(y),cw))))
         
@@ -102,7 +105,7 @@ def main():
         payload+=' '.join(map(str,header))+'\n'
         payload+=csr_payload(x)+csr_payload(q)
         for a in [y,w,cw]:payload+=' '.join(format(v,'.17g') for v in np.asarray(a).ravel(order='F'))+'\n'
-    run=subprocess.run([str(args.executable)],input=payload,capture_output=True,text=True);assert run.returncode==0,(run.stdout[-1000:],run.stderr[-2000:])
+    run=subprocess.run([str(args.executable),*(["--no-shrinking"] if args.no_shrinking else [])],input=payload,capture_output=True,text=True);assert run.returncode==0,(run.stdout[-1000:],run.stderr[-2000:])
     lines=iter(run.stdout.splitlines());actual=[];checks=[];index=-1
     for line in lines:
         parts=line.split()
@@ -120,7 +123,7 @@ def main():
     certificates=[certificate(c,a,v) for c,a,v in zip(cases,data,actual)]
     assert hashes=={p:sha(p) for p in hashes};gaps=[c for c in checks if not c['passed']]
     report=dict(cases=cases,checks=checks,gaps=gaps,certificates=certificates,actual=actual,expected=expected,
-        source_iterations=iterations,source_status=source_status,source_nonshrinking_iterations=unshrunk_iterations,hashes=hashes,strict_parity=not gaps,sklearn=sklearn.__version__,scipy=scipy.__version__,numpy=np.__version__)
+        shrinking=not args.no_shrinking,iteration_disagreements=[i for i,(a,b) in enumerate(zip(actual,iterations)) if a["native_iterations"]!=b],source_iterations=iterations,source_status=source_status,source_nonshrinking_iterations=unshrunk_iterations,hashes=hashes,strict_parity=not gaps,sklearn=sklearn.__version__,scipy=scipy.__version__,numpy=np.__version__)
     args.report.write_text(json.dumps(report,indent=2)+'\n');print(len(cases),'fits;',len(checks),'groups;',len(gaps),'gaps;',sum(map(len,certificates)),'certificates')
     if gaps:print(gaps[:12])
     raise SystemExit(bool(gaps) and not args.diagnostic)

@@ -2391,9 +2391,12 @@ native defaults tol=1e-4 and max_iter=10000 remain. gamma=-1 selects
 `gamma_rule='scale'` (default) or `'auto'`; explicit nonnegative gamma overrides
 the rule. Linear, RBF, polynomial and sigmoid kernels are supported. The
 translated second-order LIBSVM coordinate solver uses float-rounded Q entries
-and double diagonal/query kernels, with full working matrices and no shrinking.
+and double diagonal/query kernels, with full working matrices.
+`shrinking=.true.` defaults to LIBSVM active-set shrinking with gradient
+reconstruction; set it false to retain the full active set. Search parameter
+assignment also accepts shrinking.
 Native n_iter_per_pair_ counts pair updates; legacy scalar n_iter_ is their
-maximum. Counters can differ from sklearn's default shrinking solver.
+maximum. Floating-point kernel differences can still change iteration counts.
 converged_/fit_status_ report iteration-cap completion, while kkt_violation_
 replays the final double-kernel margin residual for each pair. Float cache
 rounding and capped fits can leave a larger exact-kernel residual.

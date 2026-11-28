@@ -2701,7 +2701,9 @@ weighted scoring, fitted support/dual metadata, OVR/OVO decision shapes and
 OVR confidence tie breaking. Positive sample capacities feed translated
 LIBSVM second-order working-set selection, pair box updates and rho
 calculation. Q entries retain Source float rounding; diagonal/query kernels
-remain double. The full-matrix solver omits shrinking. Iteration counts now
+remain double. The full-matrix solver supports optional LIBSVM active-set
+shrinking (default true), gradient reconstruction and original-index recovery.
+Iteration counts now
 count pair updates; the legacy scalar is their maximum, and the new per-pair
 array identifies the native counters. Default tol=1e-4/max_iter=10000 are
 retained. Gamma scale/auto rules are explicit. Linear, RBF, polynomial and
@@ -2717,7 +2719,7 @@ zero-margin conventions. Weighted ensemble/multiclass dispatch and search
 controls are integrated. API.md identifies native diagnostics and adapters.
 
 This subset requires positive class weights and positive capacity in every
-original class. Probabilities, shrinking, cache-budget
+original class. Probabilities, cache-budget
 controls and unbounded caps remain gaps. Exact default-shrinking iteration
 counts and global optimality for indefinite kernels are not claimed. Final
 KKT/objective diagnostics are replayed with double kernels; Source's float Q
@@ -2813,7 +2815,7 @@ kernel optimization problem; capped asymmetric numerical trajectories are
 retained as explicit comparison gaps rather than hidden or treated as
 universal solver correctness.
 
-Current precomputed SVC verification: the corrected coherent GNU 15.2
+Previous precomputed SVC verification: the corrected coherent GNU 15.2
 checked build passes all 341 native programs and all 1,204 dependency-aware
 compiled-source fingerprints. Seven native harnesses exercise three scoped
 O3 modules. Each profile records 74,172 comparison groups: 72,876 Source-output
@@ -2840,6 +2842,18 @@ Source, executable and archive hashes remain stable during auditing, and
 expected outputs agree between profiles. The workspace-local build avoids the
 previous TEMP executable loss. Validation retains sklearn 1.6.1, NumPy 2.2.6,
 SciPy 1.15.3, static libgfortran and the Windows locale-copy shim.
+
+### Optional C-SVC shrinking
+
+`svc%shrinking` now defaults to true, following LIBSVM's active-set reduction,
+bound-gradient accumulation, free-variable gradient reconstruction, one-time
+unshrinking threshold and periodic shrinking counter. Index permutations
+preserve original support coordinates and unequal sample/class capacities.
+Setting it false keeps the full active set; search parameter assignment accepts
+both values. Capped fits retain Source's active-set rho calculation. Dense,
+CSR and precomputed inputs share this solver. Working Gram/Q storage remains
+quadratic in the number of positive-capacity rows; shrinking reduces active
+selection and gradient work without introducing a bounded kernel cache.
 
 ## Nu support-vector classification
 

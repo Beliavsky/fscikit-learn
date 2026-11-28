@@ -3096,7 +3096,9 @@ handling, memory checks and test integration are native MIT contributions.
 
 `sklearn_svm` translates sklearn 1.6.1 bundled LIBSVM `svm.cpp` C-SVC second-
 order working-set selection, float Q rounding, unequal-capacity pair updates
-and calculate_rho. Full working arrays omit the Source shrinking/cache layer.
+and calculate_rho. The solver now also translates Solver::do_shrinking,
+be_shrunk, reconstruct_gradient and active_set index recovery. Full working
+arrays retain float-rounded Q values and omit the Source cache-budget layer.
 Sample/class costs, fitted dual/support layout and binary sign conventions
 follow `svm/_base.py`, `_classes.py` and LIBSVM's train grouping; OVR confidence
 scores follow `utils/multiclass.py`. Existing LIBSVM and sklearn BSD notices
