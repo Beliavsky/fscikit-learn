@@ -1770,6 +1770,33 @@ The native gradient and objective are independently reconstructed in validation;
 broader strict Source prediction differences are retained, not relabeled as
 matches. Exact solver trajectories and iteration counts are not claimed.
 
+CSR verification: a fresh checked build passes all 332 native programs and
+1,186 dependency-aware source fingerprints. Checked and scoped O3 linear-SVM
+audits each pass 1,920 original comparison groups across dense, canonical CSR,
+reversed rows, duplicate entries and explicit-zero layouts. Each profile also
+passes 1,092 independently reconstructed primal gradient certificates and the
+native objective assertions. Thirteen guards cover eight Source SVM errors,
+two SciPy CSR format errors and three existing native weight-interface rules.
+
+Four extended CSR corpora observe 3,072 additional groups per profile, retaining
+20 strict prediction-field differences: five fields per layout from three SVR
+fits. The largest retained absolute difference is 8.653978e-8 against the
+unchanged 3e-8 absolute/relative SVR tolerance. Coefficients, intercepts, labels,
+scores and objectives remain within their existing comparison bounds. Failed
+fits have native gradient norms around 1e-14 and Source coefficient gradient
+norms around 1e-7. These certificates accompany the retained output gaps;
+extended strict Source parity is false.
+
+A 128-by-200,000 CSR fit/predict case for both models peaks at 31,170,560
+checked / 29,483,008 optimized bytes, below 128 MiB. A dense design would need
+204,800,000 bytes; one augmented feature Hessian would need 320,003,200,008
+bytes. Coefficients remain dense. Reports use the
+validation/results/linear_svm_sparse_ prefix, including strict and diagnostic
+outcomes, retained arrays, Source/native gradient norms, memory checks,
+fingerprints and the cross-profile audit. Validation uses GNU 15.2, sklearn
+1.6.1, NumPy 2.2.6, SciPy 1.15.3, static libgfortran and the Windows locale-copy
+shim. Other project/API/numerical gaps remain.
+
 The objectives are .5*||w||^2 + C*sum_i sample_weight_i*loss_i, with losses
 max(0,1-y_i*f_i)^2 for signed binary classification and
 max(0,abs(y_i-f_i)-epsilon)^2 for regression. C is not divided by sample count.

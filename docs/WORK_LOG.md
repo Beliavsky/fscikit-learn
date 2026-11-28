@@ -11944,3 +11944,59 @@ Checked audit SHA256:
 d2fe6435b71736614169a264922b2d2ec02f05a4cc61c8b10282241a9391c51e.
 Optimized audit SHA256:
 04b93155a48fa3cd1d1ff873ce2e03dbcddaabab5d1389474b143c19993afb45.
+
+## Matrix-free CSR LinearSVC and LinearSVR (2026-11-28)
+
+Implementation commit: e46bea6. Added CSR fit/predict/score and classifier
+decision_function overloads for the existing primal L2 squared-loss models.
+CSR Newton directions use sparse Hessian-vector products with diagonally
+preconditioned conjugate gradients. The scaled, regularized intercept is
+virtual. No dense design or feature-by-feature Hessian is allocated. Dense
+Cholesky fitting is unchanged. Dense/CSR query formats can follow either fit
+representation; output coefficients remain dense as in Source. Caller storage
+is preserved, including duplicate entries, unsorted indices, explicit zeros
+and empty rows. Weights, OVR class costs and native diagnostic fields retain
+the existing semantics. No additional algorithm or runtime dependency was added.
+
+A fresh GNU 15.2 checked fpm build passed all 332 native programs and 1,186
+source fingerprints with dependency closures. Checked and scoped O3 profiles
+each passed 1,920 strict comparison groups across five storage layouts.
+O3 replaces only sklearn_linear_svm against a frozen checked archive; two
+native harnesses and the reference driver retain runtime checks. Each profile
+also passed 1,092 independent primal-gradient certificates and native objective
+assertions. Thirteen guards cover eight Source SVM errors, two SciPy CSR format
+errors and three existing native weight-interface invariants.
+
+Four extended CSR corpora retain 20 strict prediction-field gaps among 3,072
+observed groups per profile. These are five repeated fields per layout from
+three LinearSVR configurations. The largest retained absolute difference is
+8.653977867645324e-8; the existing 3e-8 SVR tolerance is unchanged. Coefficient,
+intercept, label, score and objective comparisons remain within their original
+bounds. Native failed-fit gradient norms are around 1e-14; Source coefficient
+gradient norms for the same objective are around 1e-7. This does not relabel
+the failed prediction comparisons. Extended Source parity remains false.
+Original and extended inputs remain reproducible from their recorded seeds,
+configurations and script hashes; reports retain actual/expected arrays and
+Source/native gradient certificates. Original validation used three geometries;
+extended validation adds 31-by-17, 17-by-43 and 12-by-257 designs. Small datasets
+use explicit labels to retain two/three-class coverage after sparsification.
+
+The 128-by-200,000 CSR fit/query case exercises both models and checks their
+convergence. Peak memory is 31,170,560 checked / 29,483,008 optimized bytes,
+below 128 MiB, versus 204,800,000 dense-design bytes and 320,003,200,008 bytes
+for one augmented feature Hessian. No wall-clock speedup is claimed.
+Static libgfortran and the Windows locale-copy shim remain part of validation.
+Reference versions are sklearn 1.6.1, NumPy 2.2.6 and SciPy 1.15.3. Existing
+sklearn/LIBLINEAR attribution is retained; native integration remains MIT.
+Broader project parity/API gaps remain open.
+
+Audit entry point: validation/check_linear_svm_profiles.py. Evidence uses
+validation/results/linear_svm_sparse_ as its prefix. Cross-profile checks verify
+report/source/compiler/archive hashes, identical Source reference arrays,
+strict outcomes, retained mismatch identities, all gradient certificates,
+guard/memory bounds and source fingerprints. Final archive SHA256:
+689cde4cfba007ea1f8680745dd817b2f3d0a2969b6d9d196613b0ec958eaeb5.
+Checked audit SHA256:
+5659f56a9ebf0b48e778a60b615e01bf728ddedc77591bb0daa5d1570c982931.
+Optimized audit SHA256:
+a416449cf80088ad2960ab8329bd49c40b83f86f4d6265d2c434d1c86b3219e1.
