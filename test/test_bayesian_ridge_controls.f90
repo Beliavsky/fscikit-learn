@@ -39,5 +39,26 @@ program test_bayesian_ridge_controls
   parameters%items(2)%name='compute_score';parameters%items(2)%value=param(.false.)
   call set_search_params(copy,parameters);call copy%fit(x,y,2._dp)
   call require(size(copy%scores_)==0.and.copy%alpha_init==-1,'Bayesian search controls and score reset')
+  call check_final_score()
   print *,'BayesianRidge weighted fits, covariance, scores, clones and Pipeline: PASS'
+contains
+  subroutine check_final_score()
+    ! A one-feature posterior has a closed form independent of native SVD.
+    ! Source's final likelihood uses the pre-update coefficient norm.
+    type(bayesian_ridge)::probe
+    real(dp)::design(3,1),target(3),first,last,gamma,rss,a,l,expected
+    design(:,1)=[1._dp,2._dp,3._dp];target=[1._dp,2._dp,2._dp]
+    first=22._dp/31;gamma=28._dp/31;rss=sum((target-design(:,1)*first)**2)
+    l=(gamma+2.e-6_dp)/(first**2+2.e-6_dp);a=(3-gamma+2.e-6_dp)/(rss+2.e-6_dp)
+    last=11/(14+l/a);rss=sum((target-design(:,1)*last)**2)
+    expected=1.e-6_dp*(log(l)-l+log(a)-a)+.5_dp*(log(l)+3*log(a)-a*rss-l*first**2 &
+      -log(l+14*a)-3*log(2*acos(-1._dp)))
+    probe%fit_intercept=.false.;probe%compute_score=.true.;probe%max_iter=1
+    probe%alpha_init=2;probe%lambda_init=3
+    call probe%fit(design,target)
+    call require(probe%n_iter_==1.and.size(probe%scores_)==2,'capped Bayesian score history size')
+    call require(abs(probe%coef_(1)-last)<1.e-12_dp,'capped Bayesian final posterior coefficient')
+    call require(abs(probe%scores_(2)-expected)<1.e-12_dp,'Source final-score coefficient/residual pairing')
+    call require(abs(l*(last**2-first**2))>1.e-4_dp,'score fixture distinguishes the two coefficient norms')
+  end subroutine
 end program

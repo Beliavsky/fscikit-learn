@@ -38,7 +38,8 @@ contains
     integer,intent(out)::n_iter,rank
     logical,intent(out)::converged
     real(dp),optional,intent(in)::sample_weight(:)
-    real(dp),allocatable::xc(:,:),yc(:),s(:),u(:,:),v(:,:),eigen(:),old(:),xt_y(:),temporary(:),history(:)
+    real(dp),allocatable::xc(:,:),yc(:),s(:),u(:,:),v(:,:),eigen(:),old(:),xt_y(:),temporary(:),history(:),scaled(:,:)
+    real(dp)::precision(size(x,2))
     real(dp)::weight(size(y)),root_weight(size(y)),mean_y,mass,gamma,rss,variance,logdet,score
     integer::n,p,k,i,j,iteration
     logical::halting(size(ieee_all)),raised(size(ieee_all))
@@ -79,7 +80,7 @@ contains
     allocate(history(merge(max_iter+1,0,compute_score)));old=0;converged=.false.;n_iter=0
     do iteration=1,max_iter
       call posterior()
-      if(compute_score)history(iteration)=marginal()
+      if(compute_score)history(iteration)=marginal(coef)
       gamma=numpy_sum(alpha*eigen/(lambda+alpha*eigen))
       lambda=(gamma+2*l1)/(numpy_sum(coef**2)+2*l2)
       alpha=(n-gamma+2*a1)/(rss+2*a2)
@@ -89,13 +90,17 @@ contains
       end if
       old=coef
     end do
+    ! sklearn's final score combines the updated residual with the LAST loop
+    ! coefficient norm (coef_), rather than the final returned self.coef_.
+    old=coef
     call posterior()
     if(compute_score)then
-      history(n_iter+1)=marginal();scores=history(:n_iter+1)
+      history(n_iter+1)=marginal(old);scores=history(:n_iter+1)
     else
       allocate(scores(0))
     end if
-    sigma=matmul(v(:,:k)*spread((1/alpha)/(eigen+lambda/alpha),1,p),transpose(v(:,:k)))
+    ! Source divides Vh rows before the dot, then applies 1/alpha afterward.
+    sigma=(1/alpha)*matmul(v(:,:k),transpose(v(:,:k))/spread(eigen+lambda/alpha,2,p))
     intercept=mean_y-dot_product(x_offset,coef)
     do i=1,size(ieee_all)
       call ieee_set_halting_mode(ieee_all(i),halting(i))
@@ -106,20 +111,27 @@ contains
   contains
     subroutine posterior()
       if(n>p)then
-        temporary=matmul(transpose(v),xt_y)/(eigen+lambda/alpha)
+        scaled=transpose(v)/spread(eigen+lambda/alpha,2,p)
+        temporary=matmul(scaled,xt_y)
         coef=matmul(v,temporary)
       else
-        temporary=matmul(transpose(u(:,:k)),yc)/(eigen+lambda/alpha)
-        coef=matmul(transpose(xc),matmul(u(:,:k),temporary))
+        scaled=u(:,:k)/spread(eigen+lambda/alpha,1,n)
+        temporary=matmul(transpose(u(:,:k)),yc)
+        coef=matmul(transpose(xc),matmul(scaled,temporary))
       end if
       rss=numpy_sum((yc-matmul(xc,coef))**2)
     end subroutine
-    real(dp)function marginal()result(value)
+    real(dp)function marginal(score_coef)result(value)
+      real(dp),intent(in)::score_coef(:)
       call require(alpha/=0.and.lambda/=0,'BayesianRidge log score requires nonzero precisions')
-      logdet=-numpy_sum(log(lambda+alpha*eigen))
-      if(p>n)logdet=logdet-(p-n)*log(lambda)
+      if(n>p)then
+        logdet=-numpy_sum(log(lambda+alpha*eigen))
+      else
+        precision=lambda;precision(:k)=precision(:k)+alpha*eigen
+        logdet=-numpy_sum(log(precision))
+      end if
       value=l1*log(lambda)-l2*lambda+a1*log(alpha)-a2*alpha
-      value=value+0.5_dp*(p*log(lambda)+n*log(alpha)-alpha*rss-lambda*numpy_sum(coef**2)+logdet &
+      value=value+0.5_dp*(p*log(lambda)+n*log(alpha)-alpha*rss-lambda*numpy_sum(score_coef**2)+logdet &
         -n*log(2*acos(-1._dp)))
     end function
   end subroutine

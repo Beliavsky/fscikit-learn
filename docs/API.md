@@ -11511,3 +11511,14 @@ estimator. Native SVD/product rounding can still change assignments on ties:
 five of 210 saved identical embeddings retain strict partition differences,
 reduced from seven with the previous pivot selection. Full estimator partitions
 also depend on the native spectral basis.
+
+### BayesianRidge final evidence-score semantics
+
+BayesianRidge now follows sklearn 1.6.1's final scores_ entry: it combines the
+updated final residual with the last iteration's coefficient norm. The returned
+coef_ still uses the updated precisions. This Source distinction is observable
+at an iteration limit and is retained rather than silently replacing the
+history with a mathematically recomputed final-coefficient likelihood.
+Scaled posterior products and covariance scaling follow Source evaluation order;
+wide log determinants sum the full precision spectrum. compute_score=False
+continues to leave scores_ empty. No estimator or extension is added.

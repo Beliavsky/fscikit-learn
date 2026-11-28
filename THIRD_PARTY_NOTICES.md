@@ -2936,3 +2936,9 @@ the sklearn notice remains in LICENSES/scikit-learn-COPYING. The typed Fortran
 interface, estimator integration and tests are MIT project contributions.
 Existing attributed SVD and BLAS-compatible reduction helpers are reused;
 no external QR/SVD runtime is linked.
+
+BayesianRidge's final evidence-score argument pairing follows sklearn 1.6.1
+linear_model/_bayes.py: last-loop coef_ with the final recomputed residual.
+Scaled posterior products follow its NumPy multi_dot expression order. Existing
+sklearn and NumPy BSD notices in LICENSES remain applicable; typed Fortran
+integration and the closed-form regression test are project MIT contributions.

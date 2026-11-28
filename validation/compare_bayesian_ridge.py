@@ -1,15 +1,17 @@
 """Weighted BayesianRidge / marginal likelihood against installed sklearn."""
 from pathlib import Path
-import os,argparse,json,subprocess,warnings
+import os,argparse,json,subprocess,warnings,hashlib
 os.environ.update(OMP_NUM_THREADS='1',OPENBLAS_NUM_THREADS='1',LOKY_MAX_CPU_COUNT='1')
 import numpy as np
 import sklearn
 from sklearn.linear_model import BayesianRidge
 
 def main():
- ap=argparse.ArgumentParser();ap.add_argument('--executable',type=Path,required=True);ap.add_argument('--report',type=Path,required=True);a=ap.parse_args();records=[]
+ ap=argparse.ArgumentParser();ap.add_argument('--executable',type=Path,required=True);ap.add_argument('--report',type=Path,required=True);ap.add_argument('--history-grid',action='store_true');a=ap.parse_args();records=[]
  configs=[dict(n=n,p=p,kind=kind,mode=mode,intercept=intercept,setting=setting) for n,p,kind in [(31,3,'tall'),(8,8,'square'),(7,11,'wide'),(25,4,'rank'),(1,3,'single'),(13,1,'column')] for mode in range(5) for intercept in (False,True) for setting in range(3)]
  configs += [dict(n=31,p=3,kind=kind,mode=mode,intercept=intercept,setting=setting) for kind,mode,intercept,setting in [('zero_weights',1,False,0),('zero_weights',1,True,0),('zero_alpha',1,True,1),('zero_alpha_score',1,True,0),('zero_lambda',1,True,1),('zero_lambda_score',1,True,0)]]
+ if a.history_grid:
+  configs=[dict(n=n,p=p,kind=kind,mode=mode,intercept=intercept,setting=0,cap=cap,stop=stop) for n,p,kind in [(31,3,'tall'),(8,8,'square'),(7,11,'wide'),(1,3,'single'),(13,1,'column')] for mode in (0,1) for intercept in (False,True) for cap,stop in [(1,1e-8),(2,1e-8),(4,1e-8),(300,1e6)]]
  for index,c in enumerate(configs):
   n,p=c['n'],c['p'];rng=np.random.default_rng(791+n+p);x=rng.normal(size=(n,p))*.4;y=x@np.linspace(-.6,.7,p)+.4+rng.normal(size=n)*.03
   if c['kind']=='rank':x[:,-1]=2*x[:,0]
@@ -19,6 +21,8 @@ def main():
   if c['kind']=='zero_weights':w[:]=0
   settings=[dict(max_iter=300,tol=1e-8),dict(max_iter=1,tol=1e-8,alpha_init=2.,lambda_init=.3),dict(max_iter=300,tol=1e-8,alpha_1=0.,lambda_1=0.,alpha_2=.01,lambda_2=.02)]
   options=dict(fit_intercept=c['intercept'],compute_score=c['setting']!=1,**settings[c['setting']]);model=BayesianRidge(**options)
+  if 'cap' in c:
+   model.max_iter=c['cap'];model.tol=c['stop'];options.update(max_iter=c['cap'],tol=c['stop'])
   if c['kind'].startswith('zero_alpha'):model.alpha_init=0;options['alpha_init']=0
   if c['kind'].startswith('zero_lambda'):model.lambda_init=0;options['lambda_init']=0
   inp=a.report.with_suffix('.in');out=a.report.with_suffix('.out');header=[n,p,c['mode'],int(c['intercept']),int(model.compute_score),model.max_iter,model.tol,model.alpha_1,model.alpha_2,model.lambda_1,model.lambda_2,-1 if model.alpha_init is None else model.alpha_init,-1 if model.lambda_init is None else model.lambda_init]
@@ -40,5 +44,6 @@ def main():
   elif (error is None)!=(proc.returncode==0):differences.append('acceptance')
   if proc.returncode not in (0,1) or proc.returncode==1 and 'fscikit-learn:' not in proc.stdout:differences.append('abnormal_native_exit')
   records.append(dict(index=index,config=c,options=options,input=text,source=source,source_error=error,native=native,returncode=proc.returncode,stdout=proc.stdout,stderr=proc.stderr,differences=differences))
- report=dict(sklearn_version=sklearn.__version__,configurations=len(records),failures=[r['index'] for r in records if r['differences']],records=records);a.report.write_text(json.dumps(report,indent=2)+'\n');print('BayesianRidge',len(records),'strict failures',report['failures']);raise SystemExit(bool(report['failures']))
+ root=Path(sklearn.__file__).parent
+ report=dict(sklearn_version=sklearn.__version__,history_grid=a.history_grid,source_sha256={name:hashlib.sha256((root/name).read_bytes()).hexdigest() for name in ['linear_model/_bayes.py','linear_model/_base.py']},configurations=len(records),failures=[r['index'] for r in records if r['differences']],records=records);a.report.write_text(json.dumps(report,indent=2)+'\n');print('BayesianRidge',len(records),'strict failures',report['failures']);raise SystemExit(bool(report['failures']))
 if __name__=='__main__':main()

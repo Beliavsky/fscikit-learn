@@ -14822,3 +14822,15 @@ All 21 controls guards, eleven discretization guards, fourteen sparse guards,
 Prior end-to-end sparse/discretization partition failures remain documented.
 Validation uses static libgfortran and the existing Windows locale-copy shim.
 Details: spectral_qr_cross_profile_audit.json and spectral_qr_* result reports.
+
+### BayesianRidge final likelihood history
+
+The final marginal likelihood now uses Source's last-loop coefficient norm
+with its recomputed final residual. Scaled posterior products and covariance
+scaling also follow Source order. The original 186-case private grid drops from
+26 strict failures to 21; all five single-sample history gaps are closed.
+The remaining differences are wide thin-SVD covariance/standard-deviation bases.
+A new independent 80-case capped/early-stop grid fixes all 67 baseline score
+history failures and retains twelve covariance/std differences. All comparisons
+keep their original 3e-8 absolute/relative tolerance. A native one-feature closed-
+form test distinguishes the two coefficient norms. Full package audits are pending.

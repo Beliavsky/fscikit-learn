@@ -11133,3 +11133,26 @@ Verified backup: spectral_qr_evidence_0538dbc.zip,
 ZIP CRCs and critical source/report/object/binary hashes pass. Receipt:
 validation/results/spectral_qr_archive_receipt.json (ignored evidence).
 Archive metadata preserves false full/focused Source parity.
+
+### BayesianRidge final evidence score and scaled products
+
+Previous turn classification: progress (spectral QR implementation, complete
+checks, verified evidence archive and commits 0538dbc/cb84cf8).
+Fresh authoritative comparisons reproduce the prior BayesianRidge 26/186 and
+ARD 8/152 inventories. Inspecting installed sklearn 1.6.1 _bayes.py shows its
+final _log_marginal_likelihood call uses the last loop coef_, while rmse_ comes
+from the recomputed final self.coef_. The native history previously used the
+final coefficient norm too. It now preserves that exact Source pairing.
+The scaled Vh/U division, final covariance scale and full-width logdet reduction
+also follow the Source evaluation order. No public type layout changes.
+
+The isolated checked 186-case comparison closes all five single-row score
+failures (120,126,132,138,144), leaving the 21 known wide covariance/std gaps.
+The new --history-grid comparison covers 80 tall/square/wide/single/column fits,
+weighted/unweighted and with/without intercept, capped at 1/2/4 iterations or
+using a large tolerance for early stopping. Its baseline has 68 failed calls,
+including 67 histories. The revised probe has twelve covariance/std differences
+and NO history failures. Old fixtures/oracles/tolerances remain unchanged.
+The existing native control test adds an independent one-feature closed-form
+posterior/likelihood identity that distinguishes stale and returned coefficient
+norms; it passes. Full checked build and focused integration audits are pending.
