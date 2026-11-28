@@ -14834,3 +14834,11 @@ A new independent 80-case capped/early-stop grid fixes all 67 baseline score
 history failures and retains twelve covariance/std differences. All comparisons
 keep their original 3e-8 absolute/relative tolerance. A native one-feature closed-
 form test distinguishes the two coefficient norms. Full package audits are pending.
+
+Full Pipeline verification now checks native distances exactly against Source
+brute KNN on the same native coordinates, plus a squared-distance forward-error
+bound. The former pure relative distance bound failed even for bit-identical
+Source output under cancellation; its result remains a witness diagnostic.
+A regression test accepts valid Source cancellation and rejects one-ULP
+mutations for both KNN target types. The full unchanged 756-fixture Pipeline
+probe passes 8,556 groups. Original failures and baseline reproduction are kept.

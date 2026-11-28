@@ -11156,3 +11156,33 @@ and NO history failures. Old fixtures/oracles/tolerances remain unchanged.
 The existing native control test adds an independent one-feature closed-form
 posterior/likelihood identity that distinguishes stale and returned coefficient
 norms; it passes. Full checked build and focused integration audits are pending.
+
+### Pipeline KNN certificate correction during Bayesian verification
+
+Both first complete audits passed every native/example run and all Bayesian,
+ARD, guard and IterativeImputer jobs, but the full Pipeline comparison stopped
+at a KNN geometry certificate. The native-vs-direct distance difference was
+3.712308238590367e-15 for query rows and 7.301451110386381e-15 for training rows.
+Rebuilding a baseline Pipeline driver against the previous checked archive,
+extracted from the verified spectral_qr evidence ZIP, reproduced the exact
+failure (archive SHA256 db8d47a8974f6daa80b63e9203653e782e17311e5955e4bab95e8298a3414af8).
+On identical native feature arrays, Source brute KNN reproduces every native
+distance BIT FOR BIT, for both query and training rows. This is a pre-existing
+certificate defect, not a Bayesian change or native distance regression.
+
+The certificate's pure relative distance bound against direct subtraction is
+invalid near zero for Source squared-norm/dot Euclidean arithmetic. It now
+requires exact same-input Source brute distances AND the squared-distance
+forward-error bound already used for Source geometry. The old relative-bound
+result remains an explicit witness diagnostic. Zero identity, geometry/order,
+Source-input perturbation, Source aggregation and model-output comparisons
+remain. No estimator fixture or model-output tolerance changed.
+
+A new independent certificate regression accepts cancellation-affected Source
+output and rejects a one-ULP distance mutation, for both regression and
+classification. The complete Pipeline probe passes 756 fixtures / 8,556 groups;
+this is the current full inventory, larger than older task-specific summaries.
+Original failed logs, baseline/current diagnostic snapshots and the baseline
+executable/archive are preserved. Both full audits are rerunning with the
+corrected certificate. Bayesian reports additionally verify unchanged native
+binary hashes during each comparison and record NumPy/SciPy/validator hashes.

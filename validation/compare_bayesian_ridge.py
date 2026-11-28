@@ -4,10 +4,12 @@ import os,argparse,json,subprocess,warnings,hashlib
 os.environ.update(OMP_NUM_THREADS='1',OPENBLAS_NUM_THREADS='1',LOKY_MAX_CPU_COUNT='1')
 import numpy as np
 import sklearn
+import scipy
 from sklearn.linear_model import BayesianRidge
 
 def main():
  ap=argparse.ArgumentParser();ap.add_argument('--executable',type=Path,required=True);ap.add_argument('--report',type=Path,required=True);ap.add_argument('--history-grid',action='store_true');a=ap.parse_args();records=[]
+ native_sha256=hashlib.sha256(a.executable.read_bytes()).hexdigest()
  configs=[dict(n=n,p=p,kind=kind,mode=mode,intercept=intercept,setting=setting) for n,p,kind in [(31,3,'tall'),(8,8,'square'),(7,11,'wide'),(25,4,'rank'),(1,3,'single'),(13,1,'column')] for mode in range(5) for intercept in (False,True) for setting in range(3)]
  configs += [dict(n=31,p=3,kind=kind,mode=mode,intercept=intercept,setting=setting) for kind,mode,intercept,setting in [('zero_weights',1,False,0),('zero_weights',1,True,0),('zero_alpha',1,True,1),('zero_alpha_score',1,True,0),('zero_lambda',1,True,1),('zero_lambda_score',1,True,0)]]
  if a.history_grid:
@@ -45,5 +47,6 @@ def main():
   if proc.returncode not in (0,1) or proc.returncode==1 and 'fscikit-learn:' not in proc.stdout:differences.append('abnormal_native_exit')
   records.append(dict(index=index,config=c,options=options,input=text,source=source,source_error=error,native=native,returncode=proc.returncode,stdout=proc.stdout,stderr=proc.stderr,differences=differences))
  root=Path(sklearn.__file__).parent
- report=dict(sklearn_version=sklearn.__version__,history_grid=a.history_grid,source_sha256={name:hashlib.sha256((root/name).read_bytes()).hexdigest() for name in ['linear_model/_bayes.py','linear_model/_base.py']},configurations=len(records),failures=[r['index'] for r in records if r['differences']],records=records);a.report.write_text(json.dumps(report,indent=2)+'\n');print('BayesianRidge',len(records),'strict failures',report['failures']);raise SystemExit(bool(report['failures']))
+ assert native_sha256==hashlib.sha256(a.executable.read_bytes()).hexdigest(),'native binary changed during comparison'
+ report=dict(sklearn_version=sklearn.__version__,numpy_version=np.__version__,scipy_version=scipy.__version__,native_sha256=native_sha256,validator_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),history_grid=a.history_grid,source_sha256={name:hashlib.sha256((root/name).read_bytes()).hexdigest() for name in ['linear_model/_bayes.py','linear_model/_base.py']},configurations=len(records),failures=[r['index'] for r in records if r['differences']],records=records);a.report.write_text(json.dumps(report,indent=2)+'\n');print('BayesianRidge',len(records),'strict failures',report['failures']);raise SystemExit(bool(report['failures']))
 if __name__=='__main__':main()
