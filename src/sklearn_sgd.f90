@@ -5,9 +5,10 @@ module sklearn_sgd
   use sklearn_common, only: dp,require,check_x,check_xy,unique_labels,label_index,sigmoid
   use sklearn_legacy_rng, only: legacy_random_state
   use sklearn_sparse, only: csr_matrix
+  use sklearn_resampling, only: shuffle_split,stratified_shuffle_split,index_split
   use, intrinsic :: iso_fortran_env, only: int64
   use sklearn_metrics, only: r2_score,accuracy_score
-  use, intrinsic :: ieee_arithmetic, only: ieee_is_finite,ieee_value,ieee_negative_inf
+  use, intrinsic :: ieee_arithmetic, only: ieee_is_finite,ieee_is_nan,ieee_value,ieee_negative_inf
   implicit none
   private
   public :: sgd_regressor,sgd_classifier
@@ -23,7 +24,9 @@ module sklearn_sgd
     logical, private :: classification=.false.
     integer, private :: fitted_average=0
     real(dp) :: l1_ratio=.15_dp
-    logical :: warm_start=.false.
+    logical :: warm_start=.false.,early_stopping=.false.
+    real(dp) :: validation_fraction=.1_dp
+    logical,allocatable :: validation_mask_(:)
   contains
     procedure, private :: fit_dense=>sgd_fit,fit_sparse=>sgd_fit_sparse
     generic :: fit=>fit_dense,fit_sparse
@@ -46,7 +49,9 @@ module sklearn_sgd
     type(sgd_regressor), allocatable, private :: heads(:)
     real(dp) :: l1_ratio=.15_dp
     real(dp) :: epsilon=.1_dp
-    logical :: warm_start=.false.
+    logical :: warm_start=.false.,early_stopping=.false.
+    real(dp) :: validation_fraction=.1_dp
+    logical,allocatable :: validation_mask_(:)
   contains
     procedure, private :: fit_matrix=>sgdc_fit,fit_vector=>sgdc_fit_vector
     procedure, private :: fit_scalar_bias=>sgdc_fit_scalar_bias,fit_vector_scalar_bias=>sgdc_fit_vector_scalar_bias
@@ -68,6 +73,24 @@ module sklearn_sgd
     generic :: score=>score_dense,score_sparse
   end type
 contains
+  function make_validation_mask(n,fraction,seed,weights,labels)result(mask)
+    integer,intent(in)::n,seed
+    real(dp),intent(in)::fraction,weights(:)
+    integer,optional,intent(in)::labels(:)
+    logical::mask(n)
+    type(shuffle_split)::random
+    type(stratified_shuffle_split)::stratified
+    type(index_split),allocatable::folds(:)
+    if(present(labels))then
+      stratified%n_splits=1;stratified%test_size=fraction;stratified%random_state=seed
+      folds=stratified%split(labels)
+    else
+      random%n_splits=1;random%test_size=fraction;random%random_state=seed
+      folds=random%split(n)
+    end if
+    call require(any(weights(folds(1)%test)>0),'SGD validation sample weights are all zero')
+    mask=.false.;mask(folds(1)%test)=.true.
+  end function
   subroutine sgd_controls(self)
     class(sgd_regressor), intent(in) :: self
     if(self%classification) then
@@ -93,6 +116,8 @@ contains
     call require(self%tol>=0.or.self%tol== -1,'SGD tol must be nonnegative or -1')
     call require(self%max_iter>0.and.self%n_iter_no_change>0,'invalid SGD iteration controls')
     call require(self%average>=0,'SGD average must be nonnegative')
+    call require(ieee_is_finite(self%validation_fraction),'nonfinite SGD validation_fraction')
+    call require(self%validation_fraction>0.and.self%validation_fraction<1,'SGD validation_fraction must lie in (0,1)')
   end subroutine
   subroutine sgd_initialize(self,p)
     class(sgd_regressor), intent(inout) :: self
@@ -161,6 +186,7 @@ contains
     real(dp), optional, intent(in) :: sample_weight(:)
     real(dp) :: empty(0,0)
     call sgd_controls(self);call check_csr(x,size(y));call check_x(reshape(y,[size(y),1]))
+    call require(.not.self%early_stopping,'early_stopping must be false with partial_fit')
     if(.not.allocated(self%standard_coef)) call sgd_initialize(self,x%n_cols)
     call require(x%n_cols==self%n_features_in_,'SGD feature count mismatch')
     call require(self%average==self%fitted_average,'SGD averaging cannot change during partial_fit')
@@ -171,6 +197,7 @@ contains
     real(dp), intent(in) :: x(:,:),y(:)
     real(dp), intent(in), optional :: sample_weight(:)
     call sgd_controls(self); call check_xy(x,size(y)); call check_x(reshape(y,[size(y),1]))
+    call require(.not.self%early_stopping,'early_stopping must be false with partial_fit')
     if(.not.allocated(self%standard_coef)) call sgd_initialize(self,size(x,2))
     call require(size(x,2)==self%n_features_in_,'SGD feature count mismatch')
     call require(self%average==self%fitted_average,'SGD averaging cannot change during partial_fit')
@@ -218,20 +245,26 @@ contains
       excess=max(0._dp,abs(residual)-self%epsilon); value=excess**2; gradient=2*sign(excess,residual)
     end select
   end subroutine
-  subroutine sgd_run(self,x,y,epochs,stopping,sample_weight,sparse_x)
+  subroutine sgd_run(self,x,y,epochs,stopping,sample_weight,sparse_x,validation_mask,validation_weight)
     class(sgd_regressor), intent(inout) :: self
     real(dp), intent(in) :: x(:,:),y(:)
     integer, intent(in) :: epochs
     logical, intent(in) :: stopping
     real(dp), intent(in), optional :: sample_weight(:)
     type(csr_matrix), optional, intent(in) :: sparse_x
+    logical,optional,intent(in)::validation_mask(:)
+    real(dp),optional,intent(in)::validation_weight(:)
+    logical::held_out(size(y))
+    integer,allocatable::validation_indices(:)
+    real(dp),allocatable::validation_prediction(:),score_weight(:)
+    real(dp)::best_score,validation_score,start_t
     real(dp) :: intercept_decay
     real(dp) :: weights(size(y)),sumloss,best_loss,value,gradient,eta,update,count,optimal_init,typw
     real(dp) :: work(size(self%standard_coef)),wscale,inner,q(size(self%standard_coef)),u,ratio,z
     real(dp) :: average_a,average_b,mu
     type(legacy_random_state) :: rng
     integer(int64) :: state
-    integer :: order(size(y)),n,i,j,it,pick,tmp,stale,feature,seed,k,lo,hi,entry
+    integer :: order(size(y)),n,i,j,it,pick,tmp,stale,previous_stale,feature,seed,k,lo,hi,entry
     intercept_decay=1;if(present(sparse_x)) intercept_decay=.01_dp
     n=size(y); weights=1; work=self%standard_coef; wscale=1
     if(present(sample_weight)) then
@@ -239,6 +272,20 @@ contains
       call require(all(ieee_is_finite(sample_weight)),'nonfinite SGD sample weights')
       call require(all(sample_weight>=0),'negative SGD sample weights'); weights=sample_weight
     end if
+    held_out=.false.;start_t=self%t_
+    if(self%early_stopping)then
+      if(present(validation_mask))then
+        held_out=validation_mask
+      else
+        held_out=make_validation_mask(n,self%validation_fraction,self%random_state,weights)
+      end if
+      validation_indices=pack([(i,i=1,n)],held_out)
+      allocate(validation_prediction(size(validation_indices)))
+      score_weight=weights(validation_indices)
+      if(present(validation_weight))score_weight=validation_weight(validation_indices)
+    end if
+    self%validation_mask_=held_out
+    best_score=ieee_value(0._dp,ieee_negative_inf)
     order=[(i,i=1,n)]; best_loss=huge(1._dp); stale=0; self%converged_=.false.
     call rng%seed(self%random_state)
     if(self%classification) tmp=rng%integer_index(2147483646)
@@ -261,6 +308,7 @@ contains
       sumloss=0
       do j=1,n
         i=order(j)
+        if(held_out(i))cycle
         inner=0
         if(present(sparse_x)) then
           lo=sparse_x%indptr(i);hi=sparse_x%indptr(i+1)-1
@@ -273,7 +321,7 @@ contains
           end do
         end if
         call sgd_loss(self,inner*wscale+self%standard_intercept,y(i),value,gradient)
-        sumloss=sumloss+value
+        if(.not.self%early_stopping)sumloss=sumloss+value
         if(self%learning_rate=='optimal') eta=1/(self%alpha*(optimal_init+self%t_-1))
         if(self%learning_rate=='invscaling') eta=self%eta0/self%t_**self%power_t
         gradient=max(-1.e12_dp,min(1.e12_dp,gradient)); update=-eta*gradient*weights(i)
@@ -330,13 +378,50 @@ contains
       self%standard_coef=work*wscale
       call require(all(ieee_is_finite(self%standard_coef)).and.ieee_is_finite(self%standard_intercept), &
         'SGD fit overflow; scale the inputs')
-      if(stopping.and.self%tol>=0) then
+      if(self%early_stopping)then
+        previous_stale=stale
+        ! Source passes the backing coefficient buffer (without lazy wscale)
+        ! to its validation callback, and never substitutes averaged weights.
+        do j=1,size(validation_indices)
+          i=validation_indices(j);inner=0
+          if(present(sparse_x))then
+            do k=sparse_x%indptr(i),sparse_x%indptr(i+1)-1
+              inner=inner+work(sparse_x%indices(k))*sparse_x%data(k)
+            end do
+          else
+            inner=dot_product(x(i,:),work)
+          end if
+          validation_prediction(j)=inner+self%standard_intercept
+        end do
+        if(self%classification)then
+          if(self%loss=='log_loss')then
+            ! sklearn 1.6.1 encodes binomial targets as 0/1 but installs
+            ! callback classes [-1,1]: negative targets never score correct.
+            validation_score=sum(score_weight*merge(1._dp,0._dp, &
+              validation_prediction>0.and.y(validation_indices)>0))/sum(score_weight)
+          else
+            validation_score=sum(score_weight*merge(1._dp,0._dp, &
+              merge(1._dp,-1._dp,validation_prediction>0)==y(validation_indices)))/sum(score_weight)
+          end if
+        else
+          validation_score=r2_score(y(validation_indices),validation_prediction,sample_weight=score_weight)
+        end if
+        stale=0
+        if(.not.ieee_is_nan(validation_score))then
+          if(stopping.and.self%tol>=0)then
+            if(validation_score<best_score+self%tol)stale=previous_stale+1
+          end if
+          if(validation_score>best_score)best_score=validation_score
+        end if
+      else if(stopping.and.self%tol>=0)then
         if(sumloss>best_loss-self%tol*n) then
           stale=stale+1
         else
           stale=0
         end if
         best_loss=min(best_loss,sumloss)
+      end if
+      if(stopping.and.self%tol>=0) then
         if(stale>=self%n_iter_no_change) then
           if(self%learning_rate=='adaptive'.and.eta>1.e-6_dp) then
             eta=eta/5;stale=0
@@ -348,6 +433,7 @@ contains
     end do
     self%n_iter_=min(it,epochs); self%loss_=sumloss/n
     call reset_scale();self%standard_coef=work
+    self%t_=start_t+real(self%n_iter_,dp)*n
     self%coef_=self%standard_coef; self%intercept_=self%standard_intercept
     if(self%average>0.and.self%t_-1>=self%average) then
       self%coef_=self%average_coef; self%intercept_=self%average_intercept
@@ -388,6 +474,7 @@ contains
     head%alpha=self%alpha; head%eta0=self%eta0; head%power_t=self%power_t; head%tol=self%tol
     head%l1_ratio=self%l1_ratio
     head%epsilon=self%epsilon
+    head%early_stopping=self%early_stopping;head%validation_fraction=self%validation_fraction
     head%max_iter=self%max_iter; head%n_iter_no_change=self%n_iter_no_change; head%average=self%average
     head%random_state=self%random_state; head%fit_intercept=self%fit_intercept; head%shuffle=self%shuffle
     call sgd_controls(head)
@@ -457,7 +544,9 @@ contains
     integer :: n,p,k,channels,c,positive,i
     real(dp) :: start_t
     logical :: fresh
+    logical,allocatable::validation_mask(:)
     call sgdc_configure(self,settings);n=size(y)
+    call require(.not.(incremental.and.self%early_stopping),'early_stopping must be false with partial_fit')
     if(present(sparse_x)) then
       call check_csr(sparse_x,n);p=sparse_x%n_cols
     else
@@ -495,6 +584,9 @@ contains
       call require(all(ieee_is_finite(sample_weight)),'nonfinite SGD sample weights')
       call require(all(sample_weight>=0),'negative SGD sample weights'); weights=sample_weight
     end if
+    validation_mask=spread(.false.,1,n)
+    if(self%early_stopping)validation_mask=make_validation_mask(n,self%validation_fraction,self%random_state,weights,encoded)
+    self%validation_mask_=validation_mask
     cw=spread(1._dp,1,k)
     call require(.not.(incremental.and.self%class_weight_balanced),'balanced SGD class weights require fit')
     if(present(class_weight)) then
@@ -561,7 +653,7 @@ contains
       if(incremental) then
         call sgd_run(self%heads(c),x,target,1,.false.,cost,sparse_x)
       else
-        call sgd_run(self%heads(c),x,target,self%max_iter,.true.,cost,sparse_x)
+        call sgd_run(self%heads(c),x,target,self%max_iter,.true.,cost,sparse_x,validation_mask,weights)
       end if
       self%n_iter_per_class_(c)=self%heads(c)%n_iter_; self%converged_per_class_(c)=self%heads(c)%converged_
       self%loss_(c)=self%heads(c)%loss_

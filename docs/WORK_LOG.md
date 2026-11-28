@@ -12702,3 +12702,18 @@ Optimized audit SHA256: 226f057b1b6c9d813660aad81d4e4fd14c3f9f3579b37c1d68198e5a
 Cross-profile audit SHA256: 5492b0dcbbad3716703de237564657cd43bdb82e15551ebef9cc96e2674d36aa
 Validation artifacts use the kernel_sparse_coef_ prefix. Static GNU runtime
 and validation-only locale shim retained. No push performed.
+
+2026-11-28: SGD validation-based early stopping implementation.
+Added early_stopping and validation_fraction to dense/CSR SGD regression and
+classification, shared multiclass stratified masks, weighted callback scoring,
+patience/adaptive reductions, public-versus-update clocks, clone and search
+controls. Native validation_mask_ is an explicit diagnostic. Source 1.6.1
+unscaled-backing-coefficient callback and log-loss 0/1 versus -1/1 scoring quirks
+are retained. Initial 924-case probe: 59 log-loss cases / 233 groups differed;
+source-aligned callback encoding closes all. Expanded direct-module checked
+probe passes 1,084 cases / 6,576 groups and fourteen Source/native guards.
+Initial native exclusion/refit/clone tests pass. These direct probes link a
+frozen older archive and are not whole-package verification. Full build is live;
+search-adapter and native test additions require a successful refresh after it.
+Full checked/scoped-O3 and retained SGD reference corpora are pending.
+No push performed; project-wide Source parity remains false.

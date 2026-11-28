@@ -2094,7 +2094,7 @@ arithmetic, including its ordering relative to L1 truncation.
 
 `learning_rate` accepts `'constant'`, `'invscaling'`, `'optimal'` and `'adaptive'`.
 Optimal requires positive `alpha`, ignores `eta0` and accepts `eta0=0`. Adaptive
-starts at `eta0`, divides the rate by five after training-loss patience is
+starts at `eta0`, divides the rate by five after training-loss or validation-score patience is
 exhausted, and stops only once a further reduction is no longer allowed
 (`eta<=1.e-6`). `partial_fit` runs one epoch and retains the sample clock;
 adaptive rate reductions are local to each fitting call. Defaults remain
@@ -2132,6 +2132,33 @@ SGD tails, while existing prefit wrapper modes retain fitted bases. Search
 accepts epsilon, l1_ratio, warm_start, average, random_state and n_iter_no_change
 for SGD, including nested pipeline parameter names.
 
+
+## SGD validation-based early stopping
+
+For either SGD estimator, set `early_stopping=.true.` and choose
+`validation_fraction` (default `.1`, strictly between zero and one).
+`fit` holds out a deterministic seeded ShuffleSplit for regression or
+StratifiedShuffleSplit for classification. Multiclass OVR heads share one split
+made from the original multiclass labels. Held-out rows never enter updates.
+Dense and CSR fitting use the same split contract.
+
+Patience uses weighted validation R2 for regression and weighted binary-head
+accuracy for classification. Validation uses original sample weights, excluding
+class-weight multipliers. `n_iter_no_change` and `tol` control improvement;
+`learning_rate='adaptive'` divides the rate by five before stopping at its
+existing rate floor. `tol=-1` disables stopping while retaining the held-out
+split. `partial_fit` rejects early stopping. A validation set with no positive
+sample weight, empty training split or invalid stratification raises a diagnostic.
+
+The final coefficients come from the last epoch, with the existing averaging
+rules. As in sklearn 1.6.1, validation observes the backing standard coefficient
+buffer without its lazy L2 scale, and log-loss callbacks compare 0/1 targets
+with -1/1 predictions. These source quirks can affect stopping. A single-row
+regression validation set has NaN R2 and does not consume patience. Public `t_`
+uses epochs times the original sample count; update/averaging clocks skip
+validation rows. Native diagnostic `validation_mask_(:)` records held-out rows.
+Refits rebuild the split, and parameter clones discard it. Both controls are
+accepted in parameter searches, including nested pipeline parameter names.
 
 ## CSR SGD input and queries
 

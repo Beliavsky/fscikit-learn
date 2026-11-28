@@ -27,6 +27,7 @@ contains
     model%epsilon=source%epsilon;model%tol=source%tol;model%l1_ratio=source%l1_ratio
     model%max_iter=source%max_iter;model%n_iter_no_change=source%n_iter_no_change;model%average=source%average
     model%random_state=source%random_state;model%fit_intercept=source%fit_intercept
+    model%early_stopping=source%early_stopping;model%validation_fraction=source%validation_fraction
     model%shuffle=source%shuffle;model%warm_start=source%warm_start
   end function
   function clone_sgdc_parameters(source) result(model)
@@ -37,6 +38,7 @@ contains
     model%epsilon=source%epsilon;model%tol=source%tol;model%l1_ratio=source%l1_ratio
     model%max_iter=source%max_iter;model%n_iter_no_change=source%n_iter_no_change;model%average=source%average
     model%random_state=source%random_state;model%fit_intercept=source%fit_intercept
+    model%early_stopping=source%early_stopping;model%validation_fraction=source%validation_fraction
     model%shuffle=source%shuffle;model%warm_start=source%warm_start;model%class_weight_balanced=source%class_weight_balanced
   end function
   subroutine reset_sgd_fit(model)

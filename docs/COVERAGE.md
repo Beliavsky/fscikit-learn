@@ -15914,3 +15914,25 @@ Reports: validation/results/kernel_sparse_coef_{checked,optimized}.json and
 kernel_sparse_coef_cross_profile.json. This verifies the selected behavior;
 project-wide Source parity remains false. Windows validation retains the
 static libgfortran runtime and validation-only locale-copy shim.
+
+### SGD validation-based early stopping
+
+SGDRegressor and SGDClassifier now support early_stopping and validation_fraction
+for dense and CSR fit. Seeded regression/stratified classification splits reuse
+the translated Source splitters; multiclass heads share the original-label split.
+Validation rows are skipped by updates, L1/L2 work and averaging clocks, while
+public t_ retains Source's full-sample epoch convention. Weighted validation
+R2/accuracy, patience, adaptive reductions, tol=None's native -1 sentinel and
+NaN single-row R2 follow Source. Final models retain last-epoch/averaged state.
+Controls survive clones and are available through search parameter adapters.
+
+Source 1.6.1 quirks are retained: callbacks use the unscaled backing coefficient
+buffer, and log-loss callbacks compare 0/1 targets to -1/1 predictions. The
+initial 924-case probe exposed 59 log-loss case differences; aligning this
+callback encoding closes all 233 failing groups without changing tolerances.
+The unchanged inputs/oracles and original failure report are retained locally.
+The expanded checked probe passes 1,084 configurations / 6,576 groups across
+all supported losses, schedules, penalties, averaging, weights, class weights,
+warm fits and dense/CSR layouts. All fourteen Source/native rejection cases
+pass. Native split exclusion, refit, state and cloning checks pass. Full package
+and scoped optimized plus retained SGD regression verification are pending.

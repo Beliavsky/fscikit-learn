@@ -348,6 +348,8 @@ contains
       end select
     type is(sgd_regressor)
       select case(name)
+      case('early_stopping');model%early_stopping=value%as_logical()
+      case('validation_fraction');model%validation_fraction=value%as_real()
       case('epsilon');model%epsilon=value%as_real()
       case('l1_ratio');model%l1_ratio=value%as_real()
       case('warm_start');model%warm_start=value%as_logical()
@@ -368,6 +370,8 @@ contains
       end select
     type is(sgd_classifier)
       select case(name)
+      case('early_stopping');model%early_stopping=value%as_logical()
+      case('validation_fraction');model%validation_fraction=value%as_real()
       case('epsilon');model%epsilon=value%as_real()
       case('l1_ratio');model%l1_ratio=value%as_real()
       case('warm_start');model%warm_start=value%as_logical()
