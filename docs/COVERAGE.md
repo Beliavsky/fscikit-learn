@@ -1012,6 +1012,31 @@ Source's admissible-interval midpoint; near-bound free variables use Source's
 strict status and free average.
 Parameters should be chosen for well-scaled finite arithmetic.
 
+Current translated OneClassSVM verification: a coherent GNU 15.2 checked
+build passes all 344 native programs and all 1,211 compiled-source fingerprints.
+Six selected native harnesses pass with sklearn_libsvm_solver and
+sklearn_kernel_svm at O3/unroll; harness bounds checks and floating-point traps
+remain enabled. Each profile passes 1,316 new OneClassSVM fits / 26,556 output
+groups / 1,316 independent mass/box/original-kernel residual/cache-rounding and
+score-offset certificate replays. Full support metadata, duals, intercepts,
+raw/shifted scores, prediction and fit_predict outputs match Source without
+exemptions at existing exact-structure and 3e-6 numeric tolerances. Every
+iteration count matches, including the circular cap case, weighted prefix,
+constant-kernel ties, raw CSR layouts, signed sigmoid and asymmetric matrices.
+
+The retained dense kernel corpus passes 318 groups; the 1,296-case CSR
+SVR/NuSVR/OneClassSVM corpus passes 15,120 groups. C-SVC replay passes 789 fits /
+11,046 groups, and NuSVC passes 1,728 fits / 22,464 groups. Total comparisons:
+75,504 passing groups per profile. All 26 new/retained rejection guards pass.
+The wide CSR all-family memory test peaks at 9,441,280 checked / 9,408,512
+optimized bytes under 128 MiB. The shared cross-profile verifier confirms
+source/compiler/archive identity, equal expected results and matching actual
+outputs. Evidence/logs use `validation/results/oneclass_libsvm_`. Sources,
+binaries and archive remain stable during audits. SVC/NuSVC's previously
+recorded eight/two counter differences remain distinct from the complete
+counter agreement in the new OneClassSVM corpus. Documented broader API and
+cache-budget gaps remain outside these selected comparisons.
+
 ## PowerTransformer
 
 `power_transformer` (implemented in `sklearn_power_transform` and re-exported

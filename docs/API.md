@@ -1178,7 +1178,9 @@ dense-fit index convention and is retained for reference compatibility.
 The native optimizer still constructs a dense sample-by-sample Gram matrix;
 CSR fitting avoids the sample-by-feature design and dense support-vector
 storage. Linear `coef_` remains a dense native feature vector. The existing
-kernel restrictions, nonnegative-weight policy and solver tolerances remain.
+SVR/NuSVR kernel restrictions and optimizer remain. OneClassSVM has the Source
+solver and additional kernel controls described above; the nonnegative-weight
+policy and native default tolerances/iteration cap remain.
 
 ## Power transforms
 
