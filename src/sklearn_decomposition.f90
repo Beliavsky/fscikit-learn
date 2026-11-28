@@ -1,6 +1,7 @@
 module sklearn_decomposition
   use sklearn_minibatch_nmf, only: mini_batch_nmf,nmf_initialize_factors
-  use sklearn_nmf_mu, only: nmf_mu_solve
+  use sklearn_nmf_mu, only: nmf_mu_solve,nmf_sparse_error
+  use sklearn_nmf_sparse_data,only:nmf_prepare_sparse,nmf_sparse_cross
   use sklearn_lda, only: latent_dirichlet_allocation
   use sklearn_dictionary, only: dict_learning,dict_learning_online,dictionary_learning_result, &
     online_dictionary_result,dictionary_callback,online_dictionary_callback, &
@@ -28,6 +29,9 @@ module sklearn_decomposition
   public :: fast_ica,pca, truncated_svd, nmf, kernel_pca, factor_analysis
   public :: fastica,fastica_result,fastica_contrast
   public :: non_negative_factorization
+  interface non_negative_factorization
+    module procedure non_negative_factorization_dense,non_negative_factorization_sparse
+  end interface
   type :: pca
     integer :: n_components=0,n_samples_=0,n_components_=0
     character(16) :: dimension_mode='count',svd_solver='full',fit_svd_solver_='full'
@@ -73,15 +77,18 @@ module sklearn_decomposition
     character(8) :: solver='mu',init='auto'
     real(dp), allocatable :: components_(:,:)
   contains
-    procedure :: fit=>nmf_fit
-    procedure :: fit_transform=>nmf_fit_transform
-    procedure :: transform=>nmf_transform
+    procedure,private :: fit_dense=>nmf_fit,fit_sparse=>nmf_fit_sparse
+    generic :: fit=>fit_dense,fit_sparse
+    procedure,private :: fit_transform_dense=>nmf_fit_transform,fit_transform_sparse=>nmf_fit_transform_sparse
+    generic :: fit_transform=>fit_transform_dense,fit_transform_sparse
+    procedure,private :: transform_dense=>nmf_transform,transform_sparse=>nmf_transform_sparse
+    generic :: transform=>transform_dense,transform_sparse
     procedure :: inverse_transform=>nmf_inverse
   end type
 contains
   ! sklearn 1.6.1 decomposition._nmf.non_negative_factorization (BSD-3-Clause).
   ! See THIRD_PARTY_NOTICES.md. Inputs are preserved; outputs own their storage.
-  subroutine non_negative_factorization(x,w,h,n_iter,n_components,w0,h0,init,update_h,solver, &
+  subroutine non_negative_factorization_dense(x,w,h,n_iter,n_components,w0,h0,init,update_h,solver, &
       beta_loss,tol,max_iter,alpha_w,alpha_h,l1_ratio,random_state,shuffle)
     real(dp), intent(in) :: x(:,:)
     real(dp), allocatable, intent(out) :: w(:,:),h(:,:)
@@ -124,6 +131,53 @@ contains
       model%n_components_=k;model%n_features_in_=size(x,2);model%components_=h0
       ! As in sklearn, W is initialized by the solver even when W0 was supplied.
       w=nmf_factor_transform(model,x,n_iter);h=model%components_
+    end if
+  end subroutine
+  subroutine non_negative_factorization_sparse(x,w,h,n_iter,n_components,w0,h0,init,update_h,solver, &
+      beta_loss,tol,max_iter,alpha_w,alpha_h,l1_ratio,random_state,shuffle)
+    type(csr_matrix), intent(in) :: x
+    real(dp), allocatable, intent(out) :: w(:,:),h(:,:)
+    integer, intent(out) :: n_iter
+    integer, optional, intent(in) :: n_components,max_iter,random_state
+    real(dp), optional, intent(in) :: w0(:,:),h0(:,:),beta_loss,tol,alpha_w,alpha_h,l1_ratio
+    character(*), optional, intent(in) :: init,solver
+    logical, optional, intent(in) :: update_h,shuffle
+    type(nmf) :: model
+    type(csr_matrix)::prepared
+    logical :: fit_h
+    integer :: k
+    model%n_components=0;model%solver='cd';model%max_iter=200;model%tol=1.e-4_dp
+    if(present(n_components)) model%n_components=n_components
+    if(present(max_iter)) model%max_iter=max_iter
+    if(present(random_state)) model%random_state=random_state
+    if(present(beta_loss)) model%beta_loss=beta_loss
+    if(present(tol)) model%tol=tol
+    if(present(alpha_w)) model%alpha_w=alpha_w
+    if(present(alpha_h)) model%alpha_h=alpha_h
+    if(present(l1_ratio)) model%l1_ratio=l1_ratio
+    if(present(shuffle)) model%shuffle=shuffle
+    if(present(init)) then
+      call require(any(init==[character(8)::'auto','random','custom','nndsvd','nndsvda','nndsvdar']), &
+        'unknown NMF initializer')
+      model%init=init
+    end if
+    if(present(solver)) then
+      call require(solver=='cd'.or.solver=='mu','unknown NMF solver')
+      model%solver=solver
+    end if
+    call nmf_controls(model)
+    fit_h=.true.;if(present(update_h)) fit_h=update_h
+    if(fit_h) then
+      w=model%fit_transform(x,w0,h0);h=model%components_;n_iter=model%n_iter_
+    else
+      call require(present(h0),'NMF fixed factorization requires H')
+      k=model%n_components;if(k==0) k=size(h0,1)
+      call require(k>0,'NMF component count must be positive')
+      call require(all(shape(h0)==[k,x%n_cols]),'NMF fixed H shape mismatch')
+      model%n_components_=k;model%n_features_in_=x%n_cols;model%components_=h0
+      ! As in sklearn, W is initialized by the solver even when W0 was supplied.
+      prepared=nmf_prepare_sparse(x,model%beta_loss,model%solver)
+      w=nmf_factor_transform_sparse(model,prepared,n_iter);h=model%components_
     end if
   end subroutine
   subroutine oriented_eigen(gram,values,vectors)
@@ -562,6 +616,33 @@ contains
     call nmf_controls(self)
     w=nmf_factor_transform(self,x)
   end function
+  function nmf_fit_transform_sparse(self,x,w0,h0)result(w)
+    class(nmf),intent(inout)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),optional,intent(in)::w0(:,:),h0(:,:)
+    real(dp),allocatable::w(:,:)
+    type(csr_matrix)::prepared
+    call nmf_controls(self)
+    prepared=nmf_prepare_sparse(x,self%beta_loss,self%solver)
+    w=nmf_factor_fit_sparse(self,prepared,w0,h0)
+  end function
+  subroutine nmf_fit_sparse(self,x,w0,h0)
+    class(nmf),intent(inout)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),optional,intent(in)::w0(:,:),h0(:,:)
+    real(dp),allocatable::w(:,:)
+    w=self%fit_transform(x,w0,h0)
+  end subroutine
+  function nmf_transform_sparse(self,x)result(w)
+    class(nmf),intent(in)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),allocatable::w(:,:)
+    type(csr_matrix)::prepared
+    call require(allocated(self%components_),'NMF is not fitted')
+    call nmf_controls(self)
+    prepared=nmf_prepare_sparse(x,self%beta_loss,self%solver)
+    w=nmf_factor_transform_sparse(self,prepared)
+  end function
   function nmf_inverse(self,w) result(x)
     class(nmf), intent(in) :: self
     real(dp), intent(in) :: w(:,:)
@@ -599,18 +680,31 @@ contains
     l1w=p*self%alpha_w*self%l1_ratio;l2w=p*self%alpha_w*(1-self%l1_ratio)
     l1h=n*ah*self%l1_ratio;l2h=n*ah*(1-self%l1_ratio)
   end subroutine
-  real(dp) function nmf_cd_sweep(x,w,other,l1,l2,shuffle,rng) result(violation)
-    real(dp), intent(in) :: x(:,:),other(:,:),l1,l2
+  real(dp) function nmf_cd_sweep(x,w,other,l1,l2,shuffle,rng,sparse,transposed) result(violation)
+    real(dp), optional,intent(in) :: x(:,:)
+    type(csr_matrix),optional,intent(in)::sparse
+    logical,optional,intent(in)::transposed
+    real(dp), intent(in) :: other(:,:),l1,l2
     real(dp), intent(inout) :: w(:,:)
     logical, intent(in) :: shuffle
     type(legacy_random_state), intent(inout) :: rng
     real(dp), allocatable :: gram(:,:),cross(:,:)
     real(dp) :: gradient,projected,hessian,limit,candidate
     integer :: order(size(other,2)),i,r,s,t,k,j,temp
-    k=size(other,2);limit=huge(1._dp)**(1._dp/3)/(64*real(max(size(x,1),size(x,2),k),dp))
+    k=size(other,2)
+    if(present(sparse))then
+      limit=huge(1._dp)**(1._dp/3)/(64*real(max(sparse%n_rows,sparse%n_cols,k),dp))
+    else
+      limit=huge(1._dp)**(1._dp/3)/(64*real(max(size(x,1),size(x,2),k),dp))
+    end if
     call require(all(ieee_is_finite(w)).and.all(ieee_is_finite(other)),'NMF factors must be finite')
     call require(maxval(w)<=limit.and.maxval(other)<=limit,'NMF factors exceed working range')
-    gram=matmul(transpose(other),other);cross=matmul(x,other)
+    gram=matmul(transpose(other),other)
+    if(present(sparse))then
+      cross=nmf_sparse_cross(sparse,other,transposed)
+    else
+      cross=matmul(x,other)
+    end if
     do t=1,k
       gram(t,t)=gram(t,t)+l2
     end do
@@ -666,6 +760,34 @@ contains
     end do
     n_iter=min(it,self%max_iter);if(update_h) h=transpose(ht)
   end subroutine
+  subroutine nmf_cd_solve_sparse(self,x,w,h,update_h,n_iter,violation,initial,converged)
+    class(nmf), intent(in) :: self
+    type(csr_matrix), intent(in) :: x
+    real(dp), intent(inout) :: w(:,:),h(:,:)
+    logical, intent(in) :: update_h
+    integer, intent(out) :: n_iter
+    real(dp), intent(out) :: violation,initial
+    logical, intent(out) :: converged
+    real(dp), allocatable :: ht(:,:)
+    real(dp) :: l1w,l2w,l1h,l2h
+    type(legacy_random_state) :: rng
+    integer :: it
+    call nmf_cd_regularization(self,x%n_rows,x%n_cols,l1w,l2w,l1h,l2h)
+    call rng%seed(self%random_state);ht=transpose(h);initial=0;converged=.false.
+    do it=1,self%max_iter
+      violation=nmf_cd_sweep(w=w,other=ht,l1=l1w,l2=l2w,shuffle=self%shuffle,rng=rng,sparse=x,transposed=.false.)
+      if(update_h) violation=violation+nmf_cd_sweep(w=ht,other=w,l1=l1h,l2=l2h, &
+        shuffle=self%shuffle,rng=rng,sparse=x,transposed=.true.)
+      if(it==1) initial=violation
+      if(initial==0) then
+        converged=.true.;exit
+      end if
+      if(violation/initial<=self%tol) then
+        converged=.true.;exit
+      end if
+    end do
+    n_iter=min(it,self%max_iter);if(update_h) h=transpose(ht)
+  end subroutine
   function nmf_factor_fit(self,x,w0,h0) result(w)
     class(nmf), intent(inout) :: self
     real(dp), intent(in) :: x(:,:)
@@ -704,6 +826,43 @@ contains
     end if
     self%components_=h
   end function
+  function nmf_factor_fit_sparse(self,x,w0,h0) result(w)
+    class(nmf), intent(inout) :: self
+    type(csr_matrix), intent(in) :: x
+    real(dp), optional, intent(in) :: w0(:,:),h0(:,:)
+    real(dp), allocatable :: w(:,:),h(:,:)
+    real(dp) :: l1w,l2w,l1h,l2h
+    integer :: k,n,p
+    n=x%n_rows;p=x%n_cols;k=self%n_components
+    if(k==0) then
+      k=p
+      if(self%init=='custom'.and.present(h0)) k=size(h0,1)
+    end if
+    call require(k>0,'NMF component count must be positive')
+    if(any(self%init==[character(8)::'nndsvd','nndsvda','nndsvdar'])) &
+      call require(k<=min(n,p),'NMF NNDSVD requires components <= min(samples,features)')
+    if(self%init=='custom') then
+      call require(present(w0).and.present(h0),'NMF custom initialization requires W and H')
+      call require(all(shape(w0)==[n,k]).and.all(shape(h0)==[k,p]),'NMF initializer shape mismatch')
+      call require(all(ieee_is_finite(w0)).and.all(ieee_is_finite(h0)),'NMF initializer must be finite')
+      call require(all(w0>=0).and.all(h0>=0),'NMF initializer must be nonnegative')
+      call require(maxval(w0)>0.and.maxval(h0)>0,'NMF initializer must not be all zero')
+    end if
+    call nmf_initialize_factors(x,k,self%init,self%random_state,w,h,w0,h0)
+    self%n_components_=k;self%n_features_in_=p
+    self%cd_violation_=0;self%cd_initial_violation_=0
+    self%mu_initial_error_=0;self%mu_error_=0;self%mu_previous_error_=0
+    if(self%solver=='cd') then
+      call nmf_cd_solve_sparse(self,x,w,h,.true.,self%n_iter_,self%cd_violation_,self%cd_initial_violation_,self%converged_)
+      self%reconstruction_err_=nmf_sparse_error(x,w,h,2._dp)
+    else
+      call nmf_cd_regularization(self,n,p,l1w,l2w,l1h,l2h)
+      call nmf_mu_solve(x,w,h,self%beta_loss,self%max_iter,self%tol,l1w,l2w,l1h,l2h,.true., &
+        self%n_iter_,self%converged_,self%mu_initial_error_,self%mu_error_,self%mu_previous_error_)
+      self%reconstruction_err_=self%mu_error_
+    end if
+    self%components_=h
+  end function
   function nmf_factor_transform(self,x,n_iterations) result(w)
     class(nmf), intent(in) :: self
     real(dp), intent(in) :: x(:,:)
@@ -724,6 +883,30 @@ contains
     else
       w=sqrt(sum(x)/real(size(x),dp)/self%n_components_)
       call nmf_cd_regularization(self,size(x,1),size(x,2),l1w,l2w,l1h,l2h)
+      call nmf_mu_solve(x,w,h,self%beta_loss,self%max_iter,self%tol,l1w,l2w,l1h,l2h,.false., &
+        n_iter,converged,initial,last,previous)
+    end if
+    if(present(n_iterations)) n_iterations=n_iter
+  end function
+  function nmf_factor_transform_sparse(self,x,n_iterations) result(w)
+    class(nmf), intent(in) :: self
+    type(csr_matrix), intent(in) :: x
+    integer, optional, intent(out) :: n_iterations
+    real(dp), allocatable :: w(:,:),h(:,:)
+    real(dp) :: violation,initial,l1w,l2w,l1h,l2h,last,previous
+    logical :: converged
+    integer :: n_iter
+    call x%validate()
+    call require(x%n_cols==self%n_features_in_,'NMF query feature count mismatch')
+    call require(all(ieee_is_finite(self%components_)),'NMF transform components must be finite')
+    call require(all(self%components_>=0),'NMF transform components must be nonnegative')
+    call require(maxval(self%components_)>0,'NMF transform components must not be all zero')
+    allocate(w(x%n_rows,self%n_components_));w=0;h=self%components_
+    if(self%solver=='cd') then
+      call nmf_cd_solve_sparse(self,x,w,h,.false.,n_iter,violation,initial,converged)
+    else
+      w=sqrt(sum(x%data)/(real(x%n_rows,dp)*x%n_cols)/self%n_components_)
+      call nmf_cd_regularization(self,x%n_rows,x%n_cols,l1w,l2w,l1h,l2h)
       call nmf_mu_solve(x,w,h,self%beta_loss,self%max_iter,self%tol,l1w,l2w,l1h,l2h,.false., &
         n_iter,converged,initial,last,previous)
     end if

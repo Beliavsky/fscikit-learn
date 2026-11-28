@@ -14857,3 +14857,21 @@ Corrected Pipeline certificates require exact Source distances; the earlier
 invalid relative-bound failures remain diagnostic. Full Source parity is false.
 The GNU Windows runs retain static libgfortran and the validation locale shim.
 Details: bayes_products_cross_profile_audit.json and qualified result reports.
+
+### CSR nonnegative matrix factorization
+
+NMF fit/fit_transform/transform and functional non_negative_factorization accept
+CSR. Both CD and MU, random/custom/NNDSVD variants, regularization, shuffle,
+fixed-H inference and automatic component counts are integrated. Sparse products
+and streaming beta denominators avoid a dense design/reconstruction cache;
+outputs/factors remain dense. Caller CSR buffers are preserved through owned
+canonicalization. Source's zero restrictions and stored-zero MU errors remain.
+
+The isolated checked comparison passes all 347 actual Source configurations,
+including all numeric beta branches, initialization/shape/functional modes,
+unsorted/duplicate/explicit-zero/empty storage and fit/query rejection stages.
+All 28 separate Source/native validation cases pass. Native dense/CSR parity
+and public functional checks pass. Both 128-by-500000 memory cases pass below
+128 MiB: CD 48,840,704 bytes, MU 56,881,152 bytes, versus a 512,000,000-byte dense
+input. Full package and legacy dense verification are running; no full estimator
+or project Source-completeness claim is made.

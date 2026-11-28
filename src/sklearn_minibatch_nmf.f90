@@ -4,12 +4,16 @@ module sklearn_minibatch_nmf
   use sklearn_common, only: dp,require,check_x
   use sklearn_legacy_rng, only: legacy_random_state
   use sklearn_randomized_svd_core, only: randomized_svd
+  use sklearn_sparse, only: csr_matrix
   use, intrinsic :: iso_fortran_env, only: int64
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite,ieee_is_nan,ieee_value,ieee_quiet_nan,ieee_positive_inf
   implicit none
   private
   public :: mini_batch_nmf,nmf_initialize_factors
   real(dp), parameter :: eps32=1.1920928955078125e-7_dp
+  interface nmf_initialize_factors
+    module procedure nmf_initialize_dense,nmf_initialize_sparse
+  end interface
   type :: mini_batch_nmf
     integer :: n_components=0,n_components_=0,batch_size=1024,batch_size_=0,max_iter=200,random_state=0
     integer :: max_no_improvement=10,fresh_restarts_max_iter=30,transform_max_iter=0,transform_max_iter_=0,n_features_in_=0
@@ -74,9 +78,10 @@ contains
     self%transform_max_iter_=self%transform_max_iter
     if(self%transform_max_iter==0) self%transform_max_iter_=self%max_iter
   end subroutine
-  subroutine initialize(self,x,w0,h0,w,h)
+  subroutine initialize(self,x,w0,h0,w,h,sparse)
     class(mini_batch_nmf), intent(in) :: self
-    real(dp), intent(in) :: x(:,:)
+    real(dp), optional, intent(in) :: x(:,:)
+    type(csr_matrix), optional, intent(in) :: sparse
     real(dp), optional, intent(in) :: w0(:,:),h0(:,:)
     real(dp), allocatable, intent(out) :: w(:,:),h(:,:)
     real(dp), allocatable :: u(:,:),s(:),vt(:,:),xp(:),xn(:),yp(:),yn(:)
@@ -84,7 +89,12 @@ contains
     type(legacy_random_state) :: rng
     integer :: n,p,k,i,j
     character(8) :: method
-    n=size(x,1); p=size(x,2); k=self%n_components_; method=self%init
+    if(present(sparse))then
+      n=sparse%n_rows;p=sparse%n_cols
+    else
+      n=size(x,1);p=size(x,2)
+    end if
+    k=self%n_components_; method=self%init
     allocate(w(n,k),h(k,p)); w=0; h=0
     if(method=='custom') then
       call require(present(w0).and.present(h0),'MiniBatchNMF custom initialization requires W and H')
@@ -98,7 +108,12 @@ contains
       method='nndsvda'
       if(k>min(n,p)) method='random'
     end if
-    avg=sum(x)/real(size(x),dp); call rng%seed(self%random_state)
+    if(present(sparse))then
+      avg=sum(sparse%data)/(real(n,dp)*p)
+    else
+      avg=sum(x)/real(size(x),dp)
+    end if
+    call rng%seed(self%random_state)
     if(method=='random') then
       scale=sqrt(avg/k)
       do i=1,k
@@ -114,7 +129,11 @@ contains
       return
     end if
     call require(k<=min(n,p),'MiniBatchNMF NNDSVD requires components <= min(samples,features)')
-    call randomized_svd(x,k,rng,s,u,vt)
+    if(present(sparse))then
+      call randomized_svd(sparse,k,rng,s,u,vt)
+    else
+      call randomized_svd(x,k,rng,s,u,vt)
+    end if
     w(:,1)=sqrt(s(1))*abs(u(:,1)); h(1,:)=sqrt(s(1))*abs(vt(1,:))
     do j=2,k
       xp=max(u(:,j),0._dp); xn=-min(u(:,j),0._dp); yp=max(vt(j,:),0._dp); yn=-min(vt(j,:),0._dp)
@@ -408,7 +427,7 @@ contains
     x=matmul(codes,self%components_)
   end function
   ! Shared internal initialization adapter; not re-exported through sklearn.
-  subroutine nmf_initialize_factors(x,k,method,seed,w,h,w0,h0)
+  subroutine nmf_initialize_dense(x,k,method,seed,w,h,w0,h0)
     real(dp), intent(in) :: x(:,:)
     integer, intent(in) :: k,seed
     character(*), intent(in) :: method
@@ -417,5 +436,15 @@ contains
     type(mini_batch_nmf) :: initializer
     initializer%n_components_=k;initializer%init=method;initializer%random_state=seed
     call initialize(initializer,x,w0,h0,w,h)
+  end subroutine
+  subroutine nmf_initialize_sparse(x,k,method,seed,w,h,w0,h0)
+    type(csr_matrix), intent(in) :: x
+    integer, intent(in) :: k,seed
+    character(*), intent(in) :: method
+    real(dp), allocatable, intent(out) :: w(:,:),h(:,:)
+    real(dp), optional, intent(in) :: w0(:,:),h0(:,:)
+    type(mini_batch_nmf) :: initializer
+    initializer%n_components_=k;initializer%init=method;initializer%random_state=seed
+    call initialize(initializer,w0=w0,h0=h0,w=w,h=h,sparse=x)
   end subroutine
 end module

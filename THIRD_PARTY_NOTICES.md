@@ -2942,3 +2942,11 @@ linear_model/_bayes.py: last-loop coef_ with the final recomputed residual.
 Scaled posterior products follow its NumPy multi_dot expression order. Existing
 sklearn and NumPy BSD notices in LICENSES remain applicable; typed Fortran
 integration and the closed-form regression test are project MIT contributions.
+
+CSR NMF follows sklearn 1.6.1 decomposition/_nmf.py coordinate descent,
+multiplicative updates, sparse beta divergence, initialization and functional
+contracts. Source X.min() canonicalization follows SciPy 1.15.3 sparse/_data.py;
+owned sorting/coalescing reuses the project's existing attributed CSR helper.
+Sparse randomized initialization reuses the attributed randomized SVD/RNG code.
+Existing sklearn, NumPy and SciPy BSD notices are retained in LICENSES. New
+Fortran CSR adapters, streamed products and tests are project MIT contributions.

@@ -11522,3 +11522,25 @@ history with a mathematically recomputed final-coefficient likelihood.
 Scaled posterior products and covariance scaling follow Source evaluation order;
 wide log determinants sum the full precision spectrum. compute_score=False
 continues to leave scores_ empty. No estimator or extension is added.
+
+### CSR NMF models and functional factorization
+
+NMF accepts csr_matrix in fit, fit_transform and transform, and the
+non_negative_factorization generic accepts CSR for both learned and fixed H.
+Both coordinate descent (Frobenius loss) and multiplicative updates (all finite
+numeric beta losses) use direct sparse products. NNDSVD variants use the
+existing sparse randomized SVD; random/custom initializers share the dense
+initialization logic. Returned W, components and inverse transforms are dense.
+CSR input is preserved: a private copy is sorted and duplicate entries summed,
+following Source X.min()/SciPy canonicalization without mutating caller buffers.
+
+The implementation avoids a dense input/reconstruction cache during fit and
+transform. General beta updates stream rows/columns; Frobenius error uses sparse
+cross-products and factor chains. Dense W/H, Gram matrices, CSR arrays and
+row/column temporaries determine memory. Large component counts still require
+large factors/Grams. Existing numerical working-range guards remain applicable.
+For nonpositive beta, implicit and explicit zeros are rejected. For MU with
+non-Frobenius beta, stored explicit zeros retain the actual sklearn 1.6.1
+_special_sparse_dot/data alignment rejection. Convert away stored zeros before
+such calls. Positive duplicate entries are coalesced; effective nonnegative
+values from cancelling duplicates follow Source canonicalization.

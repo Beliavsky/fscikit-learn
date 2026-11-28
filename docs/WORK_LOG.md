@@ -11236,3 +11236,36 @@ ZIP CRCs, critical file hashes, baseline library hash and both preserved
 Pipeline diagnostic/binary hash pairs pass. Receipt:
 validation/results/bayes_products_archive_receipt.json (ignored evidence).
 Metadata preserves false full Source parity and true checked score-history parity.
+
+### CSR NMF solvers, initialization and functional API
+
+Previous goal turn classification: progress (Bayesian score semantics,
+corrected Source-exact Pipeline certificate, complete audits and verified
+backup; commits 804921d, 982dbd3 and 358e061).
+
+Added CSR overloads for NMF fit/fit_transform/transform and
+non_negative_factorization with both learned and fixed H. Shared initialization
+now supports sparse randomized NNDSVD and CSR means without densifying input.
+The CD coordinate sweep is shared, with direct CSR cross-products in either
+orientation. Sparse MU covers beta <0, 0, (0,1), 1, (1,2), 2 and >2, preserving
+regularization, epsilon thresholds, fixed-H KL denominator caching and stopping.
+General denominators/divergences stream rows or columns. Frobenius error uses
+Source sparse trace/cross-product formulas; no full design/reconstruction matrix
+is cached during fit/transform. Input buffers are preserved with owned sorted,
+coalesced CSR storage. Source stored-zero/nonpositive-beta restrictions remain.
+
+The isolated checked native parity/functional test passes. The original 283-case
+Source probe passes all cases; the unchanged cases plus 64 fractional/high-beta
+cases pass all 347. All 28 actual Source/native control decisions and error
+stages match, including acceptance after cancelling duplicate entries. The
+comparison checks coefficients/factors, inference, reconstruction error, exact
+iteration/dimension metadata and input preservation at unchanged 3e-8 atol/rtol.
+Fit/query errors remain explicit rather than silently ignored.
+
+Large fit-and-transform tests use 128-by-500000 designs with only 256 entries
+and two components. CD peaks at 48,840,704 bytes; MU KL peaks at 56,881,152 bytes.
+Both are below 128 MiB and the 512,000,000-byte dense input equivalent. They
+also verify finite positive factors, learned dimensions and unchanged input.
+Full checked rebuilding and original dense CD/MU reference suites are running.
+MIT integration retains sklearn/NumPy/SciPy attribution; no external numerical
+runtime or additional estimator has been introduced.
