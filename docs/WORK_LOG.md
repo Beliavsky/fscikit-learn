@@ -12804,3 +12804,14 @@ query/refit and buffer checks pass. Sixteen CSR/adapter guards and a 512-by-
 versus a 2,048,000,000-byte dense design. Direct probes link an updated module
 with an older frozen helper archive; full package/O3 evidence is pending.
 Successful streaming/warm/validation-stopping PA is not claimed. No push made.
+
+2026-11-28: PA raw squared-norm overflow fidelity.
+Retained norm_overflow_witness.json contains explicit finite input, Source
+zero coefficients/one epoch, and prior native SIGFPE. Shared dense/CSR norm
+calculation now retains Source's infinite raw sum and zero PA step while
+restoring caller IEEE modes/flags. Normal rows keep a direct node-order sum.
+Direct checked expanded probe passes 5,952 fits / 69,632 groups; native dense/
+CSR zero-step and IEEE-state checks pass. Final overflow fixtures use twelve
+rows to keep all intended OVR classes represented. This final fixture revision
+and current source require the live pa_csr_refreshed_build and frozen audits;
+the first pa_csr_build.log predates this correction. No gates were relaxed.

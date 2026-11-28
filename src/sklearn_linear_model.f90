@@ -1,5 +1,6 @@
 module sklearn_linear_model
   use,intrinsic::iso_fortran_env,only:int64
+  use,intrinsic::ieee_exceptions,only:ieee_all,ieee_get_flag,ieee_set_flag,ieee_get_halting_mode,ieee_set_halting_mode
   use sklearn_ard_core,only:ard_solve
   use sklearn_bayesian_ridge_core,only:bayesian_ridge_solve,bayesian_posterior_std
   use sklearn_ols_core,only:fit_ols_estimator,ols_solution
@@ -400,10 +401,10 @@ contains
           do k=sparse_x%indptr(i),sparse_x%indptr(i+1)-1
             feature=sparse_x%indices(k)
             prediction=prediction+current(feature)*sparse_x%data(k)
-            norm=norm+sparse_x%data(k)*sparse_x%data(k)
           end do
+          norm=pa_squared_norm(sparse_x%data(sparse_x%indptr(i):sparse_x%indptr(i+1)-1))
         else
-          prediction=dot_product(current,x(i,:));norm=sum(x(i,:)**2)
+          prediction=dot_product(current,x(i,:));norm=pa_squared_norm(x(i,:))
         end if
         prediction=prediction+bias
         if(options%classification) then
@@ -478,6 +479,28 @@ contains
       coef=(average_coef+average_a*current)/average_b; intercept=average_bias
     end if
   end subroutine
+
+  real(dp) function pa_squared_norm(values)result(value)
+    real(dp),intent(in)::values(:)
+    logical::halting(size(ieee_all)),raised(size(ieee_all)),exceptional
+    integer::i
+    value=0
+    if(size(values)==0)return
+    ! Most rows cannot overflow. For extreme finite rows, reproduce Source's
+    ! raw-node sum (including infinity) without changing caller IEEE modes or
+    ! flags. Do not replace it with a scaled finite norm: that changes PA steps.
+    exceptional=maxval(abs(values))>sqrt(huge(1._dp)/(4*real(size(values),dp)))
+    if(exceptional)then
+      call ieee_get_flag(ieee_all,raised);call ieee_get_halting_mode(ieee_all,halting)
+      call ieee_set_halting_mode(ieee_all,.false.)
+    end if
+    do i=1,size(values)
+      value=value+values(i)*values(i)
+    end do
+    if(exceptional)then
+      call ieee_set_flag(ieee_all,raised);call ieee_set_halting_mode(ieee_all,halting)
+    end if
+  end function
 
   integer function pa_next_random(state)result(value)
     ! sklearn utils/_random.pxd our_rand_r (BSD-3-Clause).

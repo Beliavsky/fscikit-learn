@@ -16032,3 +16032,13 @@ refit tests and sixteen guards pass. A 512-by-500,000 fit/query probe peaks at
 These direct probes use an updated module with a frozen older helper archive;
 full package and scoped optimized verification are pending. Streaming, warm
 starts and validation stopping remain gaps; the prior CSR PA gap is closed.
+
+A retained finite-input witness exposes an additional norm-overflow gap: Source
+accepts 1e160-scale features and takes a zero step when the squared norm is
+infinite, whereas the previous checked native path traps. Shared dense/CSR
+node-order squared norms now retain Source infinity and restore IEEE modes/
+flags. The expanded direct checked probe passes 5,952 fits / 69,632 groups,
+including product- and accumulation-overflow cases, at unchanged tolerances.
+Final overflow fixtures use twelve rows so the three-class cases retain all
+three target classes. Native dense/CSR zero-step and IEEE-state checks pass.
+A refreshed full build is live and is required before final package audits.

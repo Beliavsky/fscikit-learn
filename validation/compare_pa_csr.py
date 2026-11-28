@@ -1,6 +1,6 @@
 """PA-I/PA-II raw CSR fitting, sparse queries, averaging and weighted scoring."""
 from pathlib import Path
-import argparse,hashlib,json,os,subprocess,warnings
+import argparse,hashlib,itertools,json,os,subprocess,warnings
 os.environ.update(OPENBLAS_NUM_THREADS='1',OMP_NUM_THREADS='1')
 import numpy as np
 import sklearn
@@ -40,9 +40,16 @@ def main():
            *[Path(sklearn.__file__).parent/p for p in ['linear_model/_passive_aggressive.py','linear_model/_stochastic_gradient.py',
                'linear_model/_sgd_fast.pyx.tp','utils/_seq_dataset.pyx.tp','utils/_weight_vector.pyx.tp']]]
     hashes={str(p):sha(p) for p in paths};cases=[dict(c,layout=layout) for c in fixtures() for layout in range(4)][:args.limit]
+    for family,mode,layout,kind in itertools.product([0,2,3],[0,1],range(4),['overflow_norm','overflow_sum']):
+        cases.append(dict(family=family,mode=mode,layout=layout,kind=kind,n=12,p=4,c=1.,epsilon=.1,tol=-1.,
+                          average=1,limit=1,shuffle=True,bias=True,seed=7,weights=0))
+    if args.limit is not None:cases=cases[:args.limit]
     expected=[];inputs=[]
     for c in cases:
-        x,q,y,w=arrays(c);x=matrix(x,c['layout']);q=matrix(q,c['layout'])
+        x,q,y,w=arrays(c)
+        if c['kind'].startswith('overflow_'):
+            x[:]=1e160 if c['kind']=='overflow_norm' else 1e154;q[:]=x[0]
+        x=matrix(x,c['layout']);q=matrix(q,c['layout'])
         with warnings.catch_warnings():warnings.simplefilter('ignore');expected.append(oracle(c,x,q,y,w))
         header=[c['n'],c['p'],q.shape[0],*[c[k] for k in ['family','mode','shuffle','bias','average','seed','weights','c','epsilon','tol','limit']],3]
         text=' '.join(str(int(v)) if isinstance(v,(bool,np.bool_)) else str(v) for v in header)+'\n'+csr_payload(x)+csr_payload(q)+vector(y)

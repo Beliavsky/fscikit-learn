@@ -2,12 +2,14 @@ program test_pa_csr
   use sklearn_common,only:dp,require
   use sklearn_linear_model,only:passive_aggressive_regressor,passive_aggressive_classifier
   use sklearn_sparse,only:csr_matrix,csr_from_dense,csr_from_arrays
+  use,intrinsic::ieee_exceptions
   use,intrinsic::ieee_arithmetic,only:ieee_value,ieee_quiet_nan,ieee_positive_inf
   implicit none
   type(passive_aggressive_regressor)::r,d
   type(passive_aggressive_classifier)::c
   type(csr_matrix)::x,q,original
-  real(dp)::dense(6,2),y(6),nan
+  real(dp)::dense(6,2),y(6),nan,overflow_input(6,4)
+  logical::modes(size(ieee_all)),after_modes(size(ieee_all)),overflow_flag
   real(dp),allocatable::prediction(:),target(:),data(:),scores(:,:)
   integer,allocatable::labels(:),ptr(:),indices(:)
   integer::i
@@ -75,5 +77,13 @@ program test_pa_csr
   call require(maxval(abs(prediction-r%predict(dense)))<1.e-12_dp,'CSR query after dense PA fit')
   call r%fit(x,y);call r%fit(dense,y)
   call require(r%n_features_in_==2,'PA dense/CSR refit metadata')
+  overflow_input=1.e160_dp;r%max_iter=1;r%fit_intercept=.true.;r%average=1
+  x=csr_from_dense(overflow_input)
+  call ieee_get_halting_mode(ieee_all,modes);call ieee_set_flag(ieee_overflow,.false.)
+  call r%fit(x,y);call ieee_get_halting_mode(ieee_all,after_modes);call ieee_get_flag(ieee_overflow,overflow_flag)
+  call require(all(r%coef_==0).and.r%intercept_==0,'Source infinite CSR norm takes a zero PA step')
+  call require(all(modes.eqv.after_modes).and..not.overflow_flag,'PA norm restores IEEE modes/overflow flag')
+  call r%fit(overflow_input,y)
+  call require(all(r%coef_==0).and.r%intercept_==0,'Source infinite dense norm takes a zero PA step')
   print *,'CSR passive-aggressive fitting, nodes, averaging, queries and refits: PASS'
 end program

@@ -1384,7 +1384,9 @@ following sklearn's sparse dataset contract. Sparse intercept updates use the
 Source 0.01 decay; dense updates use 1.0. Averaging follows Source's lazy
 weight-vector accumulation and touches stored entries at each update. Coefficient
 and averaging vectors remain dense, without a dense samples-by-features cache.
-Caller CSR buffers are preserved. Streaming, warm starts and validation-set
+Caller CSR buffers are preserved. Extreme finite rows retain Source
+infinite squared norms and zero PA steps, with norm calculation restoring
+caller IEEE modes and flags. Streaming, warm starts and validation-set
 stopping remain gaps.
 See `example/passive_aggressive.f90` for training accuracy and regression R2.
 
