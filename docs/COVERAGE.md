@@ -1038,7 +1038,7 @@ second-order within-group selection and the same SVR_Q row/sign adapter.
 NuSVR uses rho directly and does not divide its duals by Solver_NU's secondary
 threshold; a zero threshold is valid. Native dual_variables_ stores the two
 unscaled nonnegative copies in original-row order, and epsilon_signed_ stores
-the signed secondary threshold. Existing epsilon_ is max(0,epsilon_signed_).
+the negative secondary threshold (Source's signed tube width). Existing epsilon_ is max(0,epsilon_signed_).
 These explicit native diagnostics support independent group-mass/box/gradient-
 level replays and are not Python attributes or extensions beyond sklearn's
 algorithms. The former independent pair optimizer has been removed.
@@ -1053,6 +1053,32 @@ fused accumulation reproduces its double diagonal, while the metric helper's
 ordinary summation differed by a few ulps. The kernel adapter now preserves
 that tested diagonal behavior; unchanged capped fixtures close the mismatch.
 This is a numerical backend distinction, not a relaxed convergence tolerance.
+
+Current translated NuSVR verification: the coherent refreshed GNU 15.2
+checked build passes all 346 native programs and all 1,215 compiled-source
+fingerprints. Eight selected harnesses pass with Solver/kernel modules at
+O3/unroll, retaining harness checks and floating-point traps. Each profile
+passes 3,899 NuSVR fits / 67,001 comparison groups / 3,899 independent dual-
+group mass, box, balance, physical residual/threshold and tube diagnostic
+replays. The 3,900-case grid includes nu=.2/.6/1, C=.3/2, dense/CSR/precomputed,
+weights/zero rows, four kernels, signed sigmoid, raw sparse layouts, asymmetric /
+near/small matrices, caps and both shrinking settings. One Source nonfinite-fit
+rejection is retained and matches a native diagnostic rejection. Successful
+outputs use unchanged exact-structure and 3e-6 numeric comparisons; all
+iteration counts match. Sparse counts retain the documented support-row oracle.
+
+Retained corpora pass per profile: 2,616 epsilon-SVR fits / 44,944 groups,
+1,316 OneClassSVM fits / 26,556 groups, 318 dense kernel groups, 1,296 CSR kernel
+fixtures / 15,120 groups, 789 C-SVC fits / 11,046 groups and 1,728 NuSVC fits /
+22,464 groups. The total is 187,449 passing groups. After the diagonal
+correction, epsilon-SVR and OneClassSVM also have zero iteration differences.
+The older C-SVC/NuSVC eight/two counter differences remain visible. All 56
+rejection guards pass; wide CSR memory peaks at 9,494,528 checked / 9,437,184
+optimized bytes under 128 MiB. Cross-profile verification checks source,
+compiler and archive identity, expected/actual outputs and Source-rejection
+outcomes. Sources, binaries and archive remain stable during audits. Evidence
+uses `validation/results/nusvr_libsvm_`. Broader API/cache/default gaps remain;
+no whole-project or indefinite-global-optimality claim follows from this corpus.
 
 Previous translated epsilon-SVR verification: the coherent GNU 15.2 checked
 build passes all 345 native programs and all 1,213 compiled-source fingerprints.
