@@ -14911,3 +14911,18 @@ parity across eight beta branches, streaming and IEEE-mode checks pass. Sparse
 fit/update/inference memory peaks at 35,106,816 bytes Frobenius / 34,570,240 KL
 for 384-by-200000 designs (614,400,000 dense bytes), below 128 MiB. Full package
 and legacy dense verification are in progress; the broader API remains a subset.
+
+Final verification: all 325 checked native programs and eleven selected examples
+pass, with 948 audited fingerprints / 211 library units matching. The scoped
+one-module optimized audit passes nine native programs with checked harnesses;
+210 other archive members remain unchanged. All 343 checked jobs and sixteen
+optimized jobs pass. Both profiles match all 248 sequences (199 accepted,
+49 matching failure-operation decisions), all 43 controls (six accepted,
+37 rejected), the unchanged 6,500-group dense MiniBatchNMF suite, all 347
+classic CSR NMF configurations and 28 guards, and all 756 Pipeline fixtures /
+8,556 groups. Source oracles/inputs and source/object/binary/report hashes pass.
+Sparse peaks are below 128 MiB versus the 614,400,000-byte dense equivalent.
+Existing dense input-validation subsets and broader API/numerical gaps remain;
+these operation-specific permissive rules are verified for the new CSR overloads.
+Project-wide Source parity remains false. GNU Windows validation retains static
+libgfortran and the validation-only locale-copy shim.

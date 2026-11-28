@@ -11365,3 +11365,54 @@ passes. Large 384-by-200000 fit/partial_fit/transform tests peak at 35,106,816 b
 Frobenius and 34,570,240 KL, below 128 MiB versus a 614,400,000-byte dense design.
 The full fpm rebuild and original 6,500-group dense MiniBatchNMF comparison are
 running. No new estimator/dependency is introduced; MIT/BSD attribution remains.
+
+### CSR MiniBatchNMF final verification
+
+Implementation 7ac036c passes the completed checked fpm build and final audits.
+All 325 native programs and eleven selected examples pass; all 948 audited
+build fingerprints match, including 211 library units. The checked audit
+completes 343 passing jobs. The scoped optimized audit completes sixteen
+passing jobs, including nine selected native tests. It recompiles only
+sklearn_minibatch_nmf at -O3 -funroll-loops, retaining checked harness flags;
+210 other archive members remain byte-identical. Source/object/binary/report
+hashes pass. This is single-module optimization, not a full optimized package.
+
+The completed checked baseline archive is SHA256
+eeb7ea16055a1daa8aa5959a02ac357a861ff3c20f35ebb027f570c82cbaacb4.
+Archive copying waited for terminal fpm success and was verified before/after.
+Both profiles pass all 248 operation sequences: 199 accepted and 49 matching
+Source/native failures at the same operation. Initial, fixed-probe and final
+inputs and actual Source oracles match exactly. All twelve original unsorted
+failures are closed without modifying fixtures or 3e-8 tolerances. Per-operation
+codes, components, A/B matrices, exact counters/dimensions, resolved controls,
+convergence fields, reconstruction errors and input-preservation checks pass.
+
+All 43 Source/native control cases pass (six accepted, 37 rejected), including
+permissive nonpositive-beta streaming/inference and signed custom streaming.
+The full original dense MiniBatchNMF suite retains all 6,500 passing groups.
+Classic CSR NMF retains all 347 passing configurations and 28 passing guards.
+Pipeline retains all 756 fixtures / 8,556 passing groups in both profiles.
+No established validator, fixture, model-output tolerance or certificate changed.
+
+Large sparse fit/partial_fit/transform cases peak at 35,180,544 bytes Frobenius /
+34,529,280 bytes KL checked and 34,574,336 / 34,496,512 optimized, below 128 MiB
+and the 614,400,000-byte dense design equivalent. Finite positive factors,
+learned step counts/dimensions and unchanged buffers also pass. Sparse public
+calls preserve caller IEEE state. The original dense validation subset is
+unchanged; its stricter nonpositive-beta zero checks remain a separate known
+gap, not silently claimed as fixed by the CSR overloads. Full project/API Source
+parity and other documented numerical/storage gaps remain open.
+
+Evidence: validation/results/minibatch_sparse_checked_audit.json,
+minibatch_sparse_optimized_audit.json and minibatch_sparse_cross_profile_audit.json,
+plus initial/fixed/full sequence, control, memory, original dense, classic CSR
+and Pipeline reports/logs. GNU 15.2.0 validation retains static libgfortran and
+the existing Windows locale-copy shim; unwrapped runtime stability is not
+established. MIT/BSD attribution remains, and commits are local.
+
+Verified backup: minibatch_sparse_evidence_7ac036c.zip,
+77,614,869 bytes / 2,107 entries, SHA256
+f131780548fad5e43f24e6e9b5da549fff93997a356d209dd6336ec7d0792f84.
+ZIP CRCs and critical source/report/object/binary hashes pass. Receipt:
+validation/results/minibatch_sparse_archive_receipt.json (ignored evidence).
+Metadata retains false full project Source parity and true CSR reference checks.
