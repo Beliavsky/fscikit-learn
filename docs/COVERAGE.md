@@ -137,7 +137,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | dummy | `dummy_classifier`, `dummy_regressor` | Weighted multioutput classification/regression; ignored dense/CSR features; NumPy-seeded uniform/stratified labels; weighted lower percentiles |
 | kernel_ridge | `kernel_ridge` | Weighted dense/CSR, multioutput, per-target nonnegative alpha; named/callback/GP kernels; singular numeric limits below |
 | discriminant_analysis | `linear_discriminant_analysis`, `quadratic_discriminant_analysis` | LDA offers LSQR, SVD and generalized-eigen classification/projection with fixed/automatic shrinkage and custom priors; QDA full/thin regularization and custom priors; solver-specific rank contracts are documented below |
-| svm | `svc`, `nu_svc`, `linear_svc`, `linear_svr`; re-exports `svr`, `nu_svr`, `one_class_svm` | L2 primal/dual hinge and epsilon-insensitive linear models; OVO SVC/NuSVC; epsilon/nu support-vector regression and one-class detection; native pairwise dual optimization and weighted capacities |
+| svm | `svc`, `nu_svc`, `linear_svc`, `linear_svr`; re-exports `svr`, `nu_svr`, `one_class_svm` | L1/L2 linear classification and primal/dual epsilon-insensitive regression; OVO SVC/NuSVC; epsilon/nu support-vector regression and one-class detection; native pairwise dual optimization and weighted capacities |
 | mixture | `gaussian_mixture`, `bayesian_gaussian_mixture` | EM Gaussian mixtures and variational Bayesian mixtures with finite Dirichlet or truncated stick-breaking weights; full/tied/diag/spherical covariances; responsibilities and likelihood scores; GaussianMixture BIC/AIC |
 | neural_network | `mlp_classifier`, `mlp_regressor`, `bernoulli_rbm` | Arbitrary dense hidden layers, relu/tanh/logistic/identity, seeded minibatch Adam/SGD or full-data L-BFGS, momentum/Nesterov and SGD schedules, binary/multilabel logistic or multiclass softmax classification, scalar/joint squared-error regression, L2 regularization |
 | gaussian_process | `gaussian_process_regressor`, `gaussian_process_classifier` | Configurable covariance expressions or legacy RBF controls; anisotropy, Matern/RQ/periodic/dot/constant/white kernels and sums/products/powers; scalar/vector-alpha Cholesky regression, independent multiple targets, likelihood gradients and opt-in bounded kernel fitting; Laplace binary/OVR classification with optional independent kernel fitting, binary likelihood gradients and warm starts |
@@ -1784,7 +1784,7 @@ remains available with loss='squared_epsilon_insensitive', dual='false'.
 Unsquared loss requires dual optimization; squared loss also supports primal
 TRON fitting. Auto selects dual for unsquared loss or an originally wide
 design, before zero-weight filtering, and primal otherwise.
-Both primal models follow LIBLINEAR's TRON trust
+Both L2 primal models follow LIBLINEAR's TRON trust
 region, truncated CG boundary steps, radius updates, accepted-step counts,
 relative initial-gradient test and tiny actual/predicted-reduction stops.
 Dense and CSR fits use the same sparse feature-node backend, including
@@ -1799,6 +1799,34 @@ intercepts and zero-norm box endpoints are supported. Native dual coefficient,
 objective/gap and KKT certificate fields are explicitly identified in API.md.
 These regression fit paths avoid dense design augmentation, feature Hessians
 and Gram matrices. Auto-selected primal fits use the same TRON implementation.
+
+Current L1 LinearSVC verification: a fresh checked fpm build passes all 337
+native programs and all 1,195 dependency-aware compiled-source fingerprints.
+Checked and scoped O3 profiles each pass 47,070 defined Source output/counter
+groups plus 702 independent derivative groups. The new L1 corpus passes 1,482
+fits, 13,338 groups and 2,986 channel objective/subgradient certificates per
+profile. It covers binary/OVR, dense and four CSR layouts, sample/class weights,
+intercepts, seeds, explicit/automatic primal selection, caps, zero designs,
+C=.01/C=10 and inactive classes. Analytic checks cover exact sparse zeros,
+scaled intercepts, duplicates, refits between penalties/solvers and RNG
+isolation. Existing OVR, joint Crammer-Singer, regression and legacy corpora
+continue to pass without widening output tolerances.
+
+Seven native harnesses exercise the optimized module; all 26 rejection guards
+pass per profile. The 128-by-200,000 L1 sparse memory case peaks at 20,807,680
+checked / 20,725,760 optimized bytes, below 128 MiB. All other linear SVM memory
+cases remain below the bound. Evidence and cross-profile proof use
+validation/results/linear_svc_l1_. GNU 15.2, sklearn 1.6.1, NumPy 2.2.6,
+SciPy 1.15.3, static libgfortran and the Windows locale-copy shim are retained.
+The 1,112 Crammer-Singer iteration comparisons use its defined first backend
+counter; undefined public maxima remain diagnostics. Legacy strict-optimality
+flags remain unchanged (701 native / 695 Source exceedances, six differences
+among 1,092 derivative records). Tested output agreement and independent
+certificate replay do not establish universal optimality or full project parity.
+
+### Historical Crammer-Singer verification
+
+The following describes the previous joint-solver revision.
 
 Previous Crammer-Singer verification: a fresh checked fpm build passes all
 336 native programs and all 1,193 dependency-aware compiled-source fingerprints.

@@ -1839,8 +1839,8 @@ COVERAGE.md for multiclass weighting, stopping and supported solver limits.
 Both types also accept `csr_matrix` for fit, predict and score; LinearSVC's
 decision_function accepts CSR as well. Any query representation can follow
 either fit representation. Coefficients remain dense, as in sklearn, and no
-training design is retained. Primal CSR fitting applies the synthetic intercept
-virtually and uses sparse Hessian-vector products. Both primal models use
+training design is retained. L2 primal CSR fitting applies the synthetic intercept
+virtually and uses sparse Hessian-vector products. Both L2 primal models use
 LIBLINEAR's TRON trust-region algorithm and truncated CG for both input forms,
 without dense design augmentation or a feature Hessian.
 Duplicates, unsorted entries, explicit zeros and empty rows are supported
