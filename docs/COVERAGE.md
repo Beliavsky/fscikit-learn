@@ -14704,3 +14704,12 @@ Fourteen Source/native input rejection checks pass. A 32-by-1,000,000 CSR design
 (256 MB dense equivalent) peaks at 25,157,632 bytes in the initial memory probe.
 Only design storage is sparse: fitted affinities and the eigensolver remain
 dense in sample count. Full checked/optimized and legacy verification is pending.
+
+Final verification: all 320 native programs, eleven selected examples, fourteen
+input guards, the memory probe and 231 legacy comparisons pass. All 933 compiled
+fingerprints / 209 library units match current sources. Checked and scoped
+optimized profiles retain the same four strict partition failures at 46,70,118,142;
+all 144 affinity matrices and spectral certificates pass. Maximum checked
+residual/orthogonality errors are 3.45e-15 / 4.67e-15. Large sparse-design peaks
+are 30,334,976 bytes checked and 29,536,256 bytes optimized. Detailed evidence:
+spectral_sparse_cross_profile_audit.json; full strict Source parity remains false.

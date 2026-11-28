@@ -10783,3 +10783,51 @@ The legacy modes/density validator now derives scratch input/output paths from
 its optional report path to isolate simultaneous checked/optimized runs.
 Full checked rebuilding is running; scoped optimized, all-native and legacy
 reference audits remain pending. MIT/BSD notices are retained; commits stay local.
+
+### CSR spectral final verification
+
+Implementation 03e76da is verified against the completed final checked build.
+All 320 native programs and eleven selected examples pass, as do the fourteen
+Source/native guards, the memory probe and all 231 unchanged legacy modes/
+spectral/density comparisons. Of 335 checked jobs, 334 pass; the new strict
+144-case comparison exits 1 for the four retained partition differences.
+All 933 dependency-aware source fingerprints match the worktree, including
+209 library units. No native failure is hidden by this strict-gap accounting.
+
+The scoped -O3 -funroll-loops build recompiles sklearn_spectral and sklearn_cluster.
+All four selected optimized native programs and three existing focused jobs
+pass; the new comparison retains exactly the same four strict failures (seven
+of eight jobs pass). The optimized baseline is byte-identical to the completed
+checked archive, SHA256
+dabcdb15d793076b870011d9381a7db0522feeaffcabfedd242192e910510ba5.
+All 207 archive members outside the selected modules are unchanged. This is
+scoped optimized verification, not a complete optimized package rebuild.
+
+In both profiles, all 144 affinity matrices match actual Source, all spectral
+certificates pass, and all nondegenerate partition checks pass. Maximum checked
+certificate residual is 3.4416913763379853e-15 and maximum orthogonality error
+is 4.6629367034256575e-15. Strict label failures remain at 46,70,118,142, with the
+repeated-eigenvalue raw-distance graphs already documented. Every input, Source
+oracle, rejection and tolerance is preserved between the initial probe and both
+profiles; the legacy API/seed inventories match. Full focused/end-to-end Source
+parity is explicitly false, while affinity parity and certificate validity are
+separately established.
+
+The 32-by-1,000,000 CSR design peaks at 30,334,976 bytes checked and 29,536,256
+bytes optimized, below 128 MiB and its 256,000,000-byte dense equivalent. Fitted
+affinities/eigensolving remain dense in sample count. Runtime verification uses
+static libgfortran with the validation-only Windows locale-copy shim; this does
+not establish unwrapped runtime stability.
+
+Evidence: validation/results/spectral_sparse_package_audit.json,
+spectral_sparse_optimized_audit.json and spectral_sparse_cross_profile_audit.json,
+plus focused reports, build/audit logs and the initial probe. The broader sklearn
+translation and identified solver/partition gaps remain open. MIT/BSD attribution
+is retained, and commits remain local.
+
+Verified backup: spectral_sparse_evidence_03e76da.zip,
+55,724,413 bytes / 2,047 entries, SHA256
+ad378da21b251e544bc22364185ffc42f272a433cabe0905bc6df873355ee77b.
+ZIP CRCs and critical source/report/object/binary hashes pass. Receipt:
+validation/results/spectral_sparse_archive_receipt.json (ignored evidence).
+Archive metadata explicitly retains false strict/focused Source parity.
