@@ -3025,6 +3025,30 @@ expected-output equality and actual-output comparisons. Evidence uses
 stable during auditing. This establishes the selected dense/CSR corpus results,
 while the documented probability/cache/class-weight and broader API gaps remain.
 
+Current precomputed-domain verification: the coherent GNU 15.2 checked build
+passes all 343 native programs and all 1,208 compiled-source fingerprints.
+Five selected native harnesses pass with the NuSVC module at O3/unroll and
+harness checks retained. The expanded dense/precomputed corpus passes 1,728
+fits / 22,464 public output groups / 5,760 box, mass, normalized-layout and
+row-margin diagnostic replays in each profile. The 432 added fits cover
+asymmetric, nearly symmetric and 1e-12-scale asymmetric matrices, with varying
+nu, weights, class counts, caps and both shrinking settings. All new precomputed
+iteration arrays match Source; only the two existing ordinary polynomial arrays
+differ. Public numeric tolerances remain 3e-6 and structural comparisons exact.
+Asymmetric certificates explicitly mark the symmetric-QP stationarity bound
+inapplicable, while retaining their independent residual and feasibility checks.
+
+All retained corpora pass: 896 CSR NuSVC fits / 15,232 groups, the older 66-fit
+NuSVC / 1,403-group corpus and 789 C-SVC fits / 11,046 groups per profile. The
+combined count is 50,145 passing comparison groups with no output exemptions.
+All 38 dense/CSR/precomputed guards pass without runtime/SIGFPE failures. CSR
+memory peaks remain below 128 MiB (9,547,776 checked / 9,535,488 optimized bytes).
+The frozen cross-profile verifier confirms matching source/compiler/archive
+identities, expected results and actual outputs. Evidence and logs use
+`validation/results/nusvc_precomputed_`; sources, binaries and archive remain
+stable during auditing. The documented original-row query adapter and broader
+NuSVC API gaps remain; this is a selected-corpus compatibility result.
+
 ## Online one-class SVM
 
 `sgd_one_class_svm` translates sklearn 1.6.1 SGDOneClassSVM's dense/CSR linear
