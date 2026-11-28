@@ -12768,3 +12768,26 @@ typed-adapter guards pass. Full package build is live; final frozen checked/O3
 and retained PA comparisons are pending. Legacy validator gains optional binary
 and report arguments plus isolated files to prevent cross-profile collisions.
 Existing PA CSR/partial/warm/validation-stopping gaps remain. No push performed.
+
+2026-11-28: Final passive-aggressive seed/class-weight verification.
+Authoritative successful build: pa_seeded_build.log. All 348 checked native
+programs and fourteen selected native programs with the optimized linear-model
+module pass. All 1,219 compiled-source fingerprints match. Each profile passes
+14,656 comparison groups (1,476 fits / 14,320 new plus 336 legacy) and eleven
+guards (nine actual Source decisions, two typed-adapter checks). Original 3e-8
+and exact label/iteration/feature/clock gates are unchanged. Cross-profile new
+outputs agree at 3e-8; archive/compiler/source/report identities agree. Initial
+literal guard-message comparison detected only Python's nondeterministic set
+ordering for invalid class loss. Canonicalize valid-choice set displays while
+retaining raw messages and every other decision/text field. No numeric or
+behavioral gate was relaxed. Legacy probe files are isolated per execution.
+Optimized scope is the full linear-model module with other code from the
+frozen checked archive, not a claim that only PA instructions are optimized.
+Archive SHA256: d56b627932e5601003101ebeb4d1df65bb8e050b5f3614e0bbba18982ecd701b
+Checked audit SHA256: fede4c2bfcccdc41438fd89b9496fc7a5d8768c379c588f8e173a038782675d3
+Optimized audit SHA256: fde48cf83c3752ab81bee94597e91483fc7e94058ee0ac4cf703129d3321bd75
+Cross-profile audit SHA256: 7ec659928ef699dc58a047197d0582a2412f67b40662fd5111ca2b7022e716d4
+Fingerprints SHA256: e457544bcc7ec4432e52afb175cba432cc8fed93a3a6ba649c6a6dec1ef7a905
+Artifacts use the pa_seeded_ prefix. Broader PA and project subsets remain;
+full project parity is false. Static GNU runtime and validation-only locale
+shim retained. No push performed; protected untracked files remain untouched.

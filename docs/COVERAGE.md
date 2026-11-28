@@ -15992,3 +15992,21 @@ rejection decisions and two typed-adapter guards pass. These direct probes use
 a current linear-model object with a frozen older helper archive; full package
 and scoped optimized verification, including the retained PA suite, are pending.
 Streaming, warm starts, CSR PA and validation stopping remain documented gaps.
+
+Final verification: pa_seeded_build.log ends in a successful full checked
+build. All 348 native programs pass, and all 1,219 audited compiled-source
+fingerprints match. The optimized linear-model module passes fourteen selected
+native programs, including PA, linear/positive/Bayesian/robust models, SGD,
+clone, pipeline and multioutput checks; other code is from the frozen archive.
+Both profiles pass all 14,656 comparison groups: 1,476 fits / 14,320 new groups
+and all 336 unchanged legacy PA groups. All eleven guards pass per profile
+(nine matching Source rejection decisions and two typed-adapter checks).
+Exact labels/iteration counts and original 3e-8 numeric tolerances are retained.
+New outputs agree across profiles at 3e-8, with matching source/compiler/archive
+and report identities. Source rejection choice sets are compared as unordered
+values because Python hash randomization changes their display order; raw
+messages remain in the reports. No behavioral or numeric gate was relaxed.
+Reports use validation/results/pa_seeded_{checked,optimized,cross_profile}.json.
+This closes default PA seeded-shuffle/RNG-state gaps; broader PA/project subsets
+remain open. Project-wide Source parity remains false. Windows validation uses
+the existing static GNU runtime and validation-only locale-copy shim.
