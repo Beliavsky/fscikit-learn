@@ -5062,6 +5062,29 @@ importances, as in source. `estimators_samples()` returns every current fit
 row for every tree. Like the source property, it reflects the latest row count
 even when warm prefix trees were trained on earlier data.
 
+Validation retains 115 original fixtures (145 fits), now also checking complete
+CSR storage, and expands to 245 fixtures (295 fits) across five seeds. The
+legacy and expanded runs pass 3,915 and 7,965 groups respectively in checked
+and embedding-only optimized builds. Sparse shape/pointers/indices/values,
+leaf assignments, path indicators, seeds, categories, names and tree metadata
+match exactly. Feature importances use atol=3e-12, rtol=3e-10 with equal NaNs.
+The reference is the recorded installed sklearn 1.6.1 tree runtime with
+FEATURE_THRESHOLD=0; Source file and extension hashes are recorded and verified.
+New cases cover best-first leaf budgets, fractional/weighted leaf and split
+controls, signed/zero weights, changed-size warm growth, refits, and complete
+one-hot reset after user edits. Thirteen rejection cases agree with Source.
+
+The 2048-row, 16-tree unbounded output-memory case uses 31,387,648 checked /
+31,322,112 optimized peak working-set bytes (limit 128 MiB), versus dense
+encoding/path sizes of 536,870,912 / 536,739,840 bytes. All 327 native test
+programs and eleven selected examples pass; 950 dependency-aware source
+fingerprints match. The scoped optimized build compiles only sklearn_tree_embedding
+with -O3, retaining checked harnesses and the other 210 checked library members.
+Validation uses GNU 15.2.0, static libgfortran and the Windows locale-copy shim.
+Inputs remain dense; sparse feature fitting, parallel controls, Python warning
+objects and feature-name metadata are outside this subset. Full project Source
+parity remains false.
+
 ## KernelCenterer
 
 `kernel_centerer` is exported by `sklearn_kernel_centering`,

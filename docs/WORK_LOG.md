@@ -11585,3 +11585,38 @@ would require 536,870,912 and 536,739,840 bytes, respectively. Current-source fu
 fpm and scoped optimized validation are pending at this implementation commit.
 MIT/BSD attribution remains; no external dependency or non-sklearn algorithm
 was added. The broader translation goal remains active.
+
+
+## RandomTreesEmbedding final verification (implementation 51b5b89)
+
+The final checked GNU 15.2.0 fpm build succeeds. All 327 native programs and
+eleven selected examples pass, with 341 checked audit jobs and six scoped
+optimized jobs successful. Both profiles pass 3,915 legacy and 7,965 expanded
+reference groups: original 115 fixtures / 145 fits, expanded 245 / 295 fits.
+The expanded set includes the original fixtures and 130 additional control
+configurations. Complete CSR storage and tree/encoder state match exactly;
+feature importances retain the existing 3e-12 absolute / 3e-10 relative budget.
+Thirteen invalid-input Source/native checks pass. The 2048-row, 16-tree memory
+case peaks at 31,387,648 checked / 31,322,112 optimized bytes against a 128 MiB
+limit; dense encoding/path equivalents are 536,870,912 / 536,739,840 bytes.
+
+All 950 current-source dependency fingerprints match, and pre/post binary hashes
+remain stable. The optimized build changes only sklearn_tree_embedding, keeps
+checked harnesses and uses an identical baseline for the remaining 210 of 211
+library members. Final archive SHA256:
+b888aa8c4be2f75ceb74168e7cd4e5533b9602369d59a9b0d1a706cd66e1ef99.
+Reports/logs use validation/results/embedding_csr_* (ignored evidence). The
+cross-profile verifier confirms matching result inventories, current source
+and compiler hashes, library identity, and the actual installed sklearn Source
+files and tree extension runtime (FEATURE_THRESHOLD=0). Runtime validation uses
+static libgfortran and the existing Windows locale-copy shim. Dense feature
+input, serial execution and the documented remaining subset limits remain.
+Full project Source parity is false; the broader translation goal stays active.
+All commits are local, with MIT/BSD attribution retained.
+
+Verified backup: embedding_csr_evidence_51b5b89.zip, 29,261,977 bytes / 2,048
+entries, SHA256 170d02973f1f72e0c2dc0abe573c5c0eb301ea24f73def32f6ffa4cb5427ea97.
+ZIP CRCs and critical source/report/object/binary hashes pass. Receipt:
+validation/results/embedding_csr_archive_receipt.json. The archive contains the
+implementation and verification documentation before this receipt was appended.
+Full project Source parity remains false.
