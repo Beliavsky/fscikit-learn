@@ -16090,3 +16090,25 @@ retained fit probe at 64,835,584, both below 128 MiB. All 1,476 retained dense
 fits / 14,320 groups pass. These direct probes use an updated module with an
 older frozen helper archive; full package/scoped optimized verification and
 retained CSR/legacy suites are pending. Warm/validation-stopping PA remains open.
+
+Final verification: pa_partial_build.log ends in a successful full checked
+build. All 350 native programs pass; all 1,223 compiled-source fingerprints
+match. The optimized linear-model module passes sixteen selected native
+programs, with checked harnesses and other code from the frozen archive.
+Each profile passes 164,388 comparison groups and 39 guards: 1,500 streaming
+sequences / 7,500 stages / 80,100 groups, retained CSR 5,952 fits / 69,632 groups,
+retained dense 1,476 fits / 14,320 groups, and all 336 legacy PA groups.
+Twelve new Source streaming rejection decisions and all 27 retained guards
+pass. Comparison groups include native input-preservation checks. Original
+3e-8 numeric and exact class/label/clock/iteration gates remain unchanged.
+New nested traces and retained outputs agree across profiles; source/compiler/
+archive/report identities pass. Source diagnostic choice sets retain raw text
+and canonical unordered comparison, as in the preceding PA audits.
+
+Wide-memory peaks in bytes: streaming 64,868,352 checked / 64,737,280 optimized;
+retained fit 64,856,064 / 64,802,816. All are below 128 MiB. Dense equivalents
+are 1,024,000,000 bytes for streaming and 2,048,000,000 bytes for the fit probe.
+Reports use validation/results/pa_partial_{checked,optimized,cross_profile}.json.
+This closes direct dense/CSR PA streaming; warm and validation-stopping fits
+and broader project/API subsets remain. Project-wide Source parity is false.
+Windows validation retains the static GNU runtime and locale-copy shim.

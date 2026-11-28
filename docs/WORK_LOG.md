@@ -12853,3 +12853,27 @@ Wide CSR streaming peak 64,860,160; retained fit memory 64,835,584 bytes, below
 128 MiB. All 1,476 dense fits / 14,320 groups pass. Direct module probes with a
 frozen older helper archive are not full package proof. Full build is live;
 frozen checked/O3/native/source/legacy audits remain pending. No push performed.
+
+2026-11-28: Final dense/CSR PA streaming verification.
+Authoritative successful full build: pa_partial_build.log. All 350 checked
+native programs and sixteen selected programs with the optimized linear-model
+module pass. All 1,223 compiled-source fingerprints match. Each profile passes
+164,388 groups and 39 guards: partial 1,500 sequences / 7,500 stages / 80,100;
+CSR 5,952 / 69,632; dense 1,476 / 14,320; legacy 336. New streaming rejection
+decisions total twelve, retained guards 27. Input-preservation checks are part
+of group totals. Original 3e-8 and exact class/label/counter gates are unchanged.
+Nested new traces and flat retained outputs agree across profiles; archive,
+compiler, source and report identities agree. Canonical Source choice-set
+message comparison retains raw diagnostics without changing behavioral gates.
+Streaming memory: 64,868,352 checked / 64,737,280 optimized bytes. Retained fit:
+64,856,064 / 64,802,816. All below 128 MiB versus 1.024 / 2.048 GB dense inputs.
+Optimized scope is the linear-model module with other code from the frozen
+checked archive. Warm/validation-stopping PA and broader project subsets remain.
+Archive SHA256: 7ab891ffcabd9d6d079a27d5d15cf7cf00faed3972ab8508b3cd1ff68cb56cac
+Checked audit SHA256: 54c995c337ea078f832743ee388705ea24b1d1215f605079fce0bc2c00e48c71
+Optimized audit SHA256: 02e909f5a81dc1ba6d44af4daf46a8a0b42f6c91ddb9b8fcf1fba9b01f5ea3b3
+Cross-profile audit SHA256: a0502e61109e689835ee37703e367c6b29a880c930e5a5b383cfd9b03d16cb01
+Fingerprints SHA256: 04e774fa49d11deb75a8c0f0a109776722d109c9982afe63fc88d0cd238451a6
+Reports use the pa_partial_ prefix. Full project parity remains false; static
+GNU runtime and validation-only locale shim retained. Local commits only; no
+push performed. Protected untracked files remain untouched.
