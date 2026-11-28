@@ -2918,3 +2918,11 @@ and utils/_arpack.py. The sklearn BSD-3-Clause notice remains in
 LICENSES/scikit-learn-COPYING. The typed adapter, status-returning SVD interface,
 orthogonal-vector completion and tests are original MIT contributions. No new
 external implementation or numerical runtime has been imported.
+
+SpectralClustering built-in kernel controls, n_components assignment dimensions,
+parameter checks and shared RNG follow sklearn 1.6.1 cluster/_spectral.py.
+Symmetry handling, shift-nearest default selection and Laplacian diagonal follow
+manifold/_spectral_embedding.py and utils/validation.py. Pairwise kernels reuse
+the existing attributed dispatcher. Retained sklearn BSD-3-Clause copyright and
+license are in LICENSES/scikit-learn-COPYING; new typed Fortran integration and
+tests are original MIT contributions.

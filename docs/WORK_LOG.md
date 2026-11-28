@@ -10942,3 +10942,41 @@ ZIP CRCs and critical source/report/object/binary hashes pass. Receipt:
 validation/results/spectral_discretize_archive_receipt.json (ignored evidence).
 Selected initial-failure and diagnostic binaries are included; all hybrid binary
 hashes are in the audit. Archive metadata retains false full/focused parity.
+
+### Spectral kernel, dimension and signed-affinity controls
+
+The preceding goal turn made verified progress through 732545f: discretization
+and a qualified hybrid-library audit. Revalidated the tracked worktree and kept
+protected scratch files untouched.
+
+Added real degree/coef0 kernel controls and independent n_components to
+SpectralClustering. All built-in pairwise kernels use the attributed dispatcher.
+QR/discretize assign by embedding width; kmeans retains n_clusters and shares the
+ARPACK-advanced legacy state. Constructor controls are checked globally even if
+unused. Dense/sparse affinity dimension boundaries follow actual Source; CSR
+kernels producing dense affinities retain the dense fallback. Precomputed
+stored affinities retain asymmetry; eigensolving applies Source symmetry
+handling. Signed edges with nonnegative degrees are accepted, invalid degrees
+rejected, isolated diagonals follow default ARPACK, shift-nearest eigenvalues
+are selected, and connectivity includes negative edges. Default/alternative
+iterative eigensolvers are not implemented: the backend remains dense.
+
+The first native shape test caught an uninitialized local component count;
+corrected before the full Source grid or package build. The 921-case initial
+grid covers twelve affinity spellings, dense/canonical/noncanonical storage,
+all assignment modes, independent and oversized components, signed/asymmetric
+matrices, zero rows, fractional degree and varied kernel controls. Accepted
+calls have no affinity/shape/spectral-certificate failures. It retains 114 strict
+differences: 97 partition-only, seven partition plus same-embedding QR differences,
+and ten one-column discretization acceptance differences. The last group was
+corrected via the exact all-zero-label one-component estimator result, while
+standalone invalid-row rejection stays unchanged. The entire grid is rerunning;
+all failures and unchanged tolerances/fixtures are retained. The QR replay cases
+identify existing pivot/tie differences separately from eigenspace differences.
+
+All 21 actual Source/native validation cases match (eighteen rejections and
+three acceptances). Native checks pass kernel values, component independence,
+signed/asymmetric storage and dense shape fallback; the package test adds the
+isolated-row one-component case. Full rebuilding is running with no subsequent
+Fortran source changes. MIT/BSD notices remain, commits stay local, and broader
+Source parity remains open.

@@ -14750,3 +14750,27 @@ sparse spectral guards, 231 legacy modes/density groups and 264 IncrementalPCA
 groups. New full-fit failures remain at 22,46; the older four spectral partition
 failures remain. All same-embedding Source replays pass. Detailed qualified
 results: spectral_discretize_cross_profile_audit.json; full strict parity is false.
+
+### Spectral kernel and independent-component controls
+
+Added built-in kernel affinities with real degree/coef0 and independent
+n_components for SpectralClustering. QR/discretize use actual embedding width;
+kmeans retains n_clusters and now receives the advanced Source RNG state.
+Dense/sparse affinity shape boundaries and global constructor checks follow
+actual sklearn 1.6.1 behavior. Precomputed affinities retain asymmetric values;
+normalization symmetrizes locally, permits signed edges, rejects negative degrees,
+sets the Source ARPACK diagonal on isolated nodes and selects shift-nearest
+values. Connectivity includes negative edges. The prior symmetric/nonnegative
+restriction is superseded. Dense eigensolving and its basis differences remain.
+
+The initial 921-case Source grid has no affinity, shape or spectral-certificate
+failures on accepted calls. It retains 114 strict differences: 97 end-to-end
+partition-only differences, seven QR same-embedding partition differences and
+ten one-component discretization acceptance differences. The last group is
+addressed by the exact one-label estimator result; the full unchanged grid is
+rerunning. Partition checks and identical-embedding Source replays remain strict;
+no case or tolerance was removed. Native tests pass fractional polynomial
+controls, dimension-independent QR labels, signed/asymmetric storage and dense
+shape fallback. All 21 validation cases match Source, including three successful
+dense/CSR boundary cases and eighteen rejections. Full package verification is
+running.

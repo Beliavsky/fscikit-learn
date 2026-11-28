@@ -15,7 +15,8 @@ module sklearn_cluster
   use sklearn_legacy_rng, only: legacy_random_state
   use, intrinsic :: iso_fortran_env, only: real32,int64
   use sklearn_metrics, only: pairwise_distances
-  use sklearn_spectral, only: spectral_affinity_matrix,spectral_eigenvectors,spectral_discretize
+  use sklearn_spectral, only: spectral_affinity_matrix,spectral_eigenvectors,spectral_discretize, &
+    spectral_vectors_from_affinity
   use sklearn_optics, only: optics,cluster_optics_dbscan,cluster_optics_xi,compute_optics_graph,optics_graph_result
   implicit none
   private
@@ -132,8 +133,8 @@ module sklearn_cluster
     procedure :: predict=>affinity_predict
   end type
   type :: spectral_clustering
-    integer :: n_clusters=8,n_neighbors=10,n_init=10,random_state=0,n_connected_components_=0
-    real(dp) :: gamma=1
+    integer :: n_clusters=8,n_neighbors=10,n_init=10,random_state=0,n_connected_components_=0,n_components=0
+    real(dp) :: gamma=1,degree=3,coef0=1
     character(32) :: affinity='rbf'
     character(20) :: assign_labels='kmeans'
     integer, allocatable :: labels_(:)
@@ -486,44 +487,67 @@ contains
   subroutine spectral_fit(self,x)
     class(spectral_clustering), intent(inout) :: self
     real(dp), intent(in) :: x(:,:)
+    call spectral_controls(self)
     call check_x(x)
     call require(size(x,1)>=2,'spectral clustering requires at least two samples')
-    self%affinity_matrix_=spectral_affinity_matrix(x,self%affinity,self%gamma,self%n_neighbors)
-    call spectral_finish(self)
+    self%affinity_matrix_=spectral_affinity_matrix(x,self%affinity,self%gamma,self%n_neighbors,self%degree,self%coef0)
+    call spectral_finish(self,any(self%affinity==[character(32)::'nearest_neighbors','precomputed_nearest_neighbors']))
   end subroutine
   subroutine spectral_fit_csr(self,x)
     class(spectral_clustering),intent(inout)::self
     type(csr_matrix),intent(in)::x
-    self%affinity_matrix_=spectral_affinity_matrix(x,self%affinity,self%gamma,self%n_neighbors)
-    call spectral_finish(self)
+    call spectral_controls(self)
+    self%affinity_matrix_=spectral_affinity_matrix(x,self%affinity,self%gamma,self%n_neighbors,self%degree,self%coef0)
+    call spectral_finish(self,any(self%affinity==[character(32)::'nearest_neighbors','precomputed_nearest_neighbors','precomputed']))
   end subroutine
-  subroutine spectral_finish(self)
+  subroutine spectral_controls(self)
+    class(spectral_clustering),intent(in)::self
+    call require(self%n_clusters>0.and.self%n_components>=0,'invalid spectral cluster/component count')
+    call require(self%n_init>0.and.self%n_neighbors>0.and.self%random_state>=0,'invalid spectral integer controls')
+    call require(all(ieee_is_finite([self%gamma,self%degree,self%coef0])),'spectral kernel controls must be finite')
+    call require(self%gamma>=0.and.self%degree>=0,'spectral gamma and degree must be nonnegative')
+    call require(any(self%affinity==[character(32)::'linear','rbf','poly','polynomial','sigmoid','cosine', &
+      'laplacian','chi2','additive_chi2','nearest_neighbors','precomputed','precomputed_nearest_neighbors']), &
+      'unknown spectral affinity')
+    call require(any(self%assign_labels==[character(20)::'kmeans','cluster_qr','discretize']), &
+      'unknown spectral assignment')
+  end subroutine
+  subroutine spectral_finish(self,source_sparse)
     class(spectral_clustering),intent(inout)::self
-    type(kmeans) :: model
+    logical,intent(in)::source_sparse
+    type(kmeans_result) :: result
     type(legacy_random_state)::discrete_rng
     real(dp)::draw
     real(dp), allocatable :: work(:,:),rotation(:,:),u(:,:),v(:,:),s(:),direction(:)
     integer, allocatable :: pivots(:)
-    integer :: n,k,i,j,idx
+    integer :: n,k,c,i,j,idx
     n=size(self%affinity_matrix_,1); k=self%n_clusters
-    call require(k>0.and.k<=n,'invalid spectral n_clusters')
-    call require(any(self%assign_labels==[character(20)::'kmeans','cluster_qr','discretize']), &
-      'unknown spectral assignment')
-    self%embedding_=spectral_eigenvectors(self%affinity_matrix_,k,.false.,self%n_connected_components_)
-    if(self%assign_labels=='kmeans') then
-      model%n_clusters=k; model%n_init=self%n_init; model%random_state=self%random_state
-      call model%fit(self%embedding_); self%labels_=model%labels_
-    else if(self%assign_labels=='discretize')then
+    c=self%n_components;if(c==0)c=k
+    self%embedding_=spectral_vectors_from_affinity(self%affinity_matrix_,c,.false.,self%n_connected_components_,source_sparse)
+    c=size(self%embedding_,2)
+    if(self%assign_labels=='kmeans'.or.self%assign_labels=='discretize')then
       call discrete_rng%seed(self%random_state)
       ! Default Source ARPACK initialization consumes one uniform per sample
       ! before handing the same RandomState to discretize.
       do i=1,n
         draw=discrete_rng%uniform()
       end do
-      self%labels_=spectral_discretize(self%embedding_,rng=discrete_rng)
+    end if
+    if(self%assign_labels=='kmeans')then
+      result=k_means(self%embedding_,k,n_init=self%n_init,random_state=self%random_state, &
+        random_state_stream=discrete_rng)
+      self%labels_=result%labels
+    else if(self%assign_labels=='discretize')then
+      if(c==1)then
+        ! A successful one-column Source discretization always returns zero.
+        ! Dense eigenvectors can have exact zero rows where ARPACK has noise.
+        self%labels_=spread(0,1,n)
+      else
+        self%labels_=spectral_discretize(self%embedding_,rng=discrete_rng)
+      end if
     else
-      allocate(pivots(k),direction(k),u(k,k),s(k),v(k,k)); work=transpose(self%embedding_)
-      do i=1,k
+      allocate(pivots(c),direction(c),u(c,c),s(c),v(c,c)); work=transpose(self%embedding_)
+      do i=1,c
         idx=maxloc(sum(work**2,dim=1),dim=1); pivots(i)=idx; direction=work(:,idx)
         call require(sum(direction**2)>epsilon(1._dp)**2,'spectral QR embedding is rank deficient')
         direction=direction/sqrt(sum(direction**2))

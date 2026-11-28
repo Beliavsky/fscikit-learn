@@ -11428,8 +11428,8 @@ Both estimators accept CSR fit calls; SpectralEmbedding has CSR fit_transform,
 and SpectralClustering has CSR fit_predict. RBF uses bounded row scratch storage,
 not whole-design densification. SpectralEmbedding changes a CSR
 nearest_neighbors affinity to rbf, matching sklearn 1.6.1's fallback. Clustering
-supports sparse nearest-neighbor affinity directly. Precomputed affinity inputs
-are still restricted to finite symmetric nonnegative matrices. Native affinity
+supports sparse nearest-neighbor affinity directly. Precomputed affinities retain the supplied entries; eigensolving uses Source
+symmetry handling and permits signed edges with valid normalized degrees. Native affinity
 matrices and eigendecomposition remain dense and quadratic in sample count;
 this is not a sparse eigensolver. Native RBF gamma now accepts zero.
 
@@ -11466,3 +11466,33 @@ Initial source comparisons pass 240 same-input cases. Two of 48 full estimator
 partitions differ on repeated-eigenvalue raw-distance graphs; Source replay on
 the native embedding matches all 48 native partitions. Existing spectral
 solver/basis differences remain identified rather than hidden by discretization.
+
+SpectralClustering now accepts all built-in pairwise affinity names: linear,
+rbf, poly/polynomial, sigmoid, cosine, laplacian, chi2 and additive_chi2, plus
+the existing precomputed/neighbor modes. Real degree=3 and coef0=1 controls
+are available; degree may be fractional. CSR chi-squared kernels remain Source
+rejections. Kernel dictionaries/callables and alternative eigensolvers remain
+outside the typed interface.
+
+n_components=0 means Source None (use n_clusters). A positive explicit count
+controls the embedding independently. Kmeans still targets n_clusters; QR and
+discretize derive assignments from the embedding width, as actual Source does,
+so their number of labels may differ from n_clusters. Dense-affinity requests
+at/above sample count follow Source's dense fallback and truncate to the available
+spectrum. Sparse-affinity requests at/above sample count are rejected by the
+Source default ARPACK route. CSR input kernels can produce dense affinities and
+therefore use the dense shape rule. SpectralEmbedding follows the analogous
+rule including its dropped first vector.
+
+Precomputed affinity_matrix_ preserves original values, including asymmetry.
+Eigensolving applies Source symmetry tolerances/averaging internally. Signed
+edges are allowed; negative normalized degrees fail. The default ARPACK
+Laplacian diagonal convention includes isolated vertices, and the dense backend
+selects eigenvalues nearest the shift before descending order. Connectivity
+metadata includes nonzero negative edges. The native eigensolver remains dense;
+repeated/near-constant eigenspaces and tied QR pivots can differ from Source.
+A one-component estimator discretization yields the required all-zero labels,
+without making the standalone discretize helper accept zero-norm input rows.
+Global constructor checks apply to controls even when the affinity/assignment
+would ignore them. Kmeans now shares the RNG state advanced by Source's default
+ARPACK initialization, as the discretize branch already did.

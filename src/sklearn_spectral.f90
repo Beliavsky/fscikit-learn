@@ -6,12 +6,12 @@ module sklearn_spectral
   use sklearn_neighbor_functions,only:kneighbors_graph
   use sklearn_kernel_dispatch,only:pairwise_kernels
   use sklearn_legacy_rng,only:legacy_random_state
-  use sklearn_ieee_math,only:ieee_product,ieee_total
-  use,intrinsic::ieee_arithmetic,only:ieee_is_finite
+  use sklearn_ieee_math,only:ieee_product,ieee_total,ieee_difference,ieee_quotient
+  use,intrinsic::ieee_arithmetic,only:ieee_is_finite,ieee_is_nan
   implicit none
   private
   public :: spectral_embedding,spectral_affinity_matrix,spectral_eigenvectors
-  public :: spectral_discretize
+  public :: spectral_discretize,spectral_vectors_from_affinity
   type :: spectral_embedding
     integer :: n_components=2,n_neighbors=0,n_neighbors_=0,n_connected_components_=0
     real(dp) :: gamma=-1,gamma_=0
@@ -24,7 +24,7 @@ module sklearn_spectral
     generic :: fit_transform=>fit_transform_dense,fit_transform_csr
   end type
   interface spectral_affinity_matrix
-    module procedure affinity_dense,affinity_csr
+    module procedure affinity_dense,affinity_csr,affinity_dense_controls,affinity_csr_controls
   end interface
 contains
   function spectral_discretize(vectors,random_state,n_iter_max,max_svd_restarts,rng)result(labels)
@@ -112,18 +112,30 @@ contains
     call require(.false.,'discretize SVD did not converge')
   end function
 
-  function affinity_dense(x,affinity,gamma,n_neighbors) result(a)
-    real(dp), intent(in) :: x(:,:),gamma
-    character(*), intent(in) :: affinity
-    integer, intent(in) :: n_neighbors
-    real(dp), allocatable :: a(:,:)
+  function affinity_dense(x,affinity,gamma,n_neighbors)result(a)
+    real(dp),intent(in)::x(:,:),gamma
+    character(*),intent(in)::affinity
+    integer,intent(in)::n_neighbors
+    real(dp),allocatable::a(:,:)
+    a=affinity_dense_controls(x,affinity,gamma,n_neighbors,3._dp,1._dp)
+  end function
+  function affinity_csr(x,affinity,gamma,n_neighbors)result(a)
+    type(csr_matrix),intent(in)::x
+    real(dp),intent(in)::gamma
+    character(*),intent(in)::affinity
+    integer,intent(in)::n_neighbors
+    real(dp),allocatable::a(:,:)
+    a=affinity_csr_controls(x,affinity,gamma,n_neighbors,3._dp,1._dp)
+  end function
+  function affinity_dense_controls(x,affinity,gamma,n_neighbors,degree,coef0)result(a)
+    real(dp),intent(in)::x(:,:),gamma,degree,coef0
+    character(*),intent(in)::affinity
+    integer,intent(in)::n_neighbors
+    real(dp),allocatable::a(:,:)
     type(csr_matrix)::graph
-    integer :: n
-    call check_x(x); n=size(x,1)
+    integer::n
+    call check_x(x);n=size(x,1)
     select case(affinity)
-    case('rbf')
-      call check_x(reshape([gamma],[1,1]))
-      call require(gamma>=0,'spectral gamma must be nonnegative'); a=rbf_kernel(x,x,gamma)
     case('nearest_neighbors','precomputed_nearest_neighbors')
       call require(n_neighbors>=1.and.n_neighbors<=n,'invalid spectral n_neighbors')
       if(affinity=='nearest_neighbors')then
@@ -131,22 +143,17 @@ contains
       else
         graph=kneighbors_graph(x,n_neighbors,metric='precomputed',include_self=.true.)
       end if
-      a=graph%to_dense()
-      a=0.5_dp*(a+transpose(a))
+      a=graph%to_dense();a=.5_dp*(a+transpose(a))
     case('precomputed')
-      call require(size(x,2)==n,'spectral affinity must be square'); a=x
+      call require(size(x,2)==n,'spectral affinity must be square');a=x
     case default
-      call require(.false.,'unknown spectral affinity')
+      a=pairwise_kernels(x,metric=affinity,gamma=gamma,degree=degree,coef0=coef0,filter_params=.true.)
     end select
-    call require(all(a>=0),'spectral affinity must be nonnegative')
-    call require(all(abs(a-transpose(a))<=1.e-10_dp*max(1._dp,abs(a),abs(transpose(a)))), &
-      'spectral affinity must be symmetric')
-    a=0.5_dp*(a+transpose(a))
   end function
-  function affinity_csr(x,affinity,gamma,n_neighbors)result(a)
+  function affinity_csr_controls(x,affinity,gamma,n_neighbors,degree,coef0)result(a)
     type(csr_matrix),intent(in)::x
     character(*),intent(in)::affinity
-    real(dp),intent(in)::gamma
+    real(dp),intent(in)::gamma,degree,coef0
     integer,intent(in)::n_neighbors
     real(dp),allocatable::a(:,:)
     type(csr_matrix)::graph
@@ -154,10 +161,6 @@ contains
     call require(x%n_rows>=2.and.x%n_cols>0,'spectral sparse input must have at least two rows and one feature')
     call require(all(ieee_is_finite(x%data)),'spectral sparse input must be finite')
     select case(affinity)
-    case('rbf')
-      call require(ieee_is_finite(gamma),'spectral gamma must be finite')
-      call require(gamma>=0,'spectral gamma must be nonnegative')
-      a=pairwise_kernels(x,metric='rbf',gamma=gamma)
     case('nearest_neighbors','precomputed_nearest_neighbors')
       call require(n_neighbors>=1.and.n_neighbors<=x%n_rows,'invalid spectral n_neighbors')
       if(affinity=='nearest_neighbors')then
@@ -167,44 +170,89 @@ contains
       end if
       a=graph%to_dense();a=.5_dp*(a+transpose(a))
     case('precomputed')
-      call require(x%n_rows==x%n_cols,'spectral affinity must be square')
-      a=x%to_dense()
+      call require(x%n_rows==x%n_cols,'spectral affinity must be square');a=x%to_dense()
     case default
-      call require(.false.,'unknown spectral affinity')
+      a=pairwise_kernels(x,metric=affinity,gamma=gamma,degree=degree,coef0=coef0,filter_params=.true.)
     end select
-    call require(all(a>=0),'spectral affinity must be nonnegative')
-    call require(all(abs(a-transpose(a))<=1.e-10_dp*max(1._dp,abs(a),abs(transpose(a)))), &
-      'spectral affinity must be symmetric')
-    a=.5_dp*(a+transpose(a))
   end function
-  function spectral_eigenvectors(a,n_components,drop_first,n_connected) result(z)
+  function spectral_eigenvectors(a,n_components,drop_first,n_connected)result(z)
+    real(dp),intent(in)::a(:,:)
+    integer,intent(in)::n_components
+    logical,intent(in)::drop_first
+    integer,intent(out)::n_connected
+    real(dp),allocatable::z(:,:)
+    z=spectral_vectors_from_affinity(a,n_components,drop_first,n_connected,.false.)
+  end function
+  function spectral_vectors_from_affinity(a,n_components,drop_first,n_connected,source_sparse) result(z)
     real(dp), intent(in) :: a(:,:)
     integer, intent(in) :: n_components
-    logical, intent(in) :: drop_first
+    logical, intent(in) :: drop_first,source_sparse
     integer, intent(out) :: n_connected
     real(dp), allocatable :: z(:,:)
     real(dp) :: lap(size(a,1),size(a,1)),degree(size(a,1)),values(size(a,1)),v(size(a,1),size(a,1))
     logical :: visited(size(a,1))
-    integer :: n,i,j,first,queue(size(a,1)),head,tail,k
+    integer :: n,i,j,first,queue(size(a,1)),head,tail,k,c
+    integer,allocatable::selected(:),order(:)
+    real(dp)::difference,tolerance
+    logical::symmetric
+    real(dp)::adj(size(a,1),size(a,2))
     n=size(a,1); first=1
     if(drop_first) first=2
-    call require(n_components>0.and.n_components+first-1<=n,'invalid spectral n_components')
-    lap=-a
+    call require(n_components>0,'invalid spectral n_components')
+    if(source_sparse)call require(n_components<n-first+1, &
+      'sparse spectral ARPACK cannot select n_components >= n_samples')
+    c=min(n_components,n);if(drop_first.and.c<n)c=c+1
+    call require(size(a,2)==n,'spectral affinity must be square')
+    adj=a;symmetric=.true.
+    do j=1,n
+      do i=1,n
+        if(ieee_is_nan(a(i,j)).or.ieee_is_nan(a(j,i)))then
+          symmetric=.false.;cycle
+        end if
+        if(a(i,j)==a(j,i))cycle
+        difference=abs(ieee_difference(a(i,j),a(j,i)))
+        tolerance=1.e-10_dp
+        if(.not.source_sparse)tolerance=tolerance+1.e-5_dp*abs(a(j,i))
+        if(ieee_is_nan(difference))then
+          symmetric=.false.
+        else if(source_sparse.and.difference>=tolerance)then
+          symmetric=.false.
+        else if(.not.source_sparse.and.difference>tolerance)then
+          symmetric=.false.
+        end if
+      end do
+    end do
+    if(.not.symmetric)then
+      do j=1,n
+        do i=1,n
+          adj(i,j)=ieee_product(.5_dp,ieee_difference(a(i,j),-a(j,i)))
+        end do
+      end do
+    end if
+    lap=-adj
     do i=1,n
       lap(i,i)=0
+      degree(i)=-ieee_total(lap(i,:))
     end do
-    ! Exclude self loops before summation: subtracting a large diagonal after
-    ! a row sum can erase the off-diagonal degree through cancellation.
-    degree=max(0._dp,-sum(lap,dim=2))
-    degree=sqrt(degree); where(degree==0) degree=1
-    lap=lap/(spread(degree,2,n)*spread(degree,1,n))
+    call require(.not.any(ieee_is_nan(degree)),'spectral graph degrees must be real')
+    call require(all(degree>=0),'spectral graph has negative degrees')
+    degree=sqrt(degree);where(degree==0)degree=1
+    do j=1,n
+      do i=1,n
+        lap(i,j)=ieee_quotient(ieee_quotient(lap(i,j),degree(i)),degree(j))
+      end do
+    end do
+    ! Source default ARPACK's _set_diag sets one even on isolated vertices.
     do i=1,n
-      lap(i,i)=-sum(lap(i,:)*degree)/degree(i)
+      lap(i,i)=1
     end do
-    ! The diagonal above is one for nodes with edges, zero for isolated nodes.
+    call check_x(lap)
     call symmetric_eigen(-lap,values,v)
-    z=v(:,first:first+n_components-1)/spread(degree,2,n_components)
-    do j=1,n_components
+    ! Shift-invert ARPACK selects values nearest sigma=1 before ordering them.
+    order=argsort(abs(values-1._dp));selected=order(:c)
+    order=argsort(-values(selected));selected=selected(order)
+    z=v(:,selected(first:c))/spread(degree,2,c-first+1)
+    do j=1,size(z,2)
       i=maxloc(abs(z(:,j)),dim=1)
       if(z(i,j)<0) z(:,j)=-z(:,j)
     end do
@@ -215,15 +263,24 @@ contains
       do while(head<=tail)
         k=queue(head); head=head+1
         do j=1,n
-          if(visited(j).or.a(k,j)<=0) cycle
+          if(visited(j).or.adj(k,j)==0) cycle
           tail=tail+1; queue(tail)=j; visited(j)=.true.
         end do
       end do
     end do
   end function
+  subroutine embedding_controls(self)
+    class(spectral_embedding),intent(in)::self
+    call require(any(self%affinity==[character(32)::'rbf','nearest_neighbors','precomputed', &
+      'precomputed_nearest_neighbors']),'unknown spectral embedding affinity')
+    call require(self%n_components>0.and.self%n_neighbors>=0,'invalid spectral embedding component/neighbor controls')
+    call require(ieee_is_finite(self%gamma),'spectral gamma must be finite')
+    call require(self%gamma>=0.or.self%gamma==-1,'spectral gamma must be nonnegative or -1 for None')
+  end subroutine
   subroutine embedding_fit(self,x)
     class(spectral_embedding), intent(inout) :: self
     real(dp), intent(in) :: x(:,:)
+    call embedding_controls(self)
     call check_x(x); self%gamma_=self%gamma
     call require(size(x,1)>=2,'spectral embedding requires at least two samples')
     if(self%affinity=='precomputed_nearest_neighbors') &
@@ -232,11 +289,13 @@ contains
     self%n_neighbors_=self%n_neighbors
     if(self%n_neighbors==0) self%n_neighbors_=max(1,size(x,1)/10)
     self%affinity_matrix_=spectral_affinity_matrix(x,self%affinity,self%gamma_,self%n_neighbors_)
-    self%embedding_=spectral_eigenvectors(self%affinity_matrix_,self%n_components,.true.,self%n_connected_components_)
+    self%embedding_=spectral_vectors_from_affinity(self%affinity_matrix_,self%n_components,.true., &
+      self%n_connected_components_,any(self%affinity==[character(32)::'nearest_neighbors','precomputed_nearest_neighbors']))
   end subroutine
   subroutine embedding_fit_csr(self,x)
     class(spectral_embedding),intent(inout)::self
     type(csr_matrix),intent(in)::x
+    call embedding_controls(self)
     call x%validate()
     if(self%affinity=='nearest_neighbors')self%affinity='rbf'
     self%gamma_=self%gamma
@@ -245,7 +304,8 @@ contains
     if(self%affinity=='precomputed_nearest_neighbors') &
       call require(self%n_neighbors>0,'precomputed nearest neighbors requires an explicit neighbor count')
     self%affinity_matrix_=spectral_affinity_matrix(x,self%affinity,self%gamma_,self%n_neighbors_)
-    self%embedding_=spectral_eigenvectors(self%affinity_matrix_,self%n_components,.true.,self%n_connected_components_)
+    self%embedding_=spectral_vectors_from_affinity(self%affinity_matrix_,self%n_components,.true., &
+      self%n_connected_components_,any(self%affinity==[character(32)::'precomputed','precomputed_nearest_neighbors']))
   end subroutine
   function embedding_fit_transform(self,x) result(z)
     class(spectral_embedding), intent(inout) :: self
