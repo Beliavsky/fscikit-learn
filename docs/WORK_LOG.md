@@ -11810,3 +11810,36 @@ validation/results/rbm_csr_archive_receipt.json. The archive contains final
 implementation/provenance and verification documentation before this receipt
 was appended. Metadata separates strict checks and layered diagnostic replays
 from retained end-to-end stress gaps; full project Source parity stays false.
+
+## Sparse random projection sampling scalability (2026-11-28)
+
+Implementation commit: 00ff1e4. SparseRandomProjection now retains sampled
+column indices per component instead of an n_features-by-n_components integer
+workspace. All row counts and columns are drawn before signs. Low-density
+tracking uses an open-addressed hash set, preserving rejection draws while
+removing selected-prefix scans. Components remain dense. Existing sklearn BSD
+attribution covers the reference algorithms; native changes remain MIT.
+
+New source-derived native fixtures cover 64-by-50,000 components with 333
+sampled positions, empty selections on refit, and 3-by-1,000,000 components
+with 15,059 positions. They check row counts and signed column-index moments.
+The first fixture retains 333 column integers instead of 3.2 million, plus
+row descriptors and temporary sampling storage. No wall-clock speedup is claimed.
+
+A fresh GNU 15.2 checked fpm build and all 329 native programs passed. Both
+checked and scoped O3 projection builds passed 808 seeded fixtures / 6,464
+groups / 43 rejection cases and 800 CSR fixtures / 13,600 groups / 44 rejection
+cases, using unchanged equality checks and tolerances. O3 replaces only the
+projection module against a frozen checked archive; its three native harnesses
+and reference drivers retain runtime checks. All 1,182 compiled source
+fingerprints matched their dependency closure. Static libgfortran and the
+Windows locale-copy shim remain required. Broader project parity gaps remain.
+
+Audit: validation/check_projection_sampling.py. Logs and six JSON reports use
+validation/results/projection_sampling_ as their prefix. Archive SHA256,
+unchanged throughout both audits:
+9775482851069c3a51f9e3993df332f4e7fadf156f3319f76f4e45a73a4fa76b.
+Checked audit SHA256:
+6156d8c27cc419e0d4aba779873006782188cc962b15601d7c4c12936a6b3e11.
+Optimized audit SHA256:
+c517f3583174dc19e11797d07166cf88e3222a75d9c8813300ca466139de55e9.

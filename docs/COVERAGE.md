@@ -10296,6 +10296,31 @@ best_first_final_audit.json. Implementation commit: a13efc7.
 
 ## Source-seeded Gaussian and sparse random projections
 
+Sparse component generation now retains a ragged array of sampled columns,
+requiring O(nnz + n_components) index storage instead of a full
+n_features-by-n_components integer array. Low-density tracking selection uses
+hash-set membership instead of repeatedly scanning the selected prefix. All
+counts and positions are sampled before signs, preserving sklearn's seeded
+sequence. Dense component storage and the existing inverse backend remain.
+
+Native source-derived regressions include a 64-by-50,000 projection with 333
+stored entries, an all-empty refit, and a 3-by-1,000,000 projection with 15,059
+entries. These check sampled row counts and signed column-index moments.
+The retained-column payload for the first fixture is 333 integers instead of
+3.2 million, plus row descriptors and temporary per-row sampling storage.
+This is an allocation reduction; no wall-clock speedup or full sparse-component
+storage is claimed.
+
+Verification: all 329 checked native programs pass. Both checked and scoped
+O3 projection builds pass the existing 808 seeded fixtures / 6,464 groups /
+43 rejection cases and 800 CSR fixtures / 13,600 groups / 44 rejection cases.
+Component and forward-value equality checks and inverse tolerances are
+unchanged. The O3 audit also passes three checked native projection harnesses.
+The fresh full build has 1,182 matching dependency-aware source fingerprints.
+Validation uses GNU 15.2, static libgfortran and the Windows locale-copy shim.
+Reports: validation/results/projection_sampling_{checked,optimized}.json and
+their seeded/CSR reference reports. Broader project parity gaps remain open.
+
 Replaced the intrinsic Fortran random stream for GaussianRandomProjection and
 SparseRandomProjection with NumPy-compatible scalar-seeded components.
 Row-major normal draws, source scaling, binomial row counts, automatic
