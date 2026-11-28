@@ -3015,3 +3015,15 @@ specifies row sorting via `std::sort`. The native bounded partition/insertion
 sort reproduces the tested wheel's tie ordering using an independent MIT
 implementation; no C++ runtime is linked. Owned storage, typed CSR overloads,
 native solver integration, tests and validation are MIT contributions.
+
+## CSR primal LinearSVC and LinearSVR
+
+`sklearn_linear_svm` retains sklearn 1.6.1 / LIBLINEAR primal L2 squared-hinge
+and squared-epsilon-insensitive objectives, weighted OVR class costs and the
+regularized synthetic intercept. Sparse derivatives, Hessian-vector products,
+preconditioned conjugate gradients, Armijo integration and typed CSR overloads
+are independent native MIT implementations. No LIBLINEAR binary or C++ source
+is linked. Existing sklearn BSD and LIBLINEAR copyright notices remain in
+`LICENSES/`. Validation references installed `svm/_classes.py`, `_base.py`,
+`svm/src/liblinear/linear.cpp` and `tron.cpp`, and distinguishes native optimality
+certificates from retained strict Source output differences.

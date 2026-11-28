@@ -1755,8 +1755,20 @@ fixed primal formulations, corresponding to sklearn dual=False, penalty='l2'
 and the named squared losses. LinearSVR here defaults to the squared loss;
 sklearn's default unsquared epsilon-insensitive loss is outside this port.
 The optimizer is a native active-set Newton method with dense Cholesky solves
-and Armijo backtracking, rather than liblinear's trust-region implementation.
+or matrix-free CSR conjugate-gradient directions and Armijo backtracking,
+rather than liblinear's trust-region implementation.
 No LIBLINEAR binary or C/C++ source is linked.
+
+CSR fit and query overloads support binary/multiclass classification and
+regression with the same primal objectives, weighting and synthetic-intercept
+regularization. They retain dense coefficient output and use O(n_features +
+n_samples + input_nnz) working storage per channel, without a dense design or
+feature Hessian. The intercept feature is virtual. Raw duplicate/unsorted
+entries, explicit zeros and empty rows are supported without mutating inputs.
+Dense queries after CSR fits and CSR queries after dense fits are supported.
+The native gradient and objective are independently reconstructed in validation;
+broader strict Source prediction differences are retained, not relabeled as
+matches. Exact solver trajectories and iteration counts are not claimed.
 
 The objectives are .5*||w||^2 + C*sum_i sample_weight_i*loss_i, with losses
 max(0,1-y_i*f_i)^2 for signed binary classification and

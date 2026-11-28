@@ -1832,6 +1832,18 @@ classification diagnostics are per-channel where applicable. LinearSVR uses
 squared_epsilon_insensitive loss, including at its default epsilon=0. See
 COVERAGE.md for multiclass weighting, stopping and supported solver limits.
 
+Both types also accept `csr_matrix` for fit, predict and score; LinearSVC's
+decision_function accepts CSR as well. Any query representation can follow
+either fit representation. Coefficients remain dense, as in sklearn, and no
+training design is retained. CSR fitting applies the synthetic intercept
+virtually and solves Newton directions with preconditioned conjugate gradients
+using sparse Hessian-vector products. It allocates neither a dense design nor
+a feature-by-feature Hessian. The existing dense Cholesky path is unchanged.
+Duplicates, unsorted entries, explicit zeros and empty rows are supported
+without changing caller storage. Sample/class weights and diagnostic fields
+follow the existing primal squared-loss interfaces. Different Newton/TRON
+trajectories can retain small strict reference differences; see COVERAGE.md.
+
 
 ## Streaming principal components
 
