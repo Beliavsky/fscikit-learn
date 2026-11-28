@@ -16,7 +16,7 @@ module sklearn_linear_model
   use sklearn_coordinate_paths,only:enet_path,lasso_path,coordinate_path_options,coordinate_path_result
   use sklearn_omp_paths,only:orthogonal_mp,orthogonal_mp_gram,omp_result
   use sklearn_nnls, only: positive_least_squares
-  use sklearn_resampling, only: index_split
+  use sklearn_resampling, only: index_split,shuffle_split,stratified_shuffle_split
   use sklearn_composite_scores, only: score_weights
   use sklearn_ieee_math, only: ieee_mean,ieee_quotient,ieee_product,ieee_total,ieee_difference
   use sklearn_omp_cv, only: orthogonal_matching_pursuit_cv
@@ -59,6 +59,7 @@ module sklearn_linear_model
     real(dp) :: c=1,tol=1.e-3_dp,epsilon=0.1_dp
     integer :: max_iter=1000,n_iter_no_change=5,average=0,random_state=0
     logical :: shuffle=.true.,fit_intercept=.true.,classification=.false.,pa_two=.false.
+    logical::early_stopping=.false.
   end type
   type :: linear_regression
     logical :: fit_intercept=.true.,positive=.false.
@@ -177,6 +178,9 @@ module sklearn_linear_model
     type(pa_state),allocatable,private::states_(:)
     integer,private::bias_public_=0
     logical,private::bias_standard_average_=.false.
+    logical::early_stopping=.false.
+    real(dp)::validation_fraction=.1_dp
+    logical,allocatable::validation_mask_(:)
   contains
     procedure,private::fit_dense=>pa_classifier_fit,fit_csr=>pa_classifier_fit_csr
     generic::fit=>fit_dense,fit_csr
@@ -195,6 +199,9 @@ module sklearn_linear_model
     character(32) :: loss='epsilon_insensitive'
     logical :: shuffle=.true.,converged_=.false.,warm_start=.false.
     type(pa_state),private::state_
+    logical::early_stopping=.false.
+    real(dp)::validation_fraction=.1_dp
+    logical,allocatable::validation_mask_(:)
   contains
     procedure :: fit_dense=>pa_regressor_fit,fit_sparse=>pa_regressor_fit_csr
     procedure :: predict_sparse=>pa_regressor_predict_csr,score_sv=>pa_regressor_score_csr
@@ -377,7 +384,30 @@ contains
     options%average=average; options%shuffle=shuffle; options%fit_intercept=fit_intercept
   end function
 
-  subroutine pa_run(x,y,options,weight_pos,weight_neg,coef,intercept,n_iter,converged,last_loss,sparse_x,saved,start_t)
+  function pa_validation_mask(n,early,fraction,seed,labels)result(mask)
+    integer,intent(in)::n,seed
+    logical,intent(in)::early
+    real(dp),intent(in)::fraction
+    integer,optional,intent(in)::labels(:)
+    logical::mask(n)
+    type(shuffle_split)::random
+    type(stratified_shuffle_split)::stratified
+    type(index_split),allocatable::folds(:)
+    call require(ieee_is_finite(fraction),'nonfinite PA validation_fraction')
+    call require(fraction>0.and.fraction<1,'PA validation_fraction must lie in (0,1)')
+    mask=.false.
+    if(.not.early)return
+    if(present(labels))then
+      stratified%n_splits=1;stratified%test_size=fraction;stratified%random_state=seed
+      folds=stratified%split(labels)
+    else
+      random%n_splits=1;random%test_size=fraction;random%random_state=seed
+      folds=random%split(n)
+    end if
+    mask(folds(1)%test)=.true.
+  end function
+
+  subroutine pa_run(x,y,options,weight_pos,weight_neg,coef,intercept,n_iter,converged,last_loss,sparse_x,saved,start_t,validation_mask)
     real(dp), intent(in) :: x(:,:),y(:),weight_pos,weight_neg
     type(pa_config), intent(in) :: options
     real(dp), intent(inout) :: coef(:),intercept
@@ -385,6 +415,7 @@ contains
     integer, intent(out) :: n_iter
     type(csr_matrix),optional,intent(in)::sparse_x
     type(pa_state),intent(inout)::saved
+    logical,intent(in)::validation_mask(:)
     real(dp),intent(in)::start_t
     logical, intent(out) :: converged
     real(dp) :: current(size(coef)),average_coef(size(coef)),bias,average_bias,prediction,loss,update,norm
@@ -392,7 +423,10 @@ contains
     type(legacy_random_state)::rng
     integer(int64)::state
     integer::seed
-    integer :: order(size(y)),i,j,it,pick,tmp,stale,n,k,feature
+    real(dp)::best_score,validation_score
+    real(dp),allocatable::validation_prediction(:)
+    integer,allocatable::validation_indices(:)
+    integer :: order(size(y)),i,j,it,pick,tmp,stale,n,k,feature,previous_stale
     n=size(y);current=0;average_coef=0;bias=0;average_bias=0
     if(allocated(saved%standard))then
       if(options%average>0)then
@@ -406,6 +440,11 @@ contains
       saved%standard=spread(0._dp,1,size(coef));saved%has_average=options%average>0
       if(saved%has_average)saved%average=saved%standard
     end if
+    if(options%early_stopping)then
+      validation_indices=pack([(i,i=1,n)],validation_mask)
+      allocate(validation_prediction(size(validation_indices)))
+    end if
+    best_score=ieee_value(0._dp,ieee_negative_inf)
     average_a=0;average_b=1;intercept_decay=1
     if(present(sparse_x))intercept_decay=.01_dp
     best_loss=huge(1._dp); stale=0; seen=start_t; converged=.false.; order=[(i,i=1,n)]
@@ -424,7 +463,9 @@ contains
       end if
       sumloss=0
       do j=1,n
-        i=order(j);prediction=0;norm=0
+        i=order(j)
+        if(validation_mask(i))cycle
+        prediction=0;norm=0
         if(present(sparse_x))then
           do k=sparse_x%indptr(i),sparse_x%indptr(i+1)-1
             feature=sparse_x%indices(k)
@@ -440,7 +481,7 @@ contains
         else
           loss=max(0._dp,abs(y(i)-prediction)-options%epsilon)
         end if
-        sumloss=sumloss+loss
+        if(.not.options%early_stopping)sumloss=sumloss+loss
         if(options%pa_two) then
           update=loss/(norm+0.5_dp/options%c)
         else
@@ -489,14 +530,41 @@ contains
       end do
       call require(all(ieee_is_finite(current)).and.ieee_is_finite(bias), &
         'passive-aggressive fit overflow; scale the inputs')
-      if(options%tol>=0) then
-        if(sumloss>best_loss-options%tol*n) then
-          stale=stale+1
+      if(options%early_stopping)then
+        do j=1,size(validation_indices)
+          i=validation_indices(j);prediction=0
+          if(present(sparse_x))then
+            do k=sparse_x%indptr(i),sparse_x%indptr(i+1)-1
+              prediction=prediction+current(sparse_x%indices(k))*sparse_x%data(k)
+            end do
+          else
+            prediction=dot_product(current,x(i,:))
+          end if
+          validation_prediction(j)=prediction+bias
+        end do
+        if(options%classification)then
+          validation_score=sum(merge(1._dp,0._dp, &
+            merge(1._dp,-1._dp,validation_prediction>0)==y(validation_indices)))/size(validation_indices)
         else
-          stale=0
+          validation_score=r2_score(y(validation_indices),validation_prediction)
         end if
+        previous_stale=stale;stale=0
+        if(.not.ieee_is_nan(validation_score))then
+          if(options%tol>=0)then
+            if(validation_score<best_score+options%tol)stale=previous_stale+1
+          end if
+          if(validation_score>best_score)best_score=validation_score
+        end if
+      else
+        if(options%tol>=0) then
+          if(sumloss>best_loss-options%tol*n) then
+            stale=stale+1
+          else
+            stale=0
+          end if
+        end if
+        best_loss=min(best_loss,sumloss)
       end if
-      best_loss=min(best_loss,sumloss)
       if(stale>=options%n_iter_no_change) then
         converged=.true.; exit
       end if
@@ -578,6 +646,7 @@ contains
     type(pa_config)::options
     integer::p
     real(dp)::start_t
+    call require(.not.(incremental.and.self%early_stopping),'early_stopping must be false with PA partial_fit')
     call check_positive_regression(self)
     if(present(sparse_x))then
       call pa_check_csr(sparse_x,size(y));p=sparse_x%n_cols
@@ -591,6 +660,8 @@ contains
     call require(self%loss=='epsilon_insensitive'.or.self%loss=='squared_epsilon_insensitive', &
       'invalid passive-aggressive regression loss')
     options%epsilon=self%epsilon;options%pa_two=self%loss=='squared_epsilon_insensitive'
+    options%early_stopping=self%early_stopping
+    self%validation_mask_=pa_validation_mask(size(y),self%early_stopping,self%validation_fraction,self%random_state)
     if(.not.allocated(self%state_%standard))then
       self%state_=pa_state();self%coef_=spread(0._dp,1,p);self%intercept_=0;self%t_=1
     else if(.not.incremental.and..not.self%warm_start)then
@@ -609,7 +680,7 @@ contains
     end if
     start_t=self%t_
     call pa_run(x,y,options,1._dp,1._dp,self%coef_,self%intercept_,self%n_iter_,self%converged_,self%loss_, &
-      sparse_x,self%state_,start_t)
+      sparse_x,self%state_,start_t,self%validation_mask_)
     self%t_=start_t+real(self%n_iter_,dp)*size(y);self%rank_=0
     self%n_features_in_=p;self%n_targets_=1;self%matrix_target_=.false.
   end subroutine
@@ -641,6 +712,9 @@ contains
     options=pa_settings(self%c,self%tol,self%max_iter,self%n_iter_no_change,self%average,self%shuffle,self%fit_intercept,self%random_state)
     call require(self%loss=='hinge'.or.self%loss=='squared_hinge','invalid passive-aggressive classification loss')
     partial=.false.;if(present(incremental))partial=incremental
+    call require(.not.(partial.and.self%early_stopping),'early_stopping must be false with PA partial_fit')
+    options%early_stopping=self%early_stopping
+    self%validation_mask_=pa_validation_mask(size(y),self%early_stopping,self%validation_fraction,self%random_state,y)
     fresh=.not.partial.or..not.allocated(self%states_)
     if(fresh)then
       if(partial)then
@@ -723,7 +797,7 @@ contains
       old_standard_bias=self%states_(j)%standard_bias;old_average_bias=self%states_(j)%average_bias
       if(self%average>0.and.self%bias_standard_average_)self%states_(j)%standard_bias=old_average_bias
       call pa_run(x,target,options,positive_weight,negative_weight,self%coef_(j,:),self%intercept_(j), &
-        self%n_iter_per_class_(j),converged,self%loss_(j),sparse_x,self%states_(j),start_t)
+        self%n_iter_per_class_(j),converged,self%loss_(j),sparse_x,self%states_(j),start_t,self%validation_mask_)
       returned_bias=self%intercept_(j)
       if(self%average>0)returned_bias=self%states_(j)%standard_bias
       self%states_(j)%standard_bias=old_standard_bias

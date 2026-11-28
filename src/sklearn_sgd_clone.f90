@@ -24,6 +24,7 @@ contains
     model%max_iter=source%max_iter;model%n_iter_no_change=source%n_iter_no_change
     model%average=source%average;model%random_state=source%random_state;model%shuffle=source%shuffle
     model%fit_intercept=source%fit_intercept;model%positive=source%positive;model%warm_start=source%warm_start
+    model%early_stopping=source%early_stopping;model%validation_fraction=source%validation_fraction
   end function
   function clone_pac_parameters(source)result(model)
     type(passive_aggressive_classifier),intent(in)::source
@@ -33,6 +34,7 @@ contains
     model%average=source%average;model%random_state=source%random_state;model%shuffle=source%shuffle
     model%fit_intercept=source%fit_intercept;model%class_weight_balanced=source%class_weight_balanced
     model%warm_start=source%warm_start
+    model%early_stopping=source%early_stopping;model%validation_fraction=source%validation_fraction
   end function
   function clone_quantile_parameters(source)result(model)
     type(quantile_regressor),intent(in)::source

@@ -240,6 +240,8 @@ contains
       case('shuffle');model%shuffle=value%as_logical()
       case('fit_intercept');model%fit_intercept=value%as_logical()
       case('warm_start');model%warm_start=value%as_logical()
+      case('early_stopping');model%early_stopping=value%as_logical()
+      case('validation_fraction');model%validation_fraction=value%as_real()
       case('loss');model%loss=value%as_text()
       case default;done=.false.
       end select
@@ -254,6 +256,8 @@ contains
       case('shuffle');model%shuffle=value%as_logical()
       case('fit_intercept');model%fit_intercept=value%as_logical()
       case('warm_start');model%warm_start=value%as_logical()
+      case('early_stopping');model%early_stopping=value%as_logical()
+      case('validation_fraction');model%validation_fraction=value%as_real()
       case('loss');model%loss=value%as_text()
       case('epsilon');model%epsilon=value%as_real()
       case default;done=.false.

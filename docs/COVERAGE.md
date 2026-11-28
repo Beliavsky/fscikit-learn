@@ -1309,7 +1309,7 @@ warm `fit` calls are supported. Warm regression retains average buffers while
 warm classification resets them from published coefficients, matching Source.
 Cold fits reset state. Fresh clones discard fitted state while retaining controls;
 direct pipeline fits retain warm state. Custom initial-coefficient arguments,
-sample weights for fitting, validation early stopping and parallel training remain
+sample weights for fitting and parallel training remain
 outside this subset. Controls must be finite, with C>0,
 epsilon>=0, positive epoch/patience limits and average>=0. Use appropriately
 scaled finite inputs. The package now contains 99 core types in 40 source modules.
@@ -16151,3 +16151,23 @@ optimized,cross_profile}.json; build logs are pa_warm_build.log and
 pa_warm_refresh.log. Archive SHA256:
 9a0f4147953d36da77f43cf407cbff096b5ffb142c8deb8858491135f1370727.
 This verifies the selected PA subset; project-wide Source parity remains false.
+
+
+### Passive-aggressive validation-based early stopping
+
+PA regression/classification support `early_stopping` and `validation_fraction`
+(default false and 0.1), seeded regression/stratified classification holdouts,
+standard-weight validation scores and Source patience comparisons. OVR heads
+share the same classifier split. Held-out rows never train; public sample clocks
+still count all input rows. Dense/CSR queries and warm/average state semantics
+are retained. Undefined one-row R2 and tol=None/zero behavior follow Source.
+Partial fitting rejects early stopping. The last epoch is retained. The public
+validation_mask_ is a native diagnostic, discarded by parameter-only clones.
+PA clone/search controls include both new constructor settings.
+
+Initial checked probes pass 1,506 sequences / 7,530 stages / 87,900 groups at
+unchanged 3e-8 numeric tolerances, exact masks, labels and stopping counts. Twelve
+Source/native rejection decisions pass. A 256-by-500,000 CSR validation fit uses
+65,064,960 bytes, below 128 MiB. Full checked/scoped-O3 retained PA audits are
+pending. Custom initial-coefficient arguments, fit sample weights and parallel
+PA training remain outside this subset. Project-wide Source parity remains false.

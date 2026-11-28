@@ -1386,7 +1386,7 @@ weight-vector accumulation and touches stored entries at each update. Coefficien
 and averaging vectors remain dense, without a dense samples-by-features cache.
 Caller CSR buffers are preserved. Extreme finite rows retain Source
 infinite squared norms and zero PA steps, with norm calculation restoring
-caller IEEE halting modes and the overflow flag. Validation-set stopping remains a gap.
+caller IEEE halting modes and the overflow flag.
 See `example/passive_aggressive.f90` for training accuracy and regression R2.
 
 Set `warm_start=.true.` to continue dense or CSR `fit` calls. Each fit resets
@@ -1398,12 +1398,30 @@ Warm classifiers allow relabeling when the number of planes stays compatible.
 Feature/plane counts must match the reused coefficients. Enabling averaging on
 a warm classifier is supported; a warm regressor requires existing average buffers.
 
+Set `early_stopping=.true.` to hold out `validation_fraction` of each full fit
+(default 0.1). Regression uses seeded ShuffleSplit; classifiers use a seeded
+stratified split shared by their OVR heads. Validation rows never update weights,
+intercepts, or averages. Each epoch scores its standard coefficients using R2 or
+binary accuracy; average publication does not change stopping. Improvement uses
+Source's strict score comparison, including zero tolerance and undefined R2 for
+one-row validation sets. The last epoch is retained, without restoring a prior
+best model. `tol=-1` disables patience while retaining the validation holdout.
+
+Both `partial_fit` interfaces reject early stopping. Validation fractions must
+lie in (0,1), including when early stopping is disabled. Splits must leave enough
+training/validation rows and classifier class counts, as in sklearn. Full-fit
+`t_` still counts all input rows per epoch, even held-out rows. `validation_mask_`
+is a native diagnostic exposing the held-out rows; it is regenerated each fit
+and cleared by fresh clones. Native `loss_` is zero for validation-stopped fits
+because Source does not accumulate training loss in that mode.
+
 Fresh clones discard learned PA state while preserving constructor controls.
 This includes CV/search, nested pipelines, ensembles, multiclass wrappers,
 multioutput regression, regressor chains and TransformedTargetRegressor.
 Direct pipeline fits retain warm state. Search supports `C`, `loss`, `tol`,
 `max_iter`, `n_iter_no_change`, `average`, `random_state`, `shuffle`,
-`fit_intercept`, `warm_start`, and regression `epsilon`, including nested names.
+`fit_intercept`, `warm_start`, `early_stopping`, `validation_fraction`, and
+regression `epsilon`, including nested names.
 Explicit per-call class weights remain a native fit adapter.
 
 Both PA types now support `partial_fit` on dense or CSR batches. Each call runs

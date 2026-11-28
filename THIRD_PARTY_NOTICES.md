@@ -3192,3 +3192,14 @@ The installed Source BLAS uses fused multiply-add for DAXPY, reproduced using
 Fortran `ieee_fma`. The original scikit-learn BSD-3-Clause attribution and
 license above apply. Native typed clone/search adapters and validation harnesses
 are original MIT code. No additional third-party repository was imported.
+
+
+### Passive-aggressive validation-based early stopping
+
+The validation split/callback contracts follow scikit-learn 1.6.1
+`linear_model/_stochastic_gradient.py` and `_sgd_fast.pyx.tp`; seeded holdouts use
+the existing Fortran translations of `model_selection/_split.py` and its
+approximate-mode class allocation. Standard coefficients, score-based patience,
+training-row exclusion and public sample-clock behavior retain the original
+scikit-learn BSD-3-Clause attribution above. Native validation-mask diagnostics,
+typed clone/search adapters and test harnesses are original MIT code.

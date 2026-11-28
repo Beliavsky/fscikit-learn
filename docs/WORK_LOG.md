@@ -12906,3 +12906,15 @@ Archive SHA256 9a0f4147953d36da77f43cf407cbff096b5ffb142c8deb8858491135f1370727
 Checked report SHA256 5300bbbf024ca8c349927378647f286c9d417987db20c0613d8b5a2a917735b2
 Optimized report SHA256 6b3e7a5e31d02989e9ba788e0f2cc26fab495398d40577b86c0c563d75b6e697
 Cross-profile report SHA256 44b658aafaa6b7462261d9d41264383b4daa2decab50e7fb99bc46e789ba1415
+
+2026-11-28 - PA validation-based early stopping
+Added early_stopping and validation_fraction to PA regression/classification,
+seeded regression/stratified shared-classification masks, held-out-row exclusion,
+standard-coefficient validation scores, Source strict patience and public clocks.
+Undefined singleton R2, tol=None/zero, warm/average/CSR behavior follow Source.
+Partial_fit rejects early stopping. Parameter clones retain settings and discard
+native validation_mask_ diagnostics; search supports both controls including nested
+pipeline names. Initial checked Source probe: 1506 sequences, 7530 stages, 87900
+comparison groups, zero gaps at unchanged 3e-8 and exact masks/labels/counters.
+Twelve Source/native rejection guards pass; wide CSR validation peak 65064960 bytes.
+Full checked build and final retained/scoped-O3 audits are pending.
