@@ -8,6 +8,9 @@ program reference_seeded_projection_driver
   integer, allocatable :: before(:),after(:)
   integer :: cases,c,kind,n,p,k,seed,cache,i,j,ns,mode
   real(dp) :: eps,density
+  logical :: sparse_storage
+  character(32) :: storage
+  call get_command_argument(1,storage);sparse_storage=trim(storage)=='csr-components'
   call random_seed(size=ns);allocate(before(ns),after(ns))
   read(*,*) cases
   do c=1,cases
@@ -18,7 +21,8 @@ program reference_seeded_projection_driver
     else
       allocate(sparse_random_projection::model)
       select type(model)
-      type is(sparse_random_projection);model%density=density
+      type is(sparse_random_projection)
+        model%density=density;model%store_sparse_components=sparse_storage
       end select
     end if
     model%n_components=k;model%random_state=seed;model%eps=eps;model%compute_inverse_components=cache/=0
@@ -39,7 +43,17 @@ program reference_seeded_projection_driver
       z=model%fit_transform(x);back=model%inverse_transform(z)
       call random_seed(get=after)
       print *, 'BEGIN',c
-      call emit('components',reshape(model%components_,[size(model%components_)]))
+      first=component_values();call emit('components',reshape(first,[size(first)]))
+      if(sparse_storage) then
+        select type(model)
+        type is(sparse_random_projection)
+          call emit('components_indptr',real(model%components_csr_%indptr,dp))
+          call emit('components_indices',real(model%components_csr_%indices,dp))
+          call emit('components_data',model%components_csr_%data)
+          call emit('component_storage',real([merge(1,0,allocated(model%components_)), &
+            merge(1,0,allocated(model%components_csr_%indptr))],dp))
+        end select
+      end if
       call emit('transform',reshape(z,[size(z)]));call emit('inverse',reshape(back,[size(back)]))
       if(allocated(model%inverse_components_)) then
         call emit('pinv',reshape(model%inverse_components_,[size(model%inverse_components_)]))
@@ -51,9 +65,9 @@ program reference_seeded_projection_driver
       type is(sparse_random_projection);call emit('density',[model%density_])
       class default;call emit('density',[real(dp)::])
       end select
-      first=model%components_;call model%fit(x)
+      first=component_values();call model%fit(x)
       call emit('preserved',real([merge(1,0,all(x==original)),merge(1,0,all(before==after)), &
-        merge(1,0,all(first==model%components_))],dp))
+        merge(1,0,all(first==component_values()))],dp))
       model%compute_inverse_components=.false.;call model%fit(x)
       call emit('cleared',[real(merge(1,0,.not.allocated(model%inverse_components_)),dp)])
       print *, 'END',c
@@ -61,6 +75,16 @@ program reference_seeded_projection_driver
     deallocate(model,x)
   end do
 contains
+  function component_values() result(a)
+    real(dp), allocatable :: a(:,:)
+    select type(model)
+    type is(sparse_random_projection)
+      if(allocated(model%components_csr_%indptr)) then
+        a=model%components_csr_%to_dense();return
+      end if
+    end select
+    a=model%components_
+  end function
   subroutine emit(name,values)
     character(*),intent(in)::name
     real(dp),intent(in)::values(:)

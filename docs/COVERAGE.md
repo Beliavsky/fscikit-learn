@@ -10296,6 +10296,15 @@ best_first_final_audit.json. Implementation commit: a13efc7.
 
 ## Source-seeded Gaussian and sparse random projections
 
+SparseRandomProjection additionally supports `store_sparse_components=.true.`,
+a native storage adapter retaining the fitted matrix in `components_csr_`
+instead of allocating `components_`. Its one-based raw row storage preserves
+sklearn's sampled column/sign order. Dense and CSR forward transforms, explicit
+CSR outputs, inverse transforms, inverse caching and storage changes on refit
+are supported. Fitting and forward products avoid a dense component matrix;
+inverse construction still materializes one and uses the existing SVD backend.
+The default dense representation remains compatible with existing callers.
+
 Sparse component generation now retains a ragged array of sampled columns,
 requiring O(nnz + n_components) index storage instead of a full
 n_features-by-n_components integer array. Low-density tracking selection uses

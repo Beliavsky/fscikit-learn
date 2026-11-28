@@ -36,7 +36,7 @@ def csr_payload(a):
  return f'{a.shape[0]} {a.shape[1]} {len(a.data)}\n'+' '.join(map(str,a.indptr+1))+'\n'+' '.join(map(str,a.indices+1))+'\n'+' '.join(format(v,'.17g') for v in a.data)+'\n'
 def payload(c,arrays):
  return ' '.join(str(c[k]) for k in ['kind','k','seed','cache','eps','density','mode'])+'\n'+''.join(csr_payload(a) for a in arrays)
-def oracle(c,arrays):
+def oracle(c,arrays,sparse_components=False):
  m=model_for(c);x,q,v=arrays
  snapshots=[(a.indptr.copy(),a.indices.copy(),a.data.copy().view(np.uint64)) for a in arrays]
  rng_before=np.random.get_state()
@@ -47,6 +47,9 @@ def oracle(c,arrays):
  rng_after=np.random.get_state();preserved.append(int(all(np.array_equal(a,b) for a,b in zip(rng_before,rng_after))))
  assert all(preserved)
  result=dict(components=dense(m.components_),train_transform=dense(z),query_transform=dense(query),inverse=back,pinv=m.inverse_components_ if c['cache'] else [],metadata=[m.n_components_,m.n_features_in_,c['cache']],density=[m.density_] if c['kind'] else [],preserved=preserved,refit=[1,1])
+ if sparse_components and c['kind']:
+  a=sp.csr_matrix(m.components_)
+  result.update(components_indptr=a.indptr+1,components_indices=a.indices+1,components_data=a.data,component_storage=[0,1])
  for prefix,a in [('csr_',query),('csr_train_',z)]:
   if c['kind']:
    a=sp.csr_matrix(a,copy=True);a.sum_duplicates();a.eliminate_zeros();a.sort_indices()
@@ -54,10 +57,11 @@ def oracle(c,arrays):
   else:result.update({prefix+key:[] for key in ['shape','indptr','indices','data']})
  return result
 def main():
- ap=argparse.ArgumentParser();ap.add_argument('--executable',type=Path,required=True);ap.add_argument('--profile',default='development');ap.add_argument('--report',type=Path);args=ap.parse_args()
+ ap=argparse.ArgumentParser();ap.add_argument('--executable',type=Path,required=True);ap.add_argument('--profile',default='development');ap.add_argument('--report',type=Path);ap.add_argument('--sparse-components',action='store_true');args=ap.parse_args()
+ command=[str(args.executable)]+(['csr-components'] if args.sparse_components else [])
  paths=[Path(__file__),args.executable,ROOT/'src/sklearn_random_projection.f90',ROOT/'src/sklearn_sparse.f90',ROOT/'src/sklearn_legacy_rng.f90',ROOT/'src/sklearn_random_binomial.f90',ROOT/'app/reference_csr_projection_driver.f90',Path(sklearn.__file__).parent/'random_projection.py']
- hashes={str(p):sha(p) for p in paths};cases=list(fixtures());arrays=[inputs(c) for c in cases];expected=[oracle(c,a) for c,a in zip(cases,arrays)]
- r=subprocess.run([str(args.executable)],input=str(len(cases))+'\n'+''.join(payload(c,a) for c,a in zip(cases,arrays)),text=True,capture_output=True)
+ hashes={str(p):sha(p) for p in paths};cases=list(fixtures());arrays=[inputs(c) for c in cases];expected=[oracle(c,a,args.sparse_components) for c,a in zip(cases,arrays)]
+ r=subprocess.run(command,input=str(len(cases))+'\n'+''.join(payload(c,a) for c,a in zip(cases,arrays)),text=True,capture_output=True)
  if r.returncode:raise AssertionError((r.stdout[-1000:],r.stderr[-1700:]))
  lines=iter(r.stdout.splitlines());checks=[];inventories=[];index=-1
  for line in lines:
@@ -70,7 +74,7 @@ def main():
    want=np.asarray(expected[index][field]).ravel(order='F');assert values.shape==want.shape
    if field!='inverse' and field!='pinv':np.testing.assert_array_equal(values,want,err_msg=str((index,cases[index],field)))
    else:np.testing.assert_allclose(values,want,rtol=2e-9,atol=2e-6 if cases[index]['style']==3 else 2e-11,equal_nan=True,err_msg=str((index,cases[index],field)))
-   finite=np.isfinite(want);checks.append(dict(fixture=index,field=field,oracle='source_repeat_and_native_cache_contract' if field=='refit' else 'source',passed=True,max_abs_error=float(np.max(np.abs(values[finite]-want[finite]),initial=0))))
+   finite=np.isfinite(want);checks.append(dict(fixture=index,field=field,oracle='native_storage_contract' if field=='component_storage' else ('source_repeat_and_native_cache_contract' if field=='refit' else 'source'),passed=True,max_abs_error=float(np.max(np.abs(values[finite]-want[finite]),initial=0))))
  assert index+1==len(cases)
  rejections=[]
  for kind in [0,1]:
@@ -104,11 +108,11 @@ def main():
      m.fit(x);m.transform(q);m.inverse_transform(v)
    except ValueError as error:source_error=type(error).__name__
    else:raise AssertionError(('source accepts invalid',kind,name))
-   r=subprocess.run([str(args.executable)],input='1\n'+native_payload,text=True,capture_output=True);out=r.stdout+r.stderr
+   r=subprocess.run(command,input='1\n'+native_payload,text=True,capture_output=True);out=r.stdout+r.stderr
    assert r.returncode and 'fscikit-learn:' in out,(kind,name,out)
    assert not any(t in out for t in ['SIGFPE','Fortran runtime error']),(kind,name,out)
    rejections.append(dict(name=str(kind)+'_'+name,passed=True,source_error=source_error,oracle='scipy_csr_check_format' if c['mode'] in [5,6,7] else 'sklearn_estimator'))
  assert hashes=={str(p):sha(p) for p in paths}
- report=dict(profile=args.profile,sklearn=sklearn.__version__,fixtures=len(cases),checks=checks,inventories=inventories,configurations=cases,rejections=rejections,hashes=hashes)
+ report=dict(profile=args.profile,component_storage='csr' if args.sparse_components else 'dense',sklearn=sklearn.__version__,fixtures=len(cases),checks=checks,inventories=inventories,configurations=cases,rejections=rejections,hashes=hashes)
  path=args.report or ROOT/'validation/results'/f'csr_projections_{args.profile}.json';path.write_text(json.dumps(report,indent=2)+'\n');print(len(cases),len(checks),len(rejections),'PASS')
 if __name__=='__main__':main()

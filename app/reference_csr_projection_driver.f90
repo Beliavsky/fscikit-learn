@@ -11,6 +11,9 @@ program reference_csr_projection_driver
   integer,allocatable :: before(:),after(:)
   integer :: c,cases,kind,k,seed,cache,mode,ns
   real(dp) :: eps,density
+  logical :: sparse_storage
+  character(32) :: storage
+  call get_command_argument(1,storage);sparse_storage=trim(storage)=='csr-components'
   call random_seed(size=ns);allocate(before(ns),after(ns))
   read(*,*) cases
   do c=1,cases
@@ -21,7 +24,8 @@ program reference_csr_projection_driver
     else
       allocate(sparse_random_projection::model)
       select type(model)
-      type is(sparse_random_projection);model%density=density
+      type is(sparse_random_projection)
+        model%density=density;model%store_sparse_components=sparse_storage
       end select
     end if
     model%n_components=k;model%random_state=seed;model%eps=eps;model%compute_inverse_components=cache/=0
@@ -40,7 +44,17 @@ program reference_csr_projection_driver
     z=model%fit_transform(x);query=model%transform(q);back=model%inverse_transform(v)
     call random_seed(get=after)
     print *, 'BEGIN',c
-    call emit('components',reshape(model%components_,[size(model%components_)]))
+    first=component_values();call emit('components',reshape(first,[size(first)]))
+    if(sparse_storage) then
+      select type(model)
+      type is(sparse_random_projection)
+        call emit('components_indptr',real(model%components_csr_%indptr,dp))
+        call emit('components_indices',real(model%components_csr_%indices,dp))
+        call emit('components_data',model%components_csr_%data)
+        call emit('component_storage',real([merge(1,0,allocated(model%components_)), &
+          merge(1,0,allocated(model%components_csr_%indptr))],dp))
+      end select
+    end if
     call emit('train_transform',reshape(z,[size(z)]));call emit('query_transform',reshape(query,[size(query)]))
     call emit('inverse',reshape(back,[size(back)]))
     select type(model)
@@ -71,14 +85,24 @@ program reference_csr_projection_driver
     end select
     call emit('preserved',real([merge(1,0,equal_csr(x,original_x)),merge(1,0,equal_csr(q,original_q)), &
       merge(1,0,equal_csr(v,original_v)),merge(1,0,all(before==after))],dp))
-    first=model%components_;call model%fit(x)
-    k=merge(1,0,all(first==model%components_))
+    first=component_values();call model%fit(x)
+    k=merge(1,0,all(first==component_values()))
     model%compute_inverse_components=.false.;call model%fit(x)
     call emit('refit',real([k,merge(1,0,.not.allocated(model%inverse_components_))],dp))
     print *, 'END',c
     deallocate(model)
   end do
 contains
+  function component_values() result(a)
+    real(dp), allocatable :: a(:,:)
+    select type(model)
+    type is(sparse_random_projection)
+      if(allocated(model%components_csr_%indptr)) then
+        a=model%components_csr_%to_dense();return
+      end if
+    end select
+    a=model%components_
+  end function
   subroutine read_csr(a)
     type(csr_matrix),intent(out)::a
     integer :: nnz

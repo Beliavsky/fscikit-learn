@@ -8724,10 +8724,38 @@ one-based CSR storage: sorted columns, omitted exact zeros and retained
 nonfinite derived values. Density one also permits explicit CSR conversion of
 its logically dense projection. Method choice expresses output storage instead
 of Python's runtime dense_output switch. Inverse transforms always return dense
-matrices. Components remain stored densely, even for SparseRandomProjection.
+matrices. By default, components remain stored densely, including for SparseRandomProjection.
 Sparse component generation retains only sampled column indices, rather than a
 feature-by-component integer workspace. Its low-density tracking sampler uses
 hash-set membership and preserves the seeded scikit-learn draw sequence.
+
+Set `store_sparse_components=.true.` on a sparse_random_projection before
+fitting to retain the projection in `components_csr_`, with shape
+`n_components_` by `n_features_in_`. This is a native storage adapter, not an
+additional algorithm or sklearn constructor parameter. The default preserves
+the existing `components_` real-array interface. CSR storage leaves that array
+unallocated, retains sampled columns in source order with one-based pointers
+and indices, and supports all existing dense/CSR fit, transform, fit_transform
+and inverse_transform bindings. Explicit CSR output methods also use it
+directly. Changing the storage option takes effect on the next fit; a successful
+refit clears the old component representation and inverse cache.
+
+```fortran
+type(sparse_random_projection) :: projection
+projection%n_components=100
+projection%store_sparse_components=.true.
+call projection%fit(x)                 ! x may be dense or CSR
+z=projection%transform(x)               ! dense projected values
+sparse_z=projection%transform_sparse(x) ! CSR x and CSR projected values
+```
+
+Sparse fitting and forward transforms do not materialize the feature-by-component
+matrix. CSR forward multiplication uses O(n_features + component_nnz) auxiliary
+storage plus its requested output. Dense input products traverse stored component
+columns in their original sampled order. Inverse construction, including
+`compute_inverse_components=.true.`, materializes dense components and uses the
+existing dense SVD backend. Cached inverse application remains dense as in sklearn.
+Density one may also be explicitly stored in CSR, though it has no sparsity benefit.
 
 CSR output uses sparse component-column products and a single projected-row
 workspace in two passes; it never allocates the full sample-by-component dense

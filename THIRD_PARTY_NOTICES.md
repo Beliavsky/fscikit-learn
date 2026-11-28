@@ -1776,6 +1776,13 @@ was added.
 
 ## CSR random projection interfaces (BSD reference; MIT integration)
 
+The optional CSR component representation follows the same sklearn 1.6.1
+`random_projection.py` sampling and transform contracts. Raw component row
+order is retained for direct validation; one-based CSR layout, transpose
+construction, storage selection and integration are native MIT contributions.
+`store_sparse_components` is explicitly a native storage adapter, not a new
+algorithm or a sklearn constructor option. Existing sklearn BSD notices apply.
+
 `src/sklearn_random_projection.f90` follows sklearn 1.6.1
 `random_projection.py` sparse input validation, shared component generation,
 projection and inverse contracts. Existing attributed scalar-seeded NumPy

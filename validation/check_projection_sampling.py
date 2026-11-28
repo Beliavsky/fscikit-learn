@@ -33,9 +33,14 @@ def main():
     os.environ.update(OMP_NUM_THREADS='1', OPENBLAS_NUM_THREADS='1')
     digest = lambda p: hashlib.sha256(Path(p).read_bytes()).hexdigest()
     archive_hash = digest(archive)
-    files = [Path(__file__), root / 'src/sklearn_random_projection.f90', root / 'test/test_seeded_projections.f90']
+    files = [Path(__file__), *[root / name for name in [
+        'src/sklearn_random_projection.f90', 'test/test_seeded_projections.f90',
+        'test/test_sparse_projection_components.f90', 'app/reference_seeded_projection_driver.f90',
+        'app/reference_csr_projection_driver.f90', 'validation/compare_seeded_projections.py',
+        'validation/compare_csr_projections.py', 'validation/check_projection_component_memory.py']]]
     source_hashes = {str(p): digest(p) for p in files}
-    selected = ['test_seeded_projections', 'test_csr_projections', 'test_factor_projection']
+    selected = ['test_seeded_projections', 'test_csr_projections', 'test_factor_projection',
+                'test_sparse_projection_components']
     native = sorted(p for p in (root / 'test').glob('*.f90')
                     if re.search(r'^\s*program\s', p.read_text(), re.I | re.M))
     programs = native if args.all_native else [root / 'test' / (n + '.f90') for n in selected]
@@ -75,17 +80,25 @@ def main():
         with ThreadPoolExecutor(max_workers=4) as pool:
             outcomes = list(pool.map(run_native, programs))
         for driver, script in zip(drivers, ['compare_seeded_projections.py', 'compare_csr_projections.py']):
-            report = args.report.with_name(args.report.stem + '_' + script.removeprefix('compare_').removesuffix('.py') + '.json')
-            subprocess.run([sys.executable, str(root / 'validation' / script), '--executable',
-                            str(executable(driver)), '--profile', args.profile, '--report', str(report)], check=True)
-            evidence[script] = dict(report=str(report), sha256=digest(report))
+            for sparse_components in [False, True]:
+                key = script.removeprefix('compare_').removesuffix('.py') + ('_csr_components' if sparse_components else '')
+                report = args.report.with_name(args.report.stem + '_' + key + '.json')
+                subprocess.run([sys.executable, str(root / 'validation' / script), '--executable',
+                                str(executable(driver)), '--profile', args.profile, '--report', str(report),
+                                *(['--sparse-components'] if sparse_components else [])], check=True)
+                evidence[key] = dict(report=str(report), sha256=digest(report))
+        report = args.report.with_name(args.report.stem + '_memory.json')
+        subprocess.run([sys.executable, str(root / 'validation/check_projection_component_memory.py'),
+                        '--executable', str(executable(root / 'test/test_sparse_projection_components.f90')),
+                        '--report', str(report)], check=True)
+        evidence['memory'] = dict(report=str(report), sha256=digest(report))
     assert digest(archive) == archive_hash
     assert source_hashes == {str(p): digest(p) for p in files}
     result = dict(profile=args.profile, native=outcomes, evidence=evidence,
                   archive_sha256=archive_hash, compiler_sha256=digest(compiler),
                   source_sha256=source_hashes)
     args.report.write_text(json.dumps(result, indent=2) + '\n')
-    print(args.profile, len(outcomes), 'native programs and both reference suites PASS')
+    print(args.profile, len(outcomes), 'native programs, four reference runs and memory bound PASS')
 
 
 if __name__ == '__main__':
