@@ -2821,6 +2821,23 @@ selected for each batch. Warm fits and explicit initializers work with either
 representation. Inputs are validated and remain caller-owned and unchanged;
 no training design is retained or densified.
 
+Current CSR verification: a fresh GNU 15.2 checked fpm build passes all 338
+native programs and all 1,197 dependency-aware compiled-source fingerprints.
+Checked and scoped O3 profiles each pass 18,180 Source comparison groups:
+17,172 groups across 696 CSR/mixed sequences and 1,908 recorded stages, plus
+all 1,008 prior dense groups. State counters and predictions compare exactly;
+existing 3e-8 numeric tolerances remain unchanged. Both native one-class
+harnesses exercise the optimized module, and fourteen rejection guards pass
+per profile. Inputs, binaries, library archive and source hashes are checked
+for stability; expected outputs agree across profiles.
+
+The 384-by-200,000 fit/partial/warm/query memory case peaks at 18,292,736 checked
+/ 18,276,352 optimized bytes, below 128 MiB, versus 614,400,000 bytes for a
+dense design alone. Evidence and cross-profile proof use
+validation/results/sgd_one_class_sparse_. Validation retains sklearn 1.6.1,
+NumPy 2.2.6, SciPy 1.15.3, static libgfortran and the Windows locale-copy shim.
+This proves the tested CSR/dense contracts, not full project parity.
+
 ## Isolation forests
 
 `isolation_forest` translates sklearn 1.6.1 IsolationForest's dense finite-data

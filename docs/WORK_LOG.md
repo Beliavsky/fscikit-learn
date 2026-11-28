@@ -12297,3 +12297,31 @@ pass (18,300,928 bytes peak). Dense validation now uses isolated temporary
 protocol files and explicit report paths, permitting independent profile runs.
 Full coherent checked rebuild and checked/O3 audits follow. Existing MIT
 licensing and sklearn/RNG attribution are retained.
+
+### 2026-11-28: Full CSR SGDOneClassSVM checked/O3 verification
+
+Implementation c915cc6 passed a coherent GNU 15.2 checked fpm rebuild. All 338
+native programs, both scoped optimized one-class harnesses and all 1,197
+dependency-aware compiled-source fingerprints pass. Checked and O3 profiles
+each pass 18,180 Source comparison groups: 696 CSR/mixed sequences / 1,908
+stages / 17,172 groups, plus 1,008 existing dense groups. Predictions and state
+counters compare exactly; existing numeric tolerances remain 3e-8. No numeric
+tolerance was widened. Fourteen rejection guards pass in each profile.
+
+The 384-by-200,000 sparse fit/partial/warm/query memory case peaks at
+18,292,736 checked / 18,276,352 optimized bytes, below 128 MiB; a dense design
+alone would require 614,400,000 bytes. Source, executable and archive hashes
+are stable during audits, and expected outputs agree across profiles. The
+Source sparse intercept-decay constant is explicitly verified in
+linear_model/_base.py and included in attribution. Validation retains sklearn
+1.6.1, NumPy 2.2.6, SciPy 1.15.3, static libgfortran and the Windows locale-copy
+shim. Whole-project parity remains unproven and documented gaps remain.
+
+Evidence prefix: validation/results/sgd_one_class_sparse_. Archive SHA256:
+04eea98ee9cdf6bf659dbfc85dc07aa2b08212002c47a3d3e42ee9d98dfe8bbd
+Checked audit SHA256:
+ab3acb97174e83ab7b96e2b2e847041c51217efc70a3711ebc519c0443339226
+Optimized audit SHA256:
+3998ce26eb29216b773c08b8e1b83c821ce8a8ac30b9392eb8162a0bd81c4a76
+
+Local commits only; no push. The broader translation goal remains active.
