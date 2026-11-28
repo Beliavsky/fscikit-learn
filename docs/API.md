@@ -2474,6 +2474,17 @@ second-order selection and optional active-set shrinking. converged_/fit_status_
 report its stopping/cap status; kkt_violation_ independently replays the final
 unscaled residual with the original double kernel and can exceed tol.
 pair_alpha_ and pair_scales_ expose native unscaled dual diagnostics.
+fit, decision_function, predict and score accept dense real64 arrays or
+csr_matrix. CSR fits own sorted raw nodes in x_fit_csr_ and
+support_vectors_csr_; dense support_vectors_ remains unallocated. Linear CSR
+fits populate canonical coef_csr_ and leave dense coef_ unallocated. dual_coef_
+remains a dense typed array. These separate storage fields are native adapters
+for sklearn's representation-dependent attributes. CSR queries require a CSR
+fit; dense queries can follow either fit representation. Raw duplicate nodes
+and explicit zeros follow LIBSVM sparse kernel evaluation; linear coefficient
+storage follows canonical sparse matrix multiplication. CSR fitting does not
+allocate a dense feature matrix or feature-width coefficient accumulator.
+
 Nu feasibility uses per-class sample-weight totals. Precomputed queries have
 one column per original training row, including zero-weight rows. Support
 indices refer to original training rows and start at one. See COVERAGE.md for

@@ -2883,7 +2883,7 @@ and exhaustive sklearn compatibility remain outside this subset.
 
 ## Nu support-vector classification
 
-`nu_svc` translates sklearn 1.6.1 NuSVC's dense binary and one-versus-one
+`nu_svc` translates sklearn 1.6.1 NuSVC's dense/CSR binary and one-versus-one
 multiclass classification with linear, RBF, polynomial, sigmoid and precomputed
 kernels. It supports nu, scalar sample weights, gamma scale/auto/numeric rules,
 degree, coef0, tolerance and per-pair iteration limits. Default multiclass
@@ -2938,14 +2938,27 @@ normalization is rejected explicitly rather than returning nonfinite model
 coefficients. This includes degenerate constant kernels and some fully
 saturated nu endpoints that also fail in sklearn.
 
-Probability calibration, class_weight, callable kernels, sparse matrices,
+Probability calibration, class_weight, callable kernels,
 cache-budget controls, metadata routing and sklearn's unlimited max_iter
 sentinel are outside this subset. Native positive finite tol and positive
 max_iter are required; break_ties requires OVR scores. No public extension or
 external runtime dependency was added.
 
 
-Current translated NuSVC verification: a coherent GNU 15.2 checked fpm build
+CSR fit, decision_function, predict and score now share the dense solver,
+using owned Source-sorted raw nodes and the common LIBSVM sparse kernels.
+Duplicate nodes and explicit zeros remain in training/support storage; caller
+arrays are preserved. CSR gamma scale uses coalesced sparse second moments,
+while pairwise kernels retain raw-node merge semantics. CSR queries require a
+CSR fit; dense queries after a CSR fit convert only query rows to CSR. Linear
+CSR fits assemble canonical coef_csr_ directly from sparse contributions,
+without a feature-width dense accumulator. Dense coef_ and support_vectors_
+remain unallocated on CSR fits; x_fit_csr_ and support_vectors_csr_ are native
+typed storage adapters. Dense/CSR refits clear the previous representation's
+fitted storage, including stale coefficient fields. Precomputed inputs remain
+dense. Kernel/solver working matrices remain quadratic in training rows.
+
+Previous translated dense NuSVC verification: a coherent GNU 15.2 checked fpm build
 passes all 341 native programs and all 1,205 compiled-source fingerprints.
 Three selected native harnesses also pass with sklearn_nu_classification built
 at O3 with loop unrolling; harness bounds checks and floating-point traps remain

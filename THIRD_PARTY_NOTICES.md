@@ -3126,3 +3126,14 @@ compressed support-index prediction after zero-weight filtering. Existing
 sklearn and LIBSVM BSD notices in `LICENSES/` apply. Typed storage/refit
 integration, original-row diagnostic replay, explicit behavior notes and
 comparison fixtures are native MIT contributions.
+
+
+## CSR NuSVC
+
+`sklearn_nu_classification` extends the translated LIBSVM Solver_NU path to
+owned CSR nodes using the shared `sklearn_libsvm_sparse` helpers, attributed
+above to sklearn 1.6.1, bundled LIBSVM and SciPy CSR sorting behavior. Sparse
+gamma scaling follows `svm/_base.py`; sparse query kernels retain raw duplicate
+node semantics. Typed storage adapters, sparse coefficient assembly, refit
+management and validation harnesses are MIT contributions. Existing BSD notices
+in `LICENSES/` are retained.

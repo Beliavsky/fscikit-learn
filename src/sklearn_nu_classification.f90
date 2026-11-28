@@ -2,6 +2,9 @@
 module sklearn_nu_classification
   use sklearn_common, only: dp,require,check_x,check_xy,unique_labels
   use sklearn_metrics, only: linear_kernel,rbf_kernel,polynomial_kernel,sigmoid_kernel,accuracy_score
+  use sklearn_sparse,only:csr_matrix,csr_from_dense
+  use sklearn_libsvm_sparse,only:svm_sorted,sparse_rows,libsvm_sparse_gram
+  use sklearn_stateless_preprocessing,only:sorted_sparse
   use,intrinsic::iso_fortran_env,only:real32
   use ieee_arithmetic, only: ieee_is_finite
   implicit none
@@ -16,15 +19,21 @@ module sklearn_nu_classification
     real(dp), allocatable :: support_vectors_(:,:),dual_coef_(:,:),coef_(:,:),intercept_(:)
     real(dp), allocatable :: pair_alpha_(:,:),pair_scales_(:),kkt_violation_(:)
     real(dp), allocatable, private :: x_fit(:,:),dual_full(:,:)
+    type(csr_matrix),allocatable::x_fit_csr_,support_vectors_csr_,coef_csr_
+    logical::sparse_fit_=.false.
     integer, allocatable, private :: first_class(:),second_class(:)
     character(16), private :: fitted_kernel='rbf'
     real(dp), private :: fitted_coef0=0
     integer, private :: fitted_degree=3
   contains
-    procedure :: fit
-    procedure :: decision_function
-    procedure :: predict
-    procedure :: score
+    procedure,private::fit_dense=>fit,fit_csr
+    generic::fit=>fit_dense,fit_csr
+    procedure,private::decision_dense=>decision_function,decision_csr
+    generic::decision_function=>decision_dense,decision_csr
+    procedure,private::predict_dense=>predict,predict_csr
+    generic::predict=>predict_dense,predict_csr
+    procedure,private::score_dense=>score,score_csr
+    generic::score=>score_dense,score_csr
   end type
 contains
   function kernel_matrix(self,x,y) result(gram)
@@ -61,7 +70,8 @@ contains
     do j=1,n
       qd(j)=gram(j,j)
       do i=1,n
-        q(i,j)=real(real(y(i)*y(j)*gram(i,j),real32),dp)
+        ! Column j is Source get_Q(j,:), including precomputed row orientation.
+        q(i,j)=real(real(y(i)*y(j)*gram(j,i),real32),dp)
       end do
     end do
     mass=0
@@ -311,17 +321,44 @@ contains
       v=boxes(a);boxes(a)=boxes(b);boxes(b)=v
     end subroutine
   end subroutine
+  subroutine check_csr(x)
+    type(csr_matrix),intent(in)::x
+    call x%validate()
+    call require(x%n_rows>0.and.x%n_cols>0,'NuSVC CSR input must be nonempty')
+    call require(all(ieee_is_finite(x%data)),'NuSVC CSR input must be finite')
+  end subroutine
   subroutine fit(self,x,y,sample_weight)
-    class(nu_svc), intent(inout) :: self
-    real(dp), intent(in) :: x(:,:)
-    integer, intent(in) :: y(:)
-    real(dp), optional, intent(in) :: sample_weight(:)
+    class(nu_svc),intent(inout)::self
+    real(dp),intent(in)::x(:,:)
+    integer,intent(in)::y(:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    call check_xy(x,size(y));call fit_core(self,y,sample_weight,dense=x)
+  end subroutine
+  subroutine fit_csr(self,x,y,sample_weight)
+    class(nu_svc),intent(inout)::self
+    type(csr_matrix),intent(in)::x
+    integer,intent(in)::y(:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    call check_csr(x);call require(x%n_rows==size(y),'NuSVC CSR target count mismatch')
+    call fit_core(self,y,sample_weight,sparse=x)
+  end subroutine
+  subroutine fit_core(self,y,sample_weight,dense,sparse)
+    class(nu_svc),intent(inout)::self
+    integer,intent(in)::y(:)
+    real(dp),optional,intent(in)::sample_weight(:),dense(:,:)
+    type(csr_matrix),optional,intent(in)::sparse
+    type(csr_matrix)::canonical
     real(dp), allocatable :: gram(:,:),weights(:),mass(:),labels(:),alpha(:),dual(:)
-    real(dp) :: mean,variance,total,bias,r,gap
+    real(dp) :: mean,variance,total,bias,r,gap,entries
     integer, allocatable :: ids(:),left(:),right(:),supports(:)
     logical :: active(size(y)),pair_converged
     integer :: n,p,k,pairs,i,j,a,b,m,t,iterations,row
-    call check_xy(x,size(y)); n=size(y); p=size(x,2)
+    n=size(y)
+    if(present(sparse))then
+      p=sparse%n_cols
+    else
+      p=size(dense,2)
+    end if
     call require(ieee_is_finite(self%nu),'NuSVC nu must be finite and in (0,1]')
     call require(self%nu>0.and.self%nu<=1,'NuSVC nu must be finite and in (0,1]')
     call require(ieee_is_finite(self%tol),'NuSVC tolerance must be finite and positive')
@@ -355,22 +392,45 @@ contains
           'NuSVC specified nu is infeasible')
       end do
     end do
+    self%sparse_fit_=present(sparse)
+    if(allocated(self%x_fit))deallocate(self%x_fit)
+    if(allocated(self%x_fit_csr_))deallocate(self%x_fit_csr_)
+    if(allocated(self%support_vectors_))deallocate(self%support_vectors_)
+    if(allocated(self%support_vectors_csr_))deallocate(self%support_vectors_csr_)
+    if(allocated(self%coef_csr_))deallocate(self%coef_csr_)
     self%gamma_=self%gamma
-    if(self%gamma_==-1) then
-      self%gamma_=1._dp/p
-      if(self%gamma_rule=='scale') then
-        mean=sum(x)/size(x); variance=sum((x-mean)**2)/size(x); self%gamma_=1
-        if(variance>0) self%gamma_=1/(p*variance)
+    self%fitted_kernel=self%kernel;self%fitted_coef0=self%coef0;self%fitted_degree=self%degree
+    if(present(sparse))then
+      call require(self%kernel/='precomputed','NuSVC precomputed inputs must be dense')
+      self%x_fit_csr_=svm_sorted(sparse)
+      if(self%gamma_==-1)then
+        self%gamma_=1._dp/p
+        if(self%gamma_rule=='scale')then
+          canonical=sorted_sparse(sparse,.true.);entries=real(n,dp)*p
+          mean=sum(canonical%data)/entries;variance=sum(canonical%data**2)/entries-mean**2;self%gamma_=1
+          if(variance/=0)self%gamma_=1/(p*variance)
+        end if
       end if
+      gram=libsvm_sparse_gram(self%x_fit_csr_,self%x_fit_csr_,self%fitted_kernel,self%gamma_, &
+        self%fitted_coef0,self%fitted_degree,.true.)
+    else
+      self%x_fit=dense
+      if(self%gamma_==-1)then
+        self%gamma_=1._dp/p
+        if(self%gamma_rule=='scale')then
+          mean=sum(dense)/size(dense);variance=sum((dense-mean)**2)/size(dense);self%gamma_=1
+          if(variance>0)self%gamma_=1/(p*variance)
+        end if
+      end if
+      if(self%kernel=='precomputed')then
+        self%gamma_=0
+        call require(p==n,'NuSVC precomputed training matrix must be square')
+        call require(all(abs(dense-transpose(dense))<=1.e-10_dp*max(1._dp,abs(dense),abs(transpose(dense)))), &
+          'NuSVC precomputed training matrix must be symmetric')
+      end if
+      gram=kernel_matrix(self,dense,dense)
     end if
-    self%fitted_kernel=self%kernel; self%fitted_coef0=self%coef0; self%fitted_degree=self%degree
-    if(self%kernel=='precomputed') then
-      self%gamma_=0
-      call require(p==n,'NuSVC precomputed training matrix must be square')
-      call require(all(abs(x-transpose(x))<=1.e-10_dp*max(1._dp,abs(x),abs(transpose(x)))), &
-        'NuSVC precomputed training matrix must be symmetric')
-    end if
-    self%x_fit=x; self%n_features_in_=p; gram=kernel_matrix(self,x,x)
+    self%n_features_in_=p
     call require(all(ieee_is_finite(gram)),'NuSVC nonfinite Gram matrix')
     pairs=k*(k-1)/2
     if(allocated(self%dual_full)) then
@@ -401,10 +461,12 @@ contains
       ids=pack([(i,i=1,n)],active.and.y==self%classes_(a)); self%n_support_(a)=size(ids); supports=[supports,ids]
     end do
     self%support_=supports
-    if(self%kernel=='precomputed') then
+    if(present(sparse))then
+      self%support_vectors_csr_=sparse_rows(self%x_fit_csr_,supports)
+    else if(self%kernel=='precomputed') then
       self%support_vectors_=reshape([real(dp)::],[0,0])
     else
-      self%support_vectors_=x(supports,:)
+      self%support_vectors_=dense(supports,:)
     end if
     self%dual_coef_=spread(spread(0._dp,1,k-1),2,size(supports))
     do m=1,pairs
@@ -419,8 +481,46 @@ contains
     if(k==2) then
       self%dual_coef_=-self%dual_coef_; self%intercept_=-self%intercept_; self%dual_full=-self%dual_full
     end if
-    if(self%kernel=='linear') self%coef_=matmul(transpose(self%dual_full),x)
+    if(self%kernel=='linear')then
+      if(present(sparse))then
+        call sparse_linear_coef(self)
+      else
+        self%coef_=matmul(transpose(self%dual_full),dense)
+      end if
+    end if
     self%fit_status_=merge(0,1,self%converged_)
+  end subroutine
+  subroutine sparse_linear_coef(self)
+    class(nu_svc),intent(inout)::self
+    type(csr_matrix)::row,canonical
+    integer::m,i,k,t,nz
+    real(dp)::weight
+    allocate(self%coef_csr_)
+    self%coef_csr_%n_rows=size(self%dual_full,2);self%coef_csr_%n_cols=self%x_fit_csr_%n_cols
+    allocate(self%coef_csr_%indptr(size(self%dual_full,2)+1));self%coef_csr_%indptr(1)=1
+    self%coef_csr_%indices=[integer::];self%coef_csr_%data=[real(dp)::]
+    row%n_rows=1;row%n_cols=self%x_fit_csr_%n_cols
+    allocate(row%indptr(2),row%indices(size(self%x_fit_csr_%data)),row%data(size(self%x_fit_csr_%data)))
+    do m=1,size(self%dual_full,2)
+      t=0
+      do i=1,self%x_fit_csr_%n_rows
+        weight=self%dual_full(i,m)
+        if(weight==0)cycle
+        do k=self%x_fit_csr_%indptr(i),self%x_fit_csr_%indptr(i+1)-1
+          t=t+1;row%indices(t)=self%x_fit_csr_%indices(k);row%data(t)=weight*self%x_fit_csr_%data(k)
+        end do
+      end do
+      row%indptr=[1,t+1]
+      block
+        type(csr_matrix)::used
+        used%n_rows=1;used%n_cols=row%n_cols;used%indptr=row%indptr
+        used%indices=row%indices(:t);used%data=row%data(:t);canonical=sorted_sparse(used,.true.)
+      end block
+      nz=count(canonical%data/=0)
+      self%coef_csr_%indices=[self%coef_csr_%indices,pack(canonical%indices,canonical%data/=0)]
+      self%coef_csr_%data=[self%coef_csr_%data,pack(canonical%data,canonical%data/=0)]
+      self%coef_csr_%indptr(m+1)=self%coef_csr_%indptr(m)+nz
+    end do
   end subroutine
   subroutine shape_controls(self)
     class(nu_svc), intent(in) :: self
@@ -434,29 +534,66 @@ contains
     real(dp), intent(in) :: x(:,:)
     real(dp), allocatable :: z(:,:),gram(:,:)
     integer :: m
+    type(csr_matrix)::query
     call require(allocated(self%dual_full),'NuSVC is not fitted'); call check_x(x)
     call require(size(x,2)==self%n_features_in_,'NuSVC query feature count mismatch')
-    call shape_controls(self); gram=kernel_matrix(self,x,self%x_fit)
+    call shape_controls(self)
+    if(self%sparse_fit_)then
+      query=csr_from_dense(x)
+      gram=libsvm_sparse_gram(query,self%x_fit_csr_,self%fitted_kernel,self%gamma_, &
+        self%fitted_coef0,self%fitted_degree,.false.)
+    else
+      gram=kernel_matrix(self,x,self%x_fit)
+    end if
     z=matmul(gram,self%dual_full)
     do m=1,size(z,2)
       z(:,m)=z(:,m)+self%intercept_(m)
     end do
   end function
-  function decision_function(self,x) result(z)
+  function pair_scores_csr(self,x)result(z)
+    class(nu_svc),intent(in)::self
+    type(csr_matrix),intent(in)::x
+    type(csr_matrix)::query
+    real(dp),allocatable::z(:,:),gram(:,:)
+    integer::m
+    call require(allocated(self%dual_full),'NuSVC is not fitted');call check_csr(x)
+    call require(self%sparse_fit_,'NuSVC CSR query requires a CSR fit')
+    call require(x%n_cols==self%n_features_in_,'NuSVC query feature count mismatch')
+    call shape_controls(self);query=svm_sorted(x)
+    gram=libsvm_sparse_gram(query,self%x_fit_csr_,self%fitted_kernel,self%gamma_, &
+      self%fitted_coef0,self%fitted_degree,.false.)
+    z=matmul(gram,self%dual_full)
+    do m=1,size(z,2)
+      z(:,m)=z(:,m)+self%intercept_(m)
+    end do
+  end function
+  function decision_function(self,x)result(z)
+    class(nu_svc),intent(in)::self
+    real(dp),intent(in)::x(:,:)
+    real(dp),allocatable::z(:,:)
+    z=decision_from_pairs(self,pair_scores(self,x))
+  end function
+  function decision_csr(self,x)result(z)
+    class(nu_svc),intent(in)::self
+    type(csr_matrix),intent(in)::x
+    real(dp),allocatable::z(:,:)
+    z=decision_from_pairs(self,pair_scores_csr(self,x))
+  end function
+  function decision_from_pairs(self,raw) result(z)
     class(nu_svc), intent(in) :: self
-    real(dp), intent(in) :: x(:,:)
-    real(dp), allocatable :: z(:,:),raw(:,:),confidence(:,:)
+    real(dp), intent(in) :: raw(:,:)
+    real(dp), allocatable :: z(:,:),confidence(:,:)
     integer :: i,m,a,b,k
-    raw=pair_scores(self,x); k=size(self%classes_)
+    k=size(self%classes_)
     if(k==2.or.self%decision_function_shape=='ovo') then
       z=raw
       return
     end if
-    allocate(z(size(x,1),k),confidence(size(x,1),k)); z=0; confidence=0
+    allocate(z(size(raw,1),k),confidence(size(raw,1),k)); z=0; confidence=0
     do m=1,size(raw,2)
       a=self%first_class(m); b=self%second_class(m)
       confidence(:,a)=confidence(:,a)+raw(:,m); confidence(:,b)=confidence(:,b)-raw(:,m)
-      do i=1,size(x,1)
+      do i=1,size(raw,1)
         if(raw(i,m)>=0) then
           z(i,a)=z(i,a)+1
         else
@@ -466,14 +603,27 @@ contains
     end do
     z=z+confidence/(3*(abs(confidence)+1))
   end function
-  function predict(self,x) result(y)
-    class(nu_svc), intent(in) :: self
-    real(dp), intent(in) :: x(:,:)
-    integer :: y(size(x,1)),i,m,a,b
-    integer, allocatable :: votes(:,:)
-    real(dp), allocatable :: z(:,:)
+  function predict(self,x)result(y)
+    class(nu_svc),intent(in)::self
+    real(dp),intent(in)::x(:,:)
+    integer::y(size(x,1))
+    y=prediction_from_pairs(self,pair_scores(self,x))
+  end function
+  function predict_csr(self,x)result(y)
+    class(nu_svc),intent(in)::self
+    type(csr_matrix),intent(in)::x
+    integer,allocatable::y(:)
+    y=prediction_from_pairs(self,pair_scores_csr(self,x))
+  end function
+  function prediction_from_pairs(self,raw)result(y)
+    class(nu_svc),intent(in)::self
+    real(dp),intent(in)::raw(:,:)
+    integer,allocatable::y(:),votes(:,:)
+    integer::i,m,a,b
+    real(dp),allocatable::z(:,:)
+    allocate(y(size(raw,1)))
     if(self%break_ties) then
-      z=self%decision_function(x)
+      z=decision_from_pairs(self,raw)
       if(size(self%classes_)>2) then
         do i=1,size(y)
           y(i)=self%classes_(maxloc(z(i,:),dim=1))
@@ -481,12 +631,12 @@ contains
         return
       end if
     end if
-    z=pair_scores(self,x)
+    z=raw
     if(size(self%classes_)==2) then
       y=merge(self%classes_(2),self%classes_(1),z(:,1)>=0)
       return
     end if
-    allocate(votes(size(x,1),size(self%classes_))); votes=0
+    allocate(votes(size(raw,1),size(self%classes_))); votes=0
     do m=1,size(z,2)
       a=self%first_class(m); b=self%second_class(m)
       do i=1,size(y)
@@ -505,6 +655,13 @@ contains
     class(nu_svc), intent(in) :: self
     real(dp), intent(in) :: x(:,:)
     integer, intent(in) :: y(:)
+    real(dp),optional,intent(in)::sample_weight(:)
+    value=accuracy_score(y,self%predict(x),sample_weight=sample_weight)
+  end function
+  real(dp) function score_csr(self,x,y,sample_weight)result(value)
+    class(nu_svc),intent(in)::self
+    type(csr_matrix),intent(in)::x
+    integer,intent(in)::y(:)
     real(dp),optional,intent(in)::sample_weight(:)
     value=accuracy_score(y,self%predict(x),sample_weight=sample_weight)
   end function
