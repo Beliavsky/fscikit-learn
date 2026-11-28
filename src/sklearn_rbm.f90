@@ -6,7 +6,7 @@ module sklearn_rbm
   use, intrinsic :: ieee_exceptions
   use, intrinsic :: iso_fortran_env, only: int64
   use sklearn_legacy_rng, only: legacy_random_state
-  use, intrinsic :: ieee_arithmetic, only: ieee_is_finite,ieee_is_nan
+  use, intrinsic :: ieee_arithmetic, only: ieee_is_finite,ieee_is_nan,ieee_fma
   implicit none
   private
   public :: bernoulli_rbm
@@ -50,9 +50,17 @@ contains
     do j=1,size(b,2)
       do i=1,size(a,1)
         if(ieee_is_finite(c(i,j))) cycle
-        if(.not.all(ieee_is_finite(a(i,:))).or..not.all(ieee_is_finite(b(:,j)))) cycle
         products=a(i,:)*b(:,j)
-        if(.not.all(ieee_is_finite(products))) cycle
+        if(.not.all(ieee_is_finite(products))) then
+          ! Keep a finite oversized product fused with an existing infinity,
+          ! matching BLAS FMA instead of prematurely forming opposite infinities.
+          total=0
+          do k=1,size(products)
+            total=ieee_fma(a(i,k),b(k,j),total)
+          end do
+          c(i,j)=total
+          cycle
+        end if
         np=0; nn=0
         do k=1,size(products)
           if(products(k)>=0) then

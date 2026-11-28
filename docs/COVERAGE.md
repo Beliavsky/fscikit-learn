@@ -3123,7 +3123,8 @@ caller IEEE flags and halting modes, allowing Source nonfinite derived states.
 The persistent negative chain retains NaNs through Source's floor semantics;
 Boolean Gibbs sampling treats NaN probabilities as false. A finite-product dot
 recovery pairs opposite signs if ordinary dense accumulation overflows before
-cancellation; genuine nonfinite products retain their usual outcomes.
+cancellation. Exceptional products use IEEE fused multiply-add semantics,
+avoiding opposite infinities created solely by premature product rounding.
 
 The existing legacy MT19937/uniform/Gaussian/bounded-integer helper reproduces
 NumPy RandomState draw order, including row-major logical array draws followed

@@ -3,7 +3,7 @@ program reference_rbm_driver
   use sklearn_sparse, only: csr_matrix,csr_from_dense
   use sklearn_common, only: dp
   implicit none
-  type(bernoulli_rbm) :: model
+  type(bernoulli_rbm) :: model,initial
   type(csr_matrix) :: sparse
   character(16) :: storage
   integer :: layout,nz
@@ -38,6 +38,23 @@ program reference_rbm_driver
       end if
     end if
     write(prefix,'(i0,a)') k,'_'
+    if(op==2) then
+      if(allocated(model%components_)) then
+        if(layout==1) then
+          values=model%transform(sparse)
+        else
+          values=model%transform(x)
+        end if
+      else
+        initial=model; initial%n_iter=0
+        if(layout==1) then
+          call initial%fit(sparse); values=initial%transform(sparse)
+        else
+          call initial%fit(x); values=initial%transform(x)
+        end if
+      end if
+      call matrix('positive_before',values)
+    end if
     if(layout==1) then
     select case(op)
     case(1); call model%fit(sparse)

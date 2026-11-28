@@ -58,6 +58,9 @@ def main():
     digest=hashlib.sha256(executable.read_bytes()).hexdigest()
     reference_files=[Path(m.__file__).resolve() for m in [source_rbm,source_sparse,source_ufuncs,source_special,source_numpy]]
     reference_files+=[Path(scipy.__file__).parent/'sparse/_compressed.py']
+    for package in [np,scipy]:
+        libraries=Path(package.__file__).parent.parent/(package.__name__+'.libs')
+        if libraries.is_dir():reference_files+=sorted(libraries.glob('*.dll'))
     reference_hashes={str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in reference_files}
     work=tempfile.TemporaryDirectory(prefix="fsklearn-rbm-reference-")
     checks=[];replays=[];mismatches=[];sequences=0;case_count=26 if args.boundary_cases else 20
@@ -125,6 +128,12 @@ def main():
                 if raw:
                     lines.extend([str(source_data.nnz),' '.join(str(v+1) for v in source_data.indptr),' '.join(str(v+1) for v in source_data.indices),' '.join(format(v,'.17g') for v in source_data.data)])
                 else:lines.extend(' '.join(f'{v:.17g}' for v in row) for row in data)
+                if op==2:
+                    initial=copy.deepcopy(source)
+                    with warnings.catch_warnings(),np.errstate(all='ignore'):
+                        warnings.simplefilter('ignore')
+                        if not hasattr(initial,'components_'):initial.set_params(n_iter=0).fit(source_data)
+                        expected[prefix+'positive_before']=initial.transform(source_data)
                 if args.diagnostic:before_states[i]=copy.deepcopy(source)
                 result=None
                 with warnings.catch_warnings(),np.errstate(all='ignore'):
@@ -160,8 +169,8 @@ def main():
                     if not args.diagnostic:raise
                     want=np.asarray(value).ravel(order='F');got=actual[name]
                     finite=np.isfinite(want)&np.isfinite(got)
-                    mismatches.append(dict(seed=seed,case=case,name=name,max_abs_error=float(np.max(abs(got[finite]-want[finite]))) if finite.any() else None,nonfinite_masks_match=bool(np.array_equal(np.isnan(want),np.isnan(got)) and np.array_equal(np.isinf(want),np.isinf(got)))))
-                checks.append(dict(seed=seed,case=case,name=name,passed=passed))
+                    mismatches.append(dict(seed=seed,case=case,name=name,max_abs_error=float(np.max(abs(got[finite]-want[finite]))) if finite.any() else None,nonfinite_masks_match=bool(np.array_equal(np.isnan(want),np.isnan(got)) and np.array_equal(np.isinf(want),np.isinf(got))),discrete=bool(discrete)))
+                checks.append(dict(seed=seed,case=case,name=name,passed=passed,discrete=bool(discrete)))
             if args.diagnostic:
                 for i,(operation,data,config) in enumerate(ops,1):
                     if operation==2:
@@ -171,13 +180,27 @@ def main():
                             replay.components_=actual[previous+'components'].reshape(snapshots[i-1].components_.shape,order='F').copy(order='F')
                             replay.intercept_hidden_=actual[previous+'hidden'].copy();replay.intercept_visible_=actual[previous+'visible'].copy()
                             replay.h_samples_=actual[previous+'chain'].reshape(snapshots[i-1].h_samples_.shape,order='F').copy()
+                        prefix=f'{i}_';positive=actual[prefix+'positive_before'].reshape(len(data),snapshots[i].components_.shape[0],order='F').copy()
+                        if not hasattr(replay,'components_'):
+                            initial=copy.deepcopy(replay).set_params(n_iter=0)
+                            with warnings.catch_warnings(),np.errstate(all='ignore'):
+                                warnings.simplefilter('ignore');initial.fit(source_inputs[i])
+                            positive_reference=initial.transform(source_inputs[i])
+                        else:positive_reference=replay.transform(source_inputs[i])
+                        np.testing.assert_allclose(positive,positive_reference,atol=2.e-10,rtol=2.e-10,equal_nan=True,err_msg=f'positive means {seed} {case} {i}')
+                        original_mean=replay._mean_hiddens;mean_calls=[0]
+                        def mean_for_update(values):
+                            mean_calls[0]+=1
+                            return positive.copy() if mean_calls[0]==1 else original_mean(values)
+                        replay._mean_hiddens=mean_for_update
                         with warnings.catch_warnings(),np.errstate(all='ignore'):
                             warnings.simplefilter('ignore');replay.partial_fit(source_inputs[i])
+                        replays.append(dict(seed=seed,case=case,operation=i,passed=True,oracle='Source positive means using native preceding arrays'))
                         prefix=f'{i}_'
                         for field,attribute in [('components','components_'),('hidden','intercept_hidden_'),('visible','intercept_visible_'),('chain','h_samples_')]:
                             tolerance=0 if field=='chain' else 2.e-10
                             np.testing.assert_allclose(actual[prefix+field],np.asarray(getattr(replay,attribute)).ravel(order='F'),atol=tolerance,rtol=tolerance,equal_nan=True,err_msg=f'same-state update {seed} {case} {i} {field}')
-                        replays.append(dict(seed=seed,case=case,operation=i,passed=True,oracle='Source partial update using native preceding arrays and matching RNG stream'))
+                        replays.append(dict(seed=seed,case=case,operation=i,passed=True,oracle='Source partial update using native preceding arrays and independently checked positive means, matching RNG stream'))
                     if operation not in [3,4,6]:continue
                     prefix=f'{i}_';replay=snapshots[i]
                     replay.components_=actual[prefix+'components'].reshape(replay.components_.shape,order='F').copy(order='F')
@@ -192,7 +215,7 @@ def main():
     assert digest==hashlib.sha256(executable.read_bytes()).hexdigest()
     assert reference_hashes=={str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in reference_files}
     work.cleanup()
-    (args.report or RESULTS/('rbm_csr.json' if args.sparse_input else 'rbm.json')).write_text(json.dumps(dict(sklearn=sklearn.__version__,numpy=np.__version__,scipy=scipy.__version__,reference_sha256=reference_hashes,executable_sha256=digest,sparse_input=args.sparse_input,layout=args.layout,mixed_input=args.mixed_input,boundary_cases=args.boundary_cases,sequences=sequences,diagnostic=args.diagnostic,direct_mismatches=mismatches,same_state_replays=replays,checks=checks),indent=2)+'\n')
+    (args.report or RESULTS/('rbm_csr.json' if args.sparse_input else 'rbm.json')).write_text(json.dumps(dict(sklearn=sklearn.__version__,numpy=np.__version__,scipy=scipy.__version__,reference_sha256=reference_hashes,executable_sha256=digest,sparse_input=args.sparse_input,layout=args.layout,mixed_input=args.mixed_input,boundary_cases=args.boundary_cases,sequences=sequences,diagnostic=args.diagnostic,direct_passed=all(c["passed"] for c in checks),completed=True,direct_mismatches=mismatches,same_state_replays=replays,checks=checks),indent=2)+'\n')
     print(f'{len(checks)} BernoulliRBM groups observed; {len(mismatches)} direct mismatches; {len(replays)} same-state replays passed')
 
 

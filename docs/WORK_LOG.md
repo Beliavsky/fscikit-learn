@@ -11738,3 +11738,31 @@ nonfinite chain/Gibbs distinctions. Full fpm and scoped optimized validation
 are pending at this implementation commit. MIT/sklearn/SciPy attribution stays;
 no external runtime dependency or non-sklearn algorithm was added. The broad
 translation goal remains active; commits stay local.
+
+
+### RBM optimized-boundary correction
+
+The first full checked audit passed all 348 jobs and 952 source fingerprints,
+but the scoped -O3 run exposed three failures. Dense inlined products formed
+opposite infinities before accumulation where BLAS fused arithmetic retained
+a signed infinity. Exceptional dense products now use Fortran 2018 IEEE_FMA;
+finite-product cancellation retains the prior sign-pair recovery. This closes
+the observed optimized NaN-location difference without changing ordinary
+matrix products or widening numeric tolerances.
+
+The optimized raw-cancellation update replay also exposed amplification of
+libm/fit rounding at the positive conditional means. The reference driver now
+records those means before every partial update (using a separate zero-epoch
+initialization when needed). Diagnostics independently compare them with Source
+at 2e-10, then replay the Source update using those checked native means,
+native preceding arrays and matching RNG state. This separates nonlinear
+rounding from sparse-statistic/update correctness instead of weakening an
+end-to-end threshold. Pure forward replays remain separately identified.
+
+Final private checked and optimized probes pass five strict 104-sequence
+corpora, now 5,952 fields each, plus the conditional cancellation diagnostics
+with 836 layered replays per corpus. Optimized cancellation/mixed primary gaps
+remain explicitly observed; no strict stress parity is claimed. Both native
+unit modes and ten optimized guards/memory checks pass. A new full current-source
+rebuild and audits are pending. Implementation/provenance work remains local
+and the broad goal remains active.
