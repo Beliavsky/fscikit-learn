@@ -2892,16 +2892,19 @@ break_ties are supported. Binary decision scores have shape (n_query,1) and
 favor the second sorted class when positive. Multiclass OVO scores favor the
 first class of each ordered pair when positive, matching sklearn's convention.
 
-The independent native optimizer minimizes the two-label-group box-constrained
-nu dual with fixed weighted alpha mass in each group, gain-based pair updates,
-periodic full gradient reconstruction and LIBSVM's margin/intercept rescaling.
-Sample weights are capacities and are not normalized. Every class needs positive
-total weight; each pair must satisfy nu*(weight_a+weight_b)/2 <= min(weight_a,
-weight_b). Zero-weight samples are excluded. Kernel calculations and gradients
-use full real64 matrices, while sklearn's LIBSVM uses a float kernel cache.
-Dense quadratic storage targets moderate datasets. Sigmoid or indefinite
-precomputed kernels can be nonconvex; KKT convergence indicates stationarity,
-not a guarantee of a global minimum for those kernels.
+The optimizer now translates LIBSVM Solver_NU's two-label-group second-order
+selection, box-constrained updates, weighted mass initialization, threshold
+levels and margin rescaling. `shrinking=.true.` enables the Source periodic
+active-set reduction, bound-gradient reconstruction and unshrinking; false
+keeps the full active set. Source float Q rounding is distinct from double
+kernel diagonals and query evaluation. Sample weights are capacities and are
+not normalized. Every class needs positive total weight; each pair must satisfy
+nu*(weight_a+weight_b)/2 <= min(weight_a,weight_b). Zero-weight samples are
+excluded. Dense quadratic storage targets moderate datasets. Sigmoid or
+indefinite precomputed kernels can be nonconvex. Aggregate convergence reflects
+the cached-gradient stopping test, while kkt_violation_ independently replays
+the unscaled double-kernel residual, which may exceed tol. This does not assert
+global optimality for indefinite kernels. score accepts optional sample_weight.
 
 Fitted classes_, support_, n_support_, support_vectors_, dual_coef_, intercept_,
 and linear-only coef_ follow the class-grouped LIBSVM layout. Native support
@@ -2913,17 +2916,16 @@ feasibility checks. n_features_in_ is cached. Native max_iter defaults to 200000
 examine convergence after a limited fit. Kernels and their parameters are saved
 at fit time; decision_function_shape and break_ties may be changed for queries.
 
-When a group has no free dual variables, its margin level can lie in a
-nontrivial interval. Native levels use the interval midpoint, ignoring
-machine-roundoff artifacts at capacity bounds. LIBSVM may select a different
-valid level after leaving a coefficient within machine epsilon of a bound.
-This can change normalized coefficients, intercepts and scores while preserving
-the unscaled optimum. Reference validation checks both levels' KKT intervals
-and unscaled kernel projections in these cases. Meaningful RBF support metadata
-is compared above a 1e-10 coefficient threshold; full dual comparisons retain
-all entries. This avoids treating LIBSVM coefficients around 1e-15 as distinct
-substantive support vectors. Native exposed support arrays retain actual
-nonzero coefficients, without that validation-only threshold.
+Margin levels now follow Source's strict lower/upper/free alpha status and
+active-set rho evaluation even at an iteration cap. A fully bound group uses
+its threshold interval midpoint; near-bound free coefficients follow the
+Source free-variable average. The legacy corpus retains its meaningful-support
+and unscaled-projection comparisons for historical continuity. The new LIBSVM
+corpus compares complete support arrays, all public duals/intercepts and
+responses directly, including fully bound, capped and indefinite cases.
+Independent certificate replays check class masses, boxes, public normalized
+dual layout and reported residuals. For an uncapped pair, the physical residual
+is bounded using the independently computed float-cache kernel rounding error.
 
 For zero-weight precomputed references, validation explicitly reduces the
 positive-weight training Gram and query columns before calling sklearn. This
@@ -2937,7 +2939,7 @@ coefficients. This includes degenerate constant kernels and some fully
 saturated nu endpoints that also fail in sklearn.
 
 Probability calibration, class_weight, callable kernels, sparse matrices,
-shrinking/cache controls, metadata routing and sklearn's unlimited max_iter
+cache-budget controls, metadata routing and sklearn's unlimited max_iter
 sentinel are outside this subset. Native positive finite tol and positive
 max_iter are required; break_ties requires OVR scores. No public extension or
 external runtime dependency was added.

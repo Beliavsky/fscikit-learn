@@ -2460,7 +2460,8 @@ model%gamma_rule='scale' ! gamma=-1 selects this rule; numeric gamma overrides i
 call model%fit(x,labels,sample_weight=weights) ! weights optional
 prediction=model%predict(query)
 scores=model%decision_function(query)
-accuracy=model%score(x,labels)
+accuracy=model%score(x,labels,sample_weight=weights) ! weights optional
+model%shrinking=.true. ! default; false retains the full working set
 model%decision_function_shape='ovo' ! default ovr; break_ties requires ovr
 ```
 
@@ -2468,7 +2469,10 @@ Core fitted attributes are classes_, support_, n_support_, support_vectors_,
 dual_coef_, intercept_, n_features_in_ and linear-only coef_. Binary scores
 are (n_query,1), multiclass OVR scores are (n_query,n_classes), and OVO scores
 are (n_query,n_classes*(n_classes-1)/2). Native n_iter_ and kkt_violation_
-are vectors over class pairs, with aggregate converged_ and fit_status_.
+are vectors over class pairs. The translated LIBSVM float-cache solver uses
+second-order selection and optional active-set shrinking. converged_/fit_status_
+report its stopping/cap status; kkt_violation_ independently replays the final
+unscaled residual with the original double kernel and can exceed tol.
 pair_alpha_ and pair_scales_ expose native unscaled dual diagnostics.
 Nu feasibility uses per-class sample-weight totals. Precomputed queries have
 one column per original training row, including zero-weight rows. Support

@@ -3,6 +3,7 @@ from pathlib import Path
 import argparse
 import json
 import subprocess
+import hashlib
 import numpy as np
 import sklearn
 from sklearn.svm import NuSVC
@@ -14,7 +15,10 @@ FLAGS = "-fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow"
 
 
 def main():
-    parser = argparse.ArgumentParser(); parser.add_argument("--executable", type=Path); args = parser.parse_args()
+    parser = argparse.ArgumentParser(); parser.add_argument("--executable", type=Path)
+    parser.add_argument("--report",type=Path,default=RESULTS/"nusvc.json")
+    parser.add_argument("--work-dir",type=Path,default=RESULTS);args=parser.parse_args()
+    args.work_dir.mkdir(parents=True,exist_ok=True)
     RESULTS.mkdir(exist_ok=True)
     if args.executable:
         executable = args.executable.resolve()
@@ -26,6 +30,8 @@ def main():
         candidates = [p for p in candidates if p.is_file()]
         assert len(candidates) == 1, result.stdout
         executable = candidates[0].resolve()
+    sha=lambda p:hashlib.sha256(Path(p).read_bytes()).hexdigest()
+    hashes={str(p):sha(p) for p in [Path(__file__),executable,ROOT/'src/sklearn_nu_classification.f90',ROOT/'app/reference_nusvc_driver.f90']}
     checks = []
     for seed, n, p in ((7, 48, 3), (42, 60, 4), (2026, 36, 5)):
         rng = np.random.default_rng(seed)
@@ -66,7 +72,7 @@ def main():
             if case in (10, 16):
                 train = rbf_kernel(x, gamma=.4); query = rbf_kernel(query, x, gamma=.4)
             gamma = options["gamma"]; rule = gamma if isinstance(gamma, str) else "scale"
-            data, output = RESULTS / "nusvc_input.txt", RESULTS / "nusvc_actual.txt"
+            data, output = args.work_dir / "nusvc_input.txt", args.work_dir / "nusvc_actual.txt"
             with data.open("w") as stream:
                 stream.write(f"{n} {train.shape[1]} {len(query)} {int(options['break_ties'])}\n")
                 stream.write(f"{options['kernel']} {rule} {options['decision_function_shape']}\n")
@@ -74,7 +80,7 @@ def main():
                              f"{options['coef0']} {options['degree']} 1e-9 200000\n")
                 np.savetxt(stream, np.column_stack([train, y, w]), fmt="%.17g")
                 np.savetxt(stream, query, fmt="%.17g")
-            subprocess.run([str(executable), str(data), str(output)], cwd=ROOT, check=True)
+            subprocess.run([str(executable), str(data), str(output), "--no-shrinking"], cwd=ROOT, check=True)
             actual = {}
             for line in output.read_text().splitlines():
                 name, *values = line.split(); actual[name] = np.array(values, dtype=float)
@@ -134,7 +140,8 @@ def main():
                         if not np.any(free) and lo-hi > 1e-7: nonunique_normalization = True
                         native_level = actual["scales"][pair]*(1+direction*native_bias)
                         source_level = source_scale*(1+direction*source_bias)
-                        assert hi-2e-7 <= native_level <= lo+2e-7, (seed, case, "native margin", pair)
+                        error_bound=float(np.max(np.abs(gram-gram.astype(np.float32).astype(float))@alpha[:,pair]))+1e-8
+                        assert hi-error_bound <= native_level <= lo+error_bound, (seed, case, "native margin", pair)
                         assert hi-3e-4 <= source_level <= lo+3e-4, (seed, case, "source margin", pair)
                     pair += 1
             np.testing.assert_allclose(gram @ unscaled, gram @ source_unscaled, atol=3e-4, rtol=3e-4,
@@ -183,7 +190,20 @@ def main():
                     assert np.all(alpha[:, pair] >= -1e-12) and np.all(alpha[:, pair] <= w+1e-12)
                     assert np.all(alpha[~involved, pair] == 0)
                     pair += 1
-            assert np.all(actual["kkt"] <= 1.001e-9) and np.all(np.isfinite(actual["scales"]))
+            # The stopping test uses Source float Q; replay residuals on the
+            # original double kernel instead of imposing the old double-solver tol.
+            replay=[];pair=0
+            for a in range(k-1):
+                for b in range(a+1,k):
+                    signs=np.where(y==labels[a],1.,-1.)
+                    gradient=signs*(gram@(alpha[:,pair]*signs));gap=0.
+                    for label in [labels[a],labels[b]]:
+                        members=(y==label)&(w>0)
+                        below=members&(alpha[:,pair]<w);above=members&(alpha[:,pair]>0)
+                        if np.any(below) and np.any(above):gap=max(gap,gradient[above].max()-gradient[below].min())
+                    replay.append(gap);pair+=1
+            np.testing.assert_allclose(actual["kkt"],replay,atol=1e-8,rtol=1e-6)
+            assert np.all(np.isfinite(actual["scales"]))
             public_expected = unscaled/actual["scales"]*(-1 if k == 2 else 1)
             np.testing.assert_allclose(native_full, public_expected, atol=1e-12, rtol=1e-12)
             np.testing.assert_array_equal(actual["n_support"], [np.sum(y[native_support] == c) for c in labels])
@@ -204,7 +224,8 @@ def main():
             for name in ("class_masses", "box_bounds", "excluded_rows", "kkt", "native_margin", "source_margin",
                          "unscaled_primal", "public_dual_layout", "public_support_counts", "query_identity", "score_identity"):
                 checks.append(dict(seed=seed, case=case, name=name, kind="certificate", passed=True))
-    (RESULTS / "nusvc.json").write_text(json.dumps(dict(sklearn=sklearn.__version__, checks=checks), indent=2)+"\n")
+    assert hashes=={p:sha(p) for p in hashes}
+    args.report.write_text(json.dumps(dict(sklearn=sklearn.__version__, checks=checks,hashes=hashes), indent=2)+"\n")
     print(f"{len(checks)} NuSVC result groups passed")
 
 

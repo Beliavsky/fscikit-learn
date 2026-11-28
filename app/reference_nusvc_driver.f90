@@ -19,6 +19,7 @@ program reference_nusvc_driver
     read(input,*) query(i,:)
   end do
   close(input); model%break_ties=ties==1
+  call get_command_argument(3,path);model%shrinking=trim(path)/='--no-shrinking'
   call model%fit(x,y,w)
   call get_command_argument(2,path); open(newunit=output,file=trim(path),status='replace')
   call vector('classes',real(model%classes_,dp)); call vector('support',real(model%support_,dp))

@@ -2,6 +2,7 @@
 module sklearn_nu_classification
   use sklearn_common, only: dp,require,check_x,check_xy,unique_labels
   use sklearn_metrics, only: linear_kernel,rbf_kernel,polynomial_kernel,sigmoid_kernel,accuracy_score
+  use,intrinsic::iso_fortran_env,only:real32
   use ieee_arithmetic, only: ieee_is_finite
   implicit none
   private
@@ -10,7 +11,7 @@ module sklearn_nu_classification
     real(dp) :: nu=.5_dp,gamma=-1,gamma_=0,coef0=0,tol=1.e-3_dp
     integer :: degree=3,max_iter=200000,n_features_in_=0,fit_status_=1
     character(16) :: kernel='rbf',gamma_rule='scale',decision_function_shape='ovr'
-    logical :: break_ties=.false.,converged_=.false.
+    logical :: break_ties=.false.,converged_=.false.,shrinking=.true.
     integer, allocatable :: classes_(:),support_(:),n_support_(:),n_iter_(:)
     real(dp), allocatable :: support_vectors_(:,:),dual_coef_(:,:),coef_(:,:),intercept_(:)
     real(dp), allocatable :: pair_alpha_(:,:),pair_scales_(:),kkt_violation_(:)
@@ -38,100 +39,276 @@ contains
     case('precomputed'); gram=x
     end select
   end function
-  subroutine optimize(gram,labels,cap,nu,tol,max_iter,alpha,dual,bias,r,gap,iterations)
-    real(dp), intent(in) :: gram(:,:),labels(:),cap(:),nu,tol
-    integer, intent(in) :: max_iter
-    real(dp), intent(out) :: alpha(:),dual(:),bias,r,gap
-    integer, intent(out) :: iterations
-    real(dp) :: q(size(labels),size(labels)),g(size(labels)),levels(2),mass,remaining,low,high
-    real(dp) :: delta,curvature,diff,gain,best_gain,bound_tol,free_sum
-    integer :: i,j,h,it,left,a,b,free_count,n
-    n=size(labels); q=gram*spread(labels,2,n)*spread(labels,1,n)
-    alpha=0; mass=nu*sum(cap)/2
+  subroutine optimize(gram,labels,c,nu,tol,max_iter,shrinking,alpha_out,dual,bias,r,gap,iterations,converged)
+    real(dp),intent(in)::gram(:,:),labels(:),c(:),nu,tol
+    integer,intent(in)::max_iter
+    logical,intent(in)::shrinking
+    real(dp),intent(out)::alpha_out(:),dual(:),bias,r,gap
+    integer,intent(out)::iterations
+    logical,intent(out)::converged
+    real(dp)::alpha(size(labels)),g(size(labels)),q(size(labels),size(labels)),y(size(labels)),qd(size(labels))
+    real(dp)::gmax,gmax2,best,diff,quad,obj,oldi,oldj,delta,total,ci,cj,di,dj,rho,ub,lb
+    integer::n,i,j,k,t,last,free_count,active,counter,order(size(labels))
+    real(dp)::gbar(size(labels)),boxes(size(labels)),restored(size(labels))
+    logical::unshrink,ui,uj
+    real(dp)::mass,remaining,levels(2),maxima(4),hi,lo
+    integer::h,ip,ineg
+    real(dp)::gmaxn,gmaxn2
+    ! LIBSVM nu-SVC two-group second-order selection, active-set shrinking and box updates.
+    ! Its float Q cache is distinct from the double diagonal and query kernels.
+    n=size(labels);y=labels;alpha=0;g=0;gbar=0;boxes=c
+    order=[(i,i=1,n)];active=n;counter=min(n,1000)+1;unshrink=.false.
+    do j=1,n
+      qd(j)=gram(j,j)
+      do i=1,n
+        q(i,j)=real(real(y(i)*y(j)*gram(i,j),real32),dp)
+      end do
+    end do
+    mass=0
+    do i=1,n
+      mass=mass+nu*c(i)
+    end do
+    mass=mass/2
     do h=1,2
       remaining=mass
       do i=1,n
-        if((labels(i)>0).neqv.(h==1)) cycle
-        alpha(i)=min(cap(i),max(0._dp,remaining)); remaining=remaining-alpha(i)
+        if((y(i)>0).neqv.(h==1))cycle
+        alpha(i)=min(c(i),remaining);remaining=remaining-alpha(i)
       end do
     end do
-    g=matmul(q,alpha); iterations=0
-    do it=1,max_iter
-      call violation(gap)
-      if(gap<=tol) then
-        g=matmul(q,alpha); call violation(gap)
-        if(gap<=tol) exit
+    do i=1,n
+      if(alpha(i)<=0)cycle
+      do j=1,n
+        g(j)=g(j)+alpha(i)*q(j,i)
+        if(alpha(i)>=c(i))gbar(j)=gbar(j)+c(i)*q(j,i)
+      end do
+    end do
+    iterations=0;converged=.false.
+    do while(iterations<max_iter)
+      counter=counter-1
+      if(counter==0)then
+        counter=min(n,1000)
+        if(shrinking)call shrink()
       end if
-      best_gain=-1; a=0; b=0; delta=0
-      do h=1,2
-        left=0; low=huge(1._dp)
-        do i=1,n
-          if((labels(i)>0).neqv.(h==1)) cycle
-          if(alpha(i)>=cap(i)) cycle
-          if(g(i)<low) then
-            low=g(i); left=i
+      block
+        logical::optimal
+        call select_pair(optimal)
+        if(optimal)then
+          call reconstruct();active=n
+          call select_pair(optimal)
+          if(optimal)then
+            converged=.true.;exit
           end if
-        end do
-        if(left==0) cycle
-        do j=1,n
-          if(labels(j)/=labels(left).or.j==left.or.alpha(j)<=0) cycle
-          diff=g(j)-low
-          if(diff<=0) cycle
-          curvature=max(0._dp,q(left,left)+q(j,j)-2*q(left,j))
-          remaining=min(cap(left)-alpha(left),alpha(j))
-          if(curvature>0) remaining=min(remaining,diff/curvature)
-          gain=remaining*(diff-curvature*remaining/2)
-          if(gain>best_gain) then
-            best_gain=gain; a=left; b=j; delta=remaining
-          end if
-        end do
-      end do
-      if(a==0.or.b==0.or.delta<=tiny(1._dp)) exit
-      alpha(a)=min(cap(a),max(0._dp,alpha(a)+delta))
-      alpha(b)=min(cap(b),max(0._dp,alpha(b)-delta))
-      g=g+delta*(q(:,a)-q(:,b)); iterations=it
-      if(mod(it,1000)==0) g=matmul(q,alpha)
-    end do
-    g=matmul(q,alpha); call violation(gap)
-    do h=1,2
-      low=huge(1._dp); high=-huge(1._dp); free_sum=0; free_count=0
-      do i=1,n
-        if((labels(i)>0).neqv.(h==1)) cycle
-        bound_tol=32*epsilon(1._dp)*cap(i)
-        if(alpha(i)>bound_tol.and.alpha(i)<cap(i)-bound_tol) then
-          free_sum=free_sum+g(i); free_count=free_count+1
+          counter=1
         end if
-        if(alpha(i)<cap(i)-bound_tol) low=min(low,g(i))
-        if(alpha(i)>bound_tol) high=max(high,g(i))
-      end do
-      if(free_count>0) then
-        levels(h)=free_sum/free_count
-      else if(low==huge(1._dp).or.high==-huge(1._dp)) then
-        call require(.false.,'NuSVC unbounded margin normalization')
+      end block
+      j=last;iterations=iterations+1;ci=boxes(i);cj=boxes(j);oldi=alpha(i);oldj=alpha(j)
+      quad=qd(order(i))+qd(order(j))-2*q(order(j),order(i));if(quad<=0)quad=1.e-12_dp
+      delta=(g(i)-g(j))/quad;total=alpha(i)+alpha(j);alpha(i)=alpha(i)-delta;alpha(j)=alpha(j)+delta
+      if(total>ci)then
+        if(alpha(i)>ci)then
+          alpha(i)=ci;alpha(j)=total-ci
+        end if
       else
-        levels(h)=low/2+high/2
+        if(alpha(j)<0)then
+          alpha(j)=0;alpha(i)=total
+        end if
+      end if
+      if(total>cj)then
+        if(alpha(j)>cj)then
+          alpha(j)=cj;alpha(i)=total-cj
+        end if
+      else
+        if(alpha(i)<0)then
+          alpha(i)=0;alpha(j)=total
+        end if
+      end if
+      di=alpha(i)-oldi;dj=alpha(j)-oldj
+      do k=1,active
+        ! Match C++ G[k] += (Q_i[k]*di + Q_j[k]*dj), preserving rounding.
+        g(k)=g(k)+(q(order(k),order(i))*di+q(order(k),order(j))*dj)
+      end do
+      ui=oldi>=ci;uj=oldj>=cj
+      if(ui.neqv.(alpha(i)>=ci))then
+        do k=1,n
+          if(ui)then
+            gbar(k)=gbar(k)-ci*q(order(k),order(i))
+          else
+            gbar(k)=gbar(k)+ci*q(order(k),order(i))
+          end if
+        end do
+      end if
+      if(uj.neqv.(alpha(j)>=cj))then
+        do k=1,n
+          if(uj)then
+            gbar(k)=gbar(k)-cj*q(order(k),order(j))
+          else
+            gbar(k)=gbar(k)+cj*q(order(k),order(j))
+          end if
+        end do
       end if
     end do
-    r=levels(1)/2+levels(2)/2
+    do h=1,2
+      ub=huge(1._dp);lb=-huge(1._dp);total=0;free_count=0
+      do i=1,active
+        if((y(i)>0).neqv.(h==1))cycle
+        if(alpha(i)>=boxes(i))then
+          lb=max(lb,g(i))
+        else if(alpha(i)<=0)then
+          ub=min(ub,g(i))
+        else
+          free_count=free_count+1;total=total+g(i)
+        end if
+      end do
+      if(free_count>0)then
+        levels(h)=total/free_count
+      else
+        call require(ub/=huge(1._dp).and.lb/=-huge(1._dp),'NuSVC unbounded margin normalization')
+        levels(h)=(ub+lb)/2
+      end if
+    end do
+    r=(levels(1)+levels(2))/2;rho=(levels(1)-levels(2))/2
     call require(ieee_is_finite(r),'NuSVC nonfinite margin normalization')
     call require(abs(r)>tiny(1._dp),'NuSVC zero margin normalization')
-    dual=alpha*labels/r; bias=-(levels(1)/2-levels(2)/2)/r
+    restored(order)=alpha;alpha_out=restored
+    dual=alpha_out*(labels/r);bias=-rho/r
     call require(all(ieee_is_finite(dual)).and.ieee_is_finite(bias),'NuSVC nonfinite coefficients')
-  contains
-    subroutine violation(value)
-      real(dp), intent(out) :: value
-      integer :: group,k
-      real(dp) :: lo,hi
-      value=0
-      do group=1,2
-        lo=huge(1._dp); hi=-huge(1._dp)
-        do k=1,n
-          if((labels(k)>0).neqv.(group==1)) cycle
-          if(alpha(k)<cap(k)) lo=min(lo,g(k))
-          if(alpha(k)>0) hi=max(hi,g(k))
-        end do
-        if(lo/=huge(1._dp).and.hi/=-huge(1._dp)) value=max(value,hi-lo)
+    ! Keep the public residual on the original double kernel, independently of
+    ! the float-cache stopping test and the active-set cap status.
+    g=labels*matmul(gram,alpha_out*labels);gap=0
+    do h=1,2
+      hi=-huge(1._dp);lo=huge(1._dp)
+      do i=1,n
+        if((labels(i)>0).neqv.(h==1))cycle
+        if(alpha_out(i)<c(i))lo=min(lo,g(i))
+        if(alpha_out(i)>0)hi=max(hi,g(i))
       end do
+      if(lo/=huge(1._dp).and.hi/=-huge(1._dp))gap=max(gap,hi-lo)
+    end do
+  contains
+    subroutine select_pair(optimal)
+      logical,intent(out)::optimal
+      gmax=-huge(1._dp);gmax2=-huge(1._dp);gmaxn=-huge(1._dp);gmaxn2=-huge(1._dp)
+      ip=0;ineg=0;last=0;best=huge(1._dp)
+      do t=1,active
+        if(y(t)>0)then
+          if(alpha(t)<boxes(t).and.-g(t)>=gmax)then
+            gmax=-g(t);ip=t
+          end if
+        else
+          if(alpha(t)>0.and.g(t)>=gmaxn)then
+            gmaxn=g(t);ineg=t
+          end if
+        end if
+      end do
+      do j=1,active
+        if(y(j)>0)then
+          if(alpha(j)<=0)cycle
+          diff=gmax+g(j);gmax2=max(gmax2,g(j));i=ip
+        else
+          if(alpha(j)>=boxes(j))cycle
+          diff=gmaxn-g(j);gmaxn2=max(gmaxn2,-g(j));i=ineg
+        end if
+        if(diff>0.and.i>0)then
+          quad=qd(order(i))+qd(order(j))-2*q(order(j),order(i))
+          if(quad<=0)quad=1.e-12_dp
+          obj=-(diff*diff)/quad
+          if(obj<=best)then
+            best=obj;last=j
+          end if
+        end if
+      end do
+      ! Use guarded sums in place of C++ -INF for a fully bound group.
+      hi=-huge(1._dp);lo=-huge(1._dp)
+      if(ip>0.and.gmax2/=-huge(1._dp))hi=gmax+gmax2
+      if(ineg>0.and.gmaxn2/=-huge(1._dp))lo=gmaxn+gmaxn2
+      optimal=max(hi,lo)<tol.or.last==0
+      if(.not.optimal)then
+        i=ineg
+        if(y(last)>0)i=ip
+      end if
+    end subroutine
+    subroutine reconstruct()
+      integer::a,b,nfree
+      if(active==n)return
+      g(active+1:)=gbar(active+1:)
+      nfree=count(alpha(:active)>0.and.alpha(:active)<boxes(:active))
+      if(real(nfree,dp)*n>2._dp*active*(n-active))then
+        do a=active+1,n
+          do b=1,active
+            if(alpha(b)>0.and.alpha(b)<boxes(b)) &
+              g(a)=g(a)+alpha(b)*q(order(b),order(a))
+          end do
+        end do
+      else
+        do a=1,active
+          if(alpha(a)<=0.or.alpha(a)>=boxes(a))cycle
+          do b=active+1,n
+            g(b)=g(b)+alpha(a)*q(order(b),order(a))
+          end do
+        end do
+      end if
+    end subroutine
+    logical function be_shrunk(a)result(v)
+      integer,intent(in)::a
+      v=.false.
+      if(alpha(a)>=boxes(a))then
+        if(y(a)>0)then
+          v=-g(a)>maxima(1)
+        else
+          v=-g(a)>maxima(4)
+        end if
+      else if(alpha(a)<=0)then
+        if(y(a)>0)then
+          v=g(a)>maxima(2)
+        else
+          v=g(a)>maxima(3)
+        end if
+      end if
+    end function
+    subroutine shrink()
+      integer::a
+      real(dp)::v1,v2
+      maxima=-huge(1._dp)
+      do a=1,active
+        if(y(a)>0)then
+          if(alpha(a)<boxes(a))maxima(1)=max(maxima(1),-g(a))
+          if(alpha(a)>0)maxima(2)=max(maxima(2),g(a))
+        else
+          if(alpha(a)<boxes(a))maxima(4)=max(maxima(4),-g(a))
+          if(alpha(a)>0)maxima(3)=max(maxima(3),g(a))
+        end if
+      end do
+      v1=-huge(1._dp);v2=v1
+      if(all(maxima(:2)/=-huge(1._dp)))v1=maxima(1)+maxima(2)
+      if(all(maxima(3:)/=-huge(1._dp)))v2=maxima(3)+maxima(4)
+      if(.not.unshrink.and.max(v1,v2)<=tol*10)then
+        unshrink=.true.;call reconstruct();active=n
+      end if
+      a=1
+      do while(a<=active)
+        if(be_shrunk(a))then
+          active=active-1
+          do while(active>=a)
+            if(.not.be_shrunk(active+1))then
+              call swap_index(a,active+1);exit
+            end if
+            active=active-1
+          end do
+        end if
+        a=a+1
+      end do
+    end subroutine
+    subroutine swap_index(a,b)
+      integer,intent(in)::a,b
+      integer::it
+      real(dp)::v
+      it=order(a);order(a)=order(b);order(b)=it
+      v=y(a);y(a)=y(b);y(b)=v
+      v=g(a);g(a)=g(b);g(b)=v
+      v=gbar(a);gbar(a)=gbar(b);gbar(b)=v
+      v=alpha(a);alpha(a)=alpha(b);alpha(b)=v
+      v=boxes(a);boxes(a)=boxes(b);boxes(b)=v
     end subroutine
   end subroutine
   subroutine fit(self,x,y,sample_weight)
@@ -142,7 +319,7 @@ contains
     real(dp), allocatable :: gram(:,:),weights(:),mass(:),labels(:),alpha(:),dual(:)
     real(dp) :: mean,variance,total,bias,r,gap
     integer, allocatable :: ids(:),left(:),right(:),supports(:)
-    logical :: active(size(y))
+    logical :: active(size(y)),pair_converged
     integer :: n,p,k,pairs,i,j,a,b,m,t,iterations,row
     call check_xy(x,size(y)); n=size(y); p=size(x,2)
     call require(ieee_is_finite(self%nu),'NuSVC nu must be finite and in (0,1]')
@@ -212,11 +389,11 @@ contains
         right=pack([(i,i=1,n)],y==self%classes_(b).and.weights>0); ids=[left,right]
         labels=merge(1._dp,-1._dp,y(ids)==self%classes_(a)); t=size(ids)
         allocate(alpha(t),dual(t))
-        call optimize(gram(ids,ids),labels,weights(ids),self%nu,self%tol,self%max_iter,alpha,dual,bias,r,gap,iterations)
+        call optimize(gram(ids,ids),labels,weights(ids),self%nu,self%tol,self%max_iter,self%shrinking,alpha,dual,bias,r,gap,iterations,pair_converged)
         self%pair_alpha_(ids,m)=alpha; self%dual_full(ids,m)=dual
         self%pair_scales_(m)=r; self%intercept_(m)=bias; self%kkt_violation_(m)=gap; self%n_iter_(m)=iterations
         active=active.or.abs(self%dual_full(:,m))>0
-        self%converged_=self%converged_.and.gap<=self%tol; deallocate(alpha,dual)
+        self%converged_=self%converged_.and.pair_converged; deallocate(alpha,dual)
       end do
     end do
     supports=[integer::]; self%n_support_=spread(0,1,k)
@@ -324,10 +501,11 @@ contains
       y(i)=self%classes_(maxloc(votes(i,:),dim=1))
     end do
   end function
-  real(dp) function score(self,x,y) result(value)
+  real(dp) function score(self,x,y,sample_weight) result(value)
     class(nu_svc), intent(in) :: self
     real(dp), intent(in) :: x(:,:)
     integer, intent(in) :: y(:)
-    value=accuracy_score(y,self%predict(x))
+    real(dp),optional,intent(in)::sample_weight(:)
+    value=accuracy_score(y,self%predict(x),sample_weight=sample_weight)
   end function
 end module
