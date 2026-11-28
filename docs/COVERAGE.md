@@ -2766,6 +2766,33 @@ helpers are shared by classification and regression through
 sklearn_libsvm_sparse. A sample-square Gram and per-pair Q matrices remain
 part of training; the design matrix is never densified.
 
+Current CSR SVC verification: a fresh GNU 15.2 checked fpm build in
+validation/results/svc_sparse_persistent_build passes all 340 native programs
+and all 1,202 dependency-aware compiled-source fingerprints. Checked and
+scoped O3 profiles each pass 46,956 comparison groups: 45,660 Source-output
+groups and 1,296 explicitly native storage-contract groups. New CSR SVC
+coverage passes 1,184 fits / 21,312 groups / 3,936 independent raw-kernel
+certificates. Existing dense SVC (729 fits / 10,206 groups / 2,622 certificates),
+legacy kernel SVMs (318 groups), and sparse regression/novelty SVMs (1,296
+fixtures / 15,120 groups) continue to pass. No comparison tolerance was widened.
+
+Six native harnesses exercise all three affected optimized modules. All 44
+guards pass per profile. New CSR SVC's 128-by-200,000 RBF/linear fit/query case
+peaks at 9,482,240 checked / 9,392,128 optimized bytes, below 128 MiB and the
+204,800,000 bytes required for a dense design alone. Regression's large CSR
+case peaks at 9,351,168 / 9,334,784 bytes. All new CSR certificate replays pass
+and none exceeds the additional KKT diagnostic bound in this corpus. Prior
+dense iteration/rounding diagnostics remain documented; universal trajectory
+or whole-project parity is not claimed.
+
+Evidence and cross-profile proof use validation/results/svc_sparse_. Expected
+outputs, sources, library archive and executable hashes agree or remain
+stable as appropriate. Initial TEMP-based audits were interrupted by external
+executable disappearance; the successful audits use workspace-local build and
+optimized working directories. All 340 checked executables remain present
+at audit completion. Validation retains sklearn 1.6.1, NumPy 2.2.6,
+SciPy 1.15.3, static libgfortran and the Windows locale-copy shim.
+
 ## Nu support-vector classification
 
 `nu_svc` translates sklearn 1.6.1 NuSVC's dense binary and one-versus-one

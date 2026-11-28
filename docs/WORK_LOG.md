@@ -12430,3 +12430,40 @@ its temporary working directory under the report directory in the workspace.
 This retains all existing hash/fingerprint and comparison gates. No security
 settings were modified. Full checked/O3 audits will run on this persistent
 build after it completes.
+
+### 2026-11-28: Full persistent-build CSR SVC checked/O3 verification
+
+Implementation 9b1b66b and audit-location fix 4e0700a passed a fresh coherent
+GNU 15.2 checked fpm build in the ignored workspace-local
+validation/results/svc_sparse_persistent_build directory. All 340 native
+programs, six scoped O3 harnesses and all 1,202 dependency-aware compiled
+source fingerprints pass. Both profiles pass 46,956 comparison groups:
+45,660 Source-output groups plus 1,296 native storage-contract groups. New
+CSR SVC coverage passes 1,184 fits / 21,312 groups / 3,936 raw-kernel dual/KKT
+certificates; dense SVC passes 729 fits / 10,206 groups / 2,622 certificates.
+Legacy kernel checks pass 318 groups, and sparse SVR/NuSVR/OneClassSVM checks
+pass 1,296 fixtures / 15,120 groups. No output tolerance was widened.
+
+All 44 guard checks pass per profile. The 128-by-200,000 CSR SVC RBF/linear
+memory case peaks at 9,482,240 checked / 9,392,128 optimized bytes, below
+128 MiB; a dense design alone would use 204,800,000 bytes. Regression memory
+peaks are 9,351,168 / 9,334,784 bytes. New CSR KKT replay diagnostics show no
+additional small-bound exceedances. Prior dense iteration/rounding diagnostics
+remain visible; neither universal numerical trajectories nor whole-project
+parity is claimed.
+
+The earlier TEMP-based runs were interrupted by executable deletion outside
+the audit. Successful full audits use workspace-local storage; all 340 checked
+executables remain present afterward. Hash checks verify immutable sources,
+archives and executables during validation, and expected outputs agree across
+profiles. sklearn 1.6.1, NumPy 2.2.6, SciPy 1.15.3, static libgfortran and the
+Windows locale-copy shim are retained. No security settings were changed.
+
+Evidence prefix: validation/results/svc_sparse_. Archive SHA256:
+39e13e4047618deb5f9ff8e5b483df241d6ed14ba5a33a452e18d5d084dd1789
+Checked audit SHA256:
+e842306fdb8d71d8f9fc1f3842a4c7c84bce921c759aa555a6d8c7aca51854f9
+Optimized audit SHA256:
+79ece5b88c79c689413f333b6384d10f0b2c8155086bee63f52af825fdc92236
+
+Local commits only; no push. The broader translation goal remains active.
