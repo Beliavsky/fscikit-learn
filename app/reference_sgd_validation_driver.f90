@@ -16,7 +16,9 @@ program reference_sgd_validation_driver
   do case_id=1,cases
     read(*,*)n,p,family,sparse,seed,average,shuffle,bias,repeats,early,weight_mode,loss,penalty,rate,alpha,eta,tol,fraction,limit,patience
     allocate(x(n,p),y(n),w(n),labels(n));read(*,*)x;read(*,*)y;read(*,*)w
-    labels=nint(y);sx=csr_from_dense(x)
+    labels=0
+    if(family/=0)labels=nint(y)
+    sx=csr_from_dense(x)
     r=sgd_regressor();c=sgd_classifier()
     r%loss=loss;r%penalty=penalty;r%learning_rate=rate;r%alpha=alpha;r%eta0=eta;r%tol=tol
     r%validation_fraction=fraction;r%max_iter=limit;r%n_iter_no_change=patience

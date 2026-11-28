@@ -35,6 +35,11 @@ def fixtures():
                        n=45,p=5,loss=loss,penalty='elasticnet',alpha=.05,eta=.03,fraction=.35,weighted=True,
                        bias=True,repeats=1,early=True,kind='loss_and_class_weights',limit=65,class_weight=weight_mode)
 
+    for sparse,loss in itertools.product([0,1],['squared_error','squared_epsilon_insensitive']):
+        yield dict(family=0,sparse=sparse,seed=7,rate='constant',shuffle=True,average=0,tol=.001,n=39,p=5,
+                   loss=loss,penalty='l2',alpha=.03,eta=.04,fraction=.3,weighted=False,bias=True,
+                   repeats=1,early=True,kind='huge_target',limit=5)
+
 
 def arrays(c):
     rng=np.random.RandomState(c['seed']);x=rng.normal(size=(c['n'],c['p']))*.5
@@ -44,6 +49,7 @@ def arrays(c):
         if c['kind']=='constant_target':y[:]=2
     else:
         y=np.arange(c['n'])%c['family'];rng.shuffle(y);y=np.array([-5,7,21])[y]
+    if c['kind']=='huge_target':y*=1e160
     w=rng.uniform(.2,2,c['n']) if c['weighted'] else np.ones(c['n'])
     if c['weighted']:w[::11]=0
     return x,y,w

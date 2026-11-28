@@ -15936,3 +15936,13 @@ all supported losses, schedules, penalties, averaging, weights, class weights,
 warm fits and dense/CSR layouts. All fourteen Source/native rejection cases
 pass. Native split exclusion, refit, state and cloning checks pass. Full package
 and scoped optimized plus retained SGD regression verification are pending.
+
+The early-stopping loop also skips unused training-loss evaluation, matching
+Source. A retained large-target witness completes five Source epochs while the
+previous native path traps evaluating squared loss. Gradient-only evaluation
+closes this gap; the expanded 1,088-case / 6,600-group checked probe passes
+without relaxed tolerances, including dense/CSR squared-error and squared-
+epsilon-insensitive cases with 1e160-scale targets and NaN validation R2.
+The reference driver also avoids converting regression targets into integer
+class labels. A search-fixture parameter-grid construction error was corrected
+after compilation detected it. The final refreshed build is in progress.

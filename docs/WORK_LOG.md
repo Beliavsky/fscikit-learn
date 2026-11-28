@@ -12717,3 +12717,15 @@ frozen older archive and are not whole-package verification. Full build is live;
 search-adapter and native test additions require a successful refresh after it.
 Full checked/scoped-O3 and retained SGD reference corpora are pending.
 No push performed; project-wide Source parity remains false.
+
+2026-11-28: SGD unused-loss overflow edge and search-test correction.
+Source skips loss evaluation when early_stopping is enabled, even with tol=None.
+A retained explicit input/oracle witness (unused_loss_overflow.json) completes
+five Source epochs but native SIGFPEs evaluating squared loss. Skip unused loss
+values while preserving derivatives and clipping; all 1,088 cases / 6,600 groups
+now pass, including dense/CSR 1e160 target cases. Regression reference inputs
+are no longer converted needlessly into integer labels. Earlier refreshed build
+stopped on an incorrectly constructed native parameter-grid fixture; corrected
+to the actual scalar param API. Final build handle is live; only a terminal
+successful final build and its frozen audits will establish current coherence.
+Legacy report profile labels now match the selected checked/optimized profile.

@@ -2139,8 +2139,9 @@ For either SGD estimator, set `early_stopping=.true.` and choose
 `validation_fraction` (default `.1`, strictly between zero and one).
 `fit` holds out a deterministic seeded ShuffleSplit for regression or
 StratifiedShuffleSplit for classification. Multiclass OVR heads share one split
-made from the original multiclass labels. Held-out rows never enter updates.
-Dense and CSR fitting use the same split contract.
+made from the original multiclass labels. Held-out rows never enter updates. Training-loss evaluation is skipped while
+validation stopping is enabled, including when tol=-1. Dense and CSR fitting
+use the same split contract.
 
 Patience uses weighted validation R2 for regression and weighted binary-head
 accuracy for classification. Validation uses original sample weights, excluding

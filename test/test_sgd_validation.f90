@@ -70,7 +70,9 @@ program test_sgd_validation
   call require(ccopy%early_stopping.and..not.allocated(ccopy%coef_),'classifier clone preserves validation controls')
   r%early_stopping=.false.;call r%fit(x,y)
   call require(.not.any(r%validation_mask_),'disabled refit clears held-out rows')
-  grid%axes=[param('early_stopping',[.true.]),param('validation_fraction',[.35_dp])]
+  allocate(grid%axes(2))
+  grid%axes(1)%name='early_stopping';grid%axes(1)%values=[param(.true.)]
+  grid%axes(2)%name='validation_fraction';grid%axes(2)%values=[param(.35_dp)]
   call set_search_params(r,grid%at(1));call set_search_params(c,grid%at(1))
   call require(r%early_stopping.and.c%early_stopping.and.r%validation_fraction==.35_dp.and. &
     c%validation_fraction==.35_dp,'search accepts SGD validation controls')

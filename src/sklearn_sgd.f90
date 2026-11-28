@@ -208,41 +208,53 @@ contains
     real(dp), intent(in) :: prediction,target
     real(dp), intent(out) :: value,gradient
     real(dp) :: excess,residual,margin,e
-    residual=prediction-target; margin=prediction*target
+    residual=prediction-target; margin=prediction*target;value=0
     select case(self%loss)
     case('hinge','perceptron')
       excess=1
       if(self%loss=='perceptron') excess=0
-      value=max(0._dp,excess-margin); gradient=0
+      if(.not.self%early_stopping)value=max(0._dp,excess-margin)
+      gradient=0
       if(margin<=excess) gradient=-target
     case('squared_hinge')
-      excess=max(0._dp,1-margin); value=excess**2; gradient=-2*target*excess
+      excess=max(0._dp,1-margin);gradient=-2*target*excess
+      if(.not.self%early_stopping)value=excess**2
     case('modified_huber')
       if(margin>=1) then
         value=0; gradient=0
       else if(margin>= -1) then
-        value=(1-margin)**2; gradient=-2*target*(1-margin)
+        if(.not.self%early_stopping)value=(1-margin)**2
+        gradient=-2*target*(1-margin)
       else
-        value=-4*margin; gradient=-4*target
+        if(.not.self%early_stopping)value=-4*margin
+        gradient=-4*target
       end if
     case('log_loss')
       if(margin>=0) then
-        e=exp(-margin); value=log(1+e); gradient=-target*e/(1+e)
+        e=exp(-margin);gradient=-target*e/(1+e)
+        if(.not.self%early_stopping)value=log(1+e)
       else
-        e=exp(margin); value=-margin+log(1+e); gradient=-target/(1+e)
+        e=exp(margin);gradient=-target/(1+e)
+        if(.not.self%early_stopping)value=-margin+log(1+e)
       end if
-    case('squared_error'); value=.5_dp*residual**2; gradient=residual
+    case('squared_error')
+      gradient=residual
+      if(.not.self%early_stopping)value=.5_dp*residual**2
     case('huber')
       if(abs(residual)<=self%epsilon) then
-        value=.5_dp*residual**2; gradient=residual
+        gradient=residual
+        if(.not.self%early_stopping)value=.5_dp*residual**2
       else
-        value=self%epsilon*(abs(residual)-.5_dp*self%epsilon); gradient=sign(self%epsilon,residual)
+        gradient=sign(self%epsilon,residual)
+        if(.not.self%early_stopping)value=self%epsilon*(abs(residual)-.5_dp*self%epsilon)
       end if
     case('epsilon_insensitive')
-      excess=max(0._dp,abs(residual)-self%epsilon); value=excess; gradient=0
+      excess=max(0._dp,abs(residual)-self%epsilon);gradient=0
+      if(.not.self%early_stopping)value=excess
       if(excess>0) gradient=sign(1._dp,residual)
     case('squared_epsilon_insensitive')
-      excess=max(0._dp,abs(residual)-self%epsilon); value=excess**2; gradient=2*sign(excess,residual)
+      excess=max(0._dp,abs(residual)-self%epsilon);gradient=2*sign(excess,residual)
+      if(.not.self%early_stopping)value=excess**2
     end select
   end subroutine
   subroutine sgd_run(self,x,y,epochs,stopping,sample_weight,sparse_x,validation_mask,validation_weight)

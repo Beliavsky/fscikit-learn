@@ -48,7 +48,9 @@ def main():
             ('legacy_csr','compare_sgd_csr.py',drivers[1]),('legacy_fit','compare_sgd_fit.py',drivers[2]),
             ('legacy_regularization','compare_sgd_regularization.py',drivers[3])]:
             report=args.report.with_name(args.report.stem+'_'+key+'.json')
-            subprocess.run([sys.executable,str(root/'validation'/script),'--executable',str(executable(program)),'--report',str(report)],check=True)
+            command=[sys.executable,str(root/'validation'/script),'--executable',str(executable(program)),'--report',str(report)]
+            if key.startswith('legacy_'):command+=['--profile',args.profile]
+            subprocess.run(command,check=True)
             data=json.loads(report.read_text());assert not data.get('gaps',[]) and data.get('strict_parity',True)
             assert all(c['passed'] for c in data.get('checks',[]))
             evidence[key]=dict(report=str(report),sha256=sha(report),kind='strict')
