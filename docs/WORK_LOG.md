@@ -12065,3 +12065,59 @@ Checked audit SHA256:
 f72995b3ea5dc134009103a4722bfdf2706f6dd63aa7beece2e7d040ffdfaa55.
 Optimized audit SHA256:
 4e467b39327d2e630418444e6fc5f66d3b4a1aecea8026d294397b13439aa250.
+
+## LIBLINEAR TRON primal regression (2026-11-28)
+
+Implementation commit: 458ee25. Replaced primal LinearSVR's Newton/Armijo path
+with a Fortran translation of LIBLINEAR TRON: trust-region truncated CG,
+boundary roots and rollback, radius updates, accepted-step counts, initial
+relative-gradient stopping and tiny actual/predicted-reduction termination.
+Regression objective/gradient/active-row Hessian products retain Source scalar
+node accumulation and virtual-bias handling. The existing OpenBLAS-compatible
+inner-product helper is reused. Dense and CSR primal regression share this
+matrix-free sparse-node backend, including zero-weight removal semantics.
+LinearSVC's existing Newton/Armijo implementation is unchanged. No C++ runtime
+or LIBLINEAR binary is linked; existing BSD notices are retained and native
+integration remains MIT.
+
+A fresh GNU 15.2 checked fpm build passed all 334 native programs and 1,189
+source fingerprints with dependency closures. Checked and scoped O3 profiles
+each pass 10,368 Source output/iteration-cap comparison groups and 312 native
+derivative-replay groups. The 672-fit loss/solver corpus passes all 5,376
+groups and all primal/dual certificates. Original/wider five-layout corpora
+pass 5,304 groups, including 4,992 Source comparisons. All 32 prior auto-primal
+comparison failures and 20 wider prediction failures per profile are closed,
+with unchanged output tolerances. New native regressions check Source capped
+trust steps/intercepts, accepted-step counts, mixed input representations,
+large-tolerance initial stopping and stationary zero-feature starts.
+O3 replaces only sklearn_linear_svm against a frozen checked archive; four
+native harnesses and both reference drivers retain runtime checks.
+
+Derivative validation now distinguishes replay correctness from the stronger
+historical optimality bound. Source TRON can finish on tiny objective reductions
+with a residual above that bound. Reported native gradient norms and objectives
+are reconstructed independently; the historical native/Source strict-optimality
+flags remain visible. Of 1,092 derivative records per profile, 205 native and
+201 Source records exceed the extra bound, with four flag disagreements.
+These are retained diagnostics, not converted into strict-optimality passes.
+All tested Source output tolerances pass; bitwise identity, universal optimum
+certification and full-project Source parity are not claimed.
+
+Seventeen guard checks pass in both profiles. The 128-by-200,000 primal CSR
+memory case peaks at 31,203,328 checked / 29,466,624 optimized bytes; dual losses
+peak at 13,586,432 / 13,524,992 bytes, all below 128 MiB. Primal regression
+allocates no augmented dense design, feature Hessian or Gram matrix. Reference
+versions remain sklearn 1.6.1, NumPy 2.2.6 and SciPy 1.15.3. Static libgfortran
+and the Windows locale-copy shim remain part of validation. Broader API and
+numerical gaps elsewhere in the project remain open.
+
+Audit entry point: validation/check_linear_svm_profiles.py. Evidence uses
+validation/results/linear_svr_tron_ as its prefix. Cross-profile checks verify
+report/source/compiler/archive hashes, identical Source reference arrays,
+complete comparison inventories, retained derivative diagnostics, guards,
+memory bounds and current fingerprints. Final archive SHA256:
+f0b1d70fd3460b7821f2389b4b8b9eb6315a1bdc3cc27a96ad71a834232359c1.
+Checked audit SHA256:
+a163080d32e80e8dc15cba4ef586bd8f4f715fcb4de1f8ac996d6c3a1c2f858f.
+Optimized audit SHA256:
+d037986b9b8656324209fc7cc7ee858cfc418f588a6edda2bfd004df248d9cd9.

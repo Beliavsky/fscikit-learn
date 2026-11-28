@@ -1774,6 +1774,38 @@ objective/gap and KKT certificate fields are explicitly identified in API.md.
 These regression fit paths avoid dense design augmentation, feature Hessians
 and Gram matrices. Auto-selected primal fits use the same TRON implementation.
 
+Current TRON verification: all 334 native programs and 1,189 dependency-aware
+source fingerprints pass after a fresh checked build. Checked and scoped O3
+profiles each pass 10,368 Source output/iteration-cap comparison groups and
+312 independently reconstructed derivative groups. The 672-fit primal/dual
+corpus passes all 5,376 groups and all certificates, including the twelve
+auto-selected primal fits. The original/wider five-layout corpora pass all
+5,304 groups, comprising 4,992 Source comparisons and 312 derivative replays.
+All 52 previously retained comparison gaps per profile are closed without
+widening any output tolerance. Four native harnesses exercise the optimized
+module; seventeen guard checks and both memory cases pass per profile.
+
+TRON can stop on tiny objective reductions before meeting a stronger gradient
+bound. Validation therefore checks the reported derivative and objective
+independently, and retains the historical strict-optimality flags. Among 1,092
+derivative records per profile, 205 native and 201 Source points exceed that
+extra bound; four flags differ. These diagnostics are retained even though
+all tested public-output tolerances pass. Exact bitwise trajectory agreement
+or universal mathematical optimality is not claimed.
+
+The 128-by-200,000 primal memory case peaks at 31,203,328 checked / 29,466,624
+optimized bytes; the dual case peaks at 13,586,432 / 13,524,992 bytes. Both are
+below 128 MiB. Regression uses sparse nodes for dense and CSR inputs, virtual
+intercepts and matrix-free active-row Hessian products. Reports and cross-profile
+proof use the validation/results/linear_svr_tron_ prefix. GNU 15.2, sklearn
+1.6.1, NumPy 2.2.6, SciPy 1.15.3, static libgfortran and the Windows locale-copy
+shim are retained in validation. Broader project/API/numerical gaps remain.
+
+### Historical pre-TRON verification
+
+The following dual/CSR reports describe earlier revisions and are superseded
+by the current TRON verification above; their original artifacts are retained.
+
 Dual-loss verification: a fresh checked build passes all 333 native programs
 and 1,188 dependency-aware source fingerprints. Checked and scoped O3 profiles
 each match 660 dual-selected fits / 5,280 output and iteration-cap groups at
@@ -1840,6 +1872,8 @@ outcomes, retained arrays, Source/native gradient norms, memory checks,
 fingerprints and the cross-profile audit. Validation uses GNU 15.2, sklearn
 1.6.1, NumPy 2.2.6, SciPy 1.15.3, static libgfortran and the Windows locale-copy
 shim. Other project/API/numerical gaps remain.
+
+### Formulations and diagnostics
 
 The objectives are .5*||w||^2 + C*sum_i sample_weight_i*loss_i, with losses
 max(0,1-y_i*f_i)^2 for signed binary classification and
