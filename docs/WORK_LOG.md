@@ -12000,3 +12000,68 @@ Checked audit SHA256:
 5659f56a9ebf0b48e778a60b615e01bf728ddedc77591bb0daa5d1570c982931.
 Optimized audit SHA256:
 a416449cf80088ad2960ab8329bd49c40b83f86f4d6265d2c434d1c86b3219e1.
+
+## Seeded dual LinearSVR losses and sklearn defaults (2026-11-28)
+
+Implementation commit: 88140b8. LinearSVR now supports unsquared and squared
+epsilon-insensitive dual coordinate optimization for dense and CSR inputs.
+The default is corrected to loss='epsilon_insensitive', dual='auto', matching
+sklearn's loss/solver selection. Existing squared-loss behavior remains
+available explicitly with loss='squared_epsilon_insensitive', dual='false';
+older tests and the original reference driver now request that formulation.
+The native random_state default remains deterministic zero and is documented.
+
+The dual engine follows LIBLINEAR shrinking, violation-sum stopping and seeded
+MT19937/Lemire shuffling, including the NumPy seed bridge, single-element draws
+and positive-weight filtering. Dense input uses sparse feature nodes. The
+synthetic intercept is virtual; zero-norm rows use finite box endpoints under
+runtime FPE checking. Intrinsic RNG and IEEE halting modes are preserved.
+Native dual_variables_, dual_objective_, duality_gap_ and kkt_violation_ are
+identified as diagnostic additions. For dual fits gradient_norm_ is maximum
+coordinate KKT violation and converged_ follows iteration-cap warning status.
+Primal refits clear dual certificates and retain their gradient diagnostics.
+No C++ runtime or LIBLINEAR binary is linked; existing BSD/NumPy/LIBLINEAR
+notices are retained and native integration remains MIT.
+
+A fresh GNU 15.2 checked build passed all 333 native programs and all 1,188
+source fingerprints including dependencies. Scoped O3 changes only the linear
+SVM module against a frozen checked archive; three native harnesses and both
+reference drivers retain runtime checks. Both profiles match all 660 dual-
+selected fits / 5,280 groups, including exact n_iter and capped warning status,
+with 2e-10 output tolerances. Both losses, five seeds, dense/four CSR layouts,
+weights, intercepts, auto/explicit dual choices and iteration caps are covered.
+All 672 new-corpus certificate sets pass: primal/dual objectives and gaps,
+coefficient reconstruction, dual bounds/zero-weight mapping and KKT residuals.
+Auto routing is checked independently from the original dimensions before
+weight filtering, including equal sample/feature counts.
+
+The twelve auto-selected primal fits retain 32 comparison differences across
+six settings. Their existing Newton backend differs from Source TRON;
+capped squared-loss trajectories can differ visibly. The maximum output gap
+is 0.1373105456384031, a dense-query prediction in a one-iteration 7-by-7 fit.
+Native optimality certificates accompany these retained failures; they do not
+relabel the Source checks. Mixed-corpus strict parity remains false. Original
+primal regression checks also pass 1,920 strict groups and 1,092 gradient
+certificates per profile; their 20 wider prediction gaps remain documented.
+No reference tolerance was widened. Existing thirteen guards and four new
+Source-matching loss/solver/seed rejections pass in both profiles.
+
+The 128-by-200,000 CSR fit/query memory case exercises both dual losses with
+convergence checks: peak 13,574,144 checked / 13,520,896 optimized bytes,
+below 128 MiB, versus 204,800,000 dense-design bytes. New analytic/default,
+zero-norm, RNG-isolation, state-reset and halting-mode tests pass. Static
+libgfortran and the Windows locale-copy shim remain part of validation.
+Reference versions: sklearn 1.6.1, NumPy 2.2.6, SciPy 1.15.3. The default
+unsquared path is among the strictly matched dual fits. Broader project/API
+and primal-trajectory gaps remain open.
+
+Audit entry point: validation/check_linear_svm_profiles.py. Evidence uses
+validation/results/linear_svr_dual_ as its prefix; cross-profile checks verify
+report/source/compiler/archive hashes, identical Source expected arrays,
+solver selection, all dual outputs, retained primal gap identities, certificate
+counts, memory bounds and current fingerprints. Final archive SHA256:
+5800998931355088970b7cf4efc6415cf3f9ccbe7f793f9036e69fe108c3b12d.
+Checked audit SHA256:
+f72995b3ea5dc134009103a4722bfdf2706f6dd63aa7beece2e7d040ffdfaa55.
+Optimized audit SHA256:
+4e467b39327d2e630418444e6fc5f66d3b4a1aecea8026d294397b13439aa250.

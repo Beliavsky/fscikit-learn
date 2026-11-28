@@ -1772,6 +1772,35 @@ These fit paths avoid dense design augmentation, feature Hessians and Gram
 matrices. Auto-selected primal trajectories retain their existing numerical
 differences from Source TRON, including capped-fit differences.
 
+Dual-loss verification: a fresh checked build passes all 333 native programs
+and 1,188 dependency-aware source fingerprints. Checked and scoped O3 profiles
+each match 660 dual-selected fits / 5,280 output and iteration-cap groups at
+2e-10 coefficient/prediction tolerances, with exact iteration counts. The
+corpus covers both losses, five seeds including the largest native signed
+seed, dense/four CSR layouts, weights with zero rows, intercept settings,
+wide/tall/square geometry, auto/explicit dual selection and iteration caps.
+All 672 new-corpus primal/dual, coefficient reconstruction, feasibility and
+KKT certificates pass. The original 1,920 strict primal groups and 1,092
+gradient certificates per profile also pass; their 20 extended prediction
+gaps remain recorded.
+
+Twelve auto-selected primal fits retain 32 comparison differences across six
+settings, including capped trajectories and iteration/convergence diagnostics.
+The largest output difference is 0.13731055 in a one-iteration squared-loss
+7-by-7 fit. These are retained Source/native primal-backend differences;
+dual-selected strict parity passes, while full mixed-corpus parity is false.
+No reference tolerance was widened. The new defaults use the dual solver.
+
+Four new Source-matching control rejections complement the existing thirteen
+guards. Dense/CSR analytic optima, zero-norm endpoints, RNG isolation, IEEE
+halting-mode restoration, seeded refits and primal/dual state resets pass.
+The 128-by-200,000 CSR memory case for both dual losses peaks at 13,574,144
+checked / 13,520,896 optimized bytes, below 128 MiB; dense input would require
+204,800,000 bytes. Reports use the validation/results/linear_svr_dual_ prefix,
+including the mixed-corpus classifications and cross-profile proof. Validation
+uses GNU 15.2, sklearn 1.6.1, NumPy 2.2.6, SciPy 1.15.3, static libgfortran
+and the Windows locale-copy shim. Broader project parity/API gaps remain open.
+
 CSR fit and query overloads support binary/multiclass classification and
 regression with the same primal objectives, weighting and synthetic-intercept
 regularization. They retain dense coefficient output and use O(n_features +
