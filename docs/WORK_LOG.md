@@ -11042,3 +11042,23 @@ Verified backup: spectral_controls_evidence_439889b.zip,
 ZIP CRCs and critical source/report/object/binary hashes pass. Receipt:
 validation/results/spectral_controls_archive_receipt.json (ignored evidence).
 Archive metadata retains false full/focused Source parity.
+
+### Spectral QR Householder pivoting
+
+Replaced modified Gram-Schmidt selection with LAPACK DLAQP2-style Householder
+pivoting, partial-norm reliability checks and DLARFG/DLARF-style reflectors.
+The estimator delegates to the new typed sklearn_spectral_qr helper; existing
+native SVD and BLAS-compatible reduction helpers supply assignment rotation.
+The public pivot permutation is one-based; output labels remain zero-based.
+Retained sklearn and LAPACK BSD notices accompany the project's MIT integration.
+
+Tracked fixture validation/fixtures/spectral_qr_replay.json preserves all 210
+QR embeddings and baseline labels from implementation 439889b's 921-case grid.
+It prevents future comparisons from depending on ignored result files.
+A 285-case private checked probe includes 75 random/one-hot/duplicate/rank-
+deficient/zero cases, including 30 wide matrices Source rejects. All acceptance
+checks match; five strict partition differences remain versus seven saved
+baseline differences. These five have matching pivots and remain visible.
+The native test verifies input preservation, known independent pivots, zero
+embeddings and dense/CSR estimator integration. It passes. Full package and
+hybrid verification are pending; no full parity claim is made.

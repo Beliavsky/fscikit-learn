@@ -17,6 +17,7 @@ module sklearn_cluster
   use sklearn_metrics, only: pairwise_distances
   use sklearn_spectral, only: spectral_affinity_matrix,spectral_eigenvectors,spectral_discretize, &
     spectral_vectors_from_affinity
+  use sklearn_spectral_qr,only:spectral_cluster_qr
   use sklearn_optics, only: optics,cluster_optics_dbscan,cluster_optics_xi,compute_optics_graph,optics_graph_result
   implicit none
   private
@@ -518,9 +519,7 @@ contains
     type(kmeans_result) :: result
     type(legacy_random_state)::discrete_rng
     real(dp)::draw
-    real(dp), allocatable :: work(:,:),rotation(:,:),u(:,:),v(:,:),s(:),direction(:)
-    integer, allocatable :: pivots(:)
-    integer :: n,k,c,i,j,idx
+    integer :: n,k,c,i
     n=size(self%affinity_matrix_,1); k=self%n_clusters
     c=self%n_components;if(c==0)c=k
     self%embedding_=spectral_vectors_from_affinity(self%affinity_matrix_,c,.false.,self%n_connected_components_,source_sparse)
@@ -546,19 +545,7 @@ contains
         self%labels_=spectral_discretize(self%embedding_,rng=discrete_rng)
       end if
     else
-      allocate(pivots(c),direction(c),u(c,c),s(c),v(c,c)); work=transpose(self%embedding_)
-      do i=1,c
-        idx=maxloc(sum(work**2,dim=1),dim=1); pivots(i)=idx; direction=work(:,idx)
-        call require(sum(direction**2)>epsilon(1._dp)**2,'spectral QR embedding is rank deficient')
-        direction=direction/sqrt(sum(direction**2))
-        do j=1,n
-          work(:,j)=work(:,j)-direction*dot_product(direction,work(:,j))
-          work(:,j)=work(:,j)-direction*dot_product(direction,work(:,j))
-        end do
-      end do
-      call dense_svd(transpose(self%embedding_(pivots,:)),s,u,v)
-      rotation=matmul(u,transpose(v)); work=abs(matmul(self%embedding_,rotation))
-      self%labels_=maxloc(work,dim=2)-1
+      self%labels_=spectral_cluster_qr(self%embedding_)
     end if
   end subroutine
   function spectral_fit_predict(self,x) result(labels)

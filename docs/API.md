@@ -11496,3 +11496,18 @@ without making the standalone discretize helper accept zero-norm input rows.
 Global constructor checks apply to controls even when the affinity/assignment
 would ignore them. Kmeans now shares the RNG state advanced by Source's default
 ARPACK initialization, as the discretize branch already did.
+
+The sklearn_spectral_qr module exposes spectral_cluster_qr(vectors,pivots)
+and spectral_qr_pivots(vectors). Rows are samples and columns are embedding
+components. cluster_qr returns zero-based labels; optional allocatable pivots
+and the pivot helper return a full one-based permutation of sample rows.
+Householder column pivoting on transpose(vectors) replaces the previous
+Gram-Schmidt selection in SpectralClustering's assign_labels='cluster_qr'.
+Inputs are preserved. Empty/nonfinite arrays are rejected; cluster_qr also
+rejects more components than samples, matching the Source helper's full-SVD
+shape restriction. Zero and rank-deficient embeddings are accepted.
+This is an adapter for an existing sklearn internal algorithm, not an extension
+estimator. Native SVD/product rounding can still change assignments on ties:
+five of 210 saved identical embeddings retain strict partition differences,
+reduced from seven with the previous pivot selection. Full estimator partitions
+also depend on the native spectral basis.

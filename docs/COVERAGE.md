@@ -14786,3 +14786,19 @@ corrected; diagnostics remain visible. All 21 global/boundary validation cases,
 prior guards, 231 legacy groups and 240 direct discretization cases pass; the
 older four/two partition failures remain. Detailed qualified evidence is
 spectral_controls_cross_profile_audit.json; full strict parity remains false.
+
+### Spectral QR Householder pivoting
+
+Replaced Gram-Schmidt sample selection in assign_labels='cluster_qr' with
+Householder QR column pivoting and LAPACK-style reliable partial-norm updates.
+A typed sklearn_spectral_qr helper exposes the full one-based sample permutation
+and uses the existing native SVD/BLAS-compatible product helpers for assignment.
+No new estimator or external runtime is introduced; MIT/BSD notices are retained.
+
+The focused probe compares 210 saved native embeddings and 75 synthetic cases
+against sklearn 1.6.1 / SciPy 1.15.3. All 30 Source shape rejections match.
+Five of 255 accepted cases retain strict partition differences, reduced from
+seven on the saved baseline. All five have matching Source pivot sequences;
+later SVD/product rounding remains a limitation. No fixture/tolerance was changed.
+The 921-case integration probe retains passing fit acceptance, affinity, shape
+and spectral certificates; full package verification is pending.

@@ -2926,3 +2926,13 @@ manifold/_spectral_embedding.py and utils/validation.py. Pairwise kernels reuse
 the existing attributed dispatcher. Retained sklearn BSD-3-Clause copyright and
 license are in LICENSES/scikit-learn-COPYING; new typed Fortran integration and
 tests are original MIT contributions.
+
+The spectral_cluster_qr assignment adapter follows sklearn 1.6.1
+cluster/_spectral.py::cluster_qr. Householder pivot selection, partial-norm
+updates and reflector application adapt LAPACK 3.12.0 DLAQP2, DLARFG and DLARF:
+https://github.com/Reference-LAPACK/lapack/tree/v3.12.0/SRC .
+Their BSD-3-Clause copyright/license remains in LICENSES/lapack-LICENSE;
+the sklearn notice remains in LICENSES/scikit-learn-COPYING. The typed Fortran
+interface, estimator integration and tests are MIT project contributions.
+Existing attributed SVD and BLAS-compatible reduction helpers are reused;
+no external QR/SVD runtime is linked.
