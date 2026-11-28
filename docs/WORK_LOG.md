@@ -11843,3 +11843,48 @@ Checked audit SHA256:
 6156d8c27cc419e0d4aba779873006782188cc962b15601d7c4c12936a6b3e11.
 Optimized audit SHA256:
 c517f3583174dc19e11797d07166cf88e3222a75d9c8813300ca466139de55e9.
+
+## CSR random projection component storage (2026-11-28)
+
+Implementation commit: 467c676. SparseRandomProjection can now store components
+in components_csr_, without allocating components_, by setting the native
+store_sparse_components adapter before fit. This is explicitly identified in
+the API and attribution as a storage choice, not an extra algorithm or sklearn
+constructor parameter. The default retains the dense real-array interface.
+
+CSR components preserve sklearn's raw sampled column/sign order. Dense and CSR
+fit, fit_transform, transform, explicit CSR outputs, cached and uncached inverse
+transforms, empty projections and storage changes on refit are implemented.
+Forward paths avoid a dense feature-by-component matrix. Inverse construction
+materializes dense components and retains the existing SVD limitations.
+
+A fresh GNU 15.2 checked fpm build and all 330 native programs passed. All
+1,183 dependency-aware source fingerprints matched. Scoped O3 replaces only
+the projection module against a frozen checked archive; four native harnesses
+and both reference drivers retain runtime checks. Each profile passes:
+- Dense components: 808 seeded fixtures / 6,464 groups and 800 CSR-input
+  fixtures / 13,600 groups.
+- CSR components: 808 seeded fixtures / 9,360 groups and 800 CSR-input
+  fixtures / 16,000 groups, including exact raw component arrays.
+Totals: 3,216 fixtures, 45,424 comparison groups and 174 rejection checks per
+profile, with unchanged numerical tolerances. Native storage-state contracts
+are labeled separately from Source checks. Reference versions are sklearn
+1.6.1, NumPy 2.2.6 and SciPy 1.15.3; reports also hash the SciPy sparse kernel.
+
+The 4,096-by-2,000,000 CSR fit/fit_transform and nonzero query memory case with
+1,024 components peaks at 24,825,856 checked / 24,821,760 optimized bytes,
+below 128 MiB. Dense components would require 16,384,000,000 bytes and dense
+input 65,536,000,000 bytes. The test asserts that neither the dense component
+array nor an inverse is allocated. This is a bounded-memory check, not a
+wall-clock speedup measurement. Static libgfortran and the Windows locale-copy
+shim remain part of validation. Broader project parity gaps remain open.
+
+Evidence uses validation/results/projection_components_ as its prefix; the
+cross-profile audit checks report hashes, configurations, field inventories,
+source/compiler/archive hashes, Source versions and the memory bound.
+Final archive SHA256:
+7d2b34e6f50804efaa7abd511914cc9850369ea608f04bf7ec68bf2a37a09f7a.
+Checked audit SHA256:
+02bdfb40c6581c595a12c8b68dbf20ba527ab0dc2af70c7d0393837b909a8091.
+Optimized audit SHA256:
+e035f1b78c78bc51e084551764efe8f3df7573b47fc99563ae2b7aa702babcd1.

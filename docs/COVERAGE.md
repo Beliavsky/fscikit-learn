@@ -10310,25 +10310,38 @@ requiring O(nnz + n_components) index storage instead of a full
 n_features-by-n_components integer array. Low-density tracking selection uses
 hash-set membership instead of repeatedly scanning the selected prefix. All
 counts and positions are sampled before signs, preserving sklearn's seeded
-sequence. Dense component storage and the existing inverse backend remain.
+sequence. These sampling changes preserve the chosen component representation
+and the existing inverse backend.
 
 Native source-derived regressions include a 64-by-50,000 projection with 333
 stored entries, an all-empty refit, and a 3-by-1,000,000 projection with 15,059
 entries. These check sampled row counts and signed column-index moments.
 The retained-column payload for the first fixture is 333 integers instead of
 3.2 million, plus row descriptors and temporary per-row sampling storage.
-This is an allocation reduction; no wall-clock speedup or full sparse-component
-storage is claimed.
+These counts describe index allocation only; no wall-clock speedup is claimed.
 
-Verification: all 329 checked native programs pass. Both checked and scoped
-O3 projection builds pass the existing 808 seeded fixtures / 6,464 groups /
-43 rejection cases and 800 CSR fixtures / 13,600 groups / 44 rejection cases.
-Component and forward-value equality checks and inverse tolerances are
-unchanged. The O3 audit also passes three checked native projection harnesses.
-The fresh full build has 1,182 matching dependency-aware source fingerprints.
-Validation uses GNU 15.2, static libgfortran and the Windows locale-copy shim.
-Reports: validation/results/projection_sampling_{checked,optimized}.json and
-their seeded/CSR reference reports. Broader project parity gaps remain open.
+Verification: all 330 checked native programs and four checked native harnesses
+with the projection module optimized at O3 pass. Per profile, the original
+dense-component modes pass 808 seeded fixtures / 6,464 groups and 800 CSR-input
+fixtures / 13,600 groups. CSR-component modes pass the same fixture sets with
+9,360 and 16,000 groups respectively, including raw component storage.
+Totals are 3,216 fixtures / 45,424 comparison groups / 174 rejection checks per
+profile. Storage-state invariants are explicitly labeled native contracts;
+component values and raw column order compare directly with Source. Existing
+equality checks and inverse tolerances are unchanged.
+
+A 4,096-by-2,000,000 zero CSR fit, sparse fit_transform and nonzero sparse query
+with 1,024 components peak at 24,825,856 checked / 24,821,760 optimized bytes,
+below 128 MiB. A dense component matrix would need 16,384,000,000 bytes; the
+dense input would need 65,536,000,000 bytes. No dense component array or inverse
+is allocated in this case. The fresh full build has 1,183 matching source
+fingerprints including dependencies. Validation uses GNU 15.2, sklearn 1.6.1,
+NumPy 2.2.6, SciPy 1.15.3, static libgfortran and the Windows locale-copy shim.
+Reports: validation/results/projection_components_{checked,optimized}.json,
+their four comparison reports and memory reports, plus the fingerprints and
+cross-profile audit. Broader project parity gaps remain open.
+
+### Original seeded-generator implementation
 
 Replaced the intrinsic Fortran random stream for GaussianRandomProjection and
 SparseRandomProjection with NumPy-compatible scalar-seeded components.
@@ -10399,7 +10412,8 @@ Six structural diagnostics use SciPy CSR check_format as their source oracle;
 38 use sklearn estimator validation. No malformed arrays enter source numeric
 kernels. Native tests include a 100,000-by-10,000 zero CSR matrix (8 GB if
 densified) and large sparse projected output. No dependency, public type or
-extension algorithm was added. Dense component storage remains explicit.
+extension algorithm was added. Default component storage remains dense; the
+opt-in CSR component adapter is described above.
 
 Inventory: 222 public core types, 154 source modules, 204 native programs,
 180 reference suites / 3,687,294 retained groups and 85 invalid registries /

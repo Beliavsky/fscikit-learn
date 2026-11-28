@@ -4,6 +4,7 @@ import argparse,hashlib,itertools,json,os,subprocess,warnings
 os.environ.setdefault('OMP_NUM_THREADS','1');os.environ.setdefault('OPENBLAS_NUM_THREADS','1')
 import numpy as np
 import sklearn
+import scipy
 import scipy.sparse as sp
 from sklearn.random_projection import GaussianRandomProjection,SparseRandomProjection,johnson_lindenstrauss_min_dim
 ROOT=Path(__file__).resolve().parents[1]
@@ -36,7 +37,7 @@ def oracle(c,sparse_components=False):
 def main():
  ap=argparse.ArgumentParser();ap.add_argument('--executable',type=Path,required=True);ap.add_argument('--profile',default='development');ap.add_argument('--report',type=Path);ap.add_argument('--sparse-components',action='store_true');args=ap.parse_args()
  command=[str(args.executable)]+(['csr-components'] if args.sparse_components else [])
- paths=[Path(__file__),args.executable,*[ROOT/'src'/n for n in ['sklearn_random_projection.f90','sklearn_random_binomial.f90','sklearn_bicluster_datasets.f90','sklearn_legacy_rng.f90']],ROOT/'app/reference_seeded_projection_driver.f90',Path(sklearn.__file__).parent/'random_projection.py',Path(sklearn.__file__).parent/'utils/_random.pyx',ROOT/'validation/results/tools/numpy-2.2.6-distributions.c',ROOT/'validation/results/tools/numpy-2.2.6-legacy-distributions.c']
+ paths=[Path(__file__),args.executable,*[ROOT/'src'/n for n in ['sklearn_random_projection.f90','sklearn_random_binomial.f90','sklearn_bicluster_datasets.f90','sklearn_legacy_rng.f90']],ROOT/'app/reference_seeded_projection_driver.f90',Path(sklearn.__file__).parent/'random_projection.py',Path(sklearn.__file__).parent/'utils/_random.pyx',ROOT/'validation/results/tools/numpy-2.2.6-distributions.c',ROOT/'validation/results/tools/numpy-2.2.6-legacy-distributions.c',Path(sp._sparsetools.__file__)]
  hashes={str(p):sha(p) for p in paths};cases=list(fixtures());expected=[oracle(c,args.sparse_components) for c in cases]
  r=subprocess.run(command,input=str(len(cases))+'\n'+''.join(payload(c) for c in cases),text=True,capture_output=True)
  if r.returncode:raise AssertionError((r.stdout[-500:],r.stderr[-1500:]))
@@ -82,6 +83,6 @@ def main():
   assert not any(t in out for t in ['SIGFPE','Fortran runtime error']),(name,out)
   rejections.append(dict(name=name,passed=True,source_error=source_error))
  assert hashes=={str(p):sha(p) for p in paths}
- report=dict(profile=args.profile,component_storage='csr' if args.sparse_components else 'dense',sklearn=sklearn.__version__,fixtures=len(cases),checks=checks,inventories=inventories,configurations=cases,rejections=rejections,hashes=hashes)
+ report=dict(profile=args.profile,component_storage='csr' if args.sparse_components else 'dense',sklearn=sklearn.__version__,numpy=np.__version__,scipy=scipy.__version__,fixtures=len(cases),checks=checks,inventories=inventories,configurations=cases,rejections=rejections,hashes=hashes)
  path=args.report or ROOT/'validation/results'/f'seeded_projections_{args.profile}.json';path.write_text(json.dumps(report,indent=2)+'\n');print(len(cases),len(checks),len(rejections),'PASS')
 if __name__=='__main__':main()

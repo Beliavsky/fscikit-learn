@@ -4,6 +4,7 @@ import argparse,hashlib,itertools,json,os,subprocess,warnings
 os.environ.setdefault('OMP_NUM_THREADS','1');os.environ.setdefault('OPENBLAS_NUM_THREADS','1')
 import numpy as np
 import scipy.sparse as sp
+import scipy
 import sklearn
 from sklearn.random_projection import GaussianRandomProjection,SparseRandomProjection,johnson_lindenstrauss_min_dim
 ROOT=Path(__file__).resolve().parents[1];sha=lambda p:hashlib.sha256(Path(p).read_bytes()).hexdigest()
@@ -59,7 +60,7 @@ def oracle(c,arrays,sparse_components=False):
 def main():
  ap=argparse.ArgumentParser();ap.add_argument('--executable',type=Path,required=True);ap.add_argument('--profile',default='development');ap.add_argument('--report',type=Path);ap.add_argument('--sparse-components',action='store_true');args=ap.parse_args()
  command=[str(args.executable)]+(['csr-components'] if args.sparse_components else [])
- paths=[Path(__file__),args.executable,ROOT/'src/sklearn_random_projection.f90',ROOT/'src/sklearn_sparse.f90',ROOT/'src/sklearn_legacy_rng.f90',ROOT/'src/sklearn_random_binomial.f90',ROOT/'app/reference_csr_projection_driver.f90',Path(sklearn.__file__).parent/'random_projection.py']
+ paths=[Path(__file__),args.executable,ROOT/'src/sklearn_random_projection.f90',ROOT/'src/sklearn_sparse.f90',ROOT/'src/sklearn_legacy_rng.f90',ROOT/'src/sklearn_random_binomial.f90',ROOT/'app/reference_csr_projection_driver.f90',Path(sklearn.__file__).parent/'random_projection.py',Path(sp._sparsetools.__file__)]
  hashes={str(p):sha(p) for p in paths};cases=list(fixtures());arrays=[inputs(c) for c in cases];expected=[oracle(c,a,args.sparse_components) for c,a in zip(cases,arrays)]
  r=subprocess.run(command,input=str(len(cases))+'\n'+''.join(payload(c,a) for c,a in zip(cases,arrays)),text=True,capture_output=True)
  if r.returncode:raise AssertionError((r.stdout[-1000:],r.stderr[-1700:]))
@@ -113,6 +114,6 @@ def main():
    assert not any(t in out for t in ['SIGFPE','Fortran runtime error']),(kind,name,out)
    rejections.append(dict(name=str(kind)+'_'+name,passed=True,source_error=source_error,oracle='scipy_csr_check_format' if c['mode'] in [5,6,7] else 'sklearn_estimator'))
  assert hashes=={str(p):sha(p) for p in paths}
- report=dict(profile=args.profile,component_storage='csr' if args.sparse_components else 'dense',sklearn=sklearn.__version__,fixtures=len(cases),checks=checks,inventories=inventories,configurations=cases,rejections=rejections,hashes=hashes)
+ report=dict(profile=args.profile,component_storage='csr' if args.sparse_components else 'dense',sklearn=sklearn.__version__,numpy=np.__version__,scipy=scipy.__version__,fixtures=len(cases),checks=checks,inventories=inventories,configurations=cases,rejections=rejections,hashes=hashes)
  path=args.report or ROOT/'validation/results'/f'csr_projections_{args.profile}.json';path.write_text(json.dumps(report,indent=2)+'\n');print(len(cases),len(checks),len(rejections),'PASS')
 if __name__=='__main__':main()

@@ -8746,7 +8746,7 @@ projection%n_components=100
 projection%store_sparse_components=.true.
 call projection%fit(x)                 ! x may be dense or CSR
 z=projection%transform(x)               ! dense projected values
-sparse_z=projection%transform_sparse(x) ! CSR x and CSR projected values
+sparse_z=projection%transform_sparse(csr_x) ! CSR input and output
 ```
 
 Sparse fitting and forward transforms do not materialize the feature-by-component
