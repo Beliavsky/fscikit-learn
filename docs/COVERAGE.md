@@ -2945,6 +2945,34 @@ max_iter are required; break_ties requires OVR scores. No public extension or
 external runtime dependency was added.
 
 
+Current translated NuSVC verification: a coherent GNU 15.2 checked fpm build
+passes all 341 native programs and all 1,205 compiled-source fingerprints.
+Three selected native harnesses also pass with sklearn_nu_classification built
+at O3 with loop unrolling; harness bounds checks and floating-point traps remain
+enabled. Both profiles pass 1,296 strict NuSVC fits / 16,848 output groups and
+4,320 independent class-mass/box/normalized-layout/residual replays. The grid
+covers binary and 3/4-class fits, weights including zero rows, nu=.2/.55,
+ordinary linear/RBF/polynomial/sigmoid kernels, five precomputed kernel families
+including indefinite matrices, caps 1/31/10000, and both shrinking settings.
+Complete support arrays and public coefficients are compared without the
+legacy corpus's meaningful-support threshold or bound-normalization exemptions.
+All output groups pass their existing exact-structure and 3e-6 numeric
+comparisons. Only two ordinary polynomial iteration arrays differ from Source;
+all precomputed iteration arrays match. This is a selected-corpus result,
+without a claim of exhaustive sklearn compatibility or indefinite global optima.
+
+The older 66-fit NuSVC corpus passes all 1,403 groups in each profile; its
+physical-gradient checks now account analytically for float-cache rounding.
+All 18 rejection guards pass without runtime or SIGFPE failures. A separate
+789-fit weighted C-SVC regression replay passes all 11,046 groups/profile.
+The combined profile total is 29,297 passing comparison groups. Source,
+archive and binary hashes remain stable during auditing. The shared
+`validation/audit_svc_shrinking_profiles.py` also passes for these evidence sets,
+requiring every output group to pass, matching source/compiler/archive identity,
+and comparing checked versus optimized outputs. Evidence and logs use
+`validation/results/nusvc_libsvm_`; the persistent workspace build and Windows
+locale-copy/static-libgfortran validation workaround remain in use.
+
 ## Online one-class SVM
 
 `sgd_one_class_svm` translates sklearn 1.6.1 SGDOneClassSVM's dense/CSR linear
