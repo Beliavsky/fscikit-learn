@@ -1761,10 +1761,17 @@ multiclass hinge optimization, including weighted costs, per-row class
 shrinking, sorted block subproblems and seeded row shuffling. Dense/CSR input
 and binary coefficient collapse are supported. Joint diagnostics use the raw
 class vectors and one objective/counter; opt-in alpha stores all active class
-coordinates. L1 penalties remain a gap.
+coordinates. `penalty='l1'` additionally supports squared-hinge OVR with sparse coefficients.
+Explicit primal or automatic selection uses LIBLINEAR coordinate descent,
+feature shrinking and line search. Auto selects primal for either design
+shape; L1 hinge and L1 dual are rejected. Signed column nodes are owned and
+preserve raw entry order, including duplicates. Sample/class costs, shared
+OVR RNG streams and scaled synthetic-intercept regularization are retained.
+L1 objective, minimum-norm subgradient norm and maximum coordinate violation
+are native diagnostics; this primal path does not retain dual certificates.
 
 Crammer-Singer follows the bundled solver's fixed internal 100,000-step cap;
-valid loss/dual selectors do not change that solver. Zero-norm rows are skipped,
+valid penalty/loss/dual selectors do not change that solver. Zero-norm rows are skipped,
 with any nonzero gap/KKT residual retained. The installed sklearn 1.6.1 public
 multiclass iteration maximum can include undefined extra counters: the model
 allocates one counter but get_n_iter copies nr_class entries. Native n_iter_
@@ -1793,7 +1800,7 @@ objective/gap and KKT certificate fields are explicitly identified in API.md.
 These regression fit paths avoid dense design augmentation, feature Hessians
 and Gram matrices. Auto-selected primal fits use the same TRON implementation.
 
-Current Crammer-Singer verification: a fresh checked fpm build passes all
+Previous Crammer-Singer verification: a fresh checked fpm build passes all
 336 native programs and all 1,193 dependency-aware compiled-source fingerprints.
 Checked and scoped O3 profiles each pass 33,732 defined Source output/counter
 groups plus 702 independent derivative groups. The joint corpus passes 1,112

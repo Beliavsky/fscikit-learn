@@ -36,12 +36,14 @@ def main():
         'test/test_linear_svc_dual.f90','app/reference_linear_svc_dual_driver.f90',
         'validation/compare_linear_svc_dual.py','validation/check_linear_svc_dual.py',
         'test/test_linear_svc_cs.f90','app/reference_linear_svc_cs_driver.f90',
-        'validation/compare_linear_svc_cs.py','validation/check_linear_svc_cs.py']]]
+        'validation/compare_linear_svc_cs.py','validation/check_linear_svc_cs.py',
+        'test/test_linear_svc_l1.f90','app/reference_linear_svc_l1_driver.f90',
+        'validation/compare_linear_svc_l1.py','validation/check_linear_svc_l1.py']]]
     hashes={str(p):sha(p) for p in files}
-    selected=[root/'test'/(name+'.f90') for name in ['test_linear_svm','test_linear_svm_sparse','test_linear_svr_dual','test_linear_svr_tron','test_linear_svc_dual','test_linear_svc_cs']]
+    selected=[root/'test'/(name+'.f90') for name in ['test_linear_svm','test_linear_svm_sparse','test_linear_svr_dual','test_linear_svr_tron','test_linear_svc_dual','test_linear_svc_cs','test_linear_svc_l1']]
     programs=sorted(p for p in (root/'test').glob('*.f90')
         if re.search(r'^\s*program\s',p.read_text(),re.I|re.M)) if args.all_native else selected
-    driver=root/'app/reference_linear_svm_driver.f90';dual_driver=root/'app/reference_linear_svr_dual_driver.f90';svc_driver=root/'app/reference_linear_svc_dual_driver.f90';cs_driver=root/'app/reference_linear_svc_cs_driver.f90';evidence={}
+    driver=root/'app/reference_linear_svm_driver.f90';dual_driver=root/'app/reference_linear_svr_dual_driver.f90';svc_driver=root/'app/reference_linear_svc_dual_driver.f90';cs_driver=root/'app/reference_linear_svc_cs_driver.f90';l1_driver=root/'app/reference_linear_svc_l1_driver.f90';evidence={}
     with tempfile.TemporaryDirectory(prefix='fsklearn-linear-svm-audit-') as temporary:
         work=Path(temporary)
         if args.profile=='optimized':
@@ -52,7 +54,7 @@ def main():
             subprocess.run([str(compiler),'-O3','-funroll-loops',*common,'-c',
                 str(root/'src/sklearn_linear_svm.f90'),'-o',str(module)],check=True)
             evidence['optimized_object_sha256']=sha(module)
-            for p in programs+[driver,dual_driver,svc_driver,cs_driver]:
+            for p in programs+[driver,dual_driver,svc_driver,cs_driver,l1_driver]:
                 subprocess.run([str(compiler),'-fcheck=all','-fbacktrace','-ffpe-trap=invalid,zero,overflow',
                     *common,str(p),str(module),str(frozen),'-static-libgfortran',str(shim),
                     '-Wl,--wrap=setlocale','-o',str(work/(p.stem+'.exe'))],check=True)
@@ -111,6 +113,16 @@ def main():
         subprocess.run([sys.executable,str(root/'validation/check_linear_svc_cs.py'),
             '--executable',str(executable(root/'test/test_linear_svc_cs.f90')),'--report',str(report)],check=True)
         evidence['cs_guards_memory']=dict(report=str(report),sha256=sha(report),kind='strict')
+        report=args.report.with_name(args.report.stem+'_l1_classification.json')
+        subprocess.run([sys.executable,str(root/'validation/compare_linear_svc_l1.py'),
+            '--executable',str(executable(l1_driver)),'--report',str(report)],check=True)
+        l1_report=json.loads(report.read_text())
+        assert not l1_report['gaps'] and all(c['passed'] for row in l1_report['certificates'] for c in row)
+        evidence['l1_classification']=dict(report=str(report),sha256=sha(report),kind='strict')
+        report=args.report.with_name(args.report.stem+'_l1_guards_memory.json')
+        subprocess.run([sys.executable,str(root/'validation/check_linear_svc_l1.py'),
+            '--executable',str(executable(root/'test/test_linear_svc_l1.f90')),'--report',str(report)],check=True)
+        evidence['l1_guards_memory']=dict(report=str(report),sha256=sha(report),kind='strict')
     assert archive_hash==sha(archive)
     assert hashes=={str(p):sha(p) for p in files}
     result=dict(profile=args.profile,native=outcomes,evidence=evidence,archive_sha256=archive_hash,

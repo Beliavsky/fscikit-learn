@@ -12225,3 +12225,23 @@ Optimized audit SHA256:
 456d9fbbd11bcd0635a7fa1a4582dd577e8d59a9879787f0707b07f1a8fbe0ac
 
 Local commits only; no push. The broader translation goal remains active.
+
+### 2026-11-28: L1-regularized squared-hinge LinearSVC
+
+Added penalty='l1' via translated LIBLINEAR coordinate descent, feature
+shrinking and line search on owned signed column nodes. Dense/CSR paths share
+the solver, preserving raw duplicate order, costs, grouped classes and shared
+OVR RNG streams. Automatic selection chooses primal for L1 at either design
+shape; unsupported hinge/dual choices are rejected. The scaled synthetic
+intercept receives the L1 penalty. Native objective, minimum-norm subgradient
+norm and maximum KKT coordinate are replayed independently; dual certificate
+state is cleared. Search accepts penalty. Valid penalty choices are ignored
+by the existing joint Crammer-Singer solver, as in the reference.
+
+Checked probes pass 1,482 fits / 13,338 comparison groups with no gaps and
+2,986 channel certificates. The corpus includes zero designs, C=.01 and C=10,
+weights, intercepts, five input layouts, automatic/explicit primal selection,
+iteration caps and inactive classes. Analytic sparse optima, refits, RNG
+isolation, three rejection checks and the 128-by-200,000 memory case pass
+(20,803,584 bytes peak). Full checked rebuild and checked/O3 audits follow.
+Existing MIT licensing and sklearn/LIBLINEAR notices remain in place.

@@ -3071,3 +3071,13 @@ wrapper's grouping, class costs and binary coefficient collapse follow
 LIBLINEAR notices in `LICENSES/` apply. Dense/CSR integration, safe joint
 iteration metadata, optional original-row alpha storage, certificate replay
 and tests are native MIT contributions. No LIBLINEAR/C++ runtime is linked.
+
+## L1-regularized squared-hinge LinearSVC
+
+`sklearn_linear_svm` translates sklearn 1.6.1 bundled LIBLINEAR `linear.cpp`
+solve_l1r_l2_svc: signed column-node traversal, coordinate Newton directions,
+line search, active-feature shrinking and relative subgradient-sum stopping.
+Existing sklearn BSD and LIBLINEAR notices in `LICENSES/` apply. The existing
+MT19937/Lemire shuffle and seed bridge are reused. Typed penalty selection,
+owned dense/CSR transpose storage, refit integration, minimum-norm subgradient
+diagnostics and tests are native MIT contributions; no C++ runtime is linked.

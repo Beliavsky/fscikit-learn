@@ -1865,10 +1865,26 @@ Zero-weight rows have zero alpha. Dual `gradient_norm_` is the maximum projected
 coordinate gradient; primal fitting reports the actual gradient norm. A primal
 refit clears dual state. `converged_` follows the LIBLINEAR iteration-cap status.
 `multi_class='ovr'` remains the default. Select `'crammer_singer'` for joint
-multiclass hinge fitting. That solver ignores the valid loss and dual choices,
+multiclass hinge fitting. That solver ignores the valid penalty, loss and dual choices,
 as sklearn does, and uses sample/class costs for the true class. Binary output
 is the difference of two jointly fitted class vectors. Search accepts
-multi_class as well. L1 penalties remain unsupported.
+multi_class as well. Set `penalty='l1'` for sparse coefficients with squared-hinge OVR fitting.
+The default remains `'l2'`. L1 supports `dual='false'` or `'auto'`; auto selects
+primal even for a wide design. Hinge loss or explicit dual fitting with L1 is
+rejected. Parameter search accepts penalty. The L1 solver follows LIBLINEAR
+coordinate descent, active-feature shrinking and line search, using owned
+signed sparse column nodes. Dense and CSR inputs share this engine; no dense
+feature Hessian or augmented dense design is constructed. A single seeded
+shuffle stream spans OVR channels, including the scaled synthetic intercept.
+
+For L1 fits, objective_ is sum(abs(coef)) plus weighted squared-hinge loss,
+including the L1 penalty on the unscaled synthetic-intercept coefficient.
+gradient_norm_ reports the Euclidean norm of the minimum-norm L1 subgradient;
+kkt_violation_ reports its largest absolute coordinate. Dual variables remain
+unallocated and dual-objective/gap fields are cleared to zero for this primal
+solver. Exact zero coefficients are retained. converged_ follows the reference
+iteration-cap status; stopping uses the reference relative subgradient-sum
+criterion, rather than the diagnostic norm itself.
 
 Crammer-Singer objective/gap/KKT fields and iteration arrays have one entry
 for the joint problem. Its opt-in dual_variables_ retains every active class

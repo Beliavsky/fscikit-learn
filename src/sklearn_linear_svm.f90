@@ -18,6 +18,7 @@ module sklearn_linear_svm
     integer :: max_iter=1000,n_iter_=0,n_features_in_=0
     logical :: fit_intercept=.true.,class_weight_balanced=.false.,converged_=.false.
     character(16)::loss='squared_hinge'
+    character(2)::penalty='l2'
     character(8)::dual='auto'
     character(16)::multi_class='ovr'
     integer::random_state=0
@@ -62,9 +63,14 @@ contains
     call require(self%dual=='true'.or.self%dual=='false'.or.self%dual=='auto','invalid LinearSVC dual selector')
     call require(self%random_state>=0,'LinearSVC random_state must be nonnegative')
     call require(self%multi_class=='ovr'.or.self%multi_class=='crammer_singer','invalid LinearSVC multi_class')
+    call require(self%penalty=='l1'.or.self%penalty=='l2','invalid LinearSVC penalty')
     use_dual=self%dual=='true'
     if(self%multi_class=='crammer_singer')then
       use_dual=.true.;return
+    end if
+    if(self%penalty=='l1')then
+      call require(self%loss=='squared_hinge'.and.self%dual/='true','L1 LinearSVC requires squared_hinge and primal fitting')
+      use_dual=.false.;return
     end if
     if(self%dual=='auto')use_dual=n<p.or.self%loss=='hinge'
     call require(use_dual.or.self%loss=='squared_hinge','LinearSVC hinge loss requires the dual solver')
@@ -198,6 +204,147 @@ contains
     end do
     call ieee_set_halting_mode(ieee_all,modes);call ieee_set_flag(ieee_all,flags)
   end subroutine
+  ! LIBLINEAR solve_l1r_l2_svc: owned signed column nodes preserve duplicate order.
+  subroutine svc_l1_solve(x,y,cost,intercept,scaling,tol,max_iter,rng,coef,iterations,converged,objective,gradient_norm,kkt)
+    type(csr_matrix),intent(in)::x
+    real(dp),intent(in)::y(:),cost(:),scaling,tol
+    logical,intent(in)::intercept
+    integer,intent(in)::max_iter
+    type(legacy_random_state),intent(inout)::rng
+    real(dp),allocatable,intent(out)::coef(:)
+    integer,intent(out)::iterations
+    logical,intent(out)::converged
+    real(dp),intent(out)::objective,gradient_norm,kkt
+    integer,allocatable::ptr(:),row(:),cursor(:),order(:)
+    real(dp),allocatable::value(:),b(:),sq(:),gradient(:)
+    real(dp)::g_loss,g,h,gp,gn,violation,gmax_old,gmax_new,gnorm,initial,d,delta,d_old,d_diff
+    real(dp)::cond,approx,loss_old,loss_new,b_new,tmp
+    integer::n,p,nnz,i,j,k,s,active,swap,ls,it
+    n=x%n_rows;p=x%n_cols+merge(1,0,intercept);nnz=size(x%data)+merge(n,0,intercept)
+    allocate(ptr(p+1),cursor(p),row(nnz),value(nnz),coef(p),b(n),sq(p),order(p),gradient(p))
+    ptr=0
+    do k=1,size(x%data)
+      j=x%indices(k);ptr(j+1)=ptr(j+1)+1
+    end do
+    if(intercept)ptr(p+1)=ptr(p+1)+n
+    ptr(1)=1
+    do j=1,p
+      ptr(j+1)=ptr(j+1)+ptr(j)
+    end do
+    cursor=ptr(:p)
+    do i=1,n
+      do k=x%indptr(i),x%indptr(i+1)-1
+        j=x%indices(k);s=cursor(j);row(s)=i;value(s)=x%data(k)*y(i);cursor(j)=s+1
+      end do
+      if(intercept)then
+        s=cursor(p);row(s)=i;value(s)=scaling*y(i);cursor(p)=s+1
+      end if
+    end do
+    coef=0;b=1;sq=0;order=[(j,j=1,p)];active=p;gmax_old=huge(1._dp);initial=-1;iterations=0
+    do j=1,p
+      do k=ptr(j),ptr(j+1)-1
+        sq(j)=sq(j)+(cost(row(k))*value(k))*value(k)
+      end do
+    end do
+    do it=1,max_iter
+      gmax_new=0;gnorm=0
+      do j=1,active
+        i=j+bounded_liblinear(rng,active-j+1);swap=order(i);order(i)=order(j);order(j)=swap
+      end do
+      s=1
+      do while(s<=active)
+        j=order(s);g_loss=0;h=0
+        do k=ptr(j),ptr(j+1)-1
+          i=row(k)
+          if(b(i)>0)then
+            tmp=cost(i)*value(k);g_loss=g_loss-tmp*b(i);h=h+tmp*value(k)
+          end if
+        end do
+        g_loss=g_loss*2;g=g_loss;h=max(h*2,1.e-12_dp);gp=g+1;gn=g-1;violation=0
+        if(coef(j)==0)then
+          if(gp<0)then
+            violation=-gp
+          else if(gn>0)then
+            violation=gn
+          else if(gp>gmax_old/n.and.gn<-gmax_old/n)then
+            swap=order(s);order(s)=order(active);order(active)=swap;active=active-1;cycle
+          end if
+        else if(coef(j)>0)then
+          violation=abs(gp)
+        else
+          violation=abs(gn)
+        end if
+        gmax_new=max(gmax_new,violation);gnorm=gnorm+violation
+        if(gp<h*coef(j))then
+          d=-gp/h
+        else if(gn>h*coef(j))then
+          d=-gn/h
+        else
+          d=-coef(j)
+        end if
+        if(abs(d)>=1.e-12_dp)then
+          delta=abs(coef(j)+d)-abs(coef(j))+g*d;d_old=0
+          do ls=0,19
+            d_diff=d_old-d;cond=abs(coef(j)+d)-abs(coef(j))-.01_dp*delta
+            approx=(sq(j)*d)*d+g_loss*d+cond
+            if(approx<=0)then
+              do k=ptr(j),ptr(j+1)-1
+                i=row(k);b(i)=b(i)+d_diff*value(k)
+              end do
+              exit
+            end if
+            loss_new=0
+            if(ls==0)loss_old=0
+            do k=ptr(j),ptr(j+1)-1
+              i=row(k)
+              if(ls==0.and.b(i)>0)loss_old=loss_old+(cost(i)*b(i))*b(i)
+              b_new=b(i)+d_diff*value(k);b(i)=b_new
+              if(b_new>0)loss_new=loss_new+(cost(i)*b_new)*b_new
+            end do
+            cond=cond+loss_new-loss_old
+            if(cond<=0)exit
+            d_old=d;d=d*.5_dp;delta=delta*.5_dp
+          end do
+          coef(j)=coef(j)+d
+          if(ls>=20)then
+            b=1
+            do i=1,p
+              if(coef(i)==0)cycle
+              do k=ptr(i),ptr(i+1)-1
+                b(row(k))=b(row(k))-coef(i)*value(k)
+              end do
+            end do
+          end if
+        end if
+        s=s+1
+      end do
+      if(it==1)initial=gnorm
+      iterations=it
+      if(gnorm<=tol*initial)then
+        if(active==p)exit
+        active=p;gmax_old=huge(1._dp);cycle
+      end if
+      gmax_old=gmax_new
+    end do
+    converged=iterations<max_iter
+    ! Reconstruct final residuals independently of incremental line-search storage.
+    b=max(0._dp,1-y*sparse_forward(x,coef,intercept,scaling))
+    objective=sum(abs(coef))+sum(cost*b**2);gradient=0
+    do j=1,p
+      do k=ptr(j),ptr(j+1)-1
+        i=row(k);gradient(j)=gradient(j)-2*cost(i)*value(k)*b(i)
+      end do
+      if(coef(j)>0)then
+        gradient(j)=gradient(j)+1
+      else if(coef(j)<0)then
+        gradient(j)=gradient(j)-1
+      else
+        gradient(j)=sign(max(abs(gradient(j))-1,0._dp),gradient(j))
+      end if
+    end do
+    gradient_norm=norm2(gradient);kkt=maxval(abs(gradient))
+  end subroutine
+
   ! Translation of sklearn's bundled Solver_MCSVM_CS (fixed 100000 iteration cap).
   subroutine svc_cs_solve(x,y,cost,classes,intercept,scaling,tol,rng,coef,alpha,iterations,objective,dual_objective,kkt)
     type(csr_matrix),intent(in)::x
@@ -925,9 +1072,15 @@ contains
       else
         positive=count(target>0)
         primal_tol=self%tol*real(max(min(positive,size(target)-positive),1),dp)/size(target)
-        call svr_tron_solve(grouped,target,cost,0._dp,self%fit_intercept,self%intercept_scaling,primal_tol, &
-          self%max_iter,coef,self%n_iter_per_class_(k),self%converged_per_class_(k),self%objective_(k), &
-          self%gradient_norm_(k),classification=.true.)
+        if(self%penalty=='l1')then
+          call svc_l1_solve(grouped,target,cost,self%fit_intercept,self%intercept_scaling,primal_tol,self%max_iter,rng, &
+            coef,self%n_iter_per_class_(k),self%converged_per_class_(k),self%objective_(k), &
+            self%gradient_norm_(k),self%kkt_violation_(k))
+        else
+          call svr_tron_solve(grouped,target,cost,0._dp,self%fit_intercept,self%intercept_scaling,primal_tol, &
+            self%max_iter,coef,self%n_iter_per_class_(k),self%converged_per_class_(k),self%objective_(k), &
+            self%gradient_norm_(k),classification=.true.)
+        end if
       end if
       self%coef_(k,:)=coef(:p);self%intercept_(k)=0
       if(self%fit_intercept)self%intercept_(k)=coef(p+1)*self%intercept_scaling
