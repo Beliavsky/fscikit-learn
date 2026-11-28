@@ -22,6 +22,7 @@ program reference_linear_svm_driver
   call get_command_argument(2,path); open(newunit=output,file=trim(path),status='replace')
   do j=1,10
     classifier=linear_svc(); classifier%tol=1.e-12_dp; classifier%max_iter=10000
+    classifier%dual='false'
     train=x; weights=1+0*w; labels=binary
     select case(j)
     case(2); labels=multi
@@ -61,7 +62,7 @@ program reference_linear_svm_driver
       call matrix('_train',classifier%decision_function(train));call matrix('_query',classifier%decision_function(query))
       call vector('_predict',real(classifier%predict(query),dp));call vector('_score',[classifier%score(train,labels)])
     end if
-    call vector('_objective',classifier%objective_)
+    call vector('_objective',classifier%objective_);call vector('_gradient_norm',classifier%gradient_norm_)
   end do
   do j=1,8
     reg=linear_svr(); reg%tol=1.e-12_dp; reg%max_iter=10000; train=x; weights=1+0*w

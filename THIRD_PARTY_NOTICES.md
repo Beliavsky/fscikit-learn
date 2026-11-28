@@ -215,7 +215,7 @@ Reference paths by module:
 | kernel_ridge | kernel_ridge.py |
 | discriminant_analysis | discriminant_analysis.py (LDA lsqr covariance convention) |
 | kernel_svm | svm/_base.py, _classes.py, src/libsvm/svm.cpp; SVR/NuSVR/OneClassSVM weighted dual formulations, gamma rules, thresholds and normalization; independent native pairwise optimizer |
-| linear_svm | svm/_classes.py LinearSVC/LinearSVR contracts; svm/src/liblinear/linear.cpp L2 squared-loss objectives, synthetic intercept regularization and binary/OVR class costs; tron.cpp stopping behavior used in reference validation; independent native primal Newton/Armijo solver |
+| linear_svm | svm/_classes.py LinearSVC/LinearSVR contracts; svm/src/liblinear/linear.cpp L2 squared-loss objectives, synthetic intercept regularization and binary/OVR class costs; tron.cpp primal trust-region optimization; projected-gradient dual solvers and newrand.h seeded shuffles |
 | svm | svm/_classes.py; deterministic SMO replaces libsvm backend |
 | mixture | mixture/_gaussian_mixture.py, _base.py |
 | neural_network | neural_network/_multilayer_perceptron.py, _stochastic_optimizers.py |
@@ -3048,3 +3048,15 @@ conditions are translated into Fortran. The existing OpenBLAS-compatible
 inner-product helper is reused; virtual-bias storage and derivative verification
 are native MIT integration. Existing LIBLINEAR and sklearn BSD notices remain
 in `LICENSES/`; no C++ source or binary is linked at runtime.
+
+## LinearSVC hinge dual solvers and primal TRON
+
+`sklearn_linear_svm` additionally translates sklearn 1.6.1 bundled LIBLINEAR
+`linear.cpp` solve_l2r_l1l2_svc, classification objective/gradient/Hessian products,
+class grouping and weighted costs, and `tron.cpp` primal trust-region fitting.
+The `newrand.h` shuffle and existing NumPy-compatible seed bridge are shared
+with dual regression, including a single stream across OVR channels. Existing
+sklearn BSD, LIBLINEAR and NumPy RNG notices in `LICENSES/` apply. Typed controls,
+owned dense/CSR integration, opt-in original-row alpha certificates and tests
+are native MIT contributions. The package remains MIT with these retained
+third-party notices; no LIBLINEAR or C++ runtime is linked.

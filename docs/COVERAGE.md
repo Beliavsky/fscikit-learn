@@ -137,7 +137,7 @@ Fortran identifiers use snake_case rather than CamelCase.
 | dummy | `dummy_classifier`, `dummy_regressor` | Weighted multioutput classification/regression; ignored dense/CSR features; NumPy-seeded uniform/stratified labels; weighted lower percentiles |
 | kernel_ridge | `kernel_ridge` | Weighted dense/CSR, multioutput, per-target nonnegative alpha; named/callback/GP kernels; singular numeric limits below |
 | discriminant_analysis | `linear_discriminant_analysis`, `quadratic_discriminant_analysis` | LDA offers LSQR, SVD and generalized-eigen classification/projection with fixed/automatic shrinkage and custom priors; QDA full/thin regularization and custom priors; solver-specific rank contracts are documented below |
-| svm | `svc`, `nu_svc`, `linear_svc`, `linear_svr`; re-exports `svr`, `nu_svr`, `one_class_svm` | Primal L2 squared-loss linear classification/regression; OVO SVC/NuSVC; epsilon/nu support-vector regression and one-class detection; native pairwise dual optimization and weighted capacities |
+| svm | `svc`, `nu_svc`, `linear_svc`, `linear_svr`; re-exports `svr`, `nu_svr`, `one_class_svm` | L2 primal/dual hinge and epsilon-insensitive linear models; OVO SVC/NuSVC; epsilon/nu support-vector regression and one-class detection; native pairwise dual optimization and weighted capacities |
 | mixture | `gaussian_mixture`, `bayesian_gaussian_mixture` | EM Gaussian mixtures and variational Bayesian mixtures with finite Dirichlet or truncated stick-breaking weights; full/tied/diag/spherical covariances; responsibilities and likelihood scores; GaussianMixture BIC/AIC |
 | neural_network | `mlp_classifier`, `mlp_regressor`, `bernoulli_rbm` | Arbitrary dense hidden layers, relu/tanh/logistic/identity, seeded minibatch Adam/SGD or full-data L-BFGS, momentum/Nesterov and SGD schedules, binary/multilabel logistic or multiclass softmax classification, scalar/joint squared-error regression, L2 regularization |
 | gaussian_process | `gaussian_process_regressor`, `gaussian_process_classifier` | Configurable covariance expressions or legacy RBF controls; anisotropy, Matern/RQ/periodic/dot/constant/white kernels and sums/products/powers; scalar/vector-alpha Cholesky regression, independent multiple targets, likelihood gradients and opt-in bounded kernel fitting; Laplace binary/OVR classification with optional independent kernel fitting, binary likelihood gradients and warm starts |
@@ -1747,9 +1747,16 @@ floating-point error. The existing 180-group reference suite remains, now with
 profile-specific files and explicit executable/report arguments.
 
 
-## Primal linear support-vector models
+## Linear support-vector models
 
-`linear_svc` implements primal L2-regularized squared-hinge LinearSVC.
+`linear_svc` implements L2-regularized hinge and squared-hinge LinearSVC.
+The defaults are loss='squared_hinge', dual='auto'. Hinge requires dual; squared
+hinge supports primal and dual. Auto selects dual for hinge or an originally
+wide design. Dual coordinate updates follow LIBLINEAR projected-gradient
+shrinking, seeded shuffling and stopping, with one RNG stream across OVR
+channels. Sorted class grouping, sample/class costs and positive-weight
+filtering follow the reference wrapper. Native certificates and opt-in alpha
+storage are identified in API.md; L1 penalties and Crammer-Singer remain gaps.
 `linear_svr` supports unsquared and squared epsilon-insensitive losses with
 L2 coefficient regularization. Its defaults now match sklearn's
 loss='epsilon_insensitive' and dual='auto'. The previous native formulation
@@ -1757,11 +1764,10 @@ remains available with loss='squared_epsilon_insensitive', dual='false'.
 Unsquared loss requires dual optimization; squared loss also supports primal
 TRON fitting. Auto selects dual for unsquared loss or an originally wide
 design, before zero-weight filtering, and primal otherwise.
-LinearSVC retains native active-set Newton/Armijo with dense Cholesky or CSR
-preconditioned CG directions. Primal LinearSVR follows LIBLINEAR's TRON trust
+Both primal models follow LIBLINEAR's TRON trust
 region, truncated CG boundary steps, radius updates, accepted-step counts,
 relative initial-gradient test and tiny actual/predicted-reduction stops.
-Dense and CSR regression use the same sparse feature-node backend, including
+Dense and CSR fits use the same sparse feature-node backend, including
 the virtual synthetic intercept and active-row Hessian-vector products.
 No LIBLINEAR binary or C/C++ source is linked.
 
@@ -1774,7 +1780,7 @@ objective/gap and KKT certificate fields are explicitly identified in API.md.
 These regression fit paths avoid dense design augmentation, feature Hessians
 and Gram matrices. Auto-selected primal fits use the same TRON implementation.
 
-Current TRON verification: all 334 native programs and 1,189 dependency-aware
+Previous regression TRON verification: all 334 native programs and 1,189 dependency-aware
 source fingerprints pass after a fresh checked build. Checked and scoped O3
 profiles each pass 10,368 Source output/iteration-cap comparison groups and
 312 independently reconstructed derivative groups. The 672-fit primal/dual

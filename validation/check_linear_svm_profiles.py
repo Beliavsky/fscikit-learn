@@ -1,4 +1,4 @@
-"""Checked/O3 primal linear SVM audits, retaining extended Source differences."""
+"""Checked/O3 primal and dual linear SVM audits."""
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import argparse
@@ -31,12 +31,15 @@ def main():
         'test/test_linear_svm.f90','test/test_linear_svm_sparse.f90','app/reference_linear_svm_driver.f90',
         'test/test_linear_svr_dual.f90','test/test_linear_svr_tron.f90','app/reference_linear_svr_dual_driver.f90',
         'validation/compare_linear_svm.py','validation/check_linear_svm_sparse.py',
-        'validation/compare_linear_svr_dual.py','validation/check_linear_svr_dual.py']]]
+        'validation/compare_linear_svr_dual.py','validation/check_linear_svr_dual.py',
+        'src/sklearn_base_dispatch.f90','src/sklearn_search_adapters.f90',
+        'test/test_linear_svc_dual.f90','app/reference_linear_svc_dual_driver.f90',
+        'validation/compare_linear_svc_dual.py','validation/check_linear_svc_dual.py']]]
     hashes={str(p):sha(p) for p in files}
-    selected=[root/'test'/(name+'.f90') for name in ['test_linear_svm','test_linear_svm_sparse','test_linear_svr_dual','test_linear_svr_tron']]
+    selected=[root/'test'/(name+'.f90') for name in ['test_linear_svm','test_linear_svm_sparse','test_linear_svr_dual','test_linear_svr_tron','test_linear_svc_dual']]
     programs=sorted(p for p in (root/'test').glob('*.f90')
         if re.search(r'^\s*program\s',p.read_text(),re.I|re.M)) if args.all_native else selected
-    driver=root/'app/reference_linear_svm_driver.f90';dual_driver=root/'app/reference_linear_svr_dual_driver.f90';evidence={}
+    driver=root/'app/reference_linear_svm_driver.f90';dual_driver=root/'app/reference_linear_svr_dual_driver.f90';svc_driver=root/'app/reference_linear_svc_dual_driver.f90';evidence={}
     with tempfile.TemporaryDirectory(prefix='fsklearn-linear-svm-audit-') as temporary:
         work=Path(temporary)
         if args.profile=='optimized':
@@ -47,7 +50,7 @@ def main():
             subprocess.run([str(compiler),'-O3','-funroll-loops',*common,'-c',
                 str(root/'src/sklearn_linear_svm.f90'),'-o',str(module)],check=True)
             evidence['optimized_object_sha256']=sha(module)
-            for p in programs+[driver,dual_driver]:
+            for p in programs+[driver,dual_driver,svc_driver]:
                 subprocess.run([str(compiler),'-fcheck=all','-fbacktrace','-ffpe-trap=invalid,zero,overflow',
                     *common,str(p),str(module),str(frozen),'-static-libgfortran',str(shim),
                     '-Wl,--wrap=setlocale','-o',str(work/(p.stem+'.exe'))],check=True)
@@ -86,6 +89,16 @@ def main():
         subprocess.run([sys.executable,str(root/'validation/check_linear_svr_dual.py'),
             '--executable',str(executable(root/'test/test_linear_svr_dual.f90')),'--report',str(report)],check=True)
         evidence['dual_guards_memory']=dict(report=str(report),sha256=sha(report),kind='strict')
+        report=args.report.with_name(args.report.stem+'_dual_classification.json')
+        subprocess.run([sys.executable,str(root/'validation/compare_linear_svc_dual.py'),
+            '--executable',str(executable(svc_driver)),'--report',str(report)],check=True)
+        svc_report=json.loads(report.read_text())
+        assert not svc_report['gaps'] and all(c['passed'] for row in svc_report['certificates'] for c in row)
+        evidence['dual_classification']=dict(report=str(report),sha256=sha(report),kind='strict')
+        report=args.report.with_name(args.report.stem+'_svc_guards_memory.json')
+        subprocess.run([sys.executable,str(root/'validation/check_linear_svc_dual.py'),
+            '--executable',str(executable(root/'test/test_linear_svc_dual.f90')),'--report',str(report)],check=True)
+        evidence['svc_guards_memory']=dict(report=str(report),sha256=sha(report),kind='strict')
     assert archive_hash==sha(archive)
     assert hashes=={str(p):sha(p) for p in files}
     result=dict(profile=args.profile,native=outcomes,evidence=evidence,archive_sha256=archive_hash,

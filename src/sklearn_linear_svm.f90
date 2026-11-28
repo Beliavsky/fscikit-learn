@@ -1,8 +1,8 @@
 ! LinearSVC/LinearSVR objectives: sklearn 1.6.1 svm/_classes.py and
 ! svm/src/liblinear/linear.cpp. BSD notices: LICENSES/scikit-learn-COPYING and liblinear-COPYRIGHT.
-! Native Newton/Armijo classification, TRON regression and seeded dual solvers; no liblinear binary is linked.
+! Native LIBLINEAR-style TRON and seeded dual solvers; no liblinear binary is linked.
 module sklearn_linear_svm
-  use sklearn_common, only: dp,require,check_x,check_xy,unique_labels,label_index,cholesky_factor,solve_lower,solve_upper
+  use sklearn_common, only: dp,require,check_x,check_xy,unique_labels,label_index
   use sklearn_metrics, only: accuracy_score,r2_score
   use sklearn_sparse,only:csr_matrix,csr_from_dense
   use sklearn_legacy_rng,only:legacy_random_state
@@ -17,6 +17,11 @@ module sklearn_linear_svm
     real(dp) :: c=1,tol=1.e-4_dp,intercept_scaling=1
     integer :: max_iter=1000,n_iter_=0,n_features_in_=0
     logical :: fit_intercept=.true.,class_weight_balanced=.false.,converged_=.false.
+    character(16)::loss='squared_hinge'
+    character(8)::dual='auto'
+    integer::random_state=0
+    logical::store_dual_variables=.false.
+    real(dp),allocatable::dual_variables_(:,:),dual_objective_(:),duality_gap_(:),kkt_violation_(:)
     integer, allocatable :: classes_(:),n_iter_per_class_(:)
     logical, allocatable :: converged_per_class_(:)
     real(dp), allocatable :: coef_(:,:),intercept_(:),objective_(:),gradient_norm_(:)
@@ -49,12 +54,152 @@ module sklearn_linear_svm
     generic :: score=>score_dense,score_csr
   end type
 contains
-  subroutine svr_tron_state(x,y,cost,coef,tube,intercept,scaling,objective,gradient,active)
+  logical function use_svc_dual(self,n,p)result(use_dual)
+    class(linear_svc),intent(in)::self
+    integer,intent(in)::n,p
+    call require(self%loss=='hinge'.or.self%loss=='squared_hinge','invalid LinearSVC loss')
+    call require(self%dual=='true'.or.self%dual=='false'.or.self%dual=='auto','invalid LinearSVC dual selector')
+    call require(self%random_state>=0,'LinearSVC random_state must be nonnegative')
+    use_dual=self%dual=='true'
+    if(self%dual=='auto')use_dual=n<p.or.self%loss=='hinge'
+    call require(use_dual.or.self%loss=='squared_hinge','LinearSVC hinge loss requires the dual solver')
+  end function
+  function svc_rows(x,rows)result(z)
+    type(csr_matrix),intent(in)::x
+    integer,intent(in)::rows(:)
+    type(csr_matrix)::z
+    integer::i,a,b,k
+    z%n_rows=size(rows);z%n_cols=x%n_cols;allocate(z%indptr(z%n_rows+1));z%indptr(1)=1
+    do i=1,z%n_rows
+      z%indptr(i+1)=z%indptr(i)+x%indptr(rows(i)+1)-x%indptr(rows(i))
+    end do
+    allocate(z%indices(z%indptr(z%n_rows+1)-1),z%data(z%indptr(z%n_rows+1)-1))
+    do i=1,z%n_rows
+      a=x%indptr(rows(i));b=x%indptr(rows(i)+1)-1;k=z%indptr(i)
+      z%indices(k:k+b-a)=x%indices(a:b);z%data(k:k+b-a)=x%data(a:b)
+    end do
+  end function
+  subroutine svc_dual_solve(x,y,cost,squared,intercept,scaling,tol,max_iter,rng,coef,alpha, &
+      iterations,converged,objective,dual_objective,kkt)
+    type(csr_matrix),intent(in)::x
+    real(dp),intent(in)::y(:),cost(:),scaling,tol
+    logical,intent(in)::squared,intercept
+    integer,intent(in)::max_iter
+    type(legacy_random_state),intent(inout)::rng
+    real(dp),allocatable,intent(out)::coef(:),alpha(:)
+    integer,intent(out)::iterations
+    logical,intent(out)::converged
+    real(dp),intent(out)::objective,dual_objective,kkt
+    real(dp),allocatable::qd(:),diagonal(:),upper(:),loss(:)
+    integer,allocatable::order(:)
+    real(dp)::g,pg,maximum,minimum,old_max,old_min,old_alpha,delta
+    logical::modes(size(ieee_all)),flags(size(ieee_all)),shrink
+    integer::n,d,i,j,k,s,active,it,swap
+    n=x%n_rows;d=x%n_cols+merge(1,0,intercept)
+    allocate(coef(d),alpha(n),qd(n),diagonal(n),upper(n),order(n));coef=0;alpha=0
+    call ieee_get_flag(ieee_all,flags);call ieee_get_halting_mode(ieee_all,modes)
+    call ieee_set_halting_mode(ieee_all,.false.)
+    diagonal=0;upper=cost
+    if(squared)then
+      diagonal=.5_dp/cost;upper=huge(1._dp)
+    end if
+    do i=1,n
+      qd(i)=diagonal(i)
+      do k=x%indptr(i),x%indptr(i+1)-1
+        qd(i)=qd(i)+x%data(k)*x%data(k)
+      end do
+      if(intercept)qd(i)=qd(i)+scaling*scaling
+    end do
+    order=[(i,i=1,n)];active=n;old_max=huge(1._dp);old_min=-huge(1._dp);iterations=0
+    do it=1,max_iter
+      maximum=-huge(1._dp);minimum=huge(1._dp)
+      do i=1,active
+        j=i+bounded_liblinear(rng,active-i+1);swap=order(i);order(i)=order(j);order(j)=swap
+      end do
+      s=1
+      do while(s<=active)
+        i=order(s);g=0
+        do k=x%indptr(i),x%indptr(i+1)-1
+          g=g+coef(x%indices(k))*x%data(k)
+        end do
+        if(intercept)g=g+coef(d)*scaling
+        g=g*y(i)-1;g=g+alpha(i)*diagonal(i);pg=0;shrink=.false.
+        if(alpha(i)==0)then
+          if(g>old_max)then
+            shrink=.true.
+          else if(g<0)then
+            pg=g
+          end if
+        else if(alpha(i)==upper(i))then
+          if(g<old_min)then
+            shrink=.true.
+          else if(g>0)then
+            pg=g
+          end if
+        else
+          pg=g
+        end if
+        if(shrink)then
+          swap=order(s);order(s)=order(active);order(active)=swap;active=active-1;cycle
+        end if
+        maximum=max(maximum,pg);minimum=min(minimum,pg)
+        if(abs(pg)>1.e-12_dp)then
+          old_alpha=alpha(i)
+          if(qd(i)==0)then
+            if(g<0)then
+              alpha(i)=upper(i)
+            else
+              alpha(i)=0
+            end if
+          else
+            alpha(i)=min(max(alpha(i)-g/qd(i),0._dp),upper(i))
+          end if
+          delta=(alpha(i)-old_alpha)*y(i)
+          do k=x%indptr(i),x%indptr(i+1)-1
+            j=x%indices(k);coef(j)=coef(j)+delta*x%data(k)
+          end do
+          if(intercept)coef(d)=coef(d)+delta*scaling
+        end if
+        s=s+1
+      end do
+      iterations=it
+      if(maximum-minimum<=tol)then
+        if(active==n)exit
+        active=n;old_max=huge(1._dp);old_min=-huge(1._dp);cycle
+      end if
+      old_max=maximum;old_min=minimum
+      if(old_max<=0)old_max=huge(1._dp)
+      if(old_min>=0)old_min=-huge(1._dp)
+    end do
+    converged=iterations<max_iter
+    loss=max(0._dp,1-y*sparse_forward(x,coef,intercept,scaling))
+    objective=.5_dp*sum(coef**2)
+    if(squared)then
+      objective=objective+sum(cost*loss**2)
+    else
+      objective=objective+sum(cost*loss)
+    end if
+    dual_objective=sum(alpha)-.5_dp*sum(coef**2)-.5_dp*sum(diagonal*alpha**2);kkt=0
+    do i=1,n
+      g=0
+      do k=x%indptr(i),x%indptr(i+1)-1
+        g=g+coef(x%indices(k))*x%data(k)
+      end do
+      if(intercept)g=g+coef(d)*scaling
+      g=g*y(i)-1+alpha(i)*diagonal(i)
+      if(alpha(i)==0)g=min(g,0._dp)
+      if(alpha(i)==upper(i))g=max(g,0._dp)
+      kkt=max(kkt,abs(g))
+    end do
+    call ieee_set_halting_mode(ieee_all,modes);call ieee_set_flag(ieee_all,flags)
+  end subroutine
+  subroutine svr_tron_state(x,y,cost,coef,tube,intercept,scaling,objective,gradient,active,classification)
     type(csr_matrix),intent(in)::x
     real(dp),intent(in)::y(:),cost(:),coef(:),tube,scaling
     logical,intent(in)::intercept
     real(dp),intent(out)::objective,gradient(:)
     logical,intent(out)::active(:)
+    logical,optional,intent(in)::classification
     real(dp)::margin,residual,value
     integer::i,j,k,d
     d=size(coef);objective=0;gradient=0;active=.false.
@@ -69,21 +214,37 @@ contains
         margin=margin+coef(x%indices(k))*x%data(k)
       end do
       if(intercept)margin=margin+coef(d)*scaling
-      residual=margin-y(i)
-      if(residual<-tube)then
-        residual=residual+tube
-      else if(residual>tube)then
-        residual=residual-tube
+      if(present(classification))then
+        if(classification)then
+          residual=y(i)*margin
+          if(residual>=1)cycle
+          active(i)=.true.;value=cost(i)*y(i)*(residual-1)
+          objective=objective+(cost(i)*(1-residual))*(1-residual)
+        else
+          call regression_loss()
+        end if
       else
-        cycle
+        call regression_loss()
       end if
-      active(i)=.true.;value=cost(i)*residual;objective=objective+value*residual
+      if(.not.active(i))cycle
       do k=x%indptr(i),x%indptr(i+1)-1
         j=x%indices(k);gradient(j)=gradient(j)+value*x%data(k)
       end do
       if(intercept)gradient(d)=gradient(d)+value*scaling
     end do
     gradient=coef+2*gradient
+  contains
+    subroutine regression_loss()
+      residual=margin-y(i)
+      if(residual<-tube)then
+        residual=residual+tube
+      else if(residual>tube)then
+        residual=residual-tube
+      else
+        return
+      end if
+      active(i)=.true.;value=cost(i)*residual;objective=objective+value*residual
+    end subroutine
   end subroutine
   subroutine svr_tron_hv(x,cost,active,vector,intercept,scaling,product)
     type(csr_matrix),intent(in)::x
@@ -148,7 +309,8 @@ contains
       direction=beta*direction+residual;rtr=next
     end do
   end subroutine
-  subroutine svr_tron_solve(x,y,cost,tube,intercept,scaling,tol,max_iter,coef,iterations,converged,objective,gradnorm)
+  subroutine svr_tron_solve(x,y,cost,tube,intercept,scaling,tol,max_iter,coef,iterations,converged,objective,gradnorm, &
+      classification)
     type(csr_matrix),intent(in)::x
     real(dp),intent(in)::y(:),cost(:),tube,scaling,tol
     logical,intent(in)::intercept
@@ -156,6 +318,7 @@ contains
     real(dp),allocatable,intent(out)::coef(:)
     integer,intent(out)::iterations
     logical,intent(out)::converged
+    logical,optional,intent(in)::classification
     real(dp),intent(out)::objective,gradnorm
     real(dp),allocatable::gradient(:),trial_g(:),step(:),residual(:),candidate(:)
     logical,allocatable::active(:),trial_active(:)
@@ -164,13 +327,13 @@ contains
     call require(x%n_cols<huge(1).or..not.intercept,'LinearSVR synthetic feature exceeds integer range')
     d=x%n_cols+merge(1,0,intercept)
     allocate(coef(d),gradient(d),trial_g(d),step(d),residual(d),candidate(d),active(x%n_rows),trial_active(x%n_rows))
-    coef=0;call svr_tron_state(x,y,cost,coef,tube,intercept,scaling,objective,gradient,active)
+    coef=0;call svr_tron_state(x,y,cost,coef,tube,intercept,scaling,objective,gradient,active,classification)
     delta=norm2(gradient);initial_norm=delta;gradnorm=delta;it=1
     do while(it<=max_iter.and.gradnorm>tol*initial_norm)
       call svr_tron_cg(x,cost,active,gradient,intercept,scaling,delta,step,residual)
       candidate=coef+step;gs=tron_dot(gradient,step)
       predicted=-.5_dp*(gs-tron_dot(step,residual))
-      call svr_tron_state(x,y,cost,candidate,tube,intercept,scaling,trial,trial_g,trial_active)
+      call svr_tron_state(x,y,cost,candidate,tube,intercept,scaling,trial,trial_g,trial_active,classification)
       actual=objective-trial;snorm=norm2(step)
       if(it==1)delta=min(delta,snorm)
       if(trial-objective-gs<=0)then
@@ -415,209 +578,13 @@ contains
     end do
     if(intercept)coef(x%n_cols+1)=scaling*sum(values)
   end function
-  subroutine sparse_state(x,y,cost,coef,classification,tube,intercept,scaling,objective,gradient,weights)
-    type(csr_matrix),intent(in)::x
-    real(dp),intent(in)::y(:),cost(:),coef(:),tube,scaling
-    logical,intent(in)::classification,intercept
-    real(dp),intent(out)::objective,gradient(:),weights(:)
-    real(dp)::margin(x%n_rows),residual(x%n_rows),loss(x%n_rows)
-    margin=sparse_forward(x,coef,intercept,scaling)
-    if(classification)then
-      residual=max(0._dp,1-y*margin);loss=-y*residual
-    else
-      margin=margin-y;residual=max(0._dp,abs(margin)-tube);loss=sign(residual,margin)
-    end if
-    weights=merge(2*cost,0._dp,residual>0)
-    objective=.5_dp*sum(coef**2)+sum(cost*residual**2)
-    gradient=coef+2*sparse_transpose(x,cost*loss,intercept,scaling)
-  end subroutine
-  subroutine sparse_newton_direction(x,weights,gradient,intercept,scaling,direction)
-    type(csr_matrix),intent(in)::x
-    real(dp),intent(in)::weights(:),gradient(:),scaling
-    logical,intent(in)::intercept
-    real(dp),intent(out)::direction(:)
-    real(dp)::diagonal(size(gradient)),r(size(gradient)),z(size(gradient)),p(size(gradient)),hp(size(gradient))
-    real(dp)::rz,next,alpha,denominator,tolerance
-    integer::i,j,k,iteration,limit
-    diagonal=1
-    do i=1,x%n_rows
-      do k=x%indptr(i),x%indptr(i+1)-1
-        j=x%indices(k);diagonal(j)=diagonal(j)+weights(i)*x%data(k)**2
-      end do
-    end do
-    if(intercept)diagonal(size(diagonal))=1+scaling**2*sum(weights)
-    direction=0;r=-gradient;z=r/diagonal;p=z;rz=dot_product(r,z)
-    tolerance=1.e-12_dp*sqrt(sum(gradient**2))
-    limit=size(gradient)
-    do iteration=1,limit
-      if(sqrt(sum(r**2))<=tolerance)exit
-      hp=p+sparse_transpose(x,weights*sparse_forward(x,p,intercept,scaling),intercept,scaling)
-      denominator=dot_product(p,hp)
-      if(denominator<=0)exit
-      alpha=rz/denominator;direction=direction+alpha*p;r=r-alpha*hp
-      z=r/diagonal;next=dot_product(r,z)
-      if(rz==0)exit
-      p=z+(next/rz)*p;rz=next
-    end do
-  end subroutine
-  subroutine sparse_solve(x,y,cost,classification,tube,intercept,scaling,tol,max_iter,coef, &
-      iterations,converged,objective,gradnorm)
-    type(csr_matrix),intent(in)::x
-    real(dp),intent(in)::y(:),cost(:),tube,scaling,tol
-    logical,intent(in)::classification,intercept
-    integer,intent(in)::max_iter
-    real(dp),allocatable,intent(out)::coef(:)
-    integer,intent(out)::iterations
-    logical,intent(out)::converged
-    real(dp),intent(out)::objective,gradnorm
-    real(dp),allocatable::gradient(:),trial_g(:),direction(:),candidate(:),weights(:),trial_w(:)
-    real(dp)::initial_norm,step,trial,descent,slack
-    integer::d,it,search
-    call require(x%n_cols<huge(1).or..not.intercept,'linear SVM synthetic feature exceeds integer range')
-    d=x%n_cols+merge(1,0,intercept)
-    allocate(coef(d),gradient(d),trial_g(d),direction(d),candidate(d),weights(x%n_rows),trial_w(x%n_rows))
-    coef=0;call sparse_state(x,y,cost,coef,classification,tube,intercept,scaling,objective,gradient,weights)
-    initial_norm=max(1._dp,sqrt(sum(gradient**2)));iterations=0
-    do it=1,max_iter
-      if(sqrt(sum(gradient**2))<=tol*initial_norm)exit
-      call sparse_newton_direction(x,weights,gradient,intercept,scaling,direction)
-      descent=dot_product(gradient,direction);step=1
-      slack=10*epsilon(1._dp)*max(1._dp,abs(objective))
-      do search=1,60
-        candidate=coef+step*direction
-        call sparse_state(x,y,cost,candidate,classification,tube,intercept,scaling,trial,trial_g,trial_w)
-        if(trial<=objective+1.e-4_dp*step*descent+slack)exit
-        step=step*.5_dp
-      end do
-      call require(search<=60,'linear SVM CSR line search failed')
-      coef=candidate;objective=trial;gradient=trial_g;weights=trial_w;iterations=it
-    end do
-    gradnorm=sqrt(sum(gradient**2));converged=gradnorm<=tol*initial_norm
-  end subroutine
-  subroutine linear_svm_setup(x,c,tol,scaling,max_iter,intercept,a,w,sample_weight)
-    real(dp), intent(in) :: x(:,:),c,tol,scaling
-    integer, intent(in) :: max_iter
-    logical, intent(in) :: intercept
-    real(dp), allocatable, intent(out) :: a(:,:),w(:)
-    real(dp), intent(in), optional :: sample_weight(:)
-    integer :: n,p
-    call check_x(x); n=size(x,1); p=size(x,2)
-    call require(ieee_is_finite(c),'nonfinite linear SVM C')
-    call require(c>0,'linear SVM C must be positive')
-    call require(ieee_is_finite(tol),'nonfinite linear SVM tolerance')
-    call require(tol>0,'linear SVM tolerance must be positive')
-    call require(ieee_is_finite(scaling),'nonfinite linear SVM intercept scaling')
-    call require(scaling>0,'linear SVM intercept scaling must be positive')
-    call require(max_iter>0,'linear SVM max_iter must be positive')
-    allocate(a(n,p+merge(1,0,intercept))); a(:,:p)=x
-    if(intercept) a(:,p+1)=scaling
-    w=spread(1._dp,1,n)
-    if(present(sample_weight)) then
-      call require(size(sample_weight)==n,'linear SVM sample weight count mismatch')
-      call require(all(ieee_is_finite(sample_weight)),'nonfinite linear SVM sample weights')
-      call require(all(sample_weight>=0),'negative linear SVM sample weights')
-      w=sample_weight
-    end if
-    call require(sum(w)>0,'linear SVM needs positive total weight')
-  end subroutine
-
-  subroutine squared_state(a,y,cost,coef,classification,epsilon,objective,gradient,hessian)
-    real(dp), intent(in) :: a(:,:),y(:),cost(:),coef(:),epsilon
-    logical, intent(in) :: classification
-    real(dp), intent(out) :: objective,gradient(:),hessian(:,:)
-    real(dp), allocatable :: residual(:),loss_gradient(:),weights(:)
-    integer :: j
-    residual=matmul(a,coef)-y
-    if(classification) then
-      residual=max(0._dp,1-y*matmul(a,coef)); loss_gradient=-y*residual
-    else
-      residual=max(0._dp,abs(residual)-epsilon); loss_gradient=sign(residual,matmul(a,coef)-y)
-    end if
-    weights=merge(2*cost,0._dp,residual>0)
-    objective=.5_dp*sum(coef**2)+sum(cost*residual**2)
-    gradient=coef+2*matmul(transpose(a),cost*loss_gradient)
-    hessian=matmul(transpose(a),a*spread(weights,2,size(a,2)))
-    do j=1,size(coef)
-      hessian(j,j)=hessian(j,j)+1
-    end do
-  end subroutine
-
-  subroutine squared_solve(a,y,cost,classification,tube,tol,max_iter,coef,iterations,converged,objective,gradnorm)
-    real(dp), intent(in) :: a(:,:),y(:),cost(:),tube,tol
-    logical, intent(in) :: classification
-    integer, intent(in) :: max_iter
-    real(dp), allocatable, intent(out) :: coef(:)
-    integer, intent(out) :: iterations
-    logical, intent(out) :: converged
-    real(dp), intent(out) :: objective,gradnorm
-    real(dp), allocatable :: gradient(:),hessian(:,:),l(:,:),direction(:),candidate(:),trial_g(:),trial_h(:,:)
-    real(dp) :: initial_norm,step,trial,descent,slack
-    integer :: d,it,search
-    d=size(a,2); coef=spread(0._dp,1,d)
-    allocate(gradient(d),hessian(d,d),trial_g(d),trial_h(d,d))
-    call squared_state(a,y,cost,coef,classification,tube,objective,gradient,hessian)
-    initial_norm=max(1._dp,sqrt(sum(gradient**2))); iterations=0
-    do it=1,max_iter
-      if(sqrt(sum(gradient**2))<=tol*initial_norm) exit
-      l=cholesky_factor(hessian); direction=-solve_upper(transpose(l),solve_lower(l,gradient))
-      descent=dot_product(gradient,direction); step=1
-      slack=10*epsilon(1._dp)*max(1._dp,abs(objective))
-      do search=1,60
-        candidate=coef+step*direction
-        call squared_state(a,y,cost,candidate,classification,tube,trial,trial_g,trial_h)
-        if(trial<=objective+1.e-4_dp*step*descent+slack) exit
-        step=step*.5_dp
-      end do
-      call require(search<=60,'linear SVM line search failed')
-      coef=candidate; objective=trial; gradient=trial_g; hessian=trial_h; iterations=it
-    end do
-    gradnorm=sqrt(sum(gradient**2)); converged=gradnorm<=tol*initial_norm
-  end subroutine
-
   subroutine linear_svc_fit(self,x,y,sample_weight,class_weight)
     class(linear_svc), intent(inout) :: self
     real(dp), intent(in) :: x(:,:)
     integer, intent(in) :: y(:)
     real(dp), intent(in), optional :: sample_weight(:),class_weight(:)
-    real(dp), allocatable :: a(:,:),w(:),cw(:),target(:),cost(:),coef(:)
-    integer, allocatable :: encoded(:)
-    integer :: n,p,c,k,i,channels
-    call check_xy(x,size(y)); n=size(y); p=size(x,2)
-    call linear_svm_setup(x,self%c,self%tol,self%intercept_scaling,self%max_iter,self%fit_intercept,a,w,sample_weight)
-    self%classes_=unique_labels(y); c=size(self%classes_)
-    call require(c>=2,'LinearSVC requires at least two classes')
-    encoded=[(label_index(self%classes_,y(i)),i=1,n)]; cw=spread(1._dp,1,c)
-    if(present(class_weight)) then
-      call require(.not.self%class_weight_balanced,'choose balanced or explicit LinearSVC class weights')
-      call require(size(class_weight)==c,'LinearSVC class weight count mismatch')
-      call require(all(ieee_is_finite(class_weight)),'nonfinite LinearSVC class weights')
-      call require(all(class_weight>0),'LinearSVC class weights must be positive')
-      cw=class_weight
-    else if(self%class_weight_balanced) then
-      do k=1,c
-        cw(k)=real(n,dp)/(c*real(count(encoded==k),dp))
-      end do
-    end if
-    channels=c
-    if(c==2) channels=1
-    if(allocated(self%coef_)) deallocate(self%coef_,self%intercept_,self%objective_,self%gradient_norm_, &
-      self%n_iter_per_class_,self%converged_per_class_)
-    allocate(self%coef_(channels,p),self%intercept_(channels),self%objective_(channels),self%gradient_norm_(channels))
-    allocate(self%n_iter_per_class_(channels),self%converged_per_class_(channels))
-    do k=1,channels
-      if(c==2) then
-        target=merge(1._dp,-1._dp,encoded==2); cost=self%c*w*cw(encoded)
-      else
-        target=merge(1._dp,-1._dp,encoded==k)
-        ! liblinear OVR applies class weights to the positive class; negative cost stays C.
-        cost=self%c*w*merge(cw(k),1._dp,encoded==k)
-      end if
-      call squared_solve(a,target,cost,.true.,0._dp,self%tol,self%max_iter,coef,self%n_iter_per_class_(k), &
-        self%converged_per_class_(k),self%objective_(k),self%gradient_norm_(k))
-      self%coef_(k,:)=coef(:p); self%intercept_(k)=0
-      if(self%fit_intercept) self%intercept_(k)=coef(p+1)*self%intercept_scaling
-    end do
-    self%n_features_in_=p; self%n_iter_=maxval(self%n_iter_per_class_); self%converged_=all(self%converged_per_class_)
+    call check_xy(x,size(y))
+    call linear_svc_fit_csr(self,csr_from_dense(x),y,sample_weight,class_weight)
   end subroutine
 
   function linear_svc_decision(self,x) result(scores)
@@ -635,7 +602,7 @@ contains
     integer, allocatable :: y(:)
     real(dp), allocatable :: scores(:,:)
     scores=self%decision_function(x)
-    if(size(self%classes_)==2) then
+    if(size(scores,2)==1) then
       y=self%classes_(merge(2,1,scores(:,1)>0))
     else
       y=self%classes_(maxloc(scores,dim=2))
@@ -694,12 +661,18 @@ contains
     type(csr_matrix),intent(in)::x
     integer,intent(in)::y(:)
     real(dp),optional,intent(in)::sample_weight(:),class_weight(:)
-    real(dp),allocatable::w(:),cw(:),target(:),cost(:),coef(:)
-    integer,allocatable::encoded(:)
-    integer::n,p,c,k,i,channels
+    real(dp),allocatable::w(:),cw(:),target(:),cost(:),coef(:),alpha(:)
+    integer,allocatable::encoded(:),rows(:),selected(:),active_classes(:)
+    type(csr_matrix)::grouped
+    type(legacy_random_state)::rng,seed_rng
+    logical::dual
+    real(dp)::primal_tol
+    integer::n,p,c,k,i,channels,offset,ac,positive
     call check_sparse(x);call require(x%n_rows==size(y),'LinearSVC CSR target count mismatch')
     n=size(y);p=x%n_cols
     call sparse_setup(x,self%c,self%tol,self%intercept_scaling,self%max_iter,w,sample_weight)
+    dual=use_svc_dual(self,n,p)
+    call require(p<huge(1).or..not.self%fit_intercept,'LinearSVC synthetic feature exceeds integer range')
     self%classes_=unique_labels(y);c=size(self%classes_)
     call require(c>=2,'LinearSVC requires at least two classes')
     encoded=[(label_index(self%classes_,y(i)),i=1,n)];cw=spread(1._dp,1,c)
@@ -713,19 +686,45 @@ contains
         cw(k)=real(n,dp)/(c*real(count(encoded==k),dp))
       end do
     end if
-    channels=c;if(c==2)channels=1
+    active_classes=pack([(i,i=1,c)],[(any((w>0).and.(encoded==i)),i=1,c)]);ac=size(active_classes)
+    allocate(rows(count(w>0)));offset=0
+    do k=1,ac
+      selected=pack([(i,i=1,n)],(w>0).and.(encoded==active_classes(k)))
+      rows(offset+1:offset+size(selected))=selected;offset=offset+size(selected)
+    end do
+    grouped=svc_rows(x,rows);channels=ac;if(ac<=2)channels=1
+    call seed_rng%seed(self%random_state);call rng%seed(seed_rng%integer_index(huge(1))-1)
     if(allocated(self%coef_))deallocate(self%coef_,self%intercept_,self%objective_,self%gradient_norm_, &
       self%n_iter_per_class_,self%converged_per_class_)
     allocate(self%coef_(channels,p),self%intercept_(channels),self%objective_(channels),self%gradient_norm_(channels))
     allocate(self%n_iter_per_class_(channels),self%converged_per_class_(channels))
+    if(allocated(self%dual_variables_))deallocate(self%dual_variables_)
+    if(allocated(self%dual_objective_))deallocate(self%dual_objective_,self%duality_gap_,self%kkt_violation_)
+    allocate(self%dual_objective_(channels),self%duality_gap_(channels),self%kkt_violation_(channels))
+    self%dual_objective_=0;self%duality_gap_=0;self%kkt_violation_=0
+    if(dual.and.self%store_dual_variables)then
+      allocate(self%dual_variables_(n,channels));self%dual_variables_=0
+    end if
     do k=1,channels
-      if(c==2)then
-        target=merge(1._dp,-1._dp,encoded==2);cost=self%c*w*cw(encoded)
+      if(ac==2)then
+        target=merge(1._dp,-1._dp,encoded(rows)==active_classes(2));cost=w(rows)*(self%c*cw(encoded(rows)))
       else
-        target=merge(1._dp,-1._dp,encoded==k);cost=self%c*w*merge(cw(k),1._dp,encoded==k)
+        target=merge(1._dp,-1._dp,encoded(rows)==active_classes(k))
+        cost=w(rows)*(self%c*merge(cw(active_classes(k)),1._dp,encoded(rows)==active_classes(k)))
       end if
-      call sparse_solve(x,target,cost,.true.,0._dp,self%fit_intercept,self%intercept_scaling,self%tol,self%max_iter, &
-        coef,self%n_iter_per_class_(k),self%converged_per_class_(k),self%objective_(k),self%gradient_norm_(k))
+      if(dual)then
+        call svc_dual_solve(grouped,target,cost,self%loss=='squared_hinge',self%fit_intercept,self%intercept_scaling, &
+          self%tol,self%max_iter,rng,coef,alpha,self%n_iter_per_class_(k),self%converged_per_class_(k), &
+          self%objective_(k),self%dual_objective_(k),self%kkt_violation_(k))
+        self%duality_gap_(k)=self%objective_(k)-self%dual_objective_(k);self%gradient_norm_(k)=self%kkt_violation_(k)
+        if(self%store_dual_variables)self%dual_variables_(rows,k)=alpha
+      else
+        positive=count(target>0)
+        primal_tol=self%tol*real(max(min(positive,size(target)-positive),1),dp)/size(target)
+        call svr_tron_solve(grouped,target,cost,0._dp,self%fit_intercept,self%intercept_scaling,primal_tol, &
+          self%max_iter,coef,self%n_iter_per_class_(k),self%converged_per_class_(k),self%objective_(k), &
+          self%gradient_norm_(k),classification=.true.)
+      end if
       self%coef_(k,:)=coef(:p);self%intercept_(k)=0
       if(self%fit_intercept)self%intercept_(k)=coef(p+1)*self%intercept_scaling
     end do
@@ -767,7 +766,7 @@ contains
     integer,allocatable::y(:)
     real(dp),allocatable::scores(:,:)
     scores=self%decision_function(x)
-    if(size(self%classes_)==2)then
+    if(size(scores,2)==1)then
       y=self%classes_(merge(2,1,scores(:,1)>0))
     else
       y=self%classes_(maxloc(scores,dim=2))

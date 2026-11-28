@@ -13,6 +13,7 @@ program test_linear_svm_sparse
   integer::i
   character(32)::mode
   call get_command_argument(1,mode)
+  s%dual='false';d%dual='false'
   r%loss='squared_epsilon_insensitive';r%dual='false'
   if(trim(mode)=='memory')then
     allocate(ptr(129),indices(256),data(256),targets(128),labels(128))

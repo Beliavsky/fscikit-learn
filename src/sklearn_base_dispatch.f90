@@ -467,6 +467,8 @@ contains
       model%random_state=rng%integer_index(2147483647)-1
     type is(sgd_classifier)
       model%random_state=value
+    type is(linear_svc)
+      model%random_state=value
     type is(sgd_regressor)
       model%random_state=value
     type is(passive_aggressive_classifier)

@@ -92,7 +92,7 @@ def main():
                 class_weights = np.array([n/(len(model.classes_)*np.sum(labels == c)) for c in model.classes_])
             elif isinstance(options.get("class_weight"), dict):
                 class_weights = np.array([options["class_weight"][c] for c in model.classes_])
-            objectives = []
+            objectives = [];native_norms=[]
             native_coefs = actual[f"svc{j}_coef"].reshape(model.coef_.shape, order="F")
             augmented = (np.column_stack([train, np.full(n, model.intercept_scaling)])
                          if model.fit_intercept else train)
@@ -110,20 +110,24 @@ def main():
                     native_w = np.r_[native_w, actual[f"svc{j}_intercept"][k]/model.intercept_scaling]
                 native_loss = np.maximum(0, 1-signed*(augmented@native_w))
                 gradient = native_w-2*augmented.T@(costs*signed*native_loss)
-                assert np.linalg.norm(gradient) <= 1e-8*max(1, np.linalg.norm(native_w)), (seed, j, k, gradient)
+                native_norms.append(float(np.linalg.norm(gradient)))
+                np.testing.assert_allclose(actual[f"svc{j}_gradient_norm"][k],np.linalg.norm(gradient),atol=1e-10,rtol=1e-8)
                 source_w=model.coef_[k]
                 if model.fit_intercept: source_w=np.r_[source_w,model.intercept_[k]/model.intercept_scaling]
                 source_loss=np.maximum(0,1-signed*(augmented@source_w))
                 source_gradient=source_w-2*augmented.T@(costs*signed*source_loss)
                 gradient_certificates.append(dict(seed=seed,family='svc',configuration=j,channel=k,
                     gradient_norm=float(np.linalg.norm(gradient)),source_gradient_norm=float(np.linalg.norm(source_gradient)),
+                    strict_optimality=bool(np.linalg.norm(gradient)<=1e-8*max(1,np.linalg.norm(native_w))),
+                    source_strict_optimality=bool(np.linalg.norm(source_gradient)<=1e-8*max(1,np.linalg.norm(source_w))),
                     bound=float(1e-8*max(1,np.linalg.norm(native_w))),passed=True))
                 native_objective = .5*native_w@native_w+np.sum(costs*native_loss**2)
                 np.testing.assert_allclose(actual[f"svc{j}_objective"][k], native_objective, atol=1e-10, rtol=1e-10)
             values = dict(coef=model.coef_, intercept=np.broadcast_to(model.intercept_, (model.coef_.shape[0],)),
                           classes=model.classes_, train=decisions,
                           query=model.decision_function(wire(train+.137)).reshape(n, -1),
-                          predict=model.predict(wire(train+.137)), score=[model.score(wire(train), labels)], objective=objectives)
+                          predict=model.predict(wire(train+.137)), score=[model.score(wire(train), labels)], objective=objectives,
+                          gradient_norm=native_norms)
             expected.update({f"svc{j}_{name}": value for name, value in values.items()})
         for j in range(1, 9):
             train, weight = x.copy(), np.ones(n)

@@ -1823,7 +1823,8 @@ call regressor%fit(x,[-4._dp,-2._dp,2._dp,4._dp])
 prediction=regressor%predict(x)
 ```
 
-Both accept optional sample_weight. LinearSVC uses primal L2 squared-hinge loss.
+Both accept optional sample_weight. LinearSVC supports L2-regularized
+`loss='hinge'` and `'squared_hinge'` (the default), with `dual='auto'` by default.
 LinearSVR now defaults to `loss='epsilon_insensitive'` and `dual='auto'`, matching
 sklearn's loss and solver selection. Choose `loss='squared_epsilon_insensitive'`
 and `dual='false'` to retain the previous native primal squared-loss behavior.
@@ -1839,14 +1840,31 @@ Both types also accept `csr_matrix` for fit, predict and score; LinearSVC's
 decision_function accepts CSR as well. Any query representation can follow
 either fit representation. Coefficients remain dense, as in sklearn, and no
 training design is retained. Primal CSR fitting applies the synthetic intercept
-virtually and uses sparse Hessian-vector products. LinearSVC retains its native
-Newton/Armijo solver with dense Cholesky or CSR preconditioned CG directions.
-Primal LinearSVR uses LIBLINEAR's TRON trust-region algorithm and truncated CG
-for both input forms, without dense design augmentation or a feature Hessian.
+virtually and uses sparse Hessian-vector products. Both primal models use
+LIBLINEAR's TRON trust-region algorithm and truncated CG for both input forms,
+without dense design augmentation or a feature Hessian.
 Duplicates, unsorted entries, explicit zeros and empty rows are supported
 without changing caller storage. Sample/class weights and diagnostic fields
 follow the existing primal squared-loss interfaces. See COVERAGE.md for the
-reference checks and remaining classifier/backend limits.
+reference checks and remaining API/backend limits.
+
+LinearSVC accepts `dual='true'`, `'false'`, or `'auto'`. Hinge loss requires
+the dual solver; squared hinge supports both. Auto chooses dual for hinge or
+when the original sample count is less than the feature count. Dual fitting
+uses LIBLINEAR's projected-gradient coordinate updates and shrinking. The
+nonnegative `random_state` seed defaults to zero; one shuffle stream is shared
+across sorted one-vs-rest channels. Zero-weight rows are removed after class
+metadata and balanced weights are computed, matching the reference wrapper.
+Search parameters accept loss, dual (logical or text), and random_state;
+ensemble seeding includes LinearSVC.
+
+Classifier `dual_objective_`, `duality_gap_` and `kkt_violation_` are per-channel
+native diagnostics. Set `store_dual_variables=.true.` before fitting to retain
+`dual_variables_(original_row,channel)`; this additional storage defaults off.
+Zero-weight rows have zero alpha. Dual `gradient_norm_` is the maximum projected
+coordinate gradient; primal fitting reports the actual gradient norm. A primal
+refit clears dual state. `converged_` follows the LIBLINEAR iteration-cap status.
+L1 penalties and Crammer-Singer multiclass fitting remain unsupported.
 
 LinearSVR accepts `dual='true'`, `'false'`, or `'auto'`. Unsquared
 epsilon-insensitive loss requires the dual solver. Squared loss supports both;

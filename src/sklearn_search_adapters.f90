@@ -652,6 +652,14 @@ contains
       end select
     type is(linear_svc)
       select case(name)
+      case('loss');model%loss=value%as_text()
+      case('dual')
+        if(value%kind==3)then
+          model%dual=merge('true ','false',value%as_logical())
+        else
+          model%dual=value%as_text()
+        end if
+      case('random_state');model%random_state=value%as_integer()
       case('C');model%c=value%as_real()
       case('tol');model%tol=value%as_real()
       case('max_iter');model%max_iter=value%as_integer()

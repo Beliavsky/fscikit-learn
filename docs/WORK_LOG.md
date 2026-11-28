@@ -12121,3 +12121,21 @@ Checked audit SHA256:
 a163080d32e80e8dc15cba4ef586bd8f4f715fcb4de1f8ac996d6c3a1c2f858f.
 Optimized audit SHA256:
 d037986b9b8656324209fc7cc7ee858cfc418f588a6edda2bfd004df248d9cd9.
+
+### 2026-11-28: LinearSVC hinge/squared-hinge dual solvers and primal TRON
+
+Added LIBLINEAR projected-gradient dual coordinate solvers, automatic solver
+selection, seeded shared OVR streams, sorted class grouping and positive-weight
+filtering. Generalized the regression TRON backend to squared-hinge primal
+classification and removed the superseded Newton/Armijo classifier solver.
+Dense/CSR fitting shares sparse feature nodes. Added native per-channel
+objective/gap/KKT diagnostics and opt-in original-row alpha storage; search
+controls and ensemble seeding support the new classifier fields. Retained
+sklearn/LIBLINEAR/RNG attribution under the project MIT license.
+
+Initial checked probes pass 1,484 fits / 13,356 Source comparison groups with
+zero gaps, and 2,996 independently replayed channel certificates. The earlier
+expanded legacy squared-loss probe passes 876 groups. Four rejection checks
+and the new 128-by-200,000 sparse dual memory case pass (19,992,576 bytes peak).
+A full coherent fpm rebuild and checked/O3 regression audits are in progress;
+these probe results do not yet constitute full-build verification.
