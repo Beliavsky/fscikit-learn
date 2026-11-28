@@ -1340,6 +1340,55 @@ The exhaustive path enumerates combinations; the sampled path retains its
 one-based `subsets_` indices for inspection and reproducibility. See
 `example/robust_subsets.f90` for comparison with ordinary least squares.
 
+## Perceptron
+
+`perceptron` is re-exported by `sklearn_linear_model` and `sklearn`; its
+implementation uses the shared SGD engine with fixed perceptron loss and
+constant learning rate, following sklearn 1.6.1. It accepts dense or CSR fit,
+partial_fit, decision_function, predict and weighted score. Binary coefficients
+and decision scores retain one positive-class row/column; multiclass uses OVR.
+The lower sorted label wins zero binary margins and the first class wins ties.
+
+Defaults are penalty='none' (Python None), alpha=1e-4, l1_ratio=.15, eta0=1,
+fit_intercept=true, max_iter=1000, tol=1e-3, shuffle=true, random_state=0,
+n_iter_no_change=5, warm_start=false, early_stopping=false and
+validation_fraction=.1. Penalties include l1, l2 and elasticnet. `tol=-1` maps to
+Python None. Seeded shuffling and shared stratified validation splits follow
+Source. Validation stopping scores standard coefficients and retains the final
+epoch. Sparse intercept updates use Source's 0.01 decay.
+
+```fortran
+type(perceptron) :: model
+model%penalty='elasticnet';model%alpha=.01_dp
+call model%fit(x,labels,sample_weight=weights)
+model%warm_start=.true.
+call model%fit(csr_batch,labels_next)
+! Or start/continue a one-epoch stream:
+model%early_stopping=.false.
+call model%partial_fit(x,labels,classes=[-5,7,21])
+```
+
+Warm fit resets its sample clock and reuses published coefficients. Partial fits
+retain training state and increment t_; the first call requires classes, which
+may be reordered or duplicated, and batches may omit declared classes. Full fit
+supports optional coef_init (rank-two, or a binary vector) and intercept_init
+(vector, or a native scalar adapter). `sample_weight(:)` and sorted per-call
+`class_weight(:)` are accepted; class_weight_balanced selects balanced full fits.
+Balanced class weights and early stopping reject partial_fit, as in Source.
+
+Fresh parameter clones discard learned state and preserve controls. CV/search
+and nested pipelines support penalty, alpha, l1_ratio, eta0, tol, max_iter,
+n_iter_no_change, random_state, shuffle, fit_intercept, warm_start, early_stopping
+and validation_fraction. Direct pipeline fits retain warm state. Multiclass
+wrappers accept weighted fits and incremental Perceptron bases.
+
+n_features_in_, n_iter_, t_, classes_, coef_ and intercept_ expose fit state.
+Native diagnostics include per-head epoch/convergence/loss arrays and
+validation_mask_. The shared SGD subset currently rejects negative fitting
+sample weights and nonpositive explicit class weights; sklearn accepts those
+values. Arbitrary NumPy buffer-alias mutation semantics, parallel jobs and verbose
+callbacks remain outside this interface. Perceptron does not supply probabilities.
+
 ## Passive-aggressive classification and regression
 
 ```fortran

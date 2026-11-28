@@ -2,6 +2,7 @@
 ! The historical reset_sgd_fit entry point also resets Huber warm-fit state.
 ! Preserve constructor controls and discard learned state, as sklearn.base.clone.
 module sklearn_sgd_clone
+  use sklearn_perceptron,only:perceptron,clone_perceptron_parameters
   use sklearn_sgd, only: sgd_regressor,sgd_classifier
   use sklearn_linear_model,only:passive_aggressive_regressor,passive_aggressive_classifier
   use sklearn_quantile,only:quantile_regressor
@@ -67,6 +68,8 @@ contains
   subroutine reset_sgd_fit(model)
     class(*), intent(inout) :: model
     select type(model)
+    type is(perceptron)
+      model=clone_perceptron_parameters(model)
     type is(passive_aggressive_regressor)
       model=clone_pa_parameters(model)
     type is(passive_aggressive_classifier)

@@ -12935,3 +12935,17 @@ Archive SHA256 23fdc15835cf880337c84669837a95429ef512384675025d580dbac86eaf3ba5
 pa_validation_checked.json SHA256 71bfec5610e7f049fb86f25d5cc2651479614ea59d59d7d5244db2c8d2928b70
 pa_validation_optimized.json SHA256 5dce6d24c36b25fb02d030de526e4128e3e0f4596306cb89babb91c35322ecb5
 pa_validation_cross_profile.json SHA256 8e2d2acb43588a7e694583bd504cc5f50bffdeb885acea526048416cf83adb88
+
+2026-11-28 - Expanded Source-based Perceptron implementation
+Moved Perceptron implementation to sklearn_perceptron, re-exported through the
+existing linear_model/sklearn API. Fixed shared SGD perceptron loss/constant rate
+now supplies Source defaults, seeded dense/CSR fitting, penalties, sample/class
+weighting, warm fits, partial_fit, initializer overloads and validation stopping.
+Added parameter-only clones, search/nested parameters, weighted base dispatch and
+weighted/streaming multiclass integration. Native validation/per-head diagnostics
+are identified as extensions. Negative fit sample weights and nonpositive explicit
+class weights remain shared SGD restrictions, confirmed as Source-accepted and
+native-rejected adapter cases. Initial checked probes: 772 cases / 14760 checks,
+zero gaps at unchanged 3e-9; 17 Source rejection guards plus 2 adapter guards.
+Wide CSR fit/query/partial fitting peaks at 80961536 bytes, below 128 MiB.
+Full checked rebuild and final scoped-O3/shared-SGD verification are pending.

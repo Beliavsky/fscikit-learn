@@ -131,8 +131,7 @@ contains
     class is(ridge_classifier)
     type is(linear_svc)
     type is(perceptron)
-      call require(.not.streaming,'multiclass base has no native partial_fit')
-      call require(.not.weighted,'multiclass base has no native weighted fit'); return
+      return
     type is(passive_aggressive_classifier)
       call require(.not.streaming,'multiclass base has no native partial_fit')
       call require(.not.weighted,'multiclass base has no native weighted fit'); return
@@ -208,7 +207,11 @@ contains
     type is(linear_svc)
       call model%fit(x,y,weights)
     type is(perceptron)
-      call model%fit(x,y)
+      if(streaming)then
+        call model%partial_fit(x,y,classes=[0,1],sample_weight=weights)
+      else
+        call model%fit(x,y,weights)
+      end if
     type is(passive_aggressive_classifier)
       call model%fit(x,y)
     type is(svc)
@@ -241,6 +244,8 @@ contains
     type is(sgd_classifier)
       clf=clone_sgd_parameters(base)
       allocate(slot%estimator_,source=clf)
+    type is(perceptron)
+      allocate(slot%estimator_,source=base);call reset_sgd_fit(slot%estimator_)
     class default
       call require(.false.,'multiclass base has no native partial_fit')
     end select

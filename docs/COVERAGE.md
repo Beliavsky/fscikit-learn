@@ -16191,3 +16191,24 @@ pa_validation_build.log records the successful build. Archive SHA256:
 23fdc15835cf880337c84669837a95429ef512384675025d580dbac86eaf3ba5.
 This closes the PA validation-stopping gap, while the other listed PA gaps and
 project-wide Source parity remain open.
+
+
+### Source-based Perceptron controls and streaming
+
+The basic ordered error-count implementation is replaced by the shared SGD
+engine fixed to perceptron loss/constant updates, following _perceptron.py.
+Source defaults, seeded dense/CSR fitting, all four penalty modes, weighted
+training/scoring, warm fits, partial_fit, initializer adapters and validation
+stopping are supported. Perceptron is re-exported from the existing modules;
+implementation resides in sklearn_perceptron. Clones retain constructor controls
+and discard fitted state. Search/nested pipeline parameters and weighted/streaming
+multiclass adapters are integrated. Native validation/per-head diagnostics are
+identified as extensions. Probability prediction remains absent, as in Source.
+
+Initial checked probes pass 772 cases / 14,760 groups at unchanged 3e-9 tolerance,
+with exact predictions, masks, classes and clocks. Seventeen Source rejection
+checks and two explicitly identified adapter restrictions pass. Wide CSR
+fit/query/partial fitting uses 80,961,536 bytes, below 128 MiB. Full checked and
+scoped-O3 package/shared-SGD verification is pending. The shared SGD engine still
+rejects negative fit sample weights and nonpositive explicit class weights that
+Source accepts. Parallel/verbose and NumPy buffer-alias semantics remain gaps.

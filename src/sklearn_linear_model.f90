@@ -1,4 +1,5 @@
 module sklearn_linear_model
+  use sklearn_perceptron,only:perceptron
   use,intrinsic::iso_fortran_env,only:int64
   use,intrinsic::ieee_exceptions,only:ieee_all,ieee_get_flag,ieee_set_flag,ieee_get_halting_mode,ieee_set_halting_mode
   use sklearn_ard_core,only:ard_solve
@@ -155,18 +156,6 @@ module sklearn_linear_model
   contains
     procedure :: fit=>logistic_cv_fit
     procedure :: score=>logistic_cv_score
-  end type
-  type :: perceptron
-    logical :: fit_intercept=.true.
-    integer :: max_iter=1000, n_iter_=0
-    real(dp) :: eta0=1
-    integer, allocatable :: classes_(:)
-    real(dp), allocatable :: coef_(:,:),intercept_(:)
-  contains
-    procedure :: fit=>perceptron_fit
-    procedure :: decision_function=>perceptron_decision
-    procedure :: predict=>perceptron_predict
-    procedure :: score=>perceptron_score
   end type
   type :: passive_aggressive_classifier
     real(dp) :: c=1,tol=1.e-3_dp,t_=1
@@ -3020,61 +3009,4 @@ contains
     end if
   end subroutine
 
-  subroutine perceptron_fit(self,x,y)
-    class(perceptron), intent(inout) :: self
-    real(dp), intent(in) :: x(:,:)
-    integer, intent(in) :: y(:)
-    real(dp) :: target,margin
-    integer :: it,i,c,k,errors,heads,positive
-    call check_xy(x,size(y)); self%classes_=unique_labels(y); k=size(self%classes_)
-    call require(k>=2.and.self%max_iter>0.and.self%eta0>0,'invalid perceptron controls')
-    if(allocated(self%coef_)) deallocate(self%coef_,self%intercept_)
-    heads=k; if(k==2) heads=1
-    allocate(self%coef_(heads,size(x,2)),self%intercept_(heads)); self%coef_=0; self%intercept_=0
-    do it=1,self%max_iter
-      errors=0
-      do i=1,size(y)
-        do c=1,heads
-          positive=c; if(k==2) positive=2
-          target=merge(1._dp,-1._dp,y(i)==self%classes_(positive))
-          margin=dot_product(self%coef_(c,:),x(i,:))+self%intercept_(c)
-          if(target*margin<=0) then
-            self%coef_(c,:)=self%coef_(c,:)+self%eta0*target*x(i,:)
-            if(self%fit_intercept) self%intercept_(c)=self%intercept_(c)+self%eta0*target
-            errors=errors+1
-          end if
-        end do
-      end do
-      if(errors==0) exit
-    end do
-    self%n_iter_=min(it,self%max_iter)
-  end subroutine
-  function perceptron_decision(self,x) result(z)
-    class(perceptron), intent(in) :: self
-    real(dp), intent(in) :: x(:,:)
-    real(dp), allocatable :: z(:,:)
-    call require(allocated(self%coef_),'perceptron is not fitted')
-    call check_xy(transpose(x),size(self%coef_,2))
-    z=matmul(x,transpose(self%coef_))+spread(self%intercept_,1,size(x,1))
-  end function
-  function perceptron_predict(self,x) result(y)
-    class(perceptron), intent(in) :: self
-    real(dp), intent(in) :: x(:,:)
-    integer :: y(size(x,1)),i
-    real(dp), allocatable :: z(:,:)
-    z=self%decision_function(x)
-    do i=1,size(y)
-      if(size(self%classes_)==2) then
-        y(i)=self%classes_(merge(2,1,z(i,1)>0))
-      else
-        y(i)=self%classes_(maxloc(z(i,:),dim=1))
-      end if
-    end do
-  end function
-  real(dp) function perceptron_score(self,x,y) result(s)
-    class(perceptron), intent(in) :: self
-    real(dp), intent(in) :: x(:,:)
-    integer, intent(in) :: y(:)
-    s=accuracy_score(y,self%predict(x))
-  end function
 end module

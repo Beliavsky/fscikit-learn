@@ -3203,3 +3203,15 @@ approximate-mode class allocation. Standard coefficients, score-based patience,
 training-row exclusion and public sample-clock behavior retain the original
 scikit-learn BSD-3-Clause attribution above. Native validation-mask diagnostics,
 typed clone/search adapters and test harnesses are original MIT code.
+
+
+### Perceptron controls through the shared SGD engine
+
+`sklearn_perceptron.f90` follows scikit-learn 1.6.1
+`linear_model/_perceptron.py`: fixed loss='perceptron' and learning_rate='constant'
+forwarded to BaseSGDClassifier. Existing translations of `_stochastic_gradient.py`,
+`_sgd_fast.pyx.tp`, `_weight_vector.pyx.tp`, `_seq_dataset.pyx.tp` and model-selection
+splits supply training and stopping semantics. The scikit-learn BSD-3-Clause
+license and attribution above apply. Native typed storage, scalar initializer
+adapters, parameter-only clones, wrapper/search adapters and harnesses are MIT.
+No additional external repository was imported.

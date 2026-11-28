@@ -1,6 +1,6 @@
 ! Internal typed estimator adapters for sklearn-style parameter search (MIT).
 module sklearn_search_adapters
-  use sklearn_linear_model,only:passive_aggressive_regressor,passive_aggressive_classifier
+  use sklearn_linear_model,only:passive_aggressive_regressor,passive_aggressive_classifier,perceptron
   use sklearn_quantile,only:quantile_regressor
   use sklearn_adaboost,only:adaboost_classifier
   use sklearn_adaboost_regression,only:adaboost_regressor
@@ -227,6 +227,23 @@ contains
       case('max_iter');model%max_iter=value%as_integer()
       case('fit_intercept');model%fit_intercept=value%as_logical()
       case('warm_start');model%warm_start=value%as_logical()
+      case default;done=.false.
+      end select
+    type is(perceptron)
+      select case(name)
+      case('penalty');model%penalty=value%as_text()
+      case('alpha');model%alpha=value%as_real()
+      case('l1_ratio');model%l1_ratio=value%as_real()
+      case('eta0');model%eta0=value%as_real()
+      case('tol');model%tol=value%as_real()
+      case('max_iter');model%max_iter=value%as_integer()
+      case('n_iter_no_change');model%n_iter_no_change=value%as_integer()
+      case('random_state');model%random_state=value%as_integer()
+      case('shuffle');model%shuffle=value%as_logical()
+      case('fit_intercept');model%fit_intercept=value%as_logical()
+      case('warm_start');model%warm_start=value%as_logical()
+      case('early_stopping');model%early_stopping=value%as_logical()
+      case('validation_fraction');model%validation_fraction=value%as_real()
       case default;done=.false.
       end select
     type is(passive_aggressive_classifier)
