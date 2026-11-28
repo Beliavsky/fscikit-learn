@@ -12169,3 +12169,28 @@ Optimized audit SHA256:
 fcb526ac780079d550611dec7185fee46ab8ef7f3ebcd7013ae97619d97459da
 
 Local commits only; no push. The broader translation goal remains active.
+
+### 2026-11-28: Joint Crammer-Singer LinearSVC implementation
+
+Added multi_class='crammer_singer' with translated LIBLINEAR class shrinking,
+sorted block subproblems, seeded row permutations and source stopping rules.
+Dense/CSR integration retains grouped positive-weight rows and true-class
+weighted costs. Binary coefficients collapse two joint class vectors. Native
+one-entry objective/gap/KKT and iteration fields describe the joint problem;
+opt-in alpha storage retains all active class coordinates in original rows.
+Search accepts multi_class. Existing MIT licensing and BSD/LIBLINEAR notices
+are retained.
+
+Checked probes pass 1,112 fits / 10,008 comparison groups with zero gaps and
+1,112 independently reconstructed joint certificates, including both loss
+selectors, all dual choices, ignored requested caps, binary/3/5-class cases,
+weights, five input layouts, zero designs and inactive classes. Native tests,
+two rejection checks and the sparse 128-by-200,000 memory case pass (18,403,328
+bytes peak). Full coherent rebuild and checked/O3 regression audits follow.
+
+Source finding: Solver_MCSVM_CS allocates one n_iter entry but get_n_iter
+copies nr_class entries for more than two active classes. The public maximum
+therefore includes undefined memory. Comparison uses the defined backend
+counter zero, retaining public-counter discrepancies separately. All other
+public fields pass 2e-10 tolerances. The native joint counter is defined;
+source's fixed internal 100000 cap and zero-norm skips are preserved.

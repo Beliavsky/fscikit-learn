@@ -1864,7 +1864,28 @@ native diagnostics. Set `store_dual_variables=.true.` before fitting to retain
 Zero-weight rows have zero alpha. Dual `gradient_norm_` is the maximum projected
 coordinate gradient; primal fitting reports the actual gradient norm. A primal
 refit clears dual state. `converged_` follows the LIBLINEAR iteration-cap status.
-L1 penalties and Crammer-Singer multiclass fitting remain unsupported.
+`multi_class='ovr'` remains the default. Select `'crammer_singer'` for joint
+multiclass hinge fitting. That solver ignores the valid loss and dual choices,
+as sklearn does, and uses sample/class costs for the true class. Binary output
+is the difference of two jointly fitted class vectors. Search accepts
+multi_class as well. L1 penalties remain unsupported.
+
+Crammer-Singer objective/gap/KKT fields and iteration arrays have one entry
+for the joint problem. Its opt-in dual_variables_ retains every active class
+coordinate, including both binary class coordinates. Alpha rows sum to zero;
+the true-class coordinate is bounded above by its weighted C, and other
+coordinates by zero. The joint objective uses the uncollapsed class vectors.
+Both positive-weight classes are required for an originally binary fit.
+
+The installed sklearn 1.6.1 Crammer-Singer solver uses a fixed internal cap of
+100,000, independently of max_iter; the native implementation preserves that
+behavior. Native converged_ compares the actual joint count with max_iter.
+The reference's multiclass public n_iter_ may include undefined extra counters
+because its getter copies several entries from a one-entry allocation. Native
+n_iter_ reports the actual defined joint counter; validation compares that
+first backend counter and retains public-counter discrepancies as diagnostics.
+Zero-norm rows are skipped as in the reference, and a resulting nonzero gap or
+KKT residual remains visible even when the iteration stopping rule completes.
 
 LinearSVR accepts `dual='true'`, `'false'`, or `'auto'`. Unsquared
 epsilon-insensitive loss requires the dual solver. Squared loss supports both;

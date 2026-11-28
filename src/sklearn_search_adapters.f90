@@ -652,6 +652,7 @@ contains
       end select
     type is(linear_svc)
       select case(name)
+      case('multi_class');model%multi_class=value%as_text()
       case('loss');model%loss=value%as_text()
       case('dual')
         if(value%kind==3)then

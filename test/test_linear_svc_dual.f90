@@ -67,8 +67,9 @@ program test_linear_svc_dual
   call require(all(model%dual_variables_(1,:)==0),'zero-weight original-row alpha mapping')
   call random_seed(get=after);call require(all(before==after),'classifier dual fits preserve intrinsic RNG')
   parameters%items=[parameter_item('loss',param('hinge')),parameter_item('dual',param(.true.)), &
-    parameter_item('random_state',param(42))]
+    parameter_item('random_state',param(42)),parameter_item('multi_class',param('crammer_singer'))]
   call set_search_params(other,parameters)
+  call require(other%multi_class=='crammer_singer','classifier multiclass search control')
   call require(other%loss=='hinge'.and.other%dual=='true'.and.other%random_state==42,'classifier search controls')
   call seed_base(other,7);call seed_base(model,7)
   call require(other%random_state==model%random_state.and.other%random_state/=42,'ensemble classifier seeding')

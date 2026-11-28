@@ -3060,3 +3060,14 @@ sklearn BSD, LIBLINEAR and NumPy RNG notices in `LICENSES/` apply. Typed control
 owned dense/CSR integration, opt-in original-row alpha certificates and tests
 are native MIT contributions. The package remains MIT with these retained
 third-party notices; no LIBLINEAR or C++ runtime is linked.
+
+## Joint Crammer-Singer LinearSVC
+
+`sklearn_linear_svm` translates sklearn 1.6.1 bundled LIBLINEAR `linear.cpp`
+Solver_MCSVM_CS: class-index shrinking, sorted block subproblems, coefficient
+updates, seeded row permutations and shrinking/stopping tolerances. The
+wrapper's grouping, class costs and binary coefficient collapse follow
+`svm/_base.py`, `_classes.py` and `_liblinear.pyx`. Existing sklearn BSD and
+LIBLINEAR notices in `LICENSES/` apply. Dense/CSR integration, safe joint
+iteration metadata, optional original-row alpha storage, certificate replay
+and tests are native MIT contributions. No LIBLINEAR/C++ runtime is linked.

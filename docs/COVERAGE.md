@@ -1756,7 +1756,20 @@ wide design. Dual coordinate updates follow LIBLINEAR projected-gradient
 shrinking, seeded shuffling and stopping, with one RNG stream across OVR
 channels. Sorted class grouping, sample/class costs and positive-weight
 filtering follow the reference wrapper. Native certificates and opt-in alpha
-storage are identified in API.md; L1 penalties and Crammer-Singer remain gaps.
+storage are identified in API.md. `multi_class='crammer_singer'` adds joint
+multiclass hinge optimization, including weighted costs, per-row class
+shrinking, sorted block subproblems and seeded row shuffling. Dense/CSR input
+and binary coefficient collapse are supported. Joint diagnostics use the raw
+class vectors and one objective/counter; opt-in alpha stores all active class
+coordinates. L1 penalties remain a gap.
+
+Crammer-Singer follows the bundled solver's fixed internal 100,000-step cap;
+valid loss/dual selectors do not change that solver. Zero-norm rows are skipped,
+with any nonzero gap/KKT residual retained. The installed sklearn 1.6.1 public
+multiclass iteration maximum can include undefined extra counters: the model
+allocates one counter but get_n_iter copies nr_class entries. Native n_iter_
+uses the defined joint counter. Validation uses backend counter zero and
+retains the public-counter discrepancy; it does not reproduce undefined reads.
 `linear_svr` supports unsquared and squared epsilon-insensitive losses with
 L2 coefficient regularization. Its defaults now match sklearn's
 loss='epsilon_insensitive' and dual='auto'. The previous native formulation
@@ -1780,7 +1793,7 @@ objective/gap and KKT certificate fields are explicitly identified in API.md.
 These regression fit paths avoid dense design augmentation, feature Hessians
 and Gram matrices. Auto-selected primal fits use the same TRON implementation.
 
-Current LinearSVC verification: a fresh checked fpm build passes all 335
+Previous OVR LinearSVC verification: a fresh checked fpm build passes all 335
 native programs and all 1,191 dependency-aware compiled-source fingerprints.
 Checked and scoped O3 profiles each pass 23,724 Source output/iteration-cap
 groups plus 702 independently reconstructed derivative groups, without

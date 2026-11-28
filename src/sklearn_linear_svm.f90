@@ -19,6 +19,7 @@ module sklearn_linear_svm
     logical :: fit_intercept=.true.,class_weight_balanced=.false.,converged_=.false.
     character(16)::loss='squared_hinge'
     character(8)::dual='auto'
+    character(16)::multi_class='ovr'
     integer::random_state=0
     logical::store_dual_variables=.false.
     real(dp),allocatable::dual_variables_(:,:),dual_objective_(:),duality_gap_(:),kkt_violation_(:)
@@ -60,7 +61,11 @@ contains
     call require(self%loss=='hinge'.or.self%loss=='squared_hinge','invalid LinearSVC loss')
     call require(self%dual=='true'.or.self%dual=='false'.or.self%dual=='auto','invalid LinearSVC dual selector')
     call require(self%random_state>=0,'LinearSVC random_state must be nonnegative')
+    call require(self%multi_class=='ovr'.or.self%multi_class=='crammer_singer','invalid LinearSVC multi_class')
     use_dual=self%dual=='true'
+    if(self%multi_class=='crammer_singer')then
+      use_dual=.true.;return
+    end if
     if(self%dual=='auto')use_dual=n<p.or.self%loss=='hinge'
     call require(use_dual.or.self%loss=='squared_hinge','LinearSVC hinge loss requires the dual solver')
   end function
@@ -193,6 +198,200 @@ contains
     end do
     call ieee_set_halting_mode(ieee_all,modes);call ieee_set_flag(ieee_all,flags)
   end subroutine
+  ! Translation of sklearn's bundled Solver_MCSVM_CS (fixed 100000 iteration cap).
+  subroutine svc_cs_solve(x,y,cost,classes,intercept,scaling,tol,rng,coef,alpha,iterations,objective,dual_objective,kkt)
+    type(csr_matrix),intent(in)::x
+    integer,intent(in)::y(:),classes
+    real(dp),intent(in)::cost(:),scaling,tol
+    logical,intent(in)::intercept
+    type(legacy_random_state),intent(inout)::rng
+    real(dp),allocatable,intent(out)::coef(:,:),alpha(:,:)
+    integer,intent(out)::iterations
+    real(dp),intent(out)::objective,dual_objective,kkt
+    real(dp),allocatable::qd(:),g(:),b(:),values(:),delta(:),score(:)
+    integer,allocatable::order(:),alpha_index(:,:),y_index(:),active_i(:),changed(:)
+    integer::n,d,i,j,k,m,r,s,active,swap,last,nz,original
+    real(dp)::ai,min_g,max_g,stopping,eps_shrink,beta,value,bound,loss,norm,next_alpha
+    logical::start_all
+    n=x%n_rows;d=x%n_cols+merge(1,0,intercept)
+    allocate(coef(classes,d),alpha(classes,n),qd(n),g(classes),b(classes),values(classes), &
+      delta(classes),score(classes),order(n),alpha_index(classes,n),y_index(n),active_i(n),changed(classes))
+    coef=0;alpha=0;qd=0;active_i=classes;y_index=y;order=[(i,i=1,n)]
+    do i=1,n
+      alpha_index(:,i)=[(m,m=1,classes)]
+      do k=x%indptr(i),x%indptr(i+1)-1
+        qd(i)=qd(i)+x%data(k)*x%data(k)
+      end do
+      if(intercept)qd(i)=qd(i)+scaling*scaling
+    end do
+    active=n;iterations=0;eps_shrink=max(10*tol,1._dp);start_all=.true.
+    do while(iterations<100000)
+      stopping=-huge(1._dp)
+      do i=1,active
+        j=i+bounded_liblinear(rng,active-i+1);swap=order(i);order(i)=order(j);order(j)=swap
+      end do
+      s=1
+      do while(s<=active)
+        i=order(s);ai=qd(i)
+        if(ai>0)then
+          g(:active_i(i))=1
+          if(y_index(i)<=active_i(i))g(y_index(i))=0
+          do k=x%indptr(i),x%indptr(i+1)-1
+            do m=1,active_i(i)
+              g(m)=g(m)+coef(alpha_index(m,i),x%indices(k))*x%data(k)
+            end do
+          end do
+          if(intercept)then
+            do m=1,active_i(i)
+              g(m)=g(m)+coef(alpha_index(m,i),d)*scaling
+            end do
+          end if
+          min_g=huge(1._dp);max_g=-huge(1._dp)
+          do m=1,active_i(i)
+            if(alpha(alpha_index(m,i),i)<0.and.g(m)<min_g)min_g=g(m)
+            max_g=max(max_g,g(m))
+          end do
+          if(y_index(i)<=active_i(i))then
+            if(alpha(y(i),i)<cost(i).and.g(y_index(i))<min_g)min_g=g(y_index(i))
+          end if
+          m=1
+          do while(m<=active_i(i))
+            if(shrunk(m))then
+              active_i(i)=active_i(i)-1
+              do while(active_i(i)>=m)
+                last=active_i(i)+1
+                if(.not.shrunk(last))then
+                  swap=alpha_index(m,i);alpha_index(m,i)=alpha_index(last,i);alpha_index(last,i)=swap
+                  value=g(m);g(m)=g(last);g(last)=value
+                  if(y_index(i)==last)then
+                    y_index(i)=m
+                  else if(y_index(i)==m)then
+                    y_index(i)=last
+                  end if
+                  exit
+                end if
+                active_i(i)=active_i(i)-1
+              end do
+            end if
+            m=m+1
+          end do
+          if(active_i(i)<=1)then
+            swap=order(s);order(s)=order(active);order(active)=swap;active=active-1;cycle
+          end if
+          if(max_g-min_g>1.e-12_dp)then
+            stopping=max(stopping,max_g-min_g)
+            do m=1,active_i(i)
+              b(m)=g(m)-ai*alpha(alpha_index(m,i),i)
+            end do
+            values(:active_i(i))=b(:active_i(i))
+            if(y_index(i)<=active_i(i))values(y_index(i))=values(y_index(i))+ai*cost(i)
+            ! The subproblem uses sorted values only; equal-value order is immaterial.
+            do m=2,active_i(i)
+              value=values(m);j=m-1
+              do while(j>=1)
+                if(values(j)>=value)exit
+                values(j+1)=values(j);j=j-1
+              end do
+              values(j+1)=value
+            end do
+            beta=values(1)-ai*cost(i);r=1
+            do while(r<active_i(i))
+              if(beta>=r*values(r+1))exit
+              beta=beta+values(r+1);r=r+1
+            end do
+            beta=beta/r;nz=0
+            do m=1,active_i(i)
+              bound=0;if(m==y_index(i))bound=cost(i)
+              next_alpha=min(bound,(beta-b(m))/ai)
+              original=alpha_index(m,i);value=next_alpha-alpha(original,i);alpha(original,i)=next_alpha
+              if(abs(value)>=1.e-12_dp)then
+                nz=nz+1;changed(nz)=original;delta(nz)=value
+              end if
+            end do
+            do k=x%indptr(i),x%indptr(i+1)-1
+              do m=1,nz
+                j=changed(m);coef(j,x%indices(k))=coef(j,x%indices(k))+delta(m)*x%data(k)
+              end do
+            end do
+            if(intercept)then
+              do m=1,nz
+                j=changed(m);coef(j,d)=coef(j,d)+delta(m)*scaling
+              end do
+            end if
+          end if
+        end if
+        s=s+1
+      end do
+      iterations=iterations+1
+      if(stopping<eps_shrink)then
+        if(stopping<tol.and.start_all)exit
+        active=n;active_i=classes;eps_shrink=max(eps_shrink/2,tol);start_all=.true.
+      else
+        start_all=.false.
+      end if
+    end do
+    norm=.5_dp*sum(coef**2);objective=norm;dual_objective=-norm;kkt=0
+    do i=1,n
+      score=0
+      do k=x%indptr(i),x%indptr(i+1)-1
+        score=score+coef(:,x%indices(k))*x%data(k)
+      end do
+      if(intercept)score=score+coef(:,d)*scaling
+      loss=0;g=1+score;g(y(i))=score(y(i));min_g=huge(1._dp)
+      do m=1,classes
+        if(m/=y(i))loss=max(loss,1+score(m)-score(y(i)))
+        bound=0;if(m==y(i))bound=cost(i)
+        if(alpha(m,i)<bound)min_g=min(min_g,g(m))
+      end do
+      if(min_g<huge(1._dp))kkt=max(kkt,maxval(g)-min_g)
+      objective=objective+cost(i)*loss;dual_objective=dual_objective+alpha(y(i),i)
+    end do
+  contains
+    logical function shrunk(position)result(ok)
+      integer,intent(in)::position
+      real(dp)::upper
+      upper=0;if(position==y_index(i))upper=cost(i)
+      ok=alpha(alpha_index(position,i),i)==upper.and.g(position)<min_g
+    end function
+  end subroutine
+
+  subroutine svc_cs_fit(self,x,y,cost,rows,classes,n_original,rng)
+    class(linear_svc),intent(inout)::self
+    type(csr_matrix),intent(in)::x
+    integer,intent(in)::y(:),rows(:),classes,n_original
+    real(dp),intent(in)::cost(:)
+    type(legacy_random_state),intent(inout)::rng
+    real(dp),allocatable::coef(:,:),alpha(:,:)
+    real(dp)::objective,dual_objective,kkt
+    integer::iterations,p
+    call require(size(self%classes_)/=2.or.classes==2,'Crammer-Singer binary fit requires two positive-weight classes')
+    call svc_cs_solve(x,y,cost,classes,self%fit_intercept,self%intercept_scaling,self%tol,rng, &
+      coef,alpha,iterations,objective,dual_objective,kkt)
+    p=x%n_cols
+    if(allocated(self%coef_))deallocate(self%coef_,self%intercept_,self%objective_,self%gradient_norm_, &
+      self%n_iter_per_class_,self%converged_per_class_)
+    if(allocated(self%dual_variables_))deallocate(self%dual_variables_)
+    if(allocated(self%dual_objective_))deallocate(self%dual_objective_,self%duality_gap_,self%kkt_violation_)
+    self%coef_=coef(:,:p);self%intercept_=spread(0._dp,1,classes)
+    if(self%fit_intercept)self%intercept_=coef(:,p+1)*self%intercept_scaling
+    if(size(self%classes_)==2)then
+      self%coef_=reshape(coef(2,:p)-coef(1,:p),[1,p])
+      if(self%fit_intercept)then
+        self%intercept_=[(coef(2,p+1)-coef(1,p+1))*self%intercept_scaling]
+      else
+        self%intercept_=[0._dp]
+      end if
+    end if
+    self%objective_=[objective];self%dual_objective_=[dual_objective];self%duality_gap_=[objective-dual_objective]
+    self%kkt_violation_=[kkt];self%gradient_norm_=[kkt];self%n_iter_per_class_=[iterations]
+    self%n_iter_=iterations;self%converged_=iterations<self%max_iter;self%converged_per_class_=[self%converged_]
+    self%n_features_in_=p
+    if(self%store_dual_variables)then
+      allocate(self%dual_variables_(n_original,classes));self%dual_variables_=0
+      self%dual_variables_(rows,:)=transpose(alpha)
+    end if
+  end subroutine
+
   subroutine svr_tron_state(x,y,cost,coef,tube,intercept,scaling,objective,gradient,active,classification)
     type(csr_matrix),intent(in)::x
     real(dp),intent(in)::y(:),cost(:),coef(:),tube,scaling
@@ -662,7 +861,7 @@ contains
     integer,intent(in)::y(:)
     real(dp),optional,intent(in)::sample_weight(:),class_weight(:)
     real(dp),allocatable::w(:),cw(:),target(:),cost(:),coef(:),alpha(:)
-    integer,allocatable::encoded(:),rows(:),selected(:),active_classes(:)
+    integer,allocatable::encoded(:),rows(:),selected(:),active_classes(:),joint_y(:)
     type(csr_matrix)::grouped
     type(legacy_random_state)::rng,seed_rng
     logical::dual
@@ -694,6 +893,11 @@ contains
     end do
     grouped=svc_rows(x,rows);channels=ac;if(ac<=2)channels=1
     call seed_rng%seed(self%random_state);call rng%seed(seed_rng%integer_index(huge(1))-1)
+    if(self%multi_class=='crammer_singer')then
+      joint_y=[(label_index(active_classes,encoded(rows(i))),i=1,size(rows))]
+      call svc_cs_fit(self,grouped,joint_y,w(rows)*(self%c*cw(encoded(rows))),rows,ac,n,rng)
+      return
+    end if
     if(allocated(self%coef_))deallocate(self%coef_,self%intercept_,self%objective_,self%gradient_norm_, &
       self%n_iter_per_class_,self%converged_per_class_)
     allocate(self%coef_(channels,p),self%intercept_(channels),self%objective_(channels),self%gradient_norm_(channels))
