@@ -1371,7 +1371,7 @@ The default seeded shuffle now follows sklearn's private NumPy seed draws,
 forward xorshift permutations and independent multiclass OVR seeds. Each epoch
 resets the xorshift seed and permutes the retained row order. Scalar seeds are
 nonnegative; fitting preserves the global Fortran RNG, including shuffled fits.
-Repeated fits reset coefficients and averaging state. Dense PA-I/PA-II fitting,
+Repeated cold fits reset coefficients and averaging state. Dense PA-I/PA-II fitting,
 zero-row handling, delayed averaging and loss-based patience remain supported.
 Both types accept `csr_matrix` in fit, predict and score. Classifiers also
 accept CSR decision_function. Dense and CSR queries can follow either fit format.
@@ -1386,8 +1386,25 @@ weight-vector accumulation and touches stored entries at each update. Coefficien
 and averaging vectors remain dense, without a dense samples-by-features cache.
 Caller CSR buffers are preserved. Extreme finite rows retain Source
 infinite squared norms and zero PA steps, with norm calculation restoring
-caller IEEE halting modes and the overflow flag. Warm starts and validation-set stopping remain gaps.
+caller IEEE halting modes and the overflow flag. Validation-set stopping remains a gap.
 See `example/passive_aggressive.f90` for training accuracy and regression R2.
+
+Set `warm_start=.true.` to continue dense or CSR `fit` calls. Each fit resets
+`t_` to one before training and restarts stopping patience. Averaged regression
+retains its internal standard/average buffers; averaged classification restarts
+averaging from its published coefficients. These distinct sklearn behaviors also
+apply when switching fit and partial_fit. Cold fitting discards previous state.
+Warm classifiers allow relabeling when the number of planes stays compatible.
+Feature/plane counts must match the reused coefficients. Enabling averaging on
+a warm classifier is supported; a warm regressor requires existing average buffers.
+
+Fresh clones discard learned PA state while preserving constructor controls.
+This includes CV/search, nested pipelines, ensembles, multiclass wrappers,
+multioutput regression, regressor chains and TransformedTargetRegressor.
+Direct pipeline fits retain warm state. Search supports `C`, `loss`, `tol`,
+`max_iter`, `n_iter_no_change`, `average`, `random_state`, `shuffle`,
+`fit_intercept`, `warm_start`, and regression `epsilon`, including nested names.
+Explicit per-call class weights remain a native fit adapter.
 
 Both PA types now support `partial_fit` on dense or CSR batches. Each call runs
 one epoch, ignores fit stopping, retains standard/averaged buffers, and advances
@@ -1409,7 +1426,7 @@ reordered or contain duplicates if their unique sorted values stay unchanged.
 A batch can omit declared classes. Optional `class_weight(:)` is a per-call
 native adapter in sorted class order. Balanced mode rejects the first partial
 call; after a full fit it follows Source's per-batch rule and requires every
-known class in that batch. `fit` resets streaming state and class declarations;
+known class in that batch. Cold `fit` resets streaming state and class declarations;
 `partial_fit` can continue an existing fit. Native validated constructor controls
 continue to apply. Averaging can be disabled/re-enabled when existing average
 buffers are available; enabling it after initialization without those buffers

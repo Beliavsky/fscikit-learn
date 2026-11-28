@@ -29,7 +29,7 @@ module sklearn_linear_model
   use sklearn_ridge_classification, only: ridge_classifier,ridge_classifier_cv
   use sklearn_common
   use sklearn_metrics, only: r2_score,accuracy_score,roc_auc_score
-  use, intrinsic :: ieee_arithmetic, only: ieee_is_finite,ieee_is_nan,ieee_value,ieee_negative_inf
+  use, intrinsic :: ieee_arithmetic, only: ieee_is_finite,ieee_is_nan,ieee_value,ieee_negative_inf,ieee_fma
   implicit none
   private
   public::ridge_regression,ridge_solver_options,ridge_solution
@@ -171,7 +171,7 @@ module sklearn_linear_model
     real(dp) :: c=1,tol=1.e-3_dp,t_=1
     integer :: max_iter=1000,n_iter_no_change=5,average=0,random_state=0,n_iter_=0,n_features_in_=0
     character(16) :: loss='hinge'
-    logical :: fit_intercept=.true.,shuffle=.true.,class_weight_balanced=.false.,converged_=.false.
+    logical :: fit_intercept=.true.,shuffle=.true.,class_weight_balanced=.false.,converged_=.false.,warm_start=.false.
     integer, allocatable :: classes_(:),n_iter_per_class_(:)
     real(dp), allocatable :: coef_(:,:),intercept_(:),loss_(:)
     type(pa_state),allocatable,private::states_(:)
@@ -193,7 +193,7 @@ module sklearn_linear_model
     real(dp) :: c=1,tol=1.e-3_dp,epsilon=0.1_dp,t_=1,loss_=0
     integer :: max_iter=1000,n_iter_no_change=5,average=0,random_state=0,n_iter_=0
     character(32) :: loss='epsilon_insensitive'
-    logical :: shuffle=.true.,converged_=.false.
+    logical :: shuffle=.true.,converged_=.false.,warm_start=.false.
     type(pa_state),private::state_
   contains
     procedure :: fit_dense=>pa_regressor_fit,fit_sparse=>pa_regressor_fit_csr
@@ -504,7 +504,12 @@ contains
     n_iter=min(it,options%max_iter); last_loss=sumloss/n; coef=current; intercept=bias
     if(options%average>0)then
       saved%standard=current;saved%standard_bias=bias;saved%average_bias=average_bias
-      saved%average=(average_coef+average_a*current)/average_b
+      ! Installed Source BLAS uses fused DAXPY, then DSCAL by a rounded
+      ! reciprocal. Warm fits feed these published averages back into training.
+      mu=1/average_b
+      do k=1,size(current)
+        saved%average(k)=ieee_fma(average_a,current(k),average_coef(k))*mu
+      end do
       saved%public_average=real(options%average,dp)<=start_t-1+real(n_iter,dp)*n
       if(saved%public_average)then
         coef=saved%average;intercept=average_bias
@@ -586,11 +591,18 @@ contains
     call require(self%loss=='epsilon_insensitive'.or.self%loss=='squared_epsilon_insensitive', &
       'invalid passive-aggressive regression loss')
     options%epsilon=self%epsilon;options%pa_two=self%loss=='squared_epsilon_insensitive'
-    if(.not.incremental.or..not.allocated(self%state_%standard))then
+    if(.not.allocated(self%state_%standard))then
+      self%state_=pa_state();self%coef_=spread(0._dp,1,p);self%intercept_=0;self%t_=1
+    else if(.not.incremental.and..not.self%warm_start)then
       self%state_=pa_state();self%coef_=spread(0._dp,1,p);self%intercept_=0;self%t_=1
     else
       call require(p==self%n_features_in_,'PA partial_fit feature count mismatch')
       call require(size(self%coef_)==p,'PA public coefficient shape mismatch')
+      if(.not.incremental)then
+        self%t_=1
+        if(self%average==0)call require(all(ieee_is_finite(self%coef_)).and.ieee_is_finite(self%intercept_), &
+          'nonfinite PA warm regression initializer')
+      end if
     end if
     if(incremental)then
       options%max_iter=1;options%tol=-1
@@ -618,7 +630,7 @@ contains
     integer,allocatable::seeds(:)
     type(pa_config) :: options
     real(dp) :: target(size(y)),positive_weight,negative_weight
-    real(dp), allocatable :: weights(:)
+    real(dp), allocatable :: weights(:),initial_coef(:,:),initial_bias(:)
     integer :: k,heads,j,positive
     logical :: converged
     if(present(sparse_x))then
@@ -653,9 +665,25 @@ contains
     call require(k>=2,'passive-aggressive classification requires at least two classes')
     heads=k; if(k==2) heads=1
     if(fresh)then
+      if(.not.partial.and.self%warm_start.and.allocated(self%coef_))then
+        call require(all(shape(self%coef_)==[heads,p]),'PA warm classifier coefficient shape mismatch')
+        call require(allocated(self%intercept_),'PA warm classifier intercept is unallocated')
+        call require(size(self%intercept_)==heads,'PA warm classifier intercept shape mismatch')
+        call require(all(ieee_is_finite(self%coef_)).and.all(ieee_is_finite(self%intercept_)), &
+          'nonfinite PA warm classifier initializer')
+        initial_coef=self%coef_;initial_bias=self%intercept_
+      end if
       if(allocated(self%states_))deallocate(self%states_)
       allocate(self%states_(heads));self%bias_public_=0;self%bias_standard_average_=.false.;self%t_=1
       self%coef_=spread(spread(0._dp,1,heads),2,p);self%intercept_=spread(0._dp,1,heads)
+      if(allocated(initial_coef))then
+        self%coef_=initial_coef;self%intercept_=initial_bias
+        do j=1,heads
+          self%states_(j)%standard=initial_coef(j,:);self%states_(j)%standard_bias=initial_bias(j)
+          self%states_(j)%has_average=self%average>0
+          if(self%average>0)self%states_(j)%average=spread(0._dp,1,p)
+        end do
+      end if
     else
       call require(all(shape(self%coef_)==[heads,p]).and.size(self%intercept_)==heads,'PA public parameter shape mismatch')
     end if

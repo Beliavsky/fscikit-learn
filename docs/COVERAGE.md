@@ -1278,7 +1278,8 @@ returns rank two (n_samples,1) in this case. A zero margin predicts the lower
 class. Multiclass fits use independent one-versus-rest planes and first-class
 argmax tie handling. `class_weight_balanced=.true.` uses sklearn's binary
 balanced positive/negative weights or multiclass balanced positive weights with
-unit negative weights. Explicit class-weight dictionaries are unsupported.
+unit negative weights. Optional per-call `class_weight(:)` represents explicit
+class-weight dictionaries in sorted class order.
 The regressor has rank-one coefficients and inherits linear prediction and R2
 score; the classifier supplies decision_function, predict and accuracy score.
 
@@ -1302,11 +1303,14 @@ matches sklearn's public counter. `loss_` stores last-epoch mean pre-update loss
 PA-I skips zero-feature rows before intercept updates, averaging and its internal
 sample counter, though their loss and public epoch counts are still included.
 PA-II can update an intercept for such rows. These version-specific details are
-preserved. Shuffling uses native Fortran permutations and is reproducible with
-this compiler; it does not match NumPy's stream. Reference tests set shuffle
-false. Each fit starts at zero. Partial-fit/streaming APIs, warm starts, custom
-initial coefficients, sample weights, validation early stopping, sparse inputs
-and parallel training are not implemented. Controls must be finite, with C>0,
+preserved. Scalar-seeded shuffling follows sklearn's private NumPy/xorshift
+stream. Both dense and CSR fits/queries, one-epoch `partial_fit`, and repeated
+warm `fit` calls are supported. Warm regression retains average buffers while
+warm classification resets them from published coefficients, matching Source.
+Cold fits reset state. Fresh clones discard fitted state while retaining controls;
+direct pipeline fits retain warm state. Custom initial-coefficient arguments,
+sample weights for fitting, validation early stopping and parallel training remain
+outside this subset. Controls must be finite, with C>0,
 epsilon>=0, positive epoch/patience limits and average>=0. Use appropriately
 scaled finite inputs. The package now contains 99 core types in 40 source modules.
 
@@ -16112,3 +16116,20 @@ Reports use validation/results/pa_partial_{checked,optimized,cross_profile}.json
 This closes direct dense/CSR PA streaming; warm and validation-stopping fits
 and broader project/API subsets remain. Project-wide Source parity is false.
 Windows validation retains the static GNU runtime and locale-copy shim.
+
+### Passive-aggressive warm fitting and clean clones
+
+Both PA types expose `warm_start` for dense/CSR full fits. Fit clocks and patience
+restart per call. Averaged regression retains internal buffers; classification
+restarts averaging from published coefficients, following sklearn 1.6.1. Warm
+classifiers permit relabeling with compatible plane counts. Fresh wrapper and
+CV/search clones preserve constructor controls and discard fitted state; direct
+pipeline fits retain it. Search accepts PA controls including nested names.
+
+Average finalization matches installed Source BLAS fused DAXPY followed by DSCAL.
+The initial checked probe passes 1,476 five-fit sequences / 7,380 stages / 78,900
+comparison groups at unchanged 3e-8 tolerance and exact labels/counters. Twelve
+Source/native rejection decisions, averaged-public-replacement acceptance and
+540 wrapper outputs pass. Final all-native and scoped-O3 retained PA audits are
+pending below. Validation-set stopping, explicit initial-coefficient arguments,
+fit sample weights and parallel PA training remain outside this subset.

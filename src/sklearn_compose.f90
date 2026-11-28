@@ -1,6 +1,7 @@
 ! TransformedTargetRegressor: sklearn 1.6.1 compose/_target.py (BSD-3-Clause).
 ! See THIRD_PARTY_NOTICES.md. Native clone/storage adapters are original MIT code.
 module sklearn_compose
+  use sklearn_sgd_clone,only:reset_sgd_fit
   use sklearn_feature_composition, only: column_transformer,transformer_branch,column_selector,feature_name_formatter
   use sklearn_common, only: dp,require,check_x,check_xy
   use sklearn_function_transformer, only: function_transformer,matrix_function,matrices_close
@@ -172,6 +173,7 @@ contains
     real(dp), optional, intent(in) :: weights(:)
     real(dp) :: w(size(y))
     w=1;if(present(weights)) w=weights
+    call reset_sgd_fit(model)
     select type(model)
     type is(linear_regression)
       call weighted_linear(model,x,y,w,0._dp)

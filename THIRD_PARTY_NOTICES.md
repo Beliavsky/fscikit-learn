@@ -3181,3 +3181,14 @@ Small-width dense training diagonals also follow the installed SciPy BLAS
 scalar ddot behavior used by sklearn/utils/_cython_blas.pyx. The implementation
 uses standard IEEE fused accumulation; no external BLAS runtime dependency is
 introduced. Backend-specific numerical validation is recorded in COVERAGE.md.
+
+
+### Passive-aggressive warm fitting and parameter clones
+
+Warm-fit state transitions follow scikit-learn 1.6.1's
+`linear_model/_passive_aggressive.py` and `_stochastic_gradient.py`;
+average finalization follows `utils/_weight_vector.pyx.tp` (DAXPY then DSCAL).
+The installed Source BLAS uses fused multiply-add for DAXPY, reproduced using
+Fortran `ieee_fma`. The original scikit-learn BSD-3-Clause attribution and
+license above apply. Native typed clone/search adapters and validation harnesses
+are original MIT code. No additional third-party repository was imported.

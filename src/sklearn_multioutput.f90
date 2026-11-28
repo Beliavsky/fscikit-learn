@@ -113,6 +113,7 @@ contains
         call model%fit(x,y,weights)
       end if
     class is(linear_regression)
+      call reset_sgd_fit(model)
       call model%fit(x,y)
     type is(kneighbors_regressor)
       call model%fit(x,y)

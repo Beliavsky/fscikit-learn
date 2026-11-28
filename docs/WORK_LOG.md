@@ -12877,3 +12877,15 @@ Fingerprints SHA256: 04e774fa49d11deb75a8c0f0a109776722d109c9982afe63fc88d0cd238
 Reports use the pa_partial_ prefix. Full project parity remains false; static
 GNU runtime and validation-only locale shim retained. Local commits only; no
 push performed. Protected untracked files remain untouched.
+
+2026-11-28 - Passive-aggressive warm fitting and parameter-only cloning
+Added dense/CSR warm_start for both PA types, Source-specific regression versus
+classification averaging lifetime, reset full-fit clocks, compatible relabeling,
+invalid initializer guards, PA search controls and clean wrapper clones.
+Fixed missing clone resets in multioutput regression/chains and transformed target
+regression. Average finalization reproduces installed BLAS fused DAXPY + DSCAL.
+Initial checked Source probe: 1476 sequences, 7380 stages, 78900 groups, zero gaps
+at unchanged 3e-8; 12 rejection guards and averaged replacement acceptance pass.
+Checked wrapper test: 540 outputs and direct pipeline warmth pass. Successful
+full fpm build and final test refresh; final checked/scoped-O3 audits pending.
+MIT remains the project license; retained sklearn BSD attribution updated.

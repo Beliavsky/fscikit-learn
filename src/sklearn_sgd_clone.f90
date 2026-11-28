@@ -3,16 +3,37 @@
 ! Preserve constructor controls and discard learned state, as sklearn.base.clone.
 module sklearn_sgd_clone
   use sklearn_sgd, only: sgd_regressor,sgd_classifier
+  use sklearn_linear_model,only:passive_aggressive_regressor,passive_aggressive_classifier
   use sklearn_quantile,only:quantile_regressor
   use sklearn_linear_model,only:ard_regression,bayesian_ridge,huber_regressor,tweedie_regressor,poisson_regressor,gamma_regressor
   implicit none
   private
   public :: clone_sgd_parameters,reset_sgd_fit
-  public :: clone_quantile_parameters
+  public :: clone_quantile_parameters,clone_pa_parameters
   interface clone_sgd_parameters
     module procedure clone_sgdr_parameters,clone_sgdc_parameters
   end interface
+  interface clone_pa_parameters
+    module procedure clone_par_parameters,clone_pac_parameters
+  end interface
 contains
+  function clone_par_parameters(source)result(model)
+    type(passive_aggressive_regressor),intent(in)::source
+    type(passive_aggressive_regressor)::model
+    model%c=source%c;model%tol=source%tol;model%epsilon=source%epsilon;model%loss=source%loss
+    model%max_iter=source%max_iter;model%n_iter_no_change=source%n_iter_no_change
+    model%average=source%average;model%random_state=source%random_state;model%shuffle=source%shuffle
+    model%fit_intercept=source%fit_intercept;model%positive=source%positive;model%warm_start=source%warm_start
+  end function
+  function clone_pac_parameters(source)result(model)
+    type(passive_aggressive_classifier),intent(in)::source
+    type(passive_aggressive_classifier)::model
+    model%c=source%c;model%tol=source%tol;model%loss=source%loss
+    model%max_iter=source%max_iter;model%n_iter_no_change=source%n_iter_no_change
+    model%average=source%average;model%random_state=source%random_state;model%shuffle=source%shuffle
+    model%fit_intercept=source%fit_intercept;model%class_weight_balanced=source%class_weight_balanced
+    model%warm_start=source%warm_start
+  end function
   function clone_quantile_parameters(source)result(model)
     type(quantile_regressor),intent(in)::source
     type(quantile_regressor)::model
@@ -44,6 +65,10 @@ contains
   subroutine reset_sgd_fit(model)
     class(*), intent(inout) :: model
     select type(model)
+    type is(passive_aggressive_regressor)
+      model=clone_pa_parameters(model)
+    type is(passive_aggressive_classifier)
+      model=clone_pa_parameters(model)
     type is(quantile_regressor)
       model=clone_quantile_parameters(model)
     type is(ard_regression)
