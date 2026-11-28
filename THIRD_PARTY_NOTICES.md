@@ -3002,3 +3002,16 @@ The retained sklearn and SciPy BSD notices are in `LICENSES/scikit-learn-COPYING
 and `LICENSES/scipy-COPYING`. Existing NumPy-compatible RNG notices remain.
 Owned CSR integration, IEEE-state handling and finite-dot overflow recovery
 are original MIT adapters. No additional runtime dependency is linked.
+
+## CSR SVR, NuSVR and OneClassSVM
+
+`src/sklearn_kernel_svm.f90` follows sklearn 1.6.1 `svm/_base.py`,
+`svm/src/libsvm/svm.cpp` and `libsvm_sparse_helper.c` for sparse validation,
+scale gamma, sorted-node dot/distance kernels, support-vector layout and the
+positive-weight filtered support-index convention. sklearn's BSD license and
+the LIBSVM copyright notice remain in `LICENSES/`. SciPy 1.15.3
+[`sparse/sparsetools/csr.h`](https://github.com/scipy/scipy/blob/v1.15.3/scipy/sparse/sparsetools/csr.h)
+specifies row sorting via `std::sort`. The native bounded partition/insertion
+sort reproduces the tested wheel's tie ordering using an independent MIT
+implementation; no C++ runtime is linked. Owned storage, typed CSR overloads,
+native solver integration, tests and validation are MIT contributions.

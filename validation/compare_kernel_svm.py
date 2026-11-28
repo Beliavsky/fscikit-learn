@@ -3,6 +3,9 @@ from pathlib import Path
 import json
 import os
 import subprocess
+import argparse
+import hashlib
+import tempfile
 os.environ.setdefault("OMP_NUM_THREADS", "2")
 import numpy as np
 import sklearn
@@ -99,7 +102,14 @@ def reference(x, y, w):
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--executable', type=Path)
+    parser.add_argument('--report', type=Path)
+    args = parser.parse_args()
+    binary_hash = hashlib.sha256(args.executable.read_bytes()).hexdigest() if args.executable else None
     RESULTS.mkdir(exist_ok=True)
+    temporary = tempfile.TemporaryDirectory(prefix='fsklearn-kernelsvm-')
+    work = Path(temporary.name)
     checks = []
     for seed, n, p in ((7, 36, 3), (42, 40, 4), (2026, 44, 5)):
         rng = np.random.default_rng(seed)
@@ -107,11 +117,12 @@ def main():
         y = np.sin(x[:, 0]) + .4*x[:, 1] - .2*x[:, 2]**2 + rng.normal(size=n)*.08
         w = rng.uniform(.4, 2, n)
         w[::11] = 0
-        data, output = RESULTS/f"kernelsvm_{seed}.txt", RESULTS/f"kernelsvm_actual_{seed}.txt"
+        data, output = work/f"kernelsvm_{seed}.txt", work/f"kernelsvm_actual_{seed}.txt"
         with data.open("w") as stream:
             stream.write(f"{n} {p}\n")
             np.savetxt(stream, np.column_stack([x, y, w]), fmt="%.17g")
-        subprocess.run(["fpm", "run", "--target", "reference_kernel_svm_driver", "--", str(data), str(output)],
+        command = [str(args.executable)] if args.executable else ["fpm", "run", "--target", "reference_kernel_svm_driver", "--"]
+        subprocess.run([*command, str(data), str(output)],
                        cwd=ROOT, check=True)
         actual = {}
         for line in output.read_text().splitlines():
@@ -128,9 +139,12 @@ def main():
                                        err_msg=f"{seed} {name}")
             checks.append(dict(seed=seed, api=name, passed=True))
         print(f"PASS kernel SVMs seed={seed}", flush=True)
-    (RESULTS/"kernel_svm_report.json").write_text(json.dumps(dict(sklearn_version=sklearn.__version__, checks=checks),
+    if args.executable:
+        assert binary_hash == hashlib.sha256(args.executable.read_bytes()).hexdigest()
+    (args.report or RESULTS/"kernel_svm_report.json").write_text(json.dumps(dict(sklearn_version=sklearn.__version__, checks=checks, executable_sha256=binary_hash),
                                                            indent=2)+"\n")
     print(f"{len(checks)} kernel SVM comparisons passed against sklearn {sklearn.__version__}")
+    temporary.cleanup()
 
 if __name__ == "__main__":
     main()

@@ -915,6 +915,18 @@ graph paths and inverse transforms remain unimplemented.
 
 ## Support-vector regression and one-class detection
 
+All three estimators now support CSR fit and query overloads, including
+regression score and one-class score_samples/fit_predict. CSR designs and
+support vectors remain in `x_fit_csr_` / `support_vectors_csr_`; dense fitted
+arrays are unallocated. Dense queries after CSR fits are converted to CSR;
+CSR queries after dense fits and sparse precomputed kernels are rejected,
+following sklearn. Owned copies preserve caller storage. Sparse gamma moments,
+LIBSVM sorted-node kernels and duplicate entries are retained. The native row
+sort matches the tested SciPy wheel's equal-key order, which can vary across
+upstream C++ implementations. CSR support indices follow the positive-weight
+filtered Source problem, shifted to one base. Linear coefficients remain a
+dense native feature vector and the optimizer still builds a dense Gram matrix.
+
 `svr`, `nu_svr`, and `one_class_svm` are available through `sklearn_svm` and
 the facade; their implementation module is `sklearn_kernel_svm`. They use native
 dense dual SMO with a most-violating first coordinate and gain-based second
@@ -930,7 +942,8 @@ The added models support `linear`, `rbf` (default), `poly`/`polynomial`, and
 and PSD within the numerical tolerance; queries have one column per original
 training sample. Polynomial degree and coef0 must be nonnegative. Callable,
 sigmoid and other indefinite kernels are unsupported. These constraints keep
-the dual problem convex. Inputs and Gram matrices are dense real64.
+the dual problem convex. Gram matrices remain dense real64; feature designs
+may be dense or CSR. Precomputed inputs remain dense.
 
 `gamma=-1` (default) selects the string `gamma_rule`: `scale` (default) is
 1/(features * global training-entry variance), with a constant-data fallback of
@@ -942,11 +955,11 @@ OneClassSVM. NuSVR requires 0 < nu <= 1 and exposes its learned `epsilon_`.
 OneClassSVM requires 0 < nu < 1: the fully saturated endpoint with a nonunique
 threshold is not supported.
 
-Fitted state includes one-based original-row `support_`, `support_vectors_`,
+Dense fitted state includes one-based original-row `support_`, `support_vectors_`,
 rank-one `dual_coef_`, scalar `intercept_`, and integer `n_support_`. Linear
 kernels also allocate the feature vector `coef_`; it is unallocated for other
 kernels. Precomputed kernels store an empty (0,0) support-vector matrix.
-Zero-weight observations keep their original indexing in this package;
+Zero-weight observations keep their original indexing for native dense fits;
 sklearn 1.6.1's dense wrapper reports support indices after dropping such rows.
 The reference harness maps those indices back before comparison.
 

@@ -1144,13 +1144,37 @@ labels=novelty%predict(query)
 
 The optional last fit argument is `sample_weight(:)` for all three types.
 For gamma strings, leave `gamma=-1` and set `gamma_rule='scale'` or `'auto'`.
-`support_` uses original one-based training indices; `dual_coef_` is a vector
+For dense fits, `support_` uses original one-based training indices; `dual_coef_` is a vector
 and `intercept_` is a scalar. For linear kernels, `coef_` is a feature vector.
 With `kernel='precomputed'`, fit a PSD Gram matrix and predict from the
 query-to-training Gram matrix. Check `converged_` or `fit_status_` after capped
 fits. One-class labels are +1/-1, with zero decisions labeled -1.
 See `COVERAGE.md` for supported kernels, weights and nu restrictions. Run the
 `kernel_regression_outliers` example.
+
+SVR, NuSVR and OneClassSVM also accept `csr_matrix` for all fit and query
+bindings, including regression score and one-class fit_predict/score_samples.
+A CSR fit retains `x_fit_csr_` and `support_vectors_csr_` and leaves the dense
+`x_fit_` and `support_vectors_` arrays unallocated. Dense query arrays are
+converted to CSR after a sparse fit; CSR queries after a dense fit are rejected,
+following sklearn. Sparse precomputed kernels are rejected. Refitting can
+switch the fitted representation and clears stale storage and linear coefficients.
+
+The adapter sorts owned copies, preserving caller storage. Duplicate entries
+and explicit zeros remain stored, following LIBSVM's merge-based sparse dot and
+distance calculations. The tested SciPy wheel's equal-column sorting order is
+retained; that order can depend on the upstream C++ library for noncanonical
+CSR. Scale gamma uses sparse mathematical first/second moments, including
+coalescing duplicates for the second moment, as in sklearn. For zero-weight
+CSR fits, `support_` follows sparse LIBSVM's indices in the filtered
+positive-weight problem, shifted to one base. Support-vector rows contain the
+actual original observations. This differs from this package's established
+dense-fit index convention and is retained for reference compatibility.
+
+The native optimizer still constructs a dense sample-by-sample Gram matrix;
+CSR fitting avoids the sample-by-feature design and dense support-vector
+storage. Linear `coef_` remains a dense native feature vector. The existing
+kernel restrictions, nonnegative-weight policy and solver tolerances remain.
 
 ## Power transforms
 
