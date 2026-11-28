@@ -12672,3 +12672,13 @@ Translated NuSVR: final verified evidence
 - Checked audit SHA256: ba57913f06ed6b0745bed1c7e9794f03016c7b5673b9f1e4865522158eec98ef. Optimized audit SHA256: 1f3bca5d9dcf6973648b48f3c069e8f1575112a65b70a6a6df86a92e74a50e1e. Cross audit SHA256: 37ad95dafea7ed6884e58eb329d58ad1747cc8e26e26e112ada4d7029f0e10e6ed4. Fingerprint report SHA256: d71d146c0c3ba340a91e06cb2a48b489f3c4e25fff49775ad64b9815441bcea0.
 - Evidence/log prefix: validation/results/nusvr_libsvm_. First/refreshed build logs are distinct; the refreshed coherent archive is the audited artifact. Static libgfortran/locale-copy shim and persistent workspace executables remain in use. MIT licensing and retained BSD notices remain. No push was performed.
 Correction to the preceding NuSVR entry: the cross audit SHA256 is 37ad95dafea7ed6884e58eb329d58ad1747cc8e26e112ada4d7029f0e10e6ed4 (the preceding copied digest contains an extra e26).
+
+2026-11-28: Sparse linear coefficients for SVR/NuSVR/OneClassSVM.
+Replaced dense feature-width CSR-fit coef_ with canonical one-row coef_csr_.
+Dense fits keep coef_; refits clear inactive representations. Extended native
+state/empty-storage checks and RBF/linear memory probes to 200 million features.
+Isolated checked module probe: native checks, twelve guards, both memory cases
+(peak 9,519,104 bytes) and 1,296 CSR fixtures / 15,120 groups pass. This probe
+uses explicit current solver/kernel objects with an older frozen helper archive;
+it is not whole-package coherence evidence. Full checked fpm build and frozen
+checked/scoped-O3 reference audits are pending. No push performed.

@@ -1146,7 +1146,8 @@ The optional last fit argument is `sample_weight(:)` for all three types.
 SVR/NuSVR score also accepts optional sample_weight for weighted R2.
 For gamma strings, leave `gamma=-1` and set `gamma_rule='scale'` or `'auto'`.
 For dense fits, `support_` uses original one-based training indices; `dual_coef_` is a vector
-and `intercept_` is a scalar. For linear kernels, `coef_` is a feature vector.
+and `intercept_` is a scalar. For dense linear fits, `coef_` is a feature vector; CSR linear fits expose
+canonical one-row `coef_csr_` and leave `coef_` unallocated.
 With `kernel='precomputed'`, predict from the query-to-training Gram matrix.
 SVR, NuSVR and OneClassSVM accept finite square indefinite/asymmetric input
 and support sigmoid with signed coef0. Each exposes shrinking, defaulting true.
@@ -1190,7 +1191,9 @@ and checks the Source support-vector row count instead.
 
 The native optimizer still constructs a dense sample-by-sample Gram matrix;
 CSR fitting avoids the sample-by-feature design and dense support-vector
-storage. Linear `coef_` remains a dense native feature vector. The existing
+storage. Linear CSR coefficients use `coef_csr_`, a canonical one-row CSR
+matrix with the original feature width, without a dense feature accumulator.
+Dense linear fits use `coef_`; nonlinear and dense refits clear `coef_csr_`.
 All three types use the translated Source solvers and kernel controls above; the nonnegative-weight
 policy and native default tolerances/iteration cap remain.
 

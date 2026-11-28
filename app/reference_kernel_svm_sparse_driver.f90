@@ -41,7 +41,9 @@ program reference_kernel_svm_sparse_driver
       call emit('score',[s%score(x,y)])
       call emit('storage',real([merge(1,0,allocated(s%x_fit_)),merge(1,0,allocated(s%support_vectors_))],dp))
       call emit('converged',[real(merge(1,0,s%converged_),dp)])
-      if(kernel==2)call emit('coef',s%coef_)
+      if(kernel==2)then
+        dense=s%coef_csr_%to_dense();call emit('coef',dense(1,:))
+      end if
     case(2)
       if(weighted==1)then
         call v%fit(x,y,w)
@@ -54,7 +56,9 @@ program reference_kernel_svm_sparse_driver
       call emit('score',[v%score(x,y)])
       call emit('storage',real([merge(1,0,allocated(v%x_fit_)),merge(1,0,allocated(v%support_vectors_))],dp))
       call emit('converged',[real(merge(1,0,v%converged_),dp)])
-      if(kernel==2)call emit('coef',v%coef_)
+      if(kernel==2)then
+        dense=v%coef_csr_%to_dense();call emit('coef',dense(1,:))
+      end if
     case(3)
       if(weighted==1)then
         call o%fit(x,w)
@@ -67,7 +71,9 @@ program reference_kernel_svm_sparse_driver
       call emit('dual',o%dual_coef_);call emit_csr(o%support_vectors_csr_)
       call emit('storage',real([merge(1,0,allocated(o%x_fit_)),merge(1,0,allocated(o%support_vectors_))],dp))
       call emit('converged',[real(merge(1,0,o%converged_),dp)])
-      if(kernel==2)call emit('coef',o%coef_)
+      if(kernel==2)then
+        dense=o%coef_csr_%to_dense();call emit('coef',dense(1,:))
+      end if
     end select
     print *,'END',case_id
     deallocate(y,w)

@@ -5,7 +5,7 @@ program reference_oneclass_libsvm_driver
   implicit none
   type(one_class_svm)::model
   type(csr_matrix)::sx,sq
-  real(dp),allocatable::x(:,:),q(:,:),w(:),values(:)
+  real(dp),allocatable::coefficient(:,:),x(:,:),q(:,:),w(:),values(:)
   integer,allocatable::positive(:),original(:),labels(:)
   integer::cases,c,fmt,n,p,m,rule,shrinking,i
   read(*,*)cases
@@ -28,6 +28,8 @@ program reference_oneclass_libsvm_driver
     call emit('intercept',[model%intercept_]);call emit('offset',[model%offset_]);call emit('gamma',[model%gamma_])
     if(allocated(model%coef_))then
       call emit('coef',model%coef_)
+    else if(allocated(model%coef_csr_))then
+      coefficient=model%coef_csr_%to_dense();call emit('coef',coefficient(1,:))
     else
       call emit('coef',[real(dp)::])
     end if

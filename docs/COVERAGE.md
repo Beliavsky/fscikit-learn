@@ -15881,3 +15881,18 @@ original inputs/oracles and all final source/object/binary/report hashes pass.
 Sparse memory checks remain below 128 MiB. This supersedes the prior dense
 zero-input validation gap; broader project/API/numerical subsets remain open.
 Validation retains static libgfortran and the Windows locale-copy shim.
+
+### Sparse linear SVR, NuSVR and OneClassSVM coefficients
+
+CSR linear fits now retain a canonical one-row coef_csr_ and leave dense coef_
+unallocated, matching the sparse storage contract already used by SVC/NuSVC.
+Weighted stored nodes are coalesced by feature without a feature-width dense
+accumulator. Dense linear fits retain coef_; nonlinear and dense refits clear
+coef_csr_. Zero coefficients use empty CSR storage with the original width.
+
+The isolated checked probe passes all 1,296 existing CSR configurations /
+15,120 comparison groups against sklearn 1.6.1, plus twelve guards. Both RBF
+and linear 64-by-200,000,000 sparse memory cases pass below 128 MiB, including
+all three model families and queries. Native coefficient/refit/empty-storage
+checks pass. Full package and scoped optimized verification are pending.
+The dense sample-by-sample training Gram remains a documented limitation.

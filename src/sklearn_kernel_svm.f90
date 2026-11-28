@@ -19,7 +19,7 @@ module sklearn_kernel_svm
     integer :: degree=3,max_iter=100000,n_iter_=0,fit_status_=1,n_support_=0
     logical :: converged_=.false.
     logical :: sparse_fit_=.false.
-    type(csr_matrix), allocatable :: x_fit_csr_,support_vectors_csr_
+    type(csr_matrix), allocatable :: x_fit_csr_,support_vectors_csr_,coef_csr_
     integer, allocatable :: support_(:)
     real(dp), allocatable :: support_vectors_(:,:),dual_coef_(:),coef_(:),x_fit_(:,:)
     real(dp), allocatable, private :: dual_full_(:)
@@ -91,6 +91,7 @@ contains
     call require(self%gamma_rule=='scale'.or.self%gamma_rule=='auto','invalid kernel SVM gamma rule')
     self%kernel_fit_=self%kernel; self%degree_fit_=self%degree; self%coef0_fit_=self%coef0
     if(allocated(self%coef_)) deallocate(self%coef_)
+    if(allocated(self%coef_csr_)) deallocate(self%coef_csr_)
     if(allocated(self%support_vectors_csr_))deallocate(self%support_vectors_csr_)
   end subroutine
   subroutine setup(self,x,gram)
@@ -325,17 +326,38 @@ contains
     end if
     if(self%kernel_fit_=='linear')then
       if(self%sparse_fit_)then
-        allocate(self%coef_(self%x_fit_csr_%n_cols));self%coef_=0
-        do i=1,n
-          do j=self%x_fit_csr_%indptr(i),self%x_fit_csr_%indptr(i+1)-1
-            a=self%x_fit_csr_%indices(j)
-            self%coef_(a)=self%coef_(a)+beta(i)*self%x_fit_csr_%data(j)
-          end do
-        end do
+        call sparse_linear_coef(self,beta)
       else
         self%coef_=matmul(beta,self%x_fit_)
       end if
     end if
+  end subroutine
+  subroutine sparse_linear_coef(self,beta)
+    class(kernel_model),intent(inout)::self
+    real(dp),intent(in)::beta(:)
+    type(csr_matrix)::row,canonical
+    integer::i,j,t
+    ! Materialize only weighted stored nodes, then coalesce feature indices.
+    ! As in sklearn's sparse dual_coef_ @ support_vectors_, this never needs
+    ! a feature-width accumulator. Zero dual rows contribute no stored nodes.
+    row%n_rows=1;row%n_cols=self%x_fit_csr_%n_cols
+    allocate(row%indices(size(self%x_fit_csr_%data)),row%data(size(self%x_fit_csr_%data)))
+    t=0
+    do i=1,size(beta)
+      if(beta(i)==0)cycle
+      do j=self%x_fit_csr_%indptr(i),self%x_fit_csr_%indptr(i+1)-1
+        t=t+1;row%indices(t)=self%x_fit_csr_%indices(j)
+        row%data(t)=beta(i)*self%x_fit_csr_%data(j)
+      end do
+    end do
+    row%indptr=[1,t+1]
+    row%indices=row%indices(:t);row%data=row%data(:t)
+    canonical=sorted_sparse(row,.true.)
+    allocate(self%coef_csr_)
+    self%coef_csr_%n_rows=1;self%coef_csr_%n_cols=row%n_cols
+    self%coef_csr_%indices=pack(canonical%indices,canonical%data/=0)
+    self%coef_csr_%data=pack(canonical%data,canonical%data/=0)
+    self%coef_csr_%indptr=[1,size(self%coef_csr_%data)+1]
   end subroutine
   subroutine svr_fit(self,x,y,sample_weight)
     class(svr), intent(inout) :: self

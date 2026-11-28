@@ -64,15 +64,19 @@ def main():
         assert run.returncode and 'fscikit-learn:' in message, (name, message)
         assert not any(s in message for s in ['SIGFPE', 'Fortran runtime error']), (name, message)
         guards.append(dict(name=name, source=source, passed=True))
-    process = subprocess.Popen([str(args.executable), 'memory'], stdout=subprocess.PIPE,
-                               stderr=subprocess.PIPE, text=True)
-    stdout, stderr = process.communicate()
-    peak = peak_memory(process)
-    assert process.returncode == 0 and 'Large CSR kernel SVM memory case: PASS' in stdout, (stdout, stderr)
-    assert 0 < peak < 128 * 1024**2, peak
+    memory = []
+    for mode in ['memory', 'memory_linear']:
+        process = subprocess.Popen([str(args.executable), mode], stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE, text=True)
+        stdout, stderr = process.communicate()
+        peak = peak_memory(process)
+        assert process.returncode == 0 and 'Large CSR kernel SVM memory case: PASS' in stdout, (stdout, stderr)
+        assert 0 < peak < 128 * 1024**2, (mode, peak)
+        memory.append(dict(mode=mode, peak_working_set_bytes=peak, passed=True))
+    peak = max(item['peak_working_set_bytes'] for item in memory)
     assert sha(args.executable) == before
-    result = dict(passed=True, guards=guards, peak_working_set_bytes=peak,
-                  limit_bytes=128 * 1024**2, dense_design_bytes=64 * 2000000 * 8,
+    result = dict(passed=True, guards=guards, memory=memory, peak_working_set_bytes=peak,
+                  limit_bytes=128 * 1024**2, dense_design_bytes=64 * 200000000 * 8,
                   dense_kernel_bytes=64 * 64 * 8, executable_sha256=before)
     args.report.write_text(json.dumps(result, indent=2) + '\n')
     print(len(guards), 'guards and peak memory', peak, 'bytes PASS')
