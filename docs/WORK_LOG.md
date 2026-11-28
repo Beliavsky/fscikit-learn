@@ -12467,3 +12467,31 @@ Optimized audit SHA256:
 79ece5b88c79c689413f333b6384d10f0b2c8155086bee63f52af825fdc92236
 
 Local commits only; no push. The broader translation goal remains active.
+
+### 2026-11-28: Precomputed C-SVC kernel matrices
+
+Added finite dense square precomputed training matrices, dense full-width
+query matrices, unused gamma=0 metadata, empty support vectors and refits
+without retained training Gram/features. Sparse supplied matrices are rejected.
+LIBSVM row-oriented Q access is used for precomputed entries; feature kernels
+retain prior arithmetic. No symmetry/PSD check is imposed beyond Source.
+Generic pairwise slicing in validation/multiclass/bagging remains a documented
+separate gap.
+
+Installed Source finding: with zero sample weights, precomputed prediction
+uses compressed support-column IDs, even though full original query width is
+required. This differs from equivalent ordinary-kernel predictions. Native
+prediction preserves the quirk and support_original_ exposes original rows.
+Independent native diagnostics replay original training margins.
+
+Checked probes cover 1,944 fits / 27,216 comparison groups / 6,480 box/equality/
+margin replays, plus seven native representation/finite-input guards. Standard
+kernel-generated matrices, symmetric indefinite matrices and their short
+caps match existing 3e-6 public tolerances. Fifty-nine differing fields across
+ten asymmetric matrices hitting max_iter=10000 remain explicit diagnostics.
+All replays pass. The audit gate permits only learned-output differences on
+these capped asymmetric scenarios; unexpected metadata, valid/symmetric
+kernel or other failures remain fatal. No output tolerance was widened.
+The native solver still omits shrinking and full numerical trajectory parity
+is not claimed. Full coherent build and checked/O3 audits follow. MIT licensing
+and retained sklearn/LIBSVM notices are preserved.

@@ -3114,3 +3114,13 @@ sklearn_kernel_svm without changing regression contracts; sorting preserves
 the tested SciPy wheel's std::sort tie convention through existing native MIT
 code. Typed storage adapters, owned inputs, canonical sparse coefficient
 assembly, refit integration and validation are native MIT contributions.
+
+## Precomputed C-SVC matrices and query indexing
+
+`sklearn_svm` follows sklearn 1.6.1 `svm/_base.py`, `_libsvm.pyx`, bundled
+LIBSVM `svm.cpp` and `libsvm_helper.c` for dense precomputed shape checks,
+row-oriented kernel access, unused gamma, empty support-vector storage and
+compressed support-index prediction after zero-weight filtering. Existing
+sklearn and LIBSVM BSD notices in `LICENSES/` apply. Typed storage/refit
+integration, original-row diagnostic replay, explicit behavior notes and
+comparison fixtures are native MIT contributions.

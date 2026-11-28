@@ -2414,10 +2414,36 @@ sorting acts on an owned copy. Training still builds a dense sample Gram and
 pair Q matrices, but never a dense feature design. The shared LIBSVM CSR
 helpers also serve SVR, NuSVR and OneClassSVM.
 
-Precomputed inputs, probability calibration, Python warning objects,
+Probability calibration, Python warning objects,
 nonpositive class weights, classes with no positive capacity and an unbounded
 iteration cap remain outside this subset. No full LIBSVM trajectory or
 universal optimality claim is made for indefinite sigmoid kernels.
+
+### Precomputed SVC kernels
+
+Set `kernel='precomputed'`. Fit accepts a finite dense square training matrix;
+queries need one column per original training row. `n_features_in_` records
+that training count, gamma_ is zero, and support_vectors_ has shape (0,0).
+Neither x_fit_ nor a feature coefficient field is retained. Refits switch
+cleanly between feature and supplied-kernel storage. Sparse precomputed fit
+and query matrices are rejected. Ordinary estimator CV/multiclass/bagging
+wrappers still lack a pairwise row-and-column slicing protocol for this mode.
+
+The installed reference accepts supplied matrices without symmetry or PSD
+validation. This implementation preserves that acceptance and row-oriented
+kernel-cache access. Symmetric indefinite kernels and capped fits therefore
+remain possible, with no global-optimality guarantee. Capped asymmetric
+problems can follow different numerical trajectories; validation retains
+those differences separately from the supported symmetric-kernel comparisons.
+
+With zero sample weights, the reference precomputed predictor indexes query
+columns through compressed support_ IDs. This can differ from an otherwise
+equivalent ordinary-kernel fit. Native prediction preserves that reference
+behavior; support_original_ explicitly records the original row IDs. Supply
+query columns in the full original training width, as required by the API.
+The native KKT field replays original-row training margins, independently of
+this compressed query-column convention; it is a diagnostic for asymmetric
+or capped supplied matrices rather than an optimality guarantee.
 
 ## NuSVC
 

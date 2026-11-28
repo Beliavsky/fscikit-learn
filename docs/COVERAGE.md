@@ -2717,7 +2717,7 @@ zero-margin conventions. Weighted ensemble/multiclass dispatch and search
 controls are integrated. API.md identifies native diagnostics and adapters.
 
 This subset requires positive class weights and positive capacity in every
-original class. Precomputed inputs, probabilities, shrinking, cache-budget
+original class. Probabilities, shrinking, cache-budget
 controls and unbounded caps remain gaps. Exact default-shrinking iteration
 counts and global optimality for indefinite kernels are not claimed. Final
 KKT/objective diagnostics are replayed with double kernels; Source's float Q
@@ -2792,6 +2792,26 @@ executable disappearance; the successful audits use workspace-local build and
 optimized working directories. All 340 checked executables remain present
 at audit completion. Validation retains sklearn 1.6.1, NumPy 2.2.6,
 SciPy 1.15.3, static libgfortran and the Windows locale-copy shim.
+
+### Precomputed C-SVC kernels
+
+`kernel='precomputed'` supports finite dense square training Gram matrices
+and dense query-by-original-training matrices. No symmetry/PSD restriction
+is added beyond the reference wrapper. The solver uses row-oriented supplied
+entries; ordinary feature-kernel orientation remains unchanged. Gamma is
+unused and reported as zero. Public support vectors are empty, primal feature
+coefficients are absent, and no training Gram is retained in the model.
+Sparse precomputed data are rejected. Generic CV/multiclass/bagging pairwise
+slicing remains a separate API gap.
+
+The reference zero-weight classifier predicts from compressed support-column
+IDs even though query width remains the original training count. Native
+prediction preserves this observable quirk, with support_original_ exposing
+the original mapping. Original-row margin/KKT diagnostics are distinct from
+that query convention. Nonsymmetric supplied matrices do not define a usual
+kernel optimization problem; capped asymmetric numerical trajectories are
+retained as explicit comparison gaps rather than hidden or treated as
+universal solver correctness.
 
 ## Nu support-vector classification
 

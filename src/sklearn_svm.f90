@@ -56,13 +56,15 @@ contains
     case('rbf'); k=rbf_kernel(x,y,self%gamma_)
     case('poly','polynomial'); k=polynomial_kernel(x,y,self%degree,self%gamma_,self%coef0)
     case('sigmoid'); k=sigmoid_kernel(x,y,self%gamma_,self%coef0)
+    case('precomputed');k=x
     case default; call require(.false.,'unknown SVC kernel')
     end select
   end function
-  subroutine binary_fit(model,gram,target,c,tol,max_iter)
+  subroutine binary_fit(model,gram,target,c,tol,max_iter,row_kernel)
     type(binary_svm),intent(inout)::model
     real(dp),intent(in)::gram(:,:),target(:),c(:),tol
     integer,intent(in)::max_iter
+    logical,optional,intent(in)::row_kernel
     real(dp)::alpha(size(target)),g(size(target)),q(size(target),size(target)),y(size(target)),qd(size(target))
     real(dp)::gmax,gmax2,best,diff,quad,obj,oldi,oldj,delta,total,ci,cj,di,dj,rho,ub,lb,yg,violation
     integer::n,i,j,k,t,first,last,free_count
@@ -72,7 +74,15 @@ contains
     do j=1,n
       qd(j)=gram(j,j)
       do i=1,n
-        q(i,j)=real(real(y(i)*y(j)*gram(i,j),real32),dp)
+        if(present(row_kernel))then
+          if(row_kernel)then
+            q(i,j)=real(real(y(i)*y(j)*gram(j,i),real32),dp)
+          else
+            q(i,j)=real(real(y(i)*y(j)*gram(i,j),real32),dp)
+          end if
+        else
+          q(i,j)=real(real(y(i)*y(j)*gram(i,j),real32),dp)
+        end if
       end do
     end do
     model%n_iter=0;model%converged=.false.
@@ -230,7 +240,7 @@ contains
     call shape_controls(self)
     call require(all(ieee_is_finite([self%c,self%tol,self%gamma,self%coef0])),'nonfinite SVC controls')
     call require(self%c>0.and.self%tol>0.and.self%max_iter>0,'invalid SVC controls')
-    call require(any(self%kernel==[character(16)::'linear','rbf','poly','polynomial','sigmoid']),'unknown SVC kernel')
+    call require(any(self%kernel==[character(16)::'linear','rbf','poly','polynomial','sigmoid','precomputed']),'unknown SVC kernel')
     call require(self%gamma>=0.or.self%gamma==-1,'invalid SVC gamma')
     call require(self%gamma_rule=='scale'.or.self%gamma_rule=='auto','invalid SVC gamma rule')
     call require(self%degree>=0,'invalid SVC degree')
@@ -266,6 +276,7 @@ contains
     if(allocated(self%support_vectors_csr_))deallocate(self%support_vectors_csr_)
     self%gamma_=self%gamma
     if(present(sparse))then
+      call require(self%kernel/='precomputed','SVC precomputed inputs must be dense')
       p=sparse%n_cols;self%x_fit_csr_=svm_sorted(sparse)
       if(self%gamma_==-1)then
         self%gamma_=1._dp/p
@@ -277,15 +288,21 @@ contains
       end if
       gram=libsvm_sparse_gram(self%x_fit_csr_,self%x_fit_csr_,self%kernel,self%gamma_,self%coef0,self%degree,.true.)
     else
-      p=size(dense,2);self%x_fit_=dense
-      if(self%gamma_==-1)then
-        self%gamma_=1._dp/p
-        if(self%gamma_rule=='scale')then
-          mean=sum(dense)/size(dense);variance=sum((dense-mean)**2)/size(dense);self%gamma_=1
-          if(variance>0)self%gamma_=1/(p*variance)
+      p=size(dense,2)
+      if(self%kernel=='precomputed')then
+        call require(p==n,'SVC precomputed training matrix must be square')
+        self%gamma_=0;gram=dense
+      else
+        self%x_fit_=dense
+        if(self%gamma_==-1)then
+          self%gamma_=1._dp/p
+          if(self%gamma_rule=='scale')then
+            mean=sum(dense)/size(dense);variance=sum((dense-mean)**2)/size(dense);self%gamma_=1
+            if(variance>0)self%gamma_=1/(p*variance)
+          end if
         end if
+        gram=kernel_matrix(self,dense,dense)
       end if
-      gram=kernel_matrix(self,dense,dense)
     end if
     call require(all(ieee_is_finite(gram)),'nonfinite SVC Gram matrix')
     if(allocated(self%models_))deallocate(self%models_)
@@ -299,7 +316,8 @@ contains
         ids=pack([(i,i=1,n)],encoded==b.and.capacity>0);ids=[supports,ids]
         target=merge(-1._dp,1._dp,encoded(ids)==a)
         self%models_(m)%first=a;self%models_(m)%second=b
-        call binary_fit(self%models_(m),gram(ids,ids),target,capacity(ids),self%tol,self%max_iter)
+        call binary_fit(self%models_(m),gram(ids,ids),target,capacity(ids),self%tol,self%max_iter, &
+          row_kernel=self%kernel=='precomputed')
         target=self%models_(m)%dual;self%models_(m)%dual=spread(0._dp,1,n);self%models_(m)%dual(ids)=target
         support=support.or.abs(self%models_(m)%dual)>0
         self%converged_=self%converged_.and.self%models_(m)%converged
@@ -321,6 +339,8 @@ contains
     self%support_=positions(self%support_original_)
     if(present(sparse))then
       self%support_vectors_csr_=sparse_rows(self%x_fit_csr_,self%support_original_)
+    else if(self%kernel=='precomputed')then
+      allocate(self%support_vectors_(0,0))
     else
       self%support_vectors_=dense(self%support_original_,:)
     end if
@@ -392,6 +412,14 @@ contains
     integer::m
     call require(allocated(self%models_),'SVC is not fitted');call check_x(x)
     call require(size(x,2)==self%n_features_in_,'SVC feature count mismatch')
+    if(self%kernel=='precomputed')then
+      allocate(z(size(x,1),size(self%models_)))
+      do m=1,size(self%models_)
+        ! Preserve the reference classifier's compressed support-column convention.
+        z(:,m)=matmul(x(:,self%support_),self%models_(m)%dual(self%support_original_))+self%models_(m)%intercept
+      end do
+      return
+    end if
     if(self%sparse_fit_)then
       block
         type(csr_matrix)::query
