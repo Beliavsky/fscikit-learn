@@ -40,6 +40,7 @@ program reference_spectral_sparse_driver
     cluster%n_clusters=k;cluster%affinity=name;cluster%gamma=.4_dp;cluster%n_neighbors=neighbors
     cluster%random_state=21;cluster%n_init=3
     if(algorithm==1)cluster%assign_labels='cluster_qr'
+    if(algorithm==3)cluster%assign_labels='discretize'
     if(kind==0)then
       labels=cluster%fit_predict(x)
     else

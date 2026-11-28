@@ -14713,3 +14713,29 @@ all 144 affinity matrices and spectral certificates pass. Maximum checked
 residual/orthogonality errors are 3.45e-15 / 4.67e-15. Large sparse-design peaks
 are 30,334,976 bytes checked and 29,536,256 bytes optimized. Detailed evidence:
 spectral_sparse_cross_profile_audit.json; full strict Source parity remains false.
+
+### SpectralClustering discretization assignment
+
+Added assign_labels='discretize' to dense and CSR fits. The adapter follows
+Source column/row normalization, seeded nearly orthogonal rotation starts,
+hard assignments, sparse-indicator accumulation, SVD rotation, machine-epsilon
+objective convergence and the iteration > n_iter_max rule. Existing dense SVD
+keeps its four-argument interface; a separate status-returning entry allows
+restart attempts without changing default failure behavior. Zero left-singular
+columns are completed for a full orthogonal Procrustes rotation.
+
+The initial probe passes all 192 same-input cases; the expanded probe passes
+240, adding finite huge-column norms that overflow to infinity. Source's
+finite/infinity normalization yields zero for that column; native quiet IEEE
+norm accumulation preserves it under overflow traps. Tests cover four seeds,
+four iteration caps, Gaussian/clustered/one-hot/rank-deficient/huge-column data,
+and two to four output components. Eleven actual Source/native rejections pass.
+
+Of 48 estimator fits across dense/canonical/noncanonical storage and all four
+supported affinities, two strict partition failures remain: indices 22 and 46,
+both raw duplicate precomputed-neighbor graphs with a repeated eigenvalue of
+one. All affinity/spectral checks and Source discretization replays on native
+embeddings pass; full end-to-end partitions are still compared and the two
+failures remain visible. The previous spectral suite retains its four known
+QR/kmeans partition differences. Full checked/optimized and legacy verification
+is pending.

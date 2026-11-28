@@ -15,7 +15,7 @@ module sklearn_cluster
   use sklearn_legacy_rng, only: legacy_random_state
   use, intrinsic :: iso_fortran_env, only: real32,int64
   use sklearn_metrics, only: pairwise_distances
-  use sklearn_spectral, only: spectral_affinity_matrix,spectral_eigenvectors
+  use sklearn_spectral, only: spectral_affinity_matrix,spectral_eigenvectors,spectral_discretize
   use sklearn_optics, only: optics,cluster_optics_dbscan,cluster_optics_xi,compute_optics_graph,optics_graph_result
   implicit none
   private
@@ -500,16 +500,27 @@ contains
   subroutine spectral_finish(self)
     class(spectral_clustering),intent(inout)::self
     type(kmeans) :: model
+    type(legacy_random_state)::discrete_rng
+    real(dp)::draw
     real(dp), allocatable :: work(:,:),rotation(:,:),u(:,:),v(:,:),s(:),direction(:)
     integer, allocatable :: pivots(:)
     integer :: n,k,i,j,idx
     n=size(self%affinity_matrix_,1); k=self%n_clusters
     call require(k>0.and.k<=n,'invalid spectral n_clusters')
-    call require(self%assign_labels=='kmeans'.or.self%assign_labels=='cluster_qr','unknown spectral assignment')
+    call require(any(self%assign_labels==[character(20)::'kmeans','cluster_qr','discretize']), &
+      'unknown spectral assignment')
     self%embedding_=spectral_eigenvectors(self%affinity_matrix_,k,.false.,self%n_connected_components_)
     if(self%assign_labels=='kmeans') then
       model%n_clusters=k; model%n_init=self%n_init; model%random_state=self%random_state
       call model%fit(self%embedding_); self%labels_=model%labels_
+    else if(self%assign_labels=='discretize')then
+      call discrete_rng%seed(self%random_state)
+      ! Default Source ARPACK initialization consumes one uniform per sample
+      ! before handing the same RandomState to discretize.
+      do i=1,n
+        draw=discrete_rng%uniform()
+      end do
+      self%labels_=spectral_discretize(self%embedding_,rng=discrete_rng)
     else
       allocate(pivots(k),direction(k),u(k,k),s(k),v(k,k)); work=transpose(self%embedding_)
       do i=1,k

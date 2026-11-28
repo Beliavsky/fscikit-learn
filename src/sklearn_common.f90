@@ -7,7 +7,7 @@ module sklearn_common
   public :: require, check_x, check_xy, unique_labels, label_index, argsort, seed_rng
   public :: solve_system, symmetric_eigen, logsumexp, sigmoid
   public :: cholesky_factor,solve_lower,solve_upper,normal_random
-  public :: dense_svd
+  public :: dense_svd,dense_svd_status
 contains
   subroutine require(condition, message)
     logical, intent(in) :: condition
@@ -215,10 +215,19 @@ contains
     x=sqrt(-2*log(max(u,tiny(1._dp))))*cos(2*acos(-1._dp)*v)
   end function
   subroutine dense_svd(a,s,u,v)
+    real(dp),intent(in)::a(:,:)
+    real(dp),intent(out)::s(:),u(:,:),v(:,:)
+    logical::converged
+    call dense_svd_status(a,s,u,v,converged)
+    call require(converged,'Jacobi SVD did not converge')
+  end subroutine
+
+  subroutine dense_svd_status(a,s,u,v,converged)
     ! One-sided Jacobi SVD avoids squaring the condition number in A^T A.
     ! U has shape (m,n), V (n,n); zero singular columns of U are zero.
     real(dp), intent(in) :: a(:,:)
     real(dp), intent(out) :: s(:),u(:,:),v(:,:)
+    logical,intent(out)::converged
     real(dp) :: work(size(a,1),size(a,2)),column(size(a,1)),right(size(a,2))
     real(dp) :: alpha,beta,gamma,tau,t,c,sine,cutoff,scale,threshold
     integer :: n,m,p,q,i,sweep,order(size(a,2))
@@ -247,7 +256,8 @@ contains
       end do
       if(.not.changed) exit
     end do
-    call require(.not.changed,'Jacobi SVD did not converge')
+    converged=.not.changed
+    if(changed)return
     s=sqrt(sum(work**2,dim=1)); order=argsort(-s); s=s(order); work=work(:,order); v=v(:,order)
     u=0; cutoff=epsilon(1._dp)*max(m,n)*maxval(s)
     do i=1,n

@@ -10831,3 +10831,43 @@ ad378da21b251e544bc22364185ffc42f272a433cabe0905bc6df873355ee77b.
 ZIP CRCs and critical source/report/object/binary hashes pass. Receipt:
 validation/results/spectral_sparse_archive_receipt.json (ignored evidence).
 Archive metadata explicitly retains false strict/focused Source parity.
+
+### Spectral discretization assignment
+
+The preceding turn made verified progress through 9728270: CSR spectral fits,
+precomputed-neighbor affinity and retained degenerate partition gaps. Revalidated
+the clean tracked worktree and kept protected scratch files untouched.
+
+Added SpectralClustering assign_labels='discretize' and a native function adapter
+for Source's internal discretize algorithm. It follows normalization/orientation,
+seeded rotation selection, hard assignment, indicator accumulation, SVD Procrustes
+rotation, epsilon convergence and iteration > cap. The estimator advances the
+shared legacy state by Source's default ARPACK initialization draws before
+assignment. Native eigensolving stays dense; alternate/fallback RNG paths remain
+outside this implementation. Zero left-singular columns receive orthogonal
+completion for a full rotation. A separate dense_svd_status entry preserves the
+four-argument dense_svd interface and default terminating convergence behavior.
+
+Initial Source probe: 192 identical-input cases all pass, with two retained
+end-to-end differences in 48 estimator configurations. Expanded probe: all 240
+identical-input cases pass, including finite huge-column norms; all eleven
+actual Source/native rejection checks pass. Quiet IEEE norm products/sums allow
+Source's finite/Inf normalization rather than a native overflow trap. Same-input
+cases span Gaussian, clustered, one-hot, rank-deficient and huge-column data,
+four seeds and four iteration caps (including negative/zero Source-internal caps).
+
+The full estimator failures are indices 22,46: raw duplicate precomputed-neighbor
+graphs whose selected spectrum includes a repeated eigenvalue of one. All graph
+and spectral certificates pass. Replaying actual Source discretize on each
+native embedding, with the correctly advanced state, matches every native
+partition. End-to-end equality remains a strict check and the two failures
+remain visible. No fixture or tolerance was removed or relaxed. New native
+checks pass input preservation, seed repeatability, one-hot and dense/CSR fits.
+The older spectral comparison retains its four known QR/kmeans partition gaps.
+
+Full checked rebuilding is running. Since the common SVD entry was refactored,
+the optimized audit will relink and run the complete native suite against the
+three optimized modules plus the identical checked archive, rather than only
+selected tests. This is a hybrid optimization audit, not a full optimized library.
+MIT/BSD notices are retained, commits remain local, and the broader goal remains
+open.

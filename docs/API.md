@@ -11439,3 +11439,30 @@ Source comparison retains four such strict label failures for raw-duplicate
 precomputed distance rows; all affinity matrices and spectral certificates pass.
 Python warning objects and additional kernel/callable affinity controls remain
 outside these overloads.
+
+SpectralClustering supports assign_labels='discretize' for dense and CSR fits.
+It normalizes eigenvectors/rows, initializes a seeded rotation, then alternates
+hard row assignments and the SVD Procrustes rotation from sklearn 1.6.1. Its
+default discretization limit uses Source's iteration > 20 stopping rule.
+The existing dense eigensolver remains; its RNG does not run ARPACK, so the
+assignment path consumes the uniform draws used by Source's default ARPACK
+initialization before sharing that state with discretization. Alternative
+Source eigensolver/fallback RNG paths remain unsupported.
+
+sklearn_spectral%spectral_discretize is a native function adapter for the
+Source internal sklearn.cluster._spectral.discretize algorithm. It accepts a
+seed (native default 0), or an optional legacy_random_state, n_iter_max=20 and
+max_svd_restarts=30. Constructor copy=False is not exposed; vectors are retained
+unchanged. Nonpositive n_iter_max follows Source's first-update stopping rule;
+nonpositive restart counts fail. Invalid/zero-norm inputs raise a native require
+failure rather than reproducing Python warning and exception objects. Finite
+column-norm overflow follows Source's zero-normalization behavior. Singular
+left-vector completion supplies a full orthogonal Procrustes rotation.
+
+The shared dense_svd four-argument interface is unchanged; dense_svd_status
+adds a nonterminating convergence status for the discretization restart loop.
+This helper is a native numerical utility, not an extra sklearn estimator.
+Initial source comparisons pass 240 same-input cases. Two of 48 full estimator
+partitions differ on repeated-eigenvalue raw-distance graphs; Source replay on
+the native embedding matches all 48 native partitions. Existing spectral
+solver/basis differences remain identified rather than hidden by discretization.

@@ -5,10 +5,13 @@ module sklearn_spectral
   use sklearn_sparse,only:csr_matrix
   use sklearn_neighbor_functions,only:kneighbors_graph
   use sklearn_kernel_dispatch,only:pairwise_kernels
+  use sklearn_legacy_rng,only:legacy_random_state
+  use sklearn_ieee_math,only:ieee_product,ieee_total
   use,intrinsic::ieee_arithmetic,only:ieee_is_finite
   implicit none
   private
   public :: spectral_embedding,spectral_affinity_matrix,spectral_eigenvectors
+  public :: spectral_discretize
   type :: spectral_embedding
     integer :: n_components=2,n_neighbors=0,n_neighbors_=0,n_connected_components_=0
     real(dp) :: gamma=-1,gamma_=0
@@ -24,6 +27,91 @@ module sklearn_spectral
     module procedure affinity_dense,affinity_csr
   end interface
 contains
+  function spectral_discretize(vectors,random_state,n_iter_max,max_svd_restarts,rng)result(labels)
+    ! sklearn.cluster._spectral.discretize (BSD-3-Clause).
+    real(dp),intent(in)::vectors(:,:)
+    integer,optional,intent(in)::random_state,n_iter_max,max_svd_restarts
+    type(legacy_random_state),optional,intent(inout)::rng
+    integer::labels(size(vectors,1))
+    type(legacy_random_state)::state
+    real(dp),allocatable::work(:,:),rotation(:,:),projected(:,:),cross(:,:),s(:),u(:,:),v(:,:),c(:)
+    real(dp),allocatable::candidate(:),best(:)
+    real(dp)::norm,objective,last_objective,best_norm
+    integer::n,k,i,j,l,iteration,limit,restarts,max_restarts,seed
+    logical::converged
+    call check_x(vectors);n=size(vectors,1);k=size(vectors,2)
+    call require(.not.(present(rng).and.present(random_state)),'discretize accepts a seed or RNG state, not both')
+    if(present(rng))then
+      state=rng
+    else
+      seed=0;if(present(random_state))seed=random_state
+      call state%seed(seed)
+    end if
+    limit=20;if(present(n_iter_max))limit=n_iter_max
+    max_restarts=30;if(present(max_svd_restarts))max_restarts=max_svd_restarts
+    call require(max_restarts>0,'discretize SVD did not converge')
+    work=vectors
+    do j=1,k
+      norm=sqrt(ieee_total([(ieee_product(work(i,j),work(i,j)),i=1,n)]))
+      call require(norm>0,'discretize requires nonzero column norms')
+      work(:,j)=(work(:,j)/norm)*sqrt(real(n,dp))
+      if(work(1,j)/=0)work(:,j)=-work(:,j)*sign(1._dp,work(1,j))
+    end do
+    do i=1,n
+      norm=sqrt(sum(work(i,:)**2))
+      call require(norm>0,'discretize requires nonzero row norms')
+      work(i,:)=work(i,:)/norm
+    end do
+    allocate(rotation(k,k),cross(k,k),s(k),u(k,k),v(k,k),c(n),candidate(k),best(k))
+    restarts=0
+    do while(restarts<max_restarts)
+      rotation=0;rotation(:,1)=work(state%integer_index(n),:);c=0
+      do j=2,k
+        c=c+abs(matmul(work,rotation(:,j-1)))
+        rotation(:,j)=work(minloc(c,dim=1),:)
+      end do
+      last_objective=0;iteration=0
+      do
+        iteration=iteration+1;projected=matmul(work,rotation)
+        labels=maxloc(projected,dim=2)-1
+        cross=0
+        do i=1,n
+          cross(labels(i)+1,:)=cross(labels(i)+1,:)+work(i,:)
+        end do
+        call dense_svd_status(cross,s,u,v,converged)
+        if(.not.converged)then
+          restarts=restarts+1;exit
+        end if
+        objective=2*(n-sum(s))
+        if(abs(objective-last_objective)<epsilon(1._dp).or.iteration>limit)then
+          if(present(rng))rng=state
+          return
+        end if
+        ! Complete zero left-singular columns for an orthogonal Procrustes
+        ! rotation. dense_svd intentionally returns zero columns in that case.
+        do j=1,k
+          if(sum(u(:,j)**2)>.5_dp)cycle
+          best_norm=-1
+          do i=1,k
+            candidate=0;candidate(i)=1
+            do l=1,k
+              if(l==j)cycle
+              candidate=candidate-u(:,l)*dot_product(u(:,l),candidate)
+            end do
+            norm=sum(candidate**2)
+            if(norm>best_norm)then
+              best=candidate;best_norm=norm
+            end if
+          end do
+          call require(best_norm>epsilon(1._dp),'discretize singular-vector completion failed')
+          u(:,j)=best/sqrt(best_norm)
+        end do
+        last_objective=objective;rotation=matmul(v,transpose(u))
+      end do
+    end do
+    call require(.false.,'discretize SVD did not converge')
+  end function
+
   function affinity_dense(x,affinity,gamma,n_neighbors) result(a)
     real(dp), intent(in) :: x(:,:),gamma
     character(*), intent(in) :: affinity

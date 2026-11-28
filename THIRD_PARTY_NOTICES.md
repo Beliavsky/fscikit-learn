@@ -2911,3 +2911,10 @@ sklearn 1.6.1 manifold/_spectral_embedding.py and cluster/_spectral.py. Neighbor
 selection and RBF use the existing attributed native backends. The sklearn
 BSD-3-Clause notice remains in LICENSES/scikit-learn-COPYING; new typed adapters
 and tests are original project MIT contributions.
+
+Spectral discretization follows sklearn 1.6.1 cluster/_spectral.py::discretize,
+with the default ARPACK RNG advancement documented in manifold/_spectral_embedding.py
+and utils/_arpack.py. The sklearn BSD-3-Clause notice remains in
+LICENSES/scikit-learn-COPYING. The typed adapter, status-returning SVD interface,
+orthogonal-vector completion and tests are original MIT contributions. No new
+external implementation or numerical runtime has been imported.
