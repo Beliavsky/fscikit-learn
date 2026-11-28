@@ -11449,7 +11449,7 @@ assignment path consumes the uniform draws used by Source's default ARPACK
 initialization before sharing that state with discretization. Alternative
 Source eigensolver/fallback RNG paths remain unsupported.
 
-sklearn_spectral%spectral_discretize is a native function adapter for the
+The spectral_discretize function in sklearn_spectral is a native adapter for the
 Source internal sklearn.cluster._spectral.discretize algorithm. It accepts a
 seed (native default 0), or an optional legacy_random_state, n_iter_max=20 and
 max_svd_restarts=30. Constructor copy=False is not exposed; vectors are retained

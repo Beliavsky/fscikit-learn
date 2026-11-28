@@ -14739,3 +14739,14 @@ embeddings pass; full end-to-end partitions are still compared and the two
 failures remain visible. The previous spectral suite retains its four known
 QR/kmeans partition differences. Full checked/optimized and legacy verification
 is pending.
+
+Final verification: 321 native programs and eleven examples pass in both the
+checked and hybrid-library audits; all 935 compiled fingerprints / 209 library
+units match. The hybrid uses three -O3 library modules with checked harnesses
+and 206 checked library members. An initial -O3-harness/checked-LARS roundoff
+mismatch is preserved with diagnostics; no test fixture or tolerance changed.
+Both profiles pass 240 direct partitions, eleven discretization guards, fourteen
+sparse spectral guards, 231 legacy modes/density groups and 264 IncrementalPCA
+groups. New full-fit failures remain at 22,46; the older four spectral partition
+failures remain. All same-embedding Source replays pass. Detailed qualified
+results: spectral_discretize_cross_profile_audit.json; full strict parity is false.

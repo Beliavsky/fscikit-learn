@@ -10871,3 +10871,74 @@ three optimized modules plus the identical checked archive, rather than only
 selected tests. This is a hybrid optimization audit, not a full optimized library.
 MIT/BSD notices are retained, commits remain local, and the broader goal remains
 open.
+
+The first hybrid run compiled its native harnesses at -O3 and found one failure:
+test_lars_gram requires bit-identical direct/precomputed Gram paths. All other
+native programs and all eleven examples passed. A separate checked-harness
+link against the unchanged three optimized library modules passes the original
+test unchanged. A diagnostic copy quantifies the cause: the -O3 test program's
+Gram differs from the checked LARS module's MATMUL by 7.1054273576010019e-15;
+XY is identical. Alpha differences are at most 1.1934897514720433e-15 and
+coefficient differences 3.1086244689504383e-15. Feeding the identically computed
+checked Gram restores bit-identical paths in the diagnostic too.
+
+For a controlled hybrid-library comparison, all native harnesses and reference
+drivers are now rebuilt uniformly with their checked flags while retaining
+-O3 on the three selected library modules. No production source, original test,
+fixture or numerical tolerance changed. The original failing run, selected
+binary and diagnostic source/logs are retained. This validates optimized library
+modules with matched harness calculations; it is not an all-programs/all-library
+-O3 build. The first direct retry lacked the compiler runtime directory on PATH
+and failed before linking; the helper now sets its compiler PATH explicitly.
+
+### Spectral discretization final verification
+
+Implementation 2bcc0c3 is verified against the completed checked build. All
+321 native programs and eleven selected examples pass. All 935 dependency-aware
+fingerprints match current code, including 209 library units. Both checked and
+hybrid-library audits complete 339 jobs: 337 pass, and two reference jobs exit
+1 on their explicitly retained partition differences. No native failure is
+hidden by this strict-gap accounting.
+
+The hybrid recompiles sklearn_common, sklearn_spectral and sklearn_cluster at
+-O3 -funroll-loops and relinks every native program and selected example with
+checked harness flags. All 321 native programs, eleven examples and five focused
+passing jobs pass again, including the unchanged exact LARS assertion. The
+initial mismatched-harness failure, diagnostic and PATH setup failure remain
+separate evidence. This is a three-module optimized-library audit with matched
+checked harnesses and 206 checked archive members, not a complete optimized
+library/program build. The baseline archive is byte-identical to the completed
+checked library, SHA256
+1af8a362dda2b6a120add256197c84506634940a08a80faa82622f40ca12772d.
+All 206 members outside the selected modules are unchanged; all 332 hybrid
+native/example binary hashes are verified.
+
+Both profiles pass all 240 same-input discretization partitions, eleven new
+rejection checks, fourteen prior sparse spectral guards, 231 legacy modes/
+spectral/density groups and 264 legacy IncrementalPCA groups. All 48 new estimator
+affinity/spectral checks and same-embedding Source replays pass. Two end-to-end
+partition differences remain at 22,46; the previous 144-case suite retains its
+four differences at 46,70,118,142. Every initial/checked/hybrid reference input
+and Source oracle matches, with all original assertions and numerical tolerances
+preserved. Full focused/end-to-end Source parity is explicitly false; same-input
+discretization partition parity is established for the tested cases.
+
+The 32-by-1,000,000 CSR design memory peaks are 30,380,032 bytes checked and
+25,083,904 bytes hybrid, below 128 MiB and its 256,000,000-byte dense equivalent.
+Affinities/eigensolving remain dense in sample count. Validation still uses
+static libgfortran and the Windows locale-copy shim; unwrapped runtime stability
+is not established by these runs.
+
+Evidence: validation/results/spectral_discretize_package_audit.json,
+spectral_discretize_optimized_audit.json and spectral_discretize_cross_profile_audit.json,
+plus initial/expanded probes, guards, diagnostics, reports and logs. The broader
+translation and existing solver/basis gaps remain open. MIT/BSD attribution is
+retained; commits remain local.
+
+Verified backup: spectral_discretize_evidence_2bcc0c3.zip,
+77,900,165 bytes / 2,445 entries, SHA256
+4fb2161f3930488284b7addd0fa211be9e584a86243955c6822819358fdbf447.
+ZIP CRCs and critical source/report/object/binary hashes pass. Receipt:
+validation/results/spectral_discretize_archive_receipt.json (ignored evidence).
+Selected initial-failure and diagnostic binaries are included; all hybrid binary
+hashes are in the audit. Archive metadata retains false full/focused parity.
