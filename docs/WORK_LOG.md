@@ -10980,3 +10980,65 @@ signed/asymmetric storage and dense shape fallback; the package test adds the
 isolated-row one-component case. Full rebuilding is running with no subsequent
 Fortran source changes. MIT/BSD notices remain, commits stay local, and broader
 Source parity remains open.
+
+The complete fixed probe preserves all 921 configurations and every Source
+oracle/input. All 678 Source-accepted fits now have matching native acceptance,
+affinity values, shapes and passing spectral certificates; all 243 Source
+rejections match. There are still 114 strict diagnostic differences: 97
+end-to-end partition-only, seven partition plus identical-embedding QR differences,
+and ten standalone replay errors. The ten former estimator acceptance failures
+now fit successfully and return the correct one-label result. Their exact-zero
+native embedding rows still make the standalone Source discretize replay fail;
+that diagnostic remains explicit rather than being excluded. This distinguishes
+model behavior from replaying an internal helper on a different eigenbasis.
+
+### Spectral controls final verification
+
+Implementation 439889b is verified against the completed checked build. All
+322 native programs and eleven selected examples pass. All 938 dependency-aware
+fingerprints match current sources, including 209 library units. Both checked
+and hybrid-library audits complete 341 jobs: 338 pass; three reference jobs
+exit 1 for explicitly retained partition/replay differences. No native failure
+is hidden by this accounting.
+
+The hybrid recompiles sklearn_spectral and sklearn_cluster at -O3 -funroll-loops
+and relinks all 322 native programs and eleven examples with matched checked
+harness flags. All pass again. Its baseline archive is byte-identical to the
+completed checked library, SHA256
+acd7677f92ba8cf35cea4a82a6108d0a07e221641d72113ad66fc1b626f8df68.
+All 207 other archive members and all 333 hybrid native/example binary hashes
+are verified. This is a two-module optimized-library audit, not a complete
+optimized library/program build.
+
+Both final 921-case grids match all fit acceptance decisions: 678 accepted calls
+have matching original affinity values, actual fitted shapes and passing
+Source-graph spectral certificates, and all 243 Source rejections match. They
+retain identical 114 strict diagnostics: 97 end-to-end partition-only differences,
+seven partition plus identical-embedding QR differences, and ten standalone
+replay errors on the exact-zero native rows. The model one-label outputs in the
+last group now match Source; the replay errors remain visible. Every initial,
+fixed-probe and final-profile input and Source oracle matches without altered
+fixtures/tolerances. Full focused/end-to-end Source parity remains false.
+
+Both profiles pass all 21 global/boundary validation cases (eighteen rejections,
+three acceptances), eleven discretization guards, fourteen sparse spectral
+guards, 231 legacy modes/spectral/density groups and 240 same-input discretization
+partitions. Prior end-to-end failures are unchanged: old sparse indices
+46,70,118,142, and old discretization indices 22,46. The large 32-by-1,000,000
+CSR design peaks at 30,363,648 bytes checked and 25,190,400 bytes hybrid, below
+128 MiB and its 256,000,000-byte dense equivalent.
+
+Evidence: validation/results/spectral_controls_package_audit.json,
+spectral_controls_optimized_audit.json and spectral_controls_cross_profile_audit.json,
+plus initial/fixed probes, validation, legacy and memory reports and logs.
+Validation still uses static libgfortran with the Windows locale-copy shim;
+these runs do not establish unwrapped runtime stability. Dense eigensolving,
+QR tie behavior and other documented translation gaps remain open. MIT/BSD
+notices are retained, and commits remain local.
+
+Verified backup: spectral_controls_evidence_439889b.zip,
+74,423,767 bytes / 2,429 entries, SHA256
+7240e27c1dbdc34ec87584e004148cdd855fdf021e8266350d57ee714ad5a6fb.
+ZIP CRCs and critical source/report/object/binary hashes pass. Receipt:
+validation/results/spectral_controls_archive_receipt.json (ignored evidence).
+Archive metadata retains false full/focused Source parity.

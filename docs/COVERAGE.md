@@ -14774,3 +14774,15 @@ controls, dimension-independent QR labels, signed/asymmetric storage and dense
 shape fallback. All 21 validation cases match Source, including three successful
 dense/CSR boundary cases and eighteen rejections. Full package verification is
 running.
+
+Final verification: all 322 native programs and eleven examples pass in checked
+and matched-harness hybrid audits; all 938 compiled fingerprints / 209 library
+units match. The hybrid optimizes two modules with 207 checked library members.
+Both 921-case grids match all fit decisions (678 accepted, 243 rejected), and
+all accepted affinity/shape/spectral checks pass. They retain the same 114
+strict diagnostics: 97 partition-only, seven partition/QR replay differences,
+and ten standalone zero-row replay errors. Model one-component acceptance is
+corrected; diagnostics remain visible. All 21 global/boundary validation cases,
+prior guards, 231 legacy groups and 240 direct discretization cases pass; the
+older four/two partition failures remain. Detailed qualified evidence is
+spectral_controls_cross_profile_audit.json; full strict parity remains false.
